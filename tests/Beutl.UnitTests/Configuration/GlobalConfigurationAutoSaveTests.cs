@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Testing.Headless;
 
 using NUnit.Framework;
 
@@ -23,15 +24,25 @@ public class GlobalConfigurationAutoSaveTests
     {
         // A process that never loaded the user's settings holds defaults; auto-saving them would
         // replace the user's settings.json with a reset copy.
-        GlobalConfiguration config = CreateConfiguration();
-        bool existed = File.Exists(GlobalConfiguration.DefaultFilePath);
-        DateTime before = existed ? File.GetLastWriteTimeUtc(GlobalConfiguration.DefaultFilePath) : default;
+        string path = GlobalConfiguration.DefaultFilePath;
+        Assert.That(
+            path,
+            Is.EqualTo(Path.Combine(BeutlHomeIsolation.CurrentHome!, "settings.json")),
+            "AssemblySetUp must isolate BEUTL_HOME so a regression cannot touch the real settings.");
+        const string Sentinel = "{\"sentinel\":true}";
+        File.WriteAllText(path, Sentinel);
+        try
+        {
+            GlobalConfiguration config = CreateConfiguration();
 
-        config.FontConfig.FontDirectories.Clear();
+            config.FontConfig.FontDirectories.Clear();
 
-        Assert.That(File.Exists(GlobalConfiguration.DefaultFilePath), Is.EqualTo(existed));
-        if (existed)
-            Assert.That(File.GetLastWriteTimeUtc(GlobalConfiguration.DefaultFilePath), Is.EqualTo(before));
+            Assert.That(File.ReadAllText(path), Is.EqualTo(Sentinel));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Test]
