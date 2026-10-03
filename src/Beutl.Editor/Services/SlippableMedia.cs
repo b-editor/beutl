@@ -8,7 +8,7 @@ namespace Beutl.Editor.Services;
 
 internal static class SlippableMedia
 {
-    private sealed record Node(EngineObject Object, IReadOnlyList<Node> Inputs);
+    private sealed record Node(EngineObject Object, IReadOnlyList<Node> Inputs, bool Opaque = false, bool FlowResolved = false);
 
     internal sealed class Target(IProperty<TimeSpan> offset, TimeSpan? total, MediaTimeMapping mapping, TimeSpan length)
     {
@@ -111,12 +111,29 @@ internal static class SlippableMedia
             && int.TryParse(value, out int rate) && rate > 0 ? rate : 44100;
 
         var flow = new List<Node>();
+        var consumedPortalElements = new HashSet<Element>();
+        bool portalFlow = false;
+        bool opaqueConsumption = false;
         foreach (EngineObject obj in element.Objects)
         {
+            if (obj is PortalObject { IsEnabled: true } portal)
+            {
+                portalFlow = true;
+                if (portal.Clear.CurrentValue || portal.Clear.HasExpression) flow.Clear();
+                List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
+                if (imported == null)
+                {
+                    flow.Add(new Node(portal, [], Opaque: true));
+                    opaqueConsumption = true;
+                }
+                else flow.AddRange(imported);
+                flow.Add(new Node(portal, []));
+                continue;
+            }
             IReadOnlyList<Node> inputs = [];
             if (obj is DrawableTimeController { IsEnabled: true })
             {
-                int index = flow.FindIndex(node => node.Object is Drawable { IsEnabled: true });
+                int index = flow.FindIndex(node => node.Opaque || node.Object is Drawable { IsEnabled: true });
                 if (index >= 0)
                 {
                     inputs = [flow[index]];
@@ -125,24 +142,66 @@ internal static class SlippableMedia
             }
             else if (obj.IsEnabled && obj is SoundGroup or DrawableGroup or DrawableDecorator)
             {
-                bool Consumes(Node node) => node.Object.IsEnabled
+                bool Consumes(Node node) => node.Opaque || node.Object.IsEnabled
                     && (obj is SoundGroup ? node.Object is Sound : node.Object is Drawable);
                 inputs = flow.FindAll(Consumes);
                 flow.RemoveAll(Consumes);
             }
-            flow.Add(new Node(obj, inputs));
+            flow.Add(new Node(obj, inputs, FlowResolved: portalFlow));
         }
-        foreach (Node node in flow) CollectFrom(node.Object, node.Inputs);
+        foreach (Node node in flow) CollectNode(node);
         return targets;
+
+        List<Node>? ResolvePortal(PortalObject portal)
+        {
+            if (portal.Count.HasExpression) return null;
+            if (portal.Count.CurrentValue <= 0) return [];
+            if (opaqueConsumption || element.HierarchicalParent is not Scene scene) return null;
+            int firstLayer = portal.ZIndex + 1;
+            int lastLayer = portal.ZIndex + portal.Count.CurrentValue;
+            Element[] candidates = scene.Children.Where(candidate => candidate.ZIndex >= firstLayer && candidate.ZIndex <= lastLayer
+                && !consumedPortalElements.Contains(candidate) && candidate.Objects.Any(obj => obj.IsEnabled)).ToArray();
+            if (candidates.Length == 0) return [];
+            // A single plain provider has one stable input order whenever it is
+            // active. Switching, nested, or competing portals need a richer flow
+            // model; never substitute the controller's stored target for them.
+            if (candidates.Length != 1) return null;
+            Element owner = candidates[0];
+            if (owner.Start >= element.Range.End || element.Start >= owner.Range.End) return null;
+            if (element.Objects.Count(obj => obj.IsEnabled && obj is DrawableTimeController) > 1
+                || element.Objects.Any(obj => obj.IsEnabled && (obj is IPresenter<Drawable> && obj is not DrawableTimeController
+                    || obj is IFlowOperator && obj is not DrawableTimeController))) return null;
+            EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled).ToArray();
+            if (objects.Any(obj => obj is IFlowOperator or IPresenter<Drawable> || obj is not Drawable and not Sound)) return null;
+            if (scene.Children.Any(other => other != element && other.ZIndex <= element.ZIndex
+                && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled
+                    && (prior.Count.HasExpression || prior.ZIndex < owner.ZIndex && prior.ZIndex + prior.Count.CurrentValue >= owner.ZIndex))))
+                return null;
+            consumedPortalElements.Add(owner);
+            return objects.Select(obj => new Node(obj, [])).ToList();
+        }
+
+        void CollectNode(Node node)
+        {
+            if (node.Opaque)
+            {
+                // These unattached properties only carry a rejected constraint;
+                // IsSupported prevents them from ever becoming an offset write.
+                targets.Add(new Target(Property.Create<TimeSpan>(), null,
+                    new MediaTimeMapping(element, node.Object, Property.Create(100f), [], 60), element.Length));
+                return;
+            }
+            CollectFrom(node.Object, node.Inputs, node.FlowResolved);
+        }
 
         // Keep disabled streams in sync too. Detect cycles per path, rather than
         // discarding a second path whose time controller can impose tighter bounds.
-        void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null)
+        void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false)
         {
             if (!path.Add(obj)) return;
             if (inputs != null && obj is SoundGroup or DrawableGroup or DrawableDecorator)
             {
-                foreach (Node child in inputs) CollectFrom(child.Object, child.Inputs);
+                foreach (Node child in inputs) CollectNode(child);
             }
             switch (obj)
             {
@@ -175,6 +234,12 @@ internal static class SlippableMedia
                     break;
                 case DrawableTimeController controller:
                     Node? input = inputs?.FirstOrDefault();
+                    if (input?.Opaque == true)
+                    {
+                        CollectNode(input);
+                        break;
+                    }
+                    if (input == null && flowResolved) break;
                     if (input == null && controller.Target.HasExpression)
                     {
                         // Represent an unknown target as an unsupported mapping, even
@@ -188,7 +253,7 @@ internal static class SlippableMedia
                     if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
                     {
                         if (controller.IsEnabled) controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
-                        CollectFrom(target, input?.Inputs);
+                        CollectFrom(target, input?.Inputs, input?.FlowResolved == true);
                         if (controller.IsEnabled) controllers.RemoveAt(controllers.Count - 1);
                     }
                     break;

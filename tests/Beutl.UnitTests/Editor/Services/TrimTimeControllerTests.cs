@@ -1131,6 +1131,112 @@ public class TrimTimeControllerTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_PortalInput_UsesInjectedVideoInsteadOfStoredTarget(bool emptyStoredTarget)
+    {
+        var imported = CreateVideo(6);
+        Element owner = AddElement(0, 1, imported);
+        owner.ZIndex = 1;
+        var stored = CreateVideo(20);
+        var controller = CreateController(stored, speed: 200);
+        if (emptyStoredTarget) controller.Target.CurrentValue = null;
+        Element element = AddElement(0, 1, controller);
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target!.GetOriginal(), Is.SameAs(imported));
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(3)), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(imported.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(4)));
+            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(Seconds(1)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Resize_PortalInput_ClampsAgainstInjectedVideo(bool emptyStoredTarget)
+    {
+        var imported = CreateVideo(6);
+        Element owner = AddElement(0, 5, imported);
+        owner.ZIndex = 1;
+        var stored = CreateVideo(20);
+        var controller = CreateController(stored, speed: 200);
+        if (emptyStoredTarget) controller.Target.CurrentValue = null;
+        Element element = AddElement(0, 1, controller);
+        element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(5), 0)]);
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(element.Range.End - Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length, Is.EqualTo(Seconds(3)));
+            Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(6));
+            Assert.That(imported.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(stored.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Trim_AmbiguousPortal_RejectsLinkedChanges(bool expressionCount)
+    {
+        var first = CreateVideo(10);
+        Element ownerA = AddElement(0, 1, first);
+        ownerA.ZIndex = 1;
+        if (!expressionCount)
+        {
+            Element ownerB = AddElement(1, 1, CreateVideo(10));
+            ownerB.ZIndex = 1;
+        }
+        var controller = CreateController(first);
+        Element element = AddElement(0, 2, controller);
+        var portal = new PortalObject { Count = { CurrentValue = 1 } };
+        if (expressionCount) portal.Count.Expression = Expression.Create<int>("1");
+        element.Objects.Insert(0, portal);
+        var linkedVideo = CreateVideo(10);
+        Element linked = AddElement(0, 2, linkedVideo);
+        linked.ZIndex = 2;
+
+        Assert.That(_slip.Slip(_harness.Scene, [linked, element], Seconds(0.25)), Is.False);
+        new ElementResizeService(_harness.History).Resize(_harness.Scene,
+            [new(element, element.Start, Seconds(3), 0), new(linked, linked.Start, Seconds(3), 2)]);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(linkedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Length, Is.EqualTo(Seconds(2)));
+            Assert.That(linked.Length, Is.EqualTo(Seconds(2)));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_PortalClear_DoesNotReuseRemovedInputs(bool importedInput)
+    {
+        var video = CreateVideo(10);
+        var controller = CreateController(video);
+        Element element = AddElement(0, 2, controller);
+        if (importedInput)
+        {
+            Element owner = AddElement(0, 2, video);
+            owner.ZIndex = 1;
+            element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
+        }
+        else element.Objects.Insert(0, video);
+        element.Objects.Insert(1, new PortalObject { Clear = { CurrentValue = true }, Count = { CurrentValue = importedInput ? 1 : 0 } });
+        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target, Is.Null);
+
+        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
     private Element AddElement(double startSeconds, double lengthSeconds, Drawable drawable)
     {
         Element element = _harness.AddElement(Seconds(startSeconds), Seconds(lengthSeconds));

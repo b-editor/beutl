@@ -581,7 +581,7 @@ public class TimelineMediaDurationTests
         }
         peer.Objects.Clear();
         peer.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
-        peer.Objects.Add(new DrawableTimeController { Target = { CurrentValue = video }, Reverse = { CurrentValue = true } });
+        peer.Objects.Add(new DrawableTimeController { Reverse = { CurrentValue = true } });
         peer.Name = "Shared reversed video";
         HeadlessTestHelpers.Settle();
         ElementViewModel presented = timeline.GetViewModelFor(peer)!;

@@ -29,6 +29,7 @@ internal sealed class MediaTimeMapping
     private readonly bool _loopVideo;
     private readonly IAnimation<bool>? _loopAnimation;
     private readonly bool _sourceSupported;
+    private readonly bool _opaquePortal;
 
     internal readonly record struct ControllerLink(DrawableTimeController Controller, Drawable Target);
 
@@ -44,6 +45,7 @@ internal sealed class MediaTimeMapping
         _videoDuration = videoDuration;
         _loopVideo = !ignoreLoops && source is SourceVideo video && video.IsLoop.CurrentValue;
         _loopAnimation = !ignoreLoops && source is SourceVideo animatedVideo ? animatedVideo.IsLoop.Animation : null;
+        _opaquePortal = source is PortalObject;
         // A stored source or property value does not describe an evaluated source
         // switch/expression. Keep these edits atomic until their mapping is bounded.
         _sourceSupported = source switch
@@ -53,6 +55,7 @@ internal sealed class MediaTimeMapping
             SourceSound sound => !sound.Source.HasExpression,
             SceneSound sound => !sound.ReferencedScene.HasExpression,
             DrawableTimeController controller => !controller.Target.HasExpression,
+            PortalObject => false,
             _ => true
         };
     }
@@ -63,7 +66,9 @@ internal sealed class MediaTimeMapping
 
     public bool HasVariableDuration => _controllers.Any(c => c.HasVariableDuration);
 
-    public bool HasSharedClock => _sourceClock.UsesPeerClock || _controllers.Any(c => c.HasSharedClock);
+    // Unknown portal inputs may belong to another resized participant. Keep the
+    // group together when that unresolved constraint refuses a geometry change.
+    public bool HasSharedClock => _opaquePortal || _sourceClock.UsesPeerClock || _controllers.Any(c => c.HasSharedClock);
 
     public (long Phase, long DurationOffset)? DurationLoopPhase(TimeSpan startDelta = default)
     {
