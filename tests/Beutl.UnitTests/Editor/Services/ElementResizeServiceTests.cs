@@ -759,13 +759,20 @@ public class ElementResizeServiceTests
         });
     }
 
-    [TestCase(false, 0, 7)]
-    [TestCase(true, 0, 7)]
-    [TestCase(false, 1, 1)]
-    [TestCase(true, 1, 1)]
-    [TestCase(false, 2, 0)]
-    [TestCase(true, 2, 0)]
-    public void Trim_LoopingVideo_StopsBeforeOffsetMovesWrappedFramesPastSourceEnd(bool slide, int offset, int expectedDelta)
+    [TestCase(false, 3, 0, 7)]
+    [TestCase(true, 3, 0, 7)]
+    [TestCase(false, 3, 1, 1)]
+    [TestCase(true, 3, 1, 1)]
+    [TestCase(false, 3, 2, 0)]
+    [TestCase(true, 3, 2, 0)]
+    [TestCase(false, 5, 0, 7)]
+    [TestCase(true, 5, 0, 7)]
+    [TestCase(false, 5, 1, 3)]
+    [TestCase(true, 5, 1, 3)]
+    [TestCase(false, 5, 2, 2)]
+    [TestCase(true, 5, 2, 2)]
+    public void Trim_LoopingVideo_StopsBeforeOffsetMovesWrappedFramesPastSourceEnd(
+        bool slide, int videoStart, int offset, int expectedDelta)
     {
         Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)) : null;
@@ -779,7 +786,7 @@ public class ElementResizeServiceTests
             IsLoop = { CurrentValue = true },
             OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
             IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(3, 2)
+            TimeRange = TimeRange.FromSeconds(videoStart, 2)
         };
         var group = new DrawableGroup();
         group.Children.Add(video);
@@ -799,6 +806,7 @@ public class ElementResizeServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
             foreach (TimeSpan time in new[]
                      {
+                         front.Start,
                          front.Range.End - TimeSpan.FromMilliseconds(100),
                          video.Start - TimeSpan.FromMilliseconds(100)
                      }.Where(front.Range.Contains))
@@ -1430,6 +1438,57 @@ public class ElementResizeServiceTests
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(back.Start, Is.EqualTo(backStart + TimeSpan.FromSeconds(1)));
         Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RollOrSlide_DisabledControllerTarget_RejectsUnsupportedGrowthBeforeMutation(bool slide)
+    {
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
+        TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
+        Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(10, 2)
+        };
+        var controller = new DrawableTimeController
+        {
+            IsEnabled = false,
+            Speed = { CurrentValue = 200 },
+            Target = { CurrentValue = video }
+        };
+        front.Objects.Add(controller);
+        var linked = new SourceSound();
+        back.Objects.Add(linked);
+        _history.Commit();
+        int before = _history.UndoCount;
+
+        bool applied = middle == null
+            ? _service.Roll(_scene, [new ElementTrimPair(front, back)], TimeSpan.FromSeconds(1))
+            : _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], TimeSpan.FromSeconds(1));
+
+        int after = _history.UndoCount;
+        controller.IsEnabled = true;
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(
+            new CompositionContext(front.Range.End - TimeSpan.FromMilliseconds(100)));
+        var sampled = (SourceVideo.Resource)resource.Target!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(back.Start, Is.EqualTo(backStart));
+            Assert.That(back.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(after, Is.EqualTo(before));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+            if (middle != null)
+                Assert.That(middle.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
     }
 
     [TestCase(false)]

@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Editor.Services;
@@ -841,7 +842,10 @@ public class ElementSlipServiceTests
     [TestCase(6, 2, 0, 100f, 2)]
     [TestCase(0, 12, 0, 100f, 0)]
     [TestCase(1, 1, 0, 100f, 3)]
-    [TestCase(0, 1, 5, 100f, 0)]
+    [TestCase(0, 1, 5, 100f, 4)]
+    [TestCase(0, 1, 10, 100f, 4)]
+    [TestCase(0, 1, 10, 50f, 4.5)]
+    [TestCase(0, 1, 2.5, 200f, 3)]
     public void Slip_LoopingVideo_ClampsToMaximumMappedSample(
         double start, double length, double videoStart, float speed, double expectedOffset)
     {
@@ -870,6 +874,7 @@ public class ElementSlipServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
             foreach (TimeSpan time in new[]
                      {
+                         element.Start,
                          element.Start + TimeSpan.FromMilliseconds(100),
                          element.Range.End - TimeSpan.FromMilliseconds(100),
                          video.Start - TimeSpan.FromMilliseconds(100)
@@ -882,11 +887,61 @@ public class ElementSlipServiceTests
         });
     }
 
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    [TestCase(true, true)]
-    public void Slip_DisabledIdentityController_PreservesTargetWindowForReenabling(bool nestedPresenter, bool loop)
+    [TestCase(false, true, true, 2)]
+    [TestCase(true, true, true, 2)]
+    [TestCase(true, false, false, 0)]
+    [TestCase(true, null, null, 0)]
+    [TestCase(false, false, true, 0)]
+    [TestCase(false, true, false, 0)]
+    public void Slip_AnimatedLoopFlag_UsesConstantValueOrBothVaryingMappings(
+        bool storedLoop, bool? first, bool? last, int expectedOffset)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var animation = new KeyFrameAnimation<bool>();
+        if (first.HasValue && last.HasValue)
+        {
+            animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = first.Value });
+            animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(7), Value = last.Value });
+        }
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            IsLoop = { CurrentValue = storedLoop, Animation = animation },
+            IsTimeAnchor = true,
+            TimeRange = TimeRange.FromSeconds(2)
+        };
+        var group = new DrawableGroup();
+        group.Children.Add(video);
+        element.Objects.Add(group);
+        int before = _history.UndoCount;
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(20));
+
+        using var resource = (DrawableGroup.Resource)group.ToResource(new CompositionContext(TimeSpan.FromSeconds(7.9)));
+        var sampled = (SourceVideo.Resource)resource.Children.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedOffset > 0));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
+            Assert.That(sampled.IsLoop, Is.EqualTo(last ?? false));
+            Assert.That(sampled.RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(last == true ? 2.9 : 7.9)));
+            if (expectedOffset > 0)
+                Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+        });
+    }
+
+    [TestCase(false, false, 100f)]
+    [TestCase(true, false, 100f)]
+    [TestCase(false, true, 100f)]
+    [TestCase(true, true, 100f)]
+    [TestCase(false, false, 200f)]
+    [TestCase(true, false, 200f)]
+    [TestCase(false, true, 200f)]
+    [TestCase(true, true, 200f)]
+    public void Slip_DisabledController_PreservesTargetBoundsForReenabling(bool nestedPresenter, bool loop, float speed)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         var source = new VideoSource();
@@ -907,27 +962,32 @@ public class ElementSlipServiceTests
         var controller = new DrawableTimeController
         {
             IsEnabled = false,
+            Speed = { CurrentValue = speed },
             Target = { CurrentValue = target }
         };
         element.Objects.Add(controller);
+        var linked = new SourceSound();
+        element.Objects.Add(linked);
         int before = _history.UndoCount;
 
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-
+        int after = _history.UndoCount;
         controller.IsEnabled = true;
         using var resource = (DrawableTimeController.Resource)controller.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(1.9)));
         var sampled = resource.Target is DrawablePresenter.Resource wrapper
             ? (SourceVideo.Resource)wrapper.Target!
             : (SourceVideo.Resource)resource.Target!;
-        Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+        bool identity = speed == 100;
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(identity));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(identity ? 3 : 0)));
+            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(video.OffsetPosition.CurrentValue));
+            Assert.That(after, Is.EqualTo(before + (identity ? 1 : 0)));
+            Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
+        });
     }
 
     [TestCase(false, false)]

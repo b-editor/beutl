@@ -127,9 +127,11 @@ internal static class SlippableMedia
                     if (controller.Target.CurrentValue is { } controlled)
                         // Disabled streams retain the window needed when re-enabled.
                         result.UnionWith(CollectFrom(controlled, element, [], targets, path, applyMappings, timeControlled: true));
-                    if (applyMappings && !HasIdentityTimeMapping(controller))
+                    if (!HasIdentityTimeMapping(controller))
                     {
-                        RejectVideoMappings(incoming);
+                        if (applyMappings) RejectVideoMappings(incoming);
+                        // Explicit targets are included even while disabled, so their
+                        // unsupported mapping must also be safe when re-enabled.
                         RejectVideoMappings(result);
                     }
                     break;
@@ -183,6 +185,24 @@ internal static class SlippableMedia
 
         factor = first.Value / 100.0;
         return animation.KeyFrames.All(frame => frame is KeyFrame<float> typed && typed.Value == first.Value);
+    }
+
+    private static bool TryGetConstantLoop(IProperty<bool> loop, out bool value)
+    {
+        value = loop.CurrentValue;
+        if (loop.HasExpression) return false;
+        if (loop.Animation == null) return true;
+        if (loop.Animation is not KeyFrameAnimation<bool> animation) return false;
+
+        if (animation.KeyFrames.Count == 0)
+        {
+            value = animation.Interpolate(TimeSpan.Zero);
+            return true;
+        }
+
+        if (animation.KeyFrames[0] is not KeyFrame<bool> first) return false;
+        value = first.Value;
+        return animation.KeyFrames.All(frame => frame is KeyFrame<bool> typed && typed.Value == first.Value);
     }
 
     private static bool HasIdentityTimeMapping(DrawableTimeController controller)
@@ -257,8 +277,8 @@ internal static class SlippableMedia
                     }
                 }
 
-                bool loopVaries = video.IsLoop.Animation is not null || video.IsLoop.HasExpression;
-                if (duration > TimeSpan.Zero && (video.IsLoop.CurrentValue || loopVaries))
+                bool loopVaries = !TryGetConstantLoop(video.IsLoop, out bool isLoop);
+                if (duration > TimeSpan.Zero && (isLoop || loopVaries))
                 {
                     var loop = LoopWindow(target, localStart, localEnd, duration);
                     // A varying loop flag can expose either mapping within the window.
@@ -297,9 +317,7 @@ internal static class SlippableMedia
         if (endPhase < 0) endPhase += period;
 
         // A cycle boundary exposes the source tail even when both endpoints map earlier.
-        // Playback also maps an exact negative multiple to Duration, rather than zero.
-        bool reachesTail = Math.Floor(localStart / period) != Math.Floor(localEnd / period)
-                           || (localStart < 0 && localStart % period == 0);
+        bool reachesTail = Math.Floor(localStart / period) != Math.Floor(localEnd / period);
         double visibleEnd = reachesTail ? period : endPhase;
         TimeSpan room = TimeSpan.MaxValue;
         if (target.Current != TimeSpan.Zero)
