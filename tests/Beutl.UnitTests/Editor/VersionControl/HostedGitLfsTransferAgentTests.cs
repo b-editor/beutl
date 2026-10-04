@@ -30,6 +30,121 @@ public sealed class HostedGitLfsTransferAgentTests
     }
 
     [Test]
+    public async Task Sends_parts_concurrently_when_hosted_Git_takes_them_out_of_order()
+    {
+        // Exactly as many parts as go at once: the test runs unoptimized, where hashing is slow.
+        var file = new VirtualFile(3 * Part + 3);
+        var server = new TusServer(file) { Parallel = true, HoldUntilConcurrent = HostedGitLfsTransferAgent.ConcurrentParts };
+        (int exitCode, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(exitCode, Is.Zero);
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+            Assert.That(server.Published, Is.True);
+            Assert.That(server.MaxConcurrentPatches, Is.EqualTo(HostedGitLfsTransferAgent.ConcurrentParts));
+            Assert.That(server.Patches.Order(), Is.EqualTo(Enumerable.Range(0, 4)
+                .Select(n => (n * Part, Math.Min(Part, file.Length - n * Part)))));
+            Assert.That(Progress(messages), Is.Ordered.And.Length.EqualTo(4));
+            Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
+            // One read hashes the file, and each part is read again for its upload.
+            Assert.That(file.BytesRead, Is.EqualTo(2 * file.Length));
+        });
+    }
+
+    [Test]
+    public async Task Resumes_parallel_parts_from_the_state_hosted_Git_recorded()
+    {
+        var file = new VirtualFile(2 * Part + 5);
+        var server = new TusServer(file) { Parallel = true };
+        server.Accept(file, Part);
+        long readBefore = file.BytesRead;
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Published, Is.True);
+            Assert.That(server.Patches.Order(), Is.EqualTo(new[] { (Part, Part), (2 * Part, 5L) }));
+            Assert.That(Progress(messages)[0], Is.EqualTo(Part));
+            Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
+            // The accepted bytes are neither hashed nor sent again.
+            Assert.That(file.BytesRead - readBefore, Is.EqualTo(2 * (Part + 5)));
+        });
+    }
+
+    [Test]
+    public async Task Sends_a_part_again_after_its_response_was_lost()
+    {
+        var file = new VirtualFile(Part + 3);
+        // The first part waits, so HEAD cannot show the lost part as passed and only a resend stores it.
+        var server = new TusServer(file)
+        {
+            Parallel = true,
+            LoseResponseAt = Part,
+            HoldFirstUntil = s => s.Attempts.Count(offset => offset == Part) >= 2,
+        };
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Attempts.Count(offset => offset == Part), Is.EqualTo(2));
+            Assert.That(server.Published, Is.True);
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+            Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
+        });
+    }
+
+    [Test]
+    public async Task Waits_for_earlier_parts_before_failing_a_part_whose_every_response_was_lost()
+    {
+        var file = new VirtualFile(Part + 3);
+        // Every response to the second part is lost while the first part stays behind it, until HEAD
+        // has answered after the last resend.
+        var server = new TusServer(file)
+        {
+            Parallel = true,
+            LoseResponseAt = Part,
+            LostResponses = 6,
+            HoldFirstUntil = s => s.Attempts.Count(offset => offset == Part) == 6 && s.HeadsSinceLastPatch > 0,
+        };
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Attempts.Count(offset => offset == Part), Is.EqualTo(6));
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+            Assert.That(server.Published, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Stops_every_part_when_the_file_no_longer_matches_its_object_ID()
+    {
+        var file = new VirtualFile(Part + 3);
+        var server = new TusServer(new VirtualFile(Part + 3, seed: 7)) { Parallel = true };
+        (_, List<JsonElement> messages) = await RunAsync(server, file, oid: new VirtualFile(Part + 3, seed: 7).Oid);
+        Assert.Multiple(() =>
+        {
+            // The last part follows the local check, so hosted Git never answers for it first.
+            Assert.That(ErrorMessage(messages), Is.EqualTo("The LFS file changed during its upload"));
+            Assert.That(server.Published, Is.False);
+            Assert.That(server.Patches.Select(patch => patch.Offset), Has.No.Member(Part));
+        });
+    }
+
+    [Test]
+    public async Task Sends_parts_in_order_when_the_accepted_offset_is_not_a_whole_part()
+    {
+        var file = new VirtualFile(Part + 7 * 1024 * 1024);
+        var server = new TusServer(file) { Parallel = true };
+        server.Accept(file, 5 * 1024 * 1024);
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Published, Is.True);
+            Assert.That(server.NamedStates, Is.Zero);
+            Assert.That(server.Patches, Is.EqualTo(new[] { (5L * 1024 * 1024, Part), (5L * 1024 * 1024 + Part, 2L * 1024 * 1024) }));
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+        });
+    }
+
+    [Test]
     public async Task Resumes_an_interrupted_upload_from_the_offset_hosted_Git_reports()
     {
         var file = new VirtualFile(2 * Part + 3);
@@ -244,7 +359,7 @@ public sealed class HostedGitLfsTransferAgentTests
     }
 
     private static async Task<(int ExitCode, List<JsonElement> Messages)> RunAsync(
-        TusServer server, VirtualFile file, string href = Creation, long? size = null, TimeProvider? time = null)
+        TusServer server, VirtualFile file, string href = Creation, long? size = null, TimeProvider? time = null, string? oid = null)
     {
         using var http = new HttpClient(server);
         using var output = new StringWriter();
@@ -253,7 +368,7 @@ public sealed class HostedGitLfsTransferAgentTests
             JsonSerializer.Serialize(new
             {
                 @event = "upload",
-                oid = file.Oid,
+                oid = oid ?? file.Oid,
                 size = size ?? file.Length,
                 path = "media.bin",
                 action = new { href, header = new Dictionary<string, string> { ["Authorization"] = Credential } },
@@ -281,8 +396,41 @@ public sealed class HostedGitLfsTransferAgentTests
     private sealed class TusServer(VirtualFile expected) : HttpMessageHandler
     {
         private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        // Parallel parts: the chaining state of the accepted bytes, and parts that arrived early.
+        private readonly Sha256ChainingState _chain = new();
+        private readonly Dictionary<long, (string Start, byte[] Bytes)> _waiting = [];
+        private readonly SemaphoreSlim _lock = new(1, 1);
+        private int _requests;
+        private int _inFlight;
         private long _offset;
         private long? _length;
+
+        /// <summary>Takes parts out of order, like hosted Git, when they name their SHA-256 state.</summary>
+        public bool Parallel { get; init; }
+        /// <summary>
+        /// Holds parallel parts until this many are in flight. In memory a part arrives faster than
+        /// the agent hashes the next one, which a real connection never does.
+        /// </summary>
+        public int HoldUntilConcurrent { get; init; } = 1;
+        private readonly TaskCompletionSource _concurrent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Only bounds a broken agent: unoptimized test runs hash slowly on a busy machine.
+        private static readonly TimeSpan HoldTimeout = TimeSpan.FromMinutes(2);
+        /// <summary>Holds the first part until this holds, checked after each parallel PATCH arrives and each HEAD answers.</summary>
+        public Func<TusServer, bool>? HoldFirstUntil { get; init; }
+        private readonly TaskCompletionSource _firstReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>The offset of every parallel PATCH, in order of arrival.</summary>
+        public List<long> Attempts { get; } = [];
+        /// <summary>The number of HEAD requests answered after the last parallel PATCH arrived.</summary>
+        public int HeadsSinceLastPatch { get; private set; }
+        /// <summary>How many responses to the part at <see cref="LoseResponseAt"/> are lost after it is stored.</summary>
+        public int LostResponses { get; set; } = 1;
+
+        private void ReleaseFirstIfDue()
+        {
+            if (HoldFirstUntil?.Invoke(this) == true) _firstReleased.TrySetResult();
+        }
+        public int MaxConcurrentPatches { get; private set; }
+        public int NamedStates { get; private set; }
 
         public string Location { get; init; } = Creation + "/1b4a4c4e-7d6b-4f1e-9f43-0a1b2c3d4e5f";
         public long? LoseResponseAt { get; set; }
@@ -291,7 +439,7 @@ public sealed class HostedGitLfsTransferAgentTests
         public int ProxyErrors { get; set; }
         public bool RedirectCreation { get; init; }
         public Func<Stream> MismatchBody { get; init; } = () => new MemoryStream("LFS SHA-256 mismatch"u8.ToArray());
-        public int Requests { get; private set; }
+        public int Requests => _requests;
         public bool Published { get; private set; }
         public List<(long Offset, long Length)> Patches { get; } = [];
         public List<string> Authorizations { get; } = [];
@@ -301,12 +449,17 @@ public sealed class HostedGitLfsTransferAgentTests
             _length = file.Length;
             using Stream stream = file.Open();
             Append(stream, length);
+            if (!Parallel) return;
+            using Stream again = file.Open();
+            byte[] bytes = new byte[length];
+            again.ReadExactly(bytes);
+            _chain.Append(bytes);
         }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Requests++;
-            Authorizations.Add(request.Headers.Authorization?.ToString() ?? "");
+            Interlocked.Increment(ref _requests);
+            lock (Authorizations) Authorizations.Add(request.Headers.Authorization?.ToString() ?? "");
             Assert.That(request.Headers.GetValues("Tus-Resumable").Single(), Is.EqualTo("1.0.0"));
             if (ProxyErrors > 0)
             {
@@ -328,15 +481,31 @@ public sealed class HostedGitLfsTransferAgentTests
                 if (_length == 0) Publish();
                 HttpResponseMessage created = Tus(HttpStatusCode.Created);
                 created.Headers.Location = new Uri(Location);
+                if (Parallel) created.Headers.Add("Beutl-Part-Size", Part.ToString());
                 return created;
             }
 
             Assert.That(request.RequestUri!.ToString(), Is.EqualTo(Location));
             if (request.Method == HttpMethod.Head)
             {
-                // HEAD finishes a publication whose response was lost.
-                if (_offset == _length && !Published) Publish();
-                return State(HttpStatusCode.OK);
+                await _lock.WaitAsync(cancellationToken);
+                try
+                {
+                    // HEAD finishes a publication whose response was lost.
+                    if (_offset == _length && !Published) Publish();
+                    HttpResponseMessage state = State(HttpStatusCode.OK);
+                    lock (_waiting)
+                    {
+                        HeadsSinceLastPatch++;
+                        ReleaseFirstIfDue();
+                    }
+
+                    return state;
+                }
+                finally
+                {
+                    _lock.Release();
+                }
             }
 
             Assert.That(request.Method, Is.EqualTo(HttpMethod.Patch));
@@ -357,6 +526,8 @@ public sealed class HostedGitLfsTransferAgentTests
             long offset = long.Parse(request.Headers.GetValues("Upload-Offset").Single());
             long length = request.Content!.Headers.ContentLength!.Value;
             Assert.That(request.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/offset+octet-stream"));
+            if (request.Headers.TryGetValues("Beutl-Sha256-State", out IEnumerable<string>? starts))
+                return await PatchPartAsync(request, offset, length, starts.Single(), cancellationToken);
             if (offset != _offset) return State(HttpStatusCode.Conflict);
             Patches.Add((offset, length));
             Append(await request.Content.ReadAsStreamAsync(cancellationToken), length);
@@ -373,6 +544,78 @@ public sealed class HostedGitLfsTransferAgentTests
             }
 
             return State(HttpStatusCode.NoContent);
+        }
+
+        /// <summary>Stores a part that names its starting state; the accepted offset passes it once the state matches.</summary>
+        private async Task<HttpResponseMessage> PatchPartAsync(
+            HttpRequestMessage request, long offset, long length, string start, CancellationToken cancellationToken)
+        {
+            Assert.That(Parallel, "the agent names states only to a server that takes parts out of order");
+            int inFlight = Interlocked.Increment(ref _inFlight);
+            try
+            {
+                lock (_waiting)
+                {
+                    MaxConcurrentPatches = Math.Max(MaxConcurrentPatches, inFlight);
+                    Attempts.Add(offset);
+                    HeadsSinceLastPatch = 0;
+                    ReleaseFirstIfDue();
+                }
+                if (inFlight >= HoldUntilConcurrent) _concurrent.TrySetResult();
+                await _concurrent.Task.WaitAsync(HoldTimeout, cancellationToken);
+                byte[] bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+                if (offset == 0 && HoldFirstUntil is not null)
+                    await _firstReleased.Task.WaitAsync(HoldTimeout, cancellationToken);
+                // Real transfers take a while, so the other parts' requests overlap this one.
+                await Task.Delay(20, cancellationToken);
+                await _lock.WaitAsync(cancellationToken);
+                try
+                {
+                    NamedStates++;
+                    Assert.That(offset % Part, Is.Zero);
+                    Assert.That(bytes.LongLength, Is.EqualTo(Math.Min(Part, _length!.Value - offset)).And.EqualTo(length));
+                    if (offset < _offset) return State(HttpStatusCode.Conflict);
+                    Patches.Add((offset, length));
+                    _waiting[offset] = (start, bytes);
+                    while (_waiting.Remove(_offset, out (string Start, byte[] Bytes) next))
+                    {
+                        if (next.Start != _chain.ToString()) return Mismatch();
+                        if (_offset + next.Bytes.Length < _length)
+                        {
+                            _chain.Append(next.Bytes);
+                            _offset += next.Bytes.Length;
+                            continue;
+                        }
+
+                        if (_chain.Finish(next.Bytes) != expected.Oid) return Mismatch();
+                        _offset += next.Bytes.Length;
+                        Publish();
+                    }
+
+                    if (LoseResponseAt == offset && LostResponses > 0)
+                    {
+                        LostResponses--;
+                        throw new HttpRequestException("connection reset");
+                    }
+
+                    return State(HttpStatusCode.NoContent);
+                }
+                finally
+                {
+                    _lock.Release();
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }
+
+        private HttpResponseMessage Mismatch()
+        {
+            HttpResponseMessage mismatch = Tus(HttpStatusCode.UnprocessableEntity);
+            mismatch.Content = new StreamContent(MismatchBody());
+            return mismatch;
         }
 
         private void Append(Stream stream, long length)
@@ -397,6 +640,7 @@ public sealed class HostedGitLfsTransferAgentTests
             response.Headers.Add("Upload-Offset", _offset.ToString());
             response.Headers.Add("Upload-Length", _length.ToString());
             response.Headers.Add("Upload-Verified", Published ? "true" : "false");
+            if (Parallel && _offset > 0 && !Published) response.Headers.Add("Beutl-Sha256-State", _chain.ToString());
             return response;
         }
 
@@ -409,7 +653,11 @@ public sealed class HostedGitLfsTransferAgentTests
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) _hash.Dispose();
+            if (disposing)
+            {
+                _hash.Dispose();
+                _lock.Dispose();
+            }
             base.Dispose(disposing);
         }
     }
@@ -460,25 +708,30 @@ public sealed class HostedGitLfsTransferAgentTests
     /// <summary>Deterministic file content of any length, generated rather than stored.</summary>
     private sealed class VirtualFile(long length, int seed = 0)
     {
+        private int _opened;
+        private long _bytesRead;
+
         public long Length => length;
 
         public string Oid { get; } = Hash(length, seed);
 
-        public int Opened { get; private set; }
+        public int Opened => _opened;
+
+        public long BytesRead => Interlocked.Read(ref _bytesRead);
 
         public Stream Open()
         {
-            Opened++;
-            return new Content(length, seed);
+            Interlocked.Increment(ref _opened);
+            return new Content(length, seed, read => Interlocked.Add(ref _bytesRead, read));
         }
 
         private static string Hash(long length, int seed)
         {
-            using var stream = new Content(length, seed);
+            using var stream = new Content(length, seed, _ => { });
             return Convert.ToHexStringLower(SHA256.HashData(stream));
         }
 
-        private sealed class Content(long length, int seed) : Stream
+        private sealed class Content(long length, int seed, Action<int> counted) : Stream
         {
             public override bool CanRead => true;
             public override bool CanSeek => true;
@@ -491,6 +744,7 @@ public sealed class HostedGitLfsTransferAgentTests
                 int read = (int)Math.Max(0, Math.Min(count, length - Position));
                 for (int i = 0; i < read; i++) buffer[offset + i] = (byte)((Position + i) * 31 + seed);
                 Position += read;
+                counted(read);
                 return read;
             }
 
