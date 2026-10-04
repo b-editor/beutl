@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Formats.Tar;
 using System.Globalization;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -27,6 +28,10 @@ internal sealed class GitCliVersionControlService :
     // filters: an excluded pointer is copied through unchanged, which would leave pointer text in
     // the work tree where the media belongs. Repository-wide prefetches use the same cleared
     // baseline; project restore narrows the scan with an explicit include or exact subtree.
+    // Offers Beutl's own LFS upload agent to its pushes; see HostedGitLfsTransferAgent.
+    private static readonly IReadOnlyList<string> s_lfsUploadAgentOverrides =
+        HostedGitLfsTransferAgent.GitConfigArguments(Environment.ProcessPath, Assembly.GetEntryAssembly()?.Location);
+
     private static readonly string[] s_lfsPathFilterOverrides =
     [
         "-c",
@@ -9003,7 +9008,7 @@ internal sealed class GitCliVersionControlService :
                 && IsValidLocalBranchRef(upstream.RemoteRef)
                 ? upstream.RemoteRef
                 : $"refs/heads/{branchName}";
-            var arguments = new List<string>
+            var arguments = new List<string>(s_lfsUploadAgentOverrides)
             {
                 "push",
                 "--progress",
