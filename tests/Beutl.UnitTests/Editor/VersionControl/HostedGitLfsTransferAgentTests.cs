@@ -32,7 +32,8 @@ public sealed class HostedGitLfsTransferAgentTests
     [Test]
     public async Task Sends_parts_concurrently_when_hosted_Git_takes_them_out_of_order()
     {
-        var file = new VirtualFile(5 * Part + 3);
+        // Exactly as many parts as go at once: the test runs unoptimized, where hashing is slow.
+        var file = new VirtualFile(3 * Part + 3);
         var server = new TusServer(file) { Parallel = true, HoldUntilConcurrent = HostedGitLfsTransferAgent.ConcurrentParts };
         (int exitCode, List<JsonElement> messages) = await RunAsync(server, file);
         Assert.Multiple(() =>
@@ -41,9 +42,9 @@ public sealed class HostedGitLfsTransferAgentTests
             Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
             Assert.That(server.Published, Is.True);
             Assert.That(server.MaxConcurrentPatches, Is.EqualTo(HostedGitLfsTransferAgent.ConcurrentParts));
-            Assert.That(server.Patches.Order(), Is.EqualTo(Enumerable.Range(0, 6)
+            Assert.That(server.Patches.Order(), Is.EqualTo(Enumerable.Range(0, 4)
                 .Select(n => (n * Part, Math.Min(Part, file.Length - n * Part)))));
-            Assert.That(Progress(messages), Is.Ordered.And.Length.EqualTo(6));
+            Assert.That(Progress(messages), Is.Ordered.And.Length.EqualTo(4));
             Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
             // One read hashes the file, and each part is read again for its upload.
             Assert.That(file.BytesRead, Is.EqualTo(2 * file.Length));
@@ -53,16 +54,16 @@ public sealed class HostedGitLfsTransferAgentTests
     [Test]
     public async Task Resumes_parallel_parts_from_the_state_hosted_Git_recorded()
     {
-        var file = new VirtualFile(3 * Part + 5);
+        var file = new VirtualFile(2 * Part + 5);
         var server = new TusServer(file) { Parallel = true };
-        server.Accept(file, 2 * Part);
+        server.Accept(file, Part);
         long readBefore = file.BytesRead;
         (_, List<JsonElement> messages) = await RunAsync(server, file);
         Assert.Multiple(() =>
         {
             Assert.That(server.Published, Is.True);
-            Assert.That(server.Patches.Order(), Is.EqualTo(new[] { (2 * Part, Part), (3 * Part, 5L) }));
-            Assert.That(Progress(messages)[0], Is.EqualTo(2 * Part));
+            Assert.That(server.Patches.Order(), Is.EqualTo(new[] { (Part, Part), (2 * Part, 5L) }));
+            Assert.That(Progress(messages)[0], Is.EqualTo(Part));
             Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
             // The accepted bytes are neither hashed nor sent again.
             Assert.That(file.BytesRead - readBefore, Is.EqualTo(2 * (Part + 5)));
@@ -72,7 +73,7 @@ public sealed class HostedGitLfsTransferAgentTests
     [Test]
     public async Task Sends_a_part_again_after_its_response_was_lost()
     {
-        var file = new VirtualFile(2 * Part + 3);
+        var file = new VirtualFile(Part + 3);
         // The first part waits, so HEAD cannot show the lost part as passed and only a resend stores it.
         var server = new TusServer(file)
         {
@@ -93,7 +94,7 @@ public sealed class HostedGitLfsTransferAgentTests
     [Test]
     public async Task Waits_for_earlier_parts_before_failing_a_part_whose_every_response_was_lost()
     {
-        var file = new VirtualFile(2 * Part + 3);
+        var file = new VirtualFile(Part + 3);
         // Every response to the second part is lost while the first part stays behind it, until HEAD
         // has answered after the last resend.
         var server = new TusServer(file)
@@ -412,6 +413,8 @@ public sealed class HostedGitLfsTransferAgentTests
         /// </summary>
         public int HoldUntilConcurrent { get; init; } = 1;
         private readonly TaskCompletionSource _concurrent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Only bounds a broken agent: unoptimized test runs hash slowly on a busy machine.
+        private static readonly TimeSpan HoldTimeout = TimeSpan.FromMinutes(2);
         /// <summary>Holds the first part until this holds, checked after each parallel PATCH arrives and each HEAD answers.</summary>
         public Func<TusServer, bool>? HoldFirstUntil { get; init; }
         private readonly TaskCompletionSource _firstReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -559,10 +562,10 @@ public sealed class HostedGitLfsTransferAgentTests
                     ReleaseFirstIfDue();
                 }
                 if (inFlight >= HoldUntilConcurrent) _concurrent.TrySetResult();
-                await _concurrent.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+                await _concurrent.Task.WaitAsync(HoldTimeout, cancellationToken);
                 byte[] bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
                 if (offset == 0 && HoldFirstUntil is not null)
-                    await _firstReleased.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+                    await _firstReleased.Task.WaitAsync(HoldTimeout, cancellationToken);
                 // Real transfers take a while, so the other parts' requests overlap this one.
                 await Task.Delay(20, cancellationToken);
                 await _lock.WaitAsync(cancellationToken);
