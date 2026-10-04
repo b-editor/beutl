@@ -74,7 +74,12 @@ public sealed class HostedGitLfsTransferAgentTests
     {
         var file = new VirtualFile(2 * Part + 3);
         // The first part waits, so HEAD cannot show the lost part as passed and only a resend stores it.
-        var server = new TusServer(file) { Parallel = true, LoseResponseAt = Part, HoldFirstUntilSentTwice = Part };
+        var server = new TusServer(file)
+        {
+            Parallel = true,
+            LoseResponseAt = Part,
+            HoldFirstUntil = s => s.Attempts.Count(offset => offset == Part) >= 2,
+        };
         (_, List<JsonElement> messages) = await RunAsync(server, file);
         Assert.Multiple(() =>
         {
@@ -82,6 +87,28 @@ public sealed class HostedGitLfsTransferAgentTests
             Assert.That(server.Published, Is.True);
             Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
             Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
+        });
+    }
+
+    [Test]
+    public async Task Waits_for_earlier_parts_before_failing_a_part_whose_every_response_was_lost()
+    {
+        var file = new VirtualFile(2 * Part + 3);
+        // Every response to the second part is lost while the first part stays behind it, until HEAD
+        // has answered after the last resend.
+        var server = new TusServer(file)
+        {
+            Parallel = true,
+            LoseResponseAt = Part,
+            LostResponses = 6,
+            HoldFirstUntil = s => s.Attempts.Count(offset => offset == Part) == 6 && s.HeadsSinceLastPatch > 0,
+        };
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Attempts.Count(offset => offset == Part), Is.EqualTo(6));
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+            Assert.That(server.Published, Is.True);
         });
     }
 
@@ -385,11 +412,20 @@ public sealed class HostedGitLfsTransferAgentTests
         /// </summary>
         public int HoldUntilConcurrent { get; init; } = 1;
         private readonly TaskCompletionSource _concurrent = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        /// <summary>Holds the first part until the part at this offset has been sent twice.</summary>
-        public long? HoldFirstUntilSentTwice { get; init; }
-        private readonly TaskCompletionSource _sentTwice = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>Holds the first part until this holds, checked after each parallel PATCH arrives and each HEAD answers.</summary>
+        public Func<TusServer, bool>? HoldFirstUntil { get; init; }
+        private readonly TaskCompletionSource _firstReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
         /// <summary>The offset of every parallel PATCH, in order of arrival.</summary>
         public List<long> Attempts { get; } = [];
+        /// <summary>The number of HEAD requests answered after the last parallel PATCH arrived.</summary>
+        public int HeadsSinceLastPatch { get; private set; }
+        /// <summary>How many responses to the part at <see cref="LoseResponseAt"/> are lost after it is stored.</summary>
+        public int LostResponses { get; set; } = 1;
+
+        private void ReleaseFirstIfDue()
+        {
+            if (HoldFirstUntil?.Invoke(this) == true) _firstReleased.TrySetResult();
+        }
         public int MaxConcurrentPatches { get; private set; }
         public int NamedStates { get; private set; }
 
@@ -454,7 +490,14 @@ public sealed class HostedGitLfsTransferAgentTests
                 {
                     // HEAD finishes a publication whose response was lost.
                     if (_offset == _length && !Published) Publish();
-                    return State(HttpStatusCode.OK);
+                    HttpResponseMessage state = State(HttpStatusCode.OK);
+                    lock (_waiting)
+                    {
+                        HeadsSinceLastPatch++;
+                        ReleaseFirstIfDue();
+                    }
+
+                    return state;
                 }
                 finally
                 {
@@ -512,13 +555,14 @@ public sealed class HostedGitLfsTransferAgentTests
                 {
                     MaxConcurrentPatches = Math.Max(MaxConcurrentPatches, inFlight);
                     Attempts.Add(offset);
-                    if (Attempts.Count(attempt => attempt == HoldFirstUntilSentTwice) >= 2) _sentTwice.TrySetResult();
+                    HeadsSinceLastPatch = 0;
+                    ReleaseFirstIfDue();
                 }
                 if (inFlight >= HoldUntilConcurrent) _concurrent.TrySetResult();
                 await _concurrent.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
                 byte[] bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
-                if (offset == 0 && HoldFirstUntilSentTwice is not null)
-                    await _sentTwice.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+                if (offset == 0 && HoldFirstUntil is not null)
+                    await _firstReleased.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
                 // Real transfers take a while, so the other parts' requests overlap this one.
                 await Task.Delay(20, cancellationToken);
                 await _lock.WaitAsync(cancellationToken);
@@ -545,9 +589,9 @@ public sealed class HostedGitLfsTransferAgentTests
                         Publish();
                     }
 
-                    if (LoseResponseAt == offset)
+                    if (LoseResponseAt == offset && LostResponses > 0)
                     {
-                        LoseResponseAt = null;
+                        LostResponses--;
                         throw new HttpRequestException("connection reset");
                     }
 

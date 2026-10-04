@@ -306,6 +306,10 @@ internal static partial class HostedGitLfsTransferAgent
         var gate = new object();
         Exception? failure = null;
         long sent = accepted.Offset;
+        // Every part before this offset is stored; parts that finished out of order wait in `finished`.
+        long finishedBefore = accepted.Offset;
+        var finished = new SortedSet<long>();
+        var advanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         async Task RunAsync(Func<Task> work)
         {
@@ -352,12 +356,36 @@ internal static partial class HostedGitLfsTransferAgent
             parts.Writer.Complete();
         }
 
+        async Task EarlierPartsFinishedAsync(long offset)
+        {
+            while (true)
+            {
+                Task next;
+                lock (gate)
+                {
+                    if (finishedBefore >= offset) return;
+                    next = advanced.Task;
+                }
+
+                await next.WaitAsync(stop.Token);
+            }
+        }
+
         async Task SendPartsAsync()
         {
             await foreach ((long offset, string start) in parts.Reader.ReadAllAsync(stop.Token))
             {
                 long length = Math.Min(PartSize, size - offset);
-                await PatchPartAsync(http, upload, headers, openFile, size, offset, start, time, stop.Token);
+                await PatchPartAsync(
+                    http, upload, headers, openFile, size, offset, start, () => EarlierPartsFinishedAsync(offset), time, stop.Token);
+                lock (gate)
+                {
+                    finished.Add(offset);
+                    while (finished.Remove(finishedBefore)) finishedBefore = Math.Min(size, finishedBefore + PartSize);
+                    advanced.TrySetResult();
+                    advanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
+
                 await reporting.WaitAsync(stop.Token);
                 try
                 {
@@ -376,10 +404,14 @@ internal static partial class HostedGitLfsTransferAgent
         if (failure is not null) ExceptionDispatchInfo.Throw(failure);
     }
 
-    /// <summary>Sends one part of a parallel upload, naming the SHA-256 state of the bytes before it.</summary>
+    /// <summary>
+    /// Sends one part of a parallel upload, naming the SHA-256 state of the bytes before it. HEAD
+    /// shows a stored part only once the parts before it arrived, so after its last resend the part
+    /// waits for <paramref name="earlierPartsFinished"/> before HEAD decides.
+    /// </summary>
     private static async Task PatchPartAsync(
         HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, long size, long offset,
-        string start, TimeProvider time, CancellationToken cancellationToken)
+        string start, Func<Task> earlierPartsFinished, TimeProvider time, CancellationToken cancellationToken)
     {
         long length = Math.Min(PartSize, size - offset);
         for (int attempt = 0; ; attempt++)
@@ -413,7 +445,13 @@ internal static partial class HostedGitLfsTransferAgent
             // A part the accepted offset already passed is stored.
             if ((await GetStateAsync(http, upload, headers, size, time, cancellationToken)).Offset >= offset + length) return;
             if (attempt >= MaxAttempts)
+            {
+                // One of the lost responses may have stored the part behind an earlier one still in flight.
+                await earlierPartsFinished();
+                if ((await GetStateAsync(http, upload, headers, size, time, cancellationToken)).Offset >= offset + length) return;
                 throw new InvalidOperationException("Hosted Git did not accept an LFS part", transportFailure);
+            }
+
             await Task.Delay(retryAfter ?? Backoff(attempt), time, cancellationToken);
         }
     }
