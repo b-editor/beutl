@@ -332,7 +332,7 @@ internal static partial class HostedGitLfsTransferAgent
             file.Position = hash.Length;
             for (long offset = hash.Length; offset < size; offset += PartSize)
             {
-                if (offset >= accepted.Offset) await parts.Writer.WriteAsync((offset, hash.ToString()), stop.Token);
+                string start = hash.ToString();
                 for (long position = offset, end = Math.Min(size, offset + PartSize); position < end;)
                 {
                     int count = (int)Math.Min(buffer.Length, end - position);
@@ -340,10 +340,13 @@ internal static partial class HostedGitLfsTransferAgent
                         throw new IOException("The LFS file ended before its recorded size");
                     position += count;
                     if (position < size) hash.Append(buffer.AsSpan(0, count));
-                    // Hosted Git would refuse the object at its last part; say why before then.
+                    // Hosted Git would refuse the object at its last part, so that part is never sent.
                     else if (hash.Finish(buffer.AsSpan(0, count)) != oid)
                         throw new InvalidOperationException("The LFS file changed during its upload");
                 }
+
+                // A part is sent only once it is hashed, so the last one follows the OID check.
+                if (offset >= accepted.Offset) await parts.Writer.WriteAsync((offset, start), stop.Token);
             }
 
             parts.Writer.Complete();
