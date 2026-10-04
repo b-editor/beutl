@@ -9568,7 +9568,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (arguments.FirstOrDefault() == "push")
+            if (GetGitSubcommand(arguments) == "push")
             {
                 PushCalls++;
                 return Task.FromException<GitCommandResult>(new GitOperationException(

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 
@@ -31,6 +32,45 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 Is.EqualTo("origin/main"));
             Assert.That(remoteHead, Is.EqualTo(localHead));
             Assert.That(progress.Messages, Is.Not.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Push_offers_Beutls_LFS_agent_to_Git_LFS_for_uploads_only()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        var runner = new InterceptingRunner(CreateRunner(), static (_, _, _) => false, before: null, after: null);
+        using var service = CreateService(runner: runner);
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+
+        RemoteOpResult result = await service.PushAsync(progress: null, CancellationToken.None);
+        IReadOnlyList<string> expected = HostedGitLfsTransferAgent.GitConfigArguments(
+            Environment.ProcessPath, Assembly.GetEntryAssembly()?.Location);
+        IReadOnlyList<string> push = runner.Commands.Single(arguments => GetGitSubcommand(arguments) == "push");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(expected, Is.Not.Empty);
+            Assert.That(push.Take(expected.Count), Is.EqualTo(expected));
+        });
+
+        // Git LFS reads the configuration and offers the agent for uploads, never downloads.
+        GitCommandResult environment;
+        try
+        {
+            environment = await RunGitAsync([.. expected, "lfs", "env"]);
+        }
+        catch (GitOperationException)
+        {
+            Assert.Ignore("Git LFS is not installed");
+            return;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(environment.Stdout, Does.Match(@"(?m)^UploadTransfers=.*\bbeutl-tus\b"));
+            Assert.That(environment.Stdout, Does.Not.Match(@"(?m)^DownloadTransfers=.*\bbeutl-tus\b"));
         });
     }
 

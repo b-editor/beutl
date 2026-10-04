@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Media;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Services;
@@ -18,6 +19,13 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Git LFS starts this executable as Beutl's hosted Git upload agent; no UI is involved.
+        if (args is [HostedGitLfsTransferAgent.CommandLineFlag])
+        {
+            Environment.ExitCode = HostedGitLfsTransferAgent.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         PackageLinkLaunchResult launch = OperatingSystem.IsMacOS()
             ? new(PackageLinkLaunchAction.StartApplication, null, args)
             : PackageLinkLauncher.PrepareAsync(args).GetAwaiter().GetResult();
