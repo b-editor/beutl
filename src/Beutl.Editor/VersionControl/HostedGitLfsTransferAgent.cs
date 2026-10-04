@@ -1,17 +1,20 @@
 ﻿using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 
 namespace Beutl.Editor.VersionControl;
 
 /// <summary>
 /// The "beutl-tus" Git LFS custom transfer agent. Beutl hosted Git limits a plain LFS upload to
-/// one 5 GB storage PUT; this agent sends any size as resumable tus parts instead. The regular
-/// Beutl executable enters this headless mode before any UI is initialized, and Beutl offers the
-/// agent to Git only for its own pushes, so a plain Git client keeps working without it.
+/// one 5 GB storage PUT; this agent sends any size as resumable tus parts instead, several at a
+/// time when hosted Git takes them out of order. The regular Beutl executable enters this headless
+/// mode before any UI is initialized, and Beutl offers the agent to Git only for its own pushes, so
+/// a plain Git client keeps working without it.
 /// </summary>
 internal static partial class HostedGitLfsTransferAgent
 {
@@ -19,6 +22,14 @@ internal static partial class HostedGitLfsTransferAgent
     private const string TransferName = "beutl-tus";
     // Each PATCH becomes one storage part; the server accepts at most this much per request.
     internal const long PartSize = 32L * 1024 * 1024;
+    // One connection is limited by its own round trips; four measured four times as fast.
+    internal const int ConcurrentParts = 4;
+    // Hosted Git takes parts out of order when it answers with this header and the part size.
+    private const string PartSizeHeader = "Beutl-Part-Size";
+    // The SHA-256 chaining state of the bytes before a part, which hosted Git checks.
+    private const string HashStateHeader = "Beutl-Sha256-State";
+    // Divides a part, so every read but the file's last is whole SHA-256 blocks.
+    private const int HashBufferSize = 1024 * 1024;
     private const int MaxAttempts = 5;
     internal static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(2);
     private const int MaxFailureDetailBytes = 1024;
@@ -30,7 +41,8 @@ internal static partial class HostedGitLfsTransferAgent
     private sealed record Message(
         string? Event, string? Operation, string? Oid, long Size, string? Path, ActionInfo? Action);
 
-    private readonly record struct TusState(long Offset, bool Verified);
+    /// <summary>The accepted offset, whether the object is published, and the SHA-256 state at the offset if hosted Git sent it.</summary>
+    private readonly record struct TusState(long Offset, bool Verified, string? HashState = null);
 
     [GeneratedRegex("^[0-9a-f]{64}$")]
     private static partial Regex OidPattern();
@@ -146,9 +158,18 @@ internal static partial class HostedGitLfsTransferAgent
         }
 
         // Hosted Git keeps one upload per object, so creation also finds an interrupted one.
-        Uri upload = await CreateAsync(http, creation, action.Header, message.Size, time, cancellationToken);
+        (Uri upload, bool parallel) = await CreateAsync(http, creation, action.Header, message.Size, time, cancellationToken);
         TusState state = await GetStateAsync(http, upload, action.Header, message.Size, time, cancellationToken);
         if (state.Offset > 0) await ProgressAsync(output, oid, state.Offset, state.Offset);
+        // Parts numbered by offset need every part accepted so far to be a whole one.
+        if (parallel && state.Offset % PartSize == 0 && state.Offset < message.Size)
+        {
+            await UploadPartsAsync(
+                http, upload, action.Header, () => openRead(path), oid, message.Size, state, output, time, cancellationToken);
+            state = await GetStateAsync(http, upload, action.Header, message.Size, time, cancellationToken);
+            if (state.Offset != message.Size) throw new InvalidOperationException("Hosted Git did not accept every LFS part");
+        }
+
         while (state.Offset < message.Size)
         {
             long before = state.Offset;
@@ -178,7 +199,7 @@ internal static partial class HostedGitLfsTransferAgent
         return uri;
     }
 
-    private static async Task<Uri> CreateAsync(
+    private static async Task<(Uri Upload, bool Parallel)> CreateAsync(
         HttpClient http, Uri creation, Dictionary<string, string>? headers, long size,
         TimeProvider time, CancellationToken cancellationToken)
     {
@@ -201,7 +222,9 @@ internal static partial class HostedGitLfsTransferAgent
             throw new InvalidOperationException("Invalid tus upload URL");
         }
 
-        return upload;
+        bool parallel = response.Headers.TryGetValues(PartSizeHeader, out IEnumerable<string>? sizes)
+            && sizes.SingleOrDefault() == PartSize.ToString(CultureInfo.InvariantCulture);
+        return (upload, parallel);
     }
 
     private static async Task<TusState> GetStateAsync(
@@ -264,6 +287,130 @@ internal static partial class HostedGitLfsTransferAgent
             if (current.Offset < offset) throw new InvalidOperationException("The tus offset moved backwards");
             if (attempt >= MaxAttempts)
                 throw new InvalidOperationException("The tus upload did not advance", transportFailure);
+            await Task.Delay(retryAfter ?? Backoff(attempt), time, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Sends the parts from the accepted offset, <see cref="ConcurrentParts"/> at a time. One reader
+    /// hashes the file in order and names the SHA-256 state each part starts from, which hosted Git
+    /// checks against the bytes before it; each upload reads its own part again.
+    /// </summary>
+    private static async Task UploadPartsAsync(
+        HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, string oid, long size,
+        TusState accepted, TextWriter output, TimeProvider time, CancellationToken cancellationToken)
+    {
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var reporting = new SemaphoreSlim(1, 1);
+        var parts = Channel.CreateBounded<(long Offset, string Start)>(ConcurrentParts);
+        var gate = new object();
+        Exception? failure = null;
+        long sent = accepted.Offset;
+
+        async Task RunAsync(Func<Task> work)
+        {
+            try
+            {
+                await work();
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The first failure is the one to report; the others are the cancellation it causes.
+                lock (gate) failure ??= ex;
+                await stop.CancelAsync();
+            }
+        }
+
+        async Task HashAsync()
+        {
+            // A resumed upload continues from the state hosted Git recorded at its offset.
+            Sha256ChainingState hash = accepted is { Offset: > 0, HashState: { } recorded }
+                ? Sha256ChainingState.Resume(recorded, accepted.Offset)
+                : new Sha256ChainingState();
+            byte[] buffer = new byte[HashBufferSize];
+            await using Stream file = openFile();
+            file.Position = hash.Length;
+            for (long offset = hash.Length; offset < size; offset += PartSize)
+            {
+                if (offset >= accepted.Offset) await parts.Writer.WriteAsync((offset, hash.ToString()), stop.Token);
+                for (long position = offset, end = Math.Min(size, offset + PartSize); position < end;)
+                {
+                    int count = (int)Math.Min(buffer.Length, end - position);
+                    if (await file.ReadAtLeastAsync(buffer.AsMemory(0, count), count, throwOnEndOfStream: false, stop.Token) != count)
+                        throw new IOException("The LFS file ended before its recorded size");
+                    position += count;
+                    if (position < size) hash.Append(buffer.AsSpan(0, count));
+                    // Hosted Git would refuse the object at its last part; say why before then.
+                    else if (hash.Finish(buffer.AsSpan(0, count)) != oid)
+                        throw new InvalidOperationException("The LFS file changed during its upload");
+                }
+            }
+
+            parts.Writer.Complete();
+        }
+
+        async Task SendPartsAsync()
+        {
+            await foreach ((long offset, string start) in parts.Reader.ReadAllAsync(stop.Token))
+            {
+                long length = Math.Min(PartSize, size - offset);
+                await PatchPartAsync(http, upload, headers, openFile, size, offset, start, time, stop.Token);
+                await reporting.WaitAsync(stop.Token);
+                try
+                {
+                    sent += length;
+                    await ProgressAsync(output, oid, sent, length);
+                }
+                finally
+                {
+                    reporting.Release();
+                }
+            }
+        }
+
+        await Task.WhenAll([RunAsync(HashAsync), .. Enumerable.Range(0, ConcurrentParts).Select(_ => RunAsync(SendPartsAsync))]);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (failure is not null) ExceptionDispatchInfo.Throw(failure);
+    }
+
+    /// <summary>Sends one part of a parallel upload, naming the SHA-256 state of the bytes before it.</summary>
+    private static async Task PatchPartAsync(
+        HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, long size, long offset,
+        string start, TimeProvider time, CancellationToken cancellationToken)
+    {
+        long length = Math.Min(PartSize, size - offset);
+        for (int attempt = 0; ; attempt++)
+        {
+            TimeSpan? retryAfter = null;
+            HttpRequestException? transportFailure = null;
+            try
+            {
+                using HttpRequestMessage request = Request(HttpMethod.Patch, upload, headers);
+                request.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString(CultureInfo.InvariantCulture));
+                request.Headers.TryAddWithoutValidation(HashStateHeader, start);
+                await using Stream file = openFile();
+                file.Position = offset;
+                request.Content = new PartContent(file, length);
+                using HttpResponseMessage response = await SendAsync(http, request, time, cancellationToken);
+                // The accepted offset moves past this part only once every part before it arrived.
+                if (response.StatusCode == HttpStatusCode.NoContent) return;
+                retryAfter = response.Headers.RetryAfter?.Delta;
+                if (response.StatusCode is not (HttpStatusCode.Conflict or HttpStatusCode.Locked)
+                    && !Retryable(response.StatusCode))
+                {
+                    throw new InvalidOperationException(await FailureAsync(response, time, cancellationToken));
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                // Hosted Git replaces a part sent again, so a lost response only costs a resend.
+                transportFailure = ex;
+            }
+
+            // A part the accepted offset already passed is stored.
+            if ((await GetStateAsync(http, upload, headers, size, time, cancellationToken)).Offset >= offset + length) return;
+            if (attempt >= MaxAttempts)
+                throw new InvalidOperationException("Hosted Git did not accept an LFS part", transportFailure);
             await Task.Delay(retryAfter ?? Backoff(attempt), time, cancellationToken);
         }
     }
@@ -355,7 +502,10 @@ internal static partial class HostedGitLfsTransferAgent
         string? verified = response.Headers.TryGetValues("Upload-Verified", out IEnumerable<string>? values)
             ? values.SingleOrDefault()
             : null;
-        return new TusState(ReadNumber(response, "Upload-Offset"), verified == "true");
+        string? hashState = response.Headers.TryGetValues(HashStateHeader, out IEnumerable<string>? states)
+            ? states.SingleOrDefault()
+            : null;
+        return new TusState(ReadNumber(response, "Upload-Offset"), verified == "true", hashState);
     }
 
     private static long ReadNumber(HttpResponseMessage response, string name)
