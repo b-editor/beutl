@@ -160,11 +160,19 @@ public sealed class HostedGitLfsTransferAgentTests
         });
     }
 
-    [Test]
-    public async Task Rejects_a_creation_location_on_another_host()
+    // Credentials go only to an upload under the creation URL on the same origin.
+    [TestCase("https://elsewhere.example/upload")]
+    [TestCase("http://beutl.example/api/v3/git/repo.git/info/lfs/objects/oid/tus/id")]
+    [TestCase("https://beutl.example:8443/api/v3/git/repo.git/info/lfs/objects/oid/tus/id")]
+    [TestCase("https://u:p@beutl.example/api/v3/git/repo.git/info/lfs/objects/oid/tus/id")]
+    [TestCase(Creation + "/id?x=1")]
+    [TestCase(Creation + "/id#f")]
+    [TestCase("https://beutl.example/api/v3/git/other/tus/id")]
+    [TestCase(Creation + "x/id")]
+    public async Task Rejects_a_creation_location_outside_the_creation_url(string location)
     {
         var file = new VirtualFile(9);
-        var server = new TusServer(file) { Location = "https://elsewhere.example/upload" };
+        var server = new TusServer(file) { Location = location };
         (_, List<JsonElement> messages) = await RunAsync(server, file);
         Assert.Multiple(() =>
         {
