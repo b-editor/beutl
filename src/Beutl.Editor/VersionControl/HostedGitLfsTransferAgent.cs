@@ -139,9 +139,11 @@ internal static partial class HostedGitLfsTransferAgent
         }
 
         Uri creation = TransferUri(href);
-        await using Stream file = openRead(path);
-        if (file.Length != message.Size)
-            throw new InvalidOperationException("The LFS file changed size before its upload");
+        await using (Stream file = openRead(path))
+        {
+            if (file.Length != message.Size)
+                throw new InvalidOperationException("The LFS file changed size before its upload");
+        }
 
         // Hosted Git keeps one upload per object, so creation also finds an interrupted one.
         Uri upload = await CreateAsync(http, creation, action.Header, message.Size, time, cancellationToken);
@@ -150,7 +152,7 @@ internal static partial class HostedGitLfsTransferAgent
         while (state.Offset < message.Size)
         {
             long before = state.Offset;
-            state = await PatchAsync(http, upload, action.Header, file, message.Size, before, time, cancellationToken);
+            state = await PatchAsync(http, upload, action.Header, () => openRead(path), message.Size, before, time, cancellationToken);
             await ProgressAsync(output, oid, state.Offset, state.Offset - before);
         }
 
@@ -216,7 +218,7 @@ internal static partial class HostedGitLfsTransferAgent
 
     /// <summary>Sends the part at <paramref name="offset"/> and returns the state that follows it.</summary>
     private static async Task<TusState> PatchAsync(
-        HttpClient http, Uri upload, Dictionary<string, string>? headers, Stream file, long size, long offset,
+        HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, long size, long offset,
         TimeProvider time, CancellationToken cancellationToken)
     {
         long length = Math.Min(PartSize, size - offset);
@@ -228,6 +230,9 @@ internal static partial class HostedGitLfsTransferAgent
             {
                 using HttpRequestMessage request = Request(HttpMethod.Patch, upload, headers);
                 request.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString(CultureInfo.InvariantCulture));
+                // Each attempt reads its own stream: an early response can leave the transport
+                // still sending a previous attempt's body.
+                await using Stream file = openFile();
                 file.Position = offset;
                 request.Content = new PartContent(file, length);
                 using HttpResponseMessage response = await SendAsync(http, request, time, cancellationToken);

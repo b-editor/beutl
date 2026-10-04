@@ -56,16 +56,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         });
 
         // Git LFS reads the configuration and offers the agent for uploads, never downloads.
-        GitCommandResult environment;
         try
         {
-            environment = await RunGitAsync([.. expected, "lfs", "env"]);
+            await RunGitAsync("lfs", "version");
         }
         catch (GitOperationException)
         {
             Assert.Ignore("Git LFS is not installed");
-            return;
         }
+
+        GitCommandResult environment = await RunGitAsync([.. expected, "lfs", "env"]);
 
         Assert.Multiple(() =>
         {

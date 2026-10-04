@@ -68,6 +68,8 @@ public sealed class HostedGitLfsTransferAgentTests
         Assert.Multiple(() =>
         {
             Assert.That(server.Patches, Is.EqualTo(new[] { (0L, 9L) }));
+            // The size check, then each attempt reads its own stream in case the transport still sends an earlier one.
+            Assert.That(file.Opened, Is.EqualTo(4));
             Assert.That(server.Published, Is.True);
             Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
         });
@@ -454,7 +456,13 @@ public sealed class HostedGitLfsTransferAgentTests
 
         public string Oid { get; } = Hash(length, seed);
 
-        public Stream Open() => new Content(length, seed);
+        public int Opened { get; private set; }
+
+        public Stream Open()
+        {
+            Opened++;
+            return new Content(length, seed);
+        }
 
         private static string Hash(long length, int seed)
         {
