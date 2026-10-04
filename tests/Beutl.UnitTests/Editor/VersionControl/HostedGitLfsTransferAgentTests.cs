@@ -102,6 +102,63 @@ public sealed class HostedGitLfsTransferAgentTests
     }
 
     [Test]
+    public async Task Finds_the_stored_part_when_the_last_attempt_loses_its_response()
+    {
+        var file = new VirtualFile(9);
+        // Five unavailable answers use every retry; the last attempt is stored but its response is lost.
+        var server = new TusServer(file) { UnavailablePatches = 5, LoseResponseAt = 0 };
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Published, Is.True);
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Retries_a_temporary_proxy_error_that_carries_no_tus_header()
+    {
+        var file = new VirtualFile(9);
+        var server = new TusServer(file) { ProxyErrors = 2 };
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(server.Published, Is.True);
+            Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Reports_the_status_when_an_error_body_stalls_or_never_ends()
+    {
+        var stalled = new TusServer(new VirtualFile(9, seed: 7)) { MismatchBody = () => new StalledStream() };
+        var endless = new TusServer(new VirtualFile(9, seed: 7)) { MismatchBody = () => new EndlessStream() };
+        var file = new VirtualFile(9);
+        (_, List<JsonElement> stalledMessages) = await RunAsync(stalled, file, time: new InstantDelays(expireFailureDetails: true));
+        (_, List<JsonElement> endlessMessages) = await RunAsync(endless, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ErrorMessage(stalledMessages), Is.EqualTo("Hosted Git rejected the LFS upload: HTTP 422"));
+            Assert.That(ErrorMessage(endlessMessages), Is.EqualTo($"Hosted Git rejected the LFS upload: HTTP 422 {new string('x', 200)}"));
+        });
+    }
+
+    [Test]
+    public async Task Never_follows_a_redirect_with_the_actions_credentials()
+    {
+        using SocketsHttpHandler handler = HostedGitLfsTransferAgent.CreateHandler();
+        var file = new VirtualFile(9);
+        var server = new TusServer(file) { RedirectCreation = true };
+        (_, List<JsonElement> messages) = await RunAsync(server, file);
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.AllowAutoRedirect, Is.False);
+            Assert.That(ErrorMessage(messages), Is.EqualTo("Hosted Git rejected the LFS upload: HTTP 307"));
+            Assert.That(server.Requests, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task Rejects_a_creation_location_on_another_host()
     {
         var file = new VirtualFile(9);
@@ -177,7 +234,7 @@ public sealed class HostedGitLfsTransferAgentTests
     }
 
     private static async Task<(int ExitCode, List<JsonElement> Messages)> RunAsync(
-        TusServer server, VirtualFile file, string href = Creation, long? size = null)
+        TusServer server, VirtualFile file, string href = Creation, long? size = null, TimeProvider? time = null)
     {
         using var http = new HttpClient(server);
         using var output = new StringWriter();
@@ -193,7 +250,7 @@ public sealed class HostedGitLfsTransferAgentTests
             }),
             JsonSerializer.Serialize(new { @event = "terminate" }));
         int exitCode = await HostedGitLfsTransferAgent.RunAsync(
-            new StringReader(input), output, http, _ => file.Open(), new InstantDelays(), CancellationToken.None);
+            new StringReader(input), output, http, _ => file.Open(), time ?? new InstantDelays(), CancellationToken.None);
         List<JsonElement> messages = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => JsonDocument.Parse(line).RootElement).ToList();
         Assert.That(messages[0].EnumerateObject(), Is.Empty, "the agent confirms initiation with an empty object");
@@ -220,6 +277,10 @@ public sealed class HostedGitLfsTransferAgentTests
         public string Location { get; init; } = Creation + "/1b4a4c4e-7d6b-4f1e-9f43-0a1b2c3d4e5f";
         public long? LoseResponseAt { get; set; }
         public int LockedResponses { get; set; }
+        public int UnavailablePatches { get; set; }
+        public int ProxyErrors { get; set; }
+        public bool RedirectCreation { get; init; }
+        public Func<Stream> MismatchBody { get; init; } = () => new MemoryStream("LFS SHA-256 mismatch"u8.ToArray());
         public int Requests { get; private set; }
         public bool Published { get; private set; }
         public List<(long Offset, long Length)> Patches { get; } = [];
@@ -237,6 +298,20 @@ public sealed class HostedGitLfsTransferAgentTests
             Requests++;
             Authorizations.Add(request.Headers.Authorization?.ToString() ?? "");
             Assert.That(request.Headers.GetValues("Tus-Resumable").Single(), Is.EqualTo("1.0.0"));
+            if (ProxyErrors > 0)
+            {
+                // A proxy in front of hosted Git answers without tus headers.
+                ProxyErrors--;
+                return new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = new StringContent("<html>bad gateway</html>") };
+            }
+
+            if (request.Method == HttpMethod.Post && RedirectCreation)
+            {
+                var redirect = new HttpResponseMessage(HttpStatusCode.TemporaryRedirect);
+                redirect.Headers.Location = new Uri("https://elsewhere.example/tus");
+                return redirect;
+            }
+
             if (request.Method == HttpMethod.Post)
             {
                 _length ??= long.Parse(request.Headers.GetValues("Upload-Length").Single());
@@ -263,6 +338,12 @@ public sealed class HostedGitLfsTransferAgentTests
                 return locked;
             }
 
+            if (UnavailablePatches > 0)
+            {
+                UnavailablePatches--;
+                return Tus(HttpStatusCode.ServiceUnavailable);
+            }
+
             long offset = long.Parse(request.Headers.GetValues("Upload-Offset").Single());
             long length = request.Content!.Headers.ContentLength!.Value;
             Assert.That(request.Content.Headers.ContentType!.MediaType, Is.EqualTo("application/offset+octet-stream"));
@@ -274,7 +355,7 @@ public sealed class HostedGitLfsTransferAgentTests
                 if (!Convert.ToHexStringLower(_hash.GetCurrentHash()).Equals(expected.Oid, StringComparison.Ordinal))
                 {
                     HttpResponseMessage mismatch = Tus(HttpStatusCode.UnprocessableEntity);
-                    mismatch.Content = new StringContent("LFS SHA-256 mismatch");
+                    mismatch.Content = new StreamContent(MismatchBody());
                     return mismatch;
                 }
                 if (LoseResponseAt == offset) throw new HttpRequestException("connection reset");
@@ -323,6 +404,49 @@ public sealed class HostedGitLfsTransferAgentTests
         }
     }
 
+    /// <summary>A response body whose sender stopped: reads wait until they are cancelled.</summary>
+    private sealed class StalledStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    /// <summary>A response body that never ends.</summary>
+    private sealed class EndlessStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            buffer.AsSpan(offset, count).Fill((byte)'x');
+            return count;
+        }
+
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     /// <summary>Deterministic file content of any length, generated rather than stored.</summary>
     private sealed class VirtualFile(long length, int seed = 0)
     {
@@ -367,12 +491,18 @@ public sealed class HostedGitLfsTransferAgentTests
         }
     }
 
-    /// <summary>Runs retry delays at once while the two-minute idle timeout never elapses.</summary>
-    private sealed class InstantDelays : TimeProvider
+    /// <summary>
+    /// Runs retry delays at once. The two-minute idle timeout never elapses, and the time allowed
+    /// for an error body elapses only when a test asks for it.
+    /// </summary>
+    private sealed class InstantDelays(bool expireFailureDetails = false) : TimeProvider
     {
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
-            if (dueTime < HostedGitLfsTransferAgent.IdleTimeout) ThreadPool.QueueUserWorkItem(_ => callback(state));
+            bool expires = dueTime == HostedGitLfsTransferAgent.FailureDetailTimeout
+                ? expireFailureDetails
+                : dueTime < HostedGitLfsTransferAgent.IdleTimeout;
+            if (expires) ThreadPool.QueueUserWorkItem(_ => callback(state));
             return new Timer();
         }
 

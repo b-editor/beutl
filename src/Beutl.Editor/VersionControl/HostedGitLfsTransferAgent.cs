@@ -21,6 +21,8 @@ internal static partial class HostedGitLfsTransferAgent
     internal const long PartSize = 32L * 1024 * 1024;
     private const int MaxAttempts = 5;
     internal static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(2);
+    private const int MaxFailureDetailBytes = 1024;
+    internal static readonly TimeSpan FailureDetailTimeout = TimeSpan.FromSeconds(10);
     private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
 
     private sealed record ActionInfo(string? Href, Dictionary<string, string>? Header);
@@ -70,9 +72,12 @@ internal static partial class HostedGitLfsTransferAgent
         var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         using var input = new StreamReader(Console.OpenStandardInput(), utf8, detectEncodingFromByteOrderMarks: false);
         using var output = new StreamWriter(Console.OpenStandardOutput(), utf8) { NewLine = "\n" };
-        using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+        using var http = new HttpClient(CreateHandler()) { Timeout = Timeout.InfiniteTimeSpan };
         return await RunAsync(input, output, http, OpenFile, TimeProvider.System, cancellation.Token);
     }
+
+    // A followed redirect would carry the action's credential headers past the origin check.
+    internal static SocketsHttpHandler CreateHandler() => new() { AllowAutoRedirect = false };
 
     private static Stream OpenFile(string path) => new FileStream(
         path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 128 * 1024,
@@ -218,6 +223,7 @@ internal static partial class HostedGitLfsTransferAgent
         for (int attempt = 0; ; attempt++)
         {
             TimeSpan? retryAfter = null;
+            HttpRequestException? transportFailure = null;
             try
             {
                 using HttpRequestMessage request = Request(HttpMethod.Patch, upload, headers);
@@ -238,18 +244,21 @@ internal static partial class HostedGitLfsTransferAgent
                 if (response.StatusCode is not (HttpStatusCode.Conflict or HttpStatusCode.Locked)
                     && !Retryable(response.StatusCode))
                 {
-                    throw new InvalidOperationException(await FailureAsync(response, cancellationToken));
+                    throw new InvalidOperationException(await FailureAsync(response, time, cancellationToken));
                 }
             }
-            catch (HttpRequestException) when (attempt < MaxAttempts)
+            catch (HttpRequestException ex)
             {
-                // The server may have stored the part before its response was lost. HEAD tells.
+                // The server may have stored the part before its response was lost, even on the
+                // last attempt. HEAD tells.
+                transportFailure = ex;
             }
 
             TusState current = await GetStateAsync(http, upload, headers, size, time, cancellationToken);
             if (current.Offset > offset) return current;
             if (current.Offset < offset) throw new InvalidOperationException("The tus offset moved backwards");
-            if (attempt >= MaxAttempts) throw new InvalidOperationException("The tus upload did not advance");
+            if (attempt >= MaxAttempts)
+                throw new InvalidOperationException("The tus upload did not advance", transportFailure);
             await Task.Delay(retryAfter ?? Backoff(attempt), time, cancellationToken);
         }
     }
@@ -266,7 +275,7 @@ internal static partial class HostedGitLfsTransferAgent
                 if (response.IsSuccessStatusCode) return response;
                 if (attempt >= MaxAttempts || !Retryable(response.StatusCode))
                 {
-                    using (response) throw new InvalidOperationException(await FailureAsync(response, cancellationToken));
+                    using (response) throw new InvalidOperationException(await FailureAsync(response, time, cancellationToken));
                 }
 
                 response.Dispose();
@@ -305,8 +314,12 @@ internal static partial class HostedGitLfsTransferAgent
         try
         {
             HttpResponseMessage response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, linked.Token);
-            if (!response.Headers.TryGetValues("Tus-Resumable", out IEnumerable<string>? versions)
-                || versions.SingleOrDefault() != "1.0.0")
+            // Only tus answers carry the version. A proxy's error is left to the status handling,
+            // which retries the temporary ones.
+            bool tusAnswer = response.IsSuccessStatusCode
+                || response.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.Locked;
+            if (tusAnswer && (!response.Headers.TryGetValues("Tus-Resumable", out IEnumerable<string>? versions)
+                || versions.SingleOrDefault() != "1.0.0"))
             {
                 using (response) throw new InvalidOperationException("Hosted Git did not answer with tus 1.0.0");
             }
@@ -351,20 +364,36 @@ internal static partial class HostedGitLfsTransferAgent
         return value;
     }
 
-    private static async Task<string> FailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    /// <summary>
+    /// Describes a rejection with the start of its body. The body is read for at most a short,
+    /// bounded while: a server that stops sending it still leaves the status to report.
+    /// </summary>
+    private static async Task<string> FailureAsync(
+        HttpResponseMessage response, TimeProvider time, CancellationToken cancellationToken)
     {
-        string detail = "";
+        string failure = $"Hosted Git rejected the LFS upload: HTTP {(int)response.StatusCode}";
+        byte[] buffer = new byte[MaxFailureDetailBytes];
+        int length = 0;
+        using var timeout = new CancellationTokenSource(FailureDetailTimeout, time);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         try
         {
-            detail = (await response.Content.ReadAsStringAsync(cancellationToken)).Trim();
+            await using Stream body = await response.Content.ReadAsStreamAsync(linked.Token);
+            for (int read; length < buffer.Length
+                 && (read = await body.ReadAsync(buffer.AsMemory(length), linked.Token)) > 0;)
+            {
+                length += read;
+            }
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is IOException or HttpRequestException
+            || ex is OperationCanceledException && !cancellationToken.IsCancellationRequested)
         {
-            // The status alone still explains the failure.
+            // The detail is optional; the status still explains the failure.
         }
 
+        string detail = Encoding.UTF8.GetString(buffer, 0, length).Trim();
         if (detail.Length > 200) detail = detail[..200];
-        return $"Hosted Git rejected the LFS upload: HTTP {(int)response.StatusCode}{(detail.Length > 0 ? $" {detail}" : "")}";
+        return detail.Length > 0 ? $"{failure} {detail}" : failure;
     }
 
     private static bool Retryable(HttpStatusCode status)
