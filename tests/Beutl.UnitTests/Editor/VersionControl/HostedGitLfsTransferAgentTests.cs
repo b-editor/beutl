@@ -73,10 +73,12 @@ public sealed class HostedGitLfsTransferAgentTests
     public async Task Sends_a_part_again_after_its_response_was_lost()
     {
         var file = new VirtualFile(2 * Part + 3);
-        var server = new TusServer(file) { Parallel = true, LoseResponseAt = Part };
+        // The first part waits, so HEAD cannot show the lost part as passed and only a resend stores it.
+        var server = new TusServer(file) { Parallel = true, LoseResponseAt = Part, HoldFirstUntilSentTwice = Part };
         (_, List<JsonElement> messages) = await RunAsync(server, file);
         Assert.Multiple(() =>
         {
+            Assert.That(server.Attempts.Count(offset => offset == Part), Is.EqualTo(2));
             Assert.That(server.Published, Is.True);
             Assert.That(Completion(messages).TryGetProperty("error", out _), Is.False);
             Assert.That(Progress(messages)[^1], Is.EqualTo(file.Length));
@@ -383,6 +385,11 @@ public sealed class HostedGitLfsTransferAgentTests
         /// </summary>
         public int HoldUntilConcurrent { get; init; } = 1;
         private readonly TaskCompletionSource _concurrent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>Holds the first part until the part at this offset has been sent twice.</summary>
+        public long? HoldFirstUntilSentTwice { get; init; }
+        private readonly TaskCompletionSource _sentTwice = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>The offset of every parallel PATCH, in order of arrival.</summary>
+        public List<long> Attempts { get; } = [];
         public int MaxConcurrentPatches { get; private set; }
         public int NamedStates { get; private set; }
 
@@ -501,10 +508,17 @@ public sealed class HostedGitLfsTransferAgentTests
             int inFlight = Interlocked.Increment(ref _inFlight);
             try
             {
-                lock (_waiting) MaxConcurrentPatches = Math.Max(MaxConcurrentPatches, inFlight);
+                lock (_waiting)
+                {
+                    MaxConcurrentPatches = Math.Max(MaxConcurrentPatches, inFlight);
+                    Attempts.Add(offset);
+                    if (Attempts.Count(attempt => attempt == HoldFirstUntilSentTwice) >= 2) _sentTwice.TrySetResult();
+                }
                 if (inFlight >= HoldUntilConcurrent) _concurrent.TrySetResult();
                 await _concurrent.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
                 byte[] bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+                if (offset == 0 && HoldFirstUntilSentTwice is not null)
+                    await _sentTwice.Task.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
                 // Real transfers take a while, so the other parts' requests overlap this one.
                 await Task.Delay(20, cancellationToken);
                 await _lock.WaitAsync(cancellationToken);
