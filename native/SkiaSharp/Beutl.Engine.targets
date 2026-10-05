@@ -22,14 +22,14 @@
                          Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll')" />
       <_BeutlSkiaNative Include="@(NativeCopyLocalItems)"
                         Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll')" />
-      <ContentWithTargetPath Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE"
-                             Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE')"
-                             TargetPath="licenses/SkiaSharp/Skia.LICENSE"
-                             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="false" Visible="false" />
-      <ContentWithTargetPath Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES"
-                             Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES')"
-                             TargetPath="licenses/SkiaSharp/Skia.NOTICES"
-                             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="false" Visible="false" />
+      <_BeutlSkiaSharpNotice Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE"
+                            Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE')"
+                            TargetPath="licenses/SkiaSharp/Skia.LICENSE" />
+      <_BeutlSkiaSharpNotice Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES"
+                            Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES')"
+                            TargetPath="licenses/SkiaSharp/Skia.NOTICES" />
+      <ContentWithTargetPath Include="@(_BeutlSkiaSharpNotice)"
+                             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" Pack="false" Visible="false" />
     </ItemGroup>
     <Error Condition="'$(_BeutlSkiaSharpFile)' != '' And ('@(_BeutlSkiaRuntime)' != '' Or '@(_BeutlSkiaNative)' != '') And !Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/$(_BeutlSkiaSharpFile)')"
            Text="Beutl requires its patched libSkiaSharp for $(_BeutlSkiaSharpRid). Restore the committed files in src/Beutl.Engine/runtimes, or set BeutlSkiaSharpNativeRoot to the native runtime directory." />
@@ -49,6 +49,16 @@
           Condition="'%(Filename)' == 'libSkiaSharp' And '%(Extension)' == '.pdb' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/%(RuntimeIdentifier)/native/libSkiaSharp.dll')" />
       <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)"
           Condition="'%(Filename)' == 'libSkiaSharp' And '%(Extension)' == '.pdb' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/libSkiaSharp.dll')" />
+    </ItemGroup>
+  </Target>
+
+  <!-- RID-neutral references select the host's notices. Publish only the current project's
+       selection so cross-RID publishes cannot merge different notices at the same path. -->
+  <Target Name="PublishBeutlSkiaSharpNotices" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(_BeutlSkiaSharpNotice)"
+                             RelativePath="%(_BeutlSkiaSharpNotice.TargetPath)"
+                             CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
   </Target>
 </Project>
