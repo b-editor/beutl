@@ -1,9 +1,15 @@
-﻿using Avalonia;
+﻿using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Collections;
 using Beutl.Configuration;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.Views;
 
@@ -13,7 +19,7 @@ namespace Beutl.HeadlessUITests;
 // windows but shrink below that on narrow / high-DPI ones, rather than holding a fixed 600px width that
 // clips. The width checks assert arranged layout bounds only (no pixel readback): frame capture of an
 // inflated shell view crashes the headless host on software Vulkan.
-[TestFixture]
+[TestFixture, NonParallelizable]
 public class EditorHostFallbackTests
 {
     private static Grid GetRecentItemsPanel(EditorHostFallback view)
@@ -149,5 +155,143 @@ public class EditorHostFallbackTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase(1200, false, false)]
+    [TestCase(480, true, false)]
+    [TestCase(1200, true, true)]
+    [TestCase(480, false, true)]
+    public async Task Double_click_shows_progress_only_on_the_opening_row_until_completion(
+        int width, bool dark, bool fail)
+    {
+        await TestReset.ResetShellAsync();
+        CoreList<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
+        string[] original = [.. recentFiles];
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-recent-opening-" + Guid.NewGuid().ToString("N"));
+        string projectFile = Path.Combine(directory, "Opening project.bep");
+        string otherFile = Path.Combine(directory, "Another project.bep");
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<ProjectService.ProjectOpenPreparation?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int attempts = 0;
+        Func<ProjectService.ProjectOpenAttempt, CancellationToken, Task<ProjectService.ProjectOpenPreparation?>>
+            preflight = (_, _) =>
+            {
+                attempts++;
+                started.TrySetResult();
+                return release.Task;
+            };
+
+        var view = new EditorHostFallback();
+        var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
+        var window = new Window
+        {
+            Width = width,
+            Height = 720,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
+        };
+        TestShell.Project.OpeningPreflight += preflight;
+        try
+        {
+            recentFiles.Replace([projectFile, otherFile]);
+            window.Show();
+            window.Content = host;
+            HeadlessTestHelpers.Render();
+            ListBox list = view.FindControl<ListBox>("recentList")!;
+
+            ListBoxItem Row(string path) => list.GetRealizedContainers().OfType<ListBoxItem>()
+                .Single(item => ((FileInfo)item.DataContext!).FullName == path);
+            FluentAvalonia.UI.Controls.FAProgressRing Ring(string path) => Row(path).GetVisualDescendants()
+                .OfType<FluentAvalonia.UI.Controls.FAProgressRing>().Single();
+
+            void DoubleClick(string path)
+            {
+                ListBoxItem row = Row(path);
+                Point point = row.TranslatePoint(new Point(24, row.Bounds.Height / 2), window)!.Value;
+                for (int click = 0; click < 2; click++)
+                {
+                    window.MouseDown(point, MouseButton.Left);
+                    window.MouseUp(point, MouseButton.Left);
+                }
+            }
+
+            Assert.That(Ring(projectFile).IsVisible, Is.False);
+            double originalRowHeight = Row(projectFile).Bounds.Height;
+            DoubleClick(projectFile);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Render();
+
+            var ring = Ring(projectFile);
+            var openingRow = Row(projectFile);
+            double ringLeft = ring.TranslatePoint(default, openingRow)!.Value.X;
+            Assert.Multiple(() =>
+            {
+                Assert.That(view.OpeningFile, Is.EqualTo(projectFile));
+                Assert.That(ring.IsEffectivelyVisible, Is.True);
+                Assert.That(ring.IsIndeterminate, Is.True);
+                Assert.That(openingRow.Bounds.Height, Is.EqualTo(originalRowHeight));
+                Assert.That(Ring(otherFile).IsVisible, Is.False);
+                Assert.That(ringLeft, Is.GreaterThan(openingRow.Bounds.Width - 44));
+                Assert.That(ringLeft + ring.Bounds.Width, Is.LessThanOrEqualTo(openingRow.Bounds.Width));
+            });
+
+            if (Environment.GetEnvironmentVariable("BEUTL_RECENT_OPENING_CAPTURE_DIR") is { Length: > 0 } captureDirectory)
+            {
+                await Task.Delay(600);
+                HeadlessTestHelpers.Render(3);
+                Directory.CreateDirectory(captureDirectory);
+                using var image = window.CaptureRenderedFrame();
+                Assert.That(image, Is.Not.Null);
+                image!.Save(Path.Combine(captureDirectory, $"recent-opening-{width}-{dark}-{fail}.png"), PngBitmapEncoderOptions.Default);
+            }
+
+            // Another double click must not move the indicator or start an overlapping open.
+            DoubleClick(otherFile);
+            Assert.That(attempts, Is.EqualTo(1));
+            Assert.That(view.OpeningFile, Is.EqualTo(projectFile));
+
+            // Recreating row containers through filtering must preserve the active indicator.
+            ComboBox filter = view.FindControl<ComboBox>("FilterComboBox")!;
+            filter.SelectedIndex = 2;
+            HeadlessTestHelpers.Render();
+            filter.SelectedIndex = 1;
+            HeadlessTestHelpers.Render();
+            Assert.That(Ring(projectFile).IsEffectivelyVisible, Is.True);
+            Assert.That(Ring(otherFile).IsVisible, Is.False);
+
+            if (fail)
+                release.TrySetException(new IOException("Project opening failed."));
+            else
+                release.TrySetResult(null);
+            await WaitForOpeningToEndAsync(view);
+            HeadlessTestHelpers.Render();
+            Assert.That(list.GetVisualDescendants().OfType<FluentAvalonia.UI.Controls.FAProgressRing>()
+                .All(control => !control.IsVisible && !control.IsIndeterminate), Is.True);
+        }
+        finally
+        {
+            release.TrySetResult(null);
+            try
+            {
+                await WaitForOpeningToEndAsync(view);
+            }
+            finally
+            {
+                TestShell.Project.OpeningPreflight -= preflight;
+                window.Close();
+                host.DataContext = null;
+                recentFiles.Replace(original);
+                HeadlessTestHelpers.Settle();
+                await TestReset.ResetShellAsync();
+            }
+        }
+    }
+
+    private static async Task WaitForOpeningToEndAsync(EditorHostFallback view)
+    {
+        var timeout = Stopwatch.StartNew();
+        while (view.OpeningFile != null && timeout.Elapsed < TimeSpan.FromSeconds(5))
+            await Task.Delay(10);
+        Assert.That(view.OpeningFile, Is.Null, "The row must stop showing progress when opening ends.");
     }
 }

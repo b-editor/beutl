@@ -5,9 +5,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:sysIO="using:System.IO"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:xaml="using:Avalonia.Markup.Xaml.MarkupExtensions"
              d:DesignHeight="720"
              d:DesignWidth="1280"
              mc:Ignorable="d">
@@ -102,6 +104,7 @@
                          Grid.ColumnSpan="2">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="ContextMenu">
                                 <Template>
                                     <ContextMenu x:DataType="sysIO:FileInfo">
@@ -119,12 +122,31 @@
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="sysIO:FileInfo">
-                            <StackPanel Margin="0,4">
-                                <TextBlock Text="{CompiledBinding Name}" />
-                                <TextBlock FontSize="12"
-                                           Text="{CompiledBinding DirectoryName}"
-                                           Theme="{StaticResource LabelTextBlockStyle}" />
-                            </StackPanel>
+                            <Grid Margin="0,4" ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Text="{CompiledBinding Name}"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="NoWrap" />
+                                    <TextBlock FontSize="12"
+                                               Text="{CompiledBinding DirectoryName}"
+                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="NoWrap"
+                                               Theme="{StaticResource LabelTextBlockStyle}" />
+                                </StackPanel>
+                                <ui:FAProgressRing Grid.Column="1"
+                                                   Width="20"
+                                                   Height="20"
+                                                   Margin="12,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   IsIndeterminate="{CompiledBinding $self.IsVisible}">
+                                    <ui:FAProgressRing.IsVisible>
+                                        <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}">
+                                            <xaml:CompiledBindingExtension Path="FullName" />
+                                            <xaml:CompiledBindingExtension Path="$parent[local:EditorHostFallback].OpeningFile" />
+                                        </MultiBinding>
+                                    </ui:FAProgressRing.IsVisible>
+                                </ui:FAProgressRing>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
