@@ -94,10 +94,11 @@ public sealed class TabSwitcherViewModel : IDisposable
         };
         int direction = execution.CommandName is MainViewExtension.PreviousTabCommandName
             or MainViewExtension.PreviousToolTabCommandName ? -1 : 1;
-        KeyModifiers modifiers = execution.CommandName == MainViewExtension.CreateToolTabCommandName
+        KeyModifiers modifiers = execution.KeyEventArgs?.KeyModifiers ?? KeyModifiers.None;
+        KeyModifiers primaryModifiers = modifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta);
+        modifiers = execution.CommandName == MainViewExtension.CreateToolTabCommandName
             ? KeyModifiers.None
-            : (execution.KeyEventArgs?.KeyModifiers ?? KeyModifiers.None)
-              & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta);
+            : primaryModifiers != KeyModifiers.None ? primaryModifiers : modifiers & KeyModifiers.Shift;
         return Begin(group, direction, modifiers);
     }
 

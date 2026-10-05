@@ -90,39 +90,30 @@ public sealed partial class TabSwitcherView : UserControl
         if (e.Handled || DataContext is not TabSwitcherViewModel vm || e.Key == Key.ImeProcessed) return;
         if (vm.IsOpen.Value)
         {
-            switch (e.Key)
+            if (FindNavigationCommand(e) is { } mappedCommand)
             {
-                case Key.Tab:
-                    if (vm.IsCreating.Value && FindNavigationCommand(e) is { } navigationName)
-                        vm.ExecuteCommand(new(navigationName) { KeyEventArgs = e });
-                    else
+                vm.ExecuteCommand(new(mappedCommand) { KeyEventArgs = e });
+            }
+            else
+            {
+                switch (e.Key)
+                {
+                    case Key.Tab when e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift:
                         vm.MoveSelection(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
-                    break;
-                case Key.F7 when e.KeyModifiers.HasFlag(KeyModifiers.Alt):
-                    if (vm.IsCreating.Value)
-                        vm.ExecuteCommand(new(e.KeyModifiers.HasFlag(KeyModifiers.Shift)
-                            ? MainViewExtension.PreviousToolTabCommandName : MainViewExtension.NextToolTabCommandName)
-                        { KeyEventArgs = e });
-                    else
-                        vm.MoveSelection(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? -1 : 1);
-                    break;
-                case Key.Down: vm.MoveSelection(1); break;
-                case Key.Up: vm.MoveSelection(-1); break;
-                case Key.Left: vm.MoveGroup(-1); break;
-                case Key.Right: vm.MoveGroup(1); break;
-                case Key.Home: vm.Select(vm.SelectedGroup.Value, 0); break;
-                case Key.End: vm.Select(vm.SelectedGroup.Value, vm.Items(vm.SelectedGroup.Value).Count - 1); break;
-                case Key.Enter: Commit(); break;
-                case Key.Escape: vm.Close(); break;
-                default:
-                    if (FindNavigationCommand(e) is { } name)
-                    {
-                        vm.ExecuteCommand(new(name) { KeyEventArgs = e });
-                        FocusSelection();
-                    }
-                    // Keep editor and shell commands from running behind the switcher.
-                    e.Handled = true;
-                    return;
+                        break;
+                    case Key.Down: vm.MoveSelection(1); break;
+                    case Key.Up: vm.MoveSelection(-1); break;
+                    case Key.Left: vm.MoveGroup(-1); break;
+                    case Key.Right: vm.MoveGroup(1); break;
+                    case Key.Home: vm.Select(vm.SelectedGroup.Value, 0); break;
+                    case Key.End: vm.Select(vm.SelectedGroup.Value, vm.Items(vm.SelectedGroup.Value).Count - 1); break;
+                    case Key.Enter: Commit(); break;
+                    case Key.Escape: vm.Close(); break;
+                    default:
+                        // Keep editor and shell commands from running behind the switcher.
+                        e.Handled = true;
+                        return;
+                }
             }
             e.Handled = true;
             ScrollSelectionIntoView();
@@ -156,6 +147,7 @@ public sealed partial class TabSwitcherView : UserControl
             || vm.HeldModifiers == KeyModifiers.None)
             return;
         if (e.Key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin
+            or Key.LeftShift or Key.RightShift
             && (e.KeyModifiers & vm.HeldModifiers) == KeyModifiers.None)
         {
             e.Handled = true;

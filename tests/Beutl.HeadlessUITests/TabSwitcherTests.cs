@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -9,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -335,6 +337,105 @@ public sealed class TabSwitcherTests
     }
 
     [AvaloniaTest]
+    [TestCase(Key.LeftShift)]
+    [TestCase(Key.RightShift)]
+    public async Task Shift_only_navigation_confirms_when_shift_is_released(Key shiftKey)
+    {
+        await using var session = await Session.CreateAsync("shift-only-" + shiftKey);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Shift));
+
+        session.Press(Key.J, RawInputModifiers.Shift);
+        IDockable selected = session.Switcher.SelectedItem!.Tool!;
+        Assert.That(session.Switcher.HeldModifiers, Is.EqualTo(KeyModifiers.Shift));
+        session.Release(shiftKey);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(MainViewExtension.NextTabCommandName, Key.J, Key.Tab, KeyModifiers.Control, RawInputModifiers.Control)]
+    [TestCase(MainViewExtension.NextToolTabCommandName, Key.K, Key.F7, KeyModifiers.Alt, RawInputModifiers.Alt)]
+    public async Task Removed_navigation_gestures_do_not_move_an_open_switcher(
+        string command, Key replacement, Key original, KeyModifiers modifiers, RawInputModifiers rawModifiers)
+    {
+        await using var session = await Session.CreateAsync("open-remap-" + original);
+        using var gestures = new NavigationGestures();
+        gestures.Set(command, new(replacement, modifiers));
+
+        session.Press(replacement, rawModifiers);
+        TabSwitcherItem selected = session.Switcher.SelectedItem!;
+        session.Press(original, rawModifiers);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(selected));
+        session.Press(replacement, rawModifiers);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[2]));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Remapped_tab_gestures_keep_the_command_direction_on_repeated_presses(bool reverse)
+    {
+        await using var session = await Session.CreateAsync("mapped-direction-" + reverse);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, reverse
+            ? new(Key.J, KeyModifiers.Control)
+            : new(Key.Tab, KeyModifiers.Control | KeyModifiers.Shift));
+        gestures.Set(MainViewExtension.PreviousTabCommandName, reverse
+            ? new(Key.Tab, KeyModifiers.Control)
+            : new(Key.J, KeyModifiers.Control));
+        RawInputModifiers modifiers = RawInputModifiers.Control | (reverse ? RawInputModifiers.None : RawInputModifiers.Shift);
+
+        session.Press(Key.Tab, modifiers);
+        int first = reverse ? session.Switcher.Tools.Count - 1 : 1;
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[first]));
+        session.Press(Key.Tab, modifiers);
+        int next = first + (reverse ? -1 : 1);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[next]));
+        IDockable selected = session.Switcher.SelectedItem!.Tool!;
+        session.Release(Key.LeftCtrl, reverse ? RawInputModifiers.None : RawInputModifiers.Shift);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Bare_tab_and_shift_tab_move_a_persistent_picker_after_navigation_is_remapped()
+    {
+        await using var session = await Session.CreateAsync("bare-picker-tab");
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Control));
+        await TestShell.MainViewModel.ExecuteAsync(new(MainViewExtension.NextTabCommandName));
+        HeadlessTestHelpers.Settle();
+        TabSwitcherItem selected = session.Switcher.SelectedItem!;
+
+        session.Press(Key.Tab);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[2]));
+        session.Press(Key.Tab, RawInputModifiers.Shift);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(selected));
+    }
+
+    [AvaloniaTest]
+    public async Task Back_button_has_a_localized_accessible_name_and_tooltip()
+    {
+        await using var session = await Session.CreateAsync("accessible-back");
+        session.Press(Key.T, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control);
+        HeadlessTestHelpers.Render(2);
+        Button back = session.Overlay.FindControl<Button>("BackButton")!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(AutomationProperties.GetName(back), Is.EqualTo(Beutl.Language.Strings.Back));
+            Assert.That(ToolTip.GetTip(back), Is.EqualTo(Beutl.Language.Strings.Back));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(1000, false)]
     [TestCase(1000, true)]
     [TestCase(420, false)]
@@ -373,6 +474,28 @@ public sealed class TabSwitcherTests
         finally
         {
             CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    private sealed class NavigationGestures : IDisposable
+    {
+        private readonly ContextCommandManager _manager = TestShell.MainViewModel.ContextCommandManager!;
+        private readonly OSPlatform _platform = OperatingSystem.IsMacOS() ? OSPlatform.OSX
+            : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
+        private readonly List<(ContextCommandEntry Entry, KeyGesture? Gesture)> _originals = [];
+
+        public void Set(string name, KeyGesture gesture)
+        {
+            ContextCommandEntry entry = _manager.GetDefinitions<MainViewExtension>()
+                .Single(command => command.Definition.Name == name);
+            _originals.Add((entry, entry.KeyGestures.First(item => item.Platform == _platform).KeyGesture));
+            _manager.ChangeKeyGesture(entry, gesture, _platform);
+        }
+
+        public void Dispose()
+        {
+            foreach (var original in _originals)
+                _manager.ChangeKeyGesture(original.Entry, original.Gesture, _platform);
         }
     }
 
