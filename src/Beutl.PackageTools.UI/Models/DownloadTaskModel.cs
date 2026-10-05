@@ -68,10 +68,14 @@ public class DownloadTaskModel : IProgress<double>
 
         try
         {
-            if (Conflict)
+            if (!_model.IsRemote || Conflict)
             {
                 Task<bool>? task;
-                if (!IsLocalSourcePreferred.Value.HasValue)
+                if (!_model.IsRemote)
+                {
+                    task = Task.FromResult(true);
+                }
+                else if (!IsLocalSourcePreferred.Value.HasValue)
                 {
                     _userInput = new TaskCompletionSource<bool>();
                     task = _userInput.Task;
