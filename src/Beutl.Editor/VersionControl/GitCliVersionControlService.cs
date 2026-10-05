@@ -8936,11 +8936,14 @@ internal sealed class GitCliVersionControlService :
                 {
                     if (remote.HasCredentials)
                     {
-                        await runner.RunAsync(
-                            repository,
-                            ["config", "--file", stagingPath, "--replace-all", $"credential.{url}.username", remote.Username!],
-                            GitCommandOptions.Local,
-                            updateCancellation).ConfigureAwait(false);
+                        if (remote.Username is { } username)
+                        {
+                            await runner.RunAsync(
+                                repository,
+                                ["config", "--file", stagingPath, "--replace-all", $"credential.{url}.username", username],
+                                GitCommandOptions.Local,
+                                updateCancellation).ConfigureAwait(false);
+                        }
                         await runner.RunAsync(
                             repository,
                             ["config", "--file", stagingPath, "--replace-all", $"credential.{url}.useHttpPath", "true"],

@@ -7122,6 +7122,50 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
     }
 
+    [TestCase("example.invalid", "x-oauth-basic")]
+    [TestCase("example.invalid", "")]
+    [TestCase("github.com", "x-oauth-basic")]
+    [TestCase("github.com", "")]
+    public async Task SetRemoteAsync_keeps_oauth_user_tokens_out_of_configuration_and_arguments(string host, string password)
+    {
+        const string token = "synthetic-oauth-token";
+        string remoteUrl = $"https://{host}/repository.git";
+        await RunGitAsync("config", "credential.helper", "store --file .git/test-credentials");
+        var runner = new CredentialHelperRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(), Repository, watcher: null, _ => runner);
+
+        await service.SetRemoteAsync($"https://{token}:{password}@{host}/repository.git", CancellationToken.None);
+
+        GitCommandResult credentials = await runner.RunAsync(
+            Repository,
+            ["credential", "fill"],
+            GitCommandOptions.Local with { StandardInput = $"url={remoteUrl}\n\n" },
+            CancellationToken.None);
+        Assert.That(credentials.Stdout, Does.Contain(token));
+        Assert.That(await File.ReadAllTextAsync(Path.Combine(Root, ".git", "config")), Does.Not.Contain(token));
+        Assert.That(runner.Arguments.SelectMany(static arguments => arguments)
+            .Any(argument => argument.Contains(token, StringComparison.Ordinal)), Is.False);
+        Assert.That((await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim(), Is.EqualTo(remoteUrl));
+    }
+
+    [Test]
+    public async Task SetRemoteAsync_selects_github_oauth_credentials_despite_a_default_account()
+    {
+        await RunGitAsync("config", "credential.helper", "store --file .git/test-credentials");
+        await RunGitAsync("config", "credential.username", "previous-user");
+        using var service = CreateService();
+
+        await service.SetRemoteAsync("https://synthetic-oauth-token:x-oauth-basic@github.com/owner/repository.git", CancellationToken.None);
+
+        GitCommandResult credentials = await Runner.RunAsync(
+            Repository,
+            ["credential", "fill"],
+            GitCommandOptions.Local with { StandardInput = "url=https://github.com/owner/repository.git\n\n" },
+            CancellationToken.None);
+        Assert.That(credentials.Stdout.Split('\n'), Does.Contain("password=synthetic-oauth-token"));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task SetRemoteAsync_tries_next_discovered_helper_on_storage_failure(bool failLookup)

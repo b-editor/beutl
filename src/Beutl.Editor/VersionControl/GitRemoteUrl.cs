@@ -11,17 +11,19 @@ internal sealed class GitRemoteUrl
 {
     private readonly string? _username;
     private readonly string? _password;
+    private readonly bool _usernameIsSecret;
 
-    private GitRemoteUrl(string url, string? username = null, string? password = null)
+    private GitRemoteUrl(string url, string? username = null, string? password = null, bool usernameIsSecret = false)
     {
         Url = url;
         _username = username;
         _password = password;
+        _usernameIsSecret = usernameIsSecret;
     }
 
     public string Url { get; }
 
-    public string? Username => _username;
+    public string? Username => _usernameIsSecret ? null : _username;
 
     public bool HasCredentials => _password is not null;
 
@@ -66,7 +68,17 @@ internal sealed class GitRemoteUrl
             }
 
             var remote = new UriBuilder(uri) { UserName = string.Empty, Password = string.Empty };
-            return new GitRemoteUrl(remote.Uri.AbsoluteUri, username, password);
+            bool usernameIsSecret = password is "" or "x-oauth-basic";
+            if (usernameIsSecret && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+            {
+                // GitHub also accepts the token as the password; the nonempty username is not
+                // used for authentication. Keep the token in the helper's password field.
+                password = username;
+                username = "x-access-token";
+                usernameIsSecret = false;
+            }
+
+            return new GitRemoteUrl(remote.Uri.AbsoluteUri, username, password, usernameIsSecret);
         }
 
         if (Uri.UnescapeDataString(uri.UserInfo).Contains(':'))
@@ -138,9 +150,12 @@ internal sealed class GitRemoteUrl
             "-c", "core.askpass=",
             // Use the account that will be saved in this URL's local configuration, even when
             // a global or URL-specific default names another account.
-            "-c", $"credential.{Url}.username={_username}",
             "-c", $"credential.{Url}.useHttpPath=true",
         ];
+        if (Username is { } username)
+        {
+            arguments.AddRange(["-c", $"credential.{Url}.username={username}"]);
+        }
         if (helper is not null)
         {
             arguments.AddRange(["-c", "credential.helper=", "-c", $"credential.helper={helper}"]);
