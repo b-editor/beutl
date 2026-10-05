@@ -26,18 +26,25 @@ jobs:
             echo "::error::Set the NUGET_SOURCE repository secret to the NuGet feed URL."
             exit 1
           fi
+          case "$NUGET_SOURCE" in
+            [Hh][Tt][Tt][Pp][Ss]://*) ;;
+            *)
+              echo "::error::NUGET_SOURCE must use HTTPS."
+              exit 1
+              ;;
+          esac
           if [ -z "$NUGET_API_KEY" ]; then
             echo "::error::Set the NUGET_API_KEY repository secret to the publishing API key."
             exit 1
           fi
 
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
