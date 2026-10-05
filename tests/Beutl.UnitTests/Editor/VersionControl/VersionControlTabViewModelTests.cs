@@ -2951,6 +2951,62 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Set_remote_displays_the_url_without_the_supplied_credentials()
+    {
+        const string inputUrl = "https://user:secret@example.invalid/repository.git";
+        const string remoteUrl = "https://example.invalid/repository.git";
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(inputUrl, It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((_, _) =>
+            {
+                service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync([new RemoteInfo("origin", remoteUrl)]);
+                return Task.CompletedTask;
+            });
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        string? prefilledUrl = null;
+        viewModel.RequestRemoteUrlAsync = (currentUrl, _) =>
+        {
+            prefilledUrl = currentUrl;
+            return Task.FromResult<string?>(currentUrl is null ? inputUrl : null);
+        };
+        await viewModel.Initialization;
+
+        await viewModel.SetRemoteAsync();
+        await viewModel.SetRemoteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRemote.Value, Is.True);
+            Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(remoteUrl));
+            Assert.That(prefilledUrl, Is.EqualTo(remoteUrl));
+        });
+    }
+
+    [Test]
+    public async Task Set_remote_contains_credential_storage_failure_and_reenables_the_command()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new GitCredentialStorageException());
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://user:secret@example.invalid/repository.git");
+        await viewModel.Initialization;
+
+        await viewModel.SetRemoteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Configure_remote_serializes_duplicate_and_remote_operation_requests()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();

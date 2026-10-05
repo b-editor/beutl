@@ -2537,6 +2537,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RemoteUrl" xml:space="preserve">
     <value>リモート URL</value>
   </data>
+  <data name="VersionControl_RemoteCredentialsSaveFailed" xml:space="preserve">
+    <value>入力された認証情報を保存できませんでした。利用可能な Git credential helper を設定して、もう一度お試しください。</value>
+  </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
     <value>リモートを設定…</value>
   </data>

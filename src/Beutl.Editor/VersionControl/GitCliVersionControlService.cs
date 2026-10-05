@@ -1701,9 +1701,9 @@ internal sealed class GitCliVersionControlService :
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
-        ValidateRemoteUrl(url);
+        GitRemoteUrl remote = GitRemoteUrl.Parse(url);
         return RunSerializedAsync(
-            () => SetRemoteCoreAsync(url, cancellationToken),
+            () => SetRemoteCoreAsync(remote, cancellationToken),
             cancellationToken);
     }
 
@@ -8908,7 +8908,7 @@ internal sealed class GitCliVersionControlService :
     }
 
     private async Task SetRemoteCoreAsync(
-        string url,
+        GitRemoteUrl remote,
         CancellationToken cancellationToken)
     {
         // Like plain Git, configuring the remote and pushing leave the worktree and the index alone, so
@@ -8916,7 +8916,10 @@ internal sealed class GitCliVersionControlService :
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         bool isFirstRemote = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count == 0;
-        if (isFirstRemote)
+        string? credentialHelper = await remote.StoreCredentialsAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        string url = remote.Url;
+        if (isFirstRemote && !remote.HasCredentials)
         {
             await runner.RunAsync(
                 repository,
@@ -8931,6 +8934,38 @@ internal sealed class GitCliVersionControlService :
                 runner,
                 async (stagingPath, updateCancellation) =>
                 {
+                    if (remote.HasCredentials)
+                    {
+                        await runner.RunAsync(
+                            repository,
+                            ["config", "--file", stagingPath, "--replace-all", $"credential.{url}.useHttpPath", "true"],
+                            GitCommandOptions.Local,
+                            updateCancellation).ConfigureAwait(false);
+                        if (credentialHelper is not null)
+                        {
+                            string helperKey = $"credential.{url}.helper";
+                            await runner.RunAsync(
+                                repository,
+                                ["config", "--file", stagingPath, "--replace-all", helperKey, ""],
+                                GitCommandOptions.Local,
+                                updateCancellation).ConfigureAwait(false);
+                            await runner.RunAsync(
+                                repository,
+                                ["config", "--file", stagingPath, "--add", helperKey, credentialHelper],
+                                GitCommandOptions.Local,
+                                updateCancellation).ConfigureAwait(false);
+                        }
+                    }
+
+                    if (isFirstRemote)
+                    {
+                        await runner.RunAsync(
+                            repository,
+                            ["config", "--file", stagingPath, "--replace-all", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"],
+                            GitCommandOptions.Local,
+                            updateCancellation).ConfigureAwait(false);
+                    }
+
                     // Separate push URLs stay as the user configured them, as with git remote set-url. Earlier
                     // Beutl versions also wrote the fetch URL as the push URL, and that copy would keep pushes
                     // going to the old repository, so a push URL that only repeats the old fetch URL goes.
@@ -13347,43 +13382,6 @@ internal sealed class GitCliVersionControlService :
             throw new InvalidOperationException(
                 $"The required project path '{path}' is ignored by the repository. "
                 + "Update the repository's ignore rules before enabling version control.");
-        }
-    }
-
-    private static void ValidateRemoteUrl(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
-        {
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(uri.Query)
-            || !string.IsNullOrEmpty(uri.Fragment))
-        {
-            throw new ArgumentException(
-                "Remote URLs must not embed credentials. Configure a Git credential helper instead.",
-                nameof(url));
-        }
-
-        if (string.IsNullOrEmpty(uri.UserInfo))
-        {
-            return;
-        }
-
-        if (Uri.UnescapeDataString(uri.UserInfo).Contains(':'))
-        {
-            throw new ArgumentException(
-                "Remote URLs must not embed credentials. Configure a Git credential helper instead.",
-                nameof(url));
-        }
-
-        // An SSH user name only selects the account. Over HTTP the user name can itself be an access token,
-        // which the repository configuration would keep in plain text.
-        if (uri.Scheme is not ("ssh" or "git+ssh"))
-        {
-            throw new ArgumentException(
-                "Only SSH remote URLs may include a user name. Remove it and configure a Git credential helper instead.",
-                nameof(url));
         }
     }
 

@@ -9,6 +9,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
@@ -1032,6 +1034,91 @@ public class VersionControlTabViewTests
             }
 
             window.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(420, false)]
+    [TestCase(420, true)]
+    [TestCase(900, false)]
+    [TestCase(900, true)]
+    public async Task Remote_url_prompt_accepts_credentials_and_prefills_the_clean_url(int width, bool light)
+    {
+        await TestReset.ResetShellAsync();
+        using var gitEnvironment = new IsolatedGitEnvironment();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? previousGitPath = config.GitExecutablePath;
+        var window = new Window
+        {
+            Width = width,
+            Height = 480,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+        };
+        VersionControlPickerFlyout? prompt = null;
+        try
+        {
+            config.GitExecutablePath = ProbeGitOrIgnore();
+            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"remote-credentials-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640, 480, 30, 44100, "remote-credentials", location))!;
+            TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))),
+                Is.True);
+            IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
+            RunGit(config.GitExecutablePath!, service.Repository!.RepoRoot,
+                "config", "credential.helper", "store --file .git/test-credentials");
+            HeadlessTestHelpers.Settle();
+            IEditorContext editorContext = TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Assert.That(VersionControlTabExtension.Instance.TryCreateContext(editorContext, out IToolContext? context), Is.True);
+            using var viewModel = (VersionControlTabViewModel)context!;
+            var view = new VersionControlTabView { DataContext = viewModel };
+            prompt = view.PromptFlyout;
+            window.Content = view;
+            window.Show();
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+
+            Task configure = viewModel.SetRemoteAsync();
+            HeadlessTestHelpers.Render();
+            Assert.That(prompt.IsOpen, Is.True);
+            prompt.PrimaryTextBox.Text = "https://user:secret@example.invalid/repository.git";
+            GetPickerButton(prompt, "AcceptButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await configure;
+            HeadlessTestHelpers.Render();
+            const string remoteUrl = "https://example.invalid/repository.git";
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.HasRemote.Value, Is.True);
+                Assert.That(viewModel.RemoteUrl.Value, Is.EqualTo(remoteUrl));
+            });
+
+            Task configureAgain = viewModel.SetRemoteAsync();
+            HeadlessTestHelpers.Render();
+            Assert.That(prompt.PrimaryTextBox.Text, Is.EqualTo(remoteUrl));
+            if (Environment.GetEnvironmentVariable("BEUTL_REMOTE_CREDENTIALS_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var image = TopLevel.GetTopLevel(prompt.PrimaryTextBox)!.CaptureRenderedFrame();
+                Assert.That(image, Is.Not.Null);
+                image!.Save(Path.Combine(directory, $"remote-url-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
+            }
+
+            GetPickerButton(prompt, "DismissButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await configureAgain;
+        }
+        finally
+        {
+            if (prompt?.IsOpen == true)
+            {
+                prompt.Hide();
+            }
+
+            window.Close();
+            config.GitExecutablePath = previousGitPath;
             await TestReset.ResetShellAsync();
         }
     }

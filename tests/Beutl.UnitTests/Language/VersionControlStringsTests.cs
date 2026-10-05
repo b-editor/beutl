@@ -65,6 +65,7 @@ public class VersionControlStringsTests
         "VersionControl_EnclosingRepositoryScopeFormat",
         "VersionControl_AdoptExistingRepository",
         "VersionControl_RemoteUrl",
+        "VersionControl_RemoteCredentialsSaveFailed",
         "VersionControl_SetRemote",
         "VersionControl_SetRemoteTitle",
         "VersionControl_UpToDate",
