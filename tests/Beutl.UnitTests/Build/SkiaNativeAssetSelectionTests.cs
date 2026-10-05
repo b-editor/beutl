@@ -120,6 +120,13 @@ public class SkiaNativeAssetSelectionTests
             await process.WaitForExitAsync(timeout.Token);
             return (process.ExitCode, await stdout + await stderr);
         }
+        catch (OperationCanceledException error) when (timeout.IsCancellationRequested)
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            throw new TimeoutException("dotnet " + string.Join(' ', arguments) + " timed out.\n" + await stdout + await stderr, error);
+        }
         finally
         {
             if (!process.HasExited)
