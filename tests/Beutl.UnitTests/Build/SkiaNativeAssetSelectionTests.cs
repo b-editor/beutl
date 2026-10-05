@@ -46,6 +46,32 @@ public class SkiaNativeAssetSelectionTests
             Assert.That(notices[0].GetProperty("TargetPath").GetString(), Is.EqualTo("licenses/SkiaSharp/Skia.LICENSE"));
     }
 
+    [TestCase("linux-x64")]
+    [TestCase("linux-arm64")]
+    [TestCase("win-x64")]
+    [TestCase("win-arm64")]
+    [TestCase("osx-arm64")]
+    public async Task PublishUsesTargetNoticesWithRidNeutralEngineReference(string runtimeIdentifier)
+    {
+        using var fixture = new PublishFixture();
+        (int exitCode, string output) = await fixture.Publish(runtimeIdentifier);
+        Assert.That(exitCode, Is.Zero, output);
+        string noticesDirectory = Path.Combine(fixture.PublishDirectory, "licenses", "SkiaSharp");
+        if (runtimeIdentifier.StartsWith("osx-", StringComparison.Ordinal))
+        {
+            Assert.That(Directory.Exists(noticesDirectory), Is.False, "Host Linux notices must not enter a macOS publish.");
+        }
+        else
+        {
+            foreach (string notice in new[] { "Skia.LICENSE", "Skia.NOTICES" })
+                Assert.That(File.ReadAllText(Path.Combine(noticesDirectory, notice)), Is.EqualTo(runtimeIdentifier + ":" + notice));
+            Assert.That(Directory.GetFiles(noticesDirectory), Has.Length.EqualTo(2));
+        }
+
+        Assert.That(File.ReadAllText(Path.Combine(fixture.PublishDirectory, "licenses", "Engine.NOTICE")),
+            Is.EqualTo("engine notice"), "Other content from project references must still be published.");
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task EngineConsumersStillRejectAnIncompatibleNativeVersion(bool ridSpecific)
@@ -66,6 +92,106 @@ public class SkiaNativeAssetSelectionTests
         Assert.That(output, Does.Contain("requires its patched libSkiaSharp"));
     }
 
+    private static string FindRepository()
+    {
+        DirectoryInfo? repository = new(AppContext.BaseDirectory);
+        while (repository != null && !File.Exists(Path.Combine(repository.FullName, "native", "SkiaSharp", "Beutl.Engine.targets")))
+            repository = repository.Parent;
+        return repository?.FullName ?? throw new InvalidOperationException("Beutl repository not found.");
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunDotNet(string repository, params string[] arguments)
+    {
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = repository,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (string argument in arguments)
+            start.ArgumentList.Add(argument);
+        using Process process = Process.Start(start)!;
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+            return (process.ExitCode, await stdout + await stderr);
+        }
+        catch (OperationCanceledException error) when (timeout.IsCancellationRequested)
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            throw new TimeoutException("dotnet " + string.Join(' ', arguments) + " timed out.\n" + await stdout + await stderr, error);
+        }
+        finally
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+    }
+
+    private sealed class PublishFixture : IDisposable
+    {
+        private readonly string _directory = Path.Combine(Path.GetTempPath(), "beutl-skia-publish-" + Guid.NewGuid().ToString("N"));
+        private readonly string _repository = FindRepository();
+        private readonly string _project;
+
+        public PublishFixture()
+        {
+            string nativeRoot = Path.Combine(_directory, "native");
+            foreach (string rid in new[] { "linux-x64", "linux-arm64", "win-x64", "win-arm64" })
+            {
+                string nativeDirectory = Path.Combine(nativeRoot, "runtimes", rid, "native");
+                Directory.CreateDirectory(nativeDirectory);
+                foreach (string notice in new[] { "Skia.LICENSE", "Skia.NOTICES" })
+                    File.WriteAllText(Path.Combine(nativeDirectory, notice), rid + ":" + notice);
+            }
+
+            foreach (string name in new[] { "Beutl.Engine", "Consumer" })
+            {
+                string projectDirectory = Path.Combine(_directory, name);
+                Directory.CreateDirectory(projectDirectory);
+                var items = new XElement("ItemGroup");
+                if (name == "Consumer")
+                {
+                    // Match the SDK's RID-neutral project-reference build during a cross-RID publish.
+                    items.Add(new XElement("ProjectReference", new XAttribute("Include", "../Beutl.Engine/Beutl.Engine.csproj"),
+                        new XAttribute("GlobalPropertiesToRemove", "RuntimeIdentifier;SelfContained")));
+                }
+                else
+                {
+                    File.WriteAllText(Path.Combine(projectDirectory, "Engine.notice"), "engine notice");
+                    items.Add(new XElement("None", new XAttribute("Update", "Engine.notice"),
+                        new XAttribute("TargetPath", "licenses/Engine.NOTICE"),
+                        new XAttribute("CopyToOutputDirectory", "PreserveNewest"),
+                        new XAttribute("CopyToPublishDirectory", "PreserveNewest")));
+                }
+
+                var project = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"),
+                    new XElement("PropertyGroup",
+                        new XElement("TargetFramework", "net10.0"),
+                        new XElement("NETCoreSdkRuntimeIdentifier", "linux-x64"),
+                        new XElement("UseAppHost", "false"),
+                        new XElement("BeutlSkiaSharpNativeRoot", nativeRoot + Path.DirectorySeparatorChar)),
+                    items,
+                    new XElement("Import", new XAttribute("Project", Path.Combine(_repository, "native", "SkiaSharp", "Beutl.Engine.targets"))));
+                project.Save(Path.Combine(projectDirectory, name + ".csproj"));
+            }
+            _project = Path.Combine(_directory, "Consumer", "Consumer.csproj");
+        }
+
+        public string PublishDirectory => Path.Combine(_directory, "publish");
+
+        public Task<(int ExitCode, string Output)> Publish(string runtimeIdentifier) => RunDotNet(_repository,
+            "publish", _project, "--runtime", runtimeIdentifier, "--self-contained", "false", "--output", PublishDirectory, "--nologo");
+
+        public void Dispose() => Directory.Delete(_directory, recursive: true);
+    }
+
     private sealed class AssetFixture : IDisposable
     {
         private readonly string _directory = Path.Combine(Path.GetTempPath(), "beutl-skia-assets-" + Guid.NewGuid().ToString("N"));
@@ -74,10 +200,7 @@ public class SkiaNativeAssetSelectionTests
 
         public AssetFixture(string referenceKind, bool ridSpecific, string version, bool useBundledAssets = false)
         {
-            DirectoryInfo? repository = new(AppContext.BaseDirectory);
-            while (repository != null && !File.Exists(Path.Combine(repository.FullName, "native", "SkiaSharp", "Beutl.Engine.targets")))
-                repository = repository.Parent;
-            _repository = repository?.FullName ?? throw new InvalidOperationException("Beutl repository not found.");
+            _repository = FindRepository();
             string nativeRoot = useBundledAssets
                 ? Path.Combine(_repository, "src", "Beutl.Engine")
                 : Path.Combine(_directory, "patched");
@@ -131,33 +254,8 @@ public class SkiaNativeAssetSelectionTests
         public string StockLibrary { get; }
         public string PatchedLibrary { get; }
 
-        public async Task<(int ExitCode, string Output)> Resolve()
-        {
-            var start = new ProcessStartInfo("dotnet")
-            {
-                WorkingDirectory = _repository,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            };
-            foreach (string argument in new[] { "msbuild", _project, "-nologo", "-t:ResolvePackageAssets",
-                         $"-getItem:{ItemName},ContentWithTargetPath" })
-                start.ArgumentList.Add(argument);
-            using Process process = Process.Start(start)!;
-            Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-            Task<string> stderr = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-            try
-            {
-                await process.WaitForExitAsync(timeout.Token);
-                return (process.ExitCode, await stdout + await stderr);
-            }
-            finally
-            {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
-            }
-        }
+        public Task<(int ExitCode, string Output)> Resolve() => RunDotNet(_repository,
+            "msbuild", _project, "-nologo", "-t:ResolvePackageAssets", $"-getItem:{ItemName},ContentWithTargetPath");
 
         public void Dispose() => Directory.Delete(_directory, recursive: true);
     }
