@@ -430,6 +430,9 @@
         <!-- コマンドパレット -->
         <views:CommandPaletteView Grid.RowSpan="3"
                                   DataContext="{Binding CommandPalette}" />
+        <views:TabSwitcherView x:Name="TabSwitcherOverlay"
+                               Grid.RowSpan="3"
+                               DataContext="{Binding TabSwitcher}" />
     </Grid>
 
 </UserControl>

@@ -7,6 +7,11 @@ namespace Beutl.Services.PrimitiveImpls;
 public class MainViewExtension : ViewExtension
 {
     public const string ShowCommandPaletteCommandName = "ShowCommandPalette";
+    public const string NextTabCommandName = "NextTab";
+    public const string PreviousTabCommandName = "PreviousTab";
+    public const string NextToolTabCommandName = "NextToolTab";
+    public const string PreviousToolTabCommandName = "PreviousToolTab";
+    public const string CreateToolTabCommandName = "CreateToolTab";
 
     public static readonly MainViewExtension Instance = new();
 
@@ -16,6 +21,16 @@ public class MainViewExtension : ViewExtension
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
+        new(NextTabCommandName, Strings.TabSwitcher_Next, "",
+        [new ContextCommandKeyGesture("Ctrl+Tab")]),
+        new(PreviousTabCommandName, Strings.TabSwitcher_Previous, "",
+        [new ContextCommandKeyGesture("Ctrl+Shift+Tab")]),
+        new(NextToolTabCommandName, Strings.TabSwitcher_NextTool, "",
+        [new ContextCommandKeyGesture("Alt+F7"), new ContextCommandKeyGesture("Alt+Tab")]),
+        new(PreviousToolTabCommandName, Strings.TabSwitcher_PreviousTool, "",
+        [new ContextCommandKeyGesture("Alt+Shift+F7"), new ContextCommandKeyGesture("Alt+Shift+Tab")]),
+        new(CreateToolTabCommandName, Strings.TabSwitcher_Create, "",
+        [new ContextCommandKeyGesture("Ctrl+T"), new ContextCommandKeyGesture("Cmd+T", OSPlatform.OSX)]),
         new("CreateNewProject", Strings.CreateNewProject, "",
         [
             new ContextCommandKeyGesture("Ctrl+Shift+N"),

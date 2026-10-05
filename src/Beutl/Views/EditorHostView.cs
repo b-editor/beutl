@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Views;
 
@@ -24,7 +25,7 @@ public sealed class EditorHostView : ContentControl
         {
             if (viewModel.Extension.TryCreateEditor(viewModel.Object, out control))
             {
-                var cm = App.GetContextCommandManager();
+                var cm = AppHelper.GetContextCommandManager?.Invoke();
                 cm?.Attach(control, viewModel.Extension);
 
                 control.DataContext = viewModel;
