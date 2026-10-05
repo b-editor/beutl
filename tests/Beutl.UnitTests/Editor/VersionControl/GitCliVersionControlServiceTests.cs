@@ -7091,6 +7091,86 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SetRemoteAsync_uses_supplied_account_instead_of_existing_default(bool urlSpecific)
+    {
+        const string remoteUrl = "https://example.invalid/repository.git";
+        string defaultKey = urlSpecific ? $"credential.{remoteUrl}.username" : "credential.username";
+        await RunGitAsync("config", "credential.helper", "store --file .git/test-credentials");
+        await RunGitAsync("config", defaultKey, "previous-user");
+        using var service = CreateService();
+
+        await service.SetRemoteAsync("https://supplied-user:secret@example.invalid/repository.git", CancellationToken.None);
+
+        GitCommandResult credentials = await Runner.RunAsync(
+            Repository,
+            ["credential", "fill"],
+            GitCommandOptions.Local with { StandardInput = $"url={remoteUrl}\n\n" },
+            CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(credentials.Stdout.Split('\n'), Does.Contain("username=supplied-user"));
+            Assert.That(credentials.Stdout.Split('\n'), Does.Contain("password=secret"));
+        });
+        Assert.That((await RunGitAsync("config", "--local", "--get", $"credential.{remoteUrl}.username")).Stdout.Trim(),
+            Is.EqualTo("supplied-user"));
+        Assert.That((await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim(), Is.EqualTo(remoteUrl));
+        if (!urlSpecific)
+        {
+            Assert.That((await RunGitAsync("config", "--get", defaultKey)).Stdout.Trim(), Is.EqualTo("previous-user"));
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SetRemoteAsync_tries_next_discovered_helper_on_storage_failure(bool failLookup)
+    {
+        const string remoteUrl = "https://example.invalid/repository.git";
+        var runner = new CredentialHelperRunner(CreateRunner())
+        {
+            AvailableHelpers = "credential-manager\ncredential-manager-core\n",
+            SimulateStorage = true,
+            FailingHelper = "manager",
+            FailLookupForFailingHelper = failLookup,
+        };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(), Repository, watcher: null, _ => runner);
+
+        await service.SetRemoteAsync("https://user:secret@example.invalid/repository.git", CancellationToken.None);
+
+        Assert.That(runner.ApprovedHelpers, Is.EqualTo(new[] { "manager", "manager-core" }));
+        Assert.That((await RunGitAsync("config", "--get-urlmatch", "credential.helper", remoteUrl)).Stdout.Trim(),
+            Is.EqualTo("manager-core"));
+        Assert.That((await RunGitAsync("remote", "get-url", "origin")).Stdout.Trim(), Is.EqualTo(remoteUrl));
+    }
+
+    [Test]
+    public async Task SetRemoteAsync_keeps_remote_when_all_discovered_helpers_fail()
+    {
+        await RunGitAsync("remote", "add", "origin", "https://example.invalid/old.git");
+        string configPath = Path.Combine(Root, ".git", "config");
+        string originalConfig = await File.ReadAllTextAsync(configPath);
+        var runner = new CredentialHelperRunner(CreateRunner())
+        {
+            AvailableHelpers = "credential-manager\ncredential-manager-core\n",
+            SimulateStorage = true,
+            FailStorage = true,
+        };
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(), Repository, watcher: null, _ => runner);
+
+        GitCredentialStorageException? exception = await Assert.ThrowsAsync<GitCredentialStorageException>(async () =>
+            await service.SetRemoteAsync("https://user:secret@example.invalid/new.git", CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.ApprovedHelpers, Is.EqualTo(new[] { "manager", "manager-core" }));
+            Assert.That(exception!.ToString(), Does.Not.Contain("secret"));
+        });
+        Assert.That(await File.ReadAllTextAsync(configPath), Is.EqualTo(originalConfig));
+    }
+
     [Test]
     public async Task SetRemoteAsync_configures_an_available_helper_only_for_the_supplied_url()
     {
@@ -7198,6 +7278,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(exception.InnerException, Is.Null);
         });
         Assert.That(await service.GetRemotesAsync(CancellationToken.None), Is.Empty);
+        Assert.That(runner.Arguments.Any(static arguments => arguments.SequenceEqual(new[] { "help", "-a" })), Is.False);
     }
 
     [TestCase("https://user:secret%0Ausername=other@example.invalid/repository.git")]
@@ -9071,6 +9152,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public bool FailStorage { get; init; }
 
+        public string? FailingHelper { get; init; }
+
+        public bool FailLookupForFailingHelper { get; init; }
+
+        public List<string?> ApprovedHelpers { get; } = [];
+
         public string? ApprovedCredentials { get; private set; }
 
         public bool HasActiveProcess => inner.HasActiveProcess;
@@ -9096,7 +9183,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             if (SimulateStorage && arguments.TakeLast(2).SequenceEqual(new[] { "credential", "approve" }))
             {
                 ApprovedCredentials = options.StandardInput;
-                if (FailStorage)
+                string? helper = GetSelectedHelper(arguments);
+                ApprovedHelpers.Add(helper);
+                if (FailStorage || (helper == FailingHelper && FailingHelper is not null && !FailLookupForFailingHelper))
                 {
                     throw new GitOperationException(1, ApprovedCredentials!);
                 }
@@ -9106,10 +9195,21 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
             if (SimulateStorage && arguments.TakeLast(2).SequenceEqual(new[] { "credential", "fill" }))
             {
+                if (FailLookupForFailingHelper && GetSelectedHelper(arguments) == FailingHelper)
+                {
+                    return Task.FromResult(new GitCommandResult(0, "", ""));
+                }
+
                 return Task.FromResult(new GitCommandResult(0, ApprovedCredentials ?? "", ""));
             }
 
             return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+        }
+
+        private static string? GetSelectedHelper(IReadOnlyList<string> arguments)
+        {
+            const string prefix = "credential.helper=";
+            return arguments.LastOrDefault(argument => argument.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

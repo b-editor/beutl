@@ -1,4 +1,4 @@
-using Beutl.Language;
+﻿using Beutl.Language;
 
 namespace Beutl.Editor.VersionControl;
 
@@ -20,6 +20,8 @@ internal sealed class GitRemoteUrl
     }
 
     public string Url { get; }
+
+    public string? Username => _username;
 
     public bool HasCredentials => _password is not null;
 
@@ -97,52 +99,24 @@ internal sealed class GitRemoteUrl
 
         try
         {
-            string? helper = await FindFallbackHelperAsync(repository, runner, cancellationToken)
+            IReadOnlyList<string?> helpers = await FindCredentialHelpersAsync(repository, runner, cancellationToken)
                 .ConfigureAwait(false);
-            List<string> arguments =
-            [
-                "-c", "credential.interactive=false",
-                "-c", "core.askpass=",
-                // Keep the supplied account scoped to this repository, including its path.
-                "-c", $"credential.{Url}.useHttpPath=true",
-            ];
-            if (helper is not null)
+            foreach (string? helper in helpers)
             {
-                arguments.AddRange(["-c", "credential.helper=", "-c", $"credential.helper={helper}"]);
-            }
-
-            arguments.AddRange(["credential", "approve"]);
-            GitCommandOptions options = GitCommandOptions.Local with
-            {
-                EnvironmentOverrides = new Dictionary<string, string?>
+                try
                 {
-                    ["GIT_ASKPASS"] = string.Empty,
-                    ["SSH_ASKPASS"] = string.Empty,
-                },
-                // Secrets go through stdin, never through arguments or repository configuration.
-                StandardInput = $"url={Url}\nusername={_username}\npassword={_password}\n\n",
-                MaxStdoutBytes = 64 * 1024,
-            };
-            await runner.RunAsync(repository, arguments, options, cancellationToken).ConfigureAwait(false);
-
-            // approve succeeds even when a helper fails to store anything. Check the same lookup
-            // that the next push/fetch will use before reporting that the remote is configured.
-            arguments[^1] = "fill";
-            GitCommandResult saved = await runner.RunAsync(
-                repository,
-                arguments,
-                options with { StandardInput = $"url={Url}\n\n" },
-                cancellationToken).ConfigureAwait(false);
-            string[] attributes = saved.Stdout.Split('\n')
-                .Select(static line => line.TrimEnd('\r')).ToArray();
-            if (saved.StdoutTruncated
-                || !attributes.Contains($"username={_username}", StringComparer.Ordinal)
-                || !attributes.Contains($"password={_password}", StringComparer.Ordinal))
-            {
-                throw new GitCredentialStorageException();
+                    await StoreCredentialsWithHelperAsync(repository, runner, helper, cancellationToken)
+                        .ConfigureAwait(false);
+                    return helper;
+                }
+                catch (Exception ex) when (helper is not null && ex is not OperationCanceledException)
+                {
+                    // Automatically discovered stores may be unavailable in this session. Try the
+                    // next candidate, while an explicitly configured helper still fails immediately.
+                }
             }
 
-            return helper;
+            throw new GitCredentialStorageException();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -152,7 +126,59 @@ internal sealed class GitRemoteUrl
         }
     }
 
-    private async Task<string?> FindFallbackHelperAsync(
+    private async Task StoreCredentialsWithHelperAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string? helper,
+        CancellationToken cancellationToken)
+    {
+        List<string> arguments =
+        [
+            "-c", "credential.interactive=false",
+            "-c", "core.askpass=",
+            // Use the account that will be saved in this URL's local configuration, even when
+            // a global or URL-specific default names another account.
+            "-c", $"credential.{Url}.username={_username}",
+            "-c", $"credential.{Url}.useHttpPath=true",
+        ];
+        if (helper is not null)
+        {
+            arguments.AddRange(["-c", "credential.helper=", "-c", $"credential.helper={helper}"]);
+        }
+
+        arguments.AddRange(["credential", "approve"]);
+        GitCommandOptions options = GitCommandOptions.Local with
+        {
+            EnvironmentOverrides = new Dictionary<string, string?>
+            {
+                ["GIT_ASKPASS"] = string.Empty,
+                ["SSH_ASKPASS"] = string.Empty,
+            },
+            // Passwords go through stdin, never through arguments or repository configuration.
+            StandardInput = $"url={Url}\nusername={_username}\npassword={_password}\n\n",
+            MaxStdoutBytes = 64 * 1024,
+        };
+        await runner.RunAsync(repository, arguments, options, cancellationToken).ConfigureAwait(false);
+
+        // approve succeeds even when a helper fails to store anything. Check the same lookup
+        // that the next push/fetch will use before reporting that the remote is configured.
+        arguments[^1] = "fill";
+        GitCommandResult saved = await runner.RunAsync(
+            repository,
+            arguments,
+            options with { StandardInput = $"url={Url}\n\n" },
+            cancellationToken).ConfigureAwait(false);
+        string[] attributes = saved.Stdout.Split('\n')
+            .Select(static line => line.TrimEnd('\r')).ToArray();
+        if (saved.StdoutTruncated
+            || !attributes.Contains($"username={_username}", StringComparer.Ordinal)
+            || !attributes.Contains($"password={_password}", StringComparer.Ordinal))
+        {
+            throw new GitCredentialStorageException();
+        }
+    }
+
+    private async Task<IReadOnlyList<string?>> FindCredentialHelpersAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -166,7 +192,7 @@ internal sealed class GitRemoteUrl
                 cancellationToken).ConfigureAwait(false);
             if (configured.Stdout.TrimEnd('\0').Length > 0)
             {
-                return null;
+                return [null];
             }
         }
         catch (GitOperationException ex) when (ex.ExitCode == 1)
@@ -180,22 +206,23 @@ internal sealed class GitRemoteUrl
         GitCommandResult execPath = await runner.RunAsync(
             repository, ["--exec-path"], GitCommandOptions.Local, cancellationToken).ConfigureAwait(false);
         string helperDirectory = execPath.Stdout.Trim();
+        List<string?> helpers = [];
         foreach (string helper in new[] { "manager", "manager-core", "osxkeychain", "wincred", "libsecret" })
         {
             string executable = $"git-credential-{helper}{(OperatingSystem.IsWindows() ? ".exe" : "")}";
             // Apple's Git installs osxkeychain here without listing it in `git help -a`.
             if (commands.Contains($"credential-{helper}") || File.Exists(Path.Combine(helperDirectory, executable)))
             {
-                return helper;
+                helpers.Add(helper);
             }
         }
 
         if (!OperatingSystem.IsWindows() && commands.Contains("credential-cache"))
         {
-            return "cache --timeout=3600";
+            helpers.Add("cache --timeout=3600");
         }
 
-        throw new GitCredentialStorageException();
+        return helpers;
     }
 
     private static bool HasInvalidCredentialCharacters(string value)
