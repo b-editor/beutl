@@ -19,7 +19,7 @@ public sealed class CommandPaletteService
     private readonly EditorService _editorService;
     private readonly ExtensionProvider _extensionProvider;
     private readonly IEditorContextServices _contextServices;
-    private readonly Dictionary<Type, string> _categoryNameCache = new();
+    private readonly Dictionary<string, string> _categoryNameCache = new(StringComparer.Ordinal);
 
     public CommandPaletteService(
         ContextCommandManager? commandManager,
@@ -51,6 +51,7 @@ public sealed class CommandPaletteService
 
             foreach (ContextCommandEntry entry in _commandManager.GetDefinitions())
             {
+                string commandName = entry.Definition.Name;
                 if (entry.Definition.Name == MainViewExtension.ShowCommandPaletteCommandName)
                 {
                     continue;
@@ -81,8 +82,10 @@ public sealed class CommandPaletteService
 
                 if (entry.Definition.Scope == ContextCommandScope.Extension)
                 {
+                    string extensionTypeName = entry.ExtensionType.AssemblyQualifiedName
+                        ?? entry.ExtensionType.FullName ?? entry.ExtensionType.Name;
                     ExtensionDescriptor? descriptor = extensionDescriptors
-                        .FirstOrDefault(i => i.TypeName == entry.ExtensionType.AssemblyQualifiedName);
+                        .FirstOrDefault(i => i.TypeName == extensionTypeName);
                     if (descriptor is null
                         || !_extensionProvider.TryAcquire<ViewExtension>(descriptor.Id, out var lease))
                     {
@@ -111,12 +114,12 @@ public sealed class CommandPaletteService
                         Description: entry.Definition.Description,
                         CategoryName: category,
                         KeyGesture: gesture,
-                        CanExecute: () => CanExecuteExtension(id, entry, editorContext),
-                        ExecuteAsync: () => ExecuteExtensionAsync(id, entry, editorContext, null))
+                        CanExecute: () => CanExecuteExtension(id, commandName, editorContext),
+                        ExecuteAsync: () => ExecuteExtensionAsync(id, commandName, editorContext, null))
                     {
                         StateChanged = extensionStateChanged,
                         ExecuteWithInteractionAsync = interaction =>
-                            ExecuteExtensionAsync(id, entry, editorContext, interaction)
+                            ExecuteExtensionAsync(id, commandName, editorContext, interaction)
                     });
                     continue;
                 }
@@ -131,7 +134,6 @@ public sealed class CommandPaletteService
                     continue;
                 }
 
-                ContextCommandEntry capturedEntry = entry;
                 IContextCommandHandler handler = snapshotHandler;
                 IObservable<System.Reactive.Unit>? stateChanged =
                     (handler as IContextCommandStateNotifier)?.CanExecuteChanged;
@@ -142,12 +144,12 @@ public sealed class CommandPaletteService
                     Description: entry.Definition.Description,
                     CategoryName: category,
                     KeyGesture: gesture,
-                    CanExecute: () => handler.CanExecute(CreateExecution(capturedEntry, activeContext, null)),
+                    CanExecute: () => handler.CanExecute(CreateExecution(commandName, activeContext, null)),
                     ExecuteAsync: () =>
                     {
                         // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                         // 実行直前にもう一度 CanExecute を確認してから Execute する。
-                        var execution = CreateExecution(capturedEntry, activeContext, null);
+                        var execution = CreateExecution(commandName, activeContext, null);
                         return handler.CanExecute(execution)
                             ? handler.ExecuteAsync(execution)
                             : Task.CompletedTask;
@@ -156,7 +158,7 @@ public sealed class CommandPaletteService
                     StateChanged = stateChanged,
                     ExecuteWithInteractionAsync = interaction =>
                     {
-                        var execution = CreateExecution(capturedEntry, activeContext, interaction);
+                        var execution = CreateExecution(commandName, activeContext, interaction);
                         return handler.CanExecute(execution)
                             ? handler.ExecuteAsync(execution)
                             : Task.CompletedTask;
@@ -194,9 +196,9 @@ public sealed class CommandPaletteService
     }
 
     private ContextCommandExecution CreateExecution(
-        ContextCommandEntry entry, IEditorContext? editorContext, IContextCommandInteraction? interaction)
+        string commandName, IEditorContext? editorContext, IContextCommandInteraction? interaction)
     {
-        return new ContextCommandExecution(entry.Definition.Name)
+        return new ContextCommandExecution(commandName)
         {
             EditorContext = editorContext,
             Services = _contextServices,
@@ -205,7 +207,7 @@ public sealed class CommandPaletteService
         };
     }
 
-    private bool CanExecuteExtension(ExtensionId id, ContextCommandEntry entry, IEditorContext? editorContext)
+    private bool CanExecuteExtension(ExtensionId id, string commandName, IEditorContext? editorContext)
     {
         if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
             return false;
@@ -213,12 +215,12 @@ public sealed class CommandPaletteService
         using (lease)
         {
             return lease.Extension is IContextCommandHandler handler
-                && handler.CanExecute(CreateExecution(entry, editorContext, null));
+                && handler.CanExecute(CreateExecution(commandName, editorContext, null));
         }
     }
 
     private async Task ExecuteExtensionAsync(
-        ExtensionId id, ContextCommandEntry entry, IEditorContext? editorContext,
+        ExtensionId id, string commandName, IEditorContext? editorContext,
         IContextCommandInteraction? interaction)
     {
         if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
@@ -229,7 +231,7 @@ public sealed class CommandPaletteService
         {
             if (lease.Extension is IContextCommandHandler handler)
             {
-                var execution = CreateExecution(entry, editorContext, interaction);
+                var execution = CreateExecution(commandName, editorContext, interaction);
                 if (handler.CanExecute(execution))
                     await handler.ExecuteAsync(execution);
             }
@@ -238,7 +240,8 @@ public sealed class CommandPaletteService
 
     private string ResolveCategoryName(Type extensionType)
     {
-        if (_categoryNameCache.TryGetValue(extensionType, out string? cached))
+        string typeName = extensionType.AssemblyQualifiedName ?? extensionType.FullName ?? extensionType.Name;
+        if (_categoryNameCache.TryGetValue(typeName, out string? cached))
         {
             return cached;
         }
@@ -251,7 +254,7 @@ public sealed class CommandPaletteService
             name = matched.DisplayName;
         }
 
-        _categoryNameCache[extensionType] = name;
+        _categoryNameCache[typeName] = name;
         return name;
     }
 

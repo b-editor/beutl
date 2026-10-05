@@ -1,7 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Threading;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -9,6 +11,7 @@ namespace Beutl.ViewModels;
 
 public sealed class CommandPaletteViewModel : BaseViewModel
 {
+    private readonly ILogger<CommandPaletteViewModel> _logger = Log.CreateLogger<CommandPaletteViewModel>();
     private static readonly TimeSpan s_queryThrottle = TimeSpan.FromMilliseconds(80);
     private static readonly TimeSpan s_stateChangeThrottle = TimeSpan.FromMilliseconds(50);
 
@@ -27,7 +30,11 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         _service = service;
         FilteredCommands = new ReadOnlyObservableCollection<CommandPaletteItemViewModel>(_filteredCommands);
 
-        _promptQuerySubscription = Query.Subscribe(value => Prompt.Value?.Update(value));
+        _promptQuerySubscription = Query.Subscribe(value =>
+        {
+            if (Prompt.Value is { } prompt)
+                TryUpdatePrompt(prompt, value);
+        });
 
         _querySubscription = Query
             .Skip(1)
@@ -42,7 +49,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
-                if (Prompt.Value is { IsCompleted: false })
+                if (_interaction is not null)
                 {
                     Close();
                 }
@@ -133,9 +140,19 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     {
         CommandPaletteInteractionSession? interaction = _interaction;
         _interaction = null;
-        interaction?.Cancel();
-        SetPrompt(null);
-        Hide();
+        try
+        {
+            interaction?.Cancel();
+        }
+        catch (Exception ex)
+        {
+            ReportInteractionFailure(ex, "A command palette cancellation callback failed.");
+        }
+        finally
+        {
+            SetPrompt(null);
+            Hide();
+        }
     }
 
     private void Hide()
@@ -161,7 +178,15 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     {
         if (Prompt.Value is { } prompt)
         {
-            prompt.Submit(Query.Value);
+            try
+            {
+                prompt.Submit(Query.Value);
+            }
+            catch (Exception ex)
+            {
+                Close();
+                ReportInteractionFailure(ex, "A command palette validator failed.");
+            }
             return Task.CompletedTask;
         }
 
@@ -230,7 +255,9 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         SetPrompt(prompt);
         ReleaseCommands();
         Query.Value = value;
-        prompt.Update(value);
+        if (!ReferenceEquals(_interaction, interaction) || !ReferenceEquals(Prompt.Value, prompt)
+            || !TryUpdatePrompt(prompt, value))
+            return null;
         IsOpen.Value = true;
 
         using CancellationTokenRegistration registration = cancellationToken.Register(() =>
@@ -241,6 +268,27 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                     Close();
             }));
         return await prompt.Completion;
+    }
+
+    private bool TryUpdatePrompt(CommandPalettePromptViewModel prompt, string value)
+    {
+        try
+        {
+            prompt.Update(value);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Close();
+            ReportInteractionFailure(ex, "A command palette validator failed.");
+            return false;
+        }
+    }
+
+    private void ReportInteractionFailure(Exception exception, string message)
+    {
+        _logger.LogError(exception, "{Message}", message);
+        NotificationService.ShowError(MessageStrings.UnexpectedError, MessageStrings.OperationFailed);
     }
 
     private void SetPrompt(CommandPalettePromptViewModel? prompt)
