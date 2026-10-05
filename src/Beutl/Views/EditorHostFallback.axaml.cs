@@ -11,8 +11,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor;
-using Beutl.Helpers;
-using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views.Tutorial;
@@ -24,7 +22,16 @@ namespace Beutl.Views;
 
 public partial class EditorHostFallback : UserControl
 {
+    public static readonly StyledProperty<string?> OpeningFileProperty =
+        AvaloniaProperty.Register<EditorHostFallback, string?>(nameof(OpeningFile));
+
     private bool _flag;
+
+    public string? OpeningFile
+    {
+        get => GetValue(OpeningFileProperty);
+        private set => SetValue(OpeningFileProperty, value);
+    }
 
     public EditorHostFallback()
     {
@@ -132,11 +139,11 @@ public partial class EditorHostFallback : UserControl
         }
     }
 
-    private void OpenRecentItem_Click(object? sender, RoutedEventArgs e)
+    private async void OpenRecentItem_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuItem { DataContext: FileInfo fi })
         {
-            OpenRecentFile(fi.FullName);
+            await OpenRecentFileAsync(fi.FullName);
         }
     }
 
@@ -148,48 +155,36 @@ public partial class EditorHostFallback : UserControl
         }
     }
 
-    private void OnRecentListPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private async void OnRecentListPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_flag)
         {
+            _flag = false;
             if (recentList.SelectedItem is FileInfo selectedItem)
             {
-                OpenRecentFile(selectedItem.FullName);
+                await OpenRecentFileAsync(selectedItem.FullName);
             }
-
-            _flag = false;
         }
     }
 
-    private static IDisposable ShowWaitDialog(string projectFile)
+    private async Task OpenRecentFileAsync(string fileName)
     {
-        return OutProcessDialog.Show(
-            title: MessageStrings.OpeningProject,
-            subtitle: MessageStrings.PleaseWaitAMoment,
-            content: string.Format(MessageStrings.OpeningProjectMessage, Path.GetFileName(projectFile)),
-            icon: "Info",
-            progress: true);
-    }
-
-    private void OpenRecentFile(string fileName)
-    {
-        ExecuteMainViewModelCommand(viewModel =>
+        if (OpeningFile != null)
         {
-            Activity? activity = Telemetry.StartActivity("EditPageFallback.OpenRecentFile");
+            return;
+        }
 
-            using var ct = new CancellationTokenSource();
-            IDisposable? closeDialog = null;
-            Task.Delay(3000, ct.Token).ContinueWith(_ =>
-            {
-                closeDialog = ShowWaitDialog(fileName);
-                activity?.AddEvent(new("WaitDialogShown"));
-            }, ct.Token);
-
+        await ExecuteMainViewModelCommandAsync(async viewModel =>
+        {
+            using Activity? activity = Telemetry.StartActivity("EditPageFallback.OpenRecentFile");
+            OpeningFile = fileName;
             try
             {
+                // Let the row render its progress ring before project deserialization starts.
+                await Dispatcher.Yield(DispatcherPriority.Background);
                 if (fileName.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
                 {
-                    viewModel.MenuBar.OpenRecentProject.Execute(fileName);
+                    await viewModel.MenuBar.OpenRecentProject.ExecuteAsync(fileName);
                 }
                 else
                 {
@@ -198,13 +193,7 @@ public partial class EditorHostFallback : UserControl
             }
             finally
             {
-                ct.Cancel();
-                Dispatcher.UIThread.Invoke(() =>
-                {
-                    activity?.AddEvent(new("InputResumed"));
-                    activity?.Dispose();
-                    closeDialog?.Dispose();
-                }, DispatcherPriority.Input);
+                OpeningFile = null;
             }
         });
     }
