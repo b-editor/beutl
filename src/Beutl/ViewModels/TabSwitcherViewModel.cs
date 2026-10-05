@@ -85,6 +85,11 @@ public sealed class TabSwitcherViewModel : IDisposable
         or MainViewExtension.NextToolTabCommandName or MainViewExtension.PreviousToolTabCommandName
         or MainViewExtension.CreateToolTabCommandName;
 
+    internal static bool IsTextInputGesture(KeyEventArgs? args) =>
+        args is not null
+        && (args.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) == KeyModifiers.None
+        && ContextCommandInput.IsFromTextInput(args);
+
     internal bool ExecuteCommand(ContextCommandExecution execution)
     {
         TabSwitcherGroup group = execution.CommandName switch

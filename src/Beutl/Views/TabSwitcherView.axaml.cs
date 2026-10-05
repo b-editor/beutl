@@ -132,6 +132,7 @@ public sealed partial class TabSwitcherView : UserControl
 
     private string? FindNavigationCommand(KeyEventArgs e)
     {
+        if (TabSwitcherViewModel.IsTextInputGesture(e)) return null;
         if (this.FindAncestorOfType<MainView>()?.DataContext is not MainViewModel main) return null;
         OSPlatform platform = OperatingSystem.IsWindows() ? OSPlatform.Windows
             : OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Linux;
@@ -224,8 +225,16 @@ public sealed partial class TabSwitcherView : UserControl
                 ? root?.GetVisualDescendants().OfType<ToolTabContent>()
                     .FirstOrDefault(control => ReferenceEquals(control.DataContext, tool))
                 : main?.FindControl<EditorHostView>("EditorHost");
-            Control? focusTarget = content?.GetVisualDescendants().OfType<Control>()
-                .FirstOrDefault(control => control.Focusable && control.IsEffectivelyVisible && control.IsEffectivelyEnabled);
+            if (item.Tool is PlayerToolDockable preview)
+            {
+                Visual? previewRoot = preview.Factory?.FindRoot(preview, _ => true)?.Window?.Host as Visual ?? main;
+                content = previewRoot?.GetVisualDescendants().OfType<PlayerView>()
+                    .FirstOrDefault(view => ReferenceEquals(view.DataContext, preview.Player));
+            }
+            Control? focusTarget = content is PlayerView playerView
+                ? playerView.FindControl<Control>("framePanel")
+                : content?.GetVisualDescendants().OfType<Control>()
+                    .FirstOrDefault(control => control.Focusable && control.IsEffectivelyVisible && control.IsEffectivelyEnabled);
             (focusTarget ?? content ?? main)?.Focus();
         }, DispatcherPriority.Background);
     }

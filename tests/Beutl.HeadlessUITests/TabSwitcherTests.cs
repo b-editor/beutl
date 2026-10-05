@@ -344,6 +344,7 @@ public sealed class TabSwitcherTests
         await using var session = await Session.CreateAsync("shift-only-" + shiftKey);
         using var gestures = new NavigationGestures();
         gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Shift));
+        session.View.Focus();
 
         session.Press(Key.J, RawInputModifiers.Shift);
         IDockable selected = session.Switcher.SelectedItem!.Tool!;
@@ -433,6 +434,142 @@ public sealed class TabSwitcherTests
             Assert.That(AutomationProperties.GetName(back), Is.EqualTo(Beutl.Language.Strings.Back));
             Assert.That(ToolTip.GetTip(back), Is.EqualTo(Beutl.Language.Strings.Back));
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Plain_and_shift_only_mappings_do_not_consume_text_box_input(bool shift)
+    {
+        await using var session = await Session.CreateAsync("typing-" + shift);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
+        session.Input.Focus();
+
+        session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        session.Window.KeyTextInput(shift ? "J" : "j");
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(session.Input.Text, Is.EqualTo(shift ? "J" : "j"));
+        });
+
+        session.View.Focus();
+        session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        Assert.That(session.Switcher.IsOpen.Value, Is.True, "The mapping should remain available outside text entry.");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Plain_and_shift_only_mappings_leave_marked_text_entry_keys_unhandled(bool shift)
+    {
+        await using var session = await Session.CreateAsync("marked-typing-" + shift);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
+        var leaf = new Border { Focusable = true };
+        var textSurface = new Border { Child = leaf, Width = 80, Height = 24 };
+        ContextCommandInput.SetIsTextInput(textSurface, true);
+        ((Grid)session.View.Content!).Children.Add(textSurface);
+        HeadlessTestHelpers.Render(2);
+        Assert.That(leaf.Focus(), Is.True);
+        bool? handled = null;
+        session.Window.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.J) handled = e.Handled;
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
+
+        session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(handled, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Main_command_handler_defers_unmodified_text_input_but_accepts_control_shortcuts(bool shift)
+    {
+        await using var session = await Session.CreateAsync("dispatch-typing-" + shift);
+        var key = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Source = session.Input,
+            Key = Key.J,
+            KeyModifiers = shift ? KeyModifiers.Shift : KeyModifiers.None,
+        };
+        var execution = new ContextCommandExecution(MainViewExtension.NextTabCommandName) { KeyEventArgs = key };
+        Assert.That(TestShell.MainViewModel.CanExecute(execution), Is.False);
+        await TestShell.MainViewModel.ExecuteAsync(execution);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(key.Handled, Is.False);
+        });
+
+        var modifiedKey = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Source = session.Input,
+            Key = Key.J,
+            KeyModifiers = key.KeyModifiers | KeyModifiers.Control,
+        };
+        var modifiedExecution = new ContextCommandExecution(MainViewExtension.NextTabCommandName)
+        {
+            KeyEventArgs = modifiedKey,
+        };
+        Assert.That(TestShell.MainViewModel.CanExecute(modifiedExecution), Is.True);
+        await TestShell.MainViewModel.ExecuteAsync(modifiedExecution);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.True);
+            Assert.That(modifiedKey.Handled, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Selecting_preview_focuses_its_frame_in_docked_and_floating_windows(bool floating)
+    {
+        await using var session = await Session.CreateAsync("preview-focus-" + floating);
+        var factory = session.Editor.DockHost.Factory;
+        PlayerToolDockable preview = BeutlDockFactory.Traverse(session.Editor.DockHost.Layout.Value)
+            .OfType<PlayerToolDockable>().Single();
+        IHostWindow? floatingHost = null;
+        try
+        {
+            if (floating)
+            {
+                factory.SplitToWindow((IDock)preview.Owner!, preview, 20, 20, 500, 400, null);
+                HeadlessTestHelpers.Render(2);
+                floatingHost = factory.FindRoot(preview, _ => true)!.Window!.Host;
+                Assert.That(floatingHost, Is.InstanceOf<Window>());
+            }
+            var owner = floatingHost as Window ?? session.Window;
+            PlayerView player = owner.GetVisualDescendants().OfType<PlayerView>()
+                .Single(view => ReferenceEquals(view.DataContext, preview.Player));
+            session.Window.Activate();
+            session.Input.Focus();
+            session.Press(Key.Tab, RawInputModifiers.Control);
+            int index = session.Switcher.Tools.ToList().FindIndex(item => ReferenceEquals(item.Tool, preview));
+            Assert.That(index, Is.GreaterThanOrEqualTo(0));
+            session.Switcher.Select(TabSwitcherGroup.Tools, index);
+            session.Release(Key.LeftCtrl);
+            HeadlessTestHelpers.Render(2);
+            Assert.That(owner.FocusManager!.GetFocusedElement(), Is.SameAs(player.FindControl<Control>("framePanel")));
+        }
+        finally
+        {
+            if (floatingHost is not null)
+            {
+                preview.CanClose = true;
+                floatingHost.Exit();
+                HeadlessTestHelpers.Settle();
+            }
+        }
     }
 
     [AvaloniaTest]

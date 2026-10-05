@@ -1042,7 +1042,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         if (TabSwitcherViewModel.IsNavigationCommand(execution.CommandName))
         {
-            bool opened = (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value)
+            bool opened = !TabSwitcherViewModel.IsTextInputGesture(execution.KeyEventArgs)
+                          && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value)
                           && TabSwitcher.ExecuteCommand(execution);
             if (execution.KeyEventArgs is { } args) args.Handled = opened;
             return Task.CompletedTask;
@@ -1072,7 +1073,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public bool CanExecute(ContextCommandExecution execution)
     {
         if (TabSwitcherViewModel.IsNavigationCommand(execution.CommandName))
-            return TabSwitcher.CanOpen && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value);
+            return TabSwitcher.CanOpen
+                   && !TabSwitcherViewModel.IsTextInputGesture(execution.KeyEventArgs)
+                   && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value);
 
         if (execution.CommandName == "ShowCommandPalette")
             return true;
