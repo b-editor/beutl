@@ -22,7 +22,7 @@ public sealed class CommandPaletteItemViewModel
 
     public KeyGesture? KeyGesture => Command.KeyGesture;
 
-    public string? KeyGestureText => Command.KeyGesture?.ToString();
+    public string? KeyGestureText => Command.KeyGesture?.ToString("p", null);
 
     public bool IsEnabled { get; }
 

@@ -29,6 +29,7 @@ public partial class CommandPaletteView : UserControl
         // ListBox にフォーカスがある状態でも Escape / Enter を捕捉できるように、
         // ルートで Bubble をフックする。矢印キーは ListBox の標準動作に任せる。
         AddHandler(KeyDownEvent, OnRootKeyDown, RoutingStrategies.Bubble, handledEventsToo: false);
+        QueryTextBox.AddHandler(KeyDownEvent, OnQueryKeyDown, RoutingStrategies.Tunnel);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -43,6 +44,12 @@ public partial class CommandPaletteView : UserControl
                 .Skip(1)
                 .Subscribe(HandleIsOpenChanged)
                 .AddTo(_disposables);
+
+            viewModel.Prompt
+                .Skip(1)
+                .Where(prompt => prompt is not null)
+                .Subscribe(_ => FocusQuery())
+                .AddTo(_disposables);
         }
     }
 
@@ -54,11 +61,7 @@ public partial class CommandPaletteView : UserControl
             IInputElement? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
             _previouslyFocused = focused is not null ? new WeakReference<IInputElement>(focused) : null;
 
-            Dispatcher.UIThread.Post(() =>
-            {
-                QueryTextBox.Focus();
-                QueryTextBox.SelectAll();
-            }, DispatcherPriority.Background);
+            FocusQuery();
         }
         else
         {
@@ -71,6 +74,9 @@ public partial class CommandPaletteView : UserControl
 
             Dispatcher.UIThread.Post(() =>
             {
+                if (DataContext is CommandPaletteViewModel { IsOpen.Value: true })
+                    return;
+
                 // 閉じた時点で既にパレット外の要素へフォーカスが移っている場合は奪い返さない
                 // (典型例: コマンドが同期的にダイアログを開いてフォーカスを取った後)。
                 // それ以外の経路 (Esc / Backdrop / フォーカスを動かさない単純コマンド) は
@@ -104,6 +110,18 @@ public partial class CommandPaletteView : UserControl
                 }
             }, DispatcherPriority.Background);
         }
+    }
+
+    private void FocusQuery()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is CommandPaletteViewModel { IsOpen.Value: true })
+            {
+                QueryTextBox.Focus();
+                QueryTextBox.SelectAll();
+            }
+        }, DispatcherPriority.Background);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -162,6 +180,10 @@ public partial class CommandPaletteView : UserControl
         {
             return;
         }
+
+        // In an input step arrows, Home and End edit the text instead of navigating results.
+        if (viewModel.Prompt.Value is { IsInput: true })
+            return;
 
         switch (e.Key)
         {
@@ -252,7 +274,33 @@ public partial class CommandPaletteView : UserControl
 
     private void ScrollSelectionIntoView(CommandPaletteViewModel viewModel)
     {
-        if (viewModel.SelectedCommand.Value is { } selected)
+        if (viewModel.Prompt.Value?.SelectedChoice.Value is { } choice)
+            ChoicesListBox.ScrollIntoView(choice);
+        else if (viewModel.SelectedCommand.Value is { } selected)
             ResultsListBox.ScrollIntoView(selected);
+    }
+
+    private async void OnConfirmClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is CommandPaletteViewModel viewModel)
+            await ExecuteSelectedSafelyAsync(viewModel);
+    }
+
+    private void OnCancelClick(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as CommandPaletteViewModel)?.Close();
+    }
+
+    private async void OnChoicesDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is CommandPaletteViewModel { Prompt.Value: { } prompt } viewModel
+            && e.Source is Visual source
+            && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is
+            { DataContext: CommandPaletteChoiceViewModel choice })
+        {
+            prompt.SelectedChoice.Value = choice;
+            e.Handled = true;
+            await ExecuteSelectedSafelyAsync(viewModel);
+        }
     }
 }

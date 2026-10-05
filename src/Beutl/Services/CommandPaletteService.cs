@@ -18,6 +18,7 @@ public sealed class CommandPaletteService
     private readonly Func<MenuBarViewModel?> _menuBarAccessor;
     private readonly EditorService _editorService;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly IEditorContextServices _contextServices;
     private readonly Dictionary<Type, string> _categoryNameCache = new();
 
     public CommandPaletteService(
@@ -32,6 +33,7 @@ public sealed class CommandPaletteService
         _menuBarAccessor = menuBarAccessor;
         _editorService = editorService;
         _extensionProvider = extensionProvider;
+        _contextServices = new EditorContextServices(editorService, extensionProvider);
     }
 
     public IReadOnlyList<PaletteCommand> EnumerateCommands()
@@ -41,8 +43,11 @@ public sealed class CommandPaletteService
         if (_commandManager != null)
         {
             EditorTabItem? activeTab = _editorService.SelectedTabItem.Value;
+            IEditorContext? activeContext = activeTab?.Context.Value;
             Type? activeEditorExtensionType = activeTab?.Extension.Value?.GetType();
             EditViewModel? activeEditor = activeTab?.Context.Value as EditViewModel;
+            var extensionStateChanges = new Dictionary<ExtensionId, IObservable<Unit>>();
+            IReadOnlyList<ExtensionDescriptor> extensionDescriptors = _extensionProvider.GetDescriptors<ViewExtension>();
 
             foreach (ContextCommandEntry entry in _commandManager.GetDefinitions())
             {
@@ -52,14 +57,16 @@ public sealed class CommandPaletteService
                 }
 
                 // 編集中のタブと一致しないエディタ拡張のコマンドは表示しない。
-                if (typeof(EditorExtension).IsAssignableFrom(entry.ExtensionType)
+                if (entry.Definition.Scope == ContextCommandScope.Context
+                    && typeof(EditorExtension).IsAssignableFrom(entry.ExtensionType)
                     && entry.ExtensionType != activeEditorExtensionType)
                 {
                     continue;
                 }
 
                 // 開いていない ToolTab のコマンドはハンドラーを解決できないため除外する。
-                if (typeof(ToolTabExtension).IsAssignableFrom(entry.ExtensionType)
+                if (entry.Definition.Scope == ContextCommandScope.Context
+                    && typeof(ToolTabExtension).IsAssignableFrom(entry.ExtensionType)
                     && (activeEditor is null || activeEditor.DockHost.FindToolContext(entry.ExtensionType) is null))
                 {
                     continue;
@@ -71,6 +78,48 @@ public sealed class CommandPaletteService
                 string category = ResolveCategoryName(entry.ExtensionType);
                 KeyGesture? gesture = entry.KeyGestures
                     .FirstOrDefault(i => i.Platform == s_currentPlatform)?.KeyGesture;
+
+                if (entry.Definition.Scope == ContextCommandScope.Extension)
+                {
+                    ExtensionDescriptor? descriptor = extensionDescriptors
+                        .FirstOrDefault(i => i.TypeName == entry.ExtensionType.AssemblyQualifiedName);
+                    if (descriptor is null
+                        || !_extensionProvider.TryAcquire<ViewExtension>(descriptor.Id, out var lease))
+                    {
+                        continue;
+                    }
+
+                    bool hasStateNotifier;
+                    using (lease)
+                    {
+                        if (lease.Extension is not IContextCommandHandler)
+                            continue;
+                        hasStateNotifier = lease.Extension is IContextCommandStateNotifier;
+                    }
+
+                    ExtensionId id = descriptor.Id;
+                    IObservable<Unit>? extensionStateChanged = null;
+                    if (hasStateNotifier && !extensionStateChanges.TryGetValue(id, out extensionStateChanged))
+                    {
+                        extensionStateChanged = ObserveExtensionState(id);
+                        extensionStateChanges.Add(id, extensionStateChanged);
+                    }
+                    IEditorContext? editorContext = activeContext;
+                    result.Add(new PaletteCommand(
+                        Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
+                        DisplayName: displayName,
+                        Description: entry.Definition.Description,
+                        CategoryName: category,
+                        KeyGesture: gesture,
+                        CanExecute: () => CanExecuteExtension(id, entry, editorContext),
+                        ExecuteAsync: () => ExecuteExtensionAsync(id, entry, editorContext, null))
+                    {
+                        StateChanged = extensionStateChanged,
+                        ExecuteWithInteractionAsync = interaction =>
+                            ExecuteExtensionAsync(id, entry, editorContext, interaction)
+                    });
+                    continue;
+                }
 
                 // スナップショット時に解決したハンドラーを Execute / CanExecute / StateChanged 全てで共有し、
                 // 列挙時と実行時で別インスタンスへ向くケースを防ぐ。タブ切替時は RebuildSnapshot で再列挙される。
@@ -93,18 +142,25 @@ public sealed class CommandPaletteService
                     Description: entry.Definition.Description,
                     CategoryName: category,
                     KeyGesture: gesture,
-                    CanExecute: () => handler.CanExecute(new ContextCommandExecution(capturedEntry.Definition.Name)),
+                    CanExecute: () => handler.CanExecute(CreateExecution(capturedEntry, activeContext, null)),
                     ExecuteAsync: () =>
                     {
                         // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                         // 実行直前にもう一度 CanExecute を確認してから Execute する。
-                        var execution = new ContextCommandExecution(capturedEntry.Definition.Name);
+                        var execution = CreateExecution(capturedEntry, activeContext, null);
                         return handler.CanExecute(execution)
                             ? handler.ExecuteAsync(execution)
                             : Task.CompletedTask;
                     })
                 {
-                    StateChanged = stateChanged
+                    StateChanged = stateChanged,
+                    ExecuteWithInteractionAsync = interaction =>
+                    {
+                        var execution = CreateExecution(capturedEntry, activeContext, interaction);
+                        return handler.CanExecute(execution)
+                            ? handler.ExecuteAsync(execution)
+                            : Task.CompletedTask;
+                    }
                 });
             }
         }
@@ -112,6 +168,72 @@ public sealed class CommandPaletteService
         AppendMenuCommands(result);
 
         return result;
+    }
+
+    private IObservable<Unit> ObserveExtensionState(ExtensionId id)
+    {
+        return Observable.Create<Unit>(observer =>
+        {
+            if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
+                return Disposable.Empty;
+
+            try
+            {
+                if (lease.Extension is IContextCommandStateNotifier notifier)
+                    return new CompositeDisposable(notifier.CanExecuteChanged.Subscribe(observer), lease);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+
+            lease.Dispose();
+            return Disposable.Empty;
+        });
+    }
+
+    private ContextCommandExecution CreateExecution(
+        ContextCommandEntry entry, IEditorContext? editorContext, IContextCommandInteraction? interaction)
+    {
+        return new ContextCommandExecution(entry.Definition.Name)
+        {
+            EditorContext = editorContext,
+            Services = _contextServices,
+            Interaction = interaction,
+            CancellationToken = interaction?.CancellationToken ?? default
+        };
+    }
+
+    private bool CanExecuteExtension(ExtensionId id, ContextCommandEntry entry, IEditorContext? editorContext)
+    {
+        if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
+            return false;
+
+        using (lease)
+        {
+            return lease.Extension is IContextCommandHandler handler
+                && handler.CanExecute(CreateExecution(entry, editorContext, null));
+        }
+    }
+
+    private async Task ExecuteExtensionAsync(
+        ExtensionId id, ContextCommandEntry entry, IEditorContext? editorContext,
+        IContextCommandInteraction? interaction)
+    {
+        if (!_extensionProvider.TryAcquire<ViewExtension>(id, out var lease))
+            return;
+
+        // Keep the extension alive until its entire asynchronous operation (including prompts) ends.
+        using (lease)
+        {
+            if (lease.Extension is IContextCommandHandler handler)
+            {
+                var execution = CreateExecution(entry, editorContext, interaction);
+                if (handler.CanExecute(execution))
+                    await handler.ExecuteAsync(execution);
+            }
+        }
     }
 
     private string ResolveCategoryName(Type extensionType)

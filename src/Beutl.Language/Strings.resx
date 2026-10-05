@@ -1396,6 +1396,15 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>Menu</value>
   </data>
+  <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
+    <value>Enter a value…</value>
+  </data>
+  <data name="CommandPalette_ChoicePlaceholder" xml:space="preserve">
+    <value>Type to filter choices…</value>
+  </data>
+  <data name="CommandPalette_NoChoices" xml:space="preserve">
+    <value>No matching choices</value>
+  </data>
   <data name="OnionSkin" xml:space="preserve">
     <value>Onion skin</value>
   </data>

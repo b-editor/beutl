@@ -1,9 +1,14 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Api.Services;
+using Beutl.Extensibility;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -83,6 +88,115 @@ public class CommandPaletteViewLayoutTests
             .FirstOrDefault(t => t.Text is { } text && predicate(text));
         Assert.That(match, Is.Not.Null, "expected a matching TextBlock in the item template");
         return match!;
+    }
+
+    [AvaloniaTest]
+    [TestCase(320, false)]
+    [TestCase(900, false)]
+    [TestCase(320, true)]
+    [TestCase(900, true)]
+    public async Task Command_search_starts_below_the_input_without_prompt_space(int width, bool light)
+    {
+        var extension = new SearchExtension();
+        var provider = new ExtensionProvider();
+        provider.AddExtensions(-45009, [extension]);
+        var editor = new EditorService(provider);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        manager.Register(extension);
+        var service = new CommandPaletteService(manager, new SearchHandlerProvider(), () => null, editor, provider);
+        using var palette = new CommandPaletteViewModel(service, editor);
+        var view = new CommandPaletteView { DataContext = palette };
+        var window = new Window
+        {
+            Content = view,
+            Width = width,
+            Height = 640,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+        };
+        window.Show();
+        try
+        {
+            palette.Open();
+            HeadlessTestHelpers.Render();
+            TextBox query = view.FindControl<TextBox>("QueryTextBox")!;
+            ListBox results = view.FindControl<ListBox>("ResultsListBox")!;
+            ListBoxItem first = results.GetVisualDescendants().OfType<ListBoxItem>().First();
+            double queryBottom = query.TranslatePoint(new Point(0, query.Bounds.Height), view)!.Value.Y;
+            double firstTop = first.TranslatePoint(default, view)!.Value.Y;
+            Capture(window, $"search-{width}-{light}");
+
+            Assert.That(firstTop - queryBottom, Is.InRange(0d, 16d),
+                "The command list must follow the input without reserving blank prompt messages.");
+            Assert.That(results.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == "."), Is.True);
+
+            // Returning from an interactive step must not leave its message area behind.
+            Task operation = palette.ExecuteSelectedAsync();
+            HeadlessTestHelpers.Render();
+            palette.Close();
+            await operation;
+            palette.Open();
+            HeadlessTestHelpers.Render();
+            first = results.GetVisualDescendants().OfType<ListBoxItem>().First();
+            queryBottom = query.TranslatePoint(new Point(0, query.Bounds.Height), view)!.Value.Y;
+            firstTop = first.TranslatePoint(default, view)!.Value.Y;
+            Assert.That(firstTop - queryBottom, Is.InRange(0d, 16d));
+        }
+        finally
+        {
+            palette.Close();
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.OemPeriod, KeyModifiers.None, ".")]
+    [TestCase(Key.OemComma, KeyModifiers.None, ",")]
+    [TestCase(Key.OemPeriod, KeyModifiers.Alt, "Alt+.")]
+    [TestCase(Key.OemComma, KeyModifiers.Shift, "Shift+,")]
+    [TestCase(Key.OemQuestion, KeyModifiers.Control, "Ctrl+/")]
+    [TestCase(Key.D1, KeyModifiers.Control, "Ctrl+1")]
+    [TestCase(Key.OemComma, KeyModifiers.Meta | KeyModifiers.Shift, "Shift+Cmd+,")]
+    public void Shortcut_labels_show_keys_instead_of_enum_names(Key key, KeyModifiers modifiers, string expected)
+    {
+        Assert.That(CreateItem(new KeyGesture(key, modifiers)).KeyGestureText, Is.EqualTo(expected));
+        Assert.That(CreateItem(null).KeyGestureText, Is.Null);
+    }
+
+    private static CommandPaletteItemViewModel CreateItem(KeyGesture? gesture)
+        => new(new PaletteCommand("test", "Test", null, "Test", gesture, () => true, () => Task.CompletedTask), true, 0);
+
+    private static void Capture(Window window, string name)
+    {
+        string? directory = Environment.GetEnvironmentVariable("BEUTL_COMMAND_PALETTE_LAYOUT_CAPTURE_DIR");
+        if (directory is null) return;
+        Directory.CreateDirectory(directory);
+        HeadlessTestHelpers.Render();
+        using var image = window.CaptureRenderedFrame();
+        Assert.That(image, Is.Not.Null);
+        image!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
+    }
+
+    private sealed class SearchExtension : ViewExtension
+    {
+        public override string DisplayName => "タイムライン";
+        public override IEnumerable<ContextCommandDefinition> ContextCommands =>
+        [
+            new("MoveRight", "1 フレーム右へ移動", keyGestures: [new("OemPeriod")]),
+            new("MoveLeft", "1 フレーム左へ移動", keyGestures: [new("OemComma")]),
+            new("MoveSecond", "1 秒右へ移動", keyGestures: [new("Alt+OemPeriod")]),
+            new("MoveTen", "10 フレーム左へ移動", keyGestures: [new("Shift+OemComma")])
+        ];
+    }
+
+    private sealed class SearchHandlerProvider : ICommandPaletteHandlerProvider, IContextCommandHandler
+    {
+        public IContextCommandHandler? Resolve(Type extensionType) => this;
+
+        public async Task ExecuteAsync(ContextCommandExecution execution)
+        {
+            await execution.Interaction!.ShowInputAsync(new ContextCommandInputOptions { Prompt = "Prompt message" });
+        }
     }
 
     [AvaloniaTest]
