@@ -1,23 +1,13 @@
-﻿using System.ComponentModel;
-using System.Numerics;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Security;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
-using Beutl.Editor.Operations;
 using Beutl.Editor.Services.AI;
-using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Proxy;
-using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -28,7 +18,6 @@ using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 

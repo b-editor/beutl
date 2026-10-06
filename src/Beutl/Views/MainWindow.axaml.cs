@@ -1,8 +1,5 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Platform;
+﻿using Avalonia.Controls;
 
-using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.ViewModels;
 

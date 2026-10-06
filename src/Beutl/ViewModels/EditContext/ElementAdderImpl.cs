@@ -1,23 +1,12 @@
 ﻿using System.Collections.Immutable;
-using Beutl.Audio;
-using Beutl.Composition;
 using Beutl.Editor;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Transformation;
-using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;

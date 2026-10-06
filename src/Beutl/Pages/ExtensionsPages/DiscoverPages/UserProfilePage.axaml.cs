@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 using Beutl.Api.Objects;
 
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;

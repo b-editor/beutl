@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-
-using Beutl.Controls.PropertyEditors;
+﻿using Beutl.Controls.PropertyEditors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

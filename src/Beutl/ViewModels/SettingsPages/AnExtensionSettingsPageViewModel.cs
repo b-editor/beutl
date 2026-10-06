@@ -1,11 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Api.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
-using Beutl.PropertyAdapters;
 using Beutl.Services;
-using Beutl.Services.Adapters;
 using Beutl.ViewModels.Editors;
 
 using DynamicData;

@@ -1,33 +1,12 @@
-﻿using System.Collections.ObjectModel;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Chrome;
-using Avalonia.Input;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
-using Beutl.AgentToolkit.Installation;
-using Beutl.Configuration;
-using Beutl.Language;
-using Beutl.Logging;
-using Beutl.Pages;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.Services.Tutorials;
 using Beutl.Services.WindowCapture;
-using Beutl.Threading;
 using Beutl.Utilities;
-using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.SettingsPages;
 using Beutl.Views.Dialogs;
-using Beutl.Views.Tutorial;
-using DynamicData;
-using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
-using NuGet.Versioning;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
 

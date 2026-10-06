@@ -2,8 +2,6 @@
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Platform;
-using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Services;

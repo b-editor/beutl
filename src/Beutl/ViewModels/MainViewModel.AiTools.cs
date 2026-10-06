@@ -1,31 +1,8 @@
-﻿using System.Collections.ObjectModel;
-using System.Reactive.Linq;
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Threading;
-using Beutl.AgentHost;
-using Beutl.Api;
-using Beutl.Api.Objects;
-using Beutl.Api.Services;
-using Beutl.Editor;
-using Beutl.Editor.Components.VersionControl.ViewModels;
-using Beutl.Editor.Services.AI;
-using Beutl.Editor.Services.Captions;
-using Beutl.Editor.VersionControl;
-using Beutl.Helpers;
-using Beutl.Logging;
-using Beutl.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Services.AI;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.Dialogs;
-using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.Tools;
 using DynamicData;
-using DynamicData.Binding;
-using Microsoft.Extensions.Logging;
-using NuGet.Packaging.Core;
-using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 

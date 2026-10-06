@@ -1,13 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
-using Beutl.ProjectSystem;
-using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 

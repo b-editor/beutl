@@ -1,10 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Animation;
-using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Serialization;

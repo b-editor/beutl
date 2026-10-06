@@ -1,36 +1,6 @@
-﻿using System.Globalization;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Runtime.InteropServices;
-using Beutl.Audio;
-using Beutl.Audio.Composing;
-using Beutl.Audio.Platforms.XAudio2;
-using Beutl.Composition;
-using Beutl.Configuration;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.PathEditorTab.ViewModels;
-using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Models;
-using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics3D.Gizmo;
-using Beutl.Logging;
-using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
-using Beutl.Media.Source;
-using Beutl.Models;
-using Beutl.ProjectSystem;
-using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using Silk.NET.OpenAL;
-using SkiaSharp;
-using Vortice.Multimedia;
-using AudioContext = Beutl.Audio.Platforms.OpenAL.AudioContext;
 
 namespace Beutl.ViewModels;
 

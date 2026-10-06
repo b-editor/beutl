@@ -4,7 +4,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.ViewModels.SettingsPages;

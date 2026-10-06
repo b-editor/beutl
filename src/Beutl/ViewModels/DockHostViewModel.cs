@@ -3,7 +3,6 @@ using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
-using Dock.Model.Core;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 

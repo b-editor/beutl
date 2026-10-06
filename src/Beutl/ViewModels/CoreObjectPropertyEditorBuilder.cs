@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Editor.Services;
 using Beutl.PropertyAdapters;
 using Beutl.ViewModels.Editors;
 using DynamicData;
