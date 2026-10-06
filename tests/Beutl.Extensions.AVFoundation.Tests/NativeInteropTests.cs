@@ -7,10 +7,10 @@ namespace Beutl.Extensions.AVFoundation.Tests;
 public class NativeInteropTests
 {
     [Test]
-    public void VersionReturnsPositive()
+    public void VersionMatchesManagedAbi()
     {
         int version = BeutlAVFNative.beutl_avf_version();
-        Assert.That(version, Is.GreaterThan(0));
+        Assert.That(version, Is.EqualTo(BeutlAVFNative.ExpectedAbiVersion));
     }
 
     [Test]

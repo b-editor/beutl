@@ -288,6 +288,7 @@ final class AudioReaderContext {
     private let track: AVAssetTrack
     private let cache: AudioSampleCache
     private let thresholdSampleCount: Int
+    private let endTimestamp: CMTime
 
     private var reader: AVAssetReader
     private var output: AVAssetReaderTrackOutput
@@ -326,7 +327,9 @@ final class AudioReaderContext {
         self.reader = reader
         self.output = output
 
-        let duration = track.timeRange.duration
+        let timeRange = track.timeRange
+        self.endTimestamp = CMTimeRangeGetEnd(timeRange)
+        let duration = timeRange.duration
         let durationSeconds = CMTimeGetSeconds(duration)
         let nominalSampleCount = Int64((durationSeconds * Double(sampleRate)).rounded())
         let durationRational = rational64(from: durationSeconds.isFinite ? durationSeconds : 0)
@@ -347,7 +350,7 @@ final class AudioReaderContext {
         length: Int,
         outBuffer: UnsafeMutableRawPointer,
         capacityBytes: Int
-    ) throws {
+    ) throws -> Int {
         let requiredBytes = length * Self.outputBytesPerFrame
         guard capacityBytes >= requiredBytes else {
             throw BeutlAVFError.bufferTooSmall(required: requiredBytes, actual: capacityBytes)
@@ -361,7 +364,7 @@ final class AudioReaderContext {
         var buffer: UnsafeMutableRawPointer = outBuffer
 
         if cache.copyInto(startSample: &cursor, remaining: &remaining, buffer: &buffer) {
-            return
+            return length
         }
 
         var currentSample = cache.lastAudioSampleNumber()
@@ -372,17 +375,21 @@ final class AudioReaderContext {
         let sampleRate = Int(info.sampleRate)
         if cursor < currentSample || (currentSample + thresholdSampleCount) < cursor {
             let dest = CMTime(value: CMTimeValue(cursor), timescale: CMTimeScale(sampleRate))
+            // AVAssetReader can fail to start when its timeRange begins at/past the track end.
+            // Treat that seek as EOF, preserving any frames already copied from the cache.
+            if endTimestamp.isNumeric && CMTimeCompare(dest, endTimestamp) >= 0 {
+                return length - remaining
+            }
             try seek(to: dest)
         }
 
         while let _ = try readNextSample() {
-            if cache.copyInto(startSample: &cursor, remaining: &remaining, buffer: &buffer),
-               remaining == 0 {
-                return
+            if cache.copyInto(startSample: &cursor, remaining: &remaining, buffer: &buffer) {
+                return length
             }
-            if remaining == 0 { return }
         }
-        // Reached EOS; trailing zeros in outBuffer remain as silence.
+        // Report only covered frames; the zero-filled tail is not part of the decoded result.
+        return length - remaining
     }
 
     private func seek(to timestamp: CMTime) throws {

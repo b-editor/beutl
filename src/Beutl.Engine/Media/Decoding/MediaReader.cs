@@ -72,7 +72,7 @@ public abstract class MediaReader : IDisposable
     /// End-of-stream is signalled by <see cref="IPcm.NumSamples"/> being less than
     /// <paramref name="length"/> (a short read), including <c>NumSamples == 0</c> when
     /// <paramref name="start"/> is at or past the end of the stream. A backend that cannot report a
-    /// precise decoded count (e.g. the AVFoundation native reader) may instead return a full
+    /// precise decoded count may instead return a full
     /// <paramref name="length"/> buffer whose trailing uncovered region is zero-filled (silence).
     /// </para>
     /// <para>

@@ -6,6 +6,17 @@ namespace Beutl.Extensions.AVFoundation.Interop;
 internal static partial class BeutlAVFNative
 {
     internal const string DllName = "BeutlAVF";
+    internal const int ExpectedAbiVersion = 2;
+
+    internal static void EnsureCompatibleVersion()
+    {
+        int version = beutl_avf_version();
+        if (version != ExpectedAbiVersion)
+        {
+            throw new NotSupportedException(
+                $"BeutlAVF ABI version {version} is incompatible; expected {ExpectedAbiVersion}.");
+        }
+    }
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_version();
@@ -63,7 +74,8 @@ internal static partial class BeutlAVFNative
         long startSample,
         int lengthSamples,
         IntPtr outBuffer,
-        int capacityBytes);
+        int capacityBytes,
+        out int outDecodedSamples);
 
     // Used by SafeHandle.ReleaseHandle; operates on the raw IntPtr after the SafeHandle has flipped to invalid.
     [LibraryImport(DllName)]
