@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensions.AVFoundation.Decoding;
+using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
@@ -35,6 +36,31 @@ public class AVFReaderTests
     public void TearDown()
     {
         Directory.Delete(_workDir, recursive: true);
+    }
+
+    [Test]
+    public void OpenIncompleteMp4_PreservesNativeErrorDetails()
+    {
+        if (!OperatingSystem.IsMacOSVersionAtLeast(13))
+            Assert.Ignore("Async track loading requires macOS 13 or later.");
+
+        string file = Path.Combine(_workDir, $".clip.beutl-part-{Guid.NewGuid():N}.mp4");
+        File.WriteAllBytes(file, []);
+
+        var error = Assert.Throws<BeutlAVFException>(() =>
+        {
+            using var reader = new AVFReader(file, new MediaOptions(MediaMode.Video), new AVFDecodingExtension());
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(error!.Code, Is.EqualTo(-103));
+            Assert.That(error.Message, Does.Contain("Reader failed: loadTracks failed:"));
+            Assert.That(error.Message, Does.Contain("domain=AVFoundationErrorDomain"));
+            Assert.That(error.Message, Does.Contain("code="));
+        });
+
+        using var validReader = OpenReader(_file);
+        Assert.That(validReader.HasAudio, Is.True, "A failed open must not prevent subsequent valid reads.");
     }
 
     [TestCase(0, 128, 128)]

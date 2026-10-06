@@ -93,14 +93,17 @@ internal sealed class MediaFileSearcher : IDisposable
 
         try
         {
-            foreach (string file in Directory.GetFiles(directory))
+            var directoryInfo = new DirectoryInfo(directory);
+            foreach (FileInfo file in directoryInfo.EnumerateFiles())
             {
                 token.ThrowIfCancellationRequested();
                 if (results.Count >= maxCount) return;
 
-                if (FileThumbnailService.Instance.IsMediaFile(file))
+                // Hidden export files must not reach thumbnail or metadata decoders.
+                if (FileSystemEnumerator.IsVisible(file)
+                    && FileThumbnailService.Instance.IsMediaFile(file.FullName))
                 {
-                    results.Add(file);
+                    results.Add(file.FullName);
                 }
             }
 
