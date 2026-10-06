@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Text;
 using Avalonia.Threading;
 using Beutl.Editor.Services;
 using Beutl.Logging;
