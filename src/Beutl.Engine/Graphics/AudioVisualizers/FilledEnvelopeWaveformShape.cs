@@ -62,8 +62,7 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
                 float v;
                 if (symmetric)
                 {
-                    v = MathF.Max(MathF.Abs(mins[i]), MathF.Abs(maxs[i]));
-                    v = Math.Clamp(v * gain, 0f, 1f);
+                    v = WaveformSampleMath.PeakMagnitude(mins[i], maxs[i], gain);
                 }
                 else
                 {
@@ -80,8 +79,7 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
                 float v;
                 if (symmetric)
                 {
-                    float peak = MathF.Max(MathF.Abs(mins[i]), MathF.Abs(maxs[i]));
-                    v = -Math.Clamp(peak * gain, 0f, 1f);
+                    v = -WaveformSampleMath.PeakMagnitude(mins[i], maxs[i], gain);
                 }
                 else
                 {

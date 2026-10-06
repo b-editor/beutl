@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
@@ -72,5 +73,31 @@ internal static class BarGeometry
         using var roundRect = new SKRoundRect();
         roundRect.SetRectRadii(rect, radii);
         builder.AddRoundRect(roundRect);
+    }
+
+    /// <summary>
+    /// Prepares the fill paint and the emptied path builder a shape batches its rounded bars into, creating
+    /// either one on first use.
+    /// </summary>
+    public static void BeginRoundedBars(
+        [NotNull] ref SKPaint? paint,
+        [NotNull] ref SKPathBuilder? builder,
+        ImmediateCanvas canvas,
+        in Rect bounds,
+        Brush.Resource fill)
+    {
+        paint ??= new SKPaint();
+        VisualizerPaint.ConfigureFill(paint, canvas, bounds, fill);
+        builder ??= new SKPathBuilder();
+        builder.Reset();
+    }
+
+    /// <summary>
+    /// Draws the rounded bars batched in <paramref name="builder"/> as one path.
+    /// </summary>
+    public static void DrawRoundedBars(ImmediateCanvas canvas, SKPathBuilder builder, SKPaint paint)
+    {
+        using SKPath path = builder.Detach();
+        canvas.Canvas.DrawPath(path, paint);
     }
 }

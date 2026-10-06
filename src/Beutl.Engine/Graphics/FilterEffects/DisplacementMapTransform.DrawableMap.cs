@@ -49,7 +49,7 @@ public abstract partial class DisplacementMapTransform
             EffectTarget output = context.CreateTargetLike(effectTarget);
             try
             {
-                if (output.RenderTarget is null || output.Scale.IsUnbounded)
+                if (!output.IsMaterialized)
                 {
                     output.Dispose();
                     continue;

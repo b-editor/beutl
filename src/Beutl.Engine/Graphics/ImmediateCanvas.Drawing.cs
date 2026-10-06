@@ -17,13 +17,7 @@ public partial class ImmediateCanvas
         drawable.RequireOriginal().Render(context, drawable);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRenderRequest
-            {
-                Intent = Intent,
-                OutputScale = _currentDensity,
-                MaxWorkingScale = MaxWorkingScale,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-            });
+            CreateNestedRenderRequest());
         renderer.Render(this);
     }
 
@@ -33,15 +27,19 @@ public partial class ImmediateCanvas
         VerifyNestedExecutionOperation();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRenderRequest
-            {
-                Intent = Intent,
-                OutputScale = _currentDensity,
-                MaxWorkingScale = MaxWorkingScale,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-            });
+            CreateNestedRenderRequest());
         renderer.Render(this);
     }
+
+    /// <summary>The request a nested render is drawn with: this canvas's intent, density and working-scale ceiling.</summary>
+    private RenderNodeRenderRequest CreateNestedRenderRequest()
+        => new()
+        {
+            Intent = Intent,
+            OutputScale = _currentDensity,
+            MaxWorkingScale = MaxWorkingScale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+        };
 
     public void DrawBackdrop(IBackdrop backdrop)
     {
@@ -99,13 +97,22 @@ public partial class ImmediateCanvas
         Canvas.DrawImage(img, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
-    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    /// <summary>
+    /// Admits a media source: outside an execution scope drawing one is nested render work, inside one the
+    /// source must be authorized for the scope.
+    /// </summary>
+    private void VerifySourceOperation(object source)
     {
         VerifyAccess();
         if (_executionToken is null)
             VerifyNestedExecutionOperation();
         else
             VerifyCallbackResource(source, nameof(source));
+    }
+
+    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    {
+        VerifySourceOperation(source);
         var bitmap = source.Bitmap;
         if (bitmap != null)
         {
@@ -118,11 +125,7 @@ public partial class ImmediateCanvas
 
     public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
-        VerifyAccess();
-        if (_executionToken is null)
-            VerifyNestedExecutionOperation();
-        else
-            VerifyCallbackResource(source, nameof(source));
+        VerifySourceOperation(source);
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
@@ -130,11 +133,7 @@ public partial class ImmediateCanvas
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
-        VerifyAccess();
-        if (_executionToken is null)
-            VerifyNestedExecutionOperation();
-        else
-            VerifyCallbackResource(source, nameof(source));
+        VerifySourceOperation(source);
         if (source.Read(frame, out var bitmapRef))
         {
             using (bitmapRef)
@@ -320,11 +319,7 @@ public partial class ImmediateCanvas
         // applied to every pixel in the isolated target-layer domain.
         if ((_directBlendMode != BlendMode.DstOut && !_productRectangleCoverage)
             || geometry.GetOriginal() is not RectGeometry
-            || _currentTransform.M12 != 0
-            || _currentTransform.M13 != 0
-            || _currentTransform.M21 != 0
-            || _currentTransform.M23 != 0
-            || _currentTransform.M33 != 1)
+            || !IsAxisAlignedAffine(_currentTransform))
         {
             return false;
         }

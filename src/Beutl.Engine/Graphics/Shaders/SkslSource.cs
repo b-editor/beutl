@@ -197,8 +197,7 @@ public sealed partial class SkslSource
                 extent = parsed;
             }
 
-            if (SkslSnippetMerger.IsRendererGeneratedName(name)
-                || name.StartsWith("fe", StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal))
+            if (SkslSnippetMerger.IsRendererGeneratedName(name) || IsFilterEffectBindingName(name))
             {
                 throw new ArgumentException($"The shader binding name '{name}' is reserved by the renderer.", nameof(source));
             }
@@ -247,8 +246,27 @@ public sealed partial class SkslSource
         }
     }
 
+    /// <summary>The child shader a standalone current-pixel program samples its input through.</summary>
+    internal const string CurrentPixelInputName = "__beutl_src";
+
+    /// <summary>
+    /// Wraps a current-pixel source in the entry point that runs it on its own: <c>apply</c> is handed the
+    /// fragment's sample of <see cref="CurrentPixelInputName"/>.
+    /// </summary>
+    /// <remarks>The text is part of the program cache key, so it must not change for an unchanged source.</remarks>
+    internal static string CreateStandaloneCurrentPixelProgram(string text)
+        => $"uniform shader {CurrentPixelInputName};\n{text}\n"
+           + $"half4 main(float2 __beutl_coord) {{ return apply({CurrentPixelInputName}.eval(__beutl_coord)); }}\n";
+
     private static bool IsTopLevelDeclarationBoundary(string token)
         => token is "(" or "=" or "[" or ";" or "{" or ",";
+
+    /// <summary>
+    /// Reports whether <paramref name="name"/> has the shape the renderer reserves for filter-effect bindings:
+    /// an <c>fe</c> prefix and an underscore.
+    /// </summary>
+    private static bool IsFilterEffectBindingName(string name)
+        => name.StartsWith("fe", StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal);
 
     private static string ComputeHash(string source)
     {

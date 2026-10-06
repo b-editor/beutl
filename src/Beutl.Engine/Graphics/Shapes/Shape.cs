@@ -52,7 +52,6 @@ public abstract partial class Shape : Drawable
             return;
 
         Matrix matrix = Matrix.Identity;
-        //Matrix matrix = Matrix.CreateTranslation(-shapeBounds.Position);
 
         if (r.Pen != null)
         {
@@ -69,21 +68,9 @@ public abstract partial class Shape : Drawable
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        var r = (Resource)resource;
-        if (r.IsEnabled)
-        {
-            Size availableSize = context.Size;
-            Size size = MeasureCore(availableSize, resource);
-
-            Matrix transform = GetTransformMatrix(availableSize, size, resource);
-            using (context.PushBlendMode(r.BlendMode))
-            using (context.PushTransform(transform))
-            using (context.PushOpacity(r.Opacity / 100f))
-            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-            {
-                OnDraw(context, resource);
-            }
-        }
+        // Rejects a resource that is not a shape's before drawing it the way every drawable is drawn.
+        _ = (Resource)resource;
+        base.Render(context, resource);
     }
 
     public abstract partial class Resource

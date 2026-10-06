@@ -46,9 +46,7 @@ public sealed class ShaderExecutionContext
         _requiredRegion = requiredRegion;
         _deviceBounds = deviceBounds;
         _logicalOrigin = logicalOrigin;
-        var deviceGridOffset = new Vector(
-            (deviceBounds.X / workingScale) - logicalOrigin.X,
-            (deviceBounds.Y / workingScale) - logicalOrigin.Y);
+        var deviceGridOffset = ComputeDeviceGridOffset(deviceBounds, workingScale, logicalOrigin);
         _semanticOutputSize = PixelRect.FromRect(
                 outputBounds.Translate(deviceGridOffset),
                 workingScale)
@@ -136,11 +134,18 @@ public sealed class ShaderExecutionContext
         get
         {
             _token.ThrowIfInactive();
-            return new Vector(
-                (_deviceBounds.X / _workingScale) - _logicalOrigin.X,
-                (_deviceBounds.Y / _workingScale) - _logicalOrigin.Y);
+            return ComputeDeviceGridOffset(_deviceBounds, _workingScale, _logicalOrigin);
         }
     }
+
+    /// <summary>
+    /// Measures how far the device grid sits from stage-local coordinates: the device footprint's origin in
+    /// logical units, less the logical point it represents.
+    /// </summary>
+    private static Vector ComputeDeviceGridOffset(PixelRect deviceBounds, float workingScale, Point logicalOrigin)
+        => new(
+            (deviceBounds.X / workingScale) - logicalOrigin.X,
+            (deviceBounds.Y / workingScale) - logicalOrigin.Y);
 
     /// <summary>Gets the logical point represented by local output-device coordinate <c>(0, 0)</c>.</summary>
     /// <remarks>

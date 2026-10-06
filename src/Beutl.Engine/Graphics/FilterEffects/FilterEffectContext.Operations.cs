@@ -14,10 +14,10 @@ public sealed partial class FilterEffectContext
                 t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
                 .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)),
+                .Inflate(BlurExtent(t.sigma)),
             transformSamplingBounds: static (t, region) => region
                 .Translate(-t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
+                .Inflate(BlurExtent(t.sigma)));
     }
 
     public void DropShadow(Point position, Size sigma, Color color)
@@ -28,10 +28,10 @@ public sealed partial class FilterEffectContext
                 t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))),
+                .Inflate(BlurExtent(t.sigma))),
             transformSamplingBounds: static (t, region) => region.Union(region
                 .Translate(-t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
+                .Inflate(BlurExtent(t.sigma))));
     }
 
     public void Blur(Size sigma)
@@ -51,10 +51,13 @@ public sealed partial class FilterEffectContext
                 return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
             },
             transformBounds: static (sigma, bounds) =>
-                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)),
+                bounds.Inflate(BlurExtent(sigma)),
             transformSamplingBounds: static (sigma, region) =>
-                region.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+                region.Inflate(BlurExtent(sigma)));
     }
+
+    /// <summary>How far a Gaussian blur reaches past its input: three sigmas, beyond which the kernel is negligible.</summary>
+    private static Thickness BlurExtent(Size sigma) => new(sigma.Width * 3, sigma.Height * 3);
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
     public void InnerShadow(Point position, Size sigma, Color color)
@@ -260,16 +263,9 @@ public sealed partial class FilterEffectContext
 
         AppendSKColorFilter(matrix, (m, _) =>
         {
-            float[] array = s_colorMatPool.Get();
-            try
-            {
-                m.ToArrayForSkia(array);
-                return SKColorFilter.CreateColorMatrix(array);
-            }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
+            using var lease = PooledColorMatrix.Rent(out float[] array);
+            m.ToArrayForSkia(array);
+            return SKColorFilter.CreateColorMatrix(array);
         });
     }
 
@@ -282,55 +278,28 @@ public sealed partial class FilterEffectContext
 
     public void Saturate(float amount)
     {
-        float[] array = s_colorMatPool.Get();
-        try
-        {
-            Graphics.ColorMatrix.CreateSaturateMatrix(amount, array);
-            //M15,M25,M35,M45がゼロなので意味がない
-            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+        using var lease = PooledColorMatrix.Rent(out float[] array);
+        Graphics.ColorMatrix.CreateSaturateMatrix(amount, array);
 
-            ShaderColorMatrix(array);
-        }
-        finally
-        {
-            s_colorMatPool.Return(array);
-        }
+        ShaderColorMatrix(array);
     }
 
     public void HueRotate(float degrees)
     {
-        float[] array = s_colorMatPool.Get();
-        try
-        {
-            Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
-            //M15,M25,M35,M45がゼロなので意味がない
-            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+        using var lease = PooledColorMatrix.Rent(out float[] array);
+        Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
 
-            ShaderColorMatrix(array);
-        }
-        finally
-        {
-            s_colorMatPool.Return(array);
-        }
+        ShaderColorMatrix(array);
     }
 
     public void LuminanceToAlpha()
     {
         AppendSKColorFilter(Unit.Default, (_, _) =>
         {
-            float[] array = s_colorMatPool.Get();
-            try
-            {
-                Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+            using var lease = PooledColorMatrix.Rent(out float[] array);
+            Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
-            }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
+            return SKColorFilter.CreateColorMatrix(array);
         });
     }
 
@@ -338,19 +307,10 @@ public sealed partial class FilterEffectContext
     {
         // Recorded as a CurrentPixel shader stage rather than a Skia color filter so that an adjacent shader
         // stage can fuse with it instead of splitting the chain at a effect-item segment.
-        float[] array = s_colorMatPool.Get();
-        try
-        {
-            Graphics.ColorMatrix.CreateBrightness(amount, array);
-            //M15,M25,M35,M45がゼロなので意味がない
-            //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+        using var lease = PooledColorMatrix.Rent(out float[] array);
+        Graphics.ColorMatrix.CreateBrightness(amount, array);
 
-            ShaderColorMatrix(array);
-        }
-        finally
-        {
-            s_colorMatPool.Return(array);
-        }
+        ShaderColorMatrix(array);
     }
 
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
@@ -370,23 +330,16 @@ public sealed partial class FilterEffectContext
         var mulLinear = multiply.ToLinear();
         var addLinear = add.ToLinear();
 
-        float[] array = s_colorMatPool.Get();
-        try
-        {
-            array.AsSpan().Clear();
-            array[0] = mulLinear.X;
-            array[6] = mulLinear.Y;
-            array[12] = mulLinear.Z;
-            array[18] = 1;
-            array[4] = addLinear.X;
-            array[9] = addLinear.Y;
-            array[14] = addLinear.Z;
-            ShaderColorMatrix(array);
-        }
-        finally
-        {
-            s_colorMatPool.Return(array);
-        }
+        using var lease = PooledColorMatrix.Rent(out float[] array);
+        array.AsSpan().Clear();
+        array[0] = mulLinear.X;
+        array[6] = mulLinear.Y;
+        array[12] = mulLinear.Z;
+        array[18] = 1;
+        array[4] = addLinear.X;
+        array[9] = addLinear.Y;
+        array[14] = addLinear.Z;
+        ShaderColorMatrix(array);
     }
 
     public void LumaColor()

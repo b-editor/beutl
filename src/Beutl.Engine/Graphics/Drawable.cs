@@ -55,7 +55,7 @@ public abstract partial class Drawable : EngineObject
 
     internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
     {
-        Vector pt = CalculateTranslate(coreBounds, availableSize, resource);
+        Vector pt = CalculateAlignmentTranslate(resource.AlignmentX, resource.AlignmentY, coreBounds, availableSize);
         var origin = resource.TransformOrigin.ToPixels(coreBounds);
         Matrix offset = Matrix.CreateTranslation(origin);
 
@@ -90,14 +90,22 @@ public abstract partial class Drawable : EngineObject
 
     protected abstract void OnDraw(GraphicsContext2D context, Resource resource);
 
-    private Point CalculateTranslate(Size bounds, Size canvasSize, Resource resource)
+    /// <summary>
+    /// Places <paramref name="bounds"/> inside <paramref name="canvasSize"/> by the given alignment; an axis whose
+    /// canvas extent is unbounded stays at zero.
+    /// </summary>
+    internal static Point CalculateAlignmentTranslate(
+        Media.AlignmentX alignmentX,
+        Media.AlignmentY alignmentY,
+        Size bounds,
+        Size canvasSize)
     {
         float x = 0;
         float y = 0;
 
         if (float.IsFinite(canvasSize.Width))
         {
-            switch (resource.AlignmentX)
+            switch (alignmentX)
             {
                 case Media.AlignmentX.Left:
                     x = 0;
@@ -113,7 +121,7 @@ public abstract partial class Drawable : EngineObject
 
         if (float.IsFinite(canvasSize.Height))
         {
-            switch (resource.AlignmentY)
+            switch (alignmentY)
             {
                 case Media.AlignmentY.Top:
                     y = 0;

@@ -35,29 +35,41 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                                    || r.Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
 
             using (context.PushBlendMode(r.BlendMode))
-            using (context.PushNode(
-                       transformParams,
-                       b => new CustomTransformRenderNode(
-                           b.Transform, b.TransformOrigin, b.availableSize,
-                           Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
-                       (n, b) => n.Update(
-                           b.Transform, b.TransformOrigin, b.availableSize,
-                           Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+            using (PushCustomTransform(context, transformParams))
             using (context.PushOpacity(resource.Opacity / 100f))
             using (context.PushNode(
                        isolatesContent,
                        b => new ContentIsolationRenderNode(b),
                        (n, b) => n.Update(b)))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-            using (context.PushNode(
-                       boundsMemory,
-                       b => new ContentBoundsRenderNode(b),
-                       (n, b) => n.Update(b)))
+            using (PushContentBounds(context, boundsMemory))
             {
                 OnDraw(context, r);
             }
         }
     }
+
+    /// <summary>
+    /// Pushes the node that applies a container's transform to its content, laid out from the top-left corner.
+    /// </summary>
+    internal static PushedState PushCustomTransform(
+        GraphicsContext2D context,
+        in (Transform.Resource? Transform, RelativePoint TransformOrigin, Size availableSize, MemoryNode<Rect> boundsMemory) transformParams)
+        => context.PushNode(
+            transformParams,
+            b => new CustomTransformRenderNode(
+                b.Transform, b.TransformOrigin, b.availableSize,
+                Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
+            (n, b) => n.Update(
+                b.Transform, b.TransformOrigin, b.availableSize,
+                Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory));
+
+    /// <summary>Pushes the node that records the bounds of the content drawn inside it.</summary>
+    internal static PushedState PushContentBounds(GraphicsContext2D context, MemoryNode<Rect> boundsMemory)
+        => context.PushNode(
+            boundsMemory,
+            b => new ContentBoundsRenderNode(b),
+            (n, b) => n.Update(b));
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
@@ -220,7 +232,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         private Matrix GetTransformMatrix(Rect bounds)
         {
-            Vector pt = CalculateTranslate(bounds.Size);
+            Vector pt = CalculateAlignmentTranslate(AlignmentX, AlignmentY, bounds.Size, ScreenSize);
             var origin = TransformOrigin.ToPixels(bounds.Size);
             Matrix offset = Matrix.CreateTranslation(origin + bounds.Position);
             var transform = Transform?.Resource;
@@ -233,46 +245,6 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             {
                 return Matrix.CreateTranslation(pt);
             }
-        }
-
-        private Point CalculateTranslate(Size bounds)
-        {
-            float x = 0;
-            float y = 0;
-
-            if (float.IsFinite(ScreenSize.Width))
-            {
-                switch (AlignmentX)
-                {
-                    case Media.AlignmentX.Left:
-                        x = 0;
-                        break;
-                    case Media.AlignmentX.Center:
-                        x = ScreenSize.Width / 2 - bounds.Width / 2;
-                        break;
-                    case Media.AlignmentX.Right:
-                        x = ScreenSize.Width - bounds.Width;
-                        break;
-                }
-            }
-
-            if (float.IsFinite(ScreenSize.Height))
-            {
-                switch (AlignmentY)
-                {
-                    case Media.AlignmentY.Top:
-                        y = 0;
-                        break;
-                    case Media.AlignmentY.Center:
-                        y = ScreenSize.Height / 2 - bounds.Height / 2;
-                        break;
-                    case Media.AlignmentY.Bottom:
-                        y = ScreenSize.Height - bounds.Height;
-                        break;
-                }
-            }
-
-            return new Point(x, y);
         }
 
         public override void Process(RenderNodeContext context)

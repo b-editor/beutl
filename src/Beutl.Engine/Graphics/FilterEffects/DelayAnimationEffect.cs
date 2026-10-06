@@ -33,77 +33,100 @@ public partial class DelayAnimationEffect : FilterEffect
             (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
              disableResourceShare: r.DisableResourceShare,
              preferProxy: r.PreferProxy, preferredProxyPreset: r.PreferredProxyPreset),
-            static (data, effectContext) =>
-            {
-                int targetCount = effectContext.Targets.Count;
-
-                // キャッシュを必要数まで成長
-                for (int i = data.cache.Count; i < targetCount; i++)
-                {
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
-                    data.cache.Add(data.childEffect.ToResource(new CompositionContext(delayedTime)
-                    {
-                        DisableResourceShare = data.disableResourceShare,
-                        PreferProxy = data.preferProxy,
-                        PreferredProxyPreset = data.preferredProxyPreset,
-                    }));
-                }
-
-                // 余分なキャッシュを縮小
-                while (data.cache.Count > targetCount)
-                {
-                    data.cache[^1].Dispose();
-                    data.cache.RemoveAt(data.cache.Count - 1);
-                }
-
-                for (int i = 0, j = 0; i < targetCount; i++, j++)
-                {
-                    EffectTarget target = effectContext.Targets[i];
-                    if (target.IsEmpty) continue;
-
-                    // 既存Resourceを遅延時刻で更新
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
-                    var delayedContext = new CompositionContext(delayedTime)
-                    {
-                        DisableResourceShare = data.disableResourceShare,
-                        PreferProxy = data.preferProxy,
-                        PreferredProxyPreset = data.preferredProxyPreset,
-                    };
-                    var updateOnly = false;
-                    data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
-
-                    if (!data.cache[j].IsEnabled) continue;
-
-                    // Forward output scale and working density into the nested re-application.
-                    using var childFEContext = new FilterEffectContext(
-                        target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
-                    childFEContext.ApplyTransactional(data.childEffect, data.cache[j]);
-
-                    target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
-                    using var singleTargets = new EffectTargets();
-                    singleTargets.Add(target.Clone());
-                    using var builder = new SKImageFilterBuilder();
-                    using FilterEffectExecutor executor =
-                        effectContext.CreateExecutor(singleTargets, builder);
-                    executor.Apply(childFEContext);
-                    executor.Flush(false);
-
-                    if (singleTargets.Count > 0)
-                    {
-                        effectContext.Targets[i] = singleTargets[0].Clone();
-                        target.Dispose();
-
-                        for (int k = 1; k < singleTargets.Count; k++)
-                        {
-                            effectContext.Targets.Insert(i + k, singleTargets[k].Clone());
-                        }
-
-                        i += singleTargets.Count - 1;
-                        targetCount = effectContext.Targets.Count;
-                    }
-                }
-            });
+            ApplyDelayed);
     }
+
+    /// <summary>
+    /// Applies the child effect to each target at a time held back by <c>delay</c> milliseconds per target index,
+    /// keeping one child resource per target in <c>cache</c>.
+    /// </summary>
+    private static void ApplyDelayed(
+        (float delay, TimeSpan globalTime, FilterEffect childEffect, List<FilterEffect.Resource> cache,
+            bool disableResourceShare, bool preferProxy, ProxyPreset preferredProxyPreset) data,
+        CustomFilterEffectContext effectContext)
+    {
+        int targetCount = effectContext.Targets.Count;
+
+        // キャッシュを必要数まで成長
+        for (int i = data.cache.Count; i < targetCount; i++)
+        {
+            TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
+            data.cache.Add(data.childEffect.ToResource(CreateDelayedContext(
+                delayedTime,
+                data.disableResourceShare,
+                data.preferProxy,
+                data.preferredProxyPreset)));
+        }
+
+        // 余分なキャッシュを縮小
+        while (data.cache.Count > targetCount)
+        {
+            data.cache[^1].Dispose();
+            data.cache.RemoveAt(data.cache.Count - 1);
+        }
+
+        for (int i = 0, j = 0; i < targetCount; i++, j++)
+        {
+            EffectTarget target = effectContext.Targets[i];
+            if (target.IsEmpty) continue;
+
+            // 既存Resourceを遅延時刻で更新
+            TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
+            var delayedContext = CreateDelayedContext(
+                delayedTime,
+                data.disableResourceShare,
+                data.preferProxy,
+                data.preferredProxyPreset);
+            var updateOnly = false;
+            data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
+
+            if (!data.cache[j].IsEnabled) continue;
+
+            // Forward output scale and working density into the nested re-application.
+            using var childFEContext = new FilterEffectContext(
+                target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
+            childFEContext.ApplyTransactional(data.childEffect, data.cache[j]);
+
+            target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
+            using var singleTargets = new EffectTargets();
+            singleTargets.Add(target.Clone());
+            using var builder = new SKImageFilterBuilder();
+            using FilterEffectExecutor executor =
+                effectContext.CreateExecutor(singleTargets, builder);
+            executor.Apply(childFEContext);
+            executor.Flush(false);
+
+            if (singleTargets.Count > 0)
+            {
+                effectContext.Targets[i] = singleTargets[0].Clone();
+                target.Dispose();
+
+                for (int k = 1; k < singleTargets.Count; k++)
+                {
+                    effectContext.Targets.Insert(i + k, singleTargets[k].Clone());
+                }
+
+                i += singleTargets.Count - 1;
+                targetCount = effectContext.Targets.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Creates the context a delayed copy of the child effect is resolved in, carrying the host's resource-sharing
+    /// and proxy preferences.
+    /// </summary>
+    private static CompositionContext CreateDelayedContext(
+        TimeSpan delayedTime,
+        bool disableResourceShare,
+        bool preferProxy,
+        ProxyPreset preferredProxyPreset)
+        => new(delayedTime)
+        {
+            DisableResourceShare = disableResourceShare,
+            PreferProxy = preferProxy,
+            PreferredProxyPreset = preferredProxyPreset,
+        };
 
     public override Resource ToResource(CompositionContext context)
     {

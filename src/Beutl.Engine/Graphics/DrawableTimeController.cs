@@ -46,19 +46,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
-    {
-        var anm = Speed.Animation;
-        if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return timeSpan;
-
-        if (keyFrameAnimation.KeyFrames.Count == 0)
-        {
-            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
-        }
-
-        resource.SpeedIntegrator.EnsureCache(anm);
-        return resource.SpeedIntegrator.Integrate(timeSpan, keyFrameAnimation);
-    }
+        => SpeedAdjustedTime.Map(Speed, resource.Speed, resource.SpeedIntegrator, timeSpan);
 
     /// <summary>
     /// Main time calculation (follows the order defined in the design document).
@@ -117,16 +105,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         // 5. Loop: time = time % targetDuration
         if (resource.Loop && targetDuration > TimeSpan.Zero)
         {
-            if (baseTime >= TimeSpan.Zero)
-            {
-                baseTime = TimeSpan.FromTicks(baseTime.Ticks % targetDuration.Ticks);
-            }
-            else
-            {
-                // For negative values, add the duration before applying modulo
-                var positiveTicks = targetDuration.Ticks + (baseTime.Ticks % targetDuration.Ticks);
-                baseTime = TimeSpan.FromTicks(positiveTicks % targetDuration.Ticks);
-            }
+            baseTime = SpeedAdjustedTime.WrapIntoDuration(baseTime, targetDuration);
         }
 
         // 6. HoldFirstFrame/HoldLastFrame: clamp out-of-range time

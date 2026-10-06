@@ -457,7 +457,7 @@ public sealed partial class SkslSource
                 throw ValidationError($"CurrentPixel declaration name '{name}' is reserved by the renderer.");
             }
             if (name.StartsWith("__beutl", StringComparison.Ordinal)
-                || name.StartsWith("fe", StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal)
+                || IsFilterEffectBindingName(name)
                 || name.StartsWith("sk_", StringComparison.Ordinal)
                 || s_languageKeywords.Contains(name)
                 || s_precisionQualifiers.Contains(name)

@@ -53,16 +53,12 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
 
             if (round)
             {
-                _paint ??= new SKPaint();
-                VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
-                _builder ??= new SKPathBuilder();
-                _builder.Reset();
+                BarGeometry.BeginRoundedBars(ref _paint, ref _builder, canvas, bounds, fill);
             }
 
             for (int i = 0; i < barCount; i++)
             {
-                float abs = MathF.Max(MathF.Abs(mins[i]), MathF.Abs(maxs[i]));
-                float magnitude = Math.Clamp(abs * gain, 0f, 1f);
+                float magnitude = WaveformSampleMath.PeakMagnitude(mins[i], maxs[i], gain);
                 float halfBarHeight = MathF.Max(0.5f, magnitude * halfHeight);
                 float topY = centerY - halfBarHeight;
                 float barHeight = halfBarHeight * 2f;
@@ -80,8 +76,7 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
 
             if (round)
             {
-                using SKPath path = _builder!.Detach();
-                canvas.Canvas.DrawPath(path, _paint!);
+                BarGeometry.DrawRoundedBars(canvas, _builder!, _paint!);
             }
         }
 

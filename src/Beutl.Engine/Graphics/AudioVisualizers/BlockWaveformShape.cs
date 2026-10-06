@@ -60,8 +60,7 @@ public sealed partial class BlockWaveformShape : WaveformShape
                 float blockHeight = MathF.Max(0.5f, (halfHeight - blockGap * (blockCount - 1)) / blockCount);
                 for (int i = 0; i < barCount; i++)
                 {
-                    float peak = MathF.Max(MathF.Abs(mins[i]), MathF.Abs(maxs[i]));
-                    float magnitude = Math.Clamp(peak * gain, 0f, 1f);
+                    float magnitude = WaveformSampleMath.PeakMagnitude(mins[i], maxs[i], gain);
                     int lit = (int)MathF.Round(magnitude * blockCount);
                     if (lit <= 0) continue;
                     float x = (float)bounds.X + i * slotWidth + offsetX;
@@ -81,8 +80,7 @@ public sealed partial class BlockWaveformShape : WaveformShape
                 float baseY = (float)bounds.Y + height;
                 for (int i = 0; i < barCount; i++)
                 {
-                    float peak = MathF.Max(MathF.Abs(mins[i]), MathF.Abs(maxs[i]));
-                    float magnitude = Math.Clamp(peak * gain, 0f, 1f);
+                    float magnitude = WaveformSampleMath.PeakMagnitude(mins[i], maxs[i], gain);
                     int lit = (int)MathF.Round(magnitude * blockCount);
                     if (lit <= 0) continue;
                     float x = (float)bounds.X + i * slotWidth + offsetX;

@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
@@ -275,6 +276,66 @@ public sealed class GLSLShader : IDisposable
                 $"This shader requires {_pipeline.InputCount} inputs. Use Render with all input targets instead of single-input Apply methods.");
     }
 
+    /// <summary>
+    /// Resolves the GPU texture a single-input pass samples from <paramref name="target"/> and orders the writes
+    /// that produced it ahead of that pass.
+    /// </summary>
+    /// <returns><see langword="false"/> when the target has no GPU texture, which leaves it as it is.</returns>
+    private static bool TryPrepareSourceTexture(EffectTarget target, [NotNullWhen(true)] out ITexture2D? sourceTexture)
+    {
+        sourceTexture = null;
+        RenderTarget? renderTarget = target.RenderTarget;
+
+        if (renderTarget == null)
+            return false;
+
+        sourceTexture = renderTarget.Texture;
+        if (sourceTexture == null)
+            return false;
+
+        renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+        return true;
+    }
+
+    /// <summary>
+    /// Runs one pass from <paramref name="source"/> into a new target like <paramref name="target"/> and swaps it in
+    /// at <paramref name="index"/>; when no native target can be allocated, the source target stays in place.
+    /// </summary>
+    /// <remarks>The push constants are computed once the destination exists, from the target being replaced.</remarks>
+    private void RunPassIntoReplacement<T, TState>(
+        CustomFilterEffectContext context,
+        int index,
+        EffectTarget target,
+        ITexture2D source,
+        TState state,
+        Func<EffectTarget, TState, T> createPushConstants) where T : unmanaged
+    {
+        EffectTarget newTarget = context.CreateNativeTargetLike(target);
+        RenderTarget? newRenderTarget = newTarget.RenderTarget;
+
+        if (newRenderTarget?.Texture == null)
+        {
+            newTarget.Dispose();
+            return;
+        }
+
+        ITexture2D destinationTexture = newRenderTarget.Texture;
+        try
+        {
+            T pushConstants = createPushConstants(target, state);
+            _pipeline.Execute(source, destinationTexture, pushConstants);
+            _pipeline.SubmitPendingCommands();
+
+            target.Dispose();
+            context.Targets[index] = newTarget;
+        }
+        catch
+        {
+            newTarget.Dispose();
+            throw;
+        }
+    }
+
     public void Apply<T>(CustomFilterEffectContext context, T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -286,40 +347,10 @@ public sealed class GLSLShader : IDisposable
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
-            RenderTarget? renderTarget = target.RenderTarget;
-
-            if (renderTarget == null)
+            if (!TryPrepareSourceTexture(target, out ITexture2D? sourceTexture))
                 continue;
 
-            ITexture2D? sourceTexture = renderTarget.Texture;
-            if (sourceTexture == null)
-                continue;
-
-            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-
-            EffectTarget newTarget = context.CreateNativeTargetLike(target);
-            RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-            if (newRenderTarget?.Texture == null)
-            {
-                newTarget.Dispose();
-                continue;
-            }
-
-            ITexture2D destinationTexture = newRenderTarget.Texture;
-            try
-            {
-                _pipeline.Execute(sourceTexture, destinationTexture, pushConstants);
-                _pipeline.SubmitPendingCommands();
-
-                target.Dispose();
-                context.Targets[i] = newTarget;
-            }
-            catch
-            {
-                newTarget.Dispose();
-                throw;
-            }
+            RunPassIntoReplacement(context, i, target, sourceTexture, pushConstants, static (_, value) => value);
         }
     }
 
@@ -365,16 +396,8 @@ public sealed class GLSLShader : IDisposable
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
-            RenderTarget? renderTarget = target.RenderTarget;
-
-            if (renderTarget == null)
+            if (!TryPrepareSourceTexture(target, out ITexture2D? sourceTexture))
                 continue;
-
-            ITexture2D? sourceTexture = renderTarget.Texture;
-            if (sourceTexture == null)
-                continue;
-
-            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
 
             int width = sourceTexture.Width;
             int height = sourceTexture.Height;
@@ -385,29 +408,13 @@ public sealed class GLSLShader : IDisposable
             if (passCount == 1)
             {
                 // Single pass: write directly to the new EffectTarget
-                EffectTarget newTarget = context.CreateNativeTargetLike(target);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget?.Texture == null)
-                {
-                    newTarget.Dispose();
-                    continue;
-                }
-
-                try
-                {
-                    _pipeline.Execute(sourceTexture, newRenderTarget.Texture, createPushConstants(0, target));
-                    _pipeline.SubmitPendingCommands();
-
-                    target.Dispose();
-                    context.Targets[i] = newTarget;
-                }
-                catch
-                {
-                    newTarget.Dispose();
-                    throw;
-                }
-
+                RunPassIntoReplacement(
+                    context,
+                    i,
+                    target,
+                    sourceTexture,
+                    (Factory: createPushConstants, Pass: 0),
+                    static (input, state) => state.Factory(state.Pass, input));
                 continue;
             }
 
@@ -441,30 +448,13 @@ public sealed class GLSLShader : IDisposable
             }
 
             // Final pass: write directly to the new EffectTarget
-            {
-                EffectTarget newTarget = context.CreateNativeTargetLike(target);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget?.Texture == null)
-                {
-                    newTarget.Dispose();
-                    continue;
-                }
-
-                try
-                {
-                    _pipeline.Execute(current, newRenderTarget.Texture, createPushConstants(passCount - 1, target));
-                    _pipeline.SubmitPendingCommands();
-
-                    target.Dispose();
-                    context.Targets[i] = newTarget;
-                }
-                catch
-                {
-                    newTarget.Dispose();
-                    throw;
-                }
-            }
+            RunPassIntoReplacement(
+                context,
+                i,
+                target,
+                current,
+                (Factory: createPushConstants, Pass: passCount - 1),
+                static (input, state) => state.Factory(state.Pass, input));
         }
     }
 
@@ -481,42 +471,16 @@ public sealed class GLSLShader : IDisposable
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
-            RenderTarget? renderTarget = target.RenderTarget;
-
-            if (renderTarget == null)
+            if (!TryPrepareSourceTexture(target, out ITexture2D? sourceTexture))
                 continue;
 
-            ITexture2D? sourceTexture = renderTarget.Texture;
-            if (sourceTexture == null)
-                continue;
-
-            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-
-            EffectTarget newTarget = context.CreateNativeTargetLike(target);
-            RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-            if (newRenderTarget?.Texture == null)
-            {
-                newTarget.Dispose();
-                continue;
-            }
-
-            ITexture2D destinationTexture = newRenderTarget.Texture;
-
-            try
-            {
-                T pushConstants = createPushConstants(target);
-                _pipeline.Execute(sourceTexture, destinationTexture, pushConstants);
-                _pipeline.SubmitPendingCommands();
-
-                target.Dispose();
-                context.Targets[i] = newTarget;
-            }
-            catch
-            {
-                newTarget.Dispose();
-                throw;
-            }
+            RunPassIntoReplacement(
+                context,
+                i,
+                target,
+                sourceTexture,
+                createPushConstants,
+                static (input, factory) => factory(input));
         }
     }
 

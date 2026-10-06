@@ -37,13 +37,18 @@ public partial class ImmediateCanvas
         }
     }
 
+    private PushedState PushState(CanvasPushedState state)
+    {
+        _states.Push(state);
+        return new PushedState(this, _states.Count);
+    }
+
     public PushedState Push()
     {
         VerifyAccess();
         int count = Canvas.Save();
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.SKCanvasPushedState(count));
     }
 
     public PushedState PushLayer(Rect limit = default)
@@ -63,8 +68,7 @@ public partial class ImmediateCanvas
             }
         }
 
-        _states.Push(new CanvasPushedState.LayerPushedState(count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.LayerPushedState(count));
     }
 
     internal PushedState PushPaint(SKPaint paint, Rect? rect = null)
@@ -81,8 +85,7 @@ public partial class ImmediateCanvas
             count = Canvas.SaveLayer(paint);
         }
 
-        _states.Push(new CanvasPushedState.LayerPushedState(count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.LayerPushedState(count));
     }
 
     /// <summary>
@@ -148,8 +151,7 @@ public partial class ImmediateCanvas
         int count = Canvas.Save();
         ClipRect(clip, operation);
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.SKCanvasPushedState(count));
     }
 
     public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
@@ -159,8 +161,7 @@ public partial class ImmediateCanvas
         int count = Canvas.Save();
         ClipPath(geometry, operation);
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.SKCanvasPushedState(count));
     }
 
     public PushedState PushOpacity(float opacity)
@@ -175,8 +176,7 @@ public partial class ImmediateCanvas
             // Skia sizes an isolation layer from the active clip, and rasterizing into that smaller
             // surface changes antialiased coverage. A fully opaque group is SrcOver-associative, so
             // the layer would only be an identity pass that perturbs coverage.
-            _states.Push(new CanvasPushedState.SKCanvasPushedState(Canvas.Save()));
-            return new PushedState(this, _states.Count);
+            return PushState(new CanvasPushedState.SKCanvasPushedState(Canvas.Save()));
         }
 
         // A float color filter preserves 16-bit opacity; SaveLayer alpha and DstIn masks quantize to 8 bits.
@@ -189,8 +189,7 @@ public partial class ImmediateCanvas
             count = Canvas.SaveLayer(paint);
         }
 
-        _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.OpacityPushedState(oldOpacity, count));
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
@@ -200,17 +199,8 @@ public partial class ImmediateCanvas
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(
-            bounds,
-            mask,
-            (BlendMode)paint.BlendMode,
-            _currentDensity,
-            MaxWorkingScale,
-            Intent,
-            DrawableBrushMaterializer,
-            RenderTargetLeaseSession).ConfigurePaint(paint);
-        _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
-        return new PushedState(this, _states.Count);
+        CreateCanvasBrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity).ConfigurePaint(paint);
+        return PushState(new CanvasPushedState.MaskPushedState(count, invert, paint));
     }
 
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
@@ -237,8 +227,7 @@ public partial class ImmediateCanvas
             Transform = _currentBaseTransform.Prepend(matrix);
         }
 
-        _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
-        return new PushedState(this, _states.Count);
+        return PushState(new CanvasPushedState.SKCanvasPushedState(count));
     }
 
     /// <summary>
@@ -252,8 +241,7 @@ public partial class ImmediateCanvas
         // No-op when already in absolute device space.
         if (_currentDensity == 1f && _currentTransform.IsIdentity && _currentBaseTransform.IsIdentity)
         {
-            _states.Push(CanvasPushedState.NoOpPushedState.Instance);
-            return new PushedState(this, _states.Count);
+            return PushState(CanvasPushedState.NoOpPushedState.Instance);
         }
 
         int count = Canvas.Save();
@@ -264,8 +252,7 @@ public partial class ImmediateCanvas
         _currentDensity = 1f;
         _currentBaseTransform = Matrix.Identity;
 
-        _states.Push(state);
-        return new PushedState(this, _states.Count);
+        return PushState(state);
     }
 
     public PushedState PushBlendMode(BlendMode blendMode)
@@ -280,12 +267,11 @@ public partial class ImmediateCanvas
         paint.BlendMode = (SKBlendMode)blendMode;
 
         int count = Canvas.SaveLayer(paint);
-        _states.Push(new CanvasPushedState.BlendModePushedState(
+        return PushState(new CanvasPushedState.BlendModePushedState(
             tmp,
             previousProductRectangleCoverage,
             count,
             paint));
-        return new PushedState(this, _states.Count);
     }
 
     internal PushedState PushDirectBlendMode(BlendMode blendMode)
@@ -296,11 +282,10 @@ public partial class ImmediateCanvas
         BlendMode? previousDirectBlendMode = _directBlendMode;
         BlendMode = blendMode;
         _directBlendMode = blendMode;
-        _states.Push(new CanvasPushedState.DirectBlendModePushedState(
+        return PushState(new CanvasPushedState.DirectBlendModePushedState(
             previousBlendMode,
             previousDirectBlendMode,
             count));
-        return new PushedState(this, _states.Count);
     }
 
     /// <summary>

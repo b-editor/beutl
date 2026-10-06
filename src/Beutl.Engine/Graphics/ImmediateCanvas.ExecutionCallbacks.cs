@@ -18,14 +18,19 @@ public partial class ImmediateCanvas
         RenderExecutionSessionToken token,
         CallbackCanvasCapability capability)
     {
+        VerifyCanAttachExecutionCapability(token);
+
+        _executionToken = token;
+        _callbackCapability = capability;
+    }
+
+    private void VerifyCanAttachExecutionCapability(RenderExecutionSessionToken token)
+    {
         ArgumentNullException.ThrowIfNull(token);
         if (_executionToken is not null)
             throw new InvalidOperationException("The canvas already has an execution capability.");
         if (!token.IsActiveCanvas(this))
             throw new InvalidOperationException("The canvas must be active before a capability is attached.");
-
-        _executionToken = token;
-        _callbackCapability = capability;
     }
 
     /// <summary>
@@ -130,11 +135,7 @@ public partial class ImmediateCanvas
 
     internal void ConfigureRawExecutionCallback(RenderExecutionSessionToken token)
     {
-        ArgumentNullException.ThrowIfNull(token);
-        if (_executionToken is not null)
-            throw new InvalidOperationException("The canvas already has an execution capability.");
-        if (!token.IsActiveCanvas(this))
-            throw new InvalidOperationException("The canvas must be active before a capability is attached.");
+        VerifyCanAttachExecutionCapability(token);
 
         _executionToken = token;
         _callbackCapability = null;
@@ -192,9 +193,7 @@ public partial class ImmediateCanvas
         VerifyPixelOperation();
         using (PushDeviceSpace())
         {
-            _sharedFillPaint.Reset();
-            ApplyDirectBlendMode(_sharedFillPaint);
-            _sharedFillPaint.IsAntialias = true;
+            PrepareBlitPaint(antialias: true);
             Canvas.DrawImage(
                 image,
                 localDevicePoint.X,
@@ -229,6 +228,12 @@ public partial class ImmediateCanvas
         }
     }
 
+    /// <summary>
+    /// Whether this canvas belongs to a capability-restricted callback, outside the replay of a target scope's
+    /// input, which lifts the restriction for its duration.
+    /// </summary>
+    private bool IsGuardedCallbackCanvas => _callbackCapability is not null && !_isReplayingTargetScope;
+
     private void VerifyPixelOperation(bool isClear = false)
     {
         VerifyAccess();
@@ -247,7 +252,7 @@ public partial class ImmediateCanvas
 
     private void VerifyHiddenLayerOperation()
     {
-        if (_callbackCapability is not null && !_isReplayingTargetScope)
+        if (IsGuardedCallbackCanvas)
         {
             throw new InvalidOperationException(
                 "SaveLayer-backed state is not available on a guarded callback canvas.");
@@ -256,7 +261,7 @@ public partial class ImmediateCanvas
 
     private void VerifyNestedExecutionOperation()
     {
-        if (_callbackCapability is not null && !_isReplayingTargetScope)
+        if (IsGuardedCallbackCanvas)
         {
             throw new InvalidOperationException(
                 "Nested render work, snapshots, and effectItem raw callbacks are not available on a guarded callback canvas.");
@@ -265,7 +270,7 @@ public partial class ImmediateCanvas
 
     private void VerifyNativeTargetOperation()
     {
-        if (_callbackCapability is not null && !_isReplayingTargetScope)
+        if (IsGuardedCallbackCanvas)
         {
             throw new InvalidOperationException(
                 "Raw surfaces and render targets are not available on a guarded callback canvas.");
@@ -276,8 +281,7 @@ public partial class ImmediateCanvas
     {
         if (resource is null
             || _executionToken is null
-            || _callbackCapability is null
-            || _isReplayingTargetScope)
+            || !IsGuardedCallbackCanvas)
             return;
 
         if (!_executionToken.IsResourceAuthorized(resource))

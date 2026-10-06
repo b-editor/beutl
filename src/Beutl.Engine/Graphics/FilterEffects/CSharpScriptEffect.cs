@@ -58,13 +58,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
         try
         {
-            var roslynScript = CSharpScript.Create<object>(
-                script,
-                s_scriptOptions,
-                typeof(CSharpScriptEffectGlobals));
-
-            var diagnostics = roslynScript.Compile();
-            var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+            var errors = CompileErrors(script, out _);
 
             return errors.Count > 0
                 ? ScriptCompilationResult.Fail(string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())))
@@ -74,6 +68,18 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
         {
             return ScriptCompilationResult.Fail(ex.Message);
         }
+    }
+
+    /// <summary>Compiles <paramref name="script"/> against the effect's globals and returns its error diagnostics.</summary>
+    private static List<Diagnostic> CompileErrors(string script, out Script<object> roslynScript)
+    {
+        roslynScript = CSharpScript.Create<object>(
+            script,
+            s_scriptOptions,
+            typeof(CSharpScriptEffectGlobals));
+
+        var diagnostics = roslynScript.Compile();
+        return diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
     }
 
     private static ScriptOptions CreateScriptOptions()
@@ -160,13 +166,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
             try
             {
-                var roslynScript = CSharpScript.Create<object>(
-                    script,
-                    s_scriptOptions,
-                    typeof(CSharpScriptEffectGlobals));
-
-                var diagnostics = roslynScript.Compile();
-                var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+                var errors = CompileErrors(script, out Script<object> roslynScript);
 
                 if (errors.Count > 0)
                 {

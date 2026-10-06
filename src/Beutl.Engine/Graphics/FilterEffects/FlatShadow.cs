@@ -53,27 +53,6 @@ public partial class FlatShadow : FilterEffect
     private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
         CustomFilterEffectContext context)
     {
-        static SKPath CreatePath(Bitmap src)
-        {
-            using var contours = ContourTracer.FindContours(src);
-
-            using var builder = new SKPathBuilder();
-            foreach (var contour in contours)
-            {
-                for (int j = 0; j < contour.Count; j++)
-                {
-                    if (j == 0)
-                        builder.MoveTo(contour[j].X, contour[j].Y);
-                    else
-                        builder.LineTo(contour[j].X, contour[j].Y);
-                }
-
-                builder.Close();
-            }
-
-            return builder.Detach();
-        }
-
         Brush.Resource? brush = data.Brush;
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
@@ -90,13 +69,7 @@ public partial class FlatShadow : FilterEffect
             float x2Abs = Math.Abs(x2);
             float y2Abs = Math.Abs(y2);
 
-            Size size = target.Bounds.Size;
-            EffectTarget newTarget = context.CreateTarget(
-                new Rect(
-                    target.Bounds.X - (x2Abs - x2) / 2,
-                    target.Bounds.Y - (y2Abs - y2) / 2,
-                    (size.Width + x2Abs),
-                    (size.Height + y2Abs)));
+            EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
             if (newTarget.IsEmpty)
             {
                 newTarget.Dispose();
@@ -105,7 +78,7 @@ public partial class FlatShadow : FilterEffect
 
             using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
             using (var brushPaint = new SKPaint())
-            using (SKPath path = CreatePath(srcBitmap))
+            using (SKPath path = ContourPaths.CreateOutline(srcBitmap))
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();

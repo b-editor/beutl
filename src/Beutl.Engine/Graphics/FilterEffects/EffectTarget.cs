@@ -33,18 +33,43 @@ public sealed class EffectTarget : IDisposable
         PixelRect deviceBounds,
         Vector deviceGridOffset = default,
         bool preserveImperativeRasterPlacement = false)
+        : this(
+            CopyValidatedBacking(renderTarget, scale, deviceBounds),
+            originalBounds,
+            scale,
+            deviceBounds,
+            deviceGridOffset,
+            preserveImperativeRasterPlacement)
     {
-        ArgumentNullException.ThrowIfNull(renderTarget);
-        if (scale.IsUnbounded)
-            throw new ArgumentException("An effect target requires a concrete density.", nameof(scale));
-        if (deviceBounds.Size != new PixelSize(renderTarget.Width, renderTarget.Height))
-        {
-            throw new ArgumentException(
-                "Effect target device bounds must match the backing target size.",
-                nameof(deviceBounds));
-        }
+    }
 
-        _target = renderTarget.ShallowCopy();
+    private EffectTarget(
+        EffectTargetRenderTargetLease renderTargetLease,
+        Rect originalBounds,
+        EffectiveScale scale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
+        bool preserveImperativeRasterPlacement)
+        : this(
+            ValidatedBacking(renderTargetLease, scale, deviceBounds),
+            originalBounds,
+            scale,
+            deviceBounds,
+            deviceGridOffset,
+            preserveImperativeRasterPlacement)
+    {
+    }
+
+    /// <summary>Takes ownership of a validated backing: a render-target reference or a pooled lease.</summary>
+    private EffectTarget(
+        object backing,
+        Rect originalBounds,
+        EffectiveScale scale,
+        PixelRect deviceBounds,
+        Vector deviceGridOffset,
+        bool preserveImperativeRasterPlacement)
+    {
+        _target = backing;
         _allocationBounds = originalBounds;
         _allocationRasterBounds = deviceBounds
             .ToRect(scale.Value)
@@ -57,13 +82,27 @@ public sealed class EffectTarget : IDisposable
         PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
     }
 
-    private EffectTarget(
+    /// <summary>Validates a render-target backing and returns the reference the new target owns.</summary>
+    private static object CopyValidatedBacking(RenderTarget renderTarget, EffectiveScale scale, PixelRect deviceBounds)
+    {
+        ArgumentNullException.ThrowIfNull(renderTarget);
+        if (scale.IsUnbounded)
+            throw new ArgumentException("An effect target requires a concrete density.", nameof(scale));
+        if (deviceBounds.Size != new PixelSize(renderTarget.Width, renderTarget.Height))
+        {
+            throw new ArgumentException(
+                "Effect target device bounds must match the backing target size.",
+                nameof(deviceBounds));
+        }
+
+        return renderTarget.ShallowCopy();
+    }
+
+    /// <summary>Validates a pooled-lease backing, which the new target takes over as it is.</summary>
+    private static object ValidatedBacking(
         EffectTargetRenderTargetLease renderTargetLease,
-        Rect originalBounds,
         EffectiveScale scale,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset,
-        bool preserveImperativeRasterPlacement)
+        PixelRect deviceBounds)
     {
         ArgumentNullException.ThrowIfNull(renderTargetLease);
         if (scale.IsUnbounded)
@@ -77,17 +116,7 @@ public sealed class EffectTarget : IDisposable
                 nameof(deviceBounds));
         }
 
-        _target = renderTargetLease;
-        _allocationBounds = originalBounds;
-        _allocationRasterBounds = deviceBounds
-            .ToRect(scale.Value)
-            .Translate(-deviceGridOffset);
-        OriginalBounds = originalBounds;
-        Bounds = originalBounds;
-        Scale = scale;
-        DeviceBounds = deviceBounds;
-        DeviceGridOffset = deviceGridOffset;
-        PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
+        return renderTargetLease;
     }
 
     public EffectTarget()
@@ -135,6 +164,9 @@ public sealed class EffectTarget : IDisposable
     };
 
     public bool IsEmpty => _target == null;
+
+    /// <summary>Whether this target has a backing render target and a concrete scale to rasterize at.</summary>
+    internal bool IsMaterialized => RenderTarget is not null && !Scale.IsUnbounded;
 
     /// <summary>The <see cref="EffectTargets"/> that currently owns this target, if any.</summary>
     internal EffectTargets? Owner { get; set; }

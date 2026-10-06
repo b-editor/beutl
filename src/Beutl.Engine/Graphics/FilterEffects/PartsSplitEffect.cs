@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reactive;
+using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
@@ -33,83 +34,9 @@ public partial class PartsSplitEffect : FilterEffect
                 var pathes = new List<(SKPath Path, int Parent, int Index)>(points.Count);
                 try
                 {
-                    for (int i1 = 0; i1 < points.Count; i1++)
-                    {
-                        ReadOnlySpan<PixelPoint> inner = points[i1];
-                        int parent = parentIndices[i1];
-                        using var builder = new SKPathBuilder();
-                        for (int j = 0; j < inner.Length; j++)
-                        {
-                            if (j == 0)
-                                builder.MoveTo(inner[j].X, inner[j].Y);
-                            else
-                                builder.LineTo(inner[j].X, inner[j].Y);
-                        }
-
-                        builder.Close();
-                        pathes.Add((builder.Detach(), parent, i1));
-                    }
-
-                    for (int j = 0; j < pathes.Count; j++)
-                    {
-                        (SKPath Path, int Parent, int Index) item = pathes[j];
-                        if (0 <= item.Parent)
-                        {
-                            int parentIndex = pathes.FindIndex(v => v.Index == item.Parent);
-                            if (parentIndex >= 0)
-                            {
-                                (SKPath, int Parent, int Index) parent = pathes[parentIndex];
-                                SKPath? newPath = parent.Item1.Op(item.Path, SKPathOp.Xor);
-                                if (newPath != null)
-                                {
-                                    item.Path.Dispose();
-                                    parent.Item1.Dispose();
-                                    pathes[parentIndex] = (newPath, parent.Parent, parent.Index);
-
-                                    pathes.RemoveAt(j);
-                                    if (parentIndex < j)
-                                    {
-                                        j--;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Contours are device px; convert path bounds to logical (/ w).
-                    float w = context.WorkingScale;
-                    bool allocationFailed = false;
-                    foreach ((SKPath skpath, _, _) in pathes)
-                    {
-                        SKRect pathBounds = skpath.TightBounds;
-                        var bounds = new Rect(
-                            target.Bounds.X + pathBounds.Left / w,
-                            target.Bounds.Y + pathBounds.Top / w,
-                            pathBounds.Width / w,
-                            pathBounds.Height / w);
-                        EffectTarget newTarget = context.CreateTarget(bounds);
-                        if (newTarget.IsEmpty)
-                        {
-                            newTarget.Dispose();
-                            allocationFailed = true;
-                            break;
-                        }
-
-                        newTargets.Add(newTarget);
-                        // Clip path and source blit are device px; enter device space.
-                        using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                        using (newCanvas.PushDeviceSpace())
-                        using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
-                        {
-                            newCanvas.Clear();
-                            newCanvas.Canvas.ClipPath(skpath, antialias: true);
-
-                            newCanvas.DrawRenderTarget(srcRenderTarget, default);
-                        }
-
-                    }
-
-                    if (allocationFailed)
+                    AppendContourPaths(points, parentIndices, pathes);
+                    MergeHolesIntoParents(pathes);
+                    if (!TryRenderParts(context, target, srcRenderTarget, pathes, newTargets))
                     {
                         newTargets.Dispose();
                         continue;
@@ -133,5 +60,92 @@ public partial class PartsSplitEffect : FilterEffect
                 }
             }
         }
+    }
+
+    private static void AppendContourPaths(
+        Contours points,
+        PooledList<int> parentIndices,
+        List<(SKPath Path, int Parent, int Index)> pathes)
+    {
+        for (int i1 = 0; i1 < points.Count; i1++)
+        {
+            ReadOnlySpan<PixelPoint> inner = points[i1];
+            int parent = parentIndices[i1];
+            using var builder = new SKPathBuilder();
+            ContourPaths.AddClosedPolyline(builder, inner);
+            pathes.Add((builder.Detach(), parent, i1));
+        }
+    }
+
+    /// <summary>Cuts every hole out of the contour that encloses it, so a part keeps its holes.</summary>
+    private static void MergeHolesIntoParents(List<(SKPath Path, int Parent, int Index)> pathes)
+    {
+        for (int j = 0; j < pathes.Count; j++)
+        {
+            (SKPath Path, int Parent, int Index) item = pathes[j];
+            if (0 <= item.Parent)
+            {
+                int parentIndex = pathes.FindIndex(v => v.Index == item.Parent);
+                if (parentIndex >= 0)
+                {
+                    (SKPath, int Parent, int Index) parent = pathes[parentIndex];
+                    SKPath? newPath = parent.Item1.Op(item.Path, SKPathOp.Xor);
+                    if (newPath != null)
+                    {
+                        item.Path.Dispose();
+                        parent.Item1.Dispose();
+                        pathes[parentIndex] = (newPath, parent.Parent, parent.Index);
+
+                        pathes.RemoveAt(j);
+                        if (parentIndex < j)
+                        {
+                            j--;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Renders one target per part, clipped to the part's path.</summary>
+    /// <returns><see langword="false"/> when a part's target could not be allocated.</returns>
+    private static bool TryRenderParts(
+        CustomFilterEffectContext context,
+        EffectTarget target,
+        RenderTarget srcRenderTarget,
+        List<(SKPath Path, int Parent, int Index)> pathes,
+        EffectTargets newTargets)
+    {
+        // Contours are device px; convert path bounds to logical (/ w).
+        float w = context.WorkingScale;
+        foreach ((SKPath skpath, _, _) in pathes)
+        {
+            SKRect pathBounds = skpath.TightBounds;
+            var bounds = new Rect(
+                target.Bounds.X + pathBounds.Left / w,
+                target.Bounds.Y + pathBounds.Top / w,
+                pathBounds.Width / w,
+                pathBounds.Height / w);
+            EffectTarget newTarget = context.CreateTarget(bounds);
+            if (newTarget.IsEmpty)
+            {
+                newTarget.Dispose();
+                return false;
+            }
+
+            newTargets.Add(newTarget);
+            // Clip path and source blit are device px; enter device space.
+            using (ImmediateCanvas newCanvas = context.Open(newTarget))
+            using (newCanvas.PushDeviceSpace())
+            using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
+            {
+                newCanvas.Clear();
+                newCanvas.Canvas.ClipPath(skpath, antialias: true);
+
+                newCanvas.DrawRenderTarget(srcRenderTarget, default);
+            }
+        }
+
+        return true;
     }
 }

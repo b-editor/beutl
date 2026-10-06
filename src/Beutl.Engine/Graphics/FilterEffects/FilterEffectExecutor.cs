@@ -502,29 +502,12 @@ public sealed partial class FilterEffectExecutor : IDisposable
         RenderTarget target,
         float density,
         Size logicalSize)
-    {
-        ImmediateCanvas canvas;
-        if (_useExecutorManagedCanvas)
-        {
-            canvas = ImmediateCanvas.CreateExecutorManaged(
-                target,
-                density,
-                MaxWorkingScale,
-                logicalSize,
-                Intent);
-            canvas.ConfigureCustomEffectExecution();
-        }
-        else
-        {
-            canvas = new ImmediateCanvas(
-                target,
-                Intent,
-                density,
-                MaxWorkingScale,
-                logicalSize);
-        }
-
-        canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
-        return canvas;
-    }
+        => ImmediateCanvas.CreateCustomEffectCanvas(
+            target,
+            density,
+            MaxWorkingScale,
+            logicalSize,
+            Intent,
+            _useExecutorManagedCanvas,
+            _drawableBrushMaterializer);
 }

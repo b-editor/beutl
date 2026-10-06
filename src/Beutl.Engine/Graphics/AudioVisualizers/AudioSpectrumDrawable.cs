@@ -84,26 +84,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             if (fftSize < 2) return;
 
             int bins = fftSize / 2;
-            if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
-            if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
-            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
-            Span<float> real = _fftReal.AsSpan(0, fftSize);
-            Span<float> imag = _fftImag.AsSpan(0, fftSize);
-            Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
-
-            real.Clear();
-            imag.Clear();
-
-            ReadOnlySpan<float> samples = CachedSampleSpan;
-            int sampleCount = samples.Length;
-            int copy = Math.Min(sampleCount, fftSize);
-            int srcStart = Math.Max(0, sampleCount - copy);
-            int dstStart = fftSize - copy;
-            samples.Slice(srcStart, copy).CopyTo(real.Slice(dstStart, copy));
-
-            Fft.ApplyHann(real);
-            Fft.Forward(real, imag);
-            Fft.Magnitudes(real, imag, mags);
+            Span<float> mags = ComputeMagnitudes(fftSize, bins);
 
             float reference = fftSize * 0.5f;
             float gain = Math.Max(0f, Gain);
@@ -125,53 +106,14 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             Span<float> normalized = _normalizedBars.AsSpan(0, barCount);
             float smoothing = Math.Clamp(Smoothing / 100f, 0f, 0.99f);
 
-            float fMax = CachedSampleRate * 0.5f;
-            float fMin = Math.Max(20f, fMax / bins);
-            double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
-            double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
+            FrequencyAxis axis = FrequencyAxis.Create(freqScale, CachedSampleRate, bins);
 
             for (int i = 0; i < barCount; i++)
             {
-                int binLow;
-                int binHigh;
-                switch (freqScale)
-                {
-                    case FrequencyScale.Logarithmic:
-                        {
-                            double freqLow = fMin * Math.Pow(fMax / fMin, (double)i / barCount);
-                            double freqHigh = fMin * Math.Pow(fMax / fMin, (double)(i + 1) / barCount);
-                            binLow = (int)Math.Floor(freqLow / fMax * bins);
-                            binHigh = (int)Math.Ceiling(freqHigh / fMax * bins);
-                            break;
-                        }
-                    case FrequencyScale.Mel:
-                        {
-                            double m1 = melMin + (melMax - melMin) * i / barCount;
-                            double m2 = melMin + (melMax - melMin) * (i + 1) / barCount;
-                            double f1 = 700.0 * (Math.Pow(10, m1 / 2595.0) - 1);
-                            double f2 = 700.0 * (Math.Pow(10, m2 / 2595.0) - 1);
-                            binLow = (int)Math.Floor(f1 / fMax * bins);
-                            binHigh = (int)Math.Ceiling(f2 / fMax * bins);
-                            break;
-                        }
-                    default:
-                        binLow = i * bins / barCount;
-                        binHigh = (i + 1) * bins / barCount;
-                        break;
-                }
-
-                if (binHigh <= binLow) binHigh = binLow + 1;
-                if (binHigh > bins) binHigh = bins;
-                if (binLow < 0) binLow = 0;
+                ResolveBarBins(i, barCount, bins, freqScale, in axis, out int binLow, out int binHigh);
 
                 // バンド内は RMS で集計するとピーク値より滑らかに変化する
-                float sumSq = 0f;
-                int count = binHigh - binLow;
-                for (int b = binLow; b < binHigh; b++)
-                {
-                    sumSq += mags[b] * mags[b];
-                }
-                float rawMag = count > 0 ? MathF.Sqrt(sumSq / count) : 0f;
+                float rawMag = BandRms(mags, binLow, binHigh);
 
                 // 高速アタック + 緩やかリリース (ピークメーター方式)
                 float prev = smoothed[i];
@@ -188,6 +130,84 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             _renderedBarCount = barCount;
             _renderedSpectrumVersion = Version;
             shapeResource.Render(new SpectrumRenderContext(canvas, bounds, normalized, Fill));
+        }
+
+        /// <summary>Runs a Hann-windowed FFT over the newest samples and returns the bin magnitudes.</summary>
+        private Span<float> ComputeMagnitudes(int fftSize, int bins)
+        {
+            if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
+            if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
+            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
+            Span<float> real = _fftReal.AsSpan(0, fftSize);
+            Span<float> imag = _fftImag.AsSpan(0, fftSize);
+            Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
+
+            real.Clear();
+            imag.Clear();
+
+            ReadOnlySpan<float> samples = CachedSampleSpan;
+            int sampleCount = samples.Length;
+            int copy = Math.Min(sampleCount, fftSize);
+            int srcStart = Math.Max(0, sampleCount - copy);
+            int dstStart = fftSize - copy;
+            samples.Slice(srcStart, copy).CopyTo(real.Slice(dstStart, copy));
+
+            Fft.ApplyHann(real);
+            Fft.Forward(real, imag);
+            Fft.Magnitudes(real, imag, mags);
+            return mags;
+        }
+
+        /// <summary>Resolves the bin range <c>[binLow, binHigh)</c> bar <paramref name="i"/> covers on the chosen scale.</summary>
+        private static void ResolveBarBins(
+            int i,
+            int barCount,
+            int bins,
+            FrequencyScale freqScale,
+            in FrequencyAxis axis,
+            out int binLow,
+            out int binHigh)
+        {
+            switch (freqScale)
+            {
+                case FrequencyScale.Logarithmic:
+                    {
+                        double freqLow = axis.FMin * Math.Pow(axis.FMax / axis.FMin, (double)i / barCount);
+                        double freqHigh = axis.FMin * Math.Pow(axis.FMax / axis.FMin, (double)(i + 1) / barCount);
+                        binLow = (int)Math.Floor(freqLow / axis.FMax * bins);
+                        binHigh = (int)Math.Ceiling(freqHigh / axis.FMax * bins);
+                        break;
+                    }
+                case FrequencyScale.Mel:
+                    {
+                        double m1 = axis.MelMin + (axis.MelMax - axis.MelMin) * i / barCount;
+                        double m2 = axis.MelMin + (axis.MelMax - axis.MelMin) * (i + 1) / barCount;
+                        double f1 = 700.0 * (Math.Pow(10, m1 / 2595.0) - 1);
+                        double f2 = 700.0 * (Math.Pow(10, m2 / 2595.0) - 1);
+                        binLow = (int)Math.Floor(f1 / axis.FMax * bins);
+                        binHigh = (int)Math.Ceiling(f2 / axis.FMax * bins);
+                        break;
+                    }
+                default:
+                    binLow = i * bins / barCount;
+                    binHigh = (i + 1) * bins / barCount;
+                    break;
+            }
+
+            if (binHigh <= binLow) binHigh = binLow + 1;
+            if (binHigh > bins) binHigh = bins;
+            if (binLow < 0) binLow = 0;
+        }
+
+        private static float BandRms(ReadOnlySpan<float> mags, int binLow, int binHigh)
+        {
+            float sumSq = 0f;
+            int count = binHigh - binLow;
+            for (int b = binLow; b < binHigh; b++)
+            {
+                sumSq += mags[b] * mags[b];
+            }
+            return count > 0 ? MathF.Sqrt(sumSq / count) : 0f;
         }
     }
 }

@@ -85,22 +85,12 @@ internal sealed class SpirvShaderLowering
         var occupiedRanges = new List<(int Start, int End, string Name)>();
         foreach (SpirvPushConstantBinding mapping in _pushConstants)
         {
-            int bindingIndex = -1;
-            for (int index = 0; index < uniforms.Count; index++)
-            {
-                if (string.Equals(uniforms[index].Name, mapping.Name, StringComparison.Ordinal))
-                {
-                    bindingIndex = index;
-                    break;
-                }
-            }
-            if (bindingIndex < 0)
+            if (!TryFindUniform(uniforms, mapping.Name, out ShaderUniformBinding binding))
             {
                 throw new ArgumentException(
                     $"SPIR-V push constant '{mapping.Name}' has no matching shader uniform binding.",
                     nameof(uniforms));
             }
-            ShaderUniformBinding binding = uniforms[bindingIndex];
             SkslUniformDeclaration declaration = skslSource.Uniforms[binding.Name];
             (int alignment, int byteSize) = GetLayout(mapping.Name, declaration);
             if (mapping.Offset % alignment != 0)
@@ -170,15 +160,27 @@ internal sealed class SpirvShaderLowering
     /// so the miss here is unreachable rather than an author error.
     /// </remarks>
     private static ShaderUniformBinding FindUniform(ShaderDescription description, string name)
+        => TryFindUniform(description.Uniforms, name, out ShaderUniformBinding binding)
+            ? binding
+            : throw new InvalidOperationException($"The shader description declares no uniform '{name}'.");
+
+    /// <summary>Finds the uniform binding named <paramref name="name"/>, compared ordinally.</summary>
+    private static bool TryFindUniform(
+        IReadOnlyList<ShaderUniformBinding> uniforms,
+        string name,
+        out ShaderUniformBinding binding)
     {
-        IReadOnlyList<ShaderUniformBinding> uniforms = description.Uniforms;
         for (int index = 0; index < uniforms.Count; index++)
         {
             if (string.Equals(uniforms[index].Name, name, StringComparison.Ordinal))
-                return uniforms[index];
+            {
+                binding = uniforms[index];
+                return true;
+            }
         }
 
-        throw new InvalidOperationException($"The shader description declares no uniform '{name}'.");
+        binding = default;
+        return false;
     }
 
     private static (int Alignment, int ByteSize) GetLayout(

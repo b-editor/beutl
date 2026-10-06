@@ -5,7 +5,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
-using FilterEffectOrFEItem = object;
 
 namespace Beutl.Graphics.Effects;
 
@@ -23,7 +22,26 @@ public sealed partial class FilterEffectContext : IDisposable
 
     static FilterEffectContext()
     {
-        s_colorMatPool = new DefaultObjectPool<float[]>(new ArrayPooledObjectPolicy<float>(20));
+        s_colorMatPool = new DefaultObjectPool<float[]>(new ArrayPooledObjectPolicy<float>(ColorMatrixShader.SkiaColorMatrixLength));
+    }
+
+    /// <summary>Holds a Skia colour-matrix buffer rented from <see cref="s_colorMatPool"/> and returns it on dispose.</summary>
+    private readonly struct PooledColorMatrix : IDisposable
+    {
+        private readonly float[] _array;
+
+        private PooledColorMatrix(float[] array)
+        {
+            _array = array;
+        }
+
+        public static PooledColorMatrix Rent(out float[] array)
+        {
+            array = s_colorMatPool.Get();
+            return new PooledColorMatrix(array);
+        }
+
+        public void Dispose() => s_colorMatPool.Return(_array);
     }
 
     public FilterEffectContext(Rect bounds, float outputScale = 1f, float workingScale = 1f)

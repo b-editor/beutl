@@ -10,18 +10,21 @@ public sealed class SKImageFilterBuilder : IDisposable
     public void AppendSkiaFilter<T>(T data, FilterEffectExecutor executor, Func<T, SKImageFilter?, FilterEffectExecutor, SKImageFilter?> factory)
     {
         SKImageFilter? inner = GetFilter();
-        SKImageFilter? outer = factory(data, inner, executor);
-        if (outer != null)
-        {
-            _filter = outer;
-            inner?.Dispose();
-        }
+        ReplaceFilter(inner, factory(data, inner, executor));
     }
 
     internal void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, SKImageFilter?> factory)
     {
         SKImageFilter? inner = GetFilter();
-        SKImageFilter? outer = factory(data, inner);
+        ReplaceFilter(inner, factory(data, inner));
+    }
+
+    /// <summary>
+    /// Makes <paramref name="outer"/>, which wraps <paramref name="inner"/>, the chain's filter; a factory that
+    /// declined leaves the chain as it is.
+    /// </summary>
+    private void ReplaceFilter(SKImageFilter? inner, SKImageFilter? outer)
+    {
         if (outer != null)
         {
             _filter = outer;

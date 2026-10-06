@@ -227,25 +227,26 @@ public partial class CubeFile : IEquatable<CubeFile>
                 else if (s_domainMaxReg.IsMatch(line))
                 {
                     maxFound = true;
-                    Match match = s_domainMaxReg.Match(line);
-                    float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
-                    float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
-                    float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
-                    max = new(r, g, b);
+                    max = ParseDomain(s_domainMaxReg.Match(line));
                 }
                 else if (s_domainMinReg.IsMatch(line))
                 {
                     minFound = true;
-                    Match match = s_domainMinReg.Match(line);
-                    float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
-                    float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
-                    float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
-                    min = new(r, g, b);
+                    min = ParseDomain(s_domainMinReg.Match(line));
                 }
             }
         }
 
         reader.BaseStream.Position = 0;
+    }
+
+    /// <summary>Reads the red, green and blue bounds a <c>DOMAIN_MIN</c> or <c>DOMAIN_MAX</c> line declares.</summary>
+    private static Vector3 ParseDomain(Match match)
+    {
+        float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
+        float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
+        float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
+        return new(r, g, b);
     }
 
     [GeneratedRegex("^LUT_(?<dim>.*?)_SIZE (?<size>.*?)$")]

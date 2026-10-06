@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
@@ -108,10 +109,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
             // 周波数軸スケール用に「bin の取得関数」を決定する。
             // y=0 が最高周波数、y=height が最低周波数として配置。
-            float fMax = CachedSampleRate * 0.5f;
-            float fMin = MathF.Max(20f, fMax / bins);
-            double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
-            double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
+            FrequencyAxis axis = FrequencyAxis.Create(freqScale, CachedSampleRate, bins);
 
             // At density > 1, resolve the vertical grid at device resolution, capped by FFT bin count.
             float density = canvas.Density;
@@ -122,27 +120,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             // Extend each row by half a device px (floored at one) to avoid seams between rows. Loop-invariant.
             float rowFill = MathF.Max(1f / density, rowHeight + 0.5f / density);
 
-            // 各行がカバーする FFT bin 範囲 [lo, hi) を事前計算。
-            // pixelRows < bins の場合でも bin の取りこぼしが発生しないよう bin 範囲全体を描画時に max 集約する。
-            if (_rowBinLo.Length < pixelRows) _rowBinLo = new int[pixelRows];
-            if (_rowBinHi.Length < pixelRows) _rowBinHi = new int[pixelRows];
-            for (int row = 0; row < pixelRows; row++)
-            {
-                // row=0 が最高周波数。下端は t_low (低周波)、上端は t_high (高周波)。
-                double tLow = 1.0 - (row + 1) / (double)pixelRows;
-                double tHigh = 1.0 - row / (double)pixelRows;
-                if (tLow < 0) tLow = 0;
-                if (tHigh > 1) tHigh = 1;
-                double f1 = FreqForT(tLow, freqScale, fMin, fMax, melMin, melMax);
-                double f2 = FreqForT(tHigh, freqScale, fMin, fMax, melMin, melMax);
-                int bLo = (int)Math.Floor(f1 / fMax * bins);
-                int bHi = (int)Math.Ceiling(f2 / fMax * bins);
-                if (bLo < 0) bLo = 0;
-                if (bHi > bins) bHi = bins;
-                if (bHi <= bLo) bHi = Math.Min(bLo + 1, bins);
-                _rowBinLo[row] = bLo;
-                _rowBinHi[row] = bHi;
-            }
+            PrepareRowBins(pixelRows, bins, freqScale, in axis);
 
             for (int col = 0; col < columns; col++)
             {
@@ -164,12 +142,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                     int bHi = _rowBinHi[row];
 
                     // bin 範囲内の最大マグニチュードで代表させる（ピーク可視化優先）
-                    float peak = 0f;
-                    for (int b = bLo; b < bHi; b++)
-                    {
-                        float m = mags[b];
-                        if (m > peak) peak = m;
-                    }
+                    float peak = PeakMagnitude(mags, bLo, bHi);
 
                     float db = Fft.MagnitudeToDb(peak * gain, reference);
                     float normalized = (db - floorDb) / (0f - floorDb);
@@ -186,6 +159,46 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                         _paint);
                 }
             }
+        }
+
+        /// <summary>Precomputes the FFT bin range <c>[lo, hi)</c> each pixel row of the spectrogram covers.</summary>
+        private void PrepareRowBins(int pixelRows, int bins, FrequencyScale freqScale, in FrequencyAxis axis)
+        {
+            // 各行がカバーする FFT bin 範囲 [lo, hi) を事前計算。
+            // pixelRows < bins の場合でも bin の取りこぼしが発生しないよう bin 範囲全体を描画時に max 集約する。
+            if (_rowBinLo.Length < pixelRows) _rowBinLo = new int[pixelRows];
+            if (_rowBinHi.Length < pixelRows) _rowBinHi = new int[pixelRows];
+            for (int row = 0; row < pixelRows; row++)
+            {
+                // row=0 が最高周波数。下端は t_low (低周波)、上端は t_high (高周波)。
+                double tLow = 1.0 - (row + 1) / (double)pixelRows;
+                double tHigh = 1.0 - row / (double)pixelRows;
+                if (tLow < 0) tLow = 0;
+                if (tHigh > 1) tHigh = 1;
+                double f1 = FreqForT(tLow, freqScale, axis.FMin, axis.FMax, axis.MelMin, axis.MelMax);
+                double f2 = FreqForT(tHigh, freqScale, axis.FMin, axis.FMax, axis.MelMin, axis.MelMax);
+                int bLo = (int)Math.Floor(f1 / axis.FMax * bins);
+                int bHi = (int)Math.Ceiling(f2 / axis.FMax * bins);
+                if (bLo < 0) bLo = 0;
+                if (bHi > bins) bHi = bins;
+                if (bHi <= bLo) bHi = Math.Min(bLo + 1, bins);
+                _rowBinLo[row] = bLo;
+                _rowBinHi[row] = bHi;
+            }
+        }
+
+        // Called once per spectrogram cell, so it must stay inlined into the column loop.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static float PeakMagnitude(ReadOnlySpan<float> mags, int bLo, int bHi)
+        {
+            float peak = 0f;
+            for (int b = bLo; b < bHi; b++)
+            {
+                float m = mags[b];
+                if (m > peak) peak = m;
+            }
+
+            return peak;
         }
 
         private static double FreqForT(double t, FrequencyScale scale, float fMin, float fMax, double melMin, double melMax)

@@ -192,14 +192,7 @@ internal static class SkslSnippetMerger
         source.Append(MainFooter);
 
         string mergedSource = source.ToString();
-        ImmutableArray<SkslBackendLimit> overflow = GetOverflowReasons(
-            metrics.StageCount,
-            metrics.UniformVectorCount,
-            metrics.SamplerCount,
-            metrics.ChildCount,
-            metrics.SourceByteCount,
-            metrics.ProgramTokenCount,
-            budget);
+        ImmutableArray<SkslBackendLimit> overflow = GetOverflowReasons(metrics, budget);
 
         return new SkslMergedProgram(
             mergedSource,
@@ -332,27 +325,22 @@ internal static class SkslSnippetMerger
     }
 
     private static ImmutableArray<SkslBackendLimit> GetOverflowReasons(
-        int stages,
-        int uniforms,
-        int samplers,
-        int children,
-        int sourceBytes,
-        int programTokens,
+        ProgramMetrics metrics,
         SkslBackendBudget budget)
     {
         Span<SkslBackendLimit> result = stackalloc SkslBackendLimit[6];
         int count = 0;
-        if (stages > budget.MaxStages)
+        if (metrics.StageCount > budget.MaxStages)
             result[count++] = SkslBackendLimit.StageCount;
-        if (uniforms > budget.MaxUniformVectors)
+        if (metrics.UniformVectorCount > budget.MaxUniformVectors)
             result[count++] = SkslBackendLimit.UniformVectors;
-        if (samplers > budget.MaxSamplers)
+        if (metrics.SamplerCount > budget.MaxSamplers)
             result[count++] = SkslBackendLimit.Samplers;
-        if (children > budget.MaxChildren)
+        if (metrics.ChildCount > budget.MaxChildren)
             result[count++] = SkslBackendLimit.Children;
-        if (sourceBytes > budget.MaxSourceBytes)
+        if (metrics.SourceByteCount > budget.MaxSourceBytes)
             result[count++] = SkslBackendLimit.SourceBytes;
-        if (programTokens > budget.MaxProgramTokens)
+        if (metrics.ProgramTokenCount > budget.MaxProgramTokens)
             result[count++] = SkslBackendLimit.ProgramTokens;
         return ImmutableArray.Create(result[..count]);
     }

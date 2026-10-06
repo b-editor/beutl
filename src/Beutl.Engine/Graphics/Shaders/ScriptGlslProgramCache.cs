@@ -22,7 +22,7 @@ internal sealed class ScriptGlslProgramCache : IDisposable
 
         _programs.SynchronizeContext(_contextDomain, graphics);
         var context = new ProgramCacheContextKey(
-            _contextDomain, graphics, "GLSL-script", "linear-premultiplied-rgba16f", inputCount);
+            _contextDomain, graphics, "GLSL-script", ProgramCacheContextKey.LinearPremultipliedRgba16FContract, inputCount);
         ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSpirv(source);
         ProgramCacheLease<GLSLFilterPipeline> lease = _programs.GetOrCreate(
             identity, context, (graphics, source, inputCount),

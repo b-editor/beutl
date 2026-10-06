@@ -220,7 +220,14 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// <param name="brush">The brush to paint with, or <see langword="null"/> for no paint.</param>
     /// <param name="blendMode">The blend mode to configure.</param>
     public BrushConstructor CreateBrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
-        => new(bounds, brush, blendMode, _currentDensity, MaxWorkingScale, Intent, DrawableBrushMaterializer, RenderTargetLeaseSession);
+        => CreateCanvasBrushConstructor(bounds, brush, blendMode, _currentDensity);
+
+    private BrushConstructor CreateCanvasBrushConstructor(
+        Rect bounds,
+        Brush.Resource? brush,
+        BlendMode blendMode,
+        float scale)
+        => new(bounds, brush, blendMode, scale, MaxWorkingScale, Intent, DrawableBrushMaterializer, RenderTargetLeaseSession);
 
     public Matrix Transform
     {
@@ -267,11 +274,49 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _submitOnDispose = true;
     }
 
+    /// <summary>
+    /// Opens the canvas a custom effect paints into: an executor-managed canvas set up for custom-effect execution
+    /// when the executor owns the target, a standalone one otherwise, either way carrying the effect's materializer.
+    /// </summary>
+    internal static ImmediateCanvas CreateCustomEffectCanvas(
+        RenderTarget renderTarget,
+        float density,
+        float maxWorkingScale,
+        Size logicalSize,
+        RenderIntent intent,
+        bool executorManaged,
+        DrawableBrushMaterializer? drawableBrushMaterializer)
+    {
+        ImmediateCanvas canvas;
+        if (executorManaged)
+        {
+            canvas = CreateExecutorManaged(
+                renderTarget,
+                density,
+                maxWorkingScale,
+                logicalSize,
+                intent);
+            canvas.ConfigureCustomEffectExecution();
+        }
+        else
+        {
+            canvas = new ImmediateCanvas(
+                renderTarget,
+                intent,
+                density,
+                maxWorkingScale,
+                logicalSize);
+        }
+
+        canvas.DrawableBrushMaterializer = drawableBrushMaterializer;
+        return canvas;
+    }
+
     internal RenderTarget _renderTarget
     {
         get
         {
-            if (_callbackCapability is not null && !_isReplayingTargetScope)
+            if (IsGuardedCallbackCanvas)
             {
                 throw new InvalidOperationException(
                     "The backing render target cannot be extracted from a guarded callback canvas.");
@@ -463,30 +508,22 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(
+            CreateCanvasBrushConstructor(
                 bounds,
                 pen.Brush,
                 ResolvePaintBlendMode(blendMode),
-                scale ?? _currentDensity,
-                MaxWorkingScale,
-                Intent,
-                DrawableBrushMaterializer,
-            RenderTargetLeaseSession).ConfigurePaint(_sharedStrokePaint);
+                scale ?? _currentDensity).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(
+        CreateCanvasBrushConstructor(
             bounds,
             brush,
             ResolvePaintBlendMode(blendMode),
-            scale ?? _currentDensity,
-            MaxWorkingScale,
-            Intent,
-            DrawableBrushMaterializer,
-            RenderTargetLeaseSession).ConfigurePaint(_sharedFillPaint);
+            scale ?? _currentDensity).ConfigurePaint(_sharedFillPaint);
     }
 
     private BlendMode ResolvePaintBlendMode(BlendMode fallback)

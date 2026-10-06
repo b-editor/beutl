@@ -6,13 +6,14 @@ namespace Beutl.Graphics;
 
 public partial class ImmediateCanvas
 {
+    /// <summary>How far a mapped coordinate may sit from a device-pixel boundary and still count as on it.</summary>
+    private const float PixelAlignmentTolerance = 0.0001f;
+
     public void DrawSurface(SKSurface surface, Point point)
     {
         VerifyAccess();
         VerifyNativeTargetOperation();
-        _sharedFillPaint.Reset();
-        ApplyDirectBlendMode(_sharedFillPaint);
-        _sharedFillPaint.IsAntialias = true;
+        PrepareBlitPaint(antialias: true);
 
         Canvas.DrawSurface(surface, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
 
@@ -30,9 +31,7 @@ public partial class ImmediateCanvas
         // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         renderTarget.PrepareBackendForSkiaSampling();
-        _sharedFillPaint.Reset();
-        ApplyDirectBlendMode(_sharedFillPaint);
-        _sharedFillPaint.IsAntialias = true;
+        PrepareBlitPaint(antialias: true);
 
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
 
@@ -51,13 +50,28 @@ public partial class ImmediateCanvas
         Matrix transform = _currentTransform;
         return MathF.Abs(transform.M11) == 1f
                && MathF.Abs(transform.M22) == 1f
-               && transform.M12 == 0
-               && transform.M21 == 0
-               && transform.M13 == 0
-               && transform.M23 == 0
-               && transform.M33 == 1
+               && IsAxisAlignedAffine(transform)
             ? new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None)
             : s_compositeSampling;
+    }
+
+    /// <summary>
+    /// Reports whether <paramref name="transform"/> only scales and translates: no rotation, shear or perspective,
+    /// so the device axes stay parallel to the local ones.
+    /// </summary>
+    private static bool IsAxisAlignedAffine(in Matrix transform)
+        => transform.M12 == 0
+           && transform.M13 == 0
+           && transform.M21 == 0
+           && transform.M23 == 0
+           && transform.M33 == 1;
+
+    /// <summary>Resets the shared fill paint for a raw blit: no brush, the direct blend mode and the given edge mode.</summary>
+    private void PrepareBlitPaint(bool antialias)
+    {
+        _sharedFillPaint.Reset();
+        ApplyDirectBlendMode(_sharedFillPaint);
+        _sharedFillPaint.IsAntialias = antialias;
     }
 
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
@@ -129,11 +143,7 @@ public partial class ImmediateCanvas
         if (destinationDensity != sourceDensity
             || destinationTransform.M11 != sourceDensity
             || destinationTransform.M22 != sourceDensity
-            || destinationTransform.M12 != 0
-            || destinationTransform.M13 != 0
-            || destinationTransform.M21 != 0
-            || destinationTransform.M23 != 0
-            || destinationTransform.M33 != 1)
+            || !IsAxisAlignedAffine(destinationTransform))
         {
             return false;
         }
@@ -148,8 +158,8 @@ public partial class ImmediateCanvas
         Point mappedOrigin = dest.Position * destinationTransform;
         int x = (int)MathF.Round(mappedOrigin.X);
         int y = (int)MathF.Round(mappedOrigin.Y);
-        if (MathF.Abs(mappedOrigin.X - x) > 0.0001f
-            || MathF.Abs(mappedOrigin.Y - y) > 0.0001f)
+        if (MathF.Abs(mappedOrigin.X - x) > PixelAlignmentTolerance
+            || MathF.Abs(mappedOrigin.Y - y) > PixelAlignmentTolerance)
         {
             return false;
         }
@@ -177,9 +187,7 @@ public partial class ImmediateCanvas
         renderTarget.PrepareBackendForSkiaSampling();
 
         using SKImage image = renderTarget.Value.Snapshot();
-        _sharedFillPaint.Reset();
-        ApplyDirectBlendMode(_sharedFillPaint);
-        _sharedFillPaint.IsAntialias = false;
+        PrepareBlitPaint(antialias: false);
         var source = SKRect.Create(image.Width, image.Height);
         var destination = SKRect.Create(x, y, image.Width, image.Height);
         using (PushDeviceSpace())
@@ -201,11 +209,7 @@ public partial class ImmediateCanvas
     {
         deviceOrigin = default;
         Matrix transform = _currentTransform;
-        if (transform.M12 != 0
-            || transform.M13 != 0
-            || transform.M21 != 0
-            || transform.M23 != 0
-            || transform.M33 != 1)
+        if (!IsAxisAlignedAffine(transform))
         {
             return false;
         }
@@ -214,10 +218,10 @@ public partial class ImmediateCanvas
         Point mappedFar = new Point(dest.Right, dest.Bottom) * transform;
         int x = (int)MathF.Round(mappedOrigin.X);
         int y = (int)MathF.Round(mappedOrigin.Y);
-        if (MathF.Abs(mappedOrigin.X - x) > 0.0001f
-            || MathF.Abs(mappedOrigin.Y - y) > 0.0001f
-            || MathF.Abs(mappedFar.X - (x + sourceSize.Width)) > 0.0001f
-            || MathF.Abs(mappedFar.Y - (y + sourceSize.Height)) > 0.0001f)
+        if (MathF.Abs(mappedOrigin.X - x) > PixelAlignmentTolerance
+            || MathF.Abs(mappedOrigin.Y - y) > PixelAlignmentTolerance
+            || MathF.Abs(mappedFar.X - (x + sourceSize.Width)) > PixelAlignmentTolerance
+            || MathF.Abs(mappedFar.Y - (y + sourceSize.Height)) > PixelAlignmentTolerance)
         {
             return false;
         }
@@ -258,9 +262,7 @@ public partial class ImmediateCanvas
     {
         VerifyPixelOperation();
         VerifyCallbackResource(image, nameof(image));
-        _sharedFillPaint.Reset();
-        ApplyDirectBlendMode(_sharedFillPaint);
-        _sharedFillPaint.IsAntialias = true;
+        PrepareBlitPaint(antialias: true);
 
         var src = SKRect.Create(image.Width, image.Height);
         Canvas.DrawImage(image, src, dest.ToSKRect(), s_compositeSampling, _sharedFillPaint);
@@ -271,9 +273,7 @@ public partial class ImmediateCanvas
     {
         VerifyAccess();
         VerifyNativeTargetOperation();
-        _sharedFillPaint.Reset();
-        ApplyDirectBlendMode(_sharedFillPaint);
-        _sharedFillPaint.IsAntialias = true;
+        PrepareBlitPaint(antialias: true);
 
         using SKImage image = surface.Snapshot();
         var src = SKRect.Create(image.Width, image.Height);

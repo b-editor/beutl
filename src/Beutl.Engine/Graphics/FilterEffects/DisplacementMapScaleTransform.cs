@@ -62,6 +62,10 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
+            var scale = new Vector2(
+                Scale * ScaleX / 10000,
+                Scale * ScaleY / 10000);
+            var center = new Vector2(CenterX, CenterY);
             if (TryApplyDrawableMap(
                     context,
                     displacementMap,
@@ -69,11 +73,9 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     channel,
                     signed,
                     DrawableMapTransformKind.Scale,
-                    new Vector2(
-                        Scale * ScaleX / 10000,
-                        Scale * ScaleY / 10000),
+                    scale,
                     angle: 0,
-                    center: new Vector2(CenterX, CenterY)))
+                    center: center))
             {
                 return;
             }
@@ -83,11 +85,9 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 displacementMap,
                 map,
                 DrawableMapTransformKind.Scale,
-                new Vector2(
-                    Scale * ScaleX / 10000,
-                    Scale * ScaleY / 10000),
+                scale,
                 angle: 0,
-                center: new Vector2(CenterX, CenterY),
+                center: center,
                 spreadMethod,
                 channel,
                 signed);
@@ -97,14 +97,10 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 bindings =>
                 {
                     AddDisplacementBindings(bindings, map, channel, signed);
-                    bindings.Uniform(
-                        "uScale",
-                        new Vector2(
-                            Scale * ScaleX / 10000,
-                            Scale * ScaleY / 10000));
+                    bindings.Uniform("uScale", scale);
                     bindings.Uniform(
                         "uPivot",
-                        new Vector2(CenterX, CenterY),
+                        center,
                         BindPivot);
                 },
                 spreadMethod.ToSKShaderTileMode(),
