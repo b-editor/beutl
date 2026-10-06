@@ -92,9 +92,6 @@ internal sealed partial class MediaTimeMapping
         return null;
     }
 
-    public TimeSpan At(TimeSpan time, TimeSpan startDelta = default, TimeSpan lengthDelta = default, bool extrapolate = false)
-        => Range(time, time, startDelta, lengthDelta, extrapolate, conservative: false).Min;
-
     public Interval Range(TimeSpan from, TimeSpan to, TimeSpan startDelta = default, TimeSpan lengthDelta = default,
         bool extrapolate = false, bool conservative = true, bool sourceOffset = false)
     {

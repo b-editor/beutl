@@ -73,7 +73,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         }
     }
 
-    public override void Apply(OperationExecutionContext context)
+    private void SetValue(T value)
     {
         var (name, updateAnimation, updateExpression) = ParsePropertyPath();
 
@@ -81,7 +81,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
         if (coreProperty != null)
         {
-            Object.SetValue(coreProperty, NewValue);
+            Object.SetValue(coreProperty, value);
             return;
         }
 
@@ -91,31 +91,13 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                                  ?? throw new InvalidOperationException(
                                      $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
 
-            UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, NewValue);
+            UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, value);
         }
     }
 
-    public override void Revert(OperationExecutionContext context)
-    {
-        var (name, updateAnimation, updateExpression) = ParsePropertyPath();
+    public override void Apply(OperationExecutionContext context) => SetValue(NewValue);
 
-        var coreProperty = PropertyRegistry.FindRegistered(Object.GetType(), name);
-
-        if (coreProperty != null)
-        {
-            Object.SetValue(coreProperty, OldValue);
-            return;
-        }
-
-        if (Object is EngineObject engineObj)
-        {
-            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                                 ?? throw new InvalidOperationException(
-                                     $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
-
-            UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, OldValue);
-        }
-    }
+    public override void Revert(OperationExecutionContext context) => SetValue(OldValue);
 
     public bool TryMerge(ChangeOperation other)
     {

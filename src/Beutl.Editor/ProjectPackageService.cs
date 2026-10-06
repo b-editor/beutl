@@ -354,7 +354,7 @@ public sealed class ProjectPackageService
             if (string.Equals(FilePathComparison.ResolveCanonicalPath(file), excludedOutputPath, StringComparison.Ordinal))
                 continue;
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
-            await CopyFileAsync(file, destFile, cancellationToken);
+            await ResourceRelocationService.CopyFileAsync(file, destFile, cancellationToken);
         }
 
         foreach (string subDir in Directory.GetDirectories(sourceDir))
@@ -369,15 +369,5 @@ public sealed class ProjectPackageService
             string destSubDir = Path.Combine(destDir, dirName);
             await CopyDirectoryAsync(subDir, destSubDir, excludedOutputPath, cancellationToken);
         }
-    }
-
-    /// <summary>
-    /// Copies a file asynchronously.
-    /// </summary>
-    private static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
-    {
-        await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await using FileStream destStream = new(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await sourceStream.CopyToAsync(destStream, cancellationToken);
     }
 }

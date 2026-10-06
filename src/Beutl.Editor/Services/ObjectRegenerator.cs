@@ -44,7 +44,7 @@ public static class ObjectRegenerator
         }
 
         // Idを置き換える
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = GetWrittenSpan(output);
         Span<byte> oldStr = stackalloc byte[DefaultGuidStringSize];
         Span<byte> newStr = stackalloc byte[DefaultGuidStringSize];
         foreach (Guid oldId in ids)
@@ -63,6 +63,9 @@ public static class ObjectRegenerator
         }
     }
 
+    private static Span<byte> GetWrittenSpan(PooledArrayBufferWriter<byte> output)
+        => PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+
     private static JsonObject ParseRegeneratedBuffer(Span<byte> buffer)
     {
         return JsonNode.Parse(buffer)?.AsObject()
@@ -76,7 +79,7 @@ public static class ObjectRegenerator
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = GetWrittenSpan(output);
 
         JsonObject jsonObj = ParseRegeneratedBuffer(buffer);
         var instance = new T();
@@ -91,7 +94,7 @@ public static class ObjectRegenerator
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = GetWrittenSpan(output);
         json = Encoding.UTF8.GetString(buffer);
     }
 
@@ -100,7 +103,7 @@ public static class ObjectRegenerator
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = GetWrittenSpan(output);
         JsonObject jsonObj = ParseRegeneratedBuffer(buffer);
 
         var instance = (ICoreSerializable)Activator.CreateInstance(actualType)!;
@@ -116,7 +119,7 @@ public static class ObjectRegenerator
         wrapper.Items.AddRange(obj);
         RegenerateCore(wrapper, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = GetWrittenSpan(output);
 
         JsonObject jsonObj = ParseRegeneratedBuffer(buffer);
         var instance = new ListWrapper<T>();

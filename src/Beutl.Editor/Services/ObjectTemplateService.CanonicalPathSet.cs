@@ -43,10 +43,7 @@ public sealed partial class ObjectTemplateService
                     ? info.Exists
                     : info.ResolveLinkTarget(returnFinalTarget: true)?.Exists == true;
             }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or ArgumentException
-                                       or NotSupportedException)
+            catch (Exception ex) when (IsPathResolutionFailure(ex))
             {
                 return false;
             }
@@ -127,10 +124,7 @@ public sealed partial class ObjectTemplateService
                 canonicalPath = _resolutionContext.ResolveCanonicalPath(path);
                 return true;
             }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or ArgumentException
-                                       or NotSupportedException)
+            catch (Exception ex) when (IsPathResolutionFailure(ex))
             {
                 return false;
             }

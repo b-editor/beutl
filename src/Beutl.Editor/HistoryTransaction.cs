@@ -73,7 +73,7 @@ public sealed class HistoryTransaction
 
     internal void Apply(OperationExecutionContext context)
     {
-        if (HasUncertainFailure) throw new InvalidOperationException("This transaction has uncertain partial execution and cannot be replayed.");
+        ThrowIfUncertainFailure();
         for (int i = 0; i < _operations.Count; i++)
         {
             if (_applied[i]) continue;
@@ -83,11 +83,16 @@ public sealed class HistoryTransaction
 
     internal void Revert(OperationExecutionContext context)
     {
-        if (HasUncertainFailure) throw new InvalidOperationException("This transaction has uncertain partial execution and cannot be replayed.");
+        ThrowIfUncertainFailure();
         for (int i = _operations.Count - 1; i >= 0; i--)
         {
             if (!_applied[i]) continue;
             ExecuteOperation(context, i, apply: false);
         }
+    }
+
+    private void ThrowIfUncertainFailure()
+    {
+        if (HasUncertainFailure) throw new InvalidOperationException("This transaction has uncertain partial execution and cannot be replayed.");
     }
 }

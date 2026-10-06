@@ -101,9 +101,7 @@ public static partial class ProxySourceEnumerator
                     if (skipDisabledElements && !drawable.IsEnabled
                         || !TryVisitGraphDrawable(drawable, localRange, walkContext)) continue;
                     foreach (IFileSource source in EnumerateObjectFileSources(
-                        drawable, walkContext.VisitedScenes, walkContext.VisitedGraphGroups,
-                        walkContext.VisitedTargets, walkContext.VisitedFullWalkTargets, skipDisabledElements,
-                        walkContext.RenderTarget, localRange, walkContext.SceneWindow, walkContext.ConnectedNodeInputs))
+                        drawable, walkContext, skipDisabledElements, localRange))
                         yield return source;
                     continue;
                 }
@@ -114,34 +112,19 @@ public static partial class ProxySourceEnumerator
         }
 
         // A DrawableBrush paints an area with a nested Drawable that BrushConstructor renders when the
-        // owning shape draws; it is reachable only as a property value, so route it through the guarded
-        // drawable walk. VisitedTargets stops a structurally-reached drawable being walked twice.
-        if (walkContext is { } brushContext && value is DrawableBrush brush
-            && ResolveExpressionValue<Drawable>(brush, brush.Drawable, walkContext: walkContext) is { } brushDrawable
-            && (!skipDisabledElements || brushDrawable.IsEnabled)
-            && brushContext.VisitedTargets.Add(brushDrawable))
+        // owning shape draws, and a DrawableTextureSource (a 3D material map — DiffuseMap / AlbedoMap / …)
+        // renders its nested Drawable via GetTexture, opening that drawable's files. Either drawable is
+        // reachable only as a property value, so route it through the guarded drawable walk. VisitedTargets
+        // stops a structurally-reached drawable being walked twice.
+        if (walkContext is not null
+            && ResolveNestedDrawable(value, walkContext) is { } nestedDrawable
+            && (!skipDisabledElements || nestedDrawable.IsEnabled)
+            && walkContext.VisitedTargets.Add(nestedDrawable))
         {
             foreach (IFileSource source in EnumerateObjectFileSources(
-                brushDrawable, brushContext.VisitedScenes, brushContext.VisitedGraphGroups,
-                brushContext.VisitedTargets, brushContext.VisitedFullWalkTargets, skipDisabledElements,
-                brushContext.RenderTarget, localRange, brushContext.SceneWindow, brushContext.ConnectedNodeInputs))
+                nestedDrawable, walkContext, skipDisabledElements, localRange))
                 yield return source;
             // Fall through so the brush's own remaining properties (Transform, …) are still walked.
-        }
-
-        // A DrawableTextureSource (a 3D material map — DiffuseMap / AlbedoMap / …) renders its nested
-        // Drawable via GetTexture, opening that drawable's files; it is reachable only as a property
-        // value, so route it through the guarded drawable walk like DrawableBrush above.
-        if (walkContext is { } textureContext && value is DrawableTextureSource textureSource
-            && ResolveExpressionValue<Drawable>(textureSource, textureSource.Drawable, walkContext: walkContext) is { } textureDrawable
-            && (!skipDisabledElements || textureDrawable.IsEnabled)
-            && textureContext.VisitedTargets.Add(textureDrawable))
-        {
-            foreach (IFileSource source in EnumerateObjectFileSources(
-                textureDrawable, textureContext.VisitedScenes, textureContext.VisitedGraphGroups,
-                textureContext.VisitedTargets, textureContext.VisitedFullWalkTargets, skipDisabledElements,
-                textureContext.RenderTarget, localRange, textureContext.SceneWindow, textureContext.ConnectedNodeInputs))
-                yield return source;
         }
 
         // A SceneSound held as a property value (an audio visualizer's Source) contributes only its
@@ -189,6 +172,17 @@ public static partial class ProxySourceEnumerator
         foreach (IFileSource source in EnumeratePropertyFileSources(engineObject, localRange, skipDisabledElements, visitedValues, walkContext?.SceneWindow, walkContext))
             yield return source;
     }
+
+    // The render uses the effective Drawable of a DrawableBrush / DrawableTextureSource, so resolve an
+    // expression-supplied one.
+    private static Drawable? ResolveNestedDrawable(object? value, ObjectWalkContext walkContext)
+        => value switch
+        {
+            DrawableBrush brush => ResolveExpressionValue<Drawable>(brush, brush.Drawable, walkContext: walkContext),
+            DrawableTextureSource textureSource
+                => ResolveExpressionValue<Drawable>(textureSource, textureSource.Drawable, walkContext: walkContext),
+            _ => null,
+        };
 
     // A reference-expression resolves to another object's value (or one of its properties) by id; the
     // render opens whatever file source that yields. Resolve via the shared hierarchy root and route the

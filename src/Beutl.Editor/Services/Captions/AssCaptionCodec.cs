@@ -66,91 +66,112 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
             if (TryGetDirective(directiveLine, "Format", out string formatValue))
             {
-                string[] candidate = formatValue.Split(',').Select(field => field.Trim()).ToArray();
-                if (!IsSupportedFormat(candidate))
-                {
-                    errors.Add(new CaptionDiagnostic(
-                        CaptionDiagnosticKinds.InvalidStructure,
-                        i + 1,
-                        "ASS/SSA event format must contain Start, End, and a final Text field."));
-                    format = null;
-                }
-                else
-                {
-                    format = candidate;
-                }
-
+                format = ReadEventFormat(formatValue, i + 1, errors);
                 continue;
             }
 
             if (!TryGetDirective(directiveLine, "Dialogue", out string dialogue))
                 continue;
 
-            if (format is null)
-            {
-                errors.Add(new CaptionDiagnostic(
-                    CaptionDiagnosticKinds.InvalidStructure,
-                    i + 1,
-                    "ASS/SSA Dialogue appears before a supported event Format line."));
-                continue;
-            }
-
-            string[] fields = dialogue.Split(',', format.Length, StringSplitOptions.None);
-            if (fields.Length != format.Length)
-            {
-                errors.Add(new CaptionDiagnostic(
-                    CaptionDiagnosticKinds.InvalidStructure,
-                    i + 1,
-                    "ASS/SSA Dialogue has fewer fields than its event Format line."));
-                continue;
-            }
-
-            int startIndex = FindField(format, "Start");
-            int endIndex = FindField(format, "End");
-            int textIndex = FindField(format, "Text");
-            if (!CaptionCodecUtilities.TryParseAssTime(fields[startIndex], out TimeSpan start)
-                || !CaptionCodecUtilities.TryParseAssTime(fields[endIndex], out TimeSpan end)
-                || end <= start)
-            {
-                errors.Add(new CaptionDiagnostic(
-                    CaptionDiagnosticKinds.InvalidTiming,
-                    i + 1,
-                    "ASS/SSA timing must use H:MM:SS.cc and have an end after its start."));
-                continue;
-            }
-
-            int speakerIndex = FindOptionalField(format, "Name", "Actor");
-            int styleIndex = FindOptionalField(format, "Style");
-            int effectIndex = FindOptionalField(format, "Effect");
-            string? speaker = speakerIndex >= 0 ? EmptyToNull(fields[speakerIndex].Trim()) : null;
-            string? style = styleIndex >= 0 ? EmptyToNull(fields[styleIndex].Trim()) : null;
-            string effect = effectIndex >= 0 ? fields[effectIndex].Trim() : string.Empty;
-            string? language = DecodeLanguage(effect);
-            bool hasImplicitStyle = string.Equals(
-                style,
-                "Default",
-                StringComparison.OrdinalIgnoreCase) && HasEffect(effect, ImplicitStyleEffect);
-
-            CaptionMetadata metadata = style is null || hasImplicitStyle
-                ? CaptionMetadata.Empty
-                : CaptionMetadata.Empty.Set(CaptionMetadataKeys.AssStyle, style);
-            string text = DecodeText(fields[textIndex], out bool discardedOverrideBlock);
-            if (discardedOverrideBlock)
-            {
-                errors.Add(new CaptionDiagnostic(
-                    CaptionDiagnosticKinds.UnsupportedMarkup,
-                    i + 1,
-                    "ASS/SSA override blocks cannot be represented and were removed from the cue text."));
-            }
-            cues.Add(new CaptionCue(
-                start,
-                end,
-                text,
-                speaker,
-                language,
-                metadata));
+            if (DecodeDialogue(dialogue, format, i + 1, errors) is { } cue)
+                cues.Add(cue);
         }
 
+        AddRemovedStyleDiagnostics(cues, styleDefinitions, errors);
+        AddMissingEventsDiagnostic(foundEvents, format, errors);
+
+        var document = new CaptionDocument(cues);
+        return errors.Count == 0 || cues.Count > 0
+            ? CaptionImportResult.Imported(document, errors)
+            : CaptionImportResult.Failure(errors);
+    }
+
+    private static string[]? ReadEventFormat(string formatValue, int lineNumber, List<CaptionDiagnostic> errors)
+    {
+        string[] candidate = formatValue.Split(',').Select(field => field.Trim()).ToArray();
+        if (!IsSupportedFormat(candidate))
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.InvalidStructure,
+                lineNumber,
+                "ASS/SSA event format must contain Start, End, and a final Text field."));
+            return null;
+        }
+
+        return candidate;
+    }
+
+    private static CaptionCue? DecodeDialogue(
+        string dialogue, string[]? format, int lineNumber, List<CaptionDiagnostic> errors)
+    {
+        if (format is null)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.InvalidStructure,
+                lineNumber,
+                "ASS/SSA Dialogue appears before a supported event Format line."));
+            return null;
+        }
+
+        string[] fields = dialogue.Split(',', format.Length, StringSplitOptions.None);
+        if (fields.Length != format.Length)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.InvalidStructure,
+                lineNumber,
+                "ASS/SSA Dialogue has fewer fields than its event Format line."));
+            return null;
+        }
+
+        int startIndex = FindField(format, "Start");
+        int endIndex = FindField(format, "End");
+        int textIndex = FindField(format, "Text");
+        if (!CaptionCodecUtilities.TryParseAssTime(fields[startIndex], out TimeSpan start)
+            || !CaptionCodecUtilities.TryParseAssTime(fields[endIndex], out TimeSpan end)
+            || end <= start)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.InvalidTiming,
+                lineNumber,
+                "ASS/SSA timing must use H:MM:SS.cc and have an end after its start."));
+            return null;
+        }
+
+        int speakerIndex = FindOptionalField(format, "Name", "Actor");
+        int styleIndex = FindOptionalField(format, "Style");
+        int effectIndex = FindOptionalField(format, "Effect");
+        string? speaker = speakerIndex >= 0 ? EmptyToNull(fields[speakerIndex].Trim()) : null;
+        string? style = styleIndex >= 0 ? EmptyToNull(fields[styleIndex].Trim()) : null;
+        string effect = effectIndex >= 0 ? fields[effectIndex].Trim() : string.Empty;
+        string? language = DecodeLanguage(effect);
+        bool hasImplicitStyle = string.Equals(
+            style,
+            "Default",
+            StringComparison.OrdinalIgnoreCase) && HasEffect(effect, ImplicitStyleEffect);
+
+        CaptionMetadata metadata = style is null || hasImplicitStyle
+            ? CaptionMetadata.Empty
+            : CaptionMetadata.Empty.Set(CaptionMetadataKeys.AssStyle, style);
+        string text = DecodeText(fields[textIndex], out bool discardedOverrideBlock);
+        if (discardedOverrideBlock)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "ASS/SSA override blocks cannot be represented and were removed from the cue text."));
+        }
+        return new CaptionCue(
+            start,
+            end,
+            text,
+            speaker,
+            language,
+            metadata);
+    }
+
+    private static void AddRemovedStyleDiagnostics(
+        List<CaptionCue> cues, List<AssStyleDefinition> styleDefinitions, List<CaptionDiagnostic> errors)
+    {
         var regeneratedStyleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Default",
@@ -170,7 +191,10 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
                     "ASS/SSA custom style definitions cannot be represented and were removed."));
             }
         }
+    }
 
+    private static void AddMissingEventsDiagnostic(bool foundEvents, string[]? format, List<CaptionDiagnostic> errors)
+    {
         if (!foundEvents)
         {
             errors.Add(new CaptionDiagnostic(
@@ -185,11 +209,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 null,
                 "The ASS/SSA [Events] section must contain a supported Format line."));
         }
-
-        var document = new CaptionDocument(cues);
-        return errors.Count == 0 || cues.Count > 0
-            ? CaptionImportResult.Imported(document, errors)
-            : CaptionImportResult.Failure(errors);
     }
 
     public string Encode(CaptionDocument document)

@@ -41,7 +41,7 @@ public sealed partial class HistoryManager : IDisposable
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
         _entries.Add(HistoryEntry.CreateInitial());
         _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
     }
@@ -279,9 +279,7 @@ public sealed partial class HistoryManager : IDisposable
 
     private void ThrowIfHistoryControlIsBlocked_NoLock(bool allowUncertainFailure = false)
     {
-        if (!allowUncertainFailure && (_currentTransaction.HasUncertainFailure
-            || _undoStack.Any(transaction => transaction.HasUncertainFailure)
-            || _redoStack.Any(transaction => transaction.HasUncertainFailure)))
+        if (!allowUncertainFailure && HasUncertainFailure_NoLock())
         {
             throw new InvalidOperationException("History contains an operation with uncertain partial execution. Clear history or reopen the project before replaying it.");
         }
@@ -296,6 +294,14 @@ public sealed partial class HistoryManager : IDisposable
                 "History control cannot run while history entry changes are being published.");
         }
     }
+
+    private bool HasUncertainFailure_NoLock()
+        => _currentTransaction.HasUncertainFailure
+           || _undoStack.Any(transaction => transaction.HasUncertainFailure)
+           || _redoStack.Any(transaction => transaction.HasUncertainFailure);
+
+    private HistoryTransaction CreateTransaction()
+        => new(Interlocked.Increment(ref _transactionIdCounter));
 
     private bool CommitCurrentTransaction_NoLock(string? name, string? expression)
     {
@@ -316,7 +322,7 @@ public sealed partial class HistoryManager : IDisposable
         int currentEntryIndex = _undoStack.Count;
         _undoStack.Push(transaction);
         _redoStack.Clear();
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
         TruncateEntriesAfter(currentEntryIndex);
         AddEntry(HistoryEntry.FromTransaction(transaction));
         return true;
@@ -350,13 +356,13 @@ public sealed partial class HistoryManager : IDisposable
             }
         }
 
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
     }
 
     private void RollbackIsolatedTransaction_NoLock()
     {
         HistoryTransaction transaction = _currentTransaction;
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
         if (transaction.HasOperations)
         {
             _logger.LogDebug(
@@ -427,7 +433,6 @@ public sealed partial class HistoryManager : IDisposable
                 attemptedMutation = _currentTransaction.HasOperations;
                 Rollback();
                 Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
-                Stack<HistoryTransaction> destination = redo ? _undoStack : _redoStack;
                 if (source.Count == 0)
                     return false;
 
@@ -435,15 +440,7 @@ public sealed partial class HistoryManager : IDisposable
                 _logger.LogDebug("{Action} transaction: {TransactionName} (ID: {TransactionId})",
                     redo ? "Redoing" : "Undoing", transaction.Name, transaction.Id);
                 attemptedMutation = true;
-                using (SuppressRecording())
-                {
-                    if (redo)
-                        transaction.Apply(_context);
-                    else
-                        transaction.Revert(_context);
-                }
-                source.Pop();
-                destination.Push(transaction);
+                ReplayTopTransaction_NoLock(transaction, redo);
                 return true;
             }
         }
@@ -464,7 +461,7 @@ public sealed partial class HistoryManager : IDisposable
         {
             ThrowIfHistoryControlIsBlocked_NoLock(allowUncertainFailure: true);
             if (_currentTransaction.HasUncertainFailure)
-                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+                _currentTransaction = CreateTransaction();
             int undoCount = _undoStack.Count;
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
@@ -520,37 +517,18 @@ public sealed partial class HistoryManager : IDisposable
                 if (_currentTransaction.HasOperations)
                 {
                     _logger.LogDebug("Rolling back current transaction before JumpTo");
-                    // Always replace the current transaction even if Revert throws,
-                    // otherwise the same operations would re-apply on the next commit.
-                    try
-                    {
-                        using (SuppressRecording())
-                        {
-                            _currentTransaction.Revert(_context);
-                        }
-                    }
-                    finally
-                    {
-                        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
-                        stateMutated = true;
-                    }
+                    // The outer finally publishes the state even when the revert throws.
+                    stateMutated = true;
+                    DiscardPendingTransaction_NoLock();
                 }
 
                 try
                 {
-                    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
-                    // the failing transaction stays on the originating stack so it
-                    // is not lost from history altogether.
                     while (_undoStack.Count > index)
                     {
                         HistoryTransaction transaction = _undoStack.Peek();
                         _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-                        using (SuppressRecording())
-                        {
-                            transaction.Revert(_context);
-                        }
-                        _undoStack.Pop();
-                        _redoStack.Push(transaction);
+                        ReplayTopTransaction_NoLock(transaction, redo: false);
                         moved = true;
                         stateMutated = true;
                     }
@@ -559,12 +537,7 @@ public sealed partial class HistoryManager : IDisposable
                     {
                         HistoryTransaction transaction = _redoStack.Peek();
                         _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-                        using (SuppressRecording())
-                        {
-                            transaction.Apply(_context);
-                        }
-                        _redoStack.Pop();
-                        _undoStack.Push(transaction);
+                        ReplayTopTransaction_NoLock(transaction, redo: true);
                         moved = true;
                         stateMutated = true;
                     }
@@ -602,6 +575,42 @@ public sealed partial class HistoryManager : IDisposable
             throw failure;
         }
         return moved;
+    }
+
+    // Always replace the current transaction even if Revert throws,
+    // otherwise the same operations would re-apply on the next commit.
+    private void DiscardPendingTransaction_NoLock()
+    {
+        try
+        {
+            using (SuppressRecording())
+            {
+                _currentTransaction.Revert(_context);
+            }
+        }
+        finally
+        {
+            _currentTransaction = CreateTransaction();
+        }
+    }
+
+    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
+    // the failing transaction stays on the originating stack so it
+    // is not lost from history altogether.
+    private void ReplayTopTransaction_NoLock(HistoryTransaction transaction, bool redo)
+    {
+        using (SuppressRecording())
+        {
+            if (redo)
+                transaction.Apply(_context);
+            else
+                transaction.Revert(_context);
+        }
+
+        Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
+        Stack<HistoryTransaction> destination = redo ? _undoStack : _redoStack;
+        source.Pop();
+        destination.Push(transaction);
     }
 
     public IDisposable Subscribe(IOperationObserver observer)

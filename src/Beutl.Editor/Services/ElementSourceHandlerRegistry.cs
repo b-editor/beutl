@@ -268,6 +268,38 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
             .Where(pair => !currentSet.Contains(pair.Key))
             .ToArray();
 
+        List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates =
+            CreateCandidates(currentExtensions);
+
+        var failures = new Dictionary<ElementSourceHandlerExtension, Exception>(
+            ReferenceEqualityComparer.Instance);
+        ElementSourceHandlerDescriptor[] metadata;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _metadataBatchDepth++;
+            try
+            {
+                RetireRemovedRegistrations_NoLock(removedRegistrations);
+                RegisterCandidates_NoLock(candidates, failures);
+            }
+            finally
+            {
+                _metadataBatchDepth--;
+            }
+
+            metadata = CreateMetadata_NoLock();
+        }
+
+        PublishMetadata(metadata);
+
+        foreach ((ElementSourceHandlerExtension extension, Exception failure) in failures)
+            ReportFailure(extension, failure);
+    }
+
+    private List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> CreateCandidates(
+        ElementSourceHandlerExtension[] currentExtensions)
+    {
         var candidates = new List<(
             ElementSourceHandlerExtension Extension,
             PreparedRegistration[] Registrations)>();
@@ -288,98 +320,98 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
             }
         }
 
-        var failures = new Dictionary<ElementSourceHandlerExtension, Exception>(
-            ReferenceEqualityComparer.Instance);
-        ElementSourceHandlerDescriptor[] metadata;
-        lock (_gate)
+        return candidates;
+    }
+
+    private void RetireRemovedRegistrations_NoLock(
+        KeyValuePair<ElementSourceHandlerExtension, List<Registration>>[] removedRegistrations)
+    {
+        foreach ((ElementSourceHandlerExtension extension, List<Registration> registrations)
+                 in removedRegistrations)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            _metadataBatchDepth++;
-            try
+            _extensionRegistrations.Remove(extension);
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => DisposeRegistrationsAsync(registrations));
+        }
+    }
+
+    private void RegisterCandidates_NoLock(
+        List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates,
+        Dictionary<ElementSourceHandlerExtension, Exception> failures)
+    {
+        while (true)
+        {
+            var attemptOwned = new Dictionary<
+                ElementSourceHandlerExtension,
+                List<Registration>>(ReferenceEqualityComparer.Instance);
+            foreach ((ElementSourceHandlerExtension extension, _) in candidates)
             {
-                foreach ((ElementSourceHandlerExtension extension, List<Registration> registrations)
-                         in removedRegistrations)
-                {
-                    _extensionRegistrations.Remove(extension);
-                    ExtensionRegistrationLifetimes.Retire(
-                        extension,
-                        () => DisposeRegistrationsAsync(registrations));
-                }
-
-                while (true)
-                {
-                    var attemptOwned = new Dictionary<
-                        ElementSourceHandlerExtension,
-                        List<Registration>>(ReferenceEqualityComparer.Instance);
-                    foreach ((ElementSourceHandlerExtension extension, _) in candidates)
-                    {
-                        if (!failures.ContainsKey(extension))
-                            attemptOwned.Add(extension, []);
-                    }
-                    var newFailures = new Dictionary<
-                        ElementSourceHandlerExtension,
-                        (Exception Exception, int Phase)>(ReferenceEqualityComparer.Instance);
-                    ElementSourceHandlerRegistrationMode[] phases =
-                    [
-                        ElementSourceHandlerRegistrationMode.Add,
-                        ElementSourceHandlerRegistrationMode.Replace,
-                    ];
-                    for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
-                    {
-                        ElementSourceHandlerRegistrationMode mode = phases[phaseIndex];
-                        foreach ((ElementSourceHandlerExtension extension,
-                                 PreparedRegistration[] registrations) in candidates)
-                        {
-                            if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
-                                continue;
-                            try
-                            {
-                                foreach (PreparedRegistration registration in registrations
-                                             .Where(registration => registration.Mode == mode))
-                                {
-                                    attemptOwned[extension].Add(RegisterPrepared_NoLock(registration));
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                newFailures.Add(extension, (ex, phaseIndex));
-                            }
-                        }
-                    }
-
-                    if (newFailures.Count > 0)
-                    {
-                        foreach (List<Registration> owned in attemptOwned.Values)
-                        {
-                            DisposeRegistrationsAsync(owned).AsTask().GetAwaiter().GetResult();
-                        }
-                        int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
-                        KeyValuePair<ElementSourceHandlerExtension, (Exception Exception, int Phase)> rejected =
-                            newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
-                        failures.TryAdd(rejected.Key, rejected.Value.Exception);
-                        continue;
-                    }
-
-                    foreach ((ElementSourceHandlerExtension extension, List<Registration> owned)
-                             in attemptOwned)
-                    {
-                        _extensionRegistrations.Add(extension, owned);
-                    }
-                    break;
-                }
+                if (!failures.ContainsKey(extension))
+                    attemptOwned.Add(extension, []);
             }
-            finally
+            Dictionary<ElementSourceHandlerExtension, (Exception Exception, int Phase)> newFailures =
+                RegisterAttempt_NoLock(candidates, failures, attemptOwned);
+
+            if (newFailures.Count > 0)
             {
-                _metadataBatchDepth--;
+                foreach (List<Registration> owned in attemptOwned.Values)
+                {
+                    DisposeRegistrationsAsync(owned).AsTask().GetAwaiter().GetResult();
+                }
+                int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
+                KeyValuePair<ElementSourceHandlerExtension, (Exception Exception, int Phase)> rejected =
+                    newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
+                failures.TryAdd(rejected.Key, rejected.Value.Exception);
+                continue;
             }
 
-            metadata = CreateMetadata_NoLock();
+            foreach ((ElementSourceHandlerExtension extension, List<Registration> owned)
+                     in attemptOwned)
+            {
+                _extensionRegistrations.Add(extension, owned);
+            }
+            break;
+        }
+    }
+
+    private Dictionary<ElementSourceHandlerExtension, (Exception Exception, int Phase)> RegisterAttempt_NoLock(
+        List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates,
+        Dictionary<ElementSourceHandlerExtension, Exception> failures,
+        Dictionary<ElementSourceHandlerExtension, List<Registration>> attemptOwned)
+    {
+        var newFailures = new Dictionary<
+            ElementSourceHandlerExtension,
+            (Exception Exception, int Phase)>(ReferenceEqualityComparer.Instance);
+        ElementSourceHandlerRegistrationMode[] phases =
+        [
+            ElementSourceHandlerRegistrationMode.Add,
+            ElementSourceHandlerRegistrationMode.Replace,
+        ];
+        for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
+        {
+            ElementSourceHandlerRegistrationMode mode = phases[phaseIndex];
+            foreach ((ElementSourceHandlerExtension extension,
+                     PreparedRegistration[] registrations) in candidates)
+            {
+                if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                    continue;
+                try
+                {
+                    foreach (PreparedRegistration registration in registrations
+                                 .Where(registration => registration.Mode == mode))
+                    {
+                        attemptOwned[extension].Add(RegisterPrepared_NoLock(registration));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    newFailures.Add(extension, (ex, phaseIndex));
+                }
+            }
         }
 
-        PublishMetadata(metadata);
-
-        foreach ((ElementSourceHandlerExtension extension, Exception failure) in failures)
-            ReportFailure(extension, failure);
+        return newFailures;
     }
 
     private Task UnregisterAsync(Registration registration, RegistrationState state)

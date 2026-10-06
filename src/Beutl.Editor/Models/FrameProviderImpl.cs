@@ -96,11 +96,14 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         return normalized;
     }
 
+    // rate.Numerator, rate.Denominatorを使ってできるだけ正確に
+    // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
+    private TimeSpan FrameToTime(long frame)
+        => TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+
     private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)
     {
-        // rate.Numerator, rate.Denominatorを使ってできるだけ正確に
-        // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
-        var time = TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+        var time = FrameToTime(frame);
 
         if (RenderThread.Dispatcher.CheckAccess())
         {
@@ -141,7 +144,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var time = TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+        var time = FrameToTime(frame);
         _progress.OnNext(time);
 
         while (await _channel.Reader.WaitToReadAsync(_cts.Token))

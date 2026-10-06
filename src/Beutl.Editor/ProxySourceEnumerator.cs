@@ -182,16 +182,14 @@ public static partial class ProxySourceEnumerator
                     continue;
             }
 
-            foreach (IFileSource source in EnumerateObjectFileSources(
-                obj,
+            var walkContext = new ObjectWalkContext(
                 visitedScenes,
                 new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
-                skipDisabledElements,
                 renderTarget,
-                localRange,
-                sceneWindow))
+                sceneWindow);
+            foreach (IFileSource source in EnumerateObjectFileSources(obj, walkContext, skipDisabledElements, localRange))
             {
                 yield return source;
             }
@@ -200,27 +198,16 @@ public static partial class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateObjectFileSources(
         EngineObject obj,
-        HashSet<(Scene, CompositionTarget?)> visitedScenes,
-        HashSet<GraphGroup> visitedGraphGroups,
-        HashSet<Drawable> visitedTargets,
-        HashSet<Drawable> visitedFullWalkTargets,
+        ObjectWalkContext walkContext,
         bool skipDisabledElements,
-        CompositionTarget? renderTarget,
-        TimeRange? localRange = null,
-        TimeRange? sceneWindow = null,
-        IReadOnlySet<IProperty>? connectedNodeInputs = null)
+        TimeRange? localRange = null)
     {
         // Direct IFileSource-valued properties (current + animated): SourceVideo/SourceImage/SourceSound.
         // Thread the walk context so a rendered structural value reachable only as a property (a
         // DrawableBrush's Drawable, a visualizer's SceneSound) dispatches through the guarded walks — from
         // the current value, an expression, an animation keyframe, or a node input alike.
-        var walkContext = new ObjectWalkContext(
-            visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, renderTarget, sceneWindow)
-        {
-            ConnectedNodeInputs = connectedNodeInputs
-        };
         foreach (IFileSource source in EnumeratePropertyFileSources(
-            obj, localRange, skipDisabledElements, sceneWindow: sceneWindow, walkContext: walkContext))
+            obj, localRange, skipDisabledElements, sceneWindow: walkContext.SceneWindow, walkContext: walkContext))
             yield return source;
 
         if (obj is Drawable drawable)
@@ -230,19 +217,19 @@ public static partial class ProxySourceEnumerator
             // the effective FilterEffect value, so resolve an expression-supplied one before walking.
             foreach (IFileSource source in EnumerateFilterEffectGraphSources(
                 ResolveExpressionValue<FilterEffect>(drawable, drawable.FilterEffect, walkContext: walkContext),
-                visitedGraphGroups,
+                walkContext.VisitedGraphGroups,
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 new HashSet<FilterEffect>(ReferenceEqualityComparer.Instance),
                 skipDisabledElements,
                 localRange,
-                sceneWindow,
+                walkContext.SceneWindow,
                 walkContext))
                 yield return source;
 
             switch (drawable)
             {
                 case NodeGraphDrawable { Model.CurrentValue: { } model }:
-                    foreach (IFileSource source in EnumerateGraphSources(model, visitedGraphGroups, localRange, sceneWindow: sceneWindow, walkContext: walkContext, skipDisabledElements: skipDisabledElements))
+                    foreach (IFileSource source in EnumerateGraphSources(model, walkContext.VisitedGraphGroups, localRange, sceneWindow: walkContext.SceneWindow, walkContext: walkContext, skipDisabledElements: skipDisabledElements))
                         yield return source;
 
                     break;
@@ -261,26 +248,18 @@ public static partial class ProxySourceEnumerator
                     // its global-clock keyframes sample) equals this element's localRange — pass it as the
                     // inner scene window.
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
-                        referencedScene, visitedScenes, skipDisabledElements, CompositionTarget.Graphics,
+                        referencedScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Graphics,
                         localRange, localRange))
                         yield return source;
 
                     break;
 
                 case DrawableGroup group:
-                    foreach (Drawable child in group.Children)
-                    {
-                        // The nested render path (DrawableGroup.OnDraw -> DrawDrawable -> Drawable.Render)
-                        // skips a disabled child, so preflight must not demand its file either.
-                        if (skipDisabledElements && !child.IsEnabled)
-                            continue;
-                        if (connectedNodeInputs != null && !TryVisitGraphDrawable(child, localRange, walkContext))
-                            continue;
-
-                        foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
-                            yield return source;
-                    }
+                    // The nested render path (DrawableGroup.OnDraw -> DrawDrawable -> Drawable.Render)
+                    // skips a disabled child, so preflight must not demand its file either.
+                    foreach (IFileSource source in EnumerateChildDrawableSources(
+                        group.Children, walkContext, skipDisabledElements, localRange))
+                        yield return source;
 
                     break;
 
@@ -292,20 +271,12 @@ public static partial class ProxySourceEnumerator
                 // recursion terminate. A disabled nested drawable is skipped by the render path, so the
                 // same skipDisabledElements gate applies before descending.
                 case DrawableDecorator decorator:
-                    foreach (Drawable child in decorator.Children)
-                    {
-                        if (skipDisabledElements && !child.IsEnabled)
-                            continue;
-                        if (connectedNodeInputs != null && !TryVisitGraphDrawable(child, localRange, walkContext))
-                            continue;
-
-                        // A decorator renders its children at the same composition time (it pushes only
-                        // transform/opacity/effect, never remaps time), so the render window still maps
-                        // directly — thread localRange through, unlike the time-remapping cases below.
-                        foreach (IFileSource source in EnumerateObjectFileSources(
-                            child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
-                            yield return source;
-                    }
+                    // A decorator renders its children at the same composition time (it pushes only
+                    // transform/opacity/effect, never remaps time), so the render window still maps
+                    // directly — thread localRange through, unlike the time-remapping cases below.
+                    foreach (IFileSource source in EnumerateChildDrawableSources(
+                        decorator.Children, walkContext, skipDisabledElements, localRange))
+                        yield return source;
 
                     break;
 
@@ -314,13 +285,13 @@ public static partial class ProxySourceEnumerator
                     // The remapped full walk (range dropped below) is a superset of a window-preserving
                     // one, so it must run even if a presenter already window-visited this target — dedup it
                     // in its own set so that earlier windowed visit cannot suppress it (identity-only would).
-                    if ((!skipDisabledElements || target.IsEnabled) && visitedFullWalkTargets.Add(target))
+                    if ((!skipDisabledElements || target.IsEnabled) && walkContext.VisitedFullWalkTargets.Add(target))
                     {
                         // A time controller remaps composition time, so neither the element-local window
                         // nor the scene-time window still maps — drop both to the conservative full walk.
                         // PostUpdate renders context.Get(Target), so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            target, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, connectedNodeInputs: connectedNodeInputs))
+                            target, walkContext with { SceneWindow = null }, skipDisabledElements))
                             yield return source;
                     }
 
@@ -329,17 +300,17 @@ public static partial class ProxySourceEnumerator
                 case DrawablePresenter presenter
                     when ResolveExpressionValue<Drawable>(presenter, presenter.Target, walkContext: walkContext) is { } presented:
                     // A full walk already covers this windowed subset, so skip when the target was
-                    // full-walked; otherwise dedup the windowed visit in visitedTargets.
+                    // full-walked; otherwise dedup the windowed visit in VisitedTargets.
                     if ((!skipDisabledElements || presented.IsEnabled)
-                        && !visitedFullWalkTargets.Contains(presented)
-                        && visitedTargets.Add(presented))
+                        && !walkContext.VisitedFullWalkTargets.Contains(presented)
+                        && walkContext.VisitedTargets.Add(presented))
                     {
                         // A presenter forwards the same composition time to its target (no remap), so the
                         // render window maps directly — thread localRange through, unlike the time
                         // controller above. The render uses the effective Target, so resolve an
                         // expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            presented, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
+                            presented, walkContext, skipDisabledElements, localRange))
                             yield return source;
                     }
 
@@ -358,7 +329,7 @@ public static partial class ProxySourceEnumerator
         {
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
-                soundScene, visitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
+                soundScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
                 yield return source;
         }
 
@@ -373,9 +344,24 @@ public static partial class ProxySourceEnumerator
                     continue;
 
                 foreach (IFileSource source in EnumerateObjectFileSources(
-                    child, visitedScenes, visitedGraphGroups, visitedTargets, visitedFullWalkTargets, skipDisabledElements, renderTarget, localRange, sceneWindow, connectedNodeInputs))
+                    child, walkContext, skipDisabledElements, localRange))
                     yield return source;
             }
+        }
+    }
+
+    private static IEnumerable<IFileSource> EnumerateChildDrawableSources(
+        IListProperty<Drawable> children, ObjectWalkContext walkContext, bool skipDisabledElements, TimeRange? localRange)
+    {
+        foreach (Drawable child in children)
+        {
+            if (skipDisabledElements && !child.IsEnabled)
+                continue;
+            if (walkContext.ConnectedNodeInputs != null && !TryVisitGraphDrawable(child, localRange, walkContext))
+                continue;
+
+            foreach (IFileSource source in EnumerateObjectFileSources(child, walkContext, skipDisabledElements, localRange))
+                yield return source;
         }
     }
 

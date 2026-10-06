@@ -46,10 +46,7 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        _propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
-            .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
-            .Where(i => !string.IsNullOrEmpty(i))
-            .ToHashSet();
+        _propertiesToTrack = OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
 
         _easing.Changed += OnEasingChanged;
     }
@@ -102,9 +99,7 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
 
     private void PublishChange(string propertyName, float newValue, float oldValue)
     {
-        string fullPath = string.IsNullOrEmpty(_propertyPath)
-            ? propertyName
-            : $"{_propertyPath}.{propertyName}";
+        string fullPath = OperationObserverHelpers.AppendPath(_propertyPath, propertyName);
 
         var operation = new UpdateSplineEasingOperation(_easing, fullPath, newValue, oldValue)
         {

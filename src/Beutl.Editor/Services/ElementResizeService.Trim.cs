@@ -26,21 +26,7 @@ public sealed partial class ElementResizeService
 
         // One shared delta moves every cut, so a single invalid pair rejects the whole
         // operation — a partial roll would desync the grouped cuts it was asked to keep together.
-        var used = new HashSet<Element>();
-        foreach ((Element front, Element back) in pairs)
-        {
-            if (front == back) return false;
-            // Coincidental time adjacency across layers is not an editable cut, and elements
-            // outside the supplied scene must not be mutated through this public seam — the
-            // UI guarantees both, direct service callers may not.
-            if (front.ZIndex != back.ZIndex) return false;
-            if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
-            if (front.Range.End != back.Start) return false;
-            // Roll writes both clips, so a locked side blocks the whole op rather than being filtered.
-            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
-            // An element in two pairs would take two geometry writes and break the invariant.
-            if (!used.Add(front) || !used.Add(back)) return false;
-        }
+        if (!CanRollPairs(scene, pairs)) return false;
 
         TrimConstraints constraints = CreateTrimConstraints(scene, pairs);
         TimeSpan clamped = constraints.Clamp(delta);
@@ -66,44 +52,13 @@ public sealed partial class ElementResizeService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(lanes);
-        foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
-        {
-            if (front is null || back is null || middles is null)
-                throw new ArgumentNullException(nameof(lanes), "lanes must not contain null participants.");
-            if (middles.Count == 0)
-                throw new ArgumentException("Every lane needs at least one middle element.", nameof(lanes));
-            foreach (Element middle in middles)
-            {
-                if (middle is null)
-                    throw new ArgumentNullException(nameof(lanes), "lanes must not contain null participants.");
-            }
-        }
+        ThrowIfInvalidLanes(lanes);
 
         if (lanes.Count == 0) return false;
 
         // One shared delta moves every lane, so a single invalid lane rejects the whole
         // operation — a partial slide would desync the grouped block it was asked to keep together.
-        var used = new HashSet<Element>();
-        foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
-        {
-            if (!used.Add(front) || !used.Add(back)) return false;
-            if (front.ZIndex != back.ZIndex) return false;
-            if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
-            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
-
-            TimeSpan expectedStart = front.Range.End;
-            foreach (Element middle in middles)
-            {
-                if (!used.Add(middle)) return false;
-                if (middle.ZIndex != front.ZIndex) return false;
-                if (!scene.Children.Contains(middle)) return false;
-                if (scene.IsElementLocked(middle)) return false;
-                if (middle.Start != expectedStart) return false;
-                expectedStart = middle.Range.End;
-            }
-
-            if (back.Start != expectedStart) return false;
-        }
+        if (!CanSlideLanes(scene, lanes)) return false;
 
         TrimConstraints constraints = CreateTrimConstraints(scene,
             lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(),
@@ -226,6 +181,70 @@ public sealed partial class ElementResizeService
         }
     }
 
+    private static bool CanRollPairs(Scene scene, IReadOnlyList<ElementTrimPair> pairs)
+    {
+        var used = new HashSet<Element>();
+        foreach ((Element front, Element back) in pairs)
+        {
+            if (front == back) return false;
+            // Coincidental time adjacency across layers is not an editable cut, and elements
+            // outside the supplied scene must not be mutated through this public seam — the
+            // UI guarantees both, direct service callers may not.
+            if (front.ZIndex != back.ZIndex) return false;
+            if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
+            if (front.Range.End != back.Start) return false;
+            // Roll writes both clips, so a locked side blocks the whole op rather than being filtered.
+            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
+            // An element in two pairs would take two geometry writes and break the invariant.
+            if (!used.Add(front) || !used.Add(back)) return false;
+        }
+
+        return true;
+    }
+
+    private static void ThrowIfInvalidLanes(IReadOnlyList<ElementSlideLane> lanes)
+    {
+        foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
+        {
+            if (front is null || back is null || middles is null)
+                throw new ArgumentNullException(nameof(lanes), "lanes must not contain null participants.");
+            if (middles.Count == 0)
+                throw new ArgumentException("Every lane needs at least one middle element.", nameof(lanes));
+            foreach (Element middle in middles)
+            {
+                if (middle is null)
+                    throw new ArgumentNullException(nameof(lanes), "lanes must not contain null participants.");
+            }
+        }
+    }
+
+    private static bool CanSlideLanes(Scene scene, IReadOnlyList<ElementSlideLane> lanes)
+    {
+        var used = new HashSet<Element>();
+        foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
+        {
+            if (!used.Add(front) || !used.Add(back)) return false;
+            if (front.ZIndex != back.ZIndex) return false;
+            if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
+            if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
+
+            TimeSpan expectedStart = front.Range.End;
+            foreach (Element middle in middles)
+            {
+                if (!used.Add(middle)) return false;
+                if (middle.ZIndex != front.ZIndex) return false;
+                if (!scene.Children.Contains(middle)) return false;
+                if (scene.IsElementLocked(middle)) return false;
+                if (middle.Start != expectedStart) return false;
+                expectedStart = middle.Range.End;
+            }
+
+            if (back.Start != expectedStart) return false;
+        }
+
+        return true;
+    }
+
     // Shared Roll/Slide delta window. Min (≤ 0) is bounded by the shrinking front keeping one
     // frame and — always, regardless of the clamp preference — by the back in-point staying at
     // or above zero (a negative source offset is an invalid frame request, not an
@@ -237,8 +256,7 @@ public sealed partial class ElementResizeService
         IReadOnlyList<SlippableMedia.Target> frontTargets,
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan minDuration = SceneTimeRangeService.GetFrameDuration(scene);
 
         if (front.Length < minDuration || back.Length < minDuration)
             return (TimeSpan.Zero, TimeSpan.Zero);

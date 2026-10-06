@@ -99,7 +99,7 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         return listProperty;
     }
 
-    public override void Apply(OperationExecutionContext context)
+    private void Execute(bool revert)
     {
         _failureState = ChangeOperationFailureState.Unknown;
         var type = Object.GetType();
@@ -109,55 +109,33 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         if (coreProperty != null)
         {
             IList<T> list = VerifyType(Object, Object.GetValue(coreProperty));
-            ExecuteWithFailureState(list, false, () => ApplyTo(list));
+            ExecuteWithFailureState(list, revert, revert ? () => RevertTo(list) : () => ApplyTo(list));
             return;
         }
 
         if (Object is INodeMember nodeMember && name == "Property")
         {
             IList<T> list = VerifyType(nodeMember, nodeMember.Property?.GetValue());
-            ExecuteWithFailureState(list, false, () => ApplyTo(list));
+            ExecuteWithFailureState(list, revert, revert ? () => RevertTo(list) : () => ApplyTo(list));
             return;
         }
 
         if (Object is EngineObject engineObj)
         {
             var listProperty = FindListProperty(engineObj, name);
-            ExecuteWithFailureState(listProperty, false, () => ApplyToEngineProperty(listProperty));
+            ExecuteWithFailureState(listProperty, revert, revert
+                ? () => RevertToEngineProperty(listProperty)
+                : () => ApplyToEngineProperty(listProperty));
         }
     }
+
+    public override void Apply(OperationExecutionContext context) => Execute(revert: false);
 
     protected abstract void ApplyToEngineProperty(IListProperty<T> listProperty);
 
     protected abstract void ApplyTo(IList<T> list);
 
-    public override void Revert(OperationExecutionContext context)
-    {
-        _failureState = ChangeOperationFailureState.Unknown;
-        var type = Object.GetType();
-        var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
-        var coreProperty = PropertyRegistry.FindRegistered(type, name);
-
-        if (coreProperty != null)
-        {
-            IList<T> list = VerifyType(Object, Object.GetValue(coreProperty));
-            ExecuteWithFailureState(list, true, () => RevertTo(list));
-            return;
-        }
-
-        if (Object is INodeMember nodeMember && name == "Property")
-        {
-            IList<T> list = VerifyType(nodeMember, nodeMember.Property?.GetValue());
-            ExecuteWithFailureState(list, true, () => RevertTo(list));
-            return;
-        }
-
-        if (Object is EngineObject engineObj)
-        {
-            var listProperty = FindListProperty(engineObj, name);
-            ExecuteWithFailureState(listProperty, true, () => RevertToEngineProperty(listProperty));
-        }
-    }
+    public override void Revert(OperationExecutionContext context) => Execute(revert: true);
 
     protected abstract void RevertToEngineProperty(IListProperty<T> listProperty);
 

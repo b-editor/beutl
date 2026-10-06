@@ -8,7 +8,6 @@ using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Beutl.Reactive;
-using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
 
@@ -41,10 +40,8 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        HashSet<string>? propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
-            .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
-            .Where(i => !string.IsNullOrEmpty(i))
-            .ToHashSet();
+        HashSet<string>? propertiesToTrack =
+            OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
 
         if (propertiesToTrack?.Contains("Property") != false)
         {
@@ -84,7 +81,7 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
 
         var operation =
             new UpdateNodeMemberOperation(_nodeMember,
-                string.IsNullOrEmpty(_propertyPath) ? "Expression" : $"{_propertyPath}.Expression", t.NewValue,
+                OperationObserverHelpers.AppendPath(_propertyPath, "Expression"), t.NewValue,
                 t.OldValue)
             { SequenceNumber = _sequenceNumberGenerator.GetNext() };
         _operations.OnNext(operation);
@@ -92,7 +89,7 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
 
     private string GetAnimationPath()
     {
-        return string.IsNullOrEmpty(_propertyPath) ? "Animation" : $"{_propertyPath}.Animation";
+        return OperationObserverHelpers.AppendPath(_propertyPath, "Animation");
     }
 
     private void RecreateAnimationObserver(IAnimation? animation)
@@ -145,20 +142,15 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
                     _operations,
                     coreObject,
                     _sequenceNumberGenerator,
-                    string.IsNullOrEmpty(_propertyPath) ? "Property" : $"{_propertyPath}.Property",
+                    OperationObserverHelpers.AppendPath(_propertyPath, "Property"),
                     _propertyPathsToTrack);
                 break;
             case IList list:
-                var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-                if (elementType == null)
-                    throw new InvalidOperationException("Could not determine the element type of the list.");
-                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
-
-                _valueObserver = (IOperationObserver?)Activator.CreateInstance(observerType,
+                _valueObserver = OperationObserverHelpers.CreateCollectionObserver(
                     _operations, list, _nodeMember,
-                    string.IsNullOrEmpty(_propertyPath) ? "Property" : $"{_propertyPath}.Property",
+                    OperationObserverHelpers.AppendPath(_propertyPath, "Property"),
                     _sequenceNumberGenerator,
-                    _propertyPathsToTrack)!;
+                    _propertyPathsToTrack);
                 break;
         }
     }
@@ -174,9 +166,7 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
 
     private void PublishValueChange(object? newValue, object? oldValue)
     {
-        string fullPath = string.IsNullOrEmpty(_propertyPath)
-            ? "Property"
-            : $"{_propertyPath}.Property";
+        string fullPath = OperationObserverHelpers.AppendPath(_propertyPath, "Property");
 
         var operation = new UpdateNodeMemberOperation(_nodeMember, fullPath, newValue, oldValue)
         {

@@ -19,22 +19,14 @@ internal static class RippleHelper
         // A locked follower stays anchored — shifting it would bypass the lock.
         if (scene.IsLayerLocked(zIndex)) return;
 
-        Element[] lockedOnLayer = scene.Children
-            .Where(e => e.ZIndex == zIndex && e.IsLocked)
-            .ToArray();
+        Element[] lockedOnLayer = LockedOnLayer(scene, zIndex);
 
         Element[] candidates = scene.Children
             .Where(e => e.ZIndex == zIndex && !except.Contains(e) && !e.IsLocked && e.Start >= anchorEnd)
             .OrderBy(e => e.Start)
             .ToArray();
 
-        foreach (Element e in candidates)
-        {
-            TimeRange shifted = e.Range.WithStart(e.Start + delta);
-            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
-
-            e.Start += delta;
-        }
+        ShiftUntilBlocked(candidates, delta, lockedOnLayer);
     }
 
     public static void ShiftBefore(
@@ -53,9 +45,7 @@ internal static class RippleHelper
             .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
                         && !e.IsLocked);
 
-        Element[] lockedOnLayer = scene.Children
-            .Where(e => e.ZIndex == zIndex && e.IsLocked)
-            .ToArray();
+        Element[] lockedOnLayer = LockedOnLayer(scene, zIndex);
 
         // A locked clip is an immovable anchor in both directions, so the ripple stops before any
         // clip lands on it. Process in travel order — rightmost first for a right pull (delta > 0),
@@ -65,7 +55,17 @@ internal static class RippleHelper
             ? toShift.OrderByDescending(e => e.Start)
             : toShift.OrderBy(e => e.Start);
 
-        foreach (Element e in toShift)
+        ShiftUntilBlocked(toShift, delta, lockedOnLayer);
+    }
+
+    private static Element[] LockedOnLayer(Scene scene, int zIndex)
+        => scene.Children
+            .Where(e => e.ZIndex == zIndex && e.IsLocked)
+            .ToArray();
+
+    private static void ShiftUntilBlocked(IEnumerable<Element> candidates, TimeSpan delta, Element[] lockedOnLayer)
+    {
+        foreach (Element e in candidates)
         {
             TimeRange shifted = e.Range.WithStart(e.Start + delta);
             if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;

@@ -122,8 +122,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         TimeSpan clickedFrame,
         int clickedLayer)
     {
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        TimeSpan step = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan step = SceneTimeRangeService.GetFrameDuration(scene);
         TimeSpan length = range.Duration;
 
         TimeSpan newStart = clickedFrame;

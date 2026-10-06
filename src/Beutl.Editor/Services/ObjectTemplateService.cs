@@ -150,9 +150,7 @@ public sealed partial class ObjectTemplateService
             ObjectTemplateItem? cached = FindByFilePathLocked(filePath);
             if (cached != null)
             {
-                string? canonicalPath = TryResolveCanonicalPath(filePath, out string resolvedPath)
-                    ? resolvedPath
-                    : null;
+                string? canonicalPath = ResolveCanonicalPathOrNull(filePath);
                 DateTime diskTime = GetLastWriteTimeOrDefault(filePath);
                 if (string.Equals(
                         canonicalPath,
@@ -200,11 +198,7 @@ public sealed partial class ObjectTemplateService
             if (item != null)
             {
                 item.LastWriteTimeUtc = lastWriteTime;
-                item.CanonicalFilePath = TryResolveCanonicalPath(
-                    filePath,
-                    out string canonicalPath)
-                    ? canonicalPath
-                    : null;
+                item.CanonicalFilePath = ResolveCanonicalPathOrNull(filePath);
             }
 
             return item;
@@ -244,11 +238,7 @@ public sealed partial class ObjectTemplateService
 
             item.FilePath = filePath;
             item.LastWriteTimeUtc = File.GetLastWriteTimeUtc(filePath);
-            item.CanonicalFilePath = TryResolveCanonicalPath(
-                filePath,
-                out string canonicalPath)
-                ? canonicalPath
-                : null;
+            item.CanonicalFilePath = ResolveCanonicalPathOrNull(filePath);
             _logger.LogInformation("Saved ObjectTemplateItem to file: {FilePath}", filePath);
             return true;
         }
@@ -335,17 +325,12 @@ public sealed partial class ObjectTemplateService
         {
             fullPath = Path.GetFullPath(filePath);
         }
-        catch (Exception ex) when (ex is IOException
-                                   or UnauthorizedAccessException
-                                   or ArgumentException
-                                   or NotSupportedException)
+        catch (Exception ex) when (IsPathResolutionFailure(ex))
         {
             return null;
         }
 
-        string? canonicalPath = TryResolveCanonicalPath(fullPath, out string resolvedPath)
-            ? resolvedPath
-            : null;
+        string? canonicalPath = ResolveCanonicalPathOrNull(fullPath);
         foreach (ObjectTemplateItem item in _items)
         {
             if (item.FilePath is not { } itemFilePath)
@@ -367,22 +352,25 @@ public sealed partial class ObjectTemplateService
         return null;
     }
 
-    private static bool TryResolveCanonicalPath(string path, out string canonicalPath)
+    private static string? ResolveCanonicalPathOrNull(string path)
     {
-        canonicalPath = string.Empty;
         try
         {
-            canonicalPath = FilePathComparison.ResolveCanonicalPath(path);
-            return true;
+            return FilePathComparison.ResolveCanonicalPath(path);
         }
-        catch (Exception ex) when (ex is IOException
-                                   or UnauthorizedAccessException
-                                   or ArgumentException
-                                   or NotSupportedException)
+        catch (Exception ex) when (IsPathResolutionFailure(ex))
         {
-            return false;
+            return null;
         }
     }
+
+    // The path APIs report malformed, inaccessible or unsupported paths through these
+    // exception types; any other exception is a real fault and must keep propagating.
+    private static bool IsPathResolutionFailure(Exception ex)
+        => ex is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException;
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
     {
@@ -420,97 +408,111 @@ public sealed partial class ObjectTemplateService
 
             lock (_lock)
             {
-                // 削除されたファイルに対応するアイテムを削除
-                for (int i = _items.Count - 1; i >= 0; i--)
-                {
-                    ObjectTemplateItem item = _items[i];
-                    if (item.FilePath == null
-                        || !diskPaths.TryMatch(item.FilePath, out _))
-                    {
-                        _items.RemoveAt(i);
-                        _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
-                        continue;
-                    }
-
-                }
-
-                // 外部変更を検知したら再読み込み、既読パスを収集
-                var loadedPaths = new CanonicalPathSet();
-                for (int i = 0; i < _items.Count; i++)
-                {
-                    ObjectTemplateItem item = _items[i];
-                    if (item.FilePath is not { } filePath) continue;
-
-                    diskPaths.TryMatch(filePath, out string? currentCanonicalPath);
-                    if (currentCanonicalPath is not null
-                        && diskPaths.TryGetPreferredPath(
-                            currentCanonicalPath,
-                            out string? preferredPath)
-                        && preferredPath is not null
-                        && !string.Equals(
-                            filePath,
-                            preferredPath,
-                            StringComparison.Ordinal))
-                    {
-                        ObjectTemplateItem? preferred = LoadFromFile(preferredPath);
-                        if (preferred is not null)
-                        {
-                            _items[i] = item = preferred;
-                            filePath = preferredPath;
-                            currentCanonicalPath = preferred.CanonicalFilePath;
-                            _logger.LogInformation(
-                                "Reloaded template from preferred path: {FilePath}",
-                                preferredPath);
-                        }
-                    }
-
-                    if (loadedPaths.ContainsKnown(filePath, currentCanonicalPath))
-                    {
-                        _items.RemoveAt(i--);
-                        _logger.LogInformation(
-                            "Removed duplicate template identity: {FilePath}",
-                            filePath);
-                        continue;
-                    }
-
-                    loadedPaths.AddKnown(filePath, currentCanonicalPath);
-
-                    DateTime diskTime = GetLastWriteTimeOrDefault(filePath);
-                    bool targetChanged = !string.Equals(
-                        currentCanonicalPath,
-                        item.CanonicalFilePath,
-                        StringComparison.Ordinal);
-                    if (!targetChanged
-                        && (diskTime == default || diskTime <= item.LastWriteTimeUtc))
-                        continue;
-
-                    ObjectTemplateItem? reloaded = LoadFromFile(filePath);
-                    if (reloaded != null)
-                    {
-                        _items[i] = reloaded;
-                        _logger.LogInformation("Reloaded template (file changed): {FilePath}", filePath);
-                    }
-                }
-
-                // 新しいファイルを読み込んで追加
-                foreach (string filePath in preferredDiskFiles)
-                {
-                    diskPaths.TryGetExact(filePath, out string? canonicalPath);
-                    if (loadedPaths.ContainsKnown(filePath, canonicalPath)) continue;
-
-                    ObjectTemplateItem? newItem = LoadFromFile(filePath);
-                    if (newItem != null)
-                    {
-                        _items.Add(newItem);
-                        loadedPaths.AddKnown(filePath, canonicalPath);
-                        _logger.LogInformation("Added template (new file): {FilePath}", filePath);
-                    }
-                }
+                RemoveItemsWithoutFileLocked(diskPaths);
+                CanonicalPathSet loadedPaths = ReloadChangedItemsLocked(diskPaths);
+                AddNewFilesLocked(preferredDiskFiles, diskPaths, loadedPaths);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to refresh templates from filesystem.");
+        }
+    }
+
+    private void RemoveItemsWithoutFileLocked(CanonicalPathSet diskPaths)
+    {
+        for (int i = _items.Count - 1; i >= 0; i--)
+        {
+            ObjectTemplateItem item = _items[i];
+            if (item.FilePath == null
+                || !diskPaths.TryMatch(item.FilePath, out _))
+            {
+                _items.RemoveAt(i);
+                _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
+                continue;
+            }
+
+        }
+    }
+
+    // Returns the identities that stay loaded, so new-file discovery skips their aliases.
+    private CanonicalPathSet ReloadChangedItemsLocked(CanonicalPathSet diskPaths)
+    {
+        var loadedPaths = new CanonicalPathSet();
+        for (int i = 0; i < _items.Count; i++)
+        {
+            ObjectTemplateItem item = _items[i];
+            if (item.FilePath is not { } filePath) continue;
+
+            diskPaths.TryMatch(filePath, out string? currentCanonicalPath);
+            if (currentCanonicalPath is not null
+                && diskPaths.TryGetPreferredPath(
+                    currentCanonicalPath,
+                    out string? preferredPath)
+                && preferredPath is not null
+                && !string.Equals(
+                    filePath,
+                    preferredPath,
+                    StringComparison.Ordinal))
+            {
+                ObjectTemplateItem? preferred = LoadFromFile(preferredPath);
+                if (preferred is not null)
+                {
+                    _items[i] = item = preferred;
+                    filePath = preferredPath;
+                    currentCanonicalPath = preferred.CanonicalFilePath;
+                    _logger.LogInformation(
+                        "Reloaded template from preferred path: {FilePath}",
+                        preferredPath);
+                }
+            }
+
+            if (loadedPaths.ContainsKnown(filePath, currentCanonicalPath))
+            {
+                _items.RemoveAt(i--);
+                _logger.LogInformation(
+                    "Removed duplicate template identity: {FilePath}",
+                    filePath);
+                continue;
+            }
+
+            loadedPaths.AddKnown(filePath, currentCanonicalPath);
+
+            DateTime diskTime = GetLastWriteTimeOrDefault(filePath);
+            bool targetChanged = !string.Equals(
+                currentCanonicalPath,
+                item.CanonicalFilePath,
+                StringComparison.Ordinal);
+            if (!targetChanged
+                && (diskTime == default || diskTime <= item.LastWriteTimeUtc))
+                continue;
+
+            ObjectTemplateItem? reloaded = LoadFromFile(filePath);
+            if (reloaded != null)
+            {
+                _items[i] = reloaded;
+                _logger.LogInformation("Reloaded template (file changed): {FilePath}", filePath);
+            }
+        }
+
+        return loadedPaths;
+    }
+
+    private void AddNewFilesLocked(
+        IEnumerable<string> preferredDiskFiles, CanonicalPathSet diskPaths, CanonicalPathSet loadedPaths)
+    {
+        foreach (string filePath in preferredDiskFiles)
+        {
+            diskPaths.TryGetExact(filePath, out string? canonicalPath);
+            if (loadedPaths.ContainsKnown(filePath, canonicalPath)) continue;
+
+            ObjectTemplateItem? newItem = LoadFromFile(filePath);
+            if (newItem != null)
+            {
+                _items.Add(newItem);
+                loadedPaths.AddKnown(filePath, canonicalPath);
+                _logger.LogInformation("Added template (new file): {FilePath}", filePath);
+            }
         }
     }
 }

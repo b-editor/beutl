@@ -66,6 +66,20 @@ public sealed class CustomOperation : ChangeOperation
             sequenceGenerator,
             description);
     }
+
+    internal static CustomOperation CreateStateTransition<TState>(
+        Action<TState> applyState,
+        TState fromState,
+        TState toState,
+        OperationSequenceGenerator sequenceGenerator,
+        string? description)
+    {
+        return new CustomOperation(
+            _ => applyState(toState),
+            _ => applyState(fromState),
+            description)
+        { SequenceNumber = sequenceGenerator.GetNext() };
+    }
 }
 
 public sealed class StateCapturingOperationBuilder<TState>
@@ -92,15 +106,7 @@ public sealed class StateCapturingOperationBuilder<TState>
     public CustomOperation Complete()
     {
         var afterState = _captureState();
-        return CreateStateOperation(_beforeState, afterState);
-    }
-
-    private CustomOperation CreateStateOperation(TState fromState, TState toState)
-    {
-        return new CustomOperation(
-            _ => _applyState(toState),
-            _ => _applyState(fromState),
-            _description)
-        { SequenceNumber = _sequenceGenerator.GetNext() };
+        return CustomOperation.CreateStateTransition(
+            _applyState, _beforeState, afterState, _sequenceGenerator, _description);
     }
 }
