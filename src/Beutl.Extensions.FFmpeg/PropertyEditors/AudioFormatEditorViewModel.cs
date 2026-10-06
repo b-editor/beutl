@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.Logging;
@@ -128,7 +129,8 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             // A superseded query is no longer the latest request, so it neither logs nor applies.
             if (LatestRefreshTracker.IsCurrent(ct))
             {
-                s_logger.LogWarning(ex, "Failed to refresh audio formats from FFmpeg worker");
+                if (ex is not FFmpegLibrariesNotFoundException)
+                    s_logger.LogWarning(ex, "Failed to refresh audio formats from FFmpeg worker");
                 await ApplyOnUiThreadAsync(ct, () => ApplyFormats(AudioFormatOptions.All())).ConfigureAwait(false);
             }
 
