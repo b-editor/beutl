@@ -68,41 +68,14 @@ public sealed partial class SceneSound : Sound
 
     public partial class Resource
     {
-        private static readonly AsyncLocal<HashSet<Scene>?> s_evaluatingScenes = new();
+        internal static readonly SceneEvaluationGuard s_evaluatingScenes = new();
         internal SceneCompositor? _compositor;
 
         public override SoundSource.Resource? GetSoundSource() => null;
 
-        internal static bool Enter(Scene scene)
-        {
-            var set = s_evaluatingScenes.Value ??= new(ReferenceEqualityComparer.Instance);
-            return set.Add(scene);
-        }
-
-        internal static void Exit(Scene scene)
-        {
-            s_evaluatingScenes.Value?.Remove(scene);
-        }
-
         partial void PostUpdate(SceneSound obj, CompositionContext context)
         {
-            bool forceOriginalSource = !context.PreferProxy;
-            if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare
-                || _compositor?.ForceOriginalSource != forceOriginalSource)
-            {
-                _compositor?.Dispose();
-                _compositor = null;
-            }
-
-            if (ReferencedScene != null && _compositor == null)
-            {
-                _compositor = new SceneCompositor(ReferencedScene)
-                {
-                    DisableResourceShare = context.DisableResourceShare,
-                    ForceOriginalSource = forceOriginalSource,
-                };
-            }
+            SceneCompositor.Refresh(ref _compositor, ReferencedScene, context);
         }
 
         partial void PostDispose(bool disposing)
@@ -126,7 +99,7 @@ public sealed partial class SceneSound : Sound
                 return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
             }
 
-            if (!Resource.Enter(scene))
+            if (!Resource.s_evaluatingScenes.Enter(scene))
             {
                 throw new InvalidOperationException("A circular reference was detected.");
             }
@@ -150,7 +123,7 @@ public sealed partial class SceneSound : Sound
             }
             finally
             {
-                Resource.Exit(scene);
+                Resource.s_evaluatingScenes.Exit(scene);
             }
         }
 
@@ -162,7 +135,7 @@ public sealed partial class SceneSound : Sound
             if (_composer is null || scene is null || compositor is null)
                 return CreateSilentFlush(context);
 
-            if (!Resource.Enter(scene))
+            if (!Resource.s_evaluatingScenes.Enter(scene))
                 throw new InvalidOperationException("A circular reference was detected.");
 
             try
@@ -173,7 +146,7 @@ public sealed partial class SceneSound : Sound
             }
             finally
             {
-                Resource.Exit(scene);
+                Resource.s_evaluatingScenes.Exit(scene);
             }
         }
 

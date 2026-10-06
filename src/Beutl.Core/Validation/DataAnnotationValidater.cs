@@ -22,25 +22,6 @@ public sealed class DataAnnotationValidater<T> : IValidator<T>
 
     public string? Validate(ValidationContext context, T? value)
     {
-        if (Attribute == null)
-        {
-            return null;
-        }
-
-        if (!Attribute.RequiresValidationContext)
-        {
-            if (!Attribute.IsValid(value))
-            {
-                return Attribute.FormatErrorMessage(context.Property?.Name ?? typeof(T).Name);
-            }
-            else
-            {
-                return null;
-            }
-        }
-        else
-        {
-            throw new InvalidOperationException("System.ComponentModel.DataAnnotations.ValidationContext required validation is not yet supported.");
-        }
+        return DataAnnotationValidation.ValidateWithAttribute(Attribute, context, value, typeof(T));
     }
 }

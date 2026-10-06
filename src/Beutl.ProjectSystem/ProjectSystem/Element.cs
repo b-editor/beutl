@@ -347,22 +347,7 @@ public class Element : Hierarchical, INotifyEdited
             {
                 if (item != this && item.ZIndex == zindex)
                 {
-                    if (item.Start < start
-                        && (beforeTmp == null || beforeTmp.Start <= item.Start))
-                    {
-                        beforeTmp = item;
-                    }
-
-                    if (item.Range.End > end
-                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
-                    {
-                        afterTmp = item;
-                    }
-
-                    if (range.Contains(item.Range) || range == item.Range)
-                    {
-                        coverTmp = item;
-                    }
+                    AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
                 }
             }
             return (beforeTmp, afterTmp, coverTmp);
@@ -384,27 +369,39 @@ public class Element : Hierarchical, INotifyEdited
             {
                 if (item != this && item.ZIndex == zindex)
                 {
-                    if (item.Start < start
-                        && (beforeTmp == null || beforeTmp.Start <= item.Start))
-                    {
-                        beforeTmp = item;
-                    }
-
-                    if (item.Range.End > range.End
-                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
-                    {
-                        afterTmp = item;
-                    }
-
-                    if (range.Contains(item.Range) || range == item.Range)
-                    {
-                        coverTmp = item;
-                    }
+                    AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
                 }
             }
             return (beforeTmp, afterTmp, coverTmp);
         }
 
         return (null, null, null);
+    }
+
+    // Folds one element of the same layer into the nearest neighbors before and after range and the
+    // element range covers.
+    internal static void AccumulateNeighbor(
+        Element item,
+        TimeRange range,
+        ref Element? before,
+        ref Element? after,
+        ref Element? cover)
+    {
+        if (item.Start < range.Start
+            && (before == null || before.Start <= item.Start))
+        {
+            before = item;
+        }
+
+        if (item.Range.End > range.End
+            && (after == null || after.Range.End >= item.Range.End))
+        {
+            after = item;
+        }
+
+        if (range.Contains(item.Range) || range == item.Range)
+        {
+            cover = item;
+        }
     }
 }

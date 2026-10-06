@@ -106,11 +106,7 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
         if (first is null)
         {
             List<RenderNode?> imageNodes = context.CollectListInputValues(ImageReferences);
-            for (int i = 0; i < imageNodes.Count; i++)
-            {
-                if (RasterizeInput(imageNodes[i], $"reference-{i + 1}", context) is { } image)
-                    images.Add(image);
-            }
+            AddRasterizedReferences(images, imageNodes, context);
 
             List<VideoSource?> videoSources = context.CollectListInputValues(VideoReferences);
             for (int i = 0; i < videoSources.Count; i++)
@@ -132,7 +128,7 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
             LastFrame = last,
             ImageReferences = images,
             VideoReferences = videos,
-            ModelId = string.IsNullOrWhiteSpace(r.Model) ? null : r.Model!.Trim(),
+            ModelId = NormalizeModelId(r.Model),
             RequestKeySeed = RequestKeySeed,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };
@@ -150,7 +146,7 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
         if (index == 0 || request.Seed is not int seed)
             return request;
 
-        int varied = (int)(((long)seed + index) % ((long)AiImageGenerationNode.MaxSeed + 1));
+        int varied = AiImageGenerationNode.VarySeed(seed, index);
         return request with
         {
             Seed = varied,
@@ -160,14 +156,12 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
 
     protected internal override void ApplyRequestInputs(GenerativeRequest request)
     {
-        if (request is AiVideoGenerationNodeRequest { Seed: int seed } && Seed.Connection.IsNull)
-            Seed.Property?.SetValue(seed);
+        AiImageGenerationNode.ApplySeedInput(Seed, (request as AiVideoGenerationNodeRequest)?.Seed);
     }
 
     protected internal override void ApplyRecordInputs(GenerationRecord record)
     {
-        if (record.Seed is int seed && Seed.Connection.IsNull)
-            Seed.Property?.SetValue(seed);
+        AiImageGenerationNode.ApplySeedInput(Seed, record.Seed);
     }
 
     public partial class Resource

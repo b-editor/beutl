@@ -41,6 +41,30 @@ public sealed class SceneCompositor : ICompositor
 
     public bool ForceOriginalSource { get; init; }
 
+    // Replaces a compositor whose scene or sharing/source settings no longer match the context and
+    // creates one for a referenced scene. The field is cleared before construction, so a constructor
+    // that throws leaves no disposed compositor behind.
+    internal static void Refresh(ref SceneCompositor? field, Scene? scene, CompositionContext context)
+    {
+        bool forceOriginalSource = !context.PreferProxy;
+        if (field?.Scene != scene
+            || field?.DisableResourceShare != context.DisableResourceShare
+            || field?.ForceOriginalSource != forceOriginalSource)
+        {
+            field?.Dispose();
+            field = null;
+        }
+
+        if (scene != null && field == null)
+        {
+            field = new SceneCompositor(scene)
+            {
+                DisableResourceShare = context.DisableResourceShare,
+                ForceOriginalSource = forceOriginalSource,
+            };
+        }
+    }
+
     private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
         private readonly SceneCompositor _compositor;

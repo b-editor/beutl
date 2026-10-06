@@ -88,38 +88,8 @@ public partial class JsonSerializationContext
 
         try
         {
-            if (!baseType.IsAssignableFrom(actualType))
-            {
-                throw new InvalidCastException(
-                    $"Discriminator type '{actualType}' is not assignable to the expected type '{baseType}'.");
-            }
-
-            var instance = Activator.CreateInstance(actualType) as ICoreSerializable
-                           ?? throw new InvalidOperationException(
-                               $"Could not create instance of type {actualType.FullName}.");
-
-            CoreSerializerOptions? options = null;
-            CoreSerializer.ReflectUri(obj, instance, parent, ref options);
-
-            var context = new JsonSerializationContext(
-                ownerType: actualType,
-                parent: parent,
-                json: obj,
-                options: options);
-            context.EnablePersistedContentMigrationReporting();
-
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                instance.Deserialize(context);
-                context.AfterDeserialized(instance);
-            }
-
-            if (instance is IFallback fallbackObj)
-            {
-                fallbackObj.Reason = FallbackReason.TypeNotFound;
-                DeserializationIncidents.RecordFallback(fallbackObj);
-            }
-
+            ICoreSerializable instance = CoreSerializer.InstantiateDiscriminatedType(baseType, actualType);
+            CoreSerializer.DeserializeInstance(instance, obj, actualType, parent, options: null);
             result = instance;
             return true;
         }

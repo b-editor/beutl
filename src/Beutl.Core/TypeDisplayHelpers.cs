@@ -20,24 +20,20 @@ public static class TypeDisplayHelpers
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        return s_displayCache.GetOrAdd(type, t =>
-        {
-            var displayAttribute = t.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? t.Name;
-            var description = displayAttribute?.GetDescription();
-            return new DisplayInfo(name, description);
-        });
+        return s_displayCache.GetOrAdd(type, CreateDisplayInfo);
     }
 
     private static DisplayInfo GetDisplayInfo(MemberInfo member)
     {
-        return s_memberDisplayCache.GetOrAdd(member, m =>
-        {
-            var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? m.Name;
-            var description = displayAttribute?.GetDescription();
-            return new DisplayInfo(name, description);
-        });
+        return s_memberDisplayCache.GetOrAdd(member, CreateDisplayInfo);
+    }
+
+    private static DisplayInfo CreateDisplayInfo(MemberInfo member)
+    {
+        var displayAttribute = member.GetCustomAttribute<DisplayAttribute>();
+        var name = displayAttribute?.GetName() ?? member.Name;
+        var description = displayAttribute?.GetDescription();
+        return new DisplayInfo(name, description);
     }
 
     public static string GetLocalizedName(Type type)

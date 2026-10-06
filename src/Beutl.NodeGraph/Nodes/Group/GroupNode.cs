@@ -33,24 +33,25 @@ public partial class GroupNode : GraphNode
         Group.GetObservable(NameProperty).Subscribe(v => Name = v == "Group" ? "" : v);
     }
 
-    private void DisposeOutput()
+    private static void DisposeAll(List<IDisposable> disposables)
     {
-        foreach (IDisposable item in _outputNodePortDisposable)
+        foreach (IDisposable item in disposables)
         {
             item.Dispose();
         }
 
-        _outputNodePortDisposable.Clear();
+        disposables.Clear();
     }
 
-    private void DisposeInput()
+    // Keeps a port of this node named and displayed like the group port it stands for.
+    private static CompositeDisposable MirrorNameAndDisplay(INodeMember source, INodeMember mirror)
     {
-        foreach (IDisposable item in _inputNodePortDisposable)
-        {
-            item.Dispose();
-        }
-
-        _inputNodePortDisposable.Clear();
+        var subscriptions = new CompositeDisposable();
+        ((CoreObject)source).GetObservable(NameProperty)
+            .Subscribe(v => mirror.Name = v).DisposeWith(subscriptions);
+        ((NodeMember)source).GetObservable(NodeMember.DisplayProperty)
+            .Subscribe(v => ((NodeMember)mirror).Display = v).DisposeWith(subscriptions);
+        return subscriptions;
     }
 
     private void OnGroupEdited(object? sender, EventArgs e)
@@ -87,7 +88,7 @@ public partial class GroupNode : GraphNode
             oldObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
             var outputNodePortCount = oldObj.Items.Count;
             Items.RemoveRange(0, outputNodePortCount);
-            DisposeOutput();
+            DisposeAll(_outputNodePortDisposable);
         }
 
         if (newObj != null)
@@ -105,12 +106,7 @@ public partial class GroupNode : GraphNode
     private void AddOutput(int index, IInputPort item)
     {
         IOutputPort? outputNodePort = CreateOutput(item.Name, item.AssociatedType!, item.Display);
-        var subscriptions = new CompositeDisposable();
-        ((CoreObject)item).GetObservable(NameProperty)
-            .Subscribe(v => outputNodePort.Name = v).DisposeWith(subscriptions);
-        ((NodeMember)item).GetObservable(NodeMember.DisplayProperty)
-            .Subscribe(v => ((NodeMember)outputNodePort).Display = v).DisposeWith(subscriptions);
-        _outputNodePortDisposable.Insert(index, subscriptions);
+        _outputNodePortDisposable.Insert(index, MirrorNameAndDisplay(item, outputNodePort));
         Items.Insert(index, outputNodePort);
     }
 
@@ -158,7 +154,7 @@ public partial class GroupNode : GraphNode
             var outputNodePortCount = Group.Output?.Items.Count ?? 0;
             var inputNodePortCount = oldObj.Items.Count;
             Items.RemoveRange(outputNodePortCount, inputNodePortCount);
-            DisposeInput();
+            DisposeAll(_inputNodePortDisposable);
         }
 
         if (newObj != null)
@@ -184,12 +180,7 @@ public partial class GroupNode : GraphNode
             inputNodePort.Property?.SetValue(value);
         }
 
-        var subscriptions = new CompositeDisposable();
-        ((CoreObject)item).GetObservable(NameProperty)
-            .Subscribe(v => inputNodePort.Name = v).DisposeWith(subscriptions);
-        ((NodeMember)item).GetObservable(NodeMember.DisplayProperty)
-            .Subscribe(v => ((NodeMember)inputNodePort).Display = v).DisposeWith(subscriptions);
-        _inputNodePortDisposable.Insert(index, subscriptions);
+        _inputNodePortDisposable.Insert(index, MirrorNameAndDisplay(item, inputNodePort));
         var outputNodePortCount = Group.Output?.Items.Count ?? 0;
         Items.Insert(outputNodePortCount + index, inputNodePort);
     }

@@ -171,12 +171,7 @@ public partial class JsonSerializationContext
 
     private static Uri ResolveSerializationUri(Uri objectUri, ICoreSerializationContext parent)
     {
-        if (parent.BaseUri?.Scheme == objectUri.Scheme)
-        {
-            return parent.BaseUri.MakeRelativeUri(objectUri);
-        }
-
-        return objectUri;
+        return UriHelper.ToSerializedUri(objectUri, parent.BaseUri);
     }
 
     private static JsonNode CreateEmbeddedObjectNode(CoreObject value, Uri serializedUri)

@@ -12,9 +12,7 @@ public sealed class DefaultInputPort<T> : InputPort<T>, IDefaultInputPort
 
     void IDefaultInputPort.SetPropertyAdapter(object property)
     {
-        var obj = (NodePropertyAdapter<T>)property;
-        Property = obj;
-        obj.Edited += OnAdapterEdited;
+        SetPropertyAdapter((NodePropertyAdapter<T>)property);
     }
 
     private void OnAdapterEdited(object? sender, EventArgs e)

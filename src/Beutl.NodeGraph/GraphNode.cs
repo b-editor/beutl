@@ -156,10 +156,7 @@ public abstract partial class GraphNode : EngineObject
                 && IsInputTargetAvailable(other)) return false;
             if (input is INestedInputPort nested)
             {
-                if (other.Id == nested.RootMember.Id
-                    || other is INestedInputPort child && child.RootMember.Id == nested.RootMember.Id
-                    && (IsPathPrefix(child.PropertyPath, nested.PropertyPath)
-                        || IsPathPrefix(nested.PropertyPath, child.PropertyPath))) return false;
+                if (ConflictsWithNestedInput(nested, other)) return false;
             }
             else if (other is INestedInputPort descendant && descendant.RootMember.Id == input.Id)
             {
@@ -167,6 +164,32 @@ public abstract partial class GraphNode : EngineObject
             }
         }
         return true;
+    }
+
+    // other drives the nested port's root member itself, or a nested port of the same root whose path
+    // contains or lies inside the nested port's.
+    private static bool ConflictsWithNestedInput(INestedInputPort nested, IInputPort other)
+    {
+        return other.Id == nested.RootMember.Id
+               || other is INestedInputPort child && child.RootMember.Id == nested.RootMember.Id
+               && (IsPathPrefix(child.PropertyPath, nested.PropertyPath)
+                   || IsPathPrefix(nested.PropertyPath, child.PropertyPath));
+    }
+
+    // Re-adds the ports a node creates at run time from their serialized "Items".
+    internal void RestoreDynamicPorts<TPort>(ICoreSerializationContext context)
+        where TPort : INodeMember
+    {
+        if (context.GetValue<JsonArray>("Items") is { } itemsArray)
+        {
+            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
+            {
+                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(TPort)) is TPort port)
+                {
+                    Items.Add(port);
+                }
+            }
+        }
     }
 
     internal static bool IsPathPrefix(IReadOnlyList<string> prefix, IReadOnlyList<string> path)

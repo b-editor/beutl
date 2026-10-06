@@ -26,7 +26,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
     public bool IsSynchronizing => _synchronizing;
 
     public bool HasOverridingAncestor(INestedInputPort port)
-        => _overriddenTargets.Contains(new PortKey(port.RootMember.Id, port.PropertyPath, port.AssociatedType));
+        => _overriddenTargets.Contains(PortKey.Of(port));
 
     public void EnsureSynchronized(bool force = false)
     {
@@ -51,68 +51,90 @@ internal sealed class NestedInputPortManager(GraphNode node)
             _overriddenTargets.Clear();
             var targets = new List<Target>();
             var unresolved = new List<UnresolvedSubtree>();
-            foreach (INodeMember member in node.Items)
-            {
-                if (member is not NodeMember root || member.Property is not { } adapter) continue;
-                Watch(adapter);
-                Visit(adapter.GetValue(), root, [], new HashSet<EngineObject>(ReferenceEqualityComparer.Instance),
-                    targets, unresolved, IsValueOverridden(adapter));
-            }
+            CollectTargets(targets, unresolved);
 
             var remaining = node.NestedInputPorts.ToHashSet();
-            var existing = new Dictionary<PortKey, INestedInputPort>();
-            foreach (INestedInputPort port in node.NestedInputPorts)
-                existing.TryAdd(new PortKey(port.RootMember.Id, port.PropertyPath, port.AssociatedType), port);
-            var added = new List<INestedInputPort>();
-            foreach (Target target in targets)
-            {
-                if (target.HasOverridingAncestor)
-                    _overriddenTargets.Add(new PortKey(target.Root.Id, target.Path, target.Property.ValueType));
-                if (existing.Remove(new PortKey(target.Root.Id, target.Path, target.Property.ValueType), out var port))
-                {
-                    remaining.Remove(port);
-                    port.Bind(target.Owner, target.Property);
-                }
-                else if (!RecordingSuppression.IsSuppressed)
-                {
-                    var portType = typeof(NestedInputPort<>).MakeGenericType(target.Property.ValueType);
-                    port = (INestedInputPort)Activator.CreateInstance(portType,
-                        target.Root, target.Path, target.Owner, target.Property)!;
-                    added.Add(port);
-                }
-            }
-
-            foreach (INestedInputPort port in remaining.ToArray())
-            {
-                if (unresolved.Any(subtree => subtree.Root.Id == port.RootMember.Id
-                    && GraphNode.IsPathPrefix(subtree.Path, port.PropertyPath)))
-                {
-                    // A missing plugin cannot tell us which of its properties still exist. Keep
-                    // the serialized endpoint and connection, but stop writing to the old target.
-                    port.Unbind();
-                    remaining.Remove(port);
-                }
-            }
-
-            // During history replay the collection operations restore/remove the original port
-            // instances themselves. Only rebind here; never race those operations with new IDs.
-            if (!RecordingSuppression.IsSuppressed)
-            {
-                foreach (INestedInputPort port in remaining)
-                {
-                    if (port.Connection.Value is { } connection
-                        && node.FindHierarchicalParent<GraphModel>() is { } graph)
-                        graph.Disconnect(connection);
-                }
-                node.RemoveNestedInputPorts(remaining);
-                node.NestedInputPorts.AddRange(added);
-            }
+            List<INestedInputPort> added = ReconcileExistingPorts(targets, remaining);
+            KeepUnresolvedPorts(unresolved, remaining);
+            ApplyPortChanges(remaining, added);
         }
         finally
         {
             _synchronizing = false;
         }
         node.NotifyNestedInputPortsChanged();
+    }
+
+    private void CollectTargets(List<Target> targets, List<UnresolvedSubtree> unresolved)
+    {
+        foreach (INodeMember member in node.Items)
+        {
+            if (member is not NodeMember root || member.Property is not { } adapter) continue;
+            Watch(adapter);
+            Visit(adapter.GetValue(), root, [], new HashSet<EngineObject>(ReferenceEqualityComparer.Instance),
+                targets, unresolved, IsValueOverridden(adapter));
+        }
+    }
+
+    // Rebinds the ports whose target still exists, takes them out of remaining and returns the ports
+    // new targets need.
+    private List<INestedInputPort> ReconcileExistingPorts(List<Target> targets, HashSet<INestedInputPort> remaining)
+    {
+        var existing = new Dictionary<PortKey, INestedInputPort>();
+        foreach (INestedInputPort port in node.NestedInputPorts)
+            existing.TryAdd(PortKey.Of(port), port);
+        var added = new List<INestedInputPort>();
+        foreach (Target target in targets)
+        {
+            if (target.HasOverridingAncestor)
+                _overriddenTargets.Add(PortKey.Of(target));
+            if (existing.Remove(PortKey.Of(target), out var port))
+            {
+                remaining.Remove(port);
+                port.Bind(target.Owner, target.Property);
+            }
+            else if (!RecordingSuppression.IsSuppressed)
+            {
+                var portType = typeof(NestedInputPort<>).MakeGenericType(target.Property.ValueType);
+                port = (INestedInputPort)Activator.CreateInstance(portType,
+                    target.Root, target.Path, target.Owner, target.Property)!;
+                added.Add(port);
+            }
+        }
+
+        return added;
+    }
+
+    private static void KeepUnresolvedPorts(List<UnresolvedSubtree> unresolved, HashSet<INestedInputPort> remaining)
+    {
+        foreach (INestedInputPort port in remaining.ToArray())
+        {
+            if (unresolved.Any(subtree => subtree.Root.Id == port.RootMember.Id
+                && GraphNode.IsPathPrefix(subtree.Path, port.PropertyPath)))
+            {
+                // A missing plugin cannot tell us which of its properties still exist. Keep
+                // the serialized endpoint and connection, but stop writing to the old target.
+                port.Unbind();
+                remaining.Remove(port);
+            }
+        }
+    }
+
+    private void ApplyPortChanges(HashSet<INestedInputPort> remaining, List<INestedInputPort> added)
+    {
+        // During history replay the collection operations restore/remove the original port
+        // instances themselves. Only rebind here; never race those operations with new IDs.
+        if (!RecordingSuppression.IsSuppressed)
+        {
+            foreach (INestedInputPort port in remaining)
+            {
+                if (port.Connection.Value is { } connection
+                    && node.FindHierarchicalParent<GraphModel>() is { } graph)
+                    graph.Disconnect(connection);
+            }
+            node.RemoveNestedInputPorts(remaining);
+            node.NestedInputPorts.AddRange(added);
+        }
     }
 
     public void Bind(INestedInputPort port)
@@ -235,6 +257,12 @@ internal sealed class NestedInputPortManager(GraphNode node)
 
     private readonly record struct PortKey(Guid RootId, IReadOnlyList<string> Path, Type? Type)
     {
+        public static PortKey Of(INestedInputPort port)
+            => new(port.RootMember.Id, port.PropertyPath, port.AssociatedType);
+
+        public static PortKey Of(Target target)
+            => new(target.Root.Id, target.Path, target.Property.ValueType);
+
         public bool Equals(PortKey other)
             => RootId == other.RootId && Type == other.Type && Path.SequenceEqual(other.Path);
 

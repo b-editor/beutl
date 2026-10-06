@@ -18,7 +18,7 @@ public class GraphNodeRegistry
         string displayName)
         where T : GraphNode, new()
     {
-        Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
+        RegisterNode<T>(displayName, Colors.Teal);
     }
 
     public static void RegisterNode<
@@ -69,28 +69,7 @@ public class GraphNodeRegistry
             return null;
         }
 
-        RegistryItem? result = null;
-
-        for (int i = 0; i < s_nodes.Count; i++)
-        {
-            BaseRegistryItem item = s_nodes[i];
-
-            if (item is GroupableRegistryItem group)
-            {
-                result = Find(group.Items, type);
-            }
-            else if (item is RegistryItem registryItem && registryItem.Type == type)
-            {
-                result = registryItem;
-            }
-
-            if (result != null)
-            {
-                return result;
-            }
-        }
-
-        return null;
+        return Find(s_nodes, type);
     }
 
     private static void Unregister(Type[] types)
@@ -228,9 +207,7 @@ public class GraphNodeRegistry
             string displayName)
             where T : GraphNode, new()
         {
-            _item.Items.Add(new RegistryItem(displayName, _item.AccentColor, typeof(T)));
-
-            return this;
+            return Add<T>(displayName, _item.AccentColor);
         }
 
         public RegistrationHelper Add<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
@@ -244,12 +221,7 @@ public class GraphNodeRegistry
 
         public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action)
         {
-            var item = new GroupableRegistryItem(displayName, _item.AccentColor);
-            var helper = new RegistrationHelper(item, _item.Items.Add);
-
-            action(helper);
-
-            return this;
+            return AddGroup(displayName, action, _item.AccentColor);
         }
 
         public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action, Color accentColor)

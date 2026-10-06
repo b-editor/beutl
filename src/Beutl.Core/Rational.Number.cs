@@ -510,15 +510,7 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
 
         if (value is Rational f)
         {
-            if (this < f) return -1;
-            if (this > f) return 1;
-            if (this == f) return 0;
-
-            // At least one of the values is NaN.
-            if (IsNaN(this))
-                return IsNaN(f) ? 0 : -1;
-            else // f is NaN.
-                return 1;
+            return CompareTo(f);
         }
 
         throw new ArgumentException();

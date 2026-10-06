@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Extensibility;
+using Beutl.Graphics.Rendering;
 using Beutl.Logging;
+using Beutl.NodeGraph.Nodes;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.NodeGraph.Composition;
@@ -124,29 +126,29 @@ public sealed class GraphSnapshot : IDisposable
                 {
                     foreach (var connection in listInputPort.Connections)
                     {
-                        GraphNode? upstream = connection.Value?.Output.Value?
-                            .FindHierarchicalParent<GraphNode>();
-                        if (upstream != null && inDegree.ContainsKey(upstream))
-                        {
-                            adjacency[upstream].Add(node);
-                            inDegree[node]++;
-                        }
+                        AddEdge(
+                            connection.Value?.Output.Value?.FindHierarchicalParent<GraphNode>(),
+                            node);
                     }
                 }
                 else if (item is IInputPort inputNodePort
                          && inputNodePort.Connection.Value?.Output.Value is { } outputNodePort)
                 {
-                    GraphNode? upstream = outputNodePort.FindHierarchicalParent<GraphNode>();
-                    if (upstream != null && inDegree.ContainsKey(upstream))
-                    {
-                        adjacency[upstream].Add(node);
-                        inDegree[node]++;
-                    }
+                    AddEdge(outputNodePort.FindHierarchicalParent<GraphNode>(), node);
                 }
             }
         }
 
         return (inDegree, adjacency);
+
+        void AddEdge(GraphNode? upstream, GraphNode downstream)
+        {
+            if (upstream != null && inDegree.ContainsKey(upstream))
+            {
+                adjacency[upstream].Add(downstream);
+                inDegree[downstream]++;
+            }
+        }
     }
 
     private static List<GraphNode> TopologicalSort(
@@ -372,6 +374,31 @@ public sealed class GraphSnapshot : IDisposable
 
             // 出力値を下流に伝搬
             PropagateOutputs(ctx.Resource);
+        }
+    }
+
+    // Adds the render node each OutputNode of model received in the last evaluation.
+    internal void CollectOutputRenderNodes(GraphModel model, List<RenderNode> result)
+    {
+        foreach (var node in model.Nodes)
+        {
+            if (node is OutputNode outputNode)
+            {
+                int slotIndex = FindSlotIndex(outputNode);
+                if (slotIndex < 0) continue;
+
+                var resource = GetResource(slotIndex);
+                if (resource == null) continue;
+
+                if (!resource.ItemIndexMap.TryGetValue(outputNode.InputPort, out int itemIndex))
+                    continue;
+
+                IItemValue? itemValue = GetItemValue(slotIndex, itemIndex);
+                if (itemValue?.GetBoxed() is RenderNode renderNode)
+                {
+                    result.Add(renderNode);
+                }
+            }
         }
     }
 

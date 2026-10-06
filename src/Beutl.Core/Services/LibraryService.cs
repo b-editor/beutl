@@ -95,14 +95,7 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
 
     public GroupLibraryItem AddMultiple(string displayName, Action<MultipleTypeLibraryItem> action)
     {
-        var item = new MultipleTypeLibraryItem(displayName);
-        action(item);
-        lock (_lock)
-        {
-            _items.Add(item);
-        }
-
-        return this;
+        return AddMultiple(displayName, null, action);
     }
 
     public GroupLibraryItem AddMultiple(string displayName, string? description, Action<MultipleTypeLibraryItem> action)
@@ -128,11 +121,7 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
 
     public GroupLibraryItem AddGroup(string displayName, Action<GroupLibraryItem> action)
     {
-        var item = new GroupLibraryItem(displayName);
-        action(item);
-        Merge(item);
-
-        return this;
+        return AddGroup(displayName, null, action);
     }
 
     protected internal override void SetLibraryService(LibraryService libraryService)
@@ -239,9 +228,7 @@ public sealed class LibraryService
 
     public void AddMultiple(string displayName, Action<MultipleTypeLibraryItem> action)
     {
-        var item = new MultipleTypeLibraryItem(displayName);
-        action(item);
-        Register(item);
+        AddMultiple(displayName, null, action);
     }
 
     public void AddMultiple(string displayName, string? description, Action<MultipleTypeLibraryItem> action)
@@ -260,9 +247,7 @@ public sealed class LibraryService
 
     public void RegisterGroup(string displayName, Action<GroupLibraryItem> action)
     {
-        var item = new GroupLibraryItem(displayName);
-        action(item);
-        Register(item);
+        RegisterGroup(displayName, null, action);
     }
 
     private HashSet<Type> GetHashSet(string format)

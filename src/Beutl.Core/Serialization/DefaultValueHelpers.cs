@@ -27,17 +27,6 @@ internal static class DefaultValueHelpers
         return genericType;
     }
 
-    public static T? DefaultOrOptional<T>()
-    {
-        Type expectType = typeof(T);
-        if (GetOptionalGenericType(expectType) is { } genericType)
-        {
-            return (T?)Activator.CreateInstance(expectType, GetDefault(genericType));
-        }
-
-        return default;
-    }
-
     public static object? GetDefault(Type type)
     {
         return type.IsValueType ? Activator.CreateInstance(type) : null;

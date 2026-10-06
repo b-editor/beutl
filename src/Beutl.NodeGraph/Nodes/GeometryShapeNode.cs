@@ -32,15 +32,7 @@ public sealed partial class GeometryShapeNode : GraphNode
 
             if (geometry == null)
             {
-                if (_cachedOutput != null)
-                {
-                    _cachedOutput.Fill?.Resource.Dispose();
-                    _cachedOutput.Pen?.Resource.Dispose();
-                    _cachedOutput.Geometry?.Resource.Dispose();
-                    _cachedOutput.Dispose();
-                    _cachedOutput = null;
-                }
-
+                ReleaseCachedOutput();
                 Output = null;
                 return;
             }
@@ -102,7 +94,16 @@ public sealed partial class GeometryShapeNode : GraphNode
 
         partial void PostDispose(bool disposing)
         {
-            if (disposing && _cachedOutput != null)
+            if (disposing)
+            {
+                ReleaseCachedOutput();
+            }
+        }
+
+        // Disposes the cached render node together with the resources it holds.
+        private void ReleaseCachedOutput()
+        {
+            if (_cachedOutput != null)
             {
                 _cachedOutput.Fill?.Resource.Dispose();
                 _cachedOutput.Pen?.Resource.Dispose();

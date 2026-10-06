@@ -1,6 +1,5 @@
 ﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl.Services;
 
@@ -9,23 +8,7 @@ public static class NotificationService
     private static ILogger? s_logger;
     private static INotificationServiceHandler? s_handler;
 
-    private static ILogger Logger
-    {
-        get
-        {
-            if (s_logger is not null) return s_logger;
-            if (!Log.IsLoggerFactoryConfigured) return NullLogger.Instance;
-
-            try
-            {
-                return s_logger = Log.CreateLogger(typeof(NotificationService));
-            }
-            catch (Exception)
-            {
-                return NullLogger.Instance;
-            }
-        }
-    }
+    private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(NotificationService));
 
     public static INotificationServiceHandler Handler
     {
@@ -104,9 +87,7 @@ public static class NotificationService
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(new Notification(
-            title, message, NotificationType.Information,
-            expiration, onClose, actions, isClosable, onShowFailed));
+        Show(title, message, NotificationType.Information, expiration, onClose, actions, isClosable, onShowFailed);
     }
 
     public static void ShowSuccess(string title, string message,
@@ -116,9 +97,7 @@ public static class NotificationService
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(new Notification(
-            title, message, NotificationType.Success,
-            expiration, onClose, actions, isClosable, onShowFailed));
+        Show(title, message, NotificationType.Success, expiration, onClose, actions, isClosable, onShowFailed);
     }
 
     public static void ShowWarning(string title, string message,
@@ -128,9 +107,7 @@ public static class NotificationService
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(new Notification(
-            title, message, NotificationType.Warning,
-            expiration, onClose, actions, isClosable, onShowFailed));
+        Show(title, message, NotificationType.Warning, expiration, onClose, actions, isClosable, onShowFailed);
     }
 
     public static void ShowError(string title, string message,
@@ -140,9 +117,7 @@ public static class NotificationService
         bool isClosable = true,
         Action? onShowFailed = null)
     {
-        Show(new Notification(
-            title, message, NotificationType.Error,
-            expiration, onClose, actions, isClosable, onShowFailed));
+        Show(title, message, NotificationType.Error, expiration, onClose, actions, isClosable, onShowFailed);
     }
 }
 

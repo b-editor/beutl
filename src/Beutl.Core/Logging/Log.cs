@@ -15,6 +15,23 @@ public class Log
 
     internal static bool IsLoggerFactoryConfigured => s_loggerFactory is not null;
 
+    // The logger for type once the factory is configured, kept in cache. Before that an uncached
+    // NullLogger, so a later call can still switch to the real application logger.
+    internal static ILogger GetLoggerOnceConfigured(ref ILogger? cache, Type type)
+    {
+        if (cache is not null) return cache;
+        if (!IsLoggerFactoryConfigured) return NullLogger.Instance;
+
+        try
+        {
+            return cache = CreateLogger(type);
+        }
+        catch (Exception)
+        {
+            return NullLogger.Instance;
+        }
+    }
+
     public static ILogger<T> CreateLogger<T>()
     {
         return LoggerFactory.CreateLogger<T>();

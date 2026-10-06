@@ -133,11 +133,16 @@ public partial class JsonSerializationContext(
     {
         if (_serializedObject is CoreObject owner)
         {
-            owner.MergePersistedContentMigration(requiredVersion);
-            if (owner is Project project)
-            {
-                project.MarkAsMigrated(requiredVersion);
-            }
+            MergeMigrationInto(owner, requiredVersion);
+        }
+    }
+
+    private static void MergeMigrationInto(CoreObject owner, string requiredVersion)
+    {
+        owner.MergePersistedContentMigration(requiredVersion);
+        if (owner is Project project)
+        {
+            project.MarkAsMigrated(requiredVersion);
         }
     }
 
@@ -204,33 +209,7 @@ public partial class JsonSerializationContext(
 
             if (IsRoot)
             {
-                // Resolve references
-                if (_rootResolvers is not null && _objects is not null)
-                {
-                    for (int i = _rootResolvers.Count - 1; i >= 0; i--)
-                    {
-                        var item = _rootResolvers[i];
-                        var (self, id, callback) = item;
-                        if (_objects.TryGetValue(id, out var resolved))
-                        {
-                            callback(resolved);
-                            _rootResolvers.RemoveAt(i);
-                        }
-                        else if (coreObject is IHierarchical hierarchical)
-                        {
-                            var resolver = new ReferenceResolver(hierarchical, id);
-                            resolver.Resolve().ContinueWith(t =>
-                            {
-                                callback(t.Result);
-                                _rootResolvers?.Remove(item);
-                            });
-                        }
-                        else
-                        {
-                            // Error
-                        }
-                    }
-                }
+                ResolvePendingRootReferences(coreObject);
             }
         }
 
@@ -247,17 +226,44 @@ public partial class JsonSerializationContext(
         }
     }
 
+    // Resolve references
+    private void ResolvePendingRootReferences(CoreObject coreObject)
+    {
+        if (_rootResolvers is not null && _objects is not null)
+        {
+            for (int i = _rootResolvers.Count - 1; i >= 0; i--)
+            {
+                var item = _rootResolvers[i];
+                var (self, id, callback) = item;
+                if (_objects.TryGetValue(id, out var resolved))
+                {
+                    callback(resolved);
+                    _rootResolvers.RemoveAt(i);
+                }
+                else if (coreObject is IHierarchical hierarchical)
+                {
+                    var resolver = new ReferenceResolver(hierarchical, id);
+                    resolver.Resolve().ContinueWith(t =>
+                    {
+                        callback(t.Result);
+                        _rootResolvers?.Remove(item);
+                    });
+                }
+                else
+                {
+                    // Error
+                }
+            }
+        }
+    }
+
     private void PropagatePersistedContentMigration(
         ICoreSerializable obj,
         string requiredVersion)
     {
         if (obj is CoreObject migratedObject)
         {
-            migratedObject.MergePersistedContentMigration(requiredVersion);
-            if (migratedObject is Project project)
-            {
-                project.MarkAsMigrated(requiredVersion);
-            }
+            MergeMigrationInto(migratedObject, requiredVersion);
         }
         else
         {

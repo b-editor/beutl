@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
@@ -108,17 +107,7 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if (context.GetValue<JsonArray>("Items") is { } itemsArray)
-        {
-            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
-            {
-                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(ILayerInputPort)) is ILayerInputPort
-                    port)
-                {
-                    Items.Add(port);
-                }
-            }
-        }
+        RestoreDynamicPorts<ILayerInputPort>(context);
     }
 
     public partial class Resource

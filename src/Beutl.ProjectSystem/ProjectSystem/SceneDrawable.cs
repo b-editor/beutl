@@ -72,51 +72,24 @@ public sealed partial class SceneDrawable : Drawable
 
     public partial class Resource
     {
-        private static readonly AsyncLocal<HashSet<Scene>?> s_evaluatingScenes = new();
+        private static readonly SceneEvaluationGuard s_evaluatingScenes = new();
         private SceneCompositor? _compositor;
         private TimeSpan _start;
 
         public CompositionFrame? Frame { get; set; }
 
-        private static bool Enter(Scene scene)
-        {
-            var set = s_evaluatingScenes.Value ??= new(ReferenceEqualityComparer.Instance);
-            return set.Add(scene);
-        }
-
-        private static void Exit(Scene scene)
-        {
-            s_evaluatingScenes.Value?.Remove(scene);
-        }
-
         partial void PostUpdate(SceneDrawable obj, CompositionContext context)
         {
             bool changed = false;
-            bool forceOriginalSource = !context.PreferProxy;
             if (_start != obj.Start)
             {
                 _start = obj.Start;
                 changed = true;
             }
 
-            if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare
-                || _compositor?.ForceOriginalSource != forceOriginalSource)
-            {
-                _compositor?.Dispose();
-                _compositor = null;
-            }
+            SceneCompositor.Refresh(ref _compositor, ReferencedScene, context);
 
-            if (ReferencedScene != null && _compositor == null)
-            {
-                _compositor = new SceneCompositor(ReferencedScene)
-                {
-                    DisableResourceShare = context.DisableResourceShare,
-                    ForceOriginalSource = forceOriginalSource,
-                };
-            }
-
-            if (ReferencedScene != null && !Enter(ReferencedScene))
+            if (ReferencedScene != null && !s_evaluatingScenes.Enter(ReferencedScene))
             {
                 throw new InvalidOperationException("A circular reference was detected.");
             }
@@ -143,7 +116,7 @@ public sealed partial class SceneDrawable : Drawable
             finally
             {
                 if (ReferencedScene != null)
-                    Exit(ReferencedScene);
+                    s_evaluatingScenes.Exit(ReferencedScene);
             }
         }
 
@@ -250,33 +223,7 @@ public sealed partial class SceneDrawable : Drawable
                     }
                     else
                     {
-                        node = new DrawableRenderNode(drawableResource);
-                        bool installed = false;
-                        try
-                        {
-                            using var graphics = new GraphicsContext2D(
-                                node,
-                                canvasSize,
-                                outputScale);
-                            drawable.Render(graphics, drawableResource);
-
-                            if (childIndex < Children.Count)
-                            {
-                                installed = true;
-                                SetChild(childIndex, node);
-                            }
-                            else
-                            {
-                                AddChild(node);
-                                installed = true;
-                            }
-                        }
-                        catch
-                        {
-                            if (!installed)
-                                node.Dispose();
-                            throw;
-                        }
+                        InstallNewChild(childIndex, drawable, drawableResource, canvasSize, outputScale);
                     }
 
                     childIndex++;
@@ -288,6 +235,44 @@ public sealed partial class SceneDrawable : Drawable
                 RenderNode[] removed = [.. Children.Skip(childIndex)];
                 RemoveRange(childIndex, Children.Count - childIndex);
                 DisposeAll(removed);
+            }
+        }
+
+        // Renders the drawable into a new node at childIndex. The node is disposed when rendering or
+        // installing it fails before the tree owns it.
+        private void InstallNewChild(
+            int childIndex,
+            Drawable drawable,
+            Drawable.Resource drawableResource,
+            Size canvasSize,
+            float outputScale)
+        {
+            var node = new DrawableRenderNode(drawableResource);
+            bool installed = false;
+            try
+            {
+                using var graphics = new GraphicsContext2D(
+                    node,
+                    canvasSize,
+                    outputScale);
+                drawable.Render(graphics, drawableResource);
+
+                if (childIndex < Children.Count)
+                {
+                    installed = true;
+                    SetChild(childIndex, node);
+                }
+                else
+                {
+                    AddChild(node);
+                    installed = true;
+                }
+            }
+            catch
+            {
+                if (!installed)
+                    node.Dispose();
+                throw;
             }
         }
 

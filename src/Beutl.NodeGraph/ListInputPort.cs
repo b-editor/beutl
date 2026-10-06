@@ -38,9 +38,8 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
     public override void NotifyConnected(Connection connection)
     {
         base.NotifyConnected(connection);
-        if (Connections.All(r => r.Id != connection.Id))
+        if (ConnectionReferenceList.AddIfMissing(Connections, connection))
         {
-            Connections.Add(connection);
             connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Connected);
         }
     }
@@ -48,9 +47,8 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
     public override void NotifyDisconnected(Connection connection)
     {
         base.NotifyDisconnected(connection);
-        if (Connections.Any(r => r.Id == connection.Id))
+        if (ConnectionReferenceList.RemoveIfPresent(Connections, connection))
         {
-            Connections.Remove(connection);
             connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Disconnected);
         }
     }
@@ -63,22 +61,12 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue("Connections", Connections.Select(v => v.Id).ToArray());
+        ConnectionReferenceList.Write(context, Connections);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-
-        if (context.GetValue<List<Guid>>("Connections") is { } srcArray)
-        {
-            Connections.Replace(srcArray.Select(id => new Reference<Connection>(id)).ToArray());
-            for (int i = 0; i < Connections.Count; i++)
-            {
-                int index = i;
-                Reference<Connection> reference = Connections[i];
-                context.Resolve(reference.Id, o => { Connections[index] = (Connection)o; });
-            }
-        }
+        ConnectionReferenceList.Read(context, Connections);
     }
 }

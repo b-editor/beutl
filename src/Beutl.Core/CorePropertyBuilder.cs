@@ -66,7 +66,6 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
         {
             property = new CoreProperty<T>(_name, typeof(TOwner), metadata);
         }
-        property.PropertyInfo = _propertyInfo;
         PropertyRegistry.Register(typeof(TOwner), property);
 
         return property;

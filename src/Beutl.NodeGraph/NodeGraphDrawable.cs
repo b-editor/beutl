@@ -5,7 +5,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.NodeGraph.Composition;
-using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph;
 
@@ -95,26 +94,7 @@ public sealed partial class NodeGraphDrawable : Drawable
 
         private void PullOutputValue(GraphModel model)
         {
-            foreach (var node in model.Nodes)
-            {
-                if (node is OutputNode outputNode)
-                {
-                    int slotIndex = _snapshot.FindSlotIndex(outputNode);
-                    if (slotIndex < 0) continue;
-
-                    var resource = _snapshot.GetResource(slotIndex);
-                    if (resource == null) continue;
-
-                    if (!resource.ItemIndexMap.TryGetValue(outputNode.InputPort, out int itemIndex))
-                        continue;
-
-                    IItemValue? itemValue = _snapshot.GetItemValue(slotIndex, itemIndex);
-                    if (itemValue?.GetBoxed() is RenderNode renderNode)
-                    {
-                        OutputRenderNode.Add(renderNode);
-                    }
-                }
-            }
+            _snapshot.CollectOutputRenderNodes(model, OutputRenderNode);
         }
 
         protected override void Dispose(bool disposing)

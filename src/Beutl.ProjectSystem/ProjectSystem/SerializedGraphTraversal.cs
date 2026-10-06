@@ -60,71 +60,94 @@ internal static class SerializedGraphTraversal
 
         if (value is CoreObject coreObject)
         {
-            switch (coreObject)
-            {
-                case Scene scene:
-                    for (int i = 0; i < scene.Children.Count; i++)
+            return VisitCoreObjectMembers(coreObject, path, visited, visitor);
+        }
+
+        if (value is IDictionary dictionary)
+        {
+            return VisitItems(dictionary.Values, path, visited, visitor);
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            return VisitItems(enumerable, path, visited, visitor);
+        }
+
+        return false;
+    }
+
+    private static bool VisitCoreObjectMembers(
+        CoreObject coreObject,
+        string path,
+        ISet<object> visited,
+        Func<object, string, bool> visitor)
+    {
+        switch (coreObject)
+        {
+            case Scene scene:
+                for (int i = 0; i < scene.Children.Count; i++)
+                {
+                    if (VisitCore(scene.Children[i], $"{path}/Elements[{i}]", visited, visitor))
                     {
-                        if (VisitCore(scene.Children[i], $"{path}/Elements[{i}]", visited, visitor))
-                        {
-                            return true;
-                        }
+                        return true;
                     }
-                    break;
+                }
+                break;
 
-                case Element element:
-                    for (int i = 0; i < element.Objects.Count; i++)
+            case Element element:
+                for (int i = 0; i < element.Objects.Count; i++)
+                {
+                    if (VisitCore(element.Objects[i], $"{path}/Objects[{i}]", visited, visitor))
                     {
-                        if (VisitCore(element.Objects[i], $"{path}/Objects[{i}]", visited, visitor))
-                        {
-                            return true;
-                        }
+                        return true;
                     }
-                    break;
+                }
+                break;
 
-                case EngineObject engineObject:
-                    foreach (IProperty property in engineObject.Properties)
-                    {
-                        if (VisitCore(property.CurrentValue, $"{path}/{property.Name}", visited, visitor))
-                        {
-                            return true;
-                        }
-
-                        if (property.Animation is IKeyFrameAnimation animation)
-                        {
-                            int index = 0;
-                            foreach (IKeyFrame keyFrame in animation.KeyFrames)
-                            {
-                                string keyFramePath
-                                    = $"{path}/Animations/{property.Name}/KeyFrames[{index}]";
-                                if (VisitCore(keyFrame, keyFramePath, visited, visitor)
-                                    || VisitCore(keyFrame.Value, $"{keyFramePath}/Value", visited, visitor))
-                                {
-                                    return true;
-                                }
-
-                                index++;
-                            }
-                        }
-                    }
-                    break;
-            }
-
-            foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-            {
-                if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize
-                    && VisitCore(coreObject.GetValue(property), $"{path}/{property.Name}", visited, visitor))
+            case EngineObject engineObject:
+                if (VisitEngineProperties(engineObject, path, visited, visitor))
                 {
                     return true;
                 }
+
+                break;
+        }
+
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
+        {
+            if (property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize
+                && VisitCore(coreObject.GetValue(property), $"{path}/{property.Name}", visited, visitor))
+            {
+                return true;
+            }
+        }
+
+        return coreObject is IHierarchical hierarchical
+               && VisitItems(hierarchical.HierarchicalChildren, $"{path}/HierarchicalChildren", visited, visitor);
+    }
+
+    private static bool VisitEngineProperties(
+        EngineObject engineObject,
+        string path,
+        ISet<object> visited,
+        Func<object, string, bool> visitor)
+    {
+        foreach (IProperty property in engineObject.Properties)
+        {
+            if (VisitCore(property.CurrentValue, $"{path}/{property.Name}", visited, visitor))
+            {
+                return true;
             }
 
-            if (coreObject is IHierarchical hierarchical)
+            if (property.Animation is IKeyFrameAnimation animation)
             {
                 int index = 0;
-                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                foreach (IKeyFrame keyFrame in animation.KeyFrames)
                 {
-                    if (VisitCore(child, $"{path}/HierarchicalChildren[{index}]", visited, visitor))
+                    string keyFramePath
+                        = $"{path}/Animations/{property.Name}/KeyFrames[{index}]";
+                    if (VisitCore(keyFrame, keyFramePath, visited, visitor)
+                        || VisitCore(keyFrame.Value, $"{keyFramePath}/Value", visited, visitor))
                     {
                         return true;
                     }
@@ -132,35 +155,27 @@ internal static class SerializedGraphTraversal
                     index++;
                 }
             }
-
-            return false;
         }
 
-        if (value is IDictionary dictionary)
-        {
-            int index = 0;
-            foreach (object? item in dictionary.Values)
-            {
-                if (VisitCore(item, $"{path}[{index}]", visited, visitor))
-                {
-                    return true;
-                }
+        return false;
+    }
 
-                index++;
-            }
-        }
-        else if (value is IEnumerable enumerable)
+    // Visits each item at "{pathPrefix}[{index}]".
+    private static bool VisitItems(
+        IEnumerable items,
+        string pathPrefix,
+        ISet<object> visited,
+        Func<object, string, bool> visitor)
+    {
+        int index = 0;
+        foreach (object? item in items)
         {
-            int index = 0;
-            foreach (object? item in enumerable)
+            if (VisitCore(item, $"{pathPrefix}[{index}]", visited, visitor))
             {
-                if (VisitCore(item, $"{path}[{index}]", visited, visitor))
-                {
-                    return true;
-                }
-
-                index++;
+                return true;
             }
+
+            index++;
         }
 
         return false;

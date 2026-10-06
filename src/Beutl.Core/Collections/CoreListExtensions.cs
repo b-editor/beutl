@@ -24,65 +24,13 @@ public static class CoreListExtensions
         Action reset,
         bool weakSubscription = false)
     {
-        void Add(int index, IList items)
-        {
-            foreach (T item in items)
-            {
-                added(index++, item);
-            }
-        }
-
-        void Remove(int index, IList items)
-        {
-            for (int i = items.Count - 1; i >= 0; --i)
-            {
-                removed(index + i, (T)items[i]!);
-            }
-        }
-
-        void handler(object? _, NotifyCollectionChangedEventArgs e)
-        {
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Move:
-                case NotifyCollectionChangedAction.Replace:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Remove:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Reset:
-                    if (reset == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
-                    }
-
-                    reset();
-                    Add(0, (IList)collection);
-                    break;
-            }
-        }
-
-        Add(0, (IList)collection);
-
-        if (weakSubscription)
-        {
-            return collection.WeakSubscribe(handler);
-        }
-        else
-        {
-            collection.CollectionChanged += handler;
-
-            return Disposable.Create(() => collection.CollectionChanged -= handler);
-        }
+        NotifyCollectionChangedEventHandler handler = CreateItemHandler(
+            added,
+            removed,
+            reset,
+            () => AddItems(added, 0, (IList)collection));
+        AddItems(added, 0, (IList)collection);
+        return Subscribe(collection, handler, weakSubscription);
     }
 
     public static IDisposable ForEachItem<T, TCollection>(
@@ -93,73 +41,13 @@ public static class CoreListExtensions
         bool weakSubscription = false)
         where TCollection : IReadOnlyList<T>, INotifyCollectionChanged
     {
-        void Add(int index, IList items)
-        {
-            foreach (T item in items)
-            {
-                added(index++, item);
-            }
-        }
-
-        void Add2(int index, TCollection items)
-        {
-            foreach (T item in items)
-            {
-                added(index++, item);
-            }
-        }
-
-        void Remove(int index, IList items)
-        {
-            for (int i = items.Count - 1; i >= 0; --i)
-            {
-                removed(index + i, (T)items[i]!);
-            }
-        }
-
-        void handler(object? _, NotifyCollectionChangedEventArgs e)
-        {
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Move:
-                case NotifyCollectionChangedAction.Replace:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Remove:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Reset:
-                    if (reset == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
-                    }
-
-                    reset();
-                    Add2(0, collection);
-                    break;
-            }
-        }
-
-        Add2(0, collection);
-
-        if (weakSubscription)
-        {
-            return collection.WeakSubscribe(handler);
-        }
-        else
-        {
-            collection.CollectionChanged += handler;
-
-            return Disposable.Create(() => collection.CollectionChanged -= handler);
-        }
+        NotifyCollectionChangedEventHandler handler = CreateItemHandler(
+            added,
+            removed,
+            reset,
+            () => AddItems(added, 0, collection));
+        AddItems(added, 0, collection);
+        return Subscribe(collection, handler, weakSubscription);
     }
 
     public static IDisposable TrackCollectionChanged<T>(
@@ -179,63 +67,12 @@ public static class CoreListExtensions
         Action reset,
         bool weakSubscription = false)
     {
-        void Add(int index, IList items)
-        {
-            foreach (T item in items)
-            {
-                added(index++, item);
-            }
-        }
-
-        void Remove(int index, IList items)
-        {
-            for (int i = items.Count - 1; i >= 0; --i)
-            {
-                removed(index + i, (T)items[i]!);
-            }
-        }
-
-        void handler(object? _, NotifyCollectionChangedEventArgs e)
-        {
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Move:
-                case NotifyCollectionChangedAction.Replace:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    Add(e.NewStartingIndex, e.NewItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Remove:
-                    Remove(e.OldStartingIndex, e.OldItems!);
-                    break;
-
-                case NotifyCollectionChangedAction.Reset:
-                    if (reset == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
-                    }
-
-                    reset();
-                    Add(0, (IList)collection);
-                    break;
-            }
-        }
-
-        if (weakSubscription)
-        {
-            return collection.WeakSubscribe(handler);
-        }
-        else
-        {
-            collection.CollectionChanged += handler;
-
-            return Disposable.Create(() => collection.CollectionChanged -= handler);
-        }
+        NotifyCollectionChangedEventHandler handler = CreateItemHandler(
+            added,
+            removed,
+            reset,
+            () => AddItems(added, 0, (IList)collection));
+        return Subscribe(collection, handler, weakSubscription);
     }
 
     public static IDisposable TrackItemPropertyChanged<T>(
@@ -275,5 +112,88 @@ public static class CoreListExtensions
                 i.PropertyChanged -= handler;
             }
         });
+    }
+
+    // The handler the ForEachItem/TrackCollectionChanged variants share: addAll is how each variant
+    // re-adds the whole collection after a reset.
+    private static NotifyCollectionChangedEventHandler CreateItemHandler<T>(
+        Action<int, T> added,
+        Action<int, T> removed,
+        Action reset,
+        Action addAll)
+    {
+        return (_, e) =>
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    AddItems(added, e.NewStartingIndex, e.NewItems!);
+                    break;
+
+                case NotifyCollectionChangedAction.Move:
+                case NotifyCollectionChangedAction.Replace:
+                    RemoveItems(removed, e.OldStartingIndex, e.OldItems!);
+                    AddItems(added, e.NewStartingIndex, e.NewItems!);
+                    break;
+
+                case NotifyCollectionChangedAction.Remove:
+                    RemoveItems(removed, e.OldStartingIndex, e.OldItems!);
+                    break;
+
+                case NotifyCollectionChangedAction.Reset:
+                    if (reset == null)
+                    {
+                        throw new InvalidOperationException(
+                            "Reset called on collection without reset handler.");
+                    }
+
+                    reset();
+                    addAll();
+                    break;
+            }
+        };
+    }
+
+    private static void AddItems<T>(Action<int, T> added, int index, IList items)
+    {
+        foreach (T item in items)
+        {
+            added(index++, item);
+        }
+    }
+
+    private static void AddItems<T, TCollection>(Action<int, T> added, int index, TCollection items)
+        where TCollection : IReadOnlyList<T>
+    {
+        foreach (T item in items)
+        {
+            added(index++, item);
+        }
+    }
+
+    private static void RemoveItems<T>(Action<int, T> removed, int index, IList items)
+    {
+        for (int i = items.Count - 1; i >= 0; --i)
+        {
+            removed(index + i, (T)items[i]!);
+        }
+    }
+
+    private static IDisposable Subscribe<TCollection>(
+        TCollection collection,
+        NotifyCollectionChangedEventHandler handler,
+        bool weakSubscription)
+        where TCollection : INotifyCollectionChanged
+    {
+        if (weakSubscription)
+        {
+            return collection.WeakSubscribe(handler);
+        }
+        else
+        {
+            collection.CollectionChanged += handler;
+
+            return Disposable.Create(() => collection.CollectionChanged -= handler);
+        }
     }
 }

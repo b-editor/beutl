@@ -1,6 +1,5 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics.Rendering;
-using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph;
@@ -97,27 +96,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         NodeGraphFilterEffect.Resource graphResource)
     {
         var result = new List<RenderNode>();
-        foreach (var node in model.Nodes)
-        {
-            if (node is OutputNode outputNode)
-            {
-                int slotIndex = graphResource.Snapshot.FindSlotIndex(outputNode);
-                if (slotIndex < 0) continue;
-
-                var resource = graphResource.Snapshot.GetResource(slotIndex);
-                if (resource == null) continue;
-
-                if (!resource.ItemIndexMap.TryGetValue(outputNode.InputPort, out int itemIndex))
-                    continue;
-
-                IItemValue? itemValue = graphResource.Snapshot.GetItemValue(slotIndex, itemIndex);
-                if (itemValue?.GetBoxed() is RenderNode renderNode)
-                {
-                    result.Add(renderNode);
-                }
-            }
-        }
-
+        graphResource.Snapshot.CollectOutputRenderNodes(model, result);
         return result;
     }
 }
