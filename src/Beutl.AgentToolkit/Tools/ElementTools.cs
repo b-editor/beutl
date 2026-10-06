@@ -79,7 +79,7 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                 JsonArray elements = current["Elements"] as JsonArray
                                      ?? throw new InvalidOperationException("The current scene document does not contain an Elements array.");
                 JsonObject elementJson = CoreSerializer.SerializeToJsonObject(element);
-                RemoveIds(elementJson);
+                CollectionReconciler.RemoveIds(elementJson);
                 elements.Add(elementJson);
                 return (current, null);
             });
@@ -179,7 +179,7 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                 JsonArray elements = GetElements(current);
                 JsonObject source = FindElement(current, elementId);
                 JsonObject clone = (JsonObject)source.DeepClone();
-                RemoveIds(clone);
+                CollectionReconciler.RemoveIds(clone);
 
                 if (startSeconds is { } start)
                 {
@@ -230,7 +230,7 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                 }
 
                 JsonObject clone = (JsonObject)element.DeepClone();
-                RemoveIds(clone);
+                CollectionReconciler.RemoveIds(clone);
                 element[nameof(Element.Length)] = split.ToString("c");
                 clone[nameof(Element.Start)] = (start + split).ToString("c");
                 clone[nameof(Element.Length)] = (length - split).ToString("c");
@@ -265,7 +265,10 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                 session.History.ExecuteInTransaction(() => scene.Groups.Add(ids), "Agent group elements");
                 document = session.Documents.Read(session.Root);
             });
-            MarkFileSessionDirty(session);
+            // group/ungroup mutate history directly instead of through Reconciler.Apply, so the file
+            // session would otherwise stay IsDirty:false and a client could skip save_project and
+            // lose the change.
+            session.MarkDirtyIfFileSession();
             return new ReconcileResult(
                 new ReconcilePlan([new ChangeSetEntry("group-elements", "$/Groups", string.Join(",", ids))], []),
                 document);
@@ -303,21 +306,11 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                     "Agent ungroup elements");
                 document = session.Documents.Read(session.Root);
             });
-            MarkFileSessionDirty(session);
+            session.MarkDirtyIfFileSession();
             return new ReconcileResult(
                 new ReconcilePlan([new ChangeSetEntry("ungroup-elements", "$/Groups", string.Join(",", ids))], []),
                 document);
         });
-    }
-
-    // group/ungroup mutate history directly instead of through Reconciler.Apply, so the file session
-    // would otherwise stay IsDirty:false and a client could skip save_project and lose the change.
-    private static void MarkFileSessionDirty(IEditingSession session)
-    {
-        if (session is FileEditingSession fileSession)
-        {
-            fileSession.MarkDirty();
-        }
     }
 
     private static JsonArray GetElements(JsonObject document)
@@ -351,25 +344,6 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
         }
 
         return -1;
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
     }
 
     private static TimeSpan ReadTime(JsonObject obj, string propertyName)

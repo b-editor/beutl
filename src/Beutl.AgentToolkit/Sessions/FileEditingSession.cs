@@ -167,18 +167,7 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                 // path would change the element's Id when the copy is reopened.
                 if (element.Uri is { IsFile: true } previousUri)
                 {
-                    string relativePath = previousSceneDirectory != null
-                        ? Path.GetRelativePath(previousSceneDirectory, previousUri.LocalPath)
-                        : Path.GetFileName(previousUri.LocalPath);
-                    string sceneRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sceneDirectory));
-                    string resolvedPath = Path.GetFullPath(Path.Combine(sceneRoot, relativePath));
-                    if (!resolvedPath.StartsWith(
-                            sceneRoot + Path.DirectorySeparatorChar,
-                            PathBoundary.Comparison))
-                    {
-                        resolvedPath = Path.Combine(sceneRoot, Path.GetFileName(previousUri.LocalPath));
-                    }
-
+                    string resolvedPath = ResolveRehomedElementPath(previousUri, previousSceneDirectory, sceneDirectory);
                     resolvedPath = ReserveUniqueElementPath(resolvedPath, assignedElementPaths);
                     element.Uri = new Uri(resolvedPath);
                 }
@@ -192,6 +181,25 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         }
 
         AcceptExternalStamp();
+    }
+
+    // A relative path that would climb out of the new scene directory falls back to the bare file
+    // name directly under it.
+    private static string ResolveRehomedElementPath(Uri previousUri, string? previousSceneDirectory, string sceneDirectory)
+    {
+        string relativePath = previousSceneDirectory != null
+            ? Path.GetRelativePath(previousSceneDirectory, previousUri.LocalPath)
+            : Path.GetFileName(previousUri.LocalPath);
+        string sceneRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sceneDirectory));
+        string resolvedPath = Path.GetFullPath(Path.Combine(sceneRoot, relativePath));
+        if (!resolvedPath.StartsWith(
+                sceneRoot + Path.DirectorySeparatorChar,
+                PathBoundary.Comparison))
+        {
+            resolvedPath = Path.Combine(sceneRoot, Path.GetFileName(previousUri.LocalPath));
+        }
+
+        return resolvedPath;
     }
 
     private static string ReserveUniqueElementPath(string path, ISet<string> assignedPaths)

@@ -58,6 +58,10 @@ public sealed record ValidationOutcome(
 
 public static class ValidationEvaluator
 {
+    internal const string PenValueHint = "Pen is a typed EngineObject value. Use the Pen shape returned by get_schema/read_document, including its '$type' discriminator and PascalCase properties such as Brush and Thickness, or omit Pen when no stroke is needed.";
+
+    internal const string EngineObjectValueHint = "Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.";
+
     public static ValidationOutcome Evaluate(
         ICoreObject target, CoreProperty property, object? value, CoreSerializerOptions? options)
     {
@@ -66,11 +70,7 @@ public static class ValidationEvaluator
 
         if (!IsAssignableValue(property.PropertyType, value))
         {
-            return ValidationOutcome.Rejected(
-                value,
-                $"Value is not assignable to {property.PropertyType.FullName}.",
-                options,
-                CreateValueHint(property.PropertyType));
+            return RejectUnassignable(property.PropertyType, value, options);
         }
 
         IValidator? validator = property.GetMetadata<ICorePropertyMetadata>(target.GetType()).GetValidator();
@@ -80,19 +80,7 @@ public static class ValidationEvaluator
     public static ValidationOutcome Evaluate(
         IProperty property, object? value, CoreSerializerOptions? options)
     {
-        ArgumentNullException.ThrowIfNull(property);
-
-        if (!IsAssignableValue(property.ValueType, value))
-        {
-            return ValidationOutcome.Rejected(
-                value,
-                $"Value is not assignable to {property.ValueType.FullName}.",
-                options,
-                CreateValueHint(property.ValueType));
-        }
-
-        IValidator? validator = property.GetValidator();
-        return EvaluateValidator(validator, new ValidationContext(property, null), value, options);
+        return EvaluateProperty(property, value, options, out _);
     }
 
     internal static ValidationOutcome EvaluateAnimationValue(
@@ -109,16 +97,21 @@ public static class ValidationEvaluator
         CoreSerializerOptions? options,
         out object? acceptedValue)
     {
+        return EvaluateProperty(property, value, options, out acceptedValue);
+    }
+
+    private static ValidationOutcome EvaluateProperty(
+        IProperty property,
+        object? value,
+        CoreSerializerOptions? options,
+        out object? acceptedValue)
+    {
         ArgumentNullException.ThrowIfNull(property);
 
         if (!IsAssignableValue(property.ValueType, value))
         {
             acceptedValue = value;
-            return ValidationOutcome.Rejected(
-                value,
-                $"Value is not assignable to {property.ValueType.FullName}.",
-                options,
-                CreateValueHint(property.ValueType));
+            return RejectUnassignable(property.ValueType, value, options);
         }
 
         return EvaluateValidator(
@@ -127,6 +120,15 @@ public static class ValidationEvaluator
             value,
             options,
             out acceptedValue);
+    }
+
+    private static ValidationOutcome RejectUnassignable(Type targetType, object? value, CoreSerializerOptions? options)
+    {
+        return ValidationOutcome.Rejected(
+            value,
+            $"Value is not assignable to {targetType.FullName}.",
+            options,
+            CreateValueHint(targetType));
     }
 
     // A FontFamily that is not registered renders as a fallback rather than the requested face,
@@ -199,12 +201,12 @@ public static class ValidationEvaluator
 
         if (type == typeof(Pen))
         {
-            return "Pen is a typed EngineObject value. Use the Pen shape returned by get_schema/read_document, including its '$type' discriminator and PascalCase properties such as Brush and Thickness, or omit Pen when no stroke is needed.";
+            return PenValueHint;
         }
 
         if (typeof(EngineObject).IsAssignableFrom(type))
         {
-            return "Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.";
+            return EngineObjectValueHint;
         }
 
         if (type.IsEnum)

@@ -133,7 +133,7 @@ public static class McpToolErrorFilters
 
     private static CallToolResult CreateValidationRejectedResult(string? toolName, string? detail = null)
     {
-        string target = string.IsNullOrWhiteSpace(toolName) ? "tool" : toolName;
+        string target = ResolveTarget(toolName);
         // This filter wraps the whole downstream pipeline, so it cannot tell argument binding, the
         // tool body, and result serialization apart. Do not name a cause the caller cannot trust.
         string message = detail is null
@@ -145,17 +145,7 @@ public static class McpToolErrorFilters
             target,
             "If the message names a missing or mistyped argument, call tools/list for the current schema and pass the documented JSON shapes. Otherwise the tool may have already applied its changes, so read back the current state before retrying to avoid applying the same edit twice.");
 
-        return new CallToolResult
-        {
-            Content =
-            [
-                new TextContentBlock
-                {
-                    Text = JsonSerializer.Serialize(result, s_toolResultOptions)
-                }
-            ],
-            IsError = false
-        };
+        return CreateTextResult(result);
     }
 
     private static CallToolResult CreateUnknownArgumentsResult(
@@ -163,7 +153,7 @@ public static class McpToolErrorFilters
         IReadOnlyList<string> unknown,
         IReadOnlySet<string> accepted)
     {
-        string target = string.IsNullOrWhiteSpace(toolName) ? "tool" : toolName;
+        string target = ResolveTarget(toolName);
         string unknownList = string.Join(", ", unknown);
         string acceptedList = accepted.Count == 0
             ? "none"
@@ -174,6 +164,16 @@ public static class McpToolErrorFilters
             target,
             "Remove unknown arguments, or call tools/list for the current schema and pass only documented argument names.");
 
+        return CreateTextResult(result);
+    }
+
+    private static string ResolveTarget(string? toolName)
+    {
+        return string.IsNullOrWhiteSpace(toolName) ? "tool" : toolName;
+    }
+
+    private static CallToolResult CreateTextResult(ToolResult<object?> result)
+    {
         return new CallToolResult
         {
             Content =

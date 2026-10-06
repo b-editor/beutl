@@ -6,9 +6,6 @@ namespace Beutl.AgentToolkit.MergePatch;
 
 public static class MergePatch
 {
-    private const string StaleHandleHint =
-        "Omit Id to create a new object. When adding Objects to an existing Element, keep the parent Element Id and omit Id on each new Object. To update an existing object, call read_document, then retry apply_edit with an existing Id.";
-
     private static readonly string[] s_directives = ["$index", "$after", "$before"];
 
     private const string ReplaceDirective = "$replace";
@@ -71,17 +68,13 @@ public static class MergePatch
 
     private static bool ShouldReplaceTypedObject(JsonObject? target, JsonObject patch)
     {
-        if (target is null || TryGetId(patch, out _))
+        if (target is null || CollectionReconciler.TryGetId(patch, out _))
         {
             return false;
         }
 
-        string? targetType = target.TryGetPropertyValue("$type", out JsonNode? targetTypeNode)
-            ? targetTypeNode?.GetValue<string>()
-            : null;
-        string? patchType = patch.TryGetPropertyValue("$type", out JsonNode? patchTypeNode)
-            ? patchTypeNode?.GetValue<string>()
-            : null;
+        string? targetType = ReadType(target);
+        string? patchType = ReadType(patch);
 
         return targetType is not null
                && patchType is not null
@@ -109,7 +102,7 @@ public static class MergePatch
 
             bool delete = patchItem.TryGetPropertyValue("$delete", out JsonNode? deleteNode)
                           && ReadBool(deleteNode, "$delete");
-            bool hasId = TryGetId(patchItem, out Guid id);
+            bool hasId = CollectionReconciler.TryGetId(patchItem, out Guid id);
             if (!hasId
                 && patchItem.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
                 && idNode is not null)
@@ -135,25 +128,9 @@ public static class MergePatch
                 continue;
             }
 
-            JsonObject nextItem;
             if (!hasId)
             {
-                id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}]", patchItem);
-                // Repeating an Id-less insertion must create another object. Keep planning
-                // deterministic for the same current document without reusing an existing Id.
-                for (int occurrence = 1; IndexOf(result, id) >= 0; occurrence++)
-                {
-                    id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}:{occurrence}]", patchItem);
-                }
-
-                nextItem = (JsonObject)patchItem.DeepClone();
-                nextItem[nameof(CoreObject.Id)] = id.ToString();
-                RemoveDirectives(nextItem);
-                // An inserted member is a full desired object, not a patch: nested $-directives are
-                // never executed, so they would leak into the stored document as literal properties.
-                RejectNestedDirectives(nextItem, $"{path}[new:{patchIndex}]");
-                result.Add(nextItem);
-                MoveWithDirectives(result, id, patchItem);
+                InsertIdLessMember(result, patchItem, path, patchIndex);
                 continue;
             }
 
@@ -163,18 +140,38 @@ public static class MergePatch
                     ErrorCode.StaleHandle,
                     $"No array member with Id '{id}' exists.",
                     id.ToString(),
-                    StaleHandleHint));
+                    CollectionReconciler.StaleHandleHint));
             }
 
             JsonObject currentItem = (JsonObject)result[currentIndex]!;
             ValidateTypeMatch(currentItem, patchItem, id);
-            nextItem = (JsonObject)Apply(currentItem, patchItem, $"{path}[Id={id}]")!;
+            JsonObject nextItem = (JsonObject)Apply(currentItem, patchItem, $"{path}[Id={id}]")!;
             RemoveDirectives(nextItem);
             result[currentIndex] = nextItem;
             MoveWithDirectives(result, id, patchItem);
         }
 
         return result;
+    }
+
+    private static void InsertIdLessMember(JsonArray result, JsonObject patchItem, string path, int patchIndex)
+    {
+        Guid id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}]", patchItem);
+        // Repeating an Id-less insertion must create another object. Keep planning
+        // deterministic for the same current document without reusing an existing Id.
+        for (int occurrence = 1; IndexOf(result, id) >= 0; occurrence++)
+        {
+            id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}:{occurrence}]", patchItem);
+        }
+
+        JsonObject nextItem = (JsonObject)patchItem.DeepClone();
+        nextItem[nameof(CoreObject.Id)] = id.ToString();
+        RemoveDirectives(nextItem);
+        // An inserted member is a full desired object, not a patch: nested $-directives are
+        // never executed, so they would leak into the stored document as literal properties.
+        RejectNestedDirectives(nextItem, $"{path}[new:{patchIndex}]");
+        result.Add(nextItem);
+        MoveWithDirectives(result, id, patchItem);
     }
 
     private static bool ShouldUseIdentityMerge(JsonArray? target, JsonArray patch)
@@ -263,12 +260,8 @@ public static class MergePatch
 
     private static void ValidateTypeMatch(JsonObject current, JsonObject patch, Guid id)
     {
-        string? currentType = current.TryGetPropertyValue("$type", out JsonNode? currentTypeNode)
-            ? currentTypeNode?.GetValue<string>()
-            : null;
-        string? patchType = patch.TryGetPropertyValue("$type", out JsonNode? patchTypeNode)
-            ? patchTypeNode?.GetValue<string>()
-            : null;
+        string? currentType = ReadType(current);
+        string? patchType = ReadType(patch);
 
         if (currentType is not null && patchType is not null && currentType != patchType)
         {
@@ -294,32 +287,12 @@ public static class MergePatch
         }
         else if (directiveSource.TryGetPropertyValue("$after", out JsonNode? afterNode))
         {
-            Guid sibling = ReadGuid(afterNode, "$after");
-            int siblingIndex = IndexOf(array, sibling);
-            if (siblingIndex < 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.StaleHandle,
-                    $"Sibling '{sibling}' was not found.",
-                    sibling.ToString(),
-                    StaleHandleHint));
-            }
-
+            int siblingIndex = ResolveSiblingIndex(array, afterNode, "$after");
             targetIndex = siblingIndex + (siblingIndex < sourceIndex ? 1 : 0);
         }
         else if (directiveSource.TryGetPropertyValue("$before", out JsonNode? beforeNode))
         {
-            Guid sibling = ReadGuid(beforeNode, "$before");
-            int siblingIndex = IndexOf(array, sibling);
-            if (siblingIndex < 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.StaleHandle,
-                    $"Sibling '{sibling}' was not found.",
-                    sibling.ToString(),
-                    StaleHandleHint));
-            }
-
+            int siblingIndex = ResolveSiblingIndex(array, beforeNode, "$before");
             targetIndex = siblingIndex > sourceIndex ? siblingIndex - 1 : siblingIndex;
         }
 
@@ -333,11 +306,27 @@ public static class MergePatch
         array.Insert(Math.Clamp(targetIndex.Value, 0, array.Count), item);
     }
 
+    private static int ResolveSiblingIndex(JsonArray array, JsonNode? siblingNode, string directive)
+    {
+        Guid sibling = ReadGuid(siblingNode, directive);
+        int siblingIndex = IndexOf(array, sibling);
+        if (siblingIndex < 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.StaleHandle,
+                $"Sibling '{sibling}' was not found.",
+                sibling.ToString(),
+                CollectionReconciler.StaleHandleHint));
+        }
+
+        return siblingIndex;
+    }
+
     private static int IndexOf(JsonArray array, Guid id)
     {
         for (int i = 0; i < array.Count; i++)
         {
-            if (array[i] is JsonObject obj && TryGetId(obj, out Guid current) && current == id)
+            if (array[i] is JsonObject obj && CollectionReconciler.TryGetId(obj, out Guid current) && current == id)
             {
                 return i;
             }
@@ -346,12 +335,11 @@ public static class MergePatch
         return -1;
     }
 
-    private static bool TryGetId(JsonObject obj, out Guid id)
+    private static string? ReadType(JsonObject obj)
     {
-        id = default;
-        return obj.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? node)
-               && node?.GetValue<string>() is { } text
-               && Guid.TryParse(text, out id);
+        return obj.TryGetPropertyValue("$type", out JsonNode? typeNode)
+            ? typeNode?.GetValue<string>()
+            : null;
     }
 
     private static Guid ReadGuid(JsonNode? node, string name)

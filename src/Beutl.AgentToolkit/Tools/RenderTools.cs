@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Beutl;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
@@ -10,11 +9,9 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
-using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -30,7 +27,7 @@ public sealed record AnalyzeAudioRhythmResponse(
     IReadOnlyList<double> StrongOnsetTimesSeconds);
 
 [McpServerToolType]
-public sealed class RenderTools(
+public sealed partial class RenderTools(
     AgentSessionManager sessions,
     IWorkspaceGuard workspace,
     DestructiveGuard destructiveGuard,
@@ -149,100 +146,31 @@ public sealed class RenderTools(
                 timeSeconds is null ? "subdivisionLevel" : "timeSeconds");
             string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
             string safeBasename = NormalizeStoryboardBasename(basename ?? CreateDefaultOutputBasename("storyboard"));
-
-            var plannedShots = new List<(ResolvedStoryboardFrame Shot, string ResolvedPath)>(resolvedShots.Count);
-            for (int i = 0; i < resolvedShots.Count; i++)
-            {
-                ResolvedStoryboardFrame shot = resolvedShots[i];
-                string stillPath = Path.Combine(
-                    normalizedDirectory,
-                    $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
-                string resolvedPath = workspace.ResolveForWrite(stillPath);
-                destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-                plannedShots.Add((shot, resolvedPath));
-            }
-
-            string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
-            string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
-            destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
-
-            async Task<RenderStoryboardResponse> RunStoryboardAsync(RenderJobProgressReporter progress, CancellationToken token)
-            {
-                // Re-verify the overwrite guards at write time: background jobs are serialized, so a
-                // preceding job may have created these files after the pre-flight check passed.
-                foreach ((_, string plannedPath) in plannedShots)
-                {
-                    destructiveGuard.EnsureOverwriteAllowed(plannedPath, confirmOverwrite);
-                }
-
-                destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
-
-                var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
-                var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
-                var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plannedShots.Count);
-                progress.Report(0, plannedShots.Count, "rendering shots");
-                foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
-                {
-                    progress.Report(renderedShots.Count, plannedShots.Count, "rendering shots");
-                    using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
-                        scene,
-                        shot.Time,
-                        renderScale,
-                        token).ConfigureAwait(false);
-                    SaveStoryboardStill(frame.Bitmap, resolvedPath);
-                    StillFrameVisibilityAnalysis visibility = StillRenderer.AnalyzeFrameVisibility(frame.Bitmap);
-                    NormalizedFocalPoint? focalPoint = string.Equals(shot.Kind, StoryboardFrameKindShot, StringComparison.Ordinal)
-                        ? StillRenderer.EstimateFocalPoint(scene, frame, visibility)
-                        : null;
-                    renderedShots.Add(new RenderStoryboardShot(
-                        shot.Name,
-                        shot.Time.TotalSeconds,
-                        resolvedPath,
-                        visibility,
-                        shot.Kind,
-                        shot.SubdivisionLevel));
-                    contactSheetFrames.Add(new StoryboardContactSheetFrame(
-                        shot.Name,
-                        shot.Time.TotalSeconds,
-                        resolvedPath,
-                        shot.Kind,
-                        shot.SubdivisionLevel));
-                    if (focalPoint is not null)
-                    {
-                        eyeTraceFrames.Add(new StoryboardEyeTraceFrame(
-                            shot.Name,
-                            focalPoint));
-                    }
-                }
-
-                progress.Report(plannedShots.Count, plannedShots.Count, "contact sheet");
-                storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
-                CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
-                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots, cutEyeTrace);
-            }
+            StoryboardRenderPlan plan = PlanStoryboardOutputs(
+                scene,
+                renderScale,
+                resolvedShots,
+                normalizedDirectory,
+                safeBasename,
+                confirmOverwrite);
 
             if (background)
             {
                 string jobId = outputOperation.Transfer(lease => renderJobs.Enqueue(
                     "storyboard",
                     async (progress, token) => JsonSerializer.SerializeToNode(
-                        await RunStoryboardAsync(progress, token).ConfigureAwait(false),
+                        await RenderStoryboardFramesAsync(plan, progress, token).ConfigureAwait(false),
                         s_jobResultOptions)!,
                     lease));
                 return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
-            RenderStoryboardResponse response = await RunStoryboardAsync(NullProgress, cancellationToken).ConfigureAwait(false);
+            RenderStoryboardResponse response = await RenderStoryboardFramesAsync(plan, NullProgress, cancellationToken).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
                     storyboardRenderer.RenderContactSheetPng(
                         response.Shots
-                            .Select(shot => new StoryboardContactSheetFrame(
-                                shot.Name,
-                                shot.TimeSeconds,
-                                shot.StillPath,
-                                shot.Kind,
-                                shot.SubdivisionLevel))
+                            .Select(ToContactSheetFrame)
                             .ToArray(),
                         ImagePreviewEncoder.DefaultMaxLongEdge).Bytes,
                     "image/png")
@@ -355,33 +283,7 @@ public sealed class RenderTools(
                     "The stdio MCP host (source-run or standalone install) does not place the FFmpeg worker next to the server. Use the in-app MCP endpoint (Tools > AI Agents) for video export, or run from the installed Beutl app directory where the worker is copied under FFmpegWorker/."));
             }
 
-            if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "Frame-rate numerator and denominator must be positive."));
-            }
-
-            if (crf is int crfValue && (crfValue < 0 || crfValue > 51))
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "crf must be between 0 and 51."));
-            }
-
-            if (bitrate is int bitrateValue && bitrateValue <= 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "bitrate must be positive."));
-            }
-
-            if (crf.HasValue && bitrate.HasValue)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "Provide either crf or bitrate, not both."));
-            }
+            ValidateExportOptions(frameRateNumerator, frameRateDenominator, crf, bitrate);
 
             string resolvedPath = workspace.ResolveForWrite(outputPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
@@ -451,6 +353,37 @@ public sealed class RenderTools(
                    jobId));
     }
 
+    private static void ValidateExportOptions(int frameRateNumerator, int frameRateDenominator, int? crf, int? bitrate)
+    {
+        if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "Frame-rate numerator and denominator must be positive."));
+        }
+
+        if (crf is int crfValue && (crfValue < 0 || crfValue > 51))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "crf must be between 0 and 51."));
+        }
+
+        if (bitrate is int bitrateValue && bitrateValue <= 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "bitrate must be positive."));
+        }
+
+        if (crf.HasValue && bitrate.HasValue)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "Provide either crf or bitrate, not both."));
+        }
+    }
+
     private static async ValueTask<CallToolResult> ExecuteMcpAsync<T>(
         Func<ValueTask<(T Value, ImageContentBlock? Image)>> action)
     {
@@ -463,21 +396,6 @@ public sealed class RenderTools(
         {
             ToolError error = ToolErrorMapper.Map(ex);
             return ToCallToolResult(ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint));
-        }
-    }
-
-    private static async ValueTask<CallToolResult> ExecuteMcpManyAsync<T>(
-        Func<ValueTask<(T Value, IReadOnlyList<ImageContentBlock> Images)>> action)
-    {
-        try
-        {
-            (T value, IReadOnlyList<ImageContentBlock> images) = await action().ConfigureAwait(false);
-            return ToCallToolResult(ToolResult<T>.Success(value), images);
-        }
-        catch (Exception ex)
-        {
-            ToolError error = ToolErrorMapper.Map(ex);
-            return ToCallToolResult(ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint), []);
         }
     }
 
@@ -536,7 +454,7 @@ public sealed class RenderTools(
 
         if (explicitTimes is { Count: >= 2 })
         {
-            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            TimeSpan duration = GetEffectiveSceneDuration(scene);
             // TimeRange.Contains excludes the end, so clamp to the last renderable tick rather than the
             // exclusive Duration, which would sample a blank frame with no active elements.
             TimeSpan lastRenderable = duration - TimeSpan.FromTicks(1);
@@ -562,12 +480,15 @@ public sealed class RenderTools(
         }
 
         int count = Math.Clamp(sampleCount, 2, 8);
-        double durationSeconds = scene.Duration > TimeSpan.Zero ? scene.Duration.TotalSeconds : 1;
+        double durationSeconds = GetEffectiveSceneDuration(scene).TotalSeconds;
         return Enumerable
             .Range(0, count)
             .Select(index => TimeSpan.FromSeconds(durationSeconds * (index + 0.5) / count))
             .ToArray();
     }
+
+    private static TimeSpan GetEffectiveSceneDuration(Scene scene)
+        => scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
 
     private OwnedOutputOperation BeginOutputOperation()
     {
@@ -601,47 +522,6 @@ public sealed class RenderTools(
         return string.IsNullOrWhiteSpace(trimmed) ? s_processOutputToken : trimmed;
     }
 
-    private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)
-    {
-        string? directory = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        if (!bitmap.Save(outputPath, EncodedImageFormat.Png))
-        {
-            throw new IOException($"Failed to write storyboard still image to '{outputPath}'.");
-        }
-    }
-
-    private static CutEyeTrace[] BuildCutEyeTrace(IReadOnlyList<StoryboardEyeTraceFrame> frames)
-    {
-        if (frames.Count < 2)
-        {
-            return [];
-        }
-
-        var result = new CutEyeTrace[frames.Count - 1];
-        for (int i = 1; i < frames.Count; i++)
-        {
-            StoryboardEyeTraceFrame left = frames[i - 1];
-            StoryboardEyeTraceFrame right = frames[i];
-            double dx = left.FocalPoint.X - right.FocalPoint.X;
-            double dy = left.FocalPoint.Y - right.FocalPoint.Y;
-            double displacement = Math.Sqrt((dx * dx) + (dy * dy)) / Math.Sqrt(2);
-            double roundedDisplacement = Math.Round(displacement, 4, MidpointRounding.AwayFromZero);
-            result[i - 1] = new CutEyeTrace(
-                left.Name,
-                right.Name,
-                left.FocalPoint,
-                right.FocalPoint,
-                roundedDisplacement);
-        }
-
-        return result;
-    }
-
     private sealed class OwnedOutputOperation(IDisposable lease) : IDisposable
     {
         private IDisposable? _lease = lease;
@@ -660,374 +540,6 @@ public sealed class RenderTools(
         {
             Interlocked.Exchange(ref _lease, null)?.Dispose();
         }
-    }
-
-    private static IReadOnlyList<ResolvedStoryboardShot> ResolveStoryboardShots(
-        Scene scene,
-        StoryboardShotInput[]? shots)
-    {
-        if (shots is { Length: > 0 })
-        {
-            // Validate explicit shots up front (finite, in-range, non-duplicate) instead of silently
-            // filtering/clamping — a typo like a 30s shot in a 5s scene must fail like the
-            // timeSeconds path does, not render a blank/misleading frame.
-            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
-            var seen = new HashSet<TimeSpan>();
-            var explicitShots = new List<ResolvedStoryboardShot>(shots.Length);
-            for (int i = 0; i < shots.Length; i++)
-            {
-                double seconds = shots[i].TimeSeconds;
-                if (!double.IsFinite(seconds))
-                {
-                    throw CreateStoryboardTimeValidationError($"render_storyboard shots[{i}].timeSeconds must be finite.");
-                }
-
-                if (seconds < 0 || seconds > duration.TotalSeconds)
-                {
-                    throw CreateStoryboardTimeValidationError(
-                        $"render_storyboard shots[{i}].timeSeconds={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
-                }
-
-                TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
-                if (!seen.Add(time))
-                {
-                    throw CreateStoryboardTimeValidationError(
-                        $"render_storyboard shots contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
-                }
-
-                explicitShots.Add(new ResolvedStoryboardShot(
-                    string.IsNullOrWhiteSpace(shots[i].Name) ? $"shot-{i + 1}" : shots[i].Name.Trim(),
-                    time));
-            }
-
-            return explicitShots
-                .OrderBy(shot => shot.Time)
-                .ToArray();
-        }
-
-        ResolvedStoryboardShot[] derivedShots = scene.Children
-            // Only enabled elements that overlap the visible window can render at their derived time;
-            // disabled/off-window draft layers would add blank frames and burn the subdivision cap.
-            .Where(element => element.IsEnabled
-                && element.Length > TimeSpan.Zero
-                && element.Start < scene.Start + scene.Duration
-                && element.Start + element.Length > scene.Start)
-            .OrderBy(element => element.Start)
-            .ThenBy(element => element.ZIndex)
-            .Select(element =>
-            {
-                // Element.Start lives on the absolute timeline axis while shot times are
-                // scene-relative (the renderer re-applies scene.Start); normalize and clamp so a
-                // trimmed scene (Scene.Start > 0) does not sample past the element.
-                TimeSpan midpoint = element.Length > TimeSpan.Zero
-                    ? element.Start + TimeSpan.FromTicks(element.Length.Ticks / 2)
-                    : element.Start;
-                TimeSpan relative = midpoint - scene.Start;
-                if (relative < TimeSpan.Zero)
-                {
-                    relative = TimeSpan.Zero;
-                }
-
-                relative = ClampShotToRenderableRange(relative, scene.Duration);
-
-                return new ResolvedStoryboardShot(
-                    string.IsNullOrWhiteSpace(element.Name) ? element.Id.ToString() : element.Name,
-                    relative);
-            })
-            .GroupBy(shot => shot.Time)
-            .Select(group => group.First())
-            .OrderBy(shot => shot.Time)
-            .ToArray();
-        if (derivedShots.Length > 0)
-        {
-            return derivedShots;
-        }
-
-        throw new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            "render_storyboard requires explicit shots or at least one timeline Element."));
-    }
-
-    internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
-        Scene scene,
-        StoryboardShotInput[]? shots,
-        int subdivisionLevel)
-        => ResolveStoryboardFrames(scene, shots, null, subdivisionLevel);
-
-    internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
-        Scene scene,
-        StoryboardShotInput[]? shots,
-        double[]? timeSeconds,
-        int subdivisionLevel,
-        int? frameRate = null)
-    {
-        IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveExplicitStoryboardTimes(scene, timeSeconds)
-                                                        ?? ResolveStoryboardShots(scene, shots);
-        int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
-        if (normalizedSubdivisionLevel == 0)
-        {
-            return anchors
-                .Select(shot => new ResolvedStoryboardFrame(
-                    shot.Name,
-                    shot.Time,
-                    StoryboardFrameKindShot,
-                    0))
-                .ToArray();
-        }
-
-        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(frameRate ?? GetSceneFrameRate(scene));
-        ResolvedStoryboardShot[] dedupedAnchors = timeSeconds is null
-            ? DeduplicateStoryboardAnchors(anchors, dedupeTolerance)
-            : anchors.ToArray();
-        if (dedupedAnchors.Length == 0)
-        {
-            return [];
-        }
-
-        int denominator = 1 << normalizedSubdivisionLevel;
-        var frames = new List<ResolvedStoryboardFrame>(dedupedAnchors.Length * denominator);
-        for (int i = 0; i < dedupedAnchors.Length; i++)
-        {
-            ResolvedStoryboardShot left = dedupedAnchors[i];
-            frames.Add(new ResolvedStoryboardFrame(
-                left.Name,
-                left.Time,
-                StoryboardFrameKindShot,
-                0));
-
-            if (i == dedupedAnchors.Length - 1)
-            {
-                continue;
-            }
-
-            ResolvedStoryboardShot right = dedupedAnchors[i + 1];
-            TimeSpan gap = right.Time - left.Time;
-            if (gap <= dedupeTolerance)
-            {
-                continue;
-            }
-
-            for (int numerator = 1; numerator < denominator; numerator++)
-            {
-                TimeSpan time = Interpolate(left.Time, right.Time, numerator, denominator);
-                if (IsDuplicateStoryboardTime(time, left.Time, dedupeTolerance)
-                    || IsDuplicateStoryboardTime(time, right.Time, dedupeTolerance)
-                    || (frames.Count > 0 && IsDuplicateStoryboardTime(time, frames[^1].Time, dedupeTolerance)))
-                {
-                    continue;
-                }
-
-                (int reducedNumerator, int reducedDenominator, int frameSubdivisionLevel) =
-                    ReduceBinaryFraction(numerator, denominator);
-                frames.Add(new ResolvedStoryboardFrame(
-                    CreateInbetweenName(
-                        left.Name,
-                        right.Name,
-                        frameSubdivisionLevel,
-                        reducedNumerator,
-                        reducedDenominator),
-                    time,
-                    StoryboardFrameKindInbetween,
-                    frameSubdivisionLevel));
-            }
-        }
-
-        return frames;
-    }
-
-    private static IReadOnlyList<ResolvedStoryboardShot>? ResolveExplicitStoryboardTimes(
-        Scene scene,
-        double[]? timeSeconds)
-    {
-        if (timeSeconds is null)
-        {
-            return null;
-        }
-
-        if (timeSeconds.Length == 0)
-        {
-            throw CreateStoryboardTimeValidationError("render_storyboard timeSeconds must contain at least one scene time.");
-        }
-
-        TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
-        var seen = new HashSet<TimeSpan>();
-        var result = new List<ResolvedStoryboardShot>(timeSeconds.Length);
-        for (int i = 0; i < timeSeconds.Length; i++)
-        {
-            double seconds = timeSeconds[i];
-            if (!double.IsFinite(seconds))
-            {
-                throw CreateStoryboardTimeValidationError($"render_storyboard timeSeconds[{i}] must be finite.");
-            }
-
-            if (seconds < 0 || seconds > duration.TotalSeconds)
-            {
-                throw CreateStoryboardTimeValidationError(
-                    $"render_storyboard timeSeconds[{i}]={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
-            }
-
-            TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
-            if (!seen.Add(time))
-            {
-                throw CreateStoryboardTimeValidationError(
-                    $"render_storyboard timeSeconds contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
-            }
-
-            result.Add(new ResolvedStoryboardShot(CreateExplicitStoryboardTimeName(seconds), time));
-        }
-
-        return result
-            .OrderBy(shot => shot.Time)
-            .ToArray();
-    }
-
-    // Element.Range treats its end as exclusive, so a shot exactly at Duration renders past every
-    // element (a blank frame); pull it one tick inside the scene. Truly out-of-range values are
-    // rejected before this by the callers; this only nudges the Duration boundary itself.
-    private static TimeSpan ClampShotToRenderableRange(TimeSpan time, TimeSpan duration)
-        => duration > TimeSpan.Zero && time >= duration
-            ? TimeSpan.FromTicks(duration.Ticks - 1)
-            : time;
-
-    private static string CreateExplicitStoryboardTimeName(double seconds)
-        => $"t:{seconds.ToString("0.####", CultureInfo.InvariantCulture)}";
-
-    private static ReconcileException CreateStoryboardTimeValidationError(string message)
-    {
-        return new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            message,
-            "timeSeconds",
-            "Pass finite scene times in seconds within the scene duration, or omit timeSeconds to use explicit shots or auto Element midpoint detection."));
-    }
-
-    internal static int NormalizeStoryboardSubdivisionLevel(int subdivisionLevel)
-    {
-        return Math.Clamp(subdivisionLevel, 0, MaxStoryboardSubdivisionLevel);
-    }
-
-    private static void ValidateStoryboardFrameCount(int frameCount, int subdivisionLevel, string target = "subdivisionLevel")
-    {
-        if (frameCount <= MaxStoryboardFrameCount)
-        {
-            return;
-        }
-
-        throw new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            $"render_storyboard would render {frameCount} frames, above the limit of {MaxStoryboardFrameCount}. Lower subdivisionLevel or narrow the shots before rendering.",
-            target,
-            target == "timeSeconds"
-                ? "Lower subdivisionLevel, pass fewer timeSeconds, or split the storyboard review into narrower time ranges."
-                : subdivisionLevel > 0
-                    ? "Lower subdivisionLevel, pass fewer shots, or split the storyboard review into narrower shot ranges."
-                    : "Pass fewer shots or split the storyboard review into narrower shot ranges."));
-    }
-
-    private static ResolvedStoryboardShot[] DeduplicateStoryboardAnchors(
-        IReadOnlyList<ResolvedStoryboardShot> anchors,
-        TimeSpan tolerance)
-    {
-        var result = new List<ResolvedStoryboardShot>(anchors.Count);
-        foreach (ResolvedStoryboardShot anchor in anchors)
-        {
-            if (result.Count == 0
-                || !IsDuplicateStoryboardTime(anchor.Time, result[^1].Time, tolerance))
-            {
-                result.Add(anchor);
-            }
-        }
-
-        return [.. result];
-    }
-
-    private static TimeSpan GetStoryboardDedupeTolerance(int frameRate)
-    {
-        return TimeSpan.FromSeconds(0.5d / frameRate);
-    }
-
-    internal static int GetSceneFrameRate(Scene scene)
-    {
-        Project? project = scene.FindHierarchicalParent<Project>();
-        if (project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
-            && int.TryParse(value, out int rate)
-            && rate > 0)
-        {
-            return rate;
-        }
-
-        return DefaultSceneFrameRate;
-    }
-
-    private static bool IsDuplicateStoryboardTime(TimeSpan left, TimeSpan right, TimeSpan tolerance)
-    {
-        return (left - right).Duration() <= tolerance;
-    }
-
-    private static TimeSpan Interpolate(TimeSpan left, TimeSpan right, int numerator, int denominator)
-    {
-        long ticks = left.Ticks + (long)Math.Round((right.Ticks - left.Ticks) * (numerator / (double)denominator));
-        return TimeSpan.FromTicks(Math.Max(0, ticks));
-    }
-
-    private static (int Numerator, int Denominator, int SubdivisionLevel) ReduceBinaryFraction(
-        int numerator,
-        int denominator)
-    {
-        while (numerator % 2 == 0 && denominator % 2 == 0)
-        {
-            numerator /= 2;
-            denominator /= 2;
-        }
-
-        int level = 0;
-        for (int value = denominator; value > 1; value >>= 1)
-        {
-            level++;
-        }
-
-        return (numerator, denominator, level);
-    }
-
-    private static string CreateInbetweenName(
-        string leftName,
-        string rightName,
-        int subdivisionLevel,
-        int numerator,
-        int denominator)
-    {
-        return $"between:{leftName}~{rightName}@L{subdivisionLevel}:{numerator}/{denominator}";
-    }
-
-    private static string NormalizeStoryboardDirectory(string outputDirectory)
-    {
-        return string.IsNullOrWhiteSpace(outputDirectory)
-            ? "."
-            : outputDirectory;
-    }
-
-    private static string NormalizeStoryboardBasename(string basename)
-    {
-        string normalized = string.IsNullOrWhiteSpace(basename)
-            ? "storyboard"
-            : Path.GetFileNameWithoutExtension(basename.Trim());
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            normalized = "storyboard";
-        }
-
-        foreach (char invalid in Path.GetInvalidFileNameChars())
-        {
-            normalized = normalized.Replace(invalid, '-');
-        }
-
-        return normalized;
-    }
-
-    internal Scene RequireSceneSnapshot()
-    {
-        IEditingSession session = sessions.RequireSession();
-        return CreateSceneSnapshot(session);
     }
 
     internal static float ValidateRenderScale(Scene scene, float renderScale, string toolName)
@@ -1095,186 +607,4 @@ public sealed class RenderTools(
             ? ((long)extent).ToString(CultureInfo.InvariantCulture)
             : extent.ToString("G17", CultureInfo.InvariantCulture);
     }
-
-    // Reads the frame rate from the given session's live, Project-attached scene; CreateSceneSnapshot
-    // returns a clone detached from its Project, on which the project frame-rate lookup would always
-    // miss. Takes the same session the snapshot was read from so the two cannot straddle a swap.
-    private static int ReadSessionFrameRate(IEditingSession session)
-    {
-        return session.ReadOnSession(() =>
-            session.Root is Scene liveScene ? GetSceneFrameRate(liveScene) : DefaultSceneFrameRate);
-    }
-
-    internal static Scene CreateSceneSnapshot(IEditingSession session)
-    {
-        ArgumentNullException.ThrowIfNull(session);
-
-        return session.ReadOnSession(() =>
-        {
-            if (session.Root is not Scene scene)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "The current editing session is not attached to a scene."));
-            }
-
-            // Renders and analyzers run after ReadOnSession releases the dispatch lock, so a
-            // concurrent apply_edit can mutate the live scene mid-render for ANY session source;
-            // every snapshot must be an isolated clone.
-            JsonObject snapshot = session.Documents.Read(scene);
-            snapshot.Remove(SchemaVersion.PropertyName);
-            if (scene.Uri is { } sceneUri)
-            {
-                snapshot["Uri"] = sceneUri.ToString();
-            }
-
-            var clone = (Scene)CoreSerializer.DeserializeFromJsonObject(
-                snapshot,
-                typeof(Scene),
-                new CoreSerializerOptions
-                {
-                    BaseUri = scene.Uri,
-                    Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
-                });
-            clone.Uri ??= scene.Uri;
-            IReadOnlyList<CoreObject> referenceClones = CloneReferencedObjectsInto(scene, clone);
-            AttachSnapshotRoot(scene, clone, referenceClones);
-            return clone;
-        });
-    }
-
-    // The snapshot is a Project-detached clone, so its ReferenceExpression targets (referenced by
-    // ObjectId) cannot resolve against the live project; the referenced scenes are cloned into the
-    // snapshot with their original Ids and attached to the snapshot root (AttachSnapshotRoot) so the
-    // expression's FindById(ObjectId) resolves snapshot-locally instead of every SceneDrawable/
-    // SceneSound rendering empty.
-    private static IReadOnlyList<CoreObject> CloneReferencedObjectsInto(Scene liveRoot, Scene clone)
-    {
-        var referenceClones = new List<CoreObject>();
-        var scanned = new HashSet<Guid> { liveRoot.Id };
-        var liveScanQueue = new Queue<IHierarchical>();
-        liveScanQueue.Enqueue(liveRoot);
-
-        while (liveScanQueue.TryDequeue(out IHierarchical? scanRoot))
-        {
-            foreach (CoreObject target in EnumerateLiveReferenceTargets(scanRoot))
-            {
-                if (!scanned.Add(target.Id))
-                {
-                    continue;
-                }
-
-                referenceClones.Add(CloneDetached(target));
-                if (target is IHierarchical hierarchicalTarget)
-                {
-                    liveScanQueue.Enqueue(hierarchicalTarget);
-                }
-            }
-        }
-
-        return referenceClones;
-    }
-
-    // Expression evaluation resolves through the owner's hierarchical root and falls back to the
-    // LIVE BeutlApplication.Current when the owner is detached, so a rootless snapshot would read
-    // live objects mid-render — the exact concurrent-mutation hazard the snapshot exists to
-    // prevent. Root the snapshot like FileEditingSession roots a headless session, with the
-    // referenced-scene clones alongside so Id lookups resolve snapshot-locally.
-    private static void AttachSnapshotRoot(Scene liveScene, Scene clone, IReadOnlyList<CoreObject> referenceClones)
-    {
-        var project = new Project();
-        if (liveScene.FindHierarchicalParent<Project>() is { } liveProject)
-        {
-            foreach ((string key, string value) in liveProject.Variables)
-            {
-                project.Variables[key] = value;
-            }
-        }
-
-        foreach (CoreObject referenceClone in referenceClones)
-        {
-            if (referenceClone is ProjectItem item)
-            {
-                project.Items.Add(item);
-            }
-        }
-
-        project.Items.Add(clone);
-        _ = new BeutlApplication { Project = project };
-    }
-
-    private static IEnumerable<CoreObject> EnumerateLiveReferenceTargets(IHierarchical root)
-    {
-        var lookupRoot = root.FindHierarchicalRoot() as ICoreObject ?? root as ICoreObject;
-        var visited = new HashSet<IHierarchical>(ReferenceEqualityComparer.Instance) { root };
-        var stack = new Stack<IHierarchical>();
-        stack.Push(root);
-        while (stack.Count > 0)
-        {
-            IHierarchical current = stack.Pop();
-            if (current is Engine.EngineObject engineObject)
-            {
-                foreach (Engine.IProperty property in engineObject.Properties)
-                {
-                    // Only the known scene-reference properties are followed: ReferenceExpression is a
-                    // general binding form, so an arbitrary data-binding on another property must not
-                    // clone unrelated objects, and the PropertyPath form (rejected at apply time) leaves
-                    // only a direct ObjectId to resolve.
-                    if (Common.ReferenceProperties.Describe(property) is { } descriptor
-                        && property.Expression is Engine.Expressions.IReferenceExpression { HasPropertyPath: false } referenceExpression
-                        && referenceExpression.ObjectId != Guid.Empty
-                        && lookupRoot?.FindById(referenceExpression.ObjectId) is CoreObject expressionTarget
-                        && descriptor.ReferencedType.IsInstanceOfType(expressionTarget))
-                    {
-                        yield return expressionTarget;
-                    }
-                }
-            }
-
-            foreach (IHierarchical child in current.HierarchicalChildren)
-            {
-                if (visited.Add(child))
-                {
-                    stack.Push(child);
-                }
-            }
-        }
-    }
-
-    private static CoreObject CloneDetached(CoreObject source)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(source, new CoreSerializerOptions
-        {
-            BaseUri = source.Uri,
-            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
-        });
-        if (source.Uri is { } sourceUri)
-        {
-            // Scene.Children_CollectionChanged dereferences the scene's own Uri while elements
-            // deserialize, so the clone must carry it from the start, not get it assigned after.
-            json["Uri"] = sourceUri.ToString();
-        }
-
-        var clone = (CoreObject)CoreSerializer.DeserializeFromJsonObject(json, source.GetType(), new CoreSerializerOptions
-        {
-            BaseUri = source.Uri,
-            Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects,
-        });
-        clone.Uri ??= source.Uri;
-        return clone;
-    }
-
-    internal sealed record ResolvedStoryboardFrame(
-        string Name,
-        TimeSpan Time,
-        string Kind,
-        int SubdivisionLevel);
-
-    internal sealed record ResolvedStoryboardShot(
-        string Name,
-        TimeSpan Time);
-
-    private sealed record StoryboardEyeTraceFrame(
-        string Name,
-        NormalizedFocalPoint FocalPoint);
 }

@@ -49,12 +49,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
         // Scene3DRenderNode silently renders nothing without a 3D-capable context, so exporting
         // would succeed with the 3D layers missing; fail up front like render_still does.
-        if (StillRenderer.ContainsGpuOnlyContent(scene)
-            && !await StillRenderer.Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new RenderingUnavailableException(
-                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
-        }
+        await StillRenderer.ThrowIfGpuContextUnavailableAsync(scene, null, cancellationToken).ConfigureAwait(false);
 
         string? directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(directory))
@@ -69,29 +64,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         {
             using var output = new StagedOutputFile(outputPath);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
-            controller.VideoSettings.SourceSize = scene.FrameSize;
-            controller.VideoSettings.DestinationSize = scene.FrameSize;
-            controller.VideoSettings.FrameRate = frameRate;
-            controller.AudioSettings.SampleRate = normalizedSampleRate;
-            controller.AudioSettings.Channels = 2;
-            var warnings = new List<string>(
-                ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
-
-            // A final export forces original media (no proxy fallback), so a missing original would encode
-            // a blank/silent segment instead of failing. Preflight the exported range's renderable sources
-            // (graphics + audio) and fail fast, matching the save-frame/export guard. CollectRenderableSources
-            // walks the mutable scene graph, so run it on the render thread like StillRenderer does rather
-            // than racing UI/render-thread mutations from this (possibly off-thread) caller.
-            IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
-                () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
-                    scene, new TimeRange(scene.Start, scene.Duration)),
-                ct: cancellationToken).ConfigureAwait(false);
-            IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
-            if (missingSources.Count > 0)
-            {
-                throw new RenderingUnavailableException(
-                    $"Missing source files required to export: {string.Join(", ", missingSources)}");
-            }
+            List<string> warnings = ConfigureController(controller, scene, frameRate, normalizedSampleRate, crf, bitrate);
+            await ThrowIfExportSourcesMissingAsync(scene, cancellationToken).ConfigureAwait(false);
 
             using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
             using var frameProgress = new Subject<TimeSpan>();
@@ -172,6 +146,42 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         {
             SampleRate = sampleRate,
         };
+    }
+
+    private static List<string> ConfigureController(
+        EncodingController controller,
+        Scene scene,
+        Rational frameRate,
+        int sampleRate,
+        int? crf,
+        int? bitrate)
+    {
+        controller.VideoSettings.SourceSize = scene.FrameSize;
+        controller.VideoSettings.DestinationSize = scene.FrameSize;
+        controller.VideoSettings.FrameRate = frameRate;
+        controller.AudioSettings.SampleRate = sampleRate;
+        controller.AudioSettings.Channels = 2;
+        return new List<string>(
+            ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
+    }
+
+    // A final export forces original media (no proxy fallback), so a missing original would encode
+    // a blank/silent segment instead of failing. Preflight the exported range's renderable sources
+    // (graphics + audio) and fail fast, matching the save-frame/export guard. CollectRenderableSources
+    // walks the mutable scene graph, so run it on the render thread like StillRenderer does rather
+    // than racing UI/render-thread mutations from this (possibly off-thread) caller.
+    private static async ValueTask ThrowIfExportSourcesMissingAsync(Scene scene, CancellationToken cancellationToken)
+    {
+        IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
+            () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
+                scene, new TimeRange(scene.Start, scene.Duration)),
+            ct: cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
+        if (missingSources.Count > 0)
+        {
+            throw new RenderingUnavailableException(
+                $"Missing source files required to export: {string.Join(", ", missingSources)}");
+        }
     }
 
     internal static IReadOnlyList<string> ApplyQualitySettings(

@@ -99,9 +99,9 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
             },
             cancellationToken).ConfigureAwait(false);
 
-        if (state.Applied.Count > 0 && session is FileEditingSession fileSession)
+        if (state.Applied.Count > 0)
         {
-            fileSession.MarkDirty();
+            session.MarkDirtyIfFileSession();
         }
 
         return state;

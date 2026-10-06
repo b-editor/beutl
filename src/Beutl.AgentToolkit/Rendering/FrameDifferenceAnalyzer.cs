@@ -272,33 +272,33 @@ public sealed class FrameDifferenceAnalyzer(StillRenderer stillRenderer)
     {
         return colorType switch
         {
-            BitmapColorType.Alpha8 => bytesPerPixel,
-            BitmapColorType.Rgb565 => bytesPerPixel,
-            BitmapColorType.Argb4444 => bytesPerPixel,
-            BitmapColorType.Rgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Rgb888x => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Bgra8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Rgba1010102 => bytesPerPixel,
-            BitmapColorType.Bgra1010102 => bytesPerPixel,
-            BitmapColorType.Rgb101010x => bytesPerPixel,
-            BitmapColorType.Bgr101010x => bytesPerPixel,
-            BitmapColorType.Bgr101010xXR => bytesPerPixel,
-            BitmapColorType.Gray8 => Math.Min(1, bytesPerPixel),
-            BitmapColorType.RgbaF16 => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbaF16Clamped => Math.Min(6, bytesPerPixel),
+            BitmapColorType.Alpha8
+                or BitmapColorType.Rgb565
+                or BitmapColorType.Argb4444
+                or BitmapColorType.Rgba1010102
+                or BitmapColorType.Bgra1010102
+                or BitmapColorType.Rgb101010x
+                or BitmapColorType.Bgr101010x
+                or BitmapColorType.Bgr101010xXR
+                or BitmapColorType.Rg88
+                or BitmapColorType.AlphaF16
+                or BitmapColorType.RgF16
+                or BitmapColorType.Alpha16
+                or BitmapColorType.Rg1616
+                or BitmapColorType.R16Unorm
+                or BitmapColorType.RF16 => bytesPerPixel,
+            BitmapColorType.Gray8
+                or BitmapColorType.R8Unorm => Math.Min(1, bytesPerPixel),
+            BitmapColorType.Rgba8888
+                or BitmapColorType.Rgb888x
+                or BitmapColorType.Bgra8888
+                or BitmapColorType.Srgba8888 => Math.Min(3, bytesPerPixel),
+            BitmapColorType.RgbaF16
+                or BitmapColorType.RgbaF16Clamped
+                or BitmapColorType.Rgba16161616
+                or BitmapColorType.Bgra10101010XR
+                or BitmapColorType.RgbF16F16F16x => Math.Min(6, bytesPerPixel),
             BitmapColorType.RgbaF32 => Math.Min(12, bytesPerPixel),
-            BitmapColorType.Rg88 => bytesPerPixel,
-            BitmapColorType.AlphaF16 => bytesPerPixel,
-            BitmapColorType.RgF16 => bytesPerPixel,
-            BitmapColorType.Alpha16 => bytesPerPixel,
-            BitmapColorType.Rg1616 => bytesPerPixel,
-            BitmapColorType.Rgba16161616 => Math.Min(6, bytesPerPixel),
-            BitmapColorType.Srgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.R8Unorm => Math.Min(1, bytesPerPixel),
-            BitmapColorType.Bgra10101010XR => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbF16F16F16x => Math.Min(6, bytesPerPixel),
-            BitmapColorType.R16Unorm => bytesPerPixel,
-            BitmapColorType.RF16 => bytesPerPixel,
             _ => Math.Min(3, bytesPerPixel)
         };
     }
