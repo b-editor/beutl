@@ -171,14 +171,8 @@ internal sealed class CompiledRenderRequest : IDisposable
 
             RenderFragmentReference owner = graph.GetFragment(ownerId);
 
-            bounds = owner.Payload switch
-            {
-                TargetScopeRenderFragmentPayload payload
-                    => payload.Description.Bounds.TransformBounds(bounds),
-                RawTargetScopeRenderFragmentPayload payload
-                    => payload.Description.Bounds.TransformBounds(bounds),
-                _ => bounds,
-            };
+            if (owner.TryGetScopeBoundsContract(out RenderBoundsContract ownerBounds))
+                bounds = ownerBounds.TransformBounds(bounds);
             if (parent.ResolvedDomain is { } parentDomain)
                 bounds = bounds.Intersect(parentDomain);
             scope = parent;

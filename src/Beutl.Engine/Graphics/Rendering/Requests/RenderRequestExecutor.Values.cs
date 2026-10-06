@@ -71,18 +71,6 @@ internal sealed partial class RenderRequestExecutor
             return scopes[index];
         }
 
-        private bool IsCacheCaptureValue(MaterializedRenderValue value)
-            => _cacheCaptureValues?.Contains(value) == true;
-
-        private void AddCacheCaptureValue(MaterializedRenderValue value)
-            => (_cacheCaptureValues ??= new(ReferenceEqualityComparer.Instance)).Add(value);
-
-        private void RemoveCacheCaptureValue(MaterializedRenderValue value)
-            => _cacheCaptureValues?.Remove(value);
-
-        private void ClearCacheCaptureValues()
-            => _cacheCaptureValues = null;
-
         private T ExecuteOnDeviceGrid<T>(
             ImmediateCanvas currentTarget,
             Func<T> execute,
@@ -151,10 +139,7 @@ internal sealed partial class RenderRequestExecutor
             }
             if (deviceBounds.Width <= 0
                 || deviceBounds.Height <= 0
-                || deviceBounds.X > semanticDeviceBounds.X
-                || deviceBounds.Y > semanticDeviceBounds.Y
-                || deviceBounds.Right < semanticDeviceBounds.Right
-                || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
+                || !DeviceBoundsValidation.Covers(deviceBounds, semanticDeviceBounds))
             {
                 throw new ArgumentException(
                     "An allocated render value's physical device bounds must contain its semantic bounds.",

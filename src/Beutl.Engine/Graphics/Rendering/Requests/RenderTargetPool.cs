@@ -11,7 +11,7 @@ namespace Beutl.Graphics.Rendering.Requests;
 /// <summary>
 /// Renderer-lifetime owner for exact-size, linear-premultiplied RGBA16F intermediate targets.
 /// </summary>
-internal sealed class RenderTargetPool : IDisposable
+internal sealed partial class RenderTargetPool : IDisposable
 {
     private static readonly object s_cpuContextIdentity = new();
 
@@ -398,22 +398,7 @@ internal sealed class RenderTargetPool : IDisposable
 
         if (TryTakeAvailable(deviceSize, out TargetSlot? slot))
         {
-            TargetSlot reusable = slot!;
-            try
-            {
-                ValidateReusableSlot(reusable, request);
-                if (clearContents)
-                    reusable.Target.ClearToTransparent();
-            }
-            catch (Exception ex)
-            {
-                Evict(reusable, request, failures: null);
-                ExceptionDispatchInfo.Capture(ex).Throw();
-                throw;
-            }
-
-            _reuses++;
-            lease = Lease(request, reusable);
+            lease = LeaseReusedSlot(slot!, request, clearContents);
             return true;
         }
 
@@ -431,6 +416,38 @@ internal sealed class RenderTargetPool : IDisposable
             return false;
         }
 
+        lease = AdoptCreatedTarget(target, deviceSize, request, clearContents);
+        return true;
+    }
+
+    private RenderTargetLease LeaseReusedSlot(
+        TargetSlot reusable,
+        RenderTargetLeaseSession request,
+        bool clearContents)
+    {
+        try
+        {
+            ValidateReusableSlot(reusable, request);
+            if (clearContents)
+                reusable.Target.ClearToTransparent();
+        }
+        catch (Exception ex)
+        {
+            Evict(reusable, request, failures: null);
+            ExceptionDispatchInfo.Capture(ex).Throw();
+            throw;
+        }
+
+        _reuses++;
+        return Lease(request, reusable);
+    }
+
+    private RenderTargetLease AdoptCreatedTarget(
+        RenderTarget target,
+        PixelSize deviceSize,
+        RenderTargetLeaseSession request,
+        bool clearContents)
+    {
         bool accepted = false;
         bool targetIsForeign = ReferenceEquals(target, request.ExternalTarget) || _knownTargets.Contains(target);
         bool targetSharesLiveSurface = !targetIsForeign && SharesLiveSurface(target, request);
@@ -441,7 +458,7 @@ internal sealed class RenderTargetPool : IDisposable
                 target.ClearToTransparent();
             long byteSize = GetByteSize(deviceSize);
             long nextOwnedBytes = checked(_ownedBytes + byteSize);
-            slot = new TargetSlot(target, surface, deviceSize, byteSize);
+            var slot = new TargetSlot(target, surface, deviceSize, byteSize);
             try
             {
                 _ownedSlots.Add(slot);
@@ -462,8 +479,7 @@ internal sealed class RenderTargetPool : IDisposable
             _ownedBytes = nextOwnedBytes;
             _creates++;
             accepted = true;
-            lease = Lease(request, slot);
-            return true;
+            return Lease(request, slot);
         }
         catch (Exception primary)
         {
@@ -497,8 +513,7 @@ internal sealed class RenderTargetPool : IDisposable
     internal void CompleteDeferredRelease(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        if (!ReferenceEquals(lease.Session.Pool, this))
-            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
+        VerifyPoolOwnership(lease);
         if (lease.State == RenderTargetLeaseState.Evicted)
             return;
         if (lease.State != RenderTargetLeaseState.Deferred)
@@ -507,9 +522,7 @@ internal sealed class RenderTargetPool : IDisposable
                 $"The render-target lease cannot complete a deferred release from {lease.State}.");
         }
 
-        TargetSlot slot = lease.Slot;
-        if (!ReferenceEquals(slot.ActiveLease, lease))
-            throw new InvalidOperationException("The render-target lease is stale.");
+        VerifySlotHolds(lease);
         ReleaseCore(lease);
     }
 
@@ -556,8 +569,7 @@ internal sealed class RenderTargetPool : IDisposable
     internal void EvictAfterReleaseFailure(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        if (!ReferenceEquals(lease.Session.Pool, this))
-            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
+        VerifyPoolOwnership(lease);
 
         Evict(lease.Slot, lease.Session, failures: null, failedLease: lease);
     }
@@ -637,131 +649,6 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
-    private bool TryTakeAvailable(PixelSize size, out TargetSlot? slot)
-    {
-        if (_availableBuckets.TryGetValue(size, out LinkedList<TargetSlot>? bucket)
-            && bucket.Last is { } node)
-        {
-            slot = node.Value;
-            RemoveAvailable(slot);
-            return true;
-        }
-
-        slot = null;
-        return false;
-    }
-
-    private void AddAvailable(TargetSlot slot)
-    {
-        if (!_availableBuckets.TryGetValue(slot.Size, out LinkedList<TargetSlot>? bucket))
-        {
-            bucket = [];
-            _availableBuckets.Add(slot.Size, bucket);
-        }
-
-        slot.BucketNode = bucket.AddLast(slot);
-        slot.LruNode = _availableLru.AddLast(slot);
-        _retainedBytes = checked(_retainedBytes + slot.ByteSize);
-    }
-
-    private void RemoveAvailable(TargetSlot slot)
-    {
-        if (slot.BucketNode is { } bucketNode
-            && _availableBuckets.TryGetValue(slot.Size, out LinkedList<TargetSlot>? bucket))
-        {
-            bucket.Remove(bucketNode);
-            if (bucket.Count == 0)
-                _availableBuckets.Remove(slot.Size);
-        }
-
-        if (slot.LruNode is { } lruNode)
-            _availableLru.Remove(lruNode);
-
-        if (slot.BucketNode is not null || slot.LruNode is not null)
-            _retainedBytes -= slot.ByteSize;
-        slot.BucketNode = null;
-        slot.LruNode = null;
-    }
-
-    private void TrimIdle(RenderTargetLeaseSession request)
-    {
-        while (_availableLru.First is { } node
-               && _requestEpoch - node.Value.LastUsedEpoch > _options.MaximumIdleRequests)
-        {
-            Evict(node.Value, request, failures: null);
-        }
-    }
-
-    private void TrimToByteBudget(RenderTargetLeaseSession request)
-    {
-        while (_retainedBytes > _options.MaximumRetainedBytes
-               && _availableLru.First is { } node)
-        {
-            Evict(node.Value, request, failures: null);
-        }
-    }
-
-    private void EvictAllAvailable(RenderTargetLeaseSession? request, List<Exception>? failures)
-    {
-        while (_availableLru.First is { } node)
-            Evict(node.Value, request, failures);
-    }
-
-    private void Evict(
-        TargetSlot slot,
-        RenderTargetLeaseSession? request,
-        List<Exception>? failures,
-        RenderTargetLease? failedLease = null)
-    {
-        if (!_ownedSlots.Contains(slot))
-            return;
-
-        RenderTargetLease? liveLease = slot.ActiveLease;
-        if (liveLease is not null)
-        {
-            if (failedLease is not null && !ReferenceEquals(liveLease, failedLease))
-                throw new InvalidOperationException("A stale lease cannot evict another active lease.");
-            liveLease.State = RenderTargetLeaseState.Evicted;
-            slot.ActiveLease = null;
-            _leasedTargets--;
-        }
-        else if (failedLease is
-        {
-            State: RenderTargetLeaseState.Leased
-                         or RenderTargetLeaseState.ReleaseFailed
-                         or RenderTargetLeaseState.Deferred,
-        })
-        {
-            failedLease.State = RenderTargetLeaseState.Evicted;
-            _leasedTargets--;
-        }
-        RemoveAvailable(slot);
-        RemoveOwnedSlot(slot);
-        _evictions++;
-        try
-        {
-            slot.Target.Dispose();
-        }
-        catch (Exception ex)
-        {
-            if (request is not null)
-                request.RecordCleanupFailure(ex);
-            else
-                failures?.Add(ex);
-        }
-    }
-
-    private void RemoveOwnedSlot(TargetSlot slot)
-    {
-        if (!_ownedSlots.Remove(slot))
-            return;
-
-        RemoveAvailable(slot);
-        _knownTargets.Remove(slot.Target);
-        _knownSurfaces.Remove(slot.Surface);
-        _ownedBytes -= slot.ByteSize;
-    }
-
     /// <summary>
     /// Settles a rejected wrapper's own hold on the surface it shares with a live pool slot or with the
     /// caller's destination, so nothing it does later can release that surface out from under them.
@@ -797,190 +684,6 @@ internal sealed class RenderTargetPool : IDisposable
             request.RecordCleanupFailure(cleanup);
         }
     }
-
-    /// <summary>
-    /// Whether <paramref name="target"/>'s backing surface is one this pool or the request already holds.
-    /// </summary>
-    /// <remarks>
-    /// A factory can hand back a fresh target instance wrapping a surface something else is still drawing to.
-    /// Rejecting it is right, but disposing it would take that surface down with it and leave a live pool slot
-    /// or the caller's destination pointing at freed memory, so <see cref="ReleaseRejectedWrapper"/> settles
-    /// the rejection instead.
-    /// </remarks>
-    private bool SharesLiveSurface(RenderTarget target, RenderTargetLeaseSession request)
-    {
-        try
-        {
-            SKSurface surface = target.RawValue;
-            return ReferenceEquals(surface, request.ExternalSurface) || _knownSurfaces.Contains(surface);
-        }
-        catch
-        {
-            // A target that cannot even show its surface shares nothing, so the caller owns its disposal.
-            return false;
-        }
-    }
-
-    private SKSurface ValidateFactoryTarget(
-        RenderTarget target,
-        PixelSize size,
-        RenderTargetLeaseSession request)
-    {
-        if (ReferenceEquals(target, request.ExternalTarget))
-        {
-            throw new InvalidOperationException(
-                "The render-target factory returned the borrowed destination as an owned allocation.");
-        }
-        if (_knownTargets.Contains(target))
-        {
-            throw new InvalidOperationException(
-                "The render-target factory returned a target instance already owned by this pool.");
-        }
-
-        SKSurface surface = ValidateNewSurface(target, size);
-        if (ReferenceEquals(surface, request.ExternalSurface) || _knownSurfaces.Contains(surface))
-        {
-            throw new InvalidOperationException(
-                "The render-target factory returned a backing surface that is already in use.");
-        }
-
-        ValidateContext(surface, request);
-        return surface;
-    }
-
-    private void ValidateReusableSlot(TargetSlot slot, RenderTargetLeaseSession request)
-    {
-        if (!_ownedSlots.Contains(slot)
-            || slot.ActiveLease is not null
-            || slot.Target.IsDisposed)
-        {
-            throw new InvalidOperationException("The pooled render target is no longer reusable.");
-        }
-
-        SKSurface surface = ValidateSurfaceIdentityAndViewport(slot.Target, slot.Size);
-        if (!ReferenceEquals(surface, slot.Surface))
-            throw new InvalidOperationException("A pooled render target changed its backing surface.");
-        ValidateContext(surface, request);
-    }
-
-    private static SKSurface ValidateNewSurface(RenderTarget target, PixelSize size)
-    {
-        SKSurface surface = ValidateSurfaceIdentityAndViewport(target, size);
-        // Snapshot is a GPU read, not a metadata query: on Vulkan it changes Skia's private image
-        // layout before a native pass writes the target. Trust the engine's recorded creation format;
-        // retain inspection for caller-supplied surfaces whose format is not known.
-        if (target.KnownPixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float)
-            return surface;
-
-        using SKImage? image = surface.Snapshot();
-        using SKColorSpace expectedColorSpace = SKColorSpace.CreateSrgbLinear();
-        using SKColorSpace? actualColorSpace = image?.ColorSpace;
-        if (image is null
-            || image.Width != size.Width
-            || image.Height != size.Height
-            || image.ColorType != SKColorType.RgbaF16
-            || image.AlphaType != SKAlphaType.Premul
-            || actualColorSpace is null
-            || !SKColorSpace.Equal(actualColorSpace, expectedColorSpace))
-        {
-            throw new InvalidOperationException(
-                "Pooled render targets must be linear-premultiplied RGBA16F surfaces.");
-        }
-
-        return surface;
-    }
-
-    private static SKSurface ValidateSurfaceIdentityAndViewport(RenderTarget target, PixelSize size)
-    {
-        if (target.IsDisposed || target.Width != size.Width || target.Height != size.Height)
-        {
-            throw new InvalidOperationException(
-                "The render-target factory returned a disposed target or a target whose exact device size is wrong.");
-        }
-
-        target.VerifyAccess();
-        SKSurface surface = target.RawValue;
-        SKRectI deviceClip = surface.Canvas.DeviceClipBounds;
-        if (deviceClip.Left != 0
-            || deviceClip.Top != 0
-            || deviceClip.Width != size.Width
-            || deviceClip.Height != size.Height)
-        {
-            throw new InvalidOperationException(
-                "The render-target surface has an incompatible device viewport.");
-        }
-
-        return surface;
-    }
-
-    private void ValidateContext(SKSurface surface, RenderTargetLeaseSession request)
-    {
-        GRRecordingContext? actualContext = surface.Context;
-        nint actual = actualContext?.Handle ?? 0;
-        if (request.ExpectedContextHandle is { } expected && actual != expected)
-        {
-            throw new InvalidOperationException(
-                "The render-target factory returned a target from an incompatible graphics context.");
-        }
-
-        if (!_hasContext)
-        {
-            _contextIdentity = request.ContextIdentity;
-            _contextHandle = actual;
-            _hasContext = true;
-        }
-        else if (!ReferenceEquals(_contextIdentity, request.ContextIdentity)
-                 || _contextHandle != actual)
-        {
-            throw new InvalidOperationException(
-                "The render-target factory returned targets from incompatible graphics contexts.");
-        }
-
-        _graphicsContext = actualContext;
-    }
-
-    private void VerifyActive(RenderTargetLeaseSession request)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentNullException.ThrowIfNull(request);
-        if (!ReferenceEquals(_activeSession, request) || request.IsDisposed)
-            throw new InvalidOperationException("The render-target allocation session is no longer active.");
-    }
-
-    internal void VerifyLease(RenderTargetLease lease)
-    {
-        if (!ReferenceEquals(lease.Session.Pool, this))
-            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
-        if (lease.State != RenderTargetLeaseState.Leased)
-        {
-            throw new InvalidOperationException(
-                $"The render-target lease has already been discharged as {lease.State}.");
-        }
-
-        TargetSlot slot = lease.Slot;
-        if (!ReferenceEquals(slot.ActiveLease, lease))
-            throw new InvalidOperationException("The render-target lease is stale.");
-    }
-
-    private void VerifyReleasableLease(RenderTargetLease lease)
-    {
-        if (!ReferenceEquals(lease.Session.Pool, this))
-            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
-        if (lease.State is not (RenderTargetLeaseState.Leased or RenderTargetLeaseState.ReleaseFailed))
-        {
-            throw new InvalidOperationException(
-                $"The render-target lease has already been discharged as {lease.State}.");
-        }
-
-        TargetSlot slot = lease.Slot;
-        if (!ReferenceEquals(slot.ActiveLease, lease))
-            throw new InvalidOperationException("The render-target lease is stale.");
-    }
-
-    private bool IsCurrentContext(RenderTargetLeaseSession request)
-        => _hasContext
-           && ReferenceEquals(_contextIdentity, request.ContextIdentity)
-           && _contextGeneration == request.ContextGeneration;
 
     private static long GetByteSize(PixelSize size)
     {
@@ -1059,29 +762,6 @@ internal sealed class RenderTargetPool : IDisposable
         {
             failures.Add(failure);
         }
-    }
-
-    internal sealed class TargetSlot(
-        RenderTarget target,
-        SKSurface surface,
-        PixelSize size,
-        long byteSize)
-    {
-        public RenderTarget Target { get; } = target;
-
-        public SKSurface Surface { get; } = surface;
-
-        public PixelSize Size { get; } = size;
-
-        public long ByteSize { get; } = byteSize;
-
-        public long LastUsedEpoch { get; set; }
-
-        public RenderTargetLease? ActiveLease { get; set; }
-
-        public LinkedListNode<TargetSlot>? BucketNode { get; set; }
-
-        public LinkedListNode<TargetSlot>? LruNode { get; set; }
     }
 
     private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)

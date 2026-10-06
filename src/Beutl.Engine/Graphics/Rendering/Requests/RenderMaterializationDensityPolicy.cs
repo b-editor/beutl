@@ -27,7 +27,7 @@ internal static class RenderMaterializationDensityPolicy
             : BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(logicalBounds, density);
     }
 
-    private static bool RequiresRasterApron(RenderFragmentReference fragment)
+    public static bool RequiresRasterApron(RenderFragmentReference fragment)
     {
         if (fragment.Kind == RenderFragmentKind.OpaqueSource
             && fragment.Payload is OpaqueRenderFragmentPayload opaque)

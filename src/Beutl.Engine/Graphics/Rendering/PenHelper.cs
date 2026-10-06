@@ -100,6 +100,27 @@ public static class PenHelper
         };
     }
 
+    /// <summary>
+    /// Hit-tests a framed source - an image or video frame occupying <paramref name="fillBounds"/> - against its
+    /// fill and the stroke ring the pen paints around the frame.
+    /// </summary>
+    internal static bool HitTestFramedContent(Rect fillBounds, bool hasFill, Pen.Resource? pen, Point point)
+    {
+        if (hasFill && fillBounds.ContainsExclusive(point))
+            return true;
+        if (pen is null || pen.Thickness <= 0)
+            return false;
+        // A negative offset can erase the contour before the stroke is applied.
+        // Increasing stroke thickness cannot bring an empty offset path back.
+        Rect offsetBounds = fillBounds.Inflate(pen.Offset);
+        if (offsetBounds.Width <= 0 || offsetBounds.Height <= 0)
+            return false;
+        float outset = GetRealThickness(pen.StrokeAlignment, pen.Thickness) + pen.Offset;
+        Rect outer = fillBounds.Inflate(outset);
+        Rect inner = outer.Deflate(pen.Thickness);
+        return outer.ContainsExclusive(point) && !inner.ContainsExclusive(point);
+    }
+
     internal static void ConfigureStrokePaint(
         Pen.Resource pen,
         SKPaint paint, Size size,

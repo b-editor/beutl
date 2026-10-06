@@ -66,15 +66,7 @@ internal sealed class RenderRequestCompiler
             var measurements = new Dictionary<RenderRequest, RenderNodeMeasurement>(
                 ReferenceEqualityComparer.Instance);
             ResolveMetadataFamily(request, graph, measurements);
-            int nextStructuralPlanSlot = 0;
-            CompiledRenderRequest compiled = CompileFamily(
-                request,
-                graph,
-                measurements,
-                shaderBudget,
-                ref nextStructuralPlanSlot);
-            _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
-            return compiled;
+            return CompileFamilyAndRetainSlots(request, graph, measurements, shaderBudget);
         }
         catch (Exception ex)
         {
@@ -116,21 +108,30 @@ internal sealed class RenderRequestCompiler
                 [request] = measurement,
             };
             CollectNestedMetadata(graph, measurements);
-            int nextStructuralPlanSlot = 0;
-            CompiledRenderRequest compiled = CompileFamily(
-                request,
-                graph,
-                measurements,
-                shaderBudget,
-                ref nextStructuralPlanSlot);
-            _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
-            return compiled;
+            return CompileFamilyAndRetainSlots(request, graph, measurements, shaderBudget);
         }
         catch (Exception ex)
         {
             FailFamily(request, graph, ex);
             throw;
         }
+    }
+
+    private CompiledRenderRequest CompileFamilyAndRetainSlots(
+        RenderRequest request,
+        RecordedRenderGraph graph,
+        IReadOnlyDictionary<RenderRequest, RenderNodeMeasurement> measurements,
+        SkslBackendBudget shaderBudget)
+    {
+        int nextStructuralPlanSlot = 0;
+        CompiledRenderRequest compiled = CompileFamily(
+            request,
+            graph,
+            measurements,
+            shaderBudget,
+            ref nextStructuralPlanSlot);
+        _structuralPlanCache?.RetainFamilySlots(nextStructuralPlanSlot);
+        return compiled;
     }
 
     private void ResolveMetadataFamily(
@@ -148,6 +149,13 @@ internal sealed class RenderRequestCompiler
         }
 
         request.TransitionTo(RenderRequestState.TargetDependenciesLowered);
+        RenderNodeMeasurement measurement = MeasureRoots(request, graph);
+        request.TransitionTo(RenderRequestState.MetadataResolved);
+        measurements.Add(request, measurement);
+    }
+
+    private static RenderNodeMeasurement MeasureRoots(RenderRequest request, RecordedRenderGraph graph)
+    {
         ImmutableArray<RenderFragmentReference> roots = ResolveRoots(graph);
         // Before anything reads a scope's transform: lowering, region analysis and execution all have to see
         // the one matrix an ambient-composed scope resolves to, not the provisional one recording stored.
@@ -155,10 +163,8 @@ internal sealed class RenderRequestCompiler
         TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
             roots,
             request.Options.TargetDomain);
-        RenderNodeMeasurement measurement = new RegionAnalyzer()
+        return new RegionAnalyzer()
             .ResolveMeasurement(request.Options, roots, targetDependencies);
-        request.TransitionTo(RenderRequestState.MetadataResolved);
-        measurements.Add(request, measurement);
     }
 
     private void CollectNestedMetadata(
@@ -174,13 +180,7 @@ internal sealed class RenderRequestCompiler
             else if (nested.Request.State == RenderRequestState.MetadataResolved)
             {
                 CollectNestedMetadata(nested.Graph, measurements);
-                ImmutableArray<RenderFragmentReference> roots = ResolveRoots(nested.Graph);
-                AmbientScopeTransformResolver.Resolve(roots);
-                TargetDependencyPlan targetDependencies = TargetDependencyLowerer.Lower(
-                    roots,
-                    nested.Request.Options.TargetDomain);
-                measurements[nested.Request] = new RegionAnalyzer()
-                    .ResolveMeasurement(nested.Request.Options, roots, targetDependencies);
+                measurements[nested.Request] = MeasureRoots(nested.Request, nested.Graph);
             }
             else
             {

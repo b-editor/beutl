@@ -39,10 +39,7 @@ internal sealed record RenderNodeCachedValue
         PixelRect semanticDeviceBounds = PixelRect.FromRect(
             bounds.Translate(deviceGridOffset),
             effectiveScale.Value);
-        if (deviceBounds.X > semanticDeviceBounds.X
-            || deviceBounds.Y > semanticDeviceBounds.Y
-            || deviceBounds.Right < semanticDeviceBounds.Right
-            || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
+        if (!DeviceBoundsValidation.Covers(deviceBounds, semanticDeviceBounds))
         {
             throw new ArgumentException(
                 "Cached value device bounds must contain its semantic bounds.",

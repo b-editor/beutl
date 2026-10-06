@@ -80,3 +80,11 @@ internal readonly record struct RequiredRegion
         }
     }
 }
+
+internal enum RequiredRegionKind : byte
+{
+    Uninitialized,
+    Empty,
+    Full,
+    Region,
+}

@@ -231,11 +231,41 @@ internal static class RenderDescriptionValidation
             throw new ArgumentException("A released render resource cannot be declared.", parameterName);
     }
 
-    public static void ThrowIfFiniteNonEmpty(Rect bounds, string parameterName)
+    public static void ThrowUnlessFiniteNonEmpty(Rect bounds, string parameterName)
     {
         RenderRectValidation.ThrowIfInvalidInput(bounds, parameterName);
         if (bounds.Width == 0 || bounds.Height == 0)
             throw new ArgumentException("Bounds must be non-empty.", parameterName);
+    }
+
+    /// <summary>Copies authored input readbacks, rejecting an uninitialized entry.</summary>
+    public static RenderInputReadback[] CopyInputReadbacks(
+        IEnumerable<RenderInputReadback>? inputReadbacks)
+    {
+        if (inputReadbacks is null)
+            return [];
+
+        RenderInputReadback[] result = inputReadbacks.ToArray();
+        foreach (RenderInputReadback inputReadback in result)
+            inputReadback.ThrowIfUninitialized(nameof(inputReadbacks));
+        return result;
+    }
+
+    /// <summary>
+    /// Resolves the declared input readbacks against the authored input count: none declared means no readback
+    /// for any input, otherwise the counts must agree.
+    /// </summary>
+    public static IReadOnlyList<RenderInputReadback> ResolveInputReadbacks(
+        IReadOnlyList<RenderInputReadback> declared,
+        int inputCount,
+        string parameterName,
+        string mismatchMessage)
+    {
+        if (declared.Count == 0)
+            return Enumerable.Repeat(RenderInputReadback.None, inputCount).ToArray();
+        if (declared.Count != inputCount)
+            throw new ArgumentException(mismatchMessage, parameterName);
+        return declared;
     }
 
     private static void ThrowIfExecutionFacadeIdentity(object value, string parameterName)

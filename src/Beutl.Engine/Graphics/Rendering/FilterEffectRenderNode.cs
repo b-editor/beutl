@@ -66,15 +66,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             ? inputBounds
             : context.CalculateRecordedInputBoundsHint();
         IReadOnlyList<RenderFragmentHandle> effectInputs = context.Inputs;
-        bool requiresInputIsolation = false;
-        for (int index = 0; index < effectInputs.Count; index++)
-        {
-            if (effectInputs[index].CanBeUsedAsValueInput)
-                continue;
-
-            requiresInputIsolation = true;
-            break;
-        }
+        bool requiresInputIsolation = AnyInputRequiresIsolation(effectInputs);
 
         bool hasFiniteIsolationDomain = false;
         Rect isolationDomain = default;
@@ -162,120 +154,13 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 ];
             }
 
-            IReadOnlyList<RenderFragmentHandle> current = effectInputs;
-            FilterEffectWorkingScalePolicy? pendingWorkingScalePolicy = resolvedWorkingScalePolicy;
-            var effectItems = new List<IFEItem>();
-            Rect effectItemBounds = default;
-            bool effectItemBoundsInitialized = false;
-            bool opaqueTail = false;
-
-            void AppendEffectItem(IFEItem item, int itemIndex)
-            {
-                if (!effectItemBoundsInitialized)
-                {
-                    effectItemBounds = CalculateRecordedBoundsHint(context, current);
-                    effectItemBoundsInitialized = true;
-                }
-
-                effectItems.Add(item);
-                // A deferred-bound item resolves at execution time; authoring it against the
-                // provisional hint would freeze the wrong matrix, so the segment stays symbolic.
-                if (!effectItemBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
-                    effectItemBounds = item.TransformBounds(effectItemBounds);
-                opaqueTail |= effectItemBounds.IsInvalid;
-            }
-
-            void FlushEffectItems()
-            {
-                if (effectItems.Count == 0 || current.Count == 0)
-                    return;
-
-                Rect segmentInputBounds = CalculateRecordedBoundsHint(context, current);
-                RenderFragmentMetadata[] segmentInputMetadata = RecordedMetadataHints(context, current);
-                Rect[] segmentBufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
-                        segmentInputMetadata.SelectToArray(static item => item.Bounds),
-                        effectItems,
-                        effectItemBounds.IsInvalid ? segmentInputBounds : effectItemBounds);
-                FilterEffectContext? segment = FilterEffectContext.CreateEffectItemSegment(
-                    segmentInputBounds,
-                    context.OutputScale,
-                    ResolveWorkingScale(
-                        segmentInputMetadata,
-                        segmentBufferBounds,
-                        outputScale,
-                        maxWorkingScale,
-                        pendingWorkingScalePolicy),
-                    effectItems);
-                try
-                {
-                    Rect segmentOutputBounds = segment.Bounds;
-                    bool requiresOwningTargetDomain = segmentOutputBounds.IsInvalid;
-                    if (requiresOwningTargetDomain)
-                        segmentOutputBounds = segmentInputBounds;
-                    RenderResource<FilterEffectContext> segmentResource = context.Own(segment);
-                    segment = null;
-                    current =
-                    [
-                        context.FilterEffectSegment(
-                            current,
-                            segmentResource,
-                            segmentOutputBounds,
-                            requiresOwningTargetDomain,
-                            effectItems,
-                            pendingWorkingScalePolicy),
-                    ];
-                    pendingWorkingScalePolicy = null;
-                }
-                finally
-                {
-                    segment?.Dispose();
-                    effectItems.Clear();
-                    effectItemBounds = default;
-                    effectItemBoundsInitialized = false;
-                    opaqueTail = false;
-                }
-            }
-
-            for (int itemIndex = 0; itemIndex < items.Count; itemIndex++)
-            {
-                IFEItem item = items[itemIndex];
-                switch (item)
-                {
-                    case FEItem_Shader shader when !opaqueTail:
-                        FlushEffectItems();
-                        var shaderOutputs = new RenderFragmentHandle[current.Count];
-                        for (int index = 0; index < shaderOutputs.Length; index++)
-                        {
-                            shaderOutputs[index] = context.Shader(
-                                current[index],
-                                shader.Description,
-                                pendingWorkingScalePolicy);
-                        }
-
-                        current = shaderOutputs;
-                        pendingWorkingScalePolicy = null;
-                        break;
-                    case FEItem_Geometry geometry when !opaqueTail:
-                        FlushEffectItems();
-                        var geometryOutputs = new RenderFragmentHandle[current.Count];
-                        for (int index = 0; index < geometryOutputs.Length; index++)
-                        {
-                            geometryOutputs[index] = context.Geometry(
-                                current[index],
-                                geometry.Description,
-                                pendingWorkingScalePolicy);
-                        }
-
-                        current = geometryOutputs;
-                        pendingWorkingScalePolicy = null;
-                        break;
-                    default:
-                        AppendEffectItem(item, itemIndex);
-                        break;
-                }
-            }
-
-            FlushEffectItems();
+            IReadOnlyList<RenderFragmentHandle> current = RecordEffectItems(
+                context,
+                items,
+                effectInputs,
+                resolvedWorkingScalePolicy,
+                outputScale,
+                maxWorkingScale);
             context.PublishRange(current);
             recordingContext.TransferResources();
         }
@@ -283,6 +168,142 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         {
             recordingContext.Dispose();
         }
+    }
+
+    private static bool AnyInputRequiresIsolation(IReadOnlyList<RenderFragmentHandle> inputs)
+    {
+        for (int index = 0; index < inputs.Count; index++)
+        {
+            if (!inputs[index].CanBeUsedAsValueInput)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<RenderFragmentHandle> RecordEffectItems(
+        RenderNodeContext context,
+        IReadOnlyList<IFEItem> items,
+        IReadOnlyList<RenderFragmentHandle> effectInputs,
+        FilterEffectWorkingScalePolicy resolvedWorkingScalePolicy,
+        float outputScale,
+        float maxWorkingScale)
+    {
+        IReadOnlyList<RenderFragmentHandle> current = effectInputs;
+        FilterEffectWorkingScalePolicy? pendingWorkingScalePolicy = resolvedWorkingScalePolicy;
+        var effectItems = new List<IFEItem>();
+        Rect effectItemBounds = default;
+        bool effectItemBoundsInitialized = false;
+        bool opaqueTail = false;
+
+        void AppendEffectItem(IFEItem item)
+        {
+            if (!effectItemBoundsInitialized)
+            {
+                effectItemBounds = CalculateRecordedBoundsHint(context, current);
+                effectItemBoundsInitialized = true;
+            }
+
+            effectItems.Add(item);
+            // A deferred-bound item resolves at execution time; authoring it against the
+            // provisional hint would freeze the wrong matrix, so the segment stays symbolic.
+            if (!effectItemBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+                effectItemBounds = item.TransformBounds(effectItemBounds);
+            opaqueTail |= effectItemBounds.IsInvalid;
+        }
+
+        void FlushEffectItems()
+        {
+            if (effectItems.Count == 0 || current.Count == 0)
+                return;
+
+            Rect segmentInputBounds = CalculateRecordedBoundsHint(context, current);
+            RenderFragmentMetadata[] segmentInputMetadata = RecordedMetadataHints(context, current);
+            Rect[] segmentBufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
+                    segmentInputMetadata.SelectToArray(static item => item.Bounds),
+                    effectItems,
+                    effectItemBounds.IsInvalid ? segmentInputBounds : effectItemBounds);
+            FilterEffectContext? segment = FilterEffectContext.CreateEffectItemSegment(
+                segmentInputBounds,
+                context.OutputScale,
+                ResolveWorkingScale(
+                    segmentInputMetadata,
+                    segmentBufferBounds,
+                    outputScale,
+                    maxWorkingScale,
+                    pendingWorkingScalePolicy),
+                effectItems);
+            try
+            {
+                Rect segmentOutputBounds = segment.Bounds;
+                bool requiresOwningTargetDomain = segmentOutputBounds.IsInvalid;
+                if (requiresOwningTargetDomain)
+                    segmentOutputBounds = segmentInputBounds;
+                RenderResource<FilterEffectContext> segmentResource = context.Own(segment);
+                segment = null;
+                current =
+                [
+                    context.FilterEffectSegment(
+                        current,
+                        segmentResource,
+                        segmentOutputBounds,
+                        requiresOwningTargetDomain,
+                        effectItems,
+                        pendingWorkingScalePolicy),
+                ];
+                pendingWorkingScalePolicy = null;
+            }
+            finally
+            {
+                segment?.Dispose();
+                effectItems.Clear();
+                effectItemBounds = default;
+                effectItemBoundsInitialized = false;
+                opaqueTail = false;
+            }
+        }
+
+        for (int itemIndex = 0; itemIndex < items.Count; itemIndex++)
+        {
+            IFEItem item = items[itemIndex];
+            switch (item)
+            {
+                case FEItem_Shader shader when !opaqueTail:
+                    FlushEffectItems();
+                    var shaderOutputs = new RenderFragmentHandle[current.Count];
+                    for (int index = 0; index < shaderOutputs.Length; index++)
+                    {
+                        shaderOutputs[index] = context.Shader(
+                            current[index],
+                            shader.Description,
+                            pendingWorkingScalePolicy);
+                    }
+
+                    current = shaderOutputs;
+                    pendingWorkingScalePolicy = null;
+                    break;
+                case FEItem_Geometry geometry when !opaqueTail:
+                    FlushEffectItems();
+                    var geometryOutputs = new RenderFragmentHandle[current.Count];
+                    for (int index = 0; index < geometryOutputs.Length; index++)
+                    {
+                        geometryOutputs[index] = context.Geometry(
+                            current[index],
+                            geometry.Description,
+                            pendingWorkingScalePolicy);
+                    }
+
+                    current = geometryOutputs;
+                    pendingWorkingScalePolicy = null;
+                    break;
+                default:
+                    AppendEffectItem(item);
+                    break;
+            }
+        }
+
+        FlushEffectItems();
+        return current;
     }
 
     private static Rect CalculateRecordedBoundsHint(

@@ -164,39 +164,8 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
                                && snapshot is not null
                                && snapshot.Matches(key, inputs);
 
-                if (repeats && snapshot!.IsReplayable && !RenderRecordingCrossCheck.IsEnabled)
-                {
-                    transaction.ReplayRecording(snapshot, inputs);
-                }
-                else
-                {
-                    var context = new RenderNodeContext(transaction);
-#if DEBUG
-                    RecordedNodeShape? crossCheckBaseline = RenderRecordingCrossCheck.CaptureBaseline(
-                        this,
-                        node,
-                        inputs,
-                        repeats ? snapshot : null);
-#endif
-                    node.Process(context);
-#if DEBUG
-                    RenderRecordingCrossCheck.Verify(node, crossCheckBaseline, inputs, transaction);
-#endif
-                }
-
-                bool canCache = transaction.IsRenderCacheEnabled
-                                && node.Cache.CanCapture
-                                && !node.HasChanges
-                                && !node.Cache.IsDisposed;
-                bool cacheDisabled = Request.Options.CachePolicy.IsEnabled && !transaction.IsRenderCacheEnabled;
-                ImmutableArray<RenderFragmentReference> outputs = transaction.Commit();
-                if (cacheDisabled)
-                    Request.DisableCacheForOutputs(outputs);
-                if (canCache)
-                    QueueCacheCandidates(node, outputs);
-                if (_crossCheckProbeDepth == 0)
-                    RetainRecording(key, node, inputs, transaction, snapshot, repeats);
-                return outputs;
+                RecordOrReplay(node, inputs, transaction, snapshot, repeats);
+                return CommitNodeRecording(node, inputs, transaction, key, snapshot, repeats);
             }
             catch (Exception ex)
             {
@@ -209,6 +178,58 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         {
             scope.Dispose();
         }
+    }
+
+    private void RecordOrReplay(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentReference> inputs,
+        NodeRecordingTransaction transaction,
+        RenderNodeRecordingSnapshot? snapshot,
+        bool repeats)
+    {
+        if (repeats && snapshot!.IsReplayable && !RenderRecordingCrossCheck.IsEnabled)
+        {
+            transaction.ReplayRecording(snapshot, inputs);
+        }
+        else
+        {
+            var context = new RenderNodeContext(transaction);
+#if DEBUG
+            RecordedNodeShape? crossCheckBaseline = RenderRecordingCrossCheck.CaptureBaseline(
+                this,
+                node,
+                inputs,
+                repeats ? snapshot : null);
+#endif
+            node.Process(context);
+#if DEBUG
+            RenderRecordingCrossCheck.Verify(node, crossCheckBaseline, inputs, transaction);
+#endif
+        }
+    }
+
+    // The cache flags are read before Commit: IsRenderCacheEnabled reports false once the transaction leaves Active.
+    private ImmutableArray<RenderFragmentReference> CommitNodeRecording(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentReference> inputs,
+        NodeRecordingTransaction transaction,
+        in RenderNodeRecordingKey key,
+        RenderNodeRecordingSnapshot? snapshot,
+        bool repeats)
+    {
+        bool canCache = transaction.IsRenderCacheEnabled
+                        && node.Cache.CanCapture
+                        && !node.HasChanges
+                        && !node.Cache.IsDisposed;
+        bool cacheDisabled = Request.Options.CachePolicy.IsEnabled && !transaction.IsRenderCacheEnabled;
+        ImmutableArray<RenderFragmentReference> outputs = transaction.Commit();
+        if (cacheDisabled)
+            Request.DisableCacheForOutputs(outputs);
+        if (canCache)
+            QueueCacheCandidates(node, outputs);
+        if (_crossCheckProbeDepth == 0)
+            RetainRecording(key, node, inputs, transaction, snapshot, repeats);
+        return outputs;
     }
 
     private void RetainRecording(

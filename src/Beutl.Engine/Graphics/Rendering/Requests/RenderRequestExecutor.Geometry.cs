@@ -246,44 +246,23 @@ internal sealed partial class RenderRequestExecutor
                             bool requiresReadback = inputReadbacks[inputIndex];
                             SKImage image = input.Target.Value.Snapshot();
                             inputImages.Add(image);
-                            Func<Bitmap>? createSnapshot = requiresReadback
-                                ? () => SnapshotInputForReadback(input)
-                                : null;
-                            executionInputs.Add(new RenderExecutionInput(
-                                token,
-                                input.Bounds,
-                                input.EffectiveScale,
-                                input.DeviceBounds,
-                                input.RasterBounds,
-                                image,
-                                createSnapshot));
+                            executionInputs.Add(CreateExecutionInput(token, input, image, requiresReadback));
                         }
 
-                        float density = declaredScale.IsUnbounded
-                            ? RenderScaleUtilities.ResolveWorkingScale(
-                                inputs.SelectToArray(static value => value.EffectiveScale),
-                                _options.OutputScale,
-                                _options.MaxWorkingScale)
-                            : declaredScale.Value;
                         // A source whose rasterization reaches outside the bounds it publishes declares the
                         // extra room here rather than publishing the wider rectangle, which would move it.
                         Thickness rasterOutset = fragment.Kind == RenderFragmentKind.OpaqueSource
                             ? description.Bounds.RasterOutset
                             : default;
-                        density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
-                            outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
-                            density);
                         bool preserveRasterApron = description.HasDirectReplayMaterializationContract
                                                    && fragment.Kind == RenderFragmentKind.OpaqueSource;
-                        density = RenderMaterializationDensityPolicy.Clamp(
+                        float density = ResolveOpaqueWorkingDensity(
                             fragment,
-                            density);
-                        if (preserveRasterApron)
-                        {
-                            density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
-                                outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
-                                density);
-                        }
+                            inputs,
+                            declaredScale,
+                            outputBounds,
+                            rasterOutset,
+                            preserveRasterApron);
 
                         OpaqueRenderSession? session = null;
                         session = new OpaqueRenderSession(
@@ -400,6 +379,36 @@ internal sealed partial class RenderRequestExecutor
                         ReleaseUnpublished(value);
                 }
             }
+        }
+
+        private float ResolveOpaqueWorkingDensity(
+            RenderFragmentReference fragment,
+            IReadOnlyList<MaterializedRenderValue> inputs,
+            EffectiveScale declaredScale,
+            Rect outputBounds,
+            Thickness rasterOutset,
+            bool preserveRasterApron)
+        {
+            float density = declaredScale.IsUnbounded
+                ? RenderScaleUtilities.ResolveWorkingScale(
+                    inputs.SelectToArray(static value => value.EffectiveScale),
+                    _options.OutputScale,
+                    _options.MaxWorkingScale)
+                : declaredScale.Value;
+            density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
+                outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
+                density);
+            density = RenderMaterializationDensityPolicy.Clamp(
+                fragment,
+                density);
+            if (preserveRasterApron)
+            {
+                density = BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToRasterApron(
+                    outputBounds.Inflate(rasterOutset).Translate(_activeDeviceGridOffset),
+                    density);
+            }
+
+            return density;
         }
 
         private IReadOnlyList<MaterializedRenderValue> MaterializeExternal(

@@ -278,17 +278,7 @@ internal sealed partial class RenderRequestExecutor
             {
                 SKImage image = value.Target.Value.Snapshot();
                 images.Add(image);
-                Func<Bitmap>? createSnapshot = requiresReadback
-                    ? () => SnapshotInputForReadback(value)
-                    : null;
-                inputs.Add(new RenderExecutionInput(
-                    token,
-                    value.Bounds,
-                    value.EffectiveScale,
-                    value.DeviceBounds,
-                    value.RasterBounds,
-                    image,
-                    createSnapshot));
+                inputs.Add(CreateExecutionInput(token, value, image, requiresReadback));
             }
 
             return inputs;
@@ -310,20 +300,29 @@ internal sealed partial class RenderRequestExecutor
                 SKImage image = value.Target.Value.Snapshot();
                 images.Add(image);
                 bool requiresReadback = inputReadbacks[index];
-                Func<Bitmap>? createSnapshot = requiresReadback
-                    ? () => SnapshotInputForReadback(value)
-                    : null;
-                inputs.Add(new RenderExecutionInput(
-                    token,
-                    value.Bounds,
-                    value.EffectiveScale,
-                    value.DeviceBounds,
-                    value.RasterBounds,
-                    image,
-                    createSnapshot));
+                inputs.Add(CreateExecutionInput(token, value, image, requiresReadback));
             }
 
             return inputs;
+        }
+
+        private RenderExecutionInput CreateExecutionInput(
+            RenderExecutionSessionToken token,
+            MaterializedRenderValue value,
+            SKImage image,
+            bool requiresReadback)
+        {
+            Func<Bitmap>? createSnapshot = requiresReadback
+                ? () => SnapshotInputForReadback(value)
+                : null;
+            return new RenderExecutionInput(
+                token,
+                value.Bounds,
+                value.EffectiveScale,
+                value.DeviceBounds,
+                value.RasterBounds,
+                image,
+                createSnapshot);
         }
 
         private Bitmap SnapshotInputForReadback(MaterializedRenderValue value)

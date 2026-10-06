@@ -82,3 +82,11 @@ public sealed class OpaqueRenderOutput : IDisposable
             throw new InvalidOperationException("The opaque output lease is no longer active.");
     }
 }
+
+internal enum OpaqueRenderOutputState : byte
+{
+    Active,
+    Published,
+    Discarded,
+    Disposed,
+}

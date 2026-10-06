@@ -44,3 +44,11 @@ internal readonly struct RenderTargetSamplingIntent
             : _consumerContext is not null && producerContext.Handle == _consumerContext.Handle;
     }
 }
+
+internal enum RenderTargetSamplingIntentKind : byte
+{
+    CpuReadback,
+    BackendInterop,
+    SameContextTextureSampling,
+    AsyncCpuReadback,
+}

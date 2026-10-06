@@ -59,7 +59,7 @@ public sealed class MaterializedInputDescription
         if (target.RegistrationState == RenderResourceRegistrationState.Released)
             throw new ArgumentException("A released render-target resource cannot be materialized.", nameof(target));
 
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds, nameof(bounds));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(bounds, nameof(bounds));
         if (effectiveScale.IsUnbounded)
         {
             throw new ArgumentException(

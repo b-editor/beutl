@@ -621,44 +621,25 @@ public sealed class RenderNodeRenderer : IDisposable
 
         IsDisposed = true;
         Exception? primary = null;
-        try
-        {
-            _targetPool.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary = ex;
-        }
-
-        try
-        {
-            _programCache.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
-        }
-
-        try
-        {
-            _spirvProgramCache.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
-        }
-
-        try
-        {
-            _structuralPlanCache.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
-        }
+        DisposeKeepingFirst(_targetPool, ref primary);
+        DisposeKeepingFirst(_programCache, ref primary);
+        DisposeKeepingFirst(_spirvProgramCache, ref primary);
+        DisposeKeepingFirst(_structuralPlanCache, ref primary);
 
         if (primary is not null)
             ExceptionDispatchInfo.Capture(primary).Throw();
+    }
+
+    private static void DisposeKeepingFirst(IDisposable disposable, ref Exception? primary)
+    {
+        try
+        {
+            disposable.Dispose();
+        }
+        catch (Exception ex)
+        {
+            primary ??= ex;
+        }
     }
 
     private CompiledRenderRequest RecordAndCompile(
@@ -884,18 +865,6 @@ public sealed class RenderNodeRenderer : IDisposable
             ExceptionDispatchInfo.Capture(failure).Throw();
         if (failures is { Count: > 1 })
             throw new AggregateException(failures);
-    }
-
-    private static IEnumerable<CompiledRenderRequest> EnumerateFamilyDepthFirst(
-        CompiledRenderRequest request)
-    {
-        foreach (CompiledRenderRequest nested in request.NestedRequests)
-        {
-            foreach (CompiledRenderRequest member in EnumerateFamilyDepthFirst(nested))
-                yield return member;
-        }
-
-        yield return request;
     }
 
     private static void ThrowAfterCleanup(

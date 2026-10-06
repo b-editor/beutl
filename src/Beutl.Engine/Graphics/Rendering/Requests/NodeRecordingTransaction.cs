@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
-internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRenderResourceRecordingScope
+internal sealed partial class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRenderResourceRecordingScope
 {
     private const int RecycledSetSizeLimit = 1024;
     private const int OwnedReferencePoolLimit = 32;
@@ -440,11 +440,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         {
             try
             {
-                RenderResource resource = _resources![index];
-                if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
-                    Request.Options.Owner.ResourceRegistry.Rollback(resource);
-                else
-                    Request.Options.Owner.ResourceRegistry.Release(resource);
+                RollbackOrRelease(_resources![index]);
             }
             catch (Exception ex)
             {
@@ -501,96 +497,6 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
 
     internal void MarkAbsorbedRecording() => AbsorbedRecordingCount++;
 
-    /// <summary>Records the fragments of <paramref name="snapshot"/> again, over the current inputs.</summary>
-    /// <remarks>
-    /// The caller has established that a fresh <see cref="RenderNode.Process(RenderNodeContext)"/> would
-    /// record exactly this. Every fragment is recreated rather than reused: a recorded fragment carries the
-    /// graph identity of the request that committed it, and metadata resolution writes resolved bounds into
-    /// it, so one instance cannot belong to two requests.
-    /// </remarks>
-    internal void ReplayRecording(
-        RenderNodeRecordingSnapshot snapshot,
-        IReadOnlyList<RenderFragmentReference> inputs)
-    {
-        VerifyActive();
-        ArgumentNullException.ThrowIfNull(snapshot);
-        ReplayedRenderFragment[] fragments = snapshot.Fragments
-            ?? throw new InvalidOperationException("The recording snapshot cannot be replayed.");
-
-        _cacheDisabled |= snapshot.DisabledRenderCache;
-        if (fragments.Length == 0)
-        {
-            ReplaySlots(snapshot, [], inputs);
-            return;
-        }
-
-        // Pure scratch - nothing reads it once this method returns - which is what lets it come from a pool.
-        // Rent hands each caller a buffer of its own, so a replay nested inside another cannot take the one
-        // its caller is still indexing.
-        ArrayPool<RenderFragmentReference> pool = ReplayScratchPool;
-        RenderFragmentReference[] rented = pool.Rent(fragments.Length);
-        try
-        {
-            // Rent may hand back a longer buffer; slicing keeps an out-of-range slot a bounds failure rather
-            // than a read of whatever the previous renter left past the end.
-            Span<RenderFragmentReference> replayed = rented.AsSpan(0, fragments.Length);
-            _fragments.EnsureCapacity(_fragments.Count + fragments.Length);
-            for (int index = 0; index < fragments.Length; index++)
-            {
-                ReplayedRenderFragment fragment = fragments[index];
-                int[] slots = fragment.InputSlots;
-                ImmutableArray<RenderFragmentReference> fragmentInputs;
-                if (slots.Length == 0)
-                {
-                    fragmentInputs = [];
-                }
-                else
-                {
-                    // Retained as the clone's Inputs, so it gets an array of its own rather than the scratch.
-                    var resolved = new RenderFragmentReference[slots.Length];
-                    for (int slotIndex = 0; slotIndex < slots.Length; slotIndex++)
-                        resolved[slotIndex] = ResolveSlot(slots[slotIndex], replayed, inputs);
-                    fragmentInputs = ImmutableCollectionsMarshal.AsImmutableArray(resolved);
-                }
-
-                RenderFragmentReference reference = fragment.Template.CloneForReplay(fragmentInputs);
-                replayed[index] = reference;
-                OwnedReferences.Add(reference);
-                _fragments.Add(new RecordedRenderFragmentEntry(reference, fragment.Origin, fragment.Role));
-                _hasOwnTargetEffectFragment |= IsTargetEffect(reference.Kind);
-            }
-
-            ReplaySlots(snapshot, replayed, inputs);
-        }
-        finally
-        {
-            pool.Return(rented, clearArray: true);
-        }
-    }
-
-    private void ReplaySlots(
-        RenderNodeRecordingSnapshot snapshot,
-        ReadOnlySpan<RenderFragmentReference> replayed,
-        IReadOnlyList<RenderFragmentReference> inputs)
-    {
-        foreach (int slot in snapshot.DroppedSlots ?? [])
-        {
-            (_dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance))
-                .Add(ResolveSlot(slot, replayed, inputs));
-        }
-
-        int[] publicationSlots = snapshot.PublicationSlots ?? [];
-        _publications.EnsureCapacity(_publications.Count + publicationSlots.Length);
-        foreach (int slot in publicationSlots)
-            _publications.Add(ResolveSlot(slot, replayed, inputs));
-    }
-
-    private static RenderFragmentReference ResolveSlot(
-        int slot,
-        ReadOnlySpan<RenderFragmentReference> replayed,
-        IReadOnlyList<RenderFragmentReference> inputs)
-        => slot >= 0 ? replayed[slot] : inputs[-slot - 1];
-
     public void Rollback(Exception primaryFailure)
     {
         ArgumentNullException.ThrowIfNull(primaryFailure);
@@ -608,11 +514,7 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         {
             try
             {
-                RenderResource resource = _resources![index];
-                if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
-                    Request.Options.Owner.ResourceRegistry.Rollback(resource);
-                else
-                    Request.Options.Owner.ResourceRegistry.Release(resource);
+                RollbackOrRelease(_resources![index]);
             }
             catch (Exception ex)
             {
@@ -634,6 +536,15 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         }
 
         Request.Options.Owner.ThrowIfFailed();
+    }
+
+    // A resource still pending registration is rolled back; one already registered is released.
+    private void RollbackOrRelease(RenderResource resource)
+    {
+        if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+            Request.Options.Owner.ResourceRegistry.Rollback(resource);
+        else
+            Request.Options.Owner.ResourceRegistry.Release(resource);
     }
 
     public void VerifyActive()
@@ -733,58 +644,6 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         }
     }
 
-    private void ValidateRecordedInvariants()
-    {
-        InvariantScratch scratch = RentScratch();
-        try
-        {
-            HashSet<RenderFragmentReference> reachable = scratch.Reachable;
-            HashSet<RenderFragmentReference> fanOutRestricted = scratch.FanOutRestricted;
-            foreach (RenderFragmentReference publication in _publications)
-                reachable.Add(publication);
-
-            // A fragment's inputs are already owned when it is created and a child's entries are absorbed at
-            // its commit, so _fragments is in creation order. Nothing recorded earlier can make a later entry
-            // reachable, which is what lets one backward sweep settle reachability and fan-out together.
-            bool fanOutViolation = false;
-            for (int index = _fragments.Count - 1; index >= 0; index--)
-            {
-                RenderFragmentReference reference = _fragments[index].Reference;
-                if (!reachable.Contains(reference))
-                    continue;
-
-                foreach (RenderFragmentReference input in reference.Inputs)
-                {
-                    reachable.Add(input);
-
-                    // Only a fragment barred from fan-out can fail the check, so the rest never enter the set.
-                    if (!input.AllowsFanOut && !fanOutRestricted.Add(input))
-                        fanOutViolation = true;
-                }
-            }
-
-            // The orphan diagnostic keeps precedence over fan-out, so the sweep records rather than throws.
-            if (_hasOwnTargetEffectFragment)
-                ValidateNoOrphanedTargetEffects(reachable);
-
-            foreach (RenderFragmentReference publication in _publications)
-            {
-                if (!publication.AllowsFanOut && !fanOutRestricted.Add(publication))
-                    fanOutViolation = true;
-            }
-
-            if (fanOutViolation)
-            {
-                throw new InvalidOperationException(
-                    "A target-effect render fragment cannot be consumed or published more than once.");
-            }
-        }
-        finally
-        {
-            ReturnScratch(scratch);
-        }
-    }
-
     // Transactions nest but never overlap their ownership sets: a child rents at construction and returns at
     // its own commit, all inside the parent's recording.
     private static HashSet<RenderFragmentReference> RentOwnedReferences()
@@ -808,71 +667,6 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         if (pool.Count < OwnedReferencePoolLimit)
             pool.Push(owned);
     }
-
-    private static InvariantScratch RentScratch()
-    {
-        InvariantScratch? scratch = t_scratch;
-        if (scratch is null)
-        {
-            t_scratch = scratch = new InvariantScratch();
-        }
-        else if (scratch.Rented)
-        {
-            // The sweep runs no user code, so an overlapping rent is not expected. Private sets keep the
-            // sharing an allocation win rather than a correctness assumption.
-            return new InvariantScratch { Rented = true };
-        }
-
-        scratch.Rented = true;
-        return scratch;
-    }
-
-    private static void ReturnScratch(InvariantScratch scratch)
-    {
-        int peak = Math.Max(scratch.Reachable.Count, scratch.FanOutRestricted.Count);
-        scratch.Reachable.Clear();
-        scratch.FanOutRestricted.Clear();
-
-        // Clear keeps the buckets a warm thread already sized, which is the point of pooling. One outsized
-        // commit must not pin that capacity for the life of the thread.
-        if (peak > RecycledSetSizeLimit)
-        {
-            scratch.Reachable.TrimExcess();
-            scratch.FanOutRestricted.TrimExcess();
-        }
-
-        scratch.Rented = false;
-    }
-
-    // Drop is not transitive and a parent never receives handles to a child's internal fragments.
-    private void ValidateNoOrphanedTargetEffects(
-        HashSet<RenderFragmentReference> reachable)
-    {
-        foreach (RecordedRenderFragmentEntry entry in _fragments)
-        {
-            RenderFragmentReference reference = entry.Reference;
-            if (!ReferenceEquals(entry.Origin, _origin)
-                || !IsTargetEffect(reference.Kind)
-                || reachable.Contains(reference)
-                || _dropped?.Contains(reference) == true)
-            {
-                continue;
-            }
-
-            throw new InvalidOperationException(
-                "A recorded target-effect fragment was neither published nor consumed. "
-                + "Publish it, wrap it in a fragment you publish, or call Drop to abandon it "
-                + $"deliberately. Fragment kind: {reference.Kind}; recorded by: "
-                + $"{entry.Origin.GetType().FullName}.");
-        }
-    }
-
-    private static bool IsTargetEffect(RenderFragmentKind kind)
-        => kind is RenderFragmentKind.TargetCommand
-            or RenderFragmentKind.RawTargetCommand
-            or RenderFragmentKind.TargetScope
-            or RenderFragmentKind.RawTargetScope
-            or RenderFragmentKind.TargetLayerScope;
 
     private void PublishCore(RenderFragmentReference reference)
     {
@@ -910,16 +704,6 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
         VerifyActive();
         OwnedReferences.Add(reference);
         return new RenderFragmentHandle(this, reference);
-    }
-
-    private sealed class InvariantScratch
-    {
-        public HashSet<RenderFragmentReference> Reachable { get; } = new(ReferenceEqualityComparer.Instance);
-
-        public HashSet<RenderFragmentReference> FanOutRestricted { get; } =
-            new(ReferenceEqualityComparer.Instance);
-
-        public bool Rented { get; set; }
     }
 }
 
