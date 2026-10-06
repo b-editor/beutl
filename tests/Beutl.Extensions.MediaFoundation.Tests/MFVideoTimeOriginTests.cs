@@ -43,6 +43,21 @@ public class MFVideoTimeOriginTests
         Assert.That(Read(file, 2_000_000), Is.Zero);
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    public void MultipleEnabledVideoTracks_KeepTheOriginalAudioOrigin(int firstEdit)
+    {
+        // MF's selected video need not be the first enabled MP4 track. Without
+        // its track identity, mixing another track's trim with its PTS is unsafe.
+        byte[] file = Mp4(Track(new[] { firstEdit * 100L }), Track(new[] { 200L }));
+        Assert.That(Read(file, 2_000_000), Is.Zero);
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    public void EmptyEditAfterMedia_RejectsTheNonlinearTimeline(int version)
+        => Assert.That(Read(Mp4(Track(new[] { -1L, 100L, -1L }, version: version)), 2_000_000), Is.Zero);
+
     [Test]
     public void LargeMediaPayload_IsSkippedAndExtendedSizeMetadataIsRead()
     {

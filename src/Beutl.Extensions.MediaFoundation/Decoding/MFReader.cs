@@ -51,11 +51,13 @@ public class MFReader : MediaReader
         MFDecodingExtension extension,
         Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
         Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader,
-        Func<string, bool>? hasAudioStream = null)
+        Func<string, bool>? hasAudioStream = null,
+        Func<string, long>? getFirstVideoTimestamp = null)
     {
         ArgumentNullException.ThrowIfNull(createVideoDecoder);
         ArgumentNullException.ThrowIfNull(createAudioReader);
         hasAudioStream ??= MFStreamProbe.HasAudioStream;
+        getFirstVideoTimestamp ??= MFStreamProbe.GetFirstVideoTimestamp;
 
         _file = file;
         _options = options;
@@ -100,7 +102,20 @@ public class MFReader : MediaReader
                     });
                     _waveFormat = _audioReader.WaveFormat;
 
-                    long firstVideoTimestamp = _decoder?.FirstVideoTimestamp ?? MFStreamProbe.GetFirstVideoTimestamp(_file);
+                    long firstVideoTimestamp = _decoder?.FirstVideoTimestamp ?? 0;
+                    if (_decoder == null)
+                    {
+                        try
+                        {
+                            firstVideoTimestamp = getFirstVideoTimestamp(_file);
+                        }
+                        catch (Exception ex) when (ex is SharpGen.Runtime.SharpGenException or COMException)
+                        {
+                            // Timestamp calibration is optional. A broken video
+                            // stream must not discard an already usable audio reader.
+                            _logger.LogDebug(ex, "Failed to probe the video time origin; keeping the original audio origin.");
+                        }
+                    }
                     long audioStartTime = MFVideoTimeOrigin.GetAudioStartTime(_file, firstVideoTimestamp);
                     _audioStartSample = checked((long)((Int128)audioStartTime * _waveFormat.SampleRate / TimeSpan.TicksPerSecond));
 

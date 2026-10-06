@@ -33,13 +33,26 @@ internal static class MFStreamProbe
 
         sourceReader.SetStreamSelection(SourceReaderIndex.AllStreams, false);
         sourceReader.SetStreamSelection(stream, true);
-        while (true)
+        return ReadFirstVideoTimestamp(() =>
         {
             // Read the compressed sample: an Audio-only open does not need to
             // initialize a video decoder just to use the same time origin.
             using var sample = sourceReader.ReadSample(stream, SourceReaderControlFlag.None,
                 out _, out var flags, out long timestamp);
-            if (sample != null)
+            return (sample != null, flags, timestamp);
+        });
+    }
+
+    internal static long ReadFirstVideoTimestamp(Func<(bool HasSample, SourceReaderFlag Flags, long Timestamp)> readSample)
+    {
+        while (true)
+        {
+            var (hasSample, flags, timestamp) = readSample();
+            // MF can return success with an error flag. Its reader must not be
+            // called again after that, even when this result includes a sample.
+            if (flags.HasFlag(SourceReaderFlag.Error))
+                return 0;
+            if (hasSample)
                 return timestamp;
             if (flags.HasFlag(SourceReaderFlag.EndOfStream))
                 return 0;

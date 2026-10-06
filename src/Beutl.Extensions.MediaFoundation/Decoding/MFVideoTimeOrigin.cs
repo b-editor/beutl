@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -42,62 +42,56 @@ internal static class MFVideoTimeOrigin
         try
         {
             Box moov = FindBox(stream, 0, stream.Length, FourCC.Moov) ?? throw new InvalidDataException();
-            foreach (Box track in Boxes(stream, moov.DataStart, moov.End))
+            var video = FindSingleVideoTrack(stream, moov);
+            if (video is not { } selected)
+                return 0;
+            var (track, mdia) = selected;
+
+            Box? edits = FindBox(stream, track.DataStart, track.End, FourCC.Edts);
+            Box? list = edits is { } edts ? FindBox(stream, edts.DataStart, edts.End, FourCC.Elst) : null;
+            if (list is not { } elst)
+                return firstVideoTimestamp;
+
+            Box mdhd = FindBox(stream, mdia.DataStart, mdia.End, FourCC.Mdhd) ?? throw new InvalidDataException();
+            uint headerVersion = ReadUInt32(stream, mdhd.DataStart, mdhd.End) >> 24;
+            if (headerVersion > 1)
+                return 0;
+            uint scale = ReadUInt32(stream, mdhd.DataStart + (headerVersion == 1 ? 20 : 12), mdhd.End);
+            if (scale == 0)
+                return 0;
+
+            uint version = ReadUInt32(stream, elst.DataStart, elst.End) >> 24;
+            if (version > 1)
+                return 0;
+            uint count = ReadUInt32(stream, elst.DataStart + 4, elst.End);
+            int entrySize = version == 1 ? 20 : 12;
+            long entriesStart = elst.DataStart + 8;
+            if (count == 0 || count > (elst.End - entriesStart) / entrySize)
+                return 0;
+            long? mediaStart = null;
+            for (uint i = 0; i < count; i++)
             {
-                if (track.Type != FourCC.Trak)
-                    continue;
-                Box? header = FindBox(stream, track.DataStart, track.End, FourCC.Tkhd);
-                if (header is { } tkhd && (ReadUInt32(stream, tkhd.DataStart, tkhd.End) & 1) == 0)
-                    continue; // Disabled tracks are not the selected MF video stream.
-                Box? media = FindBox(stream, track.DataStart, track.End, FourCC.Mdia);
-                if (media is not { } mdia)
-                    continue;
-                Box? handler = FindBox(stream, mdia.DataStart, mdia.End, FourCC.Hdlr);
-                if (handler is not { } hdlr || (FourCC)ReadUInt32(stream, hdlr.DataStart + 8, hdlr.End) != FourCC.Vide)
-                    continue;
-
-                Box? edits = FindBox(stream, track.DataStart, track.End, FourCC.Edts);
-                Box? list = edits is { } edts ? FindBox(stream, edts.DataStart, edts.End, FourCC.Elst) : null;
-                if (list is not { } elst)
-                    return firstVideoTimestamp;
-
-                Box mdhd = FindBox(stream, mdia.DataStart, mdia.End, FourCC.Mdhd) ?? throw new InvalidDataException();
-                uint headerVersion = ReadUInt32(stream, mdhd.DataStart, mdhd.End) >> 24;
-                if (headerVersion > 1)
-                    return 0;
-                uint scale = ReadUInt32(stream, mdhd.DataStart + (headerVersion == 1 ? 20 : 12), mdhd.End);
-                if (scale == 0)
-                    return 0;
-
-                uint version = ReadUInt32(stream, elst.DataStart, elst.End) >> 24;
-                if (version > 1)
-                    return 0;
-                uint count = ReadUInt32(stream, elst.DataStart + 4, elst.End);
-                int entrySize = version == 1 ? 20 : 12;
-                long entriesStart = elst.DataStart + 8;
-                if (count == 0 || count > (elst.End - entriesStart) / entrySize)
-                    return 0;
-                long? mediaStart = null;
-                for (uint i = 0; i < count; i++)
+                long position = entriesStart + i * (long)entrySize;
+                long time = version == 1
+                    ? unchecked((long)ReadUInt64(stream, position + 8, elst.End))
+                    : unchecked((int)ReadUInt32(stream, position + 4, elst.End));
+                if (ReadUInt32(stream, position + entrySize - 4, elst.End) != 0x00010000)
+                    return 0; // Dwell/rate edits need more than a constant seek offset.
+                if (time == -1)
                 {
-                    long position = entriesStart + i * (long)entrySize;
-                    long time = version == 1
-                        ? unchecked((long)ReadUInt64(stream, position + 8, elst.End))
-                        : unchecked((int)ReadUInt32(stream, position + 4, elst.End));
-                    if (ReadUInt32(stream, position + entrySize - 4, elst.End) != 0x00010000)
-                        return 0; // Dwell/rate edits need more than a constant seek offset.
-                    if (time == -1)
-                        continue; // MF already starts video at the first media sample.
-                    if (time < 0 || mediaStart.HasValue)
-                        return 0; // Multiple media segments cannot be mapped by one offset.
-                    mediaStart = time;
+                    if (mediaStart.HasValue)
+                        return 0; // A trailing gap is not a constant start offset.
+                    continue; // Only leading empty edits can be ignored.
                 }
-
-                if (mediaStart is not { } start)
-                    return 0;
-                long trim = checked((long)((Int128)start * TimeSpan.TicksPerSecond / scale));
-                return Math.Max(0, firstVideoTimestamp - trim);
+                if (time < 0 || mediaStart.HasValue)
+                    return 0; // Multiple media segments cannot be mapped by one offset.
+                mediaStart = time;
             }
+
+            if (mediaStart is not { } start)
+                return 0;
+            long trim = checked((long)((Int128)start * TimeSpan.TicksPerSecond / scale));
+            return Math.Max(0, firstVideoTimestamp - trim);
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or OverflowException)
         {
@@ -127,6 +121,31 @@ internal static class MFVideoTimeOrigin
     }
 
     private readonly record struct Box(FourCC Type, long DataStart, long End);
+
+    private static (Box Track, Box Media)? FindSingleVideoTrack(Stream stream, Box moov)
+    {
+        (Box Track, Box Media)? result = null;
+        foreach (Box track in Boxes(stream, moov.DataStart, moov.End))
+        {
+            if (track.Type != FourCC.Trak)
+                continue;
+            Box? header = FindBox(stream, track.DataStart, track.End, FourCC.Tkhd);
+            if (header is { } tkhd && (ReadUInt32(stream, tkhd.DataStart, tkhd.End) & 1) == 0)
+                continue;
+            Box? media = FindBox(stream, track.DataStart, track.End, FourCC.Mdia);
+            if (media is not { } mdia)
+                continue;
+            Box? handler = FindBox(stream, mdia.DataStart, mdia.End, FourCC.Hdlr);
+            if (handler is not { } hdlr || (FourCC)ReadUInt32(stream, hdlr.DataStart + 8, hdlr.End) != FourCC.Vide)
+                continue;
+            // Without a native stream-to-track identity, multiple enabled video
+            // tracks could supply a timestamp and trim from different streams.
+            if (result.HasValue)
+                return null;
+            result = (track, mdia);
+        }
+        return result;
+    }
 
     private static Box? FindBox(Stream stream, long start, long end, FourCC type)
     {
