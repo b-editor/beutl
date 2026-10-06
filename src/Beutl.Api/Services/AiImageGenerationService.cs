@@ -36,43 +36,60 @@ internal sealed class AiImageGenerationService(
             backgroundValue.Length > 0 && backgroundValue != "auto" ? backgroundValue : null;
 
         if (request.References.Count == 0)
-        {
-            var body = new CreateAiImageRequest
-            {
-                Prompt = request.Prompt,
-                AspectRatio = request.AspectRatio.Value,
-                Background = background,
-                Seed = request.Seed,
-                Model = request.Model?.Value,
-            };
-            if (progress is null)
-            {
-                return await ExecuteAsync(
-                    "AiImageGenerationService.Generate",
-                    (authorization, token) => Application.Ai.CreateImage(
-                        authorization,
-                        idempotencyKey,
-                        body,
-                        token),
-                    AiModelMapper.ToModel,
-                    cancellationToken,
-                    activity => SetImageTags(activity, request));
-            }
+            return await GeneratePromptOnlyAsync(request, progress, idempotencyKey, background, cancellationToken);
 
-            var previewBudget = new ImagePreviewBudget();
-            return await ExecuteStreamingAsync(
+        return await GenerateFromReferencesAsync(request, idempotencyKey, background, cancellationToken);
+    }
+
+    private async Task<AiImageResult> GeneratePromptOnlyAsync(
+        AiImageGenerationRequest request,
+        IProgress<AiImagePreview>? progress,
+        string idempotencyKey,
+        string? background,
+        CancellationToken cancellationToken)
+    {
+        var body = new CreateAiImageRequest
+        {
+            Prompt = request.Prompt,
+            AspectRatio = request.AspectRatio.Value,
+            Background = background,
+            Seed = request.Seed,
+            Model = request.Model?.Value,
+        };
+        if (progress is null)
+        {
+            return await ExecuteAsync(
                 "AiImageGenerationService.Generate",
-                () => JsonRequest("/api/v3/ai/images", idempotencyKey, body),
-                item => ReportImagePreview(item, progress, previewBudget),
-                data => AiModelMapper.ToModel(
-                    JsonSerializer.Deserialize<AiImageResponse>(
-                        data,
-                        AiStreamJson.Options)
-                    ?? throw new AiException("The AI image result was empty.")),
+                (authorization, token) => Application.Ai.CreateImage(
+                    authorization,
+                    idempotencyKey,
+                    body,
+                    token),
+                AiModelMapper.ToModel,
                 cancellationToken,
                 activity => SetImageTags(activity, request));
         }
 
+        var previewBudget = new ImagePreviewBudget();
+        return await ExecuteStreamingAsync(
+            "AiImageGenerationService.Generate",
+            () => JsonRequest("/api/v3/ai/images", idempotencyKey, body),
+            item => ReportImagePreview(item, progress, previewBudget),
+            data => AiModelMapper.ToModel(
+                JsonSerializer.Deserialize<AiImageResponse>(
+                    data,
+                    AiStreamJson.Options)
+                ?? throw new AiException("The AI image result was empty.")),
+            cancellationToken,
+            activity => SetImageTags(activity, request));
+    }
+
+    private async Task<AiImageResult> GenerateFromReferencesAsync(
+        AiImageGenerationRequest request,
+        string idempotencyKey,
+        string? background,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         // Every reference is held open for the whole upload, so they are opened
         // together and closed together — one that failed to open must not leave
@@ -80,25 +97,12 @@ internal sealed class AiImageGenerationService(
         var streams = new List<Stream>(request.References.Count);
         try
         {
-            var referenceParts = new List<StreamPart>(request.References.Count);
-            foreach (AiUploadSource reference in request.References)
-            {
-                Stream stream = await AiUploadValidation.OpenAsync(
-                    reference,
-                    AiRequestLimits.MaxImageUploadBytes,
-                    cancellationToken);
-                streams.Add(stream);
-                if (streams.Sum(value => value.Length - value.Position)
-                    > request.ReferenceLimits.MaxTotalBytes)
-                {
-                    throw new AiFileTooLargeException();
-                }
-                referenceParts.Add(AiMultipartFormData.File(
-                    stream,
-                    reference.FileName,
-                    reference.MediaType,
-                    "reference[]"));
-            }
+            List<StreamPart> referenceParts = await OpenReferencePartsAsync(
+                request.References,
+                AiRequestLimits.MaxImageUploadBytes,
+                request.ReferenceLimits.MaxTotalBytes,
+                streams,
+                cancellationToken);
 
             return await ExecuteAsync(
                 "AiImageGenerationService.GenerateFromReferences",

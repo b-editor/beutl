@@ -70,7 +70,7 @@ internal readonly record struct AiOperationCapabilitySchemaSnapshot(
     public AiModelCapabilitySchema GetSchema(AiOperationId operation)
         => Schemas.GetValueOrDefault(operation, GetBuiltInSchema(operation));
 
-    private static AiModelCapabilitySchema GetBuiltInSchema(AiOperationId operation)
+    internal static AiModelCapabilitySchema GetBuiltInSchema(AiOperationId operation)
     {
         if (operation == AiOperations.VideoGeneration || operation == AiOperations.VideoEditing
             || operation == AiOperations.VideoExtension || operation == AiOperations.VideoMotion)
@@ -91,6 +91,11 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
 {
     private static readonly ILogger s_logger =
         Log.CreateLogger<AiOperationCapabilitySchemaRegistry>();
+    private static readonly AiOperationCapabilitySchemaRegistrationMode[] s_compositionPhases =
+    [
+        AiOperationCapabilitySchemaRegistrationMode.Add,
+        AiOperationCapabilitySchemaRegistrationMode.Replace,
+    ];
     private readonly IExtensionRegistry _extensions;
     private readonly Action<string, Exception> _reportFailure;
     private readonly object _compositionGate = new();
@@ -189,51 +194,12 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
 
         var failures = new Dictionary<SchemaCandidate, Exception>(
             ReferenceEqualityComparer.Instance);
-        Dictionary<AiOperationId, AiModelCapabilitySchema> accepted;
-        while (true)
-        {
-            accepted = [];
-            var newFailures = new Dictionary<SchemaCandidate, (Exception Exception, int Phase)>(
-                ReferenceEqualityComparer.Instance);
-            AiOperationCapabilitySchemaRegistrationMode[] phases =
-            [
-                AiOperationCapabilitySchemaRegistrationMode.Add,
-                AiOperationCapabilitySchemaRegistrationMode.Replace,
-            ];
-            for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
-            {
-                AiOperationCapabilitySchemaRegistrationMode phase = phases[phaseIndex];
-                foreach (SchemaCandidate candidate in candidates)
-                {
-                    if (failures.ContainsKey(candidate) || newFailures.ContainsKey(candidate))
-                        continue;
-
-                    try
-                    {
-                        var working = new Dictionary<AiOperationId, AiModelCapabilitySchema>(
-                            accepted);
-                        foreach (AiOperationCapabilitySchemaRegistration registration
-                                 in candidate.Registrations.Where(item => item.Mode == phase))
-                        {
-                            Apply(registration, working);
-                        }
-                        accepted = working;
-                    }
-                    catch (Exception ex)
-                    {
-                        newFailures.Add(candidate, (ex, phaseIndex));
-                    }
-                }
-            }
-
-            if (newFailures.Count == 0)
-                break;
-
-            int latestPhase = newFailures.Values.Max(failure => failure.Phase);
-            KeyValuePair<SchemaCandidate, (Exception Exception, int Phase)> rejected =
-                newFailures.First(failure => failure.Value.Phase == latestPhase);
-            failures.TryAdd(rejected.Key, rejected.Value.Exception);
-        }
+        Dictionary<AiOperationId, AiModelCapabilitySchema> accepted = TwoPhaseComposition.Compose(
+            candidates,
+            static candidate => candidate,
+            failures,
+            static () => new Dictionary<AiOperationId, AiModelCapabilitySchema>(),
+            ApplyCandidatePhase);
 
         ImmutableDictionary<AiOperationId, AiModelCapabilitySchema> next =
             accepted.ToImmutableDictionary();
@@ -256,6 +222,23 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
             ReportFailure(extensionType, failure);
         foreach ((SchemaCandidate candidate, Exception failure) in failures)
             ReportFailure(candidate.ExtensionType, failure);
+    }
+
+    // Each phase applies to a copy, so a candidate that throws part-way leaves the accepted schemas untouched.
+    private static Dictionary<AiOperationId, AiModelCapabilitySchema> ApplyCandidatePhase(
+        Dictionary<AiOperationId, AiModelCapabilitySchema> accepted,
+        SchemaCandidate candidate,
+        int phaseIndex)
+    {
+        AiOperationCapabilitySchemaRegistrationMode phase = s_compositionPhases[phaseIndex];
+        var working = new Dictionary<AiOperationId, AiModelCapabilitySchema>(
+            accepted);
+        foreach (AiOperationCapabilitySchemaRegistration registration
+                 in candidate.Registrations.Where(item => item.Mode == phase))
+        {
+            Apply(registration, working);
+        }
+        return working;
     }
 
     private List<SchemaCandidate> ReadCommittedCandidates(
@@ -315,7 +298,8 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
         Dictionary<AiOperationId, AiModelCapabilitySchema> schemas)
     {
         bool exists = schemas.ContainsKey(registration.Operation)
-            || GetBuiltInSchema(registration.Operation) != AiModelCapabilitySchema.Generic;
+            || AiOperationCapabilitySchemaSnapshot.GetBuiltInSchema(registration.Operation)
+                != AiModelCapabilitySchema.Generic;
         if (registration.Mode == AiOperationCapabilitySchemaRegistrationMode.Add && exists)
         {
             throw new ArgumentException(
@@ -328,20 +312,6 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
         }
 
         schemas[registration.Operation] = registration.Schema;
-    }
-
-    private static AiModelCapabilitySchema GetBuiltInSchema(AiOperationId operation)
-    {
-        if (operation == AiOperations.VideoGeneration || operation == AiOperations.VideoEditing
-            || operation == AiOperations.VideoExtension || operation == AiOperations.VideoMotion)
-            return AiModelCapabilitySchema.Video;
-        if (operation == AiOperations.ImageGeneration
-            || operation.Value.StartsWith("image.edit.", StringComparison.Ordinal))
-        {
-            return AiModelCapabilitySchema.Image;
-        }
-
-        return AiModelCapabilitySchema.Generic;
     }
 
     private void NotifyChanged()

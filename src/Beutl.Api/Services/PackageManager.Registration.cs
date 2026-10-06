@@ -18,23 +18,9 @@ public sealed partial class PackageManager
         IEnumerable<Type> extensionTypes)
     {
         List<Extension> extensions = [];
-        ExtensionRemoval? rollbackRemoval = null;
         var addedToProvider = false;
         var addedToLoadedPackages = false;
-        bool alreadyKnown;
-        lock (_packageLifecycleGate)
-        {
-            alreadyKnown = _loadingPackages.Contains(package.LocalId)
-                           || _unloadOperations.ContainsKey(package.LocalId)
-                           || _quarantinedPackages.Contains(package.LocalId)
-                           || _loadedPackages.ContainsKey(package.LocalId);
-            if (!alreadyKnown)
-            {
-                _loadingPackages.Add(package.LocalId);
-            }
-        }
-
-        if (alreadyKnown)
+        if (!TryBeginLoading(package))
         {
             // The caller resolved the package's assemblies into a collectible
             // context before this could be known. Nothing will ever reference
@@ -78,59 +64,93 @@ public sealed partial class PackageManager
         }
         catch (Exception loadFailure)
         {
-            if (loadFailure is ExtensionRegistrationNotificationException registrationFailure)
+            RollBackFailedRegistration(
+                package,
+                extensions,
+                loadContext,
+                loadFailure,
+                addedToProvider,
+                addedToLoadedPackages);
+            throw;
+        }
+    }
+
+    private bool TryBeginLoading(LocalPackage package)
+    {
+        lock (_packageLifecycleGate)
+        {
+            bool alreadyKnown = _loadingPackages.Contains(package.LocalId)
+                                || _unloadOperations.ContainsKey(package.LocalId)
+                                || _quarantinedPackages.Contains(package.LocalId)
+                                || _loadedPackages.ContainsKey(package.LocalId);
+            if (!alreadyKnown)
             {
-                rollbackRemoval = registrationFailure.Removal;
-            }
-            if (addedToProvider)
-            {
-                try
-                {
-                    rollbackRemoval = ExtensionRegistry.RemoveExtensions(package.LocalId);
-                }
-                catch (ExtensionRemovalNotificationException ex)
-                {
-                    rollbackRemoval = ex.Removal;
-                }
-            }
-            if (addedToLoadedPackages)
-            {
-                lock (_packageLifecycleGate)
-                {
-                    _loadedPackages.TryRemove(package.LocalId, out _);
-                }
+                _loadingPackages.Add(package.LocalId);
             }
 
-            bool rollbackPending = rollbackRemoval is not null;
+            return !alreadyKnown;
+        }
+    }
+
+    private void RollBackFailedRegistration(
+        LocalPackage package,
+        List<Extension> extensions,
+        PluginLoadContext? loadContext,
+        Exception loadFailure,
+        bool addedToProvider,
+        bool addedToLoadedPackages)
+    {
+        ExtensionRemoval? rollbackRemoval = null;
+        if (loadFailure is ExtensionRegistrationNotificationException registrationFailure)
+        {
+            rollbackRemoval = registrationFailure.Removal;
+        }
+        if (addedToProvider)
+        {
+            try
+            {
+                rollbackRemoval = ExtensionRegistry.RemoveExtensions(package.LocalId);
+            }
+            catch (ExtensionRemovalNotificationException ex)
+            {
+                rollbackRemoval = ex.Removal;
+            }
+        }
+        if (addedToLoadedPackages)
+        {
             lock (_packageLifecycleGate)
             {
-                _loadingPackages.Remove(package.LocalId);
-                if (rollbackPending)
-                {
-                    _quarantinedPackages.Add(package.LocalId);
-                }
+                _loadedPackages.TryRemove(package.LocalId, out _);
             }
+        }
 
-            if (rollbackRemoval is null)
+        bool rollbackPending = rollbackRemoval is not null;
+        lock (_packageLifecycleGate)
+        {
+            _loadingPackages.Remove(package.LocalId);
+            if (rollbackPending)
             {
-                // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
-                // only when a later registration step threw; this is not a double-unload.
-                RollbackLoadedExtensions(extensions);
-                if (loadContext is { })
-                {
-                    TryUnloadLoadContext(package, loadContext);
-                }
+                _quarantinedPackages.Add(package.LocalId);
             }
-            else
-            {
-                StartRollbackAfterDrain(
-                    package,
-                    extensions,
-                    loadContext,
-                    rollbackRemoval);
-            }
+        }
 
-            throw;
+        if (rollbackRemoval is null)
+        {
+            // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
+            // only when a later registration step threw; this is not a double-unload.
+            RollbackLoadedExtensions(extensions);
+            if (loadContext is { })
+            {
+                TryUnloadLoadContext(package, loadContext);
+            }
+        }
+        else
+        {
+            StartRollbackAfterDrain(
+                package,
+                extensions,
+                loadContext,
+                rollbackRemoval);
         }
     }
 

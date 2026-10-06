@@ -372,6 +372,43 @@ public sealed record AiCaptionTranslationRequest
         if (segments.Any(segment => segment is null))
             throw new ArgumentException("Translation segments cannot contain null.", nameof(segments));
 
+        int characterCount = CountSegmentCharacters(segments, effectiveLimits);
+
+        Segments = Array.AsReadOnly(segments.ToArray());
+        TargetLanguage = targetLanguage.Trim().ToLowerInvariant();
+        if (!AiRequestLimits.IsIso6391LanguageCode(TargetLanguage))
+            throw new ArgumentException("Target language must be an ISO 639-1 language code.", nameof(targetLanguage));
+        if (sourceLanguage is not null && string.IsNullOrWhiteSpace(sourceLanguage))
+            throw new ArgumentException(
+                "Source language cannot be whitespace.",
+                nameof(sourceLanguage));
+        SourceLanguage = sourceLanguage?.Trim().ToLowerInvariant();
+        if (SourceLanguage is not null && !AiRequestLimits.IsIso6391LanguageCode(SourceLanguage))
+            throw new ArgumentException("Source language must be an ISO 639-1 language code.", nameof(sourceLanguage));
+        Style = style is null || style.IsEmpty ? null : style;
+        if (Style?.Glossary is { } glossary)
+        {
+            foreach ((string term, string translation) in glossary)
+                characterCount = checked(characterCount + term.Length + translation.Length);
+        }
+        if (characterCount > effectiveLimits.MaxCharacters)
+            throw new ArgumentException(
+                $"Translation text cannot exceed {effectiveLimits.MaxCharacters} characters.",
+                nameof(segments));
+        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
+            idempotencyKey,
+            nameof(idempotencyKey));
+        Limits = effectiveLimits;
+        _ = AiCaptionTranslationRequestTransport.CreatePayload(this);
+    }
+
+    // Validates every segment and returns their combined text length. The parameter keeps the constructor's name:
+    // each ArgumentException reports it as ParamName.
+    private static int CountSegmentCharacters(
+        IReadOnlyList<AiCaptionTranslationSegment> segments,
+        AiCaptionTranslationLimits effectiveLimits)
+    {
         var ids = new HashSet<string>(StringComparer.Ordinal);
         int characterCount = 0;
         foreach (AiCaptionTranslationSegment segment in segments)
@@ -403,33 +440,7 @@ public sealed record AiCaptionTranslationRequest
             }
         }
 
-        Segments = Array.AsReadOnly(segments.ToArray());
-        TargetLanguage = targetLanguage.Trim().ToLowerInvariant();
-        if (!AiRequestLimits.IsIso6391LanguageCode(TargetLanguage))
-            throw new ArgumentException("Target language must be an ISO 639-1 language code.", nameof(targetLanguage));
-        if (sourceLanguage is not null && string.IsNullOrWhiteSpace(sourceLanguage))
-            throw new ArgumentException(
-                "Source language cannot be whitespace.",
-                nameof(sourceLanguage));
-        SourceLanguage = sourceLanguage?.Trim().ToLowerInvariant();
-        if (SourceLanguage is not null && !AiRequestLimits.IsIso6391LanguageCode(SourceLanguage))
-            throw new ArgumentException("Source language must be an ISO 639-1 language code.", nameof(sourceLanguage));
-        Style = style is null || style.IsEmpty ? null : style;
-        if (Style?.Glossary is { } glossary)
-        {
-            foreach ((string term, string translation) in glossary)
-                characterCount = checked(characterCount + term.Length + translation.Length);
-        }
-        if (characterCount > effectiveLimits.MaxCharacters)
-            throw new ArgumentException(
-                $"Translation text cannot exceed {effectiveLimits.MaxCharacters} characters.",
-                nameof(segments));
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
-        IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
-            idempotencyKey,
-            nameof(idempotencyKey));
-        Limits = effectiveLimits;
-        _ = AiCaptionTranslationRequestTransport.CreatePayload(this);
+        return characterCount;
     }
 
     public IReadOnlyList<AiCaptionTranslationSegment> Segments { get; }

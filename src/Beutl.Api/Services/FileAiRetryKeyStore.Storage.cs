@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Beutl.Api.Services;
 
@@ -95,6 +93,15 @@ internal sealed partial class FileAiRetryKeyStore
         }
 
         var data = new StoreData();
+        ReadGenerations(generationsElement, data);
+        ReadEntries(entriesElement, data);
+        ReadAttempts(attemptsElement, data);
+        EnsureEntryGenerations(data);
+        return data;
+    }
+
+    private static void ReadGenerations(JsonElement generationsElement, StoreData data)
+    {
         int generationCount = 0;
         foreach (JsonElement element in generationsElement.EnumerateArray())
         {
@@ -113,7 +120,10 @@ internal sealed partial class FileAiRetryKeyStore
             if (generationValue < 0 || !data.Generations.TryAdd(identityValue, generationValue))
                 throw new AiRetryStoreUnavailableException("Retry key store contains invalid generations.");
         }
+    }
 
+    private static void ReadEntries(JsonElement entriesElement, StoreData data)
+    {
         int entryCount = 0;
         foreach (JsonElement element in entriesElement.EnumerateArray())
         {
@@ -166,7 +176,10 @@ internal sealed partial class FileAiRetryKeyStore
                 throw new AiRetryStoreUnavailableException("Retry key store contains invalid or duplicate entries.");
             }
         }
+    }
 
+    private static void ReadAttempts(JsonElement attemptsElement, StoreData data)
+    {
         int attemptCount = 0;
         foreach (JsonElement element in attemptsElement.EnumerateArray())
         {
@@ -204,12 +217,7 @@ internal sealed partial class FileAiRetryKeyStore
             int payloadVersionValue = payloadVersion.GetInt32();
             DateTimeOffset createdAtValue = createdAt.GetDateTimeOffset();
             DateTimeOffset expiresAtValue = expiresAt.GetDateTimeOffset();
-            AiRetryAttemptKind kindValue = kind.GetString() switch
-            {
-                "recovery" => AiRetryAttemptKind.Recovery,
-                "newPurchase" => AiRetryAttemptKind.NewPurchase,
-                _ => throw new AiRetryStoreUnavailableException("Retry key store contains an invalid attempt kind."),
-            };
+            AiRetryAttemptKind kindValue = ReadAttemptKind(kind);
             if (tokenValue.Length is < 32 or > 128
                 || !IsPrintable(tokenValue)
                 || accountValue.Length is 0 or > 256
@@ -233,7 +241,18 @@ internal sealed partial class FileAiRetryKeyStore
                 throw new AiRetryStoreUnavailableException("Retry key store contains invalid or duplicate attempts.");
             }
         }
+    }
 
+    private static AiRetryAttemptKind ReadAttemptKind(JsonElement kind)
+        => kind.GetString() switch
+        {
+            "recovery" => AiRetryAttemptKind.Recovery,
+            "newPurchase" => AiRetryAttemptKind.NewPurchase,
+            _ => throw new AiRetryStoreUnavailableException("Retry key store contains an invalid attempt kind."),
+        };
+
+    private static void EnsureEntryGenerations(StoreData data)
+    {
         foreach ((string identity, Entry entry) in data.Entries)
         {
             if (!data.Generations.TryGetValue(identity, out long generation)
@@ -242,19 +261,10 @@ internal sealed partial class FileAiRetryKeyStore
                 throw new AiRetryStoreUnavailableException("Retry key store contains inconsistent generations.");
             }
         }
-
-        return data;
     }
 
     private static string ReadIdentity(JsonElement element)
-    {
-        if (element.ValueKind != JsonValueKind.String)
-            throw new AiRetryStoreUnavailableException("Retry key store contains an invalid identity.");
-        string value = element.GetString() ?? string.Empty;
-        if (value.Length != 64 || value.Any(c => !Uri.IsHexDigit(c)))
-            throw new AiRetryStoreUnavailableException("Retry key store contains an invalid identity.");
-        return value;
-    }
+        => ReadSha256Hex(element, "Retry key store contains an invalid identity.");
 
     private static string ReadKey(JsonElement element)
     {
@@ -267,16 +277,42 @@ internal sealed partial class FileAiRetryKeyStore
     }
 
     private static string ReadDigest(JsonElement element)
+        => ReadSha256Hex(element, "Retry key store contains an invalid payload digest.");
+
+    private static string ReadSha256Hex(JsonElement element, string invalidMessage)
     {
         if (element.ValueKind != JsonValueKind.String)
-            throw new AiRetryStoreUnavailableException("Retry key store contains an invalid payload digest.");
+            throw new AiRetryStoreUnavailableException(invalidMessage);
         string value = element.GetString() ?? string.Empty;
         if (value.Length != 64 || value.Any(c => !Uri.IsHexDigit(c)))
-            throw new AiRetryStoreUnavailableException("Retry key store contains an invalid payload digest.");
+            throw new AiRetryStoreUnavailableException(invalidMessage);
         return value;
     }
 
     private void Save(StoreData data)
+    {
+        byte[] bytes = SerializeStore(data);
+        string temporary = _path + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            PrivateDurableFile.WritePrivateBytes(temporary, bytes);
+            PrivateDurableFile.AtomicReplace(
+                temporary,
+                _path,
+                overwrite: true,
+                failureMessage: "Atomic retry-store replacement failed.");
+            PrivateDurableFile.RestrictFile(_path);
+            PrivateDurableFile.EnsureDirectorySynced(_directory);
+        }
+        finally
+        {
+            try { File.Delete(temporary); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static byte[] SerializeStore(StoreData data)
     {
         if (data.Entries.Count > MaximumEntries
             || data.Generations.Count > MaximumGenerations
@@ -323,21 +359,7 @@ internal sealed partial class FileAiRetryKeyStore
         });
         if (bytes.Length > MaximumBytes)
             throw new AiRetryStoreUnavailableException("Retry key store is full.");
-
-        string temporary = _path + $".{Guid.NewGuid():N}.tmp";
-        try
-        {
-            WritePrivateBytes(temporary, bytes);
-            AtomicReplace(temporary, _path, overwrite: true);
-            RestrictFile(_path);
-            EnsureDirectorySynced(_directory);
-        }
-        finally
-        {
-            try { File.Delete(temporary); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
+        return bytes;
     }
 
     private FileStream AcquireLock()
@@ -348,7 +370,7 @@ internal sealed partial class FileAiRetryKeyStore
             try
             {
                 FileStream stream = new(LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-                RestrictFile(LockPath);
+                PrivateDurableFile.RestrictFile(LockPath);
                 return stream;
             }
             catch (IOException ex)
@@ -373,7 +395,7 @@ internal sealed partial class FileAiRetryKeyStore
             foreach (string path in Directory.EnumerateFiles(_directory, "retry-keys.json.*.tmp"))
             {
                 if (File.GetLastWriteTimeUtc(path) < cutoff
-                    && !IsFileLocked(path))
+                    && !PrivateDurableFile.IsFileLocked(path))
                 {
                     try { File.Delete(path); }
                     catch (IOException) { }
@@ -385,102 +407,6 @@ internal sealed partial class FileAiRetryKeyStore
         catch (UnauthorizedAccessException) { }
     }
 
-    private static bool IsFileLocked(string path)
-    {
-        try
-        {
-            using FileStream stream = new(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            return false;
-        }
-        catch (IOException)
-        {
-            return true;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return true;
-        }
-    }
-
     private static bool IsPrintable(string value)
         => value.Length is > 0 and <= 255 && value.All(c => c is >= '\x20' and <= '\x7e');
-
-    private static void WritePrivateBytes(string path, ReadOnlySpan<byte> bytes)
-    {
-        var options = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            Options = FileOptions.WriteThrough | FileOptions.SequentialScan,
-        };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        using FileStream stream = new(path, options);
-        stream.Write(bytes);
-        stream.Flush(flushToDisk: true);
-        RestrictFile(path);
-    }
-
-    private static void AtomicReplace(string temporary, string destination, bool overwrite)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            File.Move(temporary, destination, overwrite);
-            return;
-        }
-        const uint replace = 0x1;
-        const uint writeThrough = 0x8;
-        if (!MoveFileEx(temporary, destination, writeThrough | (overwrite ? replace : 0)))
-            throw new IOException("Atomic retry-store replacement failed.", new Win32Exception(Marshal.GetLastWin32Error()));
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool MoveFileEx(string existingFileName, string newFileName, uint flags);
-
-    /// <summary>
-    /// Unix directory fsync closes the rename durability window. Windows has
-    /// no portable directory fsync; file bytes are flushed and rename is
-    /// atomic, while directory-entry persistence remains filesystem-defined.
-    /// </summary>
-    private static void EnsureDirectorySynced(string path)
-    {
-        if (OperatingSystem.IsWindows())
-            return;
-        int fd = UnixOpen(path, 0);
-        if (fd < 0)
-            throw new IOException($"Unable to open directory for durability sync (errno {Marshal.GetLastWin32Error()}).");
-        try
-        {
-            if (UnixFsync(fd) != 0)
-                throw new IOException($"Unable to fsync directory (errno {Marshal.GetLastWin32Error()}).");
-        }
-        finally
-        {
-            if (UnixClose(fd) != 0)
-                throw new IOException($"Unable to close synced directory (errno {Marshal.GetLastWin32Error()}).");
-        }
-    }
-
-    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    private static extern int UnixOpen(string path, int flags);
-
-    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
-    private static extern int UnixFsync(int fd);
-
-    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
-    private static extern int UnixClose(int fd);
-
-    private static void RestrictDirectory(string path)
-    {
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
-
-    private static void RestrictFile(string path)
-    {
-        if (!OperatingSystem.IsWindows() && File.Exists(path))
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-    }
 }

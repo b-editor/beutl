@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Reactive;
 using System.Reactive.Disposables;
@@ -155,65 +156,39 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             gateEntered = true;
             token.ThrowIfCancellationRequested();
 
-            AiJobMonitorSnapshot previous;
-            int previousLoadedPageCount;
-            string? cursor;
-            lock (_stateGate)
+            if (!TryBeginRefresh(
+                    expectedOwner!,
+                    expectedVersion,
+                    append,
+                    out AiJobMonitorSnapshot? previous,
+                    out int previousLoadedPageCount,
+                    out string? cursor))
             {
-                if (!IsCurrentAuthentication(expectedOwner!, expectedVersion))
-                    return;
-
-                previous = _snapshot.Value;
-                previousLoadedPageCount = _loadedPageCount;
-                cursor = append ? previous.NextCursor : null;
-                if (append && cursor is null)
-                    return;
-
-                _snapshot.Value = previous with { IsLoading = true, Error = null };
+                return;
             }
 
             try
             {
-                AiJobPage page = await _client.GetPageAsync(new AiJobPageRequest(cursor), token);
-                ImmutableArray<AiJob> jobs;
-                string? nextCursor;
-                int loadedPageCount;
-                if (preserveLoadedTail)
-                {
-                    (jobs, nextCursor, loadedPageCount) = await RefreshLoadedPagesAsync(
-                        page,
-                        Math.Max(1, previousLoadedPageCount),
-                        token);
-                }
-                else
-                {
-                    jobs = MergeJobs(append ? previous.Jobs : [], page.Jobs);
-                    nextCursor = page.NextCursor;
-                    loadedPageCount = append ? previousLoadedPageCount + 1 : 1;
-                }
-
-                lock (_stateGate)
-                {
-                    if (IsCurrentAuthentication(expectedOwner!, expectedVersion))
-                    {
-                        _loadedPageCount = loadedPageCount;
-                        _snapshot.Value = new AiJobMonitorSnapshot(
-                            jobs,
-                            nextCursor,
-                            false,
-                            null);
-                    }
-                }
+                (ImmutableArray<AiJob> jobs, string? nextCursor, int loadedPageCount) = await LoadJobsAsync(
+                    cursor,
+                    append,
+                    preserveLoadedTail,
+                    previous,
+                    previousLoadedPageCount,
+                    token);
+                PublishIfCurrent(
+                    expectedOwner!,
+                    expectedVersion,
+                    new AiJobMonitorSnapshot(
+                        jobs,
+                        nextCursor,
+                        false,
+                        null),
+                    loadedPageCount);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
-                lock (_stateGate)
-                {
-                    if (IsCurrentAuthentication(expectedOwner!, expectedVersion))
-                    {
-                        _snapshot.Value = previous with { IsLoading = false };
-                    }
-                }
+                PublishIfCurrent(expectedOwner!, expectedVersion, previous with { IsLoading = false });
 
                 if (cancellationToken.IsCancellationRequested)
                     throw;
@@ -221,13 +196,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             }
             catch (Exception ex)
             {
-                lock (_stateGate)
-                {
-                    if (IsCurrentAuthentication(expectedOwner!, expectedVersion))
-                    {
-                        _snapshot.Value = previous with { IsLoading = false, Error = ex };
-                    }
-                }
+                PublishIfCurrent(expectedOwner!, expectedVersion, previous with { IsLoading = false, Error = ex });
                 if (!append && previous.Jobs.IsEmpty && IsTransientRefreshFailure(ex))
                     ScheduleRetry(expectedOwner!, expectedVersion, authenticationToken);
             }
@@ -243,6 +212,75 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             if (gateEntered)
             {
                 _refreshGate.Release();
+            }
+        }
+    }
+
+    // Marks the current snapshot as loading; false when the authentication moved on or there is no next page.
+    private bool TryBeginRefresh(
+        AuthenticatedUser owner,
+        long version,
+        bool append,
+        [NotNullWhen(true)] out AiJobMonitorSnapshot? previous,
+        out int previousLoadedPageCount,
+        out string? cursor)
+    {
+        lock (_stateGate)
+        {
+            previous = null;
+            previousLoadedPageCount = 0;
+            cursor = null;
+            if (!IsCurrentAuthentication(owner, version))
+                return false;
+
+            previous = _snapshot.Value;
+            previousLoadedPageCount = _loadedPageCount;
+            cursor = append ? previous.NextCursor : null;
+            if (append && cursor is null)
+                return false;
+
+            _snapshot.Value = previous with { IsLoading = true, Error = null };
+            return true;
+        }
+    }
+
+    private async Task<(ImmutableArray<AiJob> Jobs, string? NextCursor, int LoadedPageCount)> LoadJobsAsync(
+        string? cursor,
+        bool append,
+        bool preserveLoadedTail,
+        AiJobMonitorSnapshot previous,
+        int previousLoadedPageCount,
+        CancellationToken token)
+    {
+        AiJobPage page = await _client.GetPageAsync(new AiJobPageRequest(cursor), token);
+        if (preserveLoadedTail)
+        {
+            return await RefreshLoadedPagesAsync(
+                page,
+                Math.Max(1, previousLoadedPageCount),
+                token);
+        }
+
+        return (
+            MergeJobs(append ? previous.Jobs : [], page.Jobs),
+            page.NextCursor,
+            append ? previousLoadedPageCount + 1 : 1);
+    }
+
+    // A refresh that finishes after the authentication changed must not publish into the new session.
+    private void PublishIfCurrent(
+        AuthenticatedUser owner,
+        long version,
+        AiJobMonitorSnapshot snapshot,
+        int? loadedPageCount = null)
+    {
+        lock (_stateGate)
+        {
+            if (IsCurrentAuthentication(owner, version))
+            {
+                if (loadedPageCount is { } pageCount)
+                    _loadedPageCount = pageCount;
+                _snapshot.Value = snapshot;
             }
         }
     }
@@ -498,8 +536,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
 
         lock (_pollingGate)
         {
-            if (_pollingCts is not null
-                || (_pollingLeases == 0 && !GetSnapshot().Jobs.Any(ShouldPoll)))
+            if (_pollingCts is not null || IsPollingUnneeded_NoLock())
             {
                 return;
             }
@@ -516,7 +553,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         CancellationTokenSource? cancellationTokenSource = null;
         lock (_pollingGate)
         {
-            if (_pollingLeases == 0 && !GetSnapshot().Jobs.Any(ShouldPoll))
+            if (IsPollingUnneeded_NoLock())
             {
                 cancellationTokenSource = _pollingCts;
             }
@@ -524,6 +561,10 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
 
         cancellationTokenSource?.Cancel();
     }
+
+    // Callers hold _pollingGate.
+    private bool IsPollingUnneeded_NoLock()
+        => _pollingLeases == 0 && !GetSnapshot().Jobs.Any(ShouldPoll);
 
     private async Task RunPollingAsync(CancellationTokenSource cancellationTokenSource)
     {

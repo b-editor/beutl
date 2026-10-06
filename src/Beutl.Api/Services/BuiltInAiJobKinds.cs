@@ -1,6 +1,4 @@
-﻿using System.Text.Json;
-
-namespace Beutl.Api.Services;
+﻿namespace Beutl.Api.Services;
 
 internal sealed record BuiltInAiJobBehaviorRegistrations(
     IReadOnlyList<AiJobStatusResolverRegistration> StatusResolvers,
@@ -73,58 +71,6 @@ internal static class BuiltInAiJobKinds
                         retryContext)),
             ]);
     }
-}
-
-internal static class AiJobInputParameters
-{
-    public static string? GetString(AiJob job, string propertyName)
-    {
-        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input
-            || !input.TryGetProperty(propertyName, out JsonElement value)
-            || value.ValueKind != JsonValueKind.String)
-        {
-            return null;
-        }
-
-        return NormalizeText(value.GetString());
-    }
-
-    public static int? GetInt32(AiJob job, string propertyName)
-    {
-        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input
-            || !input.TryGetProperty(propertyName, out JsonElement value)
-            || value.ValueKind != JsonValueKind.Number
-            || !value.TryGetInt32(out int result))
-        {
-            return null;
-        }
-
-        return result;
-    }
-
-    public static bool? GetBoolean(AiJob job, string propertyName)
-    {
-        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input
-            || !input.TryGetProperty(propertyName, out JsonElement value))
-        {
-            return null;
-        }
-
-        return value.ValueKind switch
-        {
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            _ => null,
-        };
-    }
-
-    public static bool Has(AiJob job, string propertyName)
-        => job.InputParameters is { ValueKind: JsonValueKind.Object } input
-           && input.TryGetProperty(propertyName, out JsonElement value)
-           && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
-
-    private static string? NormalizeText(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
 internal sealed class AiVideoJobRefreshHandler(IAiVideoService videos) : IAiJobRefreshHandler

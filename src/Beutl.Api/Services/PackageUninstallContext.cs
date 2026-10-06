@@ -32,8 +32,6 @@ public class PackageUninstallContext
     [AllowNull]
     internal PackageIdentity[] UnnecessaryPackages { get; init; }
 
-    //internal string[] UnnecessaryPackages { get; require init; }
-
     public string InstalledPath { get; }
 
     public string PackageId { get; }

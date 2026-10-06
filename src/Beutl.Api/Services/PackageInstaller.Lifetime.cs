@@ -31,12 +31,11 @@ public partial class PackageInstaller
             Task[] operations;
             lock (_gate)
             {
-                RemoveCompletedOperations_NoLock();
-                if (_operations.Count == 0)
+                operations = SnapshotOperations_NoLock();
+                if (operations.Length == 0)
                 {
                     drained = true;
                 }
-                operations = _operations.ToArray();
             }
 
             if (drained)
@@ -90,8 +89,7 @@ public partial class PackageInstaller
                 Task[] operations;
                 lock (_gate)
                 {
-                    RemoveCompletedOperations_NoLock();
-                    operations = _operations.ToArray();
+                    operations = SnapshotOperations_NoLock();
                 }
 
                 if (operations.Length == 0)
@@ -146,8 +144,7 @@ public partial class PackageInstaller
             Task[] operations;
             lock (_gate)
             {
-                RemoveCompletedOperations_NoLock();
-                operations = _operations.ToArray();
+                operations = SnapshotOperations_NoLock();
             }
 
             if (operations.Length == 0)
@@ -199,6 +196,16 @@ public partial class PackageInstaller
         }
     }
 
+    private Task[] SnapshotOperations_NoLock()
+    {
+        RemoveCompletedOperations_NoLock();
+        return _operations.ToArray();
+    }
+
+    // While disposing, only the transaction that owns this installer may start nested work.
+    private bool RejectsNewWork_NoLock()
+        => _drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this));
+
     // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
     protected virtual long DrainDeadlineMilliseconds => 30_000;
 
@@ -243,36 +250,18 @@ public partial class PackageInstaller
         => new(fallback, _logger);
 
     internal void TrackSyncOperation(Action operation)
-    {
-        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
-            _operations.Add(proxy.Task);
-        }
-
-        PackageInstaller? previous = s_transactionOwner.Value;
-        s_transactionOwner.Value = this;
-        try
+        => TrackSyncOperation<object?>(() =>
         {
             operation();
-        }
-        finally
-        {
-            // The proxy exists only to keep disposal draining until the operation finishes;
-            // the caller observes the exception directly, so complete it normally to avoid
-            // an unobserved fault when the drain loop removes the completed task.
-            proxy.TrySetResult();
-            s_transactionOwner.Value = previous;
-        }
-    }
+            return null;
+        });
 
     internal T TrackSyncOperation<T>(Func<T> operation)
     {
         TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
+            ObjectDisposedException.ThrowIf(RejectsNewWork_NoLock(), this);
             _operations.Add(proxy.Task);
         }
 
@@ -284,8 +273,9 @@ public partial class PackageInstaller
         }
         finally
         {
-            // See TrackSyncOperation(Action): the proxy is lifetime-only, so complete it
-            // normally even when the operation throws.
+            // The proxy exists only to keep disposal draining until the operation finishes;
+            // the caller observes the exception directly, so complete it normally to avoid
+            // an unobserved fault when the drain loop removes the completed task.
             proxy.TrySetResult();
             s_transactionOwner.Value = previous;
         }
@@ -363,17 +353,7 @@ public partial class PackageInstaller
     private Task TrackAsyncCore(Func<Task> operation)
     {
         TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
-        {
-            // After draining, reject all work including nested phases.
-            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
-            {
-                throw new ObjectDisposedException(nameof(PackageInstaller));
-            }
-            RemoveCompletedOperations_NoLock();
-            // Register before invoking so a concurrent DisposeAsync drains this phase.
-            _operations.Add(proxy.Task);
-        }
+        AdmitTrackedPhase(proxy.Task);
 
         // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
         _ = RunTrackedAsync(operation, proxy);
@@ -383,20 +363,26 @@ public partial class PackageInstaller
     private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
     {
         TaskCompletionSource<T> proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        AdmitTrackedPhase(proxy.Task);
+
+        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
+    }
+
+    private void AdmitTrackedPhase(Task proxyTask)
+    {
         lock (_gate)
         {
-            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
+            // After draining, reject all work including nested phases.
+            if (RejectsNewWork_NoLock())
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
             RemoveCompletedOperations_NoLock();
             // Register before invoking so a concurrent DisposeAsync drains this phase.
-            _operations.Add(proxy.Task);
+            _operations.Add(proxyTask);
         }
-
-        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
-        _ = RunTrackedAsync(operation, proxy);
-        return proxy.Task;
     }
 
     private async Task RunTrackedAsync(Func<Task> operation, TaskCompletionSource proxy)

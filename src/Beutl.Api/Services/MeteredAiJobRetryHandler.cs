@@ -156,10 +156,7 @@ internal abstract class MeteredAiJobRetryHandler(
             || !input.TryGetProperty("prompt", out JsonElement prompt)
             || prompt.ValueKind != JsonValueKind.String)
             return false;
-        string? value = prompt.GetString();
-        return !string.IsNullOrWhiteSpace(value)
-            && value.Length <= AiRequestLimits.MaxPromptLength
-            && string.Equals(value, value.Trim(), StringComparison.Ordinal);
+        return AiReplayInputValidation.IsCanonicalPrompt(prompt.GetString());
     }
 
     public async ValueTask<AiJobRetryPreflight> GetPreflightAsync(
@@ -183,13 +180,9 @@ internal abstract class MeteredAiJobRetryHandler(
 
             return await GetNewPurchasePreflightAsync(job, cancellationToken);
         }
-        catch (AiRetryAttemptRejectedException ex)
+        catch (Exception ex) when (ex is AiRetryAttemptRejectedException or AiRetryStoreUnavailableException)
         {
-            throw new AiJobRetryPreparationRejectedException(ex);
-        }
-        catch (AiRetryStoreUnavailableException ex)
-        {
-            throw new AiJobRetryPreparationUnavailableException(ex);
+            throw ToPreparationException(ex);
         }
     }
 
@@ -227,15 +220,17 @@ internal abstract class MeteredAiJobRetryHandler(
                 authenticated.AccountId);
             return AiJobRetryPreparationResult.Ready(new RetryPreparation(this, job, attempt));
         }
-        catch (AiRetryAttemptRejectedException ex)
+        catch (Exception ex) when (ex is AiRetryAttemptRejectedException or AiRetryStoreUnavailableException)
         {
-            throw new AiJobRetryPreparationRejectedException(ex);
-        }
-        catch (AiRetryStoreUnavailableException ex)
-        {
-            throw new AiJobRetryPreparationUnavailableException(ex);
+            throw ToPreparationException(ex);
         }
     }
+
+    // Store refusals surface to callers as the public preparation exceptions.
+    private static AiException ToPreparationException(Exception exception)
+        => exception is AiRetryAttemptRejectedException
+            ? new AiJobRetryPreparationRejectedException(exception)
+            : new AiJobRetryPreparationUnavailableException(exception);
 
     private async ValueTask<AiJobRetryPreflight> GetNewPurchasePreflightAsync(
         AiJob job,
@@ -324,6 +319,16 @@ internal abstract class MeteredAiJobRetryHandler(
         return models.Any(option => option.Id == model);
     }
 
+    protected AiModelOption? ResolveModel(AiModelCatalog catalog, AiJob job)
+    {
+        ImmutableArray<AiModelOption> models = catalog.ModelsFor(operation);
+        if (models.IsDefaultOrEmpty)
+            return null;
+        if (job.Model is { Value.Length: > 0 } model)
+            return models.FirstOrDefault(option => option.Id == model);
+        return catalog.DefaultFor(operation);
+    }
+
     private sealed class RetryPreparation(
         MeteredAiJobRetryHandler owner,
         AiJob job,
@@ -346,13 +351,9 @@ internal abstract class MeteredAiJobRetryHandler(
                         (key, isRepeat) => owner.DispatchAsync(job, key, isRepeat),
                         attempt);
                 }
-                catch (AiRetryAttemptRejectedException ex)
+                catch (Exception ex) when (ex is AiRetryAttemptRejectedException or AiRetryStoreUnavailableException)
                 {
-                    throw new AiJobRetryPreparationRejectedException(ex);
-                }
-                catch (AiRetryStoreUnavailableException ex)
-                {
-                    throw new AiJobRetryPreparationUnavailableException(ex);
+                    throw ToPreparationException(ex);
                 }
             }
             finally

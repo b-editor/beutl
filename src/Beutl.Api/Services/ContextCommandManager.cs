@@ -63,7 +63,7 @@ public class ContextCommandHandlerRegistry : IBeutlApiResource
     private readonly ILogger _logger = Log.CreateLogger<ContextCommandHandlerRegistry>();
     private readonly Dictionary<Type, Dictionary<string, ContextCommandHandler>> _handlers = new();
 
-    private static string GetFullName(Type extensionType, string name)
+    internal static string GetFullName(Type extensionType, string name)
     {
         return extensionType.Namespace == null
             ? $"{extensionType.Name}.{name}"
@@ -127,30 +127,33 @@ public class ContextCommandManager(
                 => new ContextCommandEntry(
                     extension.GetType(),
                     def,
-                    new(def.KeyGestures?.Select(g =>
-                    {
-                        if (!g.Platform.HasValue)
-                        {
-                            _logger.LogWarning("Key gesture platform is not specified: {KeyGesture}", g.KeyGesture);
-                            return null!;
-                        }
-
-                        try
-                        {
-                            return new ContextCommandParsedKeyGesture(
-                                g.KeyGesture == null ? null : KeyGesture.Parse(g.KeyGesture), g.Platform.Value);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to parse key gesture: {KeyGesture}", g.KeyGesture);
-                            return new ContextCommandParsedKeyGesture(null, g.Platform.Value);
-                        }
-                    }).Where(i => i != null!) ?? [])))
+                    new(def.KeyGestures?.Select(ParseKeyGesture).Where(i => i != null!) ?? [])))
             .ToArray();
 
         Restore(definitions);
 
         _entries[extension.GetType()] = definitions;
+    }
+
+    // A gesture without a platform yields null, which Register filters out.
+    private ContextCommandParsedKeyGesture ParseKeyGesture(ContextCommandKeyGesture g)
+    {
+        if (!g.Platform.HasValue)
+        {
+            _logger.LogWarning("Key gesture platform is not specified: {KeyGesture}", g.KeyGesture);
+            return null!;
+        }
+
+        try
+        {
+            return new ContextCommandParsedKeyGesture(
+                g.KeyGesture == null ? null : KeyGesture.Parse(g.KeyGesture), g.Platform.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse key gesture: {KeyGesture}", g.KeyGesture);
+            return new ContextCommandParsedKeyGesture(null, g.Platform.Value);
+        }
     }
 
     public void Unregister(ViewExtension extension)
@@ -221,11 +224,7 @@ public class ContextCommandManager(
     }
 
     private static string GetFullName(ContextCommandEntry entry)
-    {
-        return entry.ExtensionType.Namespace == null
-            ? $"{entry.ExtensionType.Name}.{entry.Definition.Name}"
-            : $"{entry.ExtensionType.Namespace}.{entry.ExtensionType.Name}.{entry.Definition.Name}";
-    }
+        => ContextCommandHandlerRegistry.GetFullName(entry.ExtensionType, entry.Definition.Name);
 
     private void Restore(ContextCommandEntry[] entries)
     {
@@ -297,16 +296,12 @@ public class ContextCommandManager(
         Type extensionType,
         ILogger logger)
     {
-        OSPlatform pid = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            throw new PlatformNotSupportedException();
+        OSPlatform pid = CurrentPlatform();
         if (context is IContextCommandHandler compiledHandler)
         {
             foreach (ContextCommandEntry entry in entries)
             {
-                if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
-                    .All(gesture => gesture.KeyGesture?.Matches(args) != true))
+                if (!HasMatchingGesture(entry, pid, args))
                 {
                     continue;
                 }
@@ -333,8 +328,7 @@ public class ContextCommandManager(
 
         foreach (ContextCommandEntry entry in entries)
         {
-            if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
-                .All(gesture => gesture.KeyGesture?.Matches(args) != true))
+            if (!HasMatchingGesture(entry, pid, args))
             {
                 continue;
             }
@@ -346,10 +340,22 @@ public class ContextCommandManager(
             }
         }
     }
+
+    private static OSPlatform CurrentPlatform()
+        => OperatingSystem.IsWindows() ? OSPlatform.Windows :
+            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
+            OperatingSystem.IsLinux() ? OSPlatform.Linux :
+            throw new PlatformNotSupportedException();
+
+    private static bool HasMatchingGesture(ContextCommandEntry entry, OSPlatform platform, KeyEventArgs args)
+        => !entry.KeyGestures.Where(gesture => gesture.Platform == platform)
+            .All(gesture => gesture.KeyGesture?.Matches(args) != true);
 }
 
 public record ContextCommandSettingsStore : IBeutlApiResource
 {
+    private const string KeymapFileName = "keymap.json";
+
     private readonly ILogger _logger = Log.CreateLogger<ContextCommandSettingsStore>();
     private readonly bool _persist = true;
     private JsonObject _json = [];
@@ -441,14 +447,14 @@ public record ContextCommandSettingsStore : IBeutlApiResource
     {
         if (!_persist) return;
 
-        string fileName = Path.Combine(Helper.AppRoot, "keymap.json");
+        string fileName = Path.Combine(Helper.AppRoot, KeymapFileName);
         _json.JsonSave(fileName);
         _logger.LogInformation("Saved keymap to {FileName}", fileName);
     }
 
     private void RestoreAll()
     {
-        string fileName = Path.Combine(Helper.AppRoot, "keymap.json");
+        string fileName = Path.Combine(Helper.AppRoot, KeymapFileName);
         if (JsonHelper.JsonRestore(fileName) is JsonObject obj)
         {
             _json = obj;

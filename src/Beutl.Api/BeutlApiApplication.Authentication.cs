@@ -20,12 +20,11 @@ public partial class BeutlApiApplication
             _authenticationAttemptVersion++;
             if (user is null)
             {
-                _httpClient.DefaultRequestHeaders.Authorization = null;
+                ClearAuthorization();
             }
             else
             {
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", user.Token);
+                SetBearerAuthorization(user.Token);
             }
         }
 
@@ -53,9 +52,22 @@ public partial class BeutlApiApplication
                 throw new AuthenticationRequiredException();
 
             _authenticatedUser.Value = user;
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", user.Token);
+            SetBearerAuthorization(user.Token);
         }
+    }
+
+    private void SetBearerAuthorization(string token)
+        => _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+    private void ClearAuthorization()
+        => _httpClient.DefaultRequestHeaders.Authorization = null;
+
+    // Callers hold _authenticationGate.
+    private void ClearAuthenticatedUser_NoLock()
+    {
+        _authenticationAttemptVersion++;
+        _authenticatedUser.Value = null;
+        ClearAuthorization();
     }
 
     private bool IsAuthenticationSessionCurrent(AuthenticatedUser user, long generation)
@@ -193,13 +205,11 @@ public partial class BeutlApiApplication
     {
         lock (_authenticationGate)
         {
-            _authenticationAttemptVersion++;
-            _authenticatedUser.Value = null;
-            _httpClient.DefaultRequestHeaders.Authorization = null;
+            ClearAuthenticatedUser_NoLock();
         }
         if (deleteFile)
         {
-            string fileName = Path.Combine(Helper.AppRoot, UserFileName);
+            string fileName = UserFilePath;
             if (File.Exists(fileName))
             {
                 File.Delete(fileName);
@@ -254,56 +264,11 @@ public partial class BeutlApiApplication
                     "AuthenticatedUser.Refresh",
                     ActivityKind.Client);
                 (AuthResponse response, DateTime writeTime) = user.GetAuthenticationState();
-                string fileName = Path.Combine(Helper.AppRoot, UserFileName);
-                if (File.Exists(fileName))
-                {
-                    DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
-                    if (writeTime < lastWriteTime)
-                    {
-                        AuthenticatedUser? fileUser = await ReadUserAsync(token).ConfigureAwait(false);
-                        token.ThrowIfCancellationRequested();
-                        if (fileUser?.Profile.Id == user.Profile.Id)
-                        {
-                            (response, writeTime) = fileUser.GetAuthenticationState();
-                        }
-                        else if (fileUser is not null)
-                        {
-                            SignOutIfCurrent(user);
-                            throw new InvalidOperationException(
-                                "The user may have been changed in another process.");
-                        }
-                    }
-                }
-
-                bool isExpired = response.Expiration < DateTime.UtcNow;
-                activity?.SetTag("force", force);
-                activity?.SetTag("is_expired", isExpired);
-                bool refreshed = false;
-                if (force || isExpired)
-                {
-                    response = await Account.Refresh(
-                            new RefreshTokenRequest
-                            {
-                                RefreshToken = response.RefreshToken,
-                                Token = response.Token,
-                            },
-                            token)
-                        .ConfigureAwait(false);
-                    token.ThrowIfCancellationRequested();
-                    refreshed = true;
-                    activity?.AddEvent(new("Refreshed"));
-                }
-
-                lock (_authenticationGate)
-                {
-                    token.ThrowIfCancellationRequested();
-                    if (!IsAuthenticationSessionCurrent(user, authenticationGeneration))
-                        throw new AuthenticationRequiredException();
-
-                    user.CommitAuthenticationState(response, writeTime);
-                    _httpClient.DefaultRequestHeaders.Authorization =
-                        new AuthenticationHeaderValue("Bearer", response.Token);
-                }
+                (response, writeTime) = await ReconcileWithUserFileAsync(user, response, writeTime, token)
+                    .ConfigureAwait(false);
+                (response, bool refreshed) = await RefreshTokenIfDueAsync(response, force, activity, token)
+                    .ConfigureAwait(false);
+                CommitRefreshedState(user, authenticationGeneration, response, writeTime, token);
 
                 if (refreshed)
                 {
@@ -328,6 +293,84 @@ public partial class BeutlApiApplication
         }
     }
 
+    // Another process may have saved a newer token for this account since it was read; that token wins. A
+    // different account in the file means this session has been replaced.
+    private async ValueTask<(AuthResponse Response, DateTime WriteTime)> ReconcileWithUserFileAsync(
+        AuthenticatedUser user,
+        AuthResponse response,
+        DateTime writeTime,
+        CancellationToken token)
+    {
+        string fileName = UserFilePath;
+        if (File.Exists(fileName))
+        {
+            DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
+            if (writeTime < lastWriteTime)
+            {
+                AuthenticatedUser? fileUser = await ReadUserAsync(token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                if (fileUser?.Profile.Id == user.Profile.Id)
+                {
+                    (response, writeTime) = fileUser.GetAuthenticationState();
+                }
+                else if (fileUser is not null)
+                {
+                    SignOutIfCurrent(user);
+                    throw new InvalidOperationException(
+                        "The user may have been changed in another process.");
+                }
+            }
+        }
+
+        return (response, writeTime);
+    }
+
+    private async ValueTask<(AuthResponse Response, bool Refreshed)> RefreshTokenIfDueAsync(
+        AuthResponse response,
+        bool force,
+        Activity? activity,
+        CancellationToken token)
+    {
+        bool isExpired = response.Expiration < DateTime.UtcNow;
+        activity?.SetTag("force", force);
+        activity?.SetTag("is_expired", isExpired);
+        bool refreshed = false;
+        if (force || isExpired)
+        {
+            response = await Account.Refresh(
+                    new RefreshTokenRequest
+                    {
+                        RefreshToken = response.RefreshToken,
+                        Token = response.Token,
+                    },
+                    token)
+                .ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            refreshed = true;
+            activity?.AddEvent(new("Refreshed"));
+        }
+
+        return (response, refreshed);
+    }
+
+    private void CommitRefreshedState(
+        AuthenticatedUser user,
+        long authenticationGeneration,
+        AuthResponse response,
+        DateTime writeTime,
+        CancellationToken token)
+    {
+        lock (_authenticationGate)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!IsAuthenticationSessionCurrent(user, authenticationGeneration))
+                throw new AuthenticationRequiredException();
+
+            user.CommitAuthenticationState(response, writeTime);
+            SetBearerAuthorization(response.Token);
+        }
+    }
+
     private void SignOutIfCurrent(AuthenticatedUser user)
     {
         lock (_authenticationGate)
@@ -335,9 +378,7 @@ public partial class BeutlApiApplication
             if (!ReferenceEquals(_authenticatedUser.Value, user))
                 return;
 
-            _authenticationAttemptVersion++;
-            _authenticatedUser.Value = null;
-            _httpClient.DefaultRequestHeaders.Authorization = null;
+            ClearAuthenticatedUser_NoLock();
         }
     }
 }

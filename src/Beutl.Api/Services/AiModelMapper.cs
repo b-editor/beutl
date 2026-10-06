@@ -139,18 +139,8 @@ internal static class AiModelMapper
         AiOperationCapabilityResponse capability)
     {
         return new AiImageModelCapabilities(
-            NarrowDimension(
-                model.AspectRatios is { } aspectRatios
-                    ? AiCapabilityDimension<string>.Supported(
-                        aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value)))
-                    : AiCapabilityDimension<string>.Unspecified,
-                capability.AspectRatios),
-            NarrowDimension(
-                model.Backgrounds is { } backgrounds
-                    ? AiCapabilityDimension<string>.Supported(
-                        backgrounds.Where(value => !string.IsNullOrWhiteSpace(value)))
-                    : AiCapabilityDimension<string>.Unspecified,
-                capability.Backgrounds),
+            NarrowDimension(ToStringDimension(model.AspectRatios), capability.AspectRatios),
+            NarrowDimension(ToStringDimension(model.Backgrounds), capability.Backgrounds),
             model.Seed ?? true,
             model.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences,
             model.Resolution ?? true);
@@ -167,14 +157,8 @@ internal static class AiModelMapper
                 model.DurationsSeconds is { } durations
                     ? AiCapabilityDimension<int>.Supported(durations)
                     : AiCapabilityDimension<int>.Unspecified,
-                model.Resolutions is { } resolutions
-                    ? AiCapabilityDimension<string>.Supported(
-                        resolutions.Where(value => !string.IsNullOrWhiteSpace(value)))
-                    : AiCapabilityDimension<string>.Unspecified,
-                model.AspectRatios is { } aspectRatios
-                    ? AiCapabilityDimension<string>.Supported(
-                        aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value)))
-                    : AiCapabilityDimension<string>.Unspecified,
+                ToStringDimension(model.Resolutions),
+                ToStringDimension(model.AspectRatios),
                 model.Audio ?? true,
                 model.Seed ?? true,
                 model.FirstFrame ?? true,
@@ -193,6 +177,13 @@ internal static class AiModelMapper
                 Math.Clamp(model.MaxPromptLength ?? AiRequestLimits.MaxPromptLength, 1, AiRequestLimits.MaxPromptLength)),
             capability);
     }
+
+    // A model that omits a list leaves the dimension Unspecified; blank entries are dropped.
+    private static AiCapabilityDimension<string> ToStringDimension(ImmutableArray<string>? values)
+        => values is { } present
+            ? AiCapabilityDimension<string>.Supported(
+                present.Where(value => !string.IsNullOrWhiteSpace(value)))
+            : AiCapabilityDimension<string>.Unspecified;
 
     private static ImmutableArray<AiModelOption> ToModelOptions(
         AiOperationCapabilityResponse capability,

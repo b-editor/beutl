@@ -99,46 +99,9 @@ internal static class Helper
         }
     }
 
-    public static void GetPackageDependencies(
-        PackageDependencyInfo package,
-        NuGetFramework framework,
-        ISet<PackageDependencyInfo> availablePackages)
-    {
-        if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
-
-        availablePackages.Add(package);
-
-        foreach (var dependency in package.Dependencies)
-        {
-            var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
-            string path = ResolveInstalledDirectory(dependentPackage);
-            if (Directory.Exists(path))
-            {
-                var reader = new PackageFolderReader(path);
-
-                var deps = reader.GetPackageDependencies();
-                var nearest = FrameworkReducer.GetNearest(
-                    framework,
-                    deps.Select(x => x.TargetFramework));
-
-                GetPackageDependencies(
-                    new PackageDependencyInfo(
-                        dependentPackage,
-                        deps.Where(x => x.TargetFramework == nearest)
-                            .SelectMany(x => x.Packages)),
-                    framework, availablePackages);
-            }
-        }
-    }
-
     public static string GetNupkgFilePath(string packageId, string version)
     {
         return Path.Combine(LocalSourcePath, $"{packageId}.{version}.nupkg");
-    }
-
-    public static string GetNuspecFilePath(string packageId, string version)
-    {
-        return Path.Combine(InstallPath, $"{packageId}.{version}", $"{packageId}.{version}.nuspec");
     }
 
     // GetInstalledPath keys off the package's .nupkg file, so a directory whose .nupkg was deleted
@@ -148,45 +111,6 @@ internal static class Helper
     {
         return PackagePathResolver.GetInstalledPath(package)
                ?? PackagePathResolver.GetInstallPath(package);
-    }
-
-    public static T? TryGetOrDefault<T>(Func<T> func)
-    {
-        try
-        {
-            return func();
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            return default;
-        }
-    }
-
-    public static async Task<T?> TryGetOrDefault<T>(
-        Func<Task<T>> func,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await func().ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch
-        {
-            return default;
-        }
-    }
-
-    public static LocalPackage ReadLocalPackageFromNuspecFile(Stream stream)
-    {
-        return new LocalPackage(new NuspecReader(stream));
     }
 
     public static LocalPackage? ReadLocalPackageFromNupkgFile(Stream stream)

@@ -110,25 +110,12 @@ public sealed partial class PackageManager : PackageLoader
                         .ConfigureAwait(false);
                     activity?.AddEvent(new("Checked updates"));
 
-                    Release[] releases = await remotePackage
-                        .GetReleasesAsync(operationToken)
+                    PackageUpdate? update = await FindUpdateAsync(remotePackage, version, versionStr, operationToken)
                         .ConfigureAwait(false);
-
-                    foreach (Release? item in releases)
+                    if (update is not null)
                     {
-                        operationToken.ThrowIfCancellationRequested();
-                        // 降順
-                        if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                        {
-                            Release? oldRelease = await TryGetReleaseAsync(
-                                    remotePackage,
-                                    versionStr,
-                                    operationToken)
-                                .ConfigureAwait(false);
-                            updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                            _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
-                            break;
-                        }
+                        updates.Add(update);
+                        _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, update.NewVersion.Version.Value);
                     }
                 }
                 catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
@@ -172,30 +159,46 @@ public sealed partial class PackageManager : PackageLoader
                     .ConfigureAwait(false);
                 activity?.AddEvent(new("Checked updates"));
 
-                Release[] releases = await remotePackage
-                    .GetReleasesAsync(operationToken)
+                PackageUpdate? update = await FindUpdateAsync(remotePackage, version, pkg.Version, operationToken)
                     .ConfigureAwait(false);
-
-                foreach (Release? item in releases)
+                if (update is not null)
                 {
-                    operationToken.ThrowIfCancellationRequested();
-                    // 降順
-                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                    {
-                        Release? oldRelease = await TryGetReleaseAsync(
-                                remotePackage,
-                                pkg.Version,
-                                operationToken)
-                            .ConfigureAwait(false);
-                        _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
-                        return new PackageUpdate(remotePackage, oldRelease, item);
-                    }
+                    _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, update.NewVersion.Version.Value);
+                    return update;
                 }
             }
 
             operationToken.ThrowIfCancellationRequested();
             return null;
         }
+    }
+
+    private static async Task<PackageUpdate?> FindUpdateAsync(
+        Package remotePackage,
+        NuGetVersion installedVersion,
+        string installedVersionText,
+        CancellationToken cancellationToken)
+    {
+        Release[] releases = await remotePackage
+            .GetReleasesAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (Release? item in releases)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // 降順
+            if (new NuGetVersion(item.Version.Value).CompareTo(installedVersion) > 0)
+            {
+                Release? oldRelease = await TryGetReleaseAsync(
+                        remotePackage,
+                        installedVersionText,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                return new PackageUpdate(remotePackage, oldRelease, item);
+            }
+        }
+
+        return null;
     }
 
     private static async Task<Release?> TryGetReleaseAsync(

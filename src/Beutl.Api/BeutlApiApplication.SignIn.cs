@@ -1,8 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Mime;
-using System.Net.Sockets;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
@@ -22,66 +19,46 @@ public partial class BeutlApiApplication
         return SignInExternalAsync("GitHub", cancellationToken);
     }
 
-    private async Task<AuthenticatedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
+    private Task<AuthenticatedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
-        using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
-        CancellationToken token = lifetimeCts.Token;
-        using Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client);
-        AuthenticatedUser user = await RunInteractiveAuthenticationAsync(async authenticationToken =>
-        {
-            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(
-                new CreateAuthUriRequest { ContinueUri = continueUri },
-                authenticationToken);
-            using HttpListener listener = StartListener($"{continueUri}/");
-            activity?.AddEvent(new("Started_Listener"));
-
-            string uri =
-                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
-
-            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
-
-            string? code = await GetResponseFromListener(listener, authenticationToken);
-            activity?.AddEvent(new("Received_Code"));
-            if (string.IsNullOrWhiteSpace(code))
-            {
-                throw new Exception("The returned code was empty.");
-            }
-
-            AuthResponse authResponse = await Account.Exchange(
-                new ExchangeRequest { Code = code, SessionId = authUriRes.SessionId },
-                authenticationToken);
-            activity?.AddEvent(new("Done_CodeToJwtAsync"));
-
-            ProfileResponse profileResponse = await Users.GetSelf(
-                $"Bearer {authResponse.Token}",
-                authenticationToken);
-            var profile = new Profile(profileResponse, this);
-            return new AuthenticatedUser(profile, authResponse, this, DateTime.UtcNow);
-        }, token);
-        activity?.AddEvent(new("Saved_User"));
-        return user;
+        return SignInWithBrowserAsync(
+            "SignInExternalAsync",
+            returnUrl => $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={returnUrl}",
+            cancellationToken);
     }
 
     public async Task<AuthenticatedUser> SignInAsync(CancellationToken cancellationToken)
     {
+        return await SignInWithBrowserAsync(
+            "SignInAsync",
+            returnUrl => $"{BaseUrl}/account/signIn?returnUrl={returnUrl}",
+            cancellationToken);
+    }
+
+    // The browser sign-ins differ only in the page they open; createSignInUri receives the escaped AuthUri
+    // that page returns to.
+    private async Task<AuthenticatedUser> SignInWithBrowserAsync(
+        string activityName,
+        Func<string, string> createSignInUri,
+        CancellationToken cancellationToken)
+    {
         using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
-        using Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client);
+        using Activity? activity = ActivitySource.StartActivity(activityName, ActivityKind.Client);
         AuthenticatedUser user = await RunInteractiveAuthenticationAsync(async authenticationToken =>
         {
-            string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
+            string continueUri = $"http://localhost:{LoopbackAuthorizationListener.GetRandomUnusedPort()}/__/auth/handler";
             CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(
                 new CreateAuthUriRequest { ContinueUri = continueUri },
                 authenticationToken);
-            using HttpListener listener = StartListener($"{continueUri}/");
+            using HttpListener listener = LoopbackAuthorizationListener.StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
-            string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
+            string uri = createSignInUri(Uri.EscapeDataString(authUriRes.AuthUri));
 
             Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
-            string? code = await GetResponseFromListener(listener, authenticationToken);
+            string? code = await LoopbackAuthorizationListener.GetResponseFromListener(listener, authenticationToken);
             activity?.AddEvent(new("Received_Code"));
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -134,8 +111,7 @@ public partial class BeutlApiApplication
 
             _persistAuthenticatedUser(user);
             _authenticatedUser.Value = user;
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", user.Token);
+            SetBearerAuthorization(user.Token);
         }
     }
 
@@ -146,75 +122,5 @@ public partial class BeutlApiApplication
             UseShellExecute = true,
             Verb = "open",
         });
-    }
-
-    private static int GetRandomUnusedPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        try
-        {
-            listener.Start();
-            return ((IPEndPoint)listener.LocalEndpoint).Port;
-        }
-        finally
-        {
-            listener.Stop();
-        }
-    }
-
-    private static HttpListener StartListener(string redirectUri)
-    {
-        var listener = new HttpListener();
-        listener.Prefixes.Add(redirectUri);
-        listener.Start();
-        return listener;
-    }
-
-    private static async Task<string?> GetResponseFromListener(HttpListener listener, CancellationToken ct)
-    {
-        HttpListenerContext context;
-
-        using (ct.Register(listener.Stop))
-        {
-            try
-            {
-                context = await listener.GetContextAsync().ConfigureAwait(false);
-            }
-            catch (Exception) when (ct.IsCancellationRequested)
-            {
-                ct.ThrowIfCancellationRequested();
-                // Next line will never be reached because cancellation will always have been requested in this catch block.
-                // But it's required to satisfy compiler.
-                throw new InvalidOperationException();
-            }
-        }
-
-        string? code = context.Request.QueryString.Get("code");
-
-        // Write a "close" response.
-        using (Stream input = ReadClosePageResponse())
-        {
-            context.Response.ContentLength64 = input.Length;
-            context.Response.SendChunked = false;
-            context.Response.KeepAlive = false;
-            context.Response.ContentType = MediaTypeNames.Text.Html;
-            using (Stream output = context.Response.OutputStream)
-            {
-                await input.CopyToAsync(output, ct).ConfigureAwait(false);
-                await output.FlushAsync(ct).ConfigureAwait(false);
-            }
-
-            context.Response.Close();
-        }
-
-        return code;
-    }
-
-    private static Stream ReadClosePageResponse()
-    {
-        Stream? stream =
-            typeof(BeutlApiApplication).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
-
-        return stream ?? throw new Exception("Embedded resource not found.");
     }
 }

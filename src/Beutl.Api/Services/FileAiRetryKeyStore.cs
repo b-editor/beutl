@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -26,7 +27,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         ArgumentException.ThrowIfNullOrWhiteSpace(storageDirectory);
         _directory = Path.GetFullPath(storageDirectory);
         Directory.CreateDirectory(_directory);
-        RestrictDirectory(_directory);
+        PrivateDurableFile.RestrictDirectory(_directory);
         _path = Path.Combine(_directory, "retry-keys.json");
         SweepTemporaryFiles();
     }
@@ -37,28 +38,10 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
-            StoreData data = Load();
-            RemoveExpiredAttempts(data);
-            RemoveStaleAttempts(data);
+            StoreData data = LoadPruned();
             if (data.Entries.TryGetValue(identity, out Entry? existing))
             {
-                if (existing.PayloadVersion == 0)
-                {
-                    existing = existing with { PayloadDigest = PayloadDigest(job), PayloadVersion = 1 };
-                    data.Entries[identity] = existing;
-                    Save(data);
-                }
-                else if (!StringComparer.Ordinal.Equals(existing.PayloadDigest, PayloadDigest(job)))
-                    throw new AiRetryAttemptRejectedException();
-                if (existing.IsLeaseActive)
-                    throw new AiRetryAttemptRejectedException();
-                if (existing.InFlightOwner is not null)
-                {
-                    existing = existing with { InFlightOwner = null, InFlightUntil = null };
-                    data.Entries[identity] = existing;
-                    Save(data);
-                }
-
+                existing = ClaimExistingEntry(data, identity, existing, job);
                 isRepeat = true;
                 return existing.Key;
             }
@@ -82,9 +65,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
-            StoreData data = Load();
-            RemoveExpiredAttempts(data);
-            RemoveStaleAttempts(data);
+            StoreData data = LoadPruned();
             if (data.Entries.TryGetValue(identity, out Entry? entry)
                 && entry.PayloadVersion == 1
                 && StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
@@ -119,9 +100,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
-            StoreData data = Load();
-            RemoveExpiredAttempts(data);
-            RemoveStaleAttempts(data);
+            StoreData data = LoadPruned();
             if (data.Attempts.Remove(attempt.Token))
             {
                 PruneGenerations(data);
@@ -142,12 +121,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         {
             using FileStream lease = AcquireLock();
             StoreData data = Load();
-            if (!data.Entries.TryGetValue(identity, out Entry? entry)
-                || entry.Generation != generation
-                || !StringComparer.Ordinal.Equals(entry.Key, key)
-                || entry.PayloadVersion != 1
-                || !StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job))
-                || !StringComparer.Ordinal.Equals(entry.InFlightOwner, ownerToken))
+            if (!TryGetOwnedEntry(data, identity, job, key, generation, ownerToken, out Entry? entry))
             {
                 return false;
             }
@@ -170,12 +144,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         {
             using FileStream lease = AcquireLock();
             StoreData data = Load();
-            if (!data.Entries.TryGetValue(identity, out Entry? entry)
-                || entry.Generation != generation
-                || !StringComparer.Ordinal.Equals(entry.Key, key)
-                || entry.PayloadVersion != 1
-                || !StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job))
-                || !StringComparer.Ordinal.Equals(entry.InFlightOwner, ownerToken))
+            if (!TryGetOwnedEntry(data, identity, job, key, generation, ownerToken, out Entry? entry))
             {
                 return false;
             }
@@ -195,32 +164,14 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
-            StoreData data = Load();
-            RemoveExpiredAttempts(data);
-            RemoveStaleAttempts(data);
+            StoreData data = LoadPruned();
 
             AiRetryAttemptKind kind;
             string key;
             long generation;
             if (data.Entries.TryGetValue(identity, out Entry? entry))
             {
-                if (entry.PayloadVersion == 0)
-                {
-                    entry = entry with { PayloadDigest = PayloadDigest(job), PayloadVersion = 1 };
-                    data.Entries[identity] = entry;
-                    Save(data);
-                }
-                else if (!StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
-                    throw new AiRetryAttemptRejectedException();
-                if (entry.IsLeaseActive)
-                    throw new AiRetryAttemptRejectedException();
-                if (entry.InFlightOwner is not null)
-                {
-                    entry = entry with { InFlightOwner = null, InFlightUntil = null };
-                    data.Entries[identity] = entry;
-                    Save(data);
-                }
-
+                entry = ClaimExistingEntry(data, identity, entry, job);
                 kind = AiRetryAttemptKind.Recovery;
                 key = entry.Key;
                 generation = entry.Generation;
@@ -229,44 +180,20 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
             {
                 kind = AiRetryAttemptKind.NewPurchase;
                 generation = GetGeneration(data, identity);
-                PendingAttempt? existing = data.Attempts.Values.FirstOrDefault(candidate =>
-                    candidate.AccountId == accountId
-                    && candidate.Identity == identity
-                    && candidate.Generation == generation
-                    && candidate.Kind == kind);
+                PendingAttempt? existing = FindPendingAttempt(data, accountId, identity, key: null, generation, kind);
                 if (existing is not null)
                     return ToAttempt(existing);
                 key = CreateKey(job);
             }
 
-            PendingAttempt? matching = data.Attempts.Values.FirstOrDefault(candidate =>
-                candidate.AccountId == accountId
-                && candidate.Identity == identity
-                && candidate.Key == key
-                && candidate.Generation == generation
-                && candidate.Kind == kind);
+            PendingAttempt? matching = FindPendingAttempt(data, accountId, identity, key, generation, kind);
             if (matching is not null)
                 return ToAttempt(matching);
 
             if (data.Attempts.Count >= MaximumAttempts)
                 throw new AiRetryStoreUnavailableException("Retry confirmation store is full.");
 
-            DateTimeOffset createdAt = DateTimeOffset.UtcNow;
-            PendingAttempt pending = new(
-                CreateOpaqueToken(),
-                accountId,
-                identity,
-                key,
-                generation,
-                kind,
-                PayloadDigest(job),
-                1,
-                createdAt,
-                createdAt + LeaseDuration);
-            data.Attempts.Add(pending.Token, pending);
-            PruneGenerations(data);
-            Save(data);
-            return ToAttempt(pending);
+            return AddPendingAttempt(data, accountId, identity, key, generation, kind, PayloadDigest(job), 1);
         }
     }
 
@@ -279,9 +206,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
-            StoreData data = Load();
-            RemoveExpiredAttempts(data);
-            RemoveStaleAttempts(data);
+            StoreData data = LoadPruned();
             if (!data.Entries.TryGetValue(identity, out Entry? entry))
             {
                 attempt = null!;
@@ -291,21 +216,15 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
             if (entry.PayloadVersion != 1
                 || !StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
                 throw new AiRetryAttemptRejectedException();
-            if (entry.IsLeaseActive)
-                throw new AiRetryAttemptRejectedException();
-            if (entry.InFlightOwner is not null)
-            {
-                entry = entry with { InFlightOwner = null, InFlightUntil = null };
-                data.Entries[identity] = entry;
-                Save(data);
-            }
+            entry = ClearExpiredLease(data, identity, entry);
 
-            PendingAttempt? existing = data.Attempts.Values.FirstOrDefault(candidate =>
-                candidate.AccountId == accountId
-                && candidate.Identity == identity
-                && candidate.Key == entry.Key
-                && candidate.Generation == entry.Generation
-                && candidate.Kind == AiRetryAttemptKind.Recovery);
+            PendingAttempt? existing = FindPendingAttempt(
+                data,
+                accountId,
+                identity,
+                entry.Key,
+                entry.Generation,
+                AiRetryAttemptKind.Recovery);
             if (existing is not null)
             {
                 attempt = ToAttempt(existing);
@@ -314,22 +233,15 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
 
             if (data.Attempts.Count >= MaximumAttempts)
                 throw new AiRetryStoreUnavailableException("Retry confirmation store is full.");
-            DateTimeOffset createdAt = DateTimeOffset.UtcNow;
-            PendingAttempt pending = new(
-                CreateOpaqueToken(),
+            attempt = AddPendingAttempt(
+                data,
                 accountId,
                 identity,
                 entry.Key,
                 entry.Generation,
                 AiRetryAttemptKind.Recovery,
                 entry.PayloadDigest,
-                entry.PayloadVersion,
-                createdAt,
-                createdAt + LeaseDuration);
-            data.Attempts.Add(pending.Token, pending);
-            PruneGenerations(data);
-            Save(data);
-            attempt = ToAttempt(pending);
+                entry.PayloadVersion);
             return true;
         }
     }
@@ -367,9 +279,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
             long generation = GetGeneration(data, identity);
             if (generation != attempt.Generation)
             {
-                data.Attempts.Remove(attempt.Token);
-                PruneGenerations(data);
-                Save(data);
+                DiscardPendingAttempt(data, attempt.Token);
                 return false;
             }
 
@@ -383,9 +293,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
                     || !StringComparer.Ordinal.Equals(entry.PayloadDigest, attempt.PayloadDigest)
                     || entry.IsLeaseActive)
                 {
-                    data.Attempts.Remove(attempt.Token);
-                    PruneGenerations(data);
-                    Save(data);
+                    DiscardPendingAttempt(data, attempt.Token);
                     return false;
                 }
 
@@ -401,9 +309,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
             {
                 if (data.Entries.ContainsKey(identity))
                 {
-                    data.Attempts.Remove(attempt.Token);
-                    PruneGenerations(data);
-                    Save(data);
+                    DiscardPendingAttempt(data, attempt.Token);
                     return false;
                 }
 
@@ -427,6 +333,106 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
             Save(data);
             return true;
         }
+    }
+
+    private StoreData LoadPruned()
+    {
+        StoreData data = Load();
+        RemoveExpiredAttempts(data);
+        RemoveStaleAttempts(data);
+        return data;
+    }
+
+    private static bool TryGetOwnedEntry(
+        StoreData data,
+        string identity,
+        AiJob job,
+        string key,
+        long generation,
+        string ownerToken,
+        [NotNullWhen(true)] out Entry? entry)
+        => data.Entries.TryGetValue(identity, out entry)
+            && entry.Generation == generation
+            && StringComparer.Ordinal.Equals(entry.Key, key)
+            && entry.PayloadVersion == 1
+            && StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job))
+            && StringComparer.Ordinal.Equals(entry.InFlightOwner, ownerToken);
+
+    private Entry ClaimExistingEntry(StoreData data, string identity, Entry entry, AiJob job)
+    {
+        if (entry.PayloadVersion == 0)
+        {
+            entry = entry with { PayloadDigest = PayloadDigest(job), PayloadVersion = 1 };
+            data.Entries[identity] = entry;
+            Save(data);
+        }
+        else if (!StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
+            throw new AiRetryAttemptRejectedException();
+        return ClearExpiredLease(data, identity, entry);
+    }
+
+    private Entry ClearExpiredLease(StoreData data, string identity, Entry entry)
+    {
+        if (entry.IsLeaseActive)
+            throw new AiRetryAttemptRejectedException();
+        if (entry.InFlightOwner is not null)
+        {
+            entry = entry with { InFlightOwner = null, InFlightUntil = null };
+            data.Entries[identity] = entry;
+            Save(data);
+        }
+
+        return entry;
+    }
+
+    // A null key matches a pending confirmation for any key.
+    private static PendingAttempt? FindPendingAttempt(
+        StoreData data,
+        string accountId,
+        string identity,
+        string? key,
+        long generation,
+        AiRetryAttemptKind kind)
+        => data.Attempts.Values.FirstOrDefault(candidate =>
+            candidate.AccountId == accountId
+            && candidate.Identity == identity
+            && (key is null || candidate.Key == key)
+            && candidate.Generation == generation
+            && candidate.Kind == kind);
+
+    private AiRetryAttempt AddPendingAttempt(
+        StoreData data,
+        string accountId,
+        string identity,
+        string key,
+        long generation,
+        AiRetryAttemptKind kind,
+        string payloadDigest,
+        int payloadVersion)
+    {
+        DateTimeOffset createdAt = DateTimeOffset.UtcNow;
+        PendingAttempt pending = new(
+            CreateOpaqueToken(),
+            accountId,
+            identity,
+            key,
+            generation,
+            kind,
+            payloadDigest,
+            payloadVersion,
+            createdAt,
+            createdAt + LeaseDuration);
+        data.Attempts.Add(pending.Token, pending);
+        PruneGenerations(data);
+        Save(data);
+        return ToAttempt(pending);
+    }
+
+    private void DiscardPendingAttempt(StoreData data, string token)
+    {
+        data.Attempts.Remove(token);
+        PruneGenerations(data);
+        Save(data);
     }
 
     internal static string CanonicalIdentity(AiJob job, string accountId)

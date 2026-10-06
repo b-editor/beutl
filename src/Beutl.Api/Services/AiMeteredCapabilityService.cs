@@ -16,9 +16,43 @@ internal abstract class AiMeteredCapabilityService(
 {
     internal const int MaximumResponseBodyBytes = 32 * 1024 * 1024;
 
+    protected const string IdempotencyKeyHeader = "Idempotency-Key";
+
     protected BeutlApiApplication Application { get; } = application;
 
     protected static string CreateIdempotencyKey() => Guid.NewGuid().ToString("D");
+
+    // Each stream joins `opened` as soon as it opens, so the caller's finally also closes the ones opened before
+    // a failure.
+    protected static async Task<List<StreamPart>> OpenReferencePartsAsync(
+        IReadOnlyList<AiUploadSource> references,
+        long maxBytesEach,
+        long? maxTotalBytes,
+        List<Stream> opened,
+        CancellationToken cancellationToken)
+    {
+        var parts = new List<StreamPart>(references.Count);
+        foreach (AiUploadSource reference in references)
+        {
+            Stream stream = await AiUploadValidation.OpenAsync(
+                reference,
+                maxBytesEach,
+                cancellationToken);
+            opened.Add(stream);
+            if (maxTotalBytes is { } maxTotal
+                && opened.Sum(value => value.Length - value.Position) > maxTotal)
+            {
+                throw new AiFileTooLargeException();
+            }
+            parts.Add(AiMultipartFormData.File(
+                stream,
+                reference.FileName,
+                reference.MediaType,
+                "reference[]"));
+        }
+
+        return parts;
+    }
 
     protected static async ValueTask DisposeReferenceStreamsAsync(IReadOnlyList<Stream> streams)
     {
@@ -227,16 +261,11 @@ internal abstract class AiMeteredCapabilityService(
         string idempotencyKey,
         TBody body)
     {
-        var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            new Uri(Application.HttpClient.BaseAddress!, path))
-        {
-            Content = new StringContent(
-                JsonSerializer.Serialize(body, AiStreamJson.Options),
-                Encoding.UTF8,
-                "application/json"),
-        };
-        request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+        HttpRequestMessage request = CreateIdempotentPost(path, idempotencyKey);
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(body, AiStreamJson.Options),
+            Encoding.UTF8,
+            "application/json");
         return request;
     }
 
@@ -245,14 +274,18 @@ internal abstract class AiMeteredCapabilityService(
         string idempotencyKey,
         ReadOnlyMemory<byte> body)
     {
+        HttpRequestMessage request = CreateIdempotentPost(path, idempotencyKey);
+        request.Content = new ByteArrayContent(body.ToArray());
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        return request;
+    }
+
+    private HttpRequestMessage CreateIdempotentPost(string path, string idempotencyKey)
+    {
         var request = new HttpRequestMessage(
             HttpMethod.Post,
-            new Uri(Application.HttpClient.BaseAddress!, path))
-        {
-            Content = new ByteArrayContent(body.ToArray()),
-        };
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+            new Uri(Application.HttpClient.BaseAddress!, path));
+        request.Headers.TryAddWithoutValidation(IdempotencyKeyHeader, idempotencyKey);
         return request;
     }
 

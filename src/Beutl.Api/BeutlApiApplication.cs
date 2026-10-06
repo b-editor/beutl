@@ -262,7 +262,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
             _authenticationSessionCts = null;
             _authenticationGeneration++;
             _authenticationAttemptVersion++;
-            _httpClient.DefaultRequestHeaders.Authorization = null;
+            ClearAuthorization();
         }
 
         try

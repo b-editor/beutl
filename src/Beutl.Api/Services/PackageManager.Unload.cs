@@ -113,29 +113,10 @@ public sealed partial class PackageManager
         // Only the registries below have explicit operation leases. Other
         // extension families create long-lived editor/output/window objects,
         // so their package files are updated safely on the next restart.
-        ExtensionRemoval? removal = null;
-        var requiresRestart = false;
-        List<Exception>? retirementFailures = null;
-        try
-        {
-            extensionRegistry.SynchronizeMutation(() =>
-            {
-                IReadOnlyList<Extension> packageExtensions =
-                    extensionRegistry.GetPackageExtensions(package.LocalId);
-                if (packageExtensions.Any(extension => !SupportsLiveUnload(extension)))
-                {
-                    requiresRestart = true;
-                    return;
-                }
-
-                removal = extensionRegistry.RemoveExtensions(package.LocalId);
-            });
-        }
-        catch (ExtensionRemovalNotificationException ex)
-        {
-            removal = ex.Removal;
-            retirementFailures = [ex];
-        }
+        ExtensionRemoval? removal = RemovePackageRegistrations(
+            package,
+            out bool requiresRestart,
+            out List<Exception>? retirementFailures);
         if (requiresRestart)
         {
             _logger.LogInformation(
@@ -151,6 +132,87 @@ public sealed partial class PackageManager
         }
 
         IReadOnlyList<Extension> extensions = removal.Extensions;
+        retirementFailures = RetireExtensions(extensions, retirementFailures);
+
+        try
+        {
+            // Drain every extension in the package before invoking any extension-level unload.
+            // Packages commonly share static resources across several extension entry points.
+            await removal.DrainAsync();
+        }
+        catch (Exception ex)
+        {
+            (retirementFailures ??= []).Add(ex);
+            _logger.LogError(
+                ex,
+                "Package {PackageName} registrations failed to drain; the load context remains quarantined.",
+                package.Name);
+        }
+
+        if (retirementFailures is not null)
+        {
+            lock (_packageLifecycleGate)
+            {
+                _quarantinedPackages.Add(package.LocalId);
+            }
+
+            activity?.SetStatus(ActivityStatusCode.Error, "Extension retirement failed");
+            return null;
+        }
+
+        UnloadExtensions(extensions);
+
+        _loadedPackages.TryRemove(package.LocalId, out _);
+
+        if (info.LoadContext is { } loadContext)
+        {
+            assemblyNames = CaptureAssemblyNames(package, loadContext);
+            TryUnloadLoadContext(package, loadContext);
+        }
+
+        // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
+        return new PackageUnloadResult(
+            new WeakReference(info.LoadContext, trackResurrection: true),
+            assemblyNames);
+    }
+
+    private ExtensionRemoval? RemovePackageRegistrations(
+        LocalPackage package,
+        out bool requiresRestart,
+        out List<Exception>? retirementFailures)
+    {
+        ExtensionRemoval? removal = null;
+        var restartRequired = false;
+        retirementFailures = null;
+        try
+        {
+            extensionRegistry.SynchronizeMutation(() =>
+            {
+                IReadOnlyList<Extension> packageExtensions =
+                    extensionRegistry.GetPackageExtensions(package.LocalId);
+                if (packageExtensions.Any(extension => !SupportsLiveUnload(extension)))
+                {
+                    restartRequired = true;
+                    return;
+                }
+
+                removal = extensionRegistry.RemoveExtensions(package.LocalId);
+            });
+        }
+        catch (ExtensionRemovalNotificationException ex)
+        {
+            removal = ex.Removal;
+            retirementFailures = [ex];
+        }
+
+        requiresRestart = restartRequired;
+        return removal;
+    }
+
+    private List<Exception>? RetireExtensions(
+        IReadOnlyList<Extension> extensions,
+        List<Exception>? retirementFailures)
+    {
         foreach (Extension ext in extensions)
         {
             if (ext is ViewExtension viewExtension)
@@ -187,32 +249,11 @@ public sealed partial class PackageManager
             }
         }
 
-        try
-        {
-            // Drain every extension in the package before invoking any extension-level unload.
-            // Packages commonly share static resources across several extension entry points.
-            await removal.DrainAsync();
-        }
-        catch (Exception ex)
-        {
-            (retirementFailures ??= []).Add(ex);
-            _logger.LogError(
-                ex,
-                "Package {PackageName} registrations failed to drain; the load context remains quarantined.",
-                package.Name);
-        }
+        return retirementFailures;
+    }
 
-        if (retirementFailures is not null)
-        {
-            lock (_packageLifecycleGate)
-            {
-                _quarantinedPackages.Add(package.LocalId);
-            }
-
-            activity?.SetStatus(ActivityStatusCode.Error, "Extension retirement failed");
-            return null;
-        }
-
+    private void UnloadExtensions(IReadOnlyList<Extension> extensions)
+    {
         foreach (Extension ext in extensions)
         {
             try
@@ -224,35 +265,26 @@ public sealed partial class PackageManager
             {
                 _logger.LogError(ex, "Failed to unload extension {ExtensionName}.", ext.GetType().Name);
             }
-
         }
+    }
 
-        _loadedPackages.TryRemove(package.LocalId, out _);
-
-        if (info.LoadContext is { } loadContext)
+    private string[] CaptureAssemblyNames(LocalPackage package, PluginLoadContext loadContext)
+    {
+        try
         {
-            try
-            {
-                // Capture only the assembly names as strings; never retain the assemblies/types, or the diagnostics
-                // pass below would itself root the context it is meant to diagnose.
-                assemblyNames = [.. loadContext.Assemblies
-                    .Select(a => a.GetName().Name)
-                    .OfType<string>()
-                    .Distinct(StringComparer.OrdinalIgnoreCase)];
-            }
-            catch (Exception ex)
-            {
-                // Best-effort like TryUnloadLoadContext: a reflection failure here must not break the unload flow.
-                _logger.LogWarning(ex, "Failed to capture assembly names for unload diagnostics of {PackageName}.", package.Name);
-            }
-
-            TryUnloadLoadContext(package, loadContext);
+            // Capture only the assembly names as strings; never retain the assemblies/types, or the later
+            // diagnostics pass would itself root the context it is meant to diagnose.
+            return [.. loadContext.Assemblies
+                .Select(a => a.GetName().Name)
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)];
         }
-
-        // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
-        return new PackageUnloadResult(
-            new WeakReference(info.LoadContext, trackResurrection: true),
-            assemblyNames);
+        catch (Exception ex)
+        {
+            // Best-effort like TryUnloadLoadContext: a reflection failure here must not break the unload flow.
+            _logger.LogWarning(ex, "Failed to capture assembly names for unload diagnostics of {PackageName}.", package.Name);
+            return [];
+        }
     }
 
     private sealed record PackageUnloadResult(

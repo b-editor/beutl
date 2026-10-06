@@ -203,7 +203,7 @@ internal sealed class AiTranscriptionService(
                 if (request.Model is { } model)
                     body.Add(new StringContent(model.Value), "\"model\"");
                 var message = new HttpRequestMessage(HttpMethod.Post, "/api/v3/ai/transcriptions") { Content = body };
-                message.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+                message.Headers.TryAddWithoutValidation(IdempotencyKeyHeader, idempotencyKey);
                 return message;
             },
             _ => { },
@@ -274,11 +274,7 @@ internal sealed class AiCaptionTranslationService(
                     idempotencyKey,
                     payload.Json),
                 _ => { },
-                data => AiModelMapper.ToModel(
-                    JsonSerializer.Deserialize<AiCaptionTranslationResponseDto>(
-                        data,
-                        AiStreamJson.Options)
-                    ?? throw new AiException("The AI translation result was empty.")),
+                ReadTranslationResult,
                 cancellationToken,
                 Describe,
                 requestEventStream: false);
@@ -296,14 +292,17 @@ internal sealed class AiCaptionTranslationService(
                 progress,
                 requestedSegmentIds,
                 reportedSegmentIds),
-            data => AiModelMapper.ToModel(
-                JsonSerializer.Deserialize<AiCaptionTranslationResponseDto>(
-                    data,
-                    AiStreamJson.Options)
-                ?? throw new AiException("The AI translation result was empty.")),
+            ReadTranslationResult,
             cancellationToken,
             Describe);
     }
+
+    private static AiCaptionTranslationResponse ReadTranslationResult(string data)
+        => AiModelMapper.ToModel(
+            JsonSerializer.Deserialize<AiCaptionTranslationResponseDto>(
+                data,
+                AiStreamJson.Options)
+            ?? throw new AiException("The AI translation result was empty."));
 
     private static void ReportTranslationSegment(
         AiServerSentEvent item,

@@ -18,7 +18,7 @@ internal sealed partial class AiVideoService(
         // The caller's key when it has one: that is what lets a retry recover a
         // clip already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
-        if (request.InputReferences.Count > 0) return await CreateFromReferencesAsync(request, cancellationToken);
+        if (request.InputReferences.Count > 0) return await CreateFromReferencesAsync(request, idempotencyKey, cancellationToken);
         if (request.FirstFrame is null)
         {
             return await ExecuteAsync(

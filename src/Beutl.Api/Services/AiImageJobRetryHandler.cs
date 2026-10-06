@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Beutl.Api.Services;
 
@@ -86,19 +85,11 @@ internal sealed class AiImageJobRetryHandler(
     private static bool TryParseReplayInput(AiJob job, out ImageReplayInput result)
     {
         result = default;
-        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input)
-            return false;
-        foreach (JsonProperty property in input.EnumerateObject())
-        {
-            if (!s_allowedProperties.Contains(property.Name))
-                return false;
-        }
-        if (!input.TryGetProperty("prompt", out JsonElement prompt)
-            || prompt.ValueKind != JsonValueKind.String
-            || prompt.GetString() is not { } promptValue
-            || string.IsNullOrWhiteSpace(promptValue)
-            || promptValue.Length > AiRequestLimits.MaxPromptLength
-            || !string.Equals(promptValue, promptValue.Trim(), StringComparison.Ordinal))
+        if (!AiReplayInputValidation.TryReadReplayObject(
+                job,
+                s_allowedProperties,
+                out JsonElement input,
+                out string? promptValue))
             return false;
 
         bool hasAspect = input.TryGetProperty("aspectRatio", out JsonElement aspectElement);
@@ -134,29 +125,11 @@ internal sealed class AiImageJobRetryHandler(
                 return false;
         }
 
-        int? seed = null;
-        if (input.TryGetProperty("seed", out JsonElement seedElement))
-        {
-            if (seedElement.ValueKind != JsonValueKind.Number
-                || !seedElement.TryGetInt32(out int seedValue)
-                || seedValue < AiRequestLimits.MinSeed
-                || seedValue > AiRequestLimits.MaxSeed)
-                return false;
-            seed = seedValue;
-        }
+        if (!AiReplayInputValidation.TryReadOptionalSeed(input, out int? seed))
+            return false;
 
         result = new ImageReplayInput(promptValue, aspectRatio, background, seed);
         return true;
-    }
-
-    private static AiModelOption? ResolveModel(AiModelCatalog catalog, AiJob job)
-    {
-        ImmutableArray<AiModelOption> models = catalog.ModelsFor(AiOperations.ImageGeneration);
-        if (models.IsDefaultOrEmpty)
-            return null;
-        if (job.Model is { Value.Length: > 0 } model)
-            return models.FirstOrDefault(option => option.Id == model);
-        return catalog.DefaultFor(AiOperations.ImageGeneration);
     }
 
     private readonly record struct ImageReplayInput(

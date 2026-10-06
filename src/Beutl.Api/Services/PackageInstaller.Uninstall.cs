@@ -32,21 +32,7 @@ public partial class PackageInstaller
                 unnecessaryPackages = UnnecessaryPackages(installedPackages);
             }
 
-            long size = 0;
-            foreach (PackageIdentity package in unnecessaryPackages)
-            {
-                string directory = Helper.ResolveInstalledDirectory(package);
-                if (!Directory.Exists(directory))
-                {
-                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                    continue;
-                }
-
-                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
-                {
-                    size += new FileInfo(file).Length;
-                }
-            }
+            long size = MeasureInstalledSize(unnecessaryPackages);
 
             _logger.LogInformation("Prepared uninstall context. Uninstall package: {UninstallPackage}, Size to be released: {SizeToBeReleased}", uninstallPackage, size);
 
@@ -86,15 +72,10 @@ public partial class PackageInstaller
                     // The files are already gone, so the repository entry would outlive them.
                     _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
                     _installedPackageRepository.RemovePackage(package);
-                    if (!dataRemoved)
-                    {
-                        failedPackages.Add(directory);
-                    }
-
                     continue;
                 }
 
-                bool hasAnyFailures = !dataRemoved;
+                bool hasAnyFailures = false;
                 foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
                 {
                     try

@@ -10,7 +10,6 @@ public class Package
 {
     private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<PackageResponse> _response;
-    private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
     public Package(Profile profile, PackageResponse response, BeutlApiApplication clients)
     {
@@ -95,7 +94,6 @@ public class Package
         PackageResponse response = await _clients.Packages.GetPackage(Name, token);
         token.ThrowIfCancellationRequested();
         _response.Value = response;
-        _isDeleted.Value = false;
     }
 
     public async Task<Release> GetReleaseAsync(string version, CancellationToken cancellationToken)

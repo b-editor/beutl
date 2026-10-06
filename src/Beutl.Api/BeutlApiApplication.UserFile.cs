@@ -9,6 +9,8 @@ namespace Beutl.Api;
 
 public partial class BeutlApiApplication
 {
+    private static string UserFilePath => Path.Combine(Helper.AppRoot, UserFileName);
+
     public void SaveUser()
     {
         if (_authenticatedUser.Value is { } user)
@@ -31,7 +33,7 @@ public partial class BeutlApiApplication
     private static void PersistAuthenticatedUser(AuthenticatedUser user)
     {
         (AuthResponse response, DateTime _) = user.GetAuthenticationState();
-        string fileName = Path.Combine(Helper.AppRoot, UserFileName);
+        string fileName = UserFilePath;
         string directory = Path.GetDirectoryName(fileName)!;
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(
@@ -111,7 +113,7 @@ public partial class BeutlApiApplication
         using CancellationTokenSource lifetimeCts = CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
         token.ThrowIfCancellationRequested();
-        string fileName = Path.Combine(Helper.AppRoot, UserFileName);
+        string fileName = UserFilePath;
         if (File.Exists(fileName))
         {
             JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName, token));

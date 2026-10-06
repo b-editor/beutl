@@ -44,24 +44,7 @@ public sealed record AiContentMetadata
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requiredMediaKind);
         string normalizedFallback = NormalizeExtension(fallbackExtension);
-        string? contentTypeExtension = ContentType?.ToLowerInvariant() switch
-        {
-            "image/png" => ".png",
-            "image/jpeg" => ".jpg",
-            "image/webp" => ".webp",
-            "image/gif" => ".gif",
-            "video/mp4" => ".mp4",
-            "video/webm" => ".webm",
-            "video/quicktime" => ".mov",
-            "video/x-matroska" => ".mkv",
-            "audio/wav" or "audio/x-wav" => ".wav",
-            "audio/mpeg" => ".mp3",
-            "audio/flac" => ".flac",
-            "audio/mp4" => ".m4a",
-            "audio/ogg" => ".ogg",
-            "audio/webm" => ".webm",
-            _ => null,
-        };
+        string? contentTypeExtension = ExtensionForContentType(ContentType);
         if (ContentType is not null && contentTypeExtension is null)
             throw new AiException("The AI content type is unsupported.");
 
@@ -80,17 +63,41 @@ public sealed record AiContentMetadata
         }
 
         string result = contentTypeExtension ?? fileNameExtension ?? normalizedFallback;
-        bool mediaKindMatches = requiredMediaKind switch
+        bool mediaKindMatches = MatchesMediaKind(result, requiredMediaKind);
+        if (!mediaKindMatches)
+            throw new AiException($"The AI content is not valid {requiredMediaKind} media.");
+        return result;
+    }
+
+    private static string? ExtensionForContentType(string? contentType)
+        => contentType?.ToLowerInvariant() switch
+        {
+            "image/png" => ".png",
+            "image/jpeg" => ".jpg",
+            "image/webp" => ".webp",
+            "image/gif" => ".gif",
+            "video/mp4" => ".mp4",
+            "video/webm" => ".webm",
+            "video/quicktime" => ".mov",
+            "video/x-matroska" => ".mkv",
+            "audio/wav" or "audio/x-wav" => ".wav",
+            "audio/mpeg" => ".mp3",
+            "audio/flac" => ".flac",
+            "audio/mp4" => ".m4a",
+            "audio/ogg" => ".ogg",
+            "audio/webm" => ".webm",
+            _ => null,
+        };
+
+    // The parameter keeps the public method's name: the ArgumentException reports it as ParamName.
+    private static bool MatchesMediaKind(string result, string requiredMediaKind)
+        => requiredMediaKind switch
         {
             "image" => result is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif",
             "video" => result is ".mp4" or ".webm" or ".mov" or ".mkv",
             "audio" => result is ".wav" or ".mp3" or ".flac" or ".m4a" or ".ogg" or ".webm",
             _ => throw new ArgumentException("The required media kind is invalid.", nameof(requiredMediaKind)),
         };
-        if (!mediaKindMatches)
-            throw new AiException($"The AI content is not valid {requiredMediaKind} media.");
-        return result;
-    }
 
     private static string NormalizeExtension(string extension)
     {

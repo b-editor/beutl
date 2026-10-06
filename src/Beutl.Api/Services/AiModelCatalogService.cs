@@ -76,49 +76,7 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
                     _capabilitySchemas.GetSnapshot();
                 AiModelCatalog catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
                 BeforeCachePublication?.Invoke();
-                while (true)
-                {
-                    AiOperationCapabilitySchemaSnapshot latestSchemaSnapshot =
-                        _capabilitySchemas.GetSnapshot();
-                    if (latestSchemaSnapshot.Revision != schemaSnapshot.Revision)
-                    {
-                        schemaSnapshot = latestSchemaSnapshot;
-                        catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                        continue;
-                    }
-
-                    bool published = false;
-                    lock (_cacheGate)
-                    {
-                        if (!ReferenceEquals(_application.AuthenticatedUser.Value, response.User))
-                            return AiModelCatalog.Empty;
-
-                        latestSchemaSnapshot = _capabilitySchemas.GetSnapshot();
-                        if (latestSchemaSnapshot.Revision == schemaSnapshot.Revision)
-                        {
-                            _catalog = catalog;
-                            _catalogOwner = response.User;
-                            _catalogSchemaRevision = schemaSnapshot.Revision;
-                            _fetchedAt = _timeProvider.GetTimestamp();
-                            published = true;
-                        }
-                    }
-
-                    if (!published)
-                    {
-                        schemaSnapshot = latestSchemaSnapshot;
-                        catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                        continue;
-                    }
-
-                    latestSchemaSnapshot = _capabilitySchemas.GetSnapshot();
-                    if (latestSchemaSnapshot.Revision == schemaSnapshot.Revision)
-                        return catalog;
-
-                    Invalidate();
-                    schemaSnapshot = latestSchemaSnapshot;
-                    catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                }
+                return PublishCatalog(response, schemaSnapshot, catalog);
             }
             catch (ApiException ex)
             {
@@ -133,6 +91,58 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
         finally
         {
             _gate.Release();
+        }
+    }
+
+    // Caches the catalog only while its schema revision is still current, remapping until it is; an account
+    // change returns an empty catalog without caching it.
+    private AiModelCatalog PublishCatalog(
+        AuthenticatedApiResult<AiCapabilitiesResponse> response,
+        AiOperationCapabilitySchemaSnapshot schemaSnapshot,
+        AiModelCatalog catalog)
+    {
+        while (true)
+        {
+            AiOperationCapabilitySchemaSnapshot latestSchemaSnapshot =
+                _capabilitySchemas.GetSnapshot();
+            if (latestSchemaSnapshot.Revision != schemaSnapshot.Revision)
+            {
+                schemaSnapshot = latestSchemaSnapshot;
+                catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
+                continue;
+            }
+
+            bool published = false;
+            lock (_cacheGate)
+            {
+                if (!ReferenceEquals(_application.AuthenticatedUser.Value, response.User))
+                    return AiModelCatalog.Empty;
+
+                latestSchemaSnapshot = _capabilitySchemas.GetSnapshot();
+                if (latestSchemaSnapshot.Revision == schemaSnapshot.Revision)
+                {
+                    _catalog = catalog;
+                    _catalogOwner = response.User;
+                    _catalogSchemaRevision = schemaSnapshot.Revision;
+                    _fetchedAt = _timeProvider.GetTimestamp();
+                    published = true;
+                }
+            }
+
+            if (!published)
+            {
+                schemaSnapshot = latestSchemaSnapshot;
+                catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
+                continue;
+            }
+
+            latestSchemaSnapshot = _capabilitySchemas.GetSnapshot();
+            if (latestSchemaSnapshot.Revision == schemaSnapshot.Revision)
+                return catalog;
+
+            Invalidate();
+            schemaSnapshot = latestSchemaSnapshot;
+            catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
         }
     }
 
