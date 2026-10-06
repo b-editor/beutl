@@ -1,6 +1,5 @@
 ﻿using System.Collections.Specialized;
 using Avalonia;
-using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
