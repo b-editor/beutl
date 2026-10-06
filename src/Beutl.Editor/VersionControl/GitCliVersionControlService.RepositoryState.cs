@@ -236,6 +236,55 @@ internal sealed partial class GitCliVersionControlService
         return result.Stdout.Trim();
     }
 
+    private static async Task EnsureCheckedOutTipUnchangedAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CheckedOutBranchTip expected,
+        string changedMessage,
+        CancellationToken cancellationToken)
+    {
+        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!EqualsBranchTip(currentTip, expected))
+        {
+            throw new InvalidOperationException(changedMessage);
+        }
+    }
+
+    // Runs commit-tree and confirms the commit object exists before the caller refers to it.
+    private static async Task<string> CommitTreeAndVerifyAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        IReadOnlyList<string> arguments,
+        GitCommandOptions options,
+        string missingCommitMessage,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken)
+            .ConfigureAwait(false);
+        string commit = result.Stdout.Trim();
+        if (commit.Length == 0)
+        {
+            throw new InvalidOperationException(missingCommitMessage);
+        }
+
+        await runner.RunAsync(
+                repository,
+                ["cat-file", "-e", commit + "^{commit}"],
+                GitCommandOptions.Local,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return commit;
+    }
+
     private static async Task<bool> IsWholeRepositoryCleanAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -457,6 +506,27 @@ internal sealed partial class GitCliVersionControlService
     {
         return string.Equals(left.RefName, right.RefName, StringComparison.Ordinal)
                && string.Equals(left.Commit, right.Commit, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CreateUniqueTempPath(string prefix)
+    {
+        return Path.Combine(
+            Path.GetTempPath(),
+            $"{prefix}-{Guid.NewGuid():N}");
+    }
+
+    private static GitCommandOptions CreateTemporaryIndexOptions(
+        string indexPath,
+        GitCommandExecutionKind executionKind = GitCommandExecutionKind.Local,
+        bool useLiteralPathspecs = true)
+    {
+        return new GitCommandOptions(
+            executionKind,
+            new Dictionary<string, string?>
+            {
+                ["GIT_INDEX_FILE"] = indexPath,
+            },
+            UseLiteralPathspecs: useLiteralPathspecs);
     }
 
     private static void TryDeleteTemporaryIndex(string path)

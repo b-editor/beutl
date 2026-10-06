@@ -58,43 +58,12 @@ internal sealed partial class GitCliVersionControlService
         }
 
         IGitCliRunner runner = nullableRunner;
-        RepositoryInfo? discoveredRepository = Directory.Exists(projectRoot)
-            ? await DiscoverRepositoryCoreAsync(
-                    projectRoot,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false)
-            : null;
-        RepositoryInfo repository;
-        if (discoveredRepository is { IsNestedInForeignRepo: true })
-        {
-            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
-            {
-                throw new EnclosingRepositoryConsentRequiredException(discoveredRepository);
-            }
-
-            repository = discoveredRepository;
-        }
-        else if (discoveredRepository is not null)
-        {
-            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
-            {
-                throw new InvalidOperationException(
-                    "The selected repository does not match the repository containing the project.");
-            }
-
-            repository = discoveredRepository;
-        }
-        else
-        {
-            if (options.TargetRepository.IsNestedInForeignRepo)
-            {
-                throw new InvalidOperationException(
-                    "The selected existing repository no longer contains the project.");
-            }
-
-            repository = options.TargetRepository;
-        }
+        (RepositoryInfo repository, RepositoryInfo? discoveredRepository) = await ResolveInitializationRepositoryAsync(
+                options,
+                projectRoot,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         ValidateProjectSnapshotLayout(repository.ProjectRoot);
 
@@ -106,24 +75,12 @@ internal sealed partial class GitCliVersionControlService
                 "This service is already associated with a different project.");
         }
 
-        GitIdentity? identity = options.Identity;
-        if (identity is not null)
-        {
-            ValidateIdentity(identity);
-        }
-        else if (Directory.Exists(repository.RepoRoot))
-        {
-            identity = await GetIdentityCoreAsync(
-                    repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        if (identity is null)
-        {
-            throw new GitIdentityRequiredException();
-        }
+        await EnsureInitializationIdentityAsync(
+                options,
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         EnsureHygienePathsAreSafe(repository);
         if (discoveredRepository is not null)
@@ -146,56 +103,13 @@ internal sealed partial class GitCliVersionControlService
 
         if (discoveredRepository is null)
         {
-            Directory.CreateDirectory(projectRoot);
-            Repository = repository;
-            // Follow init.defaultBranch as git init does. An invalid value makes git init itself fail, so
-            // main replaces it for that one command.
-            string? configuredBranch = await GetConfiguredInitialBranchAsync(
+            repository = await CreateRepositoryAsync(
                     repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            bool useConfiguredBranch = configuredBranch is not null
-                                       && await IsValidInitialBranchNameAsync(
-                                               repository,
-                                               runner,
-                                               configuredBranch,
-                                               cancellationToken)
-                                           .ConfigureAwait(false);
-            string[] initArguments = configuredBranch is null || useConfiguredBranch
-                ? ["init"]
-                : ["-c", "init.defaultBranch=main", "init"];
-            string initialBranch = useConfiguredBranch ? configuredBranch! : "main";
-            await runner.RunAsync(
-                repository,
-                initArguments,
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            await runner.RunAsync(
-                repository,
-                ["symbolic-ref", "HEAD", $"refs/heads/{initialBranch}"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-
-            RepositoryInfo? initializedRepository = await DiscoverRepositoryCoreAsync(
                     projectRoot,
+                    options,
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (initializedRepository is not null
-                && !MatchesRepositorySelection(
-                    initializedRepository,
-                    options.TargetRepository))
-            {
-                throw new InvalidOperationException(
-                    "The initialized repository could not be resolved safely.");
-            }
-
-            if (initializedRepository is not null)
-            {
-                repository = initializedRepository;
-                Repository = repository;
-            }
         }
         else
         {
@@ -212,6 +126,181 @@ internal sealed partial class GitCliVersionControlService
                 .ConfigureAwait(false);
         }
 
+        await WriteInitialHygieneFilesAsync(
+                repository,
+                runner,
+                options,
+                availability,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        WorkspaceStatus status = await GetStatusCoreAsync(
+                repository,
+                runner,
+                cancellationToken,
+                CreateSnapshotExcludePathspecs(repository))
+            .ConfigureAwait(false);
+        if (!status.IsClean)
+        {
+            await RaiseLargeMediaNoticeIfNeededAsync(
+                    repository,
+                    runner,
+                    status,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await CommitInitialSnapshotAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        TryEnsureWatcher();
+        await TryRaiseLfsQuotaNoticeIfNeededAsync(
+            repository,
+            runner).ConfigureAwait(false);
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+    }
+
+    private static async Task<(RepositoryInfo Repository, RepositoryInfo? Discovered)>
+        ResolveInitializationRepositoryAsync(
+            InitOptions options,
+            string projectRoot,
+            IGitCliRunner runner,
+            CancellationToken cancellationToken)
+    {
+        RepositoryInfo? discoveredRepository = Directory.Exists(projectRoot)
+            ? await DiscoverRepositoryCoreAsync(
+                    projectRoot,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : null;
+        if (discoveredRepository is { IsNestedInForeignRepo: true })
+        {
+            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
+            {
+                throw new EnclosingRepositoryConsentRequiredException(discoveredRepository);
+            }
+
+            return (discoveredRepository, discoveredRepository);
+        }
+
+        if (discoveredRepository is not null)
+        {
+            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
+            {
+                throw new InvalidOperationException(
+                    "The selected repository does not match the repository containing the project.");
+            }
+
+            return (discoveredRepository, discoveredRepository);
+        }
+
+        if (options.TargetRepository.IsNestedInForeignRepo)
+        {
+            throw new InvalidOperationException(
+                "The selected existing repository no longer contains the project.");
+        }
+
+        return (options.TargetRepository, null);
+    }
+
+    private static async Task EnsureInitializationIdentityAsync(
+        InitOptions options,
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitIdentity? identity = options.Identity;
+        if (identity is not null)
+        {
+            ValidateIdentity(identity);
+        }
+        else if (Directory.Exists(repository.RepoRoot))
+        {
+            identity = await GetIdentityCoreAsync(
+                    repository,
+                    runner,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (identity is null)
+        {
+            throw new GitIdentityRequiredException();
+        }
+    }
+
+    private async Task<RepositoryInfo> CreateRepositoryAsync(
+        RepositoryInfo repository,
+        string projectRoot,
+        InitOptions options,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(projectRoot);
+        Repository = repository;
+        // Follow init.defaultBranch as git init does. An invalid value makes git init itself fail, so
+        // main replaces it for that one command.
+        string? configuredBranch = await GetConfiguredInitialBranchAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        bool useConfiguredBranch = configuredBranch is not null
+                                   && await IsValidInitialBranchNameAsync(
+                                           repository,
+                                           runner,
+                                           configuredBranch,
+                                           cancellationToken)
+                                       .ConfigureAwait(false);
+        string[] initArguments = configuredBranch is null || useConfiguredBranch
+            ? ["init"]
+            : ["-c", "init.defaultBranch=main", "init"];
+        string initialBranch = useConfiguredBranch ? configuredBranch! : "main";
+        await runner.RunAsync(
+            repository,
+            initArguments,
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+        await runner.RunAsync(
+            repository,
+            ["symbolic-ref", "HEAD", $"refs/heads/{initialBranch}"],
+            GitCommandOptions.Local,
+            cancellationToken).ConfigureAwait(false);
+
+        RepositoryInfo? initializedRepository = await DiscoverRepositoryCoreAsync(
+                projectRoot,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (initializedRepository is not null
+            && !MatchesRepositorySelection(
+                initializedRepository,
+                options.TargetRepository))
+        {
+            throw new InvalidOperationException(
+                "The initialized repository could not be resolved safely.");
+        }
+
+        if (initializedRepository is not null)
+        {
+            repository = initializedRepository;
+            Repository = repository;
+        }
+
+        return repository;
+    }
+
+    private async Task WriteInitialHygieneFilesAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        InitOptions options,
+        GitAvailability availability,
+        CancellationToken cancellationToken)
+    {
         string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
         string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
         bool useLfs = options.UseLfsWhenAvailable && availability.LfsInstalled;
@@ -238,23 +327,13 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
         _lastLfsRequested = options.UseLfsWhenAvailable;
+    }
 
-        WorkspaceStatus status = await GetStatusCoreAsync(
-                repository,
-                runner,
-                cancellationToken,
-                CreateSnapshotExcludePathspecs(repository))
-            .ConfigureAwait(false);
-        if (!status.IsClean)
-        {
-            await RaiseLargeMediaNoticeIfNeededAsync(
-                    repository,
-                    runner,
-                    status,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
+    private async Task CommitInitialSnapshotAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
         await EnsureNoExternalRepositoryOperationAsync(
                 repository,
                 runner,
@@ -265,17 +344,10 @@ internal sealed partial class GitCliVersionControlService
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
-        string? originalBranchTip = await TryResolveCommitAsync(
+        (string? originalBranchTip, SnapshotTreeCapture snapshot) = await CaptureBranchSnapshotAsync(
                 repository,
                 runner,
                 branchRef,
-                cancellationToken)
-            .ConfigureAwait(false);
-        SnapshotTreeCapture snapshot = await BuildSnapshotTreeForCapturedHeadAsync(
-                repository,
-                runner,
-                branchRef,
-                originalBranchTip,
                 cancellationToken)
             .ConfigureAwait(false);
         string desiredTree = snapshot.Tree;
@@ -308,41 +380,18 @@ internal sealed partial class GitCliVersionControlService
                 .ConfigureAwait(false)
                 ?? throw new InvalidOperationException(
                     "The initial snapshot did not produce a commit.");
-            try
-            {
-                await PublishSnapshotAndReconcileIndexAsync(
-                        repository,
-                        runner,
-                        branchRef,
-                        originalBranchTip,
-                        commit.Commit,
-                        snapshot,
-                        headLease,
-                        "beutl: initialize version control",
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (await ReleaseSnapshotHeadLeaseForPostCommitAsync(headLease).ConfigureAwait(false))
-                {
-                    await RunPostCommitHookBestEffortAsync(
-                            repository,
-                            runner,
-                            commit,
-                            snapshot.IndexPath,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
-            finally
-            {
-                TryDeleteTemporaryIndex(commit.MessagePath);
-            }
+            await PublishSnapshotAndRunPostCommitHookAsync(
+                    repository,
+                    runner,
+                    branchRef,
+                    originalBranchTip,
+                    commit,
+                    snapshot,
+                    headLease,
+                    "beutl: initialize version control",
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
-
-        TryEnsureWatcher();
-        await TryRaiseLfsQuotaNoticeIfNeededAsync(
-            repository,
-            runner).ConfigureAwait(false);
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
     }
 
     private async Task EnsureInitializationPreflightCoreAsync(

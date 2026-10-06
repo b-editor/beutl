@@ -148,7 +148,7 @@ internal sealed partial class GitCliVersionControlService
         RepositoryInfo repository,
         string projectRelativePath)
     {
-        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        string prefix = GetProjectPathPrefix(repository);
         return $":(top,literal){prefix}{projectRelativePath}";
     }
 
@@ -185,18 +185,11 @@ internal sealed partial class GitCliVersionControlService
         string? baseCommit,
         CancellationToken cancellationToken)
     {
-        string temporaryIndex = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-index-{Guid.NewGuid():N}");
-        var indexOptions = new GitCommandOptions(
+        string temporaryIndex = CreateUniqueTempPath("beutl-git-index");
+        GitCommandOptions indexOptions = CreateTemporaryIndexOptions(
+            temporaryIndex,
             GitCommandExecutionKind.LocalWithLfs,
-            new Dictionary<string, string?>
-            {
-                ["GIT_INDEX_FILE"] = temporaryIndex,
-            })
-        {
-            UseLiteralPathspecs = false,
-        };
+            useLiteralPathspecs: false);
 
         try
         {
@@ -601,9 +594,7 @@ internal sealed partial class GitCliVersionControlService
         bool publishThroughHead = headLease.HeadStoredInReftable;
         string? refUpdateWorktreePath = publishThroughHead
             ? null
-            : Path.Combine(
-                Path.GetTempPath(),
-                $"beutl-git-ref-update-{Guid.NewGuid():N}");
+            : CreateUniqueTempPath("beutl-git-ref-update");
         RepositoryInfo publicationRepository = refUpdateWorktreePath is null
             ? repository
             : new RepositoryInfo(refUpdateWorktreePath, refUpdateWorktreePath);
@@ -613,17 +604,11 @@ internal sealed partial class GitCliVersionControlService
         {
             if (refUpdateWorktreePath is not null)
             {
-                await runner.RunAsync(
+                await AddRefUpdateWorktreeAsync(
                         repository,
-                        [
-                            "worktree",
-                            "add",
-                            "--detach",
-                            "--no-checkout",
-                            refUpdateWorktreePath,
-                            commit,
-                        ],
-                        GitCommandOptions.Local,
+                        runner,
+                        refUpdateWorktreePath,
+                        commit,
                         CancellationToken.None)
                     .ConfigureAwait(false);
             }
@@ -714,38 +699,8 @@ internal sealed partial class GitCliVersionControlService
             await EnsureRepositoryHygieneSerializedCoreAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        try
-        {
-            ValidateProjectSnapshotLayout(repository.ProjectRoot);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException
-                                   and not OutOfMemoryException)
-        {
-            // Git can begin a merge after the initial status check and write conflict
-            // markers before the project graph is deserialized. Prefer the conflict
-            // guidance when that race is observed, but preserve unrelated parse errors.
-            try
-            {
-                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (VersionControlConflictedException)
-            {
-                throw;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (OutOfMemoryException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-            }
-
-            throw;
-        }
+        await ValidateProjectSnapshotLayoutPreferringConflictAsync(repository, cancellationToken)
+            .ConfigureAwait(false);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         string branchRef = await GetAttachedBranchRefCoreAsync(
                 repository,
@@ -766,17 +721,10 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        string? originalBranchTip = await TryResolveCommitAsync(
+        (string? originalBranchTip, SnapshotTreeCapture snapshot) = await CaptureBranchSnapshotAsync(
                 repository,
                 runner,
                 branchRef,
-                cancellationToken)
-            .ConfigureAwait(false);
-        SnapshotTreeCapture snapshot = await BuildSnapshotTreeForCapturedHeadAsync(
-                repository,
-                runner,
-                branchRef,
-                originalBranchTip,
                 cancellationToken)
             .ConfigureAwait(false);
         string desiredTree = snapshot.Tree;
@@ -847,6 +795,94 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.NoChanges();
         }
 
+        await PublishSnapshotAndRunPostCommitHookAsync(
+                repository,
+                runner,
+                branchRef,
+                originalBranchTip,
+                commit,
+                snapshot,
+                headLease,
+                $"beutl: {kind.ToString().ToLowerInvariant()} snapshot",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return new CommitResult.Committed(new CommitRevision.Known(commit.Commit));
+    }
+
+    private async Task ValidateProjectSnapshotLayoutPreferringConflictAsync(
+        RepositoryInfo repository,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            ValidateProjectSnapshotLayout(repository.ProjectRoot);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException
+                                   and not OutOfMemoryException)
+        {
+            // Git can begin a merge after the initial status check and write conflict
+            // markers before the project graph is deserialized. Prefer the conflict
+            // guidance when that race is observed, but preserve unrelated parse errors.
+            try
+            {
+                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (VersionControlConflictedException)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (OutOfMemoryException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+            }
+
+            throw;
+        }
+    }
+
+    private async Task<(string? OriginalBranchTip, SnapshotTreeCapture Snapshot)> CaptureBranchSnapshotAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string branchRef,
+        CancellationToken cancellationToken)
+    {
+        string? originalBranchTip = await TryResolveCommitAsync(
+                repository,
+                runner,
+                branchRef,
+                cancellationToken)
+            .ConfigureAwait(false);
+        SnapshotTreeCapture snapshot = await BuildSnapshotTreeForCapturedHeadAsync(
+                repository,
+                runner,
+                branchRef,
+                originalBranchTip,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return (originalBranchTip, snapshot);
+    }
+
+    // The commit message file stays until the post-commit hook has run, which reads it.
+    private async Task PublishSnapshotAndRunPostCommitHookAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string branchRef,
+        string? originalBranchTip,
+        SnapshotCommit commit,
+        SnapshotTreeCapture snapshot,
+        HeadOwnershipLease headLease,
+        string reflogMessage,
+        CancellationToken cancellationToken)
+    {
         try
         {
             await PublishSnapshotAndReconcileIndexAsync(
@@ -857,7 +893,7 @@ internal sealed partial class GitCliVersionControlService
                     commit.Commit,
                     snapshot,
                     headLease,
-                    $"beutl: {kind.ToString().ToLowerInvariant()} snapshot",
+                    reflogMessage,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (await ReleaseSnapshotHeadLeaseForPostCommitAsync(headLease).ConfigureAwait(false))
@@ -875,8 +911,5 @@ internal sealed partial class GitCliVersionControlService
         {
             TryDeleteTemporaryIndex(commit.MessagePath);
         }
-
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
-        return new CommitResult.Committed(new CommitRevision.Known(commit.Commit));
     }
 }

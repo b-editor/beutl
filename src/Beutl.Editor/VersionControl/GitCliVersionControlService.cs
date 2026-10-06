@@ -58,7 +58,6 @@ internal sealed partial class GitCliVersionControlService :
     private const int MaxLfsAttributeOutputBytes = 256 * 1024;
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
-    private const int MaxLfsPointerBytes = 1024;
     private const int MaxLfsPointerCandidates = 256;
     private const int MaxSnapshotTreeInspectionBytes = 4 * 1024 * 1024;
     private const int MaxCommitMessageBytes = 1024 * 1024;
@@ -386,7 +385,7 @@ internal sealed partial class GitCliVersionControlService :
                     IReadOnlySet<string> serializedPaths =
                         GetSerializedProjectRelativePaths(repository.ProjectRoot);
                     _requiredTemporaryProjectPaths = serializedPaths
-                        .Where(static path => path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+                        .Where(static path => IsTemporaryProjectFile(path))
                         .ToHashSet(StringComparer.Ordinal);
                     _watcher.UpdateRequiredPaths(serializedPaths);
                 }

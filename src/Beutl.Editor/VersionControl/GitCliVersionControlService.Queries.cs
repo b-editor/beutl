@@ -203,35 +203,6 @@ internal sealed partial class GitCliVersionControlService
         return branches;
     }
 
-    // Branches that so far exist only on origin, the one remote Beutl works with, which git switch also
-    // offers to check out. origin/HEAD only names the remote's default branch.
-    internal static IReadOnlyList<BranchInfo> ParseOriginOnlyBranches(
-        string output,
-        IReadOnlyList<BranchInfo> localBranches)
-    {
-        var branches = new List<BranchInfo>();
-        foreach (string record in output
-                     .Replace("\r\n", "\n", StringComparison.Ordinal)
-                     .Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string[] fields = record.Split('\0');
-            if (fields.Length < 2
-                || fields[1].Length > 0
-                || !fields[0].StartsWith(OriginRefPrefix, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            string name = fields[0][OriginRefPrefix.Length..];
-            if (name.Length > 0 && !ContainsLocalBranch(localBranches, name))
-            {
-                branches.Add(new BranchInfo(name, IsCurrent: false, UpstreamName: null, IsRemote: true));
-            }
-        }
-
-        return branches;
-    }
-
     private static string GetField(string record, int fieldIndex)
     {
         string[] fields = record.Split(' ', fieldIndex + 2, StringSplitOptions.None);
@@ -522,6 +493,8 @@ internal sealed partial class GitCliVersionControlService
             GitCommandOptions.Local,
             cancellationToken).ConfigureAwait(false);
         var locals = new List<BranchInfo>();
+        // Branches that so far exist only on origin, the one remote Beutl works with, which git switch also
+        // offers to check out. origin/HEAD only names the remote's default branch.
         var remotes = new List<string>();
         foreach (string record in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {

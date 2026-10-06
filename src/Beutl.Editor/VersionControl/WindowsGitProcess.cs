@@ -24,7 +24,6 @@ namespace Beutl.Editor.VersionControl;
 [ExcludeFromCodeCoverage(Justification = CoverageJustification)]
 internal sealed partial class WindowsGitProcess : GitProcess
 {
-    private const int StreamBufferSize = 4096;
     private const int CreateSuspended = 0x00000004;
     private const int CreateUnicodeEnvironment = 0x00000400;
     private const int CreateBreakawayFromJob = 0x01000000;
@@ -126,23 +125,15 @@ internal sealed partial class WindowsGitProcess : GitProcess
 
             // Everything that can fail is done before the command runs, so a failure never leaves a
             // command that has already done work.
-            standardInput = new StreamWriter(
+            standardInput = CreateStandardInputWriter(
                 new WindowsGitPipeStream(command.TakeInput(), PipeDirection.Out),
-                startInfo.StandardInputEncoding ?? s_utf8,
-                StreamBufferSize)
-            {
-                AutoFlush = true,
-            };
-            standardOutput = new StreamReader(
+                startInfo.StandardInputEncoding ?? s_utf8);
+            standardOutput = CreateStandardOutputReader(
                 new WindowsGitPipeStream(command.TakeOutput(), PipeDirection.In),
-                startInfo.StandardOutputEncoding ?? s_utf8,
-                detectEncodingFromByteOrderMarks: true,
-                StreamBufferSize);
-            standardError = new StreamReader(
+                startInfo.StandardOutputEncoding ?? s_utf8);
+            standardError = CreateStandardOutputReader(
                 new WindowsGitPipeStream(command.TakeError(), PipeDirection.In),
-                startInfo.StandardErrorEncoding ?? s_utf8,
-                detectEncodingFromByteOrderMarks: true,
-                StreamBufferSize);
+                startInfo.StandardErrorEncoding ?? s_utf8);
 
             if (Native.ResumeThread(command.Thread) == -1)
             {

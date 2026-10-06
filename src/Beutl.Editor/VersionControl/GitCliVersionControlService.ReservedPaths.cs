@@ -11,8 +11,9 @@ internal sealed partial class GitCliVersionControlService
         string parentCommit,
         CancellationToken cancellationToken)
     {
-        GitCommandResult result = await runner.RunAsync(
+        return await CommitTreeAndVerifyAsync(
                 repository,
+                runner,
                 [
                     "commit-tree",
                     tree,
@@ -24,28 +25,14 @@ internal sealed partial class GitCliVersionControlService
                     "Beutl-Snapshot: init",
                 ],
                 GitCommandOptions.Local,
+                "Git did not return the reserved-path cleanup commit.",
                 cancellationToken)
             .ConfigureAwait(false);
-        string commit = result.Stdout.Trim();
-        if (commit.Length == 0)
-        {
-            throw new InvalidOperationException(
-                "Git did not return the reserved-path cleanup commit.");
-        }
-
-        await runner.RunAsync(
-                repository,
-                ["cat-file", "-e", commit + "^{commit}"],
-                GitCommandOptions.Local,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        return commit;
     }
 
     private static bool IsReservedProjectPath(RepositoryInfo repository, string repositoryRelativePath)
     {
-        if (repositoryRelativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+        if (IsTemporaryProjectFile(repositoryRelativePath))
         {
             return true;
         }
@@ -148,20 +135,12 @@ internal sealed partial class GitCliVersionControlService
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-            refUpdateWorktreePath = Path.Combine(
-                Path.GetTempPath(),
-                $"beutl-git-ref-update-{Guid.NewGuid():N}");
-            await runner.RunAsync(
+            refUpdateWorktreePath = CreateUniqueTempPath("beutl-git-ref-update");
+            await AddRefUpdateWorktreeAsync(
                     repository,
-                    [
-                        "worktree",
-                        "add",
-                        "--detach",
-                        "--no-checkout",
-                        refUpdateWorktreePath,
-                        expectedHead.Commit,
-                    ],
-                    GitCommandOptions.Local,
+                    runner,
+                    refUpdateWorktreePath,
+                    expectedHead.Commit,
                     cancellationToken)
                 .ConfigureAwait(false);
             var refUpdateRepository = new RepositoryInfo(
@@ -185,22 +164,8 @@ internal sealed partial class GitCliVersionControlService
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            temporaryIndex = Path.Combine(
-                Path.GetTempPath(),
-                $"beutl-git-index-{Guid.NewGuid():N}");
-            var indexOptions = new GitCommandOptions(
-                GitCommandExecutionKind.Local,
-                new Dictionary<string, string?>
-                {
-                    ["GIT_INDEX_FILE"] = temporaryIndex,
-                });
-            await runner.RunAsync(
-                    repository,
-                    ["read-tree", expectedHead.Commit],
-                    indexOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
+            temporaryIndex = CreateUniqueTempPath("beutl-git-index");
+            GitCommandOptions indexOptions = CreateTemporaryIndexOptions(temporaryIndex);
             var removeArguments = new List<string>
             {
                 "update-index",
@@ -208,20 +173,14 @@ internal sealed partial class GitCliVersionControlService
                 "--",
             };
             removeArguments.AddRange(reservedPaths);
-            await runner.RunAsync(
+            string desiredTree = await BuildReservedPathCleanupTreeAsync(
                     repository,
+                    runner,
+                    expectedHead.Commit,
                     removeArguments,
                     indexOptions,
                     cancellationToken)
                 .ConfigureAwait(false);
-
-            GitCommandResult desiredTreeResult = await runner.RunAsync(
-                    repository,
-                    ["write-tree"],
-                    indexOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            string desiredTree = desiredTreeResult.Stdout.Trim();
             string currentTree = await ResolveTreeAsync(
                     repository,
                     runner,
@@ -234,32 +193,15 @@ internal sealed partial class GitCliVersionControlService
             // staged-only additions belong to the caller, not to reserved-path hygiene.
             if (string.Equals(desiredTree, currentTree, StringComparison.OrdinalIgnoreCase))
             {
-                if (await IsReservedPathCleanupCommitAsync(
-                            repository,
-                            runner,
-                            expectedHead.Commit,
-                            reservedPaths,
-                            cancellationToken)
-                        .ConfigureAwait(false))
-                {
-                    _logger.LogInformation(
-                        "The reserved-path cleanup commit is already durable; reconciling only the live index when its ownership can be proven.");
-                    await ReconcileReservedPathsInLiveIndexAsync(
-                            repository,
-                            runner,
-                            refUpdateRepository,
-                            expectedHead.RefName,
-                            expectedHead.Commit,
-                            removeArguments,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                else
-                {
-                    _logger.LogInformation(
-                        "Reserved project paths are staged additions with no cleanup commit; leaving the live index untouched.");
-                }
-
+                await ReconcileDurableCleanupWithoutTreeChangeAsync(
+                        repository,
+                        runner,
+                        refUpdateRepository,
+                        expectedHead,
+                        reservedPaths,
+                        removeArguments,
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 return;
             }
 
@@ -282,102 +224,21 @@ internal sealed partial class GitCliVersionControlService
                     CancellationToken.None)
                 .ConfigureAwait(false);
 
-            try
-            {
-                await runner.RunAsync(
-                        refUpdateRepository,
-                        [
-                            "update-ref",
-                            "-m",
-                            "beutl: stop tracking reserved project state",
-                            expectedHead.RefName,
-                            cleanupCommit,
-                            expectedHead.Commit,
-                        ],
-                        GitCommandOptions.Local,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                cleanupRefPublished = true;
-            }
-            catch (Exception publicationException)
-            {
-                string? observedTip;
-                try
-                {
-                    observedTip = await TryResolveCommitWithRetryAsync(
-                            refUpdateRepository,
-                            runner,
-                            expectedHead.RefName)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception observationException)
-                {
-                    if (observationException is GitOperationException
-                        {
-                            IsRepositoryLockFailure: true,
-                        } observationLockException)
-                    {
-                        throw observationLockException;
-                    }
-
-                    throw new AggregateException(
-                        "The reserved-path cleanup ref update failed and its result could not be observed after a retry.",
-                        publicationException,
-                        observationException);
-                }
-
-                if (!string.Equals(
-                        observedTip,
-                        cleanupCommit,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    if (publicationException is GitOperationException
-                        {
-                            IsRepositoryLockFailure: true,
-                        } lockException
-                        && string.Equals(
-                            observedTip,
-                            expectedHead.Commit,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw lockException;
-                    }
-
-                    throw new AggregateException(
-                        "The reserved-path cleanup ref update was not published because the branch tip changed.",
-                        publicationException,
-                        new InvalidOperationException(
-                            $"Expected branch '{expectedHead.RefName}' at '{expectedHead.Commit}', but observed '{observedTip ?? "<unborn>"}'."));
-                }
-
-                cleanupRefPublished = true;
-            }
-
-            string? reconciledTip = await TryResolveCommitWithRetryAsync(
+            await PublishReservedPathCleanupAsync(
                     refUpdateRepository,
                     runner,
-                    expectedHead.RefName)
+                    expectedHead,
+                    cleanupCommit)
                 .ConfigureAwait(false);
-            if (!string.Equals(
-                    reconciledTip,
-                    cleanupCommit,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogWarning(
-                    "Reserved-path cleanup was published, but branch {Branch} moved to {ObservedTip} before the live index could be reconciled; leaving the index untouched.",
-                    expectedHead.RefName,
-                    reconciledTip ?? "<unborn>");
-                return;
-            }
+            cleanupRefPublished = true;
 
-            await ReconcileReservedPathsInLiveIndexAsync(
+            await ReconcilePublishedReservedPathCleanupAsync(
                     repository,
                     runner,
                     refUpdateRepository,
-                    expectedHead.RefName,
+                    expectedHead,
                     cleanupCommit,
-                    removeArguments,
-                    CancellationToken.None)
+                    removeArguments)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -416,6 +277,186 @@ internal sealed partial class GitCliVersionControlService
                 TryDeleteTemporaryIndex(temporaryIndex);
             }
         }
+    }
+
+    // Builds the cleanup tree in the temporary index behind indexOptions: the base commit without the reserved paths.
+    private static async Task<string> BuildReservedPathCleanupTreeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string baseCommit,
+        IReadOnlyList<string> removeArguments,
+        GitCommandOptions indexOptions,
+        CancellationToken cancellationToken)
+    {
+        await runner.RunAsync(
+                repository,
+                ["read-tree", baseCommit],
+                indexOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await runner.RunAsync(
+                repository,
+                removeArguments,
+                indexOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        GitCommandResult desiredTreeResult = await runner.RunAsync(
+                repository,
+                ["write-tree"],
+                indexOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return desiredTreeResult.Stdout.Trim();
+    }
+
+    private async Task ReconcileDurableCleanupWithoutTreeChangeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        RepositoryInfo refUpdateRepository,
+        CheckedOutBranchTip expectedHead,
+        IReadOnlyList<string> reservedPaths,
+        IReadOnlyList<string> removeArguments,
+        CancellationToken cancellationToken)
+    {
+        if (await IsReservedPathCleanupCommitAsync(
+                    repository,
+                    runner,
+                    expectedHead.Commit,
+                    reservedPaths,
+                    cancellationToken)
+                .ConfigureAwait(false))
+        {
+            _logger.LogInformation(
+                "The reserved-path cleanup commit is already durable; reconciling only the live index when its ownership can be proven.");
+            await ReconcileReservedPathsInLiveIndexAsync(
+                    repository,
+                    runner,
+                    refUpdateRepository,
+                    expectedHead.RefName,
+                    expectedHead.Commit,
+                    removeArguments,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Reserved project paths are staged additions with no cleanup commit; leaving the live index untouched.");
+        }
+    }
+
+    // Returns once the cleanup commit is the branch tip. A reported failure is judged by the tip: at the cleanup
+    // commit the update landed; still at the expected commit after a lock failure, that failure is rethrown.
+    private static async Task PublishReservedPathCleanupAsync(
+        RepositoryInfo refUpdateRepository,
+        IGitCliRunner runner,
+        CheckedOutBranchTip expectedHead,
+        string cleanupCommit)
+    {
+        try
+        {
+            await runner.RunAsync(
+                    refUpdateRepository,
+                    [
+                        "update-ref",
+                        "-m",
+                        "beutl: stop tracking reserved project state",
+                        expectedHead.RefName,
+                        cleanupCommit,
+                        expectedHead.Commit,
+                    ],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception publicationException)
+        {
+            string? observedTip;
+            try
+            {
+                observedTip = await TryResolveCommitWithRetryAsync(
+                        refUpdateRepository,
+                        runner,
+                        expectedHead.RefName)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception observationException)
+            {
+                if (observationException is GitOperationException
+                    {
+                        IsRepositoryLockFailure: true,
+                    } observationLockException)
+                {
+                    throw observationLockException;
+                }
+
+                throw new AggregateException(
+                    "The reserved-path cleanup ref update failed and its result could not be observed after a retry.",
+                    publicationException,
+                    observationException);
+            }
+
+            if (!string.Equals(
+                    observedTip,
+                    cleanupCommit,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (publicationException is GitOperationException
+                    {
+                        IsRepositoryLockFailure: true,
+                    } lockException
+                    && string.Equals(
+                        observedTip,
+                        expectedHead.Commit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw lockException;
+                }
+
+                throw new AggregateException(
+                    "The reserved-path cleanup ref update was not published because the branch tip changed.",
+                    publicationException,
+                    new InvalidOperationException(
+                        $"Expected branch '{expectedHead.RefName}' at '{expectedHead.Commit}', but observed '{observedTip ?? "<unborn>"}'."));
+            }
+        }
+    }
+
+    private async Task ReconcilePublishedReservedPathCleanupAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        RepositoryInfo refUpdateRepository,
+        CheckedOutBranchTip expectedHead,
+        string cleanupCommit,
+        IReadOnlyList<string> removeArguments)
+    {
+        string? reconciledTip = await TryResolveCommitWithRetryAsync(
+                refUpdateRepository,
+                runner,
+                expectedHead.RefName)
+            .ConfigureAwait(false);
+        if (!string.Equals(
+                reconciledTip,
+                cleanupCommit,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "Reserved-path cleanup was published, but branch {Branch} moved to {ObservedTip} before the live index could be reconciled; leaving the index untouched.",
+                expectedHead.RefName,
+                reconciledTip ?? "<unborn>");
+            return;
+        }
+
+        await ReconcileReservedPathsInLiveIndexAsync(
+                repository,
+                runner,
+                refUpdateRepository,
+                expectedHead.RefName,
+                cleanupCommit,
+                removeArguments,
+                CancellationToken.None)
+            .ConfigureAwait(false);
     }
 
     private static async Task VerifyUntrackHeadOwnershipAsync(

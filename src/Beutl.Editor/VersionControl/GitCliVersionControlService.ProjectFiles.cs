@@ -77,10 +77,10 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        string prefix = GetProjectPathPrefix(repository);
         var nestedRepositories = new List<string>();
         var paths = GetRequiredProjectRelativePaths(repository.ProjectRoot, nestedRepositories)
-            .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => !IsTemporaryProjectFile(path))
             .Select(path => prefix + path)
             .ToList();
         if (repository.Pathspec != ".")
@@ -148,12 +148,12 @@ internal sealed partial class GitCliVersionControlService
             return ignoredPath;
         }
 
-        string prefix = repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
+        string prefix = GetProjectPathPrefix(repository);
         return await FindIgnoredPathAsync(
                 repository,
                 runner,
                 GetSerializedProjectRelativePaths(repository.ProjectRoot)
-                    .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+                    .Where(static path => !IsTemporaryProjectFile(path))
                     .Select(path => prefix + path),
                 environmentOverrides: null,
                 includeTrackedFiles: false,
@@ -338,9 +338,7 @@ internal sealed partial class GitCliVersionControlService
             return null;
         }
 
-        string probeRoot = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-ignore-{Guid.NewGuid():N}");
+        string probeRoot = CreateUniqueTempPath("beutl-git-ignore");
         Directory.CreateDirectory(probeRoot);
         try
         {
@@ -373,7 +371,7 @@ internal sealed partial class GitCliVersionControlService
                     probeRepository,
                     runner,
                     requiredPaths
-                        .Where(static path => !path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)),
+                        .Where(static path => !IsTemporaryProjectFile(path)),
                     environmentOverrides,
                     includeTrackedFiles: true,
                     cancellationToken)
@@ -502,14 +500,7 @@ internal sealed partial class GitCliVersionControlService
             return new HashSet<string>(StringComparer.Ordinal);
         }
 
-        string projectFileDirectory = Path.GetDirectoryName(_projectFile)
-                                      ?? throw new InvalidOperationException(
-                                          "The project file has no parent directory.");
-        string serializationRoot = VersionControlPathComparison.AreSameCanonicalPath(
-            projectFileDirectory,
-            projectRoot)
-            ? projectFileDirectory
-            : projectRoot;
+        string serializationRoot = GetSerializationRoot(_projectFile, projectRoot);
         return SerializedProjectGraph.GetRelativePaths(_projectFile, serializationRoot);
     }
 
@@ -520,24 +511,40 @@ internal sealed partial class GitCliVersionControlService
             return new HashSet<string>(StringComparer.Ordinal);
         }
 
-        string projectFileDirectory = Path.GetDirectoryName(_projectFile)
+        string serializationRoot = GetSerializationRoot(_projectFile, projectRoot);
+        return SerializedProjectGraph.GetFileSourceRelativePaths(
+            _projectFile,
+            serializationRoot);
+    }
+
+    // The project file's directory when it is the project root, so serialized paths keep its spelling.
+    private static string GetSerializationRoot(string projectFile, string projectRoot)
+    {
+        string projectFileDirectory = Path.GetDirectoryName(projectFile)
                                       ?? throw new InvalidOperationException(
                                           "The project file has no parent directory.");
-        string serializationRoot = VersionControlPathComparison.AreSameCanonicalPath(
+        return VersionControlPathComparison.AreSameCanonicalPath(
             projectFileDirectory,
             projectRoot)
             ? projectFileDirectory
             : projectRoot;
-        return SerializedProjectGraph.GetFileSourceRelativePaths(
-            _projectFile,
-            serializationRoot);
+    }
+
+    private static bool IsTemporaryProjectFile(string path)
+    {
+        return path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetProjectPathPrefix(RepositoryInfo repository)
+    {
+        return repository.Pathspec == "." ? string.Empty : repository.Pathspec + "/";
     }
 
     private void ValidateRequiredProjectFileLayout(string projectRoot)
     {
         IReadOnlySet<string> serializedPaths = GetSerializedProjectRelativePaths(projectRoot);
         _requiredTemporaryProjectPaths = serializedPaths
-            .Where(static path => path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+            .Where(static path => IsTemporaryProjectFile(path))
             .ToHashSet(StringComparer.Ordinal);
         _watcher?.UpdateRequiredPaths(serializedPaths);
         foreach (string _ in EnumerateRequiredProjectFiles(projectRoot, serializedPaths))

@@ -32,9 +32,7 @@ internal sealed partial class GitCliVersionControlService
             return CacheHistoricalRequiredTemporaryPaths(commit, []);
         }
 
-        string temporaryRoot = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-historical-graph-{Guid.NewGuid():N}");
+        string temporaryRoot = CreateUniqueTempPath("beutl-historical-graph");
         string materializedRepositoryRoot = Path.Combine(temporaryRoot, "tree");
         try
         {
@@ -54,31 +52,17 @@ internal sealed partial class GitCliVersionControlService
                 return CacheHistoricalRequiredTemporaryPaths(commit, []);
             }
 
-            await MaterializeHistoricalGraphFilesAsync(
+            IReadOnlySet<string> serializedPaths = await ReadMaterializedSerializedPathsAsync(
                     repository,
                     runner,
                     commit,
                     materializedRepositoryRoot,
+                    projectFileRepositoryPath,
                     graphFiles,
                     cancellationToken)
                 .ConfigureAwait(false);
-
-            string materializedProjectRoot = repository.Pathspec == "."
-                ? materializedRepositoryRoot
-                : GetMaterializedHistoricalPath(
-                    materializedRepositoryRoot,
-                    repository.Pathspec);
-            string materializedProjectFile = GetMaterializedHistoricalPath(
-                materializedRepositoryRoot,
-                projectFileRepositoryPath);
-            ValidateNoReservedProjectReferences(materializedProjectFile);
-            IReadOnlySet<string> serializedPaths = SerializedProjectGraph.GetRelativePaths(
-                materializedProjectFile,
-                materializedProjectRoot);
             HashSet<string> requiredTemporaryPaths = serializedPaths
-                .Where(static path => path.EndsWith(
-                    ".tmp",
-                    StringComparison.OrdinalIgnoreCase))
+                .Where(static path => IsTemporaryProjectFile(path))
                 .ToHashSet(StringComparer.Ordinal);
             return CacheHistoricalRequiredTemporaryPaths(commit, requiredTemporaryPaths);
         }
@@ -121,9 +105,7 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         return result.StdoutTruncated
                || GitCliRunner.SplitNullSeparated(result.Stdout)
-                   .Any(static path => path.EndsWith(
-                       ".tmp",
-                       StringComparison.OrdinalIgnoreCase));
+                   .Any(static path => IsTemporaryProjectFile(path));
     }
 
     private IReadOnlySet<string> CacheHistoricalRequiredTemporaryPaths(
@@ -200,7 +182,7 @@ internal sealed partial class GitCliVersionControlService
 
             if (metadata.Length != 4
                 || metadata[1] != "blob"
-                || metadata[0] is not ("100644" or "100755")
+                || !IsRegularFileMode(metadata[0])
                 || !long.TryParse(metadata[3], out long size)
                 || size < 0
                 || !IsSafeHistoricalGraphPath(repository, path)
@@ -220,6 +202,40 @@ internal sealed partial class GitCliVersionControlService
         }
 
         return result;
+    }
+
+    // Materializes graphFiles from treeish under materializedRepositoryRoot and returns the project-relative paths
+    // the materialized project file serializes.
+    private static async Task<IReadOnlySet<string>> ReadMaterializedSerializedPathsAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string treeish,
+        string materializedRepositoryRoot,
+        string projectFileRepositoryPath,
+        IReadOnlyDictionary<string, long> graphFiles,
+        CancellationToken cancellationToken)
+    {
+        await MaterializeHistoricalGraphFilesAsync(
+                repository,
+                runner,
+                treeish,
+                materializedRepositoryRoot,
+                graphFiles,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        string materializedProjectRoot = repository.Pathspec == "."
+            ? materializedRepositoryRoot
+            : GetMaterializedHistoricalPath(
+                materializedRepositoryRoot,
+                repository.Pathspec);
+        string materializedProjectFile = GetMaterializedHistoricalPath(
+            materializedRepositoryRoot,
+            projectFileRepositoryPath);
+        ValidateNoReservedProjectReferences(materializedProjectFile);
+        return SerializedProjectGraph.GetRelativePaths(
+            materializedProjectFile,
+            materializedProjectRoot);
     }
 
     private static async Task MaterializeHistoricalGraphFilesAsync(

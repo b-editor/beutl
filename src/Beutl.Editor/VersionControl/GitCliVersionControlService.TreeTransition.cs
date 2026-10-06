@@ -23,6 +23,27 @@ internal sealed partial class GitCliVersionControlService
         string? RestoreCommit = null,
         string Pathspec = ".");
 
+    private sealed record TreeTransitionContext(
+        RepositoryInfo Repository,
+        IGitCliRunner Runner,
+        CheckedOutBranchTip CurrentHead,
+        CheckedOutBranchTip TargetHead,
+        string CurrentTreeCommit,
+        string TargetTreeCommit,
+        TreeTransitionIndexPlan? IndexPlan,
+        RepositoryInfo RefUpdateRepository,
+        GitCommandOptions CheckoutOptions)
+    {
+        public string Pathspec => IndexPlan?.Pathspec ?? ".";
+    }
+
+    private sealed record TreeTransitionAttempt(
+        WorktreeStateFingerprint OriginalState,
+        WorktreeStateFingerprint PreparedState,
+        string CurrentTree,
+        bool WorktreeMutationAttempted,
+        bool TargetPrepared);
+
     private static async Task<WorktreeStateFingerprint> CaptureWorktreeStateAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -30,15 +51,8 @@ internal sealed partial class GitCliVersionControlService
         string pathspec,
         CancellationToken cancellationToken)
     {
-        string temporaryIndex = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-index-{Guid.NewGuid():N}");
-        var indexOptions = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
-            new Dictionary<string, string?>
-            {
-                ["GIT_INDEX_FILE"] = temporaryIndex,
-            });
+        string temporaryIndex = CreateUniqueTempPath("beutl-git-index");
+        GitCommandOptions indexOptions = CreateTemporaryIndexOptions(temporaryIndex);
 
         try
         {
@@ -77,15 +91,8 @@ internal sealed partial class GitCliVersionControlService
         string sourceCommit,
         CancellationToken cancellationToken)
     {
-        string temporaryIndex = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-index-{Guid.NewGuid():N}");
-        var indexOptions = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
-            new Dictionary<string, string?>
-            {
-                ["GIT_INDEX_FILE"] = temporaryIndex,
-            });
+        string temporaryIndex = CreateUniqueTempPath("beutl-git-index");
+        GitCommandOptions indexOptions = CreateTemporaryIndexOptions(temporaryIndex);
 
         try
         {
@@ -126,15 +133,8 @@ internal sealed partial class GitCliVersionControlService
         string incomingCommit,
         CancellationToken cancellationToken)
     {
-        string temporaryIndex = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-index-{Guid.NewGuid():N}");
-        var indexOptions = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
-            new Dictionary<string, string?>
-            {
-                ["GIT_INDEX_FILE"] = temporaryIndex,
-            });
+        string temporaryIndex = CreateUniqueTempPath("beutl-git-index");
+        GitCommandOptions indexOptions = CreateTemporaryIndexOptions(temporaryIndex);
 
         try
         {
@@ -251,23 +251,16 @@ internal sealed partial class GitCliVersionControlService
                 "index",
                 cancellationToken)
             .ConfigureAwait(false);
-        string refUpdateWorktreePath = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-ref-update-{Guid.NewGuid():N}");
+        string refUpdateWorktreePath = CreateUniqueTempPath("beutl-git-ref-update");
         try
         {
-            await runner.RunAsync(
-                repository,
-                [
-                    "worktree",
-                    "add",
-                    "--detach",
-                    "--no-checkout",
+            await AddRefUpdateWorktreeAsync(
+                    repository,
+                    runner,
                     refUpdateWorktreePath,
                     currentTreeCommit,
-                ],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -282,16 +275,24 @@ internal sealed partial class GitCliVersionControlService
                 currentHead);
         }
 
-        var refUpdateRepository = new RepositoryInfo(
-            refUpdateWorktreePath,
-            refUpdateWorktreePath);
-        var transitionCheckoutOptions = new GitCommandOptions(
-            GitCommandExecutionKind.LocalWithLfs,
-            new Dictionary<string, string?>
-            {
-                ["GIT_WORK_TREE"] = repository.RepoRoot,
-                ["GIT_INDEX_FILE"] = indexPath,
-            });
+        var transition = new TreeTransitionContext(
+            repository,
+            runner,
+            currentHead,
+            targetHead,
+            currentTreeCommit,
+            targetTreeCommit,
+            indexPlan,
+            new RepositoryInfo(
+                refUpdateWorktreePath,
+                refUpdateWorktreePath),
+            new GitCommandOptions(
+                GitCommandExecutionKind.LocalWithLfs,
+                new Dictionary<string, string?>
+                {
+                    ["GIT_WORK_TREE"] = repository.RepoRoot,
+                    ["GIT_INDEX_FILE"] = indexPath,
+                }));
         bool mutationStarted = false;
         try
         {
@@ -327,7 +328,7 @@ internal sealed partial class GitCliVersionControlService
                     repository,
                     runner,
                     currentTreeCommit,
-                    indexPlan?.Pathspec ?? ".",
+                    transition.Pathspec,
                     CancellationToken.None)
                 .ConfigureAwait(false);
             string currentTree = await ResolveTreeAsync(
@@ -389,28 +390,11 @@ internal sealed partial class GitCliVersionControlService
                     .ConfigureAwait(false);
                 mutationStarted = true;
                 worktreeMutationAttempted = true;
-                await runner.RunAsync(
-                    refUpdateRepository,
-                    [
-                        .. s_lfsPathFilterOverrides,
-                        "-c",
-                        "core.hooksPath=/dev/null",
-                        "checkout",
-                        "--detach",
-                        "--no-overwrite-ignore",
-                        targetTreeCommit,
-                    ],
-                    transitionCheckoutOptions,
-                    CancellationToken.None).ConfigureAwait(false);
+                await CheckoutTransitionTreeAsync(transition, targetTreeCommit).ConfigureAwait(false);
 
                 if (indexPlan?.FinalCommit is { } finalCommit)
                 {
-                    await EnsureNoExternalRepositoryOperationAsync(
-                            repository,
-                            runner,
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                    await ResetIndexAsync(
+                    await ResetIndexWithoutExternalOperationAsync(
                             repository,
                             runner,
                             finalCommit,
@@ -422,7 +406,7 @@ internal sealed partial class GitCliVersionControlService
                         repository,
                         runner,
                         targetTreeCommit,
-                        indexPlan?.Pathspec ?? ".",
+                        transition.Pathspec,
                         CancellationToken.None)
                     .ConfigureAwait(false);
                 string targetTree = await ResolveTreeAsync(
@@ -437,7 +421,7 @@ internal sealed partial class GitCliVersionControlService
                             repository,
                             runner,
                             expectedIndexCommit,
-                            indexPlan?.Pathspec ?? ".",
+                            transition.Pathspec,
                             CancellationToken.None)
                         .ConfigureAwait(false))
                 {
@@ -474,7 +458,7 @@ internal sealed partial class GitCliVersionControlService
                         CancellationToken.None)
                     .ConfigureAwait(false);
                 await runner.RunAsync(
-                    refUpdateRepository,
+                    transition.RefUpdateRepository,
                     [
                         "update-ref",
                         "-m",
@@ -489,379 +473,16 @@ internal sealed partial class GitCliVersionControlService
             }
             catch (Exception transitionException)
             {
-                string? branchCommit = await TryResolveCommitAsync(
-                        repository,
-                        runner,
-                        currentHead.RefName,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                if (string.Equals(
-                        branchCommit,
-                        targetHead.Commit,
-                        StringComparison.OrdinalIgnoreCase)
-                    && targetPrepared)
-                {
-                    return new TreeTransitionResult(TreeTransitionOutcome.AppliedTarget);
-                }
-
-                if (!string.Equals(
-                        branchCommit,
-                        currentHead.Commit,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    return new TreeTransitionResult(
-                        TreeTransitionOutcome.OwnershipLost,
-                        transitionException,
-                        await TryGetCheckedOutBranchTipAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false));
-                }
-
-                try
-                {
-                    await EnsureNoExternalRepositoryOperationAsync(
-                            repository,
-                            runner,
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                }
-                catch (VersionControlConflictedException externalOperationException)
-                {
-                    return new TreeTransitionResult(
-                        TreeTransitionOutcome.OwnershipLost,
-                        externalOperationException,
-                        currentHead);
-                }
-                catch (Exception recoveryGuardException)
-                {
-                    return new TreeTransitionResult(
-                        TreeTransitionOutcome.RecoveryFailed,
-                        new AggregateException(
-                            "The tree transition failed and rollback safety could not be established.",
-                            transitionException,
-                            recoveryGuardException),
-                        currentHead);
-                }
-
-                try
-                {
-                    WorktreeStateFingerprint failedState = await CaptureWorktreeStateAsync(
-                            repository,
-                            runner,
-                            currentTreeCommit,
-                            indexPlan?.Pathspec ?? ".",
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                    string targetTree = await ResolveTreeAsync(
-                            repository,
-                            runner,
-                            targetTreeCommit,
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                    bool worktreeOwned = string.Equals(
-                                             failedState.Tree,
-                                             originalState.Tree,
-                                             StringComparison.OrdinalIgnoreCase)
-                                         || string.Equals(
-                                             failedState.Tree,
-                                             targetTree,
-                                             StringComparison.OrdinalIgnoreCase);
-                    bool indexOwned = string.Equals(
-                                          failedState.IndexEntries,
-                                          originalState.IndexEntries,
-                                          StringComparison.Ordinal)
-                                      || string.Equals(
-                                          failedState.IndexEntries,
-                                          preparedState.IndexEntries,
-                                          StringComparison.Ordinal)
-                                      || await IsIndexAtCommitAsync(
-                                              repository,
-                                              runner,
-                                              targetTreeCommit,
-                                              indexPlan?.Pathspec ?? ".",
-                                              CancellationToken.None)
-                                          .ConfigureAwait(false)
-                                      || (indexPlan?.PrepareCommit is { } expectedPrepareCommit
-                                          && await IsIndexAtCommitAsync(
-                                                  repository,
-                                                  runner,
-                                                  expectedPrepareCommit,
-                                                  indexPlan.Pathspec,
-                                                  CancellationToken.None)
-                                              .ConfigureAwait(false))
-                                      || (indexPlan?.FinalCommit is { } expectedFinalCommit
-                                          && await IsIndexAtCommitAsync(
-                                                  repository,
-                                                  runner,
-                                                  expectedFinalCommit,
-                                                  indexPlan.Pathspec,
-                                                  CancellationToken.None)
-                                              .ConfigureAwait(false));
-                    if (!indexOwned)
-                    {
-                        return new TreeTransitionResult(
-                            TreeTransitionOutcome.OwnershipLost,
-                            transitionException,
-                            currentHead);
-                    }
-
-                    if (!worktreeOwned)
-                    {
-                        string refusedRestoreCommit = indexPlan?.RestoreCommit ?? currentTreeCommit;
-                        await EnsureNoExternalRepositoryOperationAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        await ResetIndexAsync(
-                                repository,
-                                runner,
-                                refusedRestoreCommit,
-                                indexPlan?.Pathspec ?? ".")
-                            .ConfigureAwait(false);
-                        WorktreeStateFingerprint refusedState = await CaptureWorktreeStateAsync(
-                                repository,
-                                runner,
-                                currentTreeCommit,
-                                indexPlan?.Pathspec ?? ".",
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        if (!string.Equals(
-                                refusedState.IndexEntries,
-                                originalState.IndexEntries,
-                                StringComparison.Ordinal))
-                        {
-                            return new TreeTransitionResult(
-                                TreeTransitionOutcome.RecoveryFailed,
-                                new AggregateException(
-                                    "The checkout was refused and the original index could not be restored.",
-                                    transitionException),
-                                currentHead);
-                        }
-
-                        CheckedOutBranchTip? refusedTip = await TryGetCheckedOutBranchTipAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        return new TreeTransitionResult(
-                            TreeTransitionOutcome.OwnershipLost,
-                            transitionException,
-                            refusedTip);
-                    }
-
-                    if (worktreeMutationAttempted
-                        && string.Equals(
-                            failedState.Tree,
-                            targetTree,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        string? transitionHead = await TryResolveCommitAsync(
-                                refUpdateRepository,
-                                runner,
-                                "HEAD",
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        if (string.Equals(
-                                transitionHead,
-                                currentTreeCommit,
-                                StringComparison.OrdinalIgnoreCase))
-                        {
-                            try
-                            {
-                                await runner.RunAsync(
-                                    refUpdateRepository,
-                                    [
-                                        "update-ref",
-                                        "--no-deref",
-                                        "-m",
-                                        "beutl align temporary transition head for recovery",
-                                        "HEAD",
-                                        targetTreeCommit,
-                                        currentTreeCommit,
-                                    ],
-                                    GitCommandOptions.Local,
-                                    CancellationToken.None).ConfigureAwait(false);
-                            }
-                            catch (Exception alignmentException)
-                            {
-                                transitionHead = await TryResolveCommitAsync(
-                                        refUpdateRepository,
-                                        runner,
-                                        "HEAD",
-                                        CancellationToken.None)
-                                    .ConfigureAwait(false);
-                                if (string.Equals(
-                                        transitionHead,
-                                        targetTreeCommit,
-                                        StringComparison.OrdinalIgnoreCase))
-                                {
-                                    // The update reached Git even though the runner lost its response.
-                                }
-                                else if (string.Equals(
-                                             transitionHead,
-                                             currentTreeCommit,
-                                             StringComparison.OrdinalIgnoreCase))
-                                {
-                                    return new TreeTransitionResult(
-                                        TreeTransitionOutcome.RecoveryFailed,
-                                        new AggregateException(
-                                            "The temporary transition head could not be aligned for recovery.",
-                                            transitionException,
-                                            alignmentException),
-                                        currentHead);
-                                }
-                                else
-                                {
-                                    return new TreeTransitionResult(
-                                        TreeTransitionOutcome.OwnershipLost,
-                                        new AggregateException(
-                                            "The temporary transition head changed while recovery was being prepared.",
-                                            transitionException,
-                                            alignmentException),
-                                        currentHead);
-                                }
-                            }
-                        }
-                        else if (!string.Equals(
-                                     transitionHead,
-                                     targetTreeCommit,
-                                     StringComparison.OrdinalIgnoreCase))
-                        {
-                            return new TreeTransitionResult(
-                                TreeTransitionOutcome.OwnershipLost,
-                                transitionException,
-                                currentHead);
-                        }
-
-                        await EnsureNoExternalRepositoryOperationAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        await ResetIndexAsync(
-                                repository,
-                                runner,
-                                targetTreeCommit,
-                                indexPlan?.Pathspec ?? ".")
-                            .ConfigureAwait(false);
-                        await EnsureNoExternalRepositoryOperationAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        await runner.RunAsync(
-                            refUpdateRepository,
-                            [
-                                .. s_lfsPathFilterOverrides,
-                                "-c",
-                                "core.hooksPath=/dev/null",
-                                "checkout",
-                                "--detach",
-                                "--no-overwrite-ignore",
-                                currentTreeCommit,
-                            ],
-                            transitionCheckoutOptions,
-                            CancellationToken.None).ConfigureAwait(false);
-                    }
-
-                    if (indexPlan?.RestoreCommit is { } restoreCommit)
-                    {
-                        await EnsureNoExternalRepositoryOperationAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        await ResetIndexAsync(
-                                repository,
-                                runner,
-                                restoreCommit,
-                                indexPlan.Pathspec)
-                            .ConfigureAwait(false);
-                    }
-                    else if (!string.Equals(
-                                 failedState.IndexEntries,
-                                 originalState.IndexEntries,
-                                 StringComparison.Ordinal))
-                    {
-                        await EnsureNoExternalRepositoryOperationAsync(
-                                repository,
-                                runner,
-                                CancellationToken.None)
-                            .ConfigureAwait(false);
-                        await ResetIndexAsync(
-                                repository,
-                                runner,
-                                currentTreeCommit,
-                                indexPlan?.Pathspec ?? ".")
-                            .ConfigureAwait(false);
-                    }
-
-                    WorktreeStateFingerprint recoveredState = await CaptureWorktreeStateAsync(
-                            repository,
-                            runner,
-                            currentTreeCommit,
-                            indexPlan?.Pathspec ?? ".",
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                    string expectedRestoreCommit = indexPlan?.RestoreCommit ?? currentTreeCommit;
-                    if (!string.Equals(
-                            recoveredState.Tree,
+                return await RecoverFailedTreeTransitionAsync(
+                        transition,
+                        new TreeTransitionAttempt(
+                            originalState,
+                            preparedState,
                             currentTree,
-                            StringComparison.OrdinalIgnoreCase)
-                        || !await IsIndexAtCommitAsync(
-                                repository,
-                                runner,
-                                expectedRestoreCommit,
-                                indexPlan?.Pathspec ?? ".",
-                                CancellationToken.None)
-                            .ConfigureAwait(false))
-                    {
-                        return new TreeTransitionResult(
-                            TreeTransitionOutcome.RecoveryFailed,
-                            new AggregateException(
-                                "The tree transition failed and the original tree could not be verified.",
-                                transitionException),
-                            currentHead);
-                    }
-
-                    CheckedOutBranchTip? recoveredTip = await TryGetCheckedOutBranchTipAsync(
-                            repository,
-                            runner,
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                    if (recoveredTip is null || !EqualsBranchTip(recoveredTip, currentHead))
-                    {
-                        return new TreeTransitionResult(
-                            TreeTransitionOutcome.OwnershipLost,
-                            transitionException,
-                            recoveredTip);
-                    }
-
-                    return new TreeTransitionResult(
-                        TreeTransitionOutcome.RestoredCurrent,
-                        transitionException,
-                        currentHead);
-                }
-                catch (VersionControlConflictedException recoveryException)
-                {
-                    return new TreeTransitionResult(
-                        TreeTransitionOutcome.OwnershipLost,
-                        recoveryException,
-                        currentHead);
-                }
-                catch (Exception recoveryException)
-                {
-                    return new TreeTransitionResult(
-                        TreeTransitionOutcome.RecoveryFailed,
-                        new AggregateException(
-                            "The tree transition failed and its current state could not be restored.",
-                            transitionException,
-                            recoveryException),
-                        currentHead);
-                }
+                            worktreeMutationAttempted,
+                            targetPrepared),
+                        transitionException)
+                    .ConfigureAwait(false);
             }
         }
         catch (ProjectCheckpointStateChangedException ex)
@@ -892,6 +513,482 @@ internal sealed partial class GitCliVersionControlService
                     refUpdateWorktreePath)
                 .ConfigureAwait(false);
         }
+    }
+
+    // Runs inside the failed transition's catch, while the HEAD lease is still held.
+    private static async Task<TreeTransitionResult> RecoverFailedTreeTransitionAsync(
+        TreeTransitionContext transition,
+        TreeTransitionAttempt attempt,
+        Exception transitionException)
+    {
+        RepositoryInfo repository = transition.Repository;
+        IGitCliRunner runner = transition.Runner;
+        CheckedOutBranchTip currentHead = transition.CurrentHead;
+        TreeTransitionIndexPlan? indexPlan = transition.IndexPlan;
+        string? branchCommit = await TryResolveCommitAsync(
+                repository,
+                runner,
+                currentHead.RefName,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (string.Equals(
+                branchCommit,
+                transition.TargetHead.Commit,
+                StringComparison.OrdinalIgnoreCase)
+            && attempt.TargetPrepared)
+        {
+            return new TreeTransitionResult(TreeTransitionOutcome.AppliedTarget);
+        }
+
+        if (!string.Equals(
+                branchCommit,
+                currentHead.Commit,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.OwnershipLost,
+                transitionException,
+                await TryGetCheckedOutBranchTipAsync(
+                        repository,
+                        runner,
+                        CancellationToken.None)
+                    .ConfigureAwait(false));
+        }
+
+        try
+        {
+            await EnsureNoExternalRepositoryOperationAsync(
+                    repository,
+                    runner,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (VersionControlConflictedException externalOperationException)
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.OwnershipLost,
+                externalOperationException,
+                currentHead);
+        }
+        catch (Exception recoveryGuardException)
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.RecoveryFailed,
+                new AggregateException(
+                    "The tree transition failed and rollback safety could not be established.",
+                    transitionException,
+                    recoveryGuardException),
+                currentHead);
+        }
+
+        try
+        {
+            WorktreeStateFingerprint failedState = await CaptureWorktreeStateAsync(
+                    repository,
+                    runner,
+                    transition.CurrentTreeCommit,
+                    transition.Pathspec,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            string targetTree = await ResolveTreeAsync(
+                    repository,
+                    runner,
+                    transition.TargetTreeCommit,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            bool worktreeOwned = string.Equals(
+                                     failedState.Tree,
+                                     attempt.OriginalState.Tree,
+                                     StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(
+                                     failedState.Tree,
+                                     targetTree,
+                                     StringComparison.OrdinalIgnoreCase);
+            bool indexOwned = await IsFailedTransitionIndexOwnedAsync(
+                    transition,
+                    attempt,
+                    failedState)
+                .ConfigureAwait(false);
+            if (!indexOwned)
+            {
+                return new TreeTransitionResult(
+                    TreeTransitionOutcome.OwnershipLost,
+                    transitionException,
+                    currentHead);
+            }
+
+            if (!worktreeOwned)
+            {
+                return await RestoreIndexAfterRefusedCheckoutAsync(
+                        transition,
+                        attempt,
+                        transitionException)
+                    .ConfigureAwait(false);
+            }
+
+            if (attempt.WorktreeMutationAttempted
+                && string.Equals(
+                    failedState.Tree,
+                    targetTree,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (await AlignTransitionHeadForRecoveryAsync(
+                            transition,
+                            transitionException)
+                        .ConfigureAwait(false) is { } alignmentFailure)
+                {
+                    return alignmentFailure;
+                }
+
+                await ResetIndexWithoutExternalOperationAsync(
+                        repository,
+                        runner,
+                        transition.TargetTreeCommit,
+                        transition.Pathspec)
+                    .ConfigureAwait(false);
+                await EnsureNoExternalRepositoryOperationAsync(
+                        repository,
+                        runner,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                await CheckoutTransitionTreeAsync(transition, transition.CurrentTreeCommit).ConfigureAwait(false);
+            }
+
+            if (indexPlan?.RestoreCommit is { } restoreCommit)
+            {
+                await ResetIndexWithoutExternalOperationAsync(
+                        repository,
+                        runner,
+                        restoreCommit,
+                        indexPlan.Pathspec)
+                    .ConfigureAwait(false);
+            }
+            else if (!string.Equals(
+                         failedState.IndexEntries,
+                         attempt.OriginalState.IndexEntries,
+                         StringComparison.Ordinal))
+            {
+                await ResetIndexWithoutExternalOperationAsync(
+                        repository,
+                        runner,
+                        transition.CurrentTreeCommit,
+                        transition.Pathspec)
+                    .ConfigureAwait(false);
+            }
+
+            return await VerifyRecoveredTreeTransitionAsync(
+                    transition,
+                    attempt,
+                    transitionException)
+                .ConfigureAwait(false);
+        }
+        catch (VersionControlConflictedException recoveryException)
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.OwnershipLost,
+                recoveryException,
+                currentHead);
+        }
+        catch (Exception recoveryException)
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.RecoveryFailed,
+                new AggregateException(
+                    "The tree transition failed and its current state could not be restored.",
+                    transitionException,
+                    recoveryException),
+                currentHead);
+        }
+    }
+
+    // Whether the index still holds a state this transition started from or wrote; any other index is another
+    // writer's and is not reset.
+    private static async Task<bool> IsFailedTransitionIndexOwnedAsync(
+        TreeTransitionContext transition,
+        TreeTransitionAttempt attempt,
+        WorktreeStateFingerprint failedState)
+    {
+        RepositoryInfo repository = transition.Repository;
+        IGitCliRunner runner = transition.Runner;
+        TreeTransitionIndexPlan? indexPlan = transition.IndexPlan;
+        return string.Equals(
+                   failedState.IndexEntries,
+                   attempt.OriginalState.IndexEntries,
+                   StringComparison.Ordinal)
+               || string.Equals(
+                   failedState.IndexEntries,
+                   attempt.PreparedState.IndexEntries,
+                   StringComparison.Ordinal)
+               || await IsIndexAtCommitAsync(
+                       repository,
+                       runner,
+                       transition.TargetTreeCommit,
+                       transition.Pathspec,
+                       CancellationToken.None)
+                   .ConfigureAwait(false)
+               || (indexPlan?.PrepareCommit is { } expectedPrepareCommit
+                   && await IsIndexAtCommitAsync(
+                           repository,
+                           runner,
+                           expectedPrepareCommit,
+                           indexPlan.Pathspec,
+                           CancellationToken.None)
+                       .ConfigureAwait(false))
+               || (indexPlan?.FinalCommit is { } expectedFinalCommit
+                   && await IsIndexAtCommitAsync(
+                           repository,
+                           runner,
+                           expectedFinalCommit,
+                           indexPlan.Pathspec,
+                           CancellationToken.None)
+                       .ConfigureAwait(false));
+    }
+
+    // The worktree holds neither tree, so it is left alone and only the index this transition changed is put back.
+    private static async Task<TreeTransitionResult> RestoreIndexAfterRefusedCheckoutAsync(
+        TreeTransitionContext transition,
+        TreeTransitionAttempt attempt,
+        Exception transitionException)
+    {
+        RepositoryInfo repository = transition.Repository;
+        IGitCliRunner runner = transition.Runner;
+        string refusedRestoreCommit = transition.IndexPlan?.RestoreCommit ?? transition.CurrentTreeCommit;
+        await ResetIndexWithoutExternalOperationAsync(
+                repository,
+                runner,
+                refusedRestoreCommit,
+                transition.Pathspec)
+            .ConfigureAwait(false);
+        WorktreeStateFingerprint refusedState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                transition.CurrentTreeCommit,
+                transition.Pathspec,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!string.Equals(
+                refusedState.IndexEntries,
+                attempt.OriginalState.IndexEntries,
+                StringComparison.Ordinal))
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.RecoveryFailed,
+                new AggregateException(
+                    "The checkout was refused and the original index could not be restored.",
+                    transitionException),
+                transition.CurrentHead);
+        }
+
+        CheckedOutBranchTip? refusedTip = await TryGetCheckedOutBranchTipAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return new TreeTransitionResult(
+            TreeTransitionOutcome.OwnershipLost,
+            transitionException,
+            refusedTip);
+    }
+
+    // Moves the temporary worktree's HEAD to the target tree that is on disk, so checking the current tree out again
+    // starts from what the failed checkout left. Null when HEAD is aligned; otherwise the result that ends recovery.
+    private static async Task<TreeTransitionResult?> AlignTransitionHeadForRecoveryAsync(
+        TreeTransitionContext transition,
+        Exception transitionException)
+    {
+        string? transitionHead = await TryResolveCommitAsync(
+                transition.RefUpdateRepository,
+                transition.Runner,
+                "HEAD",
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (string.Equals(
+                transitionHead,
+                transition.CurrentTreeCommit,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                await transition.Runner.RunAsync(
+                    transition.RefUpdateRepository,
+                    [
+                        "update-ref",
+                        "--no-deref",
+                        "-m",
+                        "beutl align temporary transition head for recovery",
+                        "HEAD",
+                        transition.TargetTreeCommit,
+                        transition.CurrentTreeCommit,
+                    ],
+                    GitCommandOptions.Local,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception alignmentException)
+            {
+                transitionHead = await TryResolveCommitAsync(
+                        transition.RefUpdateRepository,
+                        transition.Runner,
+                        "HEAD",
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                if (string.Equals(
+                        transitionHead,
+                        transition.TargetTreeCommit,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    // The update reached Git even though the runner lost its response.
+                }
+                else if (string.Equals(
+                             transitionHead,
+                             transition.CurrentTreeCommit,
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.RecoveryFailed,
+                        new AggregateException(
+                            "The temporary transition head could not be aligned for recovery.",
+                            transitionException,
+                            alignmentException),
+                        transition.CurrentHead);
+                }
+                else
+                {
+                    return new TreeTransitionResult(
+                        TreeTransitionOutcome.OwnershipLost,
+                        new AggregateException(
+                            "The temporary transition head changed while recovery was being prepared.",
+                            transitionException,
+                            alignmentException),
+                        transition.CurrentHead);
+                }
+            }
+        }
+        else if (!string.Equals(
+                     transitionHead,
+                     transition.TargetTreeCommit,
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.OwnershipLost,
+                transitionException,
+                transition.CurrentHead);
+        }
+
+        return null;
+    }
+
+    private static async Task<TreeTransitionResult> VerifyRecoveredTreeTransitionAsync(
+        TreeTransitionContext transition,
+        TreeTransitionAttempt attempt,
+        Exception transitionException)
+    {
+        RepositoryInfo repository = transition.Repository;
+        IGitCliRunner runner = transition.Runner;
+        WorktreeStateFingerprint recoveredState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                transition.CurrentTreeCommit,
+                transition.Pathspec,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        string expectedRestoreCommit = transition.IndexPlan?.RestoreCommit ?? transition.CurrentTreeCommit;
+        if (!string.Equals(
+                recoveredState.Tree,
+                attempt.CurrentTree,
+                StringComparison.OrdinalIgnoreCase)
+            || !await IsIndexAtCommitAsync(
+                    repository,
+                    runner,
+                    expectedRestoreCommit,
+                    transition.Pathspec,
+                    CancellationToken.None)
+                .ConfigureAwait(false))
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.RecoveryFailed,
+                new AggregateException(
+                    "The tree transition failed and the original tree could not be verified.",
+                    transitionException),
+                transition.CurrentHead);
+        }
+
+        CheckedOutBranchTip? recoveredTip = await TryGetCheckedOutBranchTipAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (recoveredTip is null || !EqualsBranchTip(recoveredTip, transition.CurrentHead))
+        {
+            return new TreeTransitionResult(
+                TreeTransitionOutcome.OwnershipLost,
+                transitionException,
+                recoveredTip);
+        }
+
+        return new TreeTransitionResult(
+            TreeTransitionOutcome.RestoredCurrent,
+            transitionException,
+            transition.CurrentHead);
+    }
+
+    private static Task<GitCommandResult> CheckoutTransitionTreeAsync(
+        TreeTransitionContext transition,
+        string commit)
+    {
+        return transition.Runner.RunAsync(
+            transition.RefUpdateRepository,
+            [
+                .. s_lfsPathFilterOverrides,
+                "-c",
+                "core.hooksPath=/dev/null",
+                "checkout",
+                "--detach",
+                "--no-overwrite-ignore",
+                commit,
+            ],
+            transition.CheckoutOptions,
+            CancellationToken.None);
+    }
+
+    private static async Task ResetIndexWithoutExternalOperationAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string commit,
+        string pathspec)
+    {
+        await EnsureNoExternalRepositoryOperationAsync(
+                repository,
+                runner,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        await ResetIndexAsync(
+                repository,
+                runner,
+                commit,
+                pathspec)
+            .ConfigureAwait(false);
+    }
+
+    // A detached worktree with no checkout, from which Git commands run without involving this worktree's HEAD.
+    private static Task AddRefUpdateWorktreeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string worktreePath,
+        string commit,
+        CancellationToken cancellationToken)
+    {
+        return runner.RunAsync(
+            repository,
+            [
+                "worktree",
+                "add",
+                "--detach",
+                "--no-checkout",
+                worktreePath,
+                commit,
+            ],
+            GitCommandOptions.Local,
+            cancellationToken);
     }
 
     private async Task RemoveRefUpdateWorktreeBestEffortAsync(

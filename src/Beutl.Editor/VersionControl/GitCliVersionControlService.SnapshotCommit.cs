@@ -23,6 +23,12 @@ internal sealed partial class GitCliVersionControlService
         Verbatim,
     }
 
+    private sealed record SnapshotCommitSettings(
+        SnapshotIdentity Author,
+        SnapshotIdentity Committer,
+        CommitCleanupMode CleanupMode,
+        bool SignCommit);
+
     private async Task<SnapshotCommit?> CreateSnapshotCommitAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -32,39 +38,18 @@ internal sealed partial class GitCliVersionControlService
         SnapshotKind kind,
         CancellationToken cancellationToken)
     {
-        string temporaryIndex = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-hook-index-{Guid.NewGuid():N}");
+        string temporaryIndex = CreateUniqueTempPath("beutl-git-hook-index");
         string? messagePath = null;
         bool retainMessage = false;
 
         try
         {
-            SnapshotIdentity author = await ResolveSnapshotIdentityAsync(
+            SnapshotCommitSettings settings = await ResolveSnapshotCommitSettingsAsync(
                     repository,
                     runner,
-                    "GIT_AUTHOR_IDENT",
-                    "author",
+                    kind,
                     cancellationToken)
                 .ConfigureAwait(false);
-            SnapshotIdentity committer = await ResolveSnapshotIdentityAsync(
-                    repository,
-                    runner,
-                    "GIT_COMMITTER_IDENT",
-                    "committer",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            CommitCleanupMode cleanupMode = await ResolveCommitCleanupModeAsync(
-                    repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            bool signCommit = kind == SnapshotKind.Manual
-                              && await IsCommitSigningEnabledAsync(
-                                      repository,
-                                      runner,
-                                      cancellationToken)
-                                  .ConfigureAwait(false);
             string standardMessagePath = await ResolveGitPathAsync(
                     repository,
                     runner,
@@ -81,103 +66,25 @@ internal sealed partial class GitCliVersionControlService
                 ["GIT_INDEX_FILE"] = temporaryIndex,
                 ["GIT_EDITOR"] = ":",
                 ["GIT_COMMIT_EDITMSG"] = messagePath,
-                ["GIT_AUTHOR_NAME"] = author.Name,
-                ["GIT_AUTHOR_EMAIL"] = author.Email,
-                ["GIT_AUTHOR_DATE"] = author.Date,
-                ["GIT_COMMITTER_NAME"] = committer.Name,
-                ["GIT_COMMITTER_EMAIL"] = committer.Email,
-                ["GIT_COMMITTER_DATE"] = committer.Date,
+                ["GIT_AUTHOR_NAME"] = settings.Author.Name,
+                ["GIT_AUTHOR_EMAIL"] = settings.Author.Email,
+                ["GIT_AUTHOR_DATE"] = settings.Author.Date,
+                ["GIT_COMMITTER_NAME"] = settings.Committer.Name,
+                ["GIT_COMMITTER_EMAIL"] = settings.Committer.Email,
+                ["GIT_COMMITTER_DATE"] = settings.Committer.Date,
             };
             var hookOptions = new GitCommandOptions(
                 GitCommandExecutionKind.Local,
                 hookEnvironment);
-            byte[] initialMessage = await StripCommitMessageAsync(
+            await RunSnapshotCommitHooksAsync(
                     repository,
                     runner,
-                    new UTF8Encoding(false).GetBytes(
-                        CreateSnapshotCommitMessage(message, kind)),
-                    cleanupMode == CommitCleanupMode.Verbatim
-                        ? CommitCleanupMode.Verbatim
-                        : CommitCleanupMode.Whitespace,
-                    commentChar: null,
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            char commentChar = cleanupMode == CommitCleanupMode.Strip
-                ? await ResolveCommitCommentCharAsync(
-                        repository,
-                        runner,
-                        initialMessage,
-                        cancellationToken)
-                    .ConfigureAwait(false)
-                : '#';
-            await runner.RunAsync(
-                    repository,
-                    ["read-tree", tree],
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            await RunCommitHookAsync(
-                    repository,
-                    runner,
-                    "pre-commit",
-                    [],
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            await WriteCommitMessageAsync(
-                    messagePath,
-                    initialMessage,
-                    createNew: true,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            await RunCommitHookAsync(
-                    repository,
-                    runner,
-                    "prepare-commit-msg",
-                    [messagePath, "message"],
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            await RunCommitHookAsync(
-                    repository,
-                    runner,
-                    "commit-msg",
-                    [messagePath],
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            byte[] finalMessage = await StripCommitMessageAsync(
-                    repository,
-                    runner,
-                    await ReadCommitMessageAsync(messagePath, cancellationToken)
-                        .ConfigureAwait(false),
-                    cleanupMode,
-                    commentChar,
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (IsEmptyCommitMessage(finalMessage))
-            {
-                throw new InvalidOperationException(
-                    "The snapshot commit message was empty after commit hooks ran.");
-            }
-
-            finalMessage = await EnsureSnapshotTrailerAsync(
-                    repository,
-                    runner,
-                    finalMessage,
+                    tree,
+                    message,
                     kind,
-                    hookOptions,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            await WriteCommitMessageAsync(
+                    settings.CleanupMode,
                     messagePath,
-                    finalMessage,
-                    createNew: false,
+                    hookOptions,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -196,30 +103,13 @@ internal sealed partial class GitCliVersionControlService
                     hookTree,
                     cancellationToken)
                 .ConfigureAwait(false);
-            bool isEmptyCommit;
-            if (parentCommit is null)
-            {
-                GitCommandResult entries = await runner.RunAsync(
-                        repository,
-                        ["ls-tree", "-r", "-z", hookTree],
-                        GitCommandOptions.Local with { MaxStdoutBytes = 1 },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                isEmptyCommit = !entries.StdoutTruncated && entries.Stdout.Length == 0;
-            }
-            else
-            {
-                string parentTree = await ResolveTreeAsync(
-                        repository,
-                        runner,
-                        parentCommit,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                isEmptyCommit = string.Equals(
+            bool isEmptyCommit = await IsEmptySnapshotCommitAsync(
+                    repository,
+                    runner,
                     hookTree,
-                    parentTree,
-                    StringComparison.OrdinalIgnoreCase);
-            }
+                    parentCommit,
+                    cancellationToken)
+                .ConfigureAwait(false);
 
             if (isEmptyCommit)
             {
@@ -232,28 +122,12 @@ internal sealed partial class GitCliVersionControlService
                 return null;
             }
 
-            var arguments = new List<string>
-            {
-                "commit-tree",
+            List<string> arguments = CreateSnapshotCommitArguments(
                 hookTree,
-            };
-            if (parentCommit is not null)
-            {
-                arguments.Add("-p");
-                arguments.Add(parentCommit);
-            }
-
-            if (signCommit)
-            {
-                arguments.Add("-S");
-            }
-            else if (kind != SnapshotKind.Manual)
-            {
-                arguments.Add("--no-gpg-sign");
-            }
-
-            arguments.Add("-F");
-            arguments.Add(messagePath);
+                parentCommit,
+                settings.SignCommit,
+                kind,
+                messagePath);
 
             cancellationToken.ThrowIfCancellationRequested();
             // A signer may wait for a passphrase, so a signed commit runs without the local timeout and
@@ -261,10 +135,10 @@ internal sealed partial class GitCliVersionControlService
             GitCommandResult commit = await runner.RunAsync(
                     repository,
                     arguments,
-                    signCommit
+                    settings.SignCommit
                         ? hookOptions with { ExecutionKind = GitCommandExecutionKind.LocalUnbounded }
                         : hookOptions,
-                    signCommit ? cancellationToken : CancellationToken.None)
+                    settings.SignCommit ? cancellationToken : CancellationToken.None)
                 .ConfigureAwait(false);
             string commitId = commit.Stdout.Trim();
             GitRevisionValidator.ValidateCommitId(commitId, nameof(commitId));
@@ -273,8 +147,8 @@ internal sealed partial class GitCliVersionControlService
                 commitId,
                 hookTree,
                 messagePath,
-                author,
-                committer);
+                settings.Author,
+                settings.Committer);
         }
         finally
         {
@@ -284,6 +158,211 @@ internal sealed partial class GitCliVersionControlService
                 TryDeleteTemporaryIndex(messagePath);
             }
         }
+    }
+
+    private static async Task<SnapshotCommitSettings> ResolveSnapshotCommitSettingsAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        SnapshotKind kind,
+        CancellationToken cancellationToken)
+    {
+        SnapshotIdentity author = await ResolveSnapshotIdentityAsync(
+                repository,
+                runner,
+                "GIT_AUTHOR_IDENT",
+                "author",
+                cancellationToken)
+            .ConfigureAwait(false);
+        SnapshotIdentity committer = await ResolveSnapshotIdentityAsync(
+                repository,
+                runner,
+                "GIT_COMMITTER_IDENT",
+                "committer",
+                cancellationToken)
+            .ConfigureAwait(false);
+        CommitCleanupMode cleanupMode = await ResolveCommitCleanupModeAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
+        bool signCommit = kind == SnapshotKind.Manual
+                          && await IsCommitSigningEnabledAsync(
+                                  repository,
+                                  runner,
+                                  cancellationToken)
+                              .ConfigureAwait(false);
+        return new SnapshotCommitSettings(author, committer, cleanupMode, signCommit);
+    }
+
+    // Runs the hooks `git commit` would run on the snapshot and leaves the final message in messagePath.
+    private static async Task RunSnapshotCommitHooksAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string tree,
+        string message,
+        SnapshotKind kind,
+        CommitCleanupMode cleanupMode,
+        string messagePath,
+        GitCommandOptions hookOptions,
+        CancellationToken cancellationToken)
+    {
+        byte[] initialMessage = await StripCommitMessageAsync(
+                repository,
+                runner,
+                new UTF8Encoding(false).GetBytes(
+                    CreateSnapshotCommitMessage(message, kind)),
+                cleanupMode == CommitCleanupMode.Verbatim
+                    ? CommitCleanupMode.Verbatim
+                    : CommitCleanupMode.Whitespace,
+                commentChar: null,
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        char commentChar = cleanupMode == CommitCleanupMode.Strip
+            ? await ResolveCommitCommentCharAsync(
+                    repository,
+                    runner,
+                    initialMessage,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : '#';
+        await runner.RunAsync(
+                repository,
+                ["read-tree", tree],
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await RunCommitHookAsync(
+                repository,
+                runner,
+                "pre-commit",
+                [],
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await WriteCommitMessageAsync(
+                messagePath,
+                initialMessage,
+                createNew: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await RunCommitHookAsync(
+                repository,
+                runner,
+                "prepare-commit-msg",
+                [messagePath, "message"],
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await RunCommitHookAsync(
+                repository,
+                runner,
+                "commit-msg",
+                [messagePath],
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        byte[] finalMessage = await StripCommitMessageAsync(
+                repository,
+                runner,
+                await ReadCommitMessageAsync(messagePath, cancellationToken)
+                    .ConfigureAwait(false),
+                cleanupMode,
+                commentChar,
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (IsEmptyCommitMessage(finalMessage))
+        {
+            throw new InvalidOperationException(
+                "The snapshot commit message was empty after commit hooks ran.");
+        }
+
+        finalMessage = await EnsureSnapshotTrailerAsync(
+                repository,
+                runner,
+                finalMessage,
+                kind,
+                hookOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        await WriteCommitMessageAsync(
+                messagePath,
+                finalMessage,
+                createNew: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    // A root snapshot is empty when the hooks left no entry; a later one when its tree equals its parent's.
+    private static async Task<bool> IsEmptySnapshotCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string hookTree,
+        string? parentCommit,
+        CancellationToken cancellationToken)
+    {
+        if (parentCommit is null)
+        {
+            GitCommandResult entries = await runner.RunAsync(
+                    repository,
+                    ["ls-tree", "-r", "-z", hookTree],
+                    GitCommandOptions.Local with { MaxStdoutBytes = 1 },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return !entries.StdoutTruncated && entries.Stdout.Length == 0;
+        }
+
+        string parentTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                parentCommit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return string.Equals(
+            hookTree,
+            parentTree,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<string> CreateSnapshotCommitArguments(
+        string hookTree,
+        string? parentCommit,
+        bool signCommit,
+        SnapshotKind kind,
+        string messagePath)
+    {
+        var arguments = new List<string>
+        {
+            "commit-tree",
+            hookTree,
+        };
+        if (parentCommit is not null)
+        {
+            arguments.Add("-p");
+            arguments.Add(parentCommit);
+        }
+
+        if (signCommit)
+        {
+            arguments.Add("-S");
+        }
+        else if (kind != SnapshotKind.Manual)
+        {
+            arguments.Add("--no-gpg-sign");
+        }
+
+        arguments.Add("-F");
+        arguments.Add(messagePath);
+        return arguments;
+    }
+
+    private static bool IsRegularFileMode(string? mode)
+    {
+        return mode is "100644" or "100755";
     }
 
     private static string CreateSnapshotCommitMessage(string message, SnapshotKind kind)
@@ -811,7 +890,7 @@ internal sealed partial class GitCliVersionControlService
 
         if (changedPaths.Any(path =>
                 !finalModes.TryGetValue(path, out string? mode)
-                || mode is not ("100644" or "100755")))
+                || !IsRegularFileMode(mode)))
         {
             throw new InvalidOperationException(
                 "A commit hook removed content or introduced a non-regular project tree entry.");
@@ -856,7 +935,7 @@ internal sealed partial class GitCliVersionControlService
             return false;
         }
 
-        return !projectRelativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
+        return !IsTemporaryProjectFile(projectRelativePath)
                || _requiredTemporaryProjectPaths.Any(requiredPath =>
                    AreSameProjectRelativePath(
                        repository.ProjectRoot,
@@ -881,15 +960,13 @@ internal sealed partial class GitCliVersionControlService
             repository,
             _projectFile);
         if (!finalModes.TryGetValue(projectFileRepositoryPath, out string? projectMode)
-            || projectMode is not ("100644" or "100755"))
+            || !IsRegularFileMode(projectMode))
         {
             throw new InvalidOperationException(
                 "A commit hook removed the project file from the snapshot tree.");
         }
 
-        string temporaryRoot = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-hook-graph-{Guid.NewGuid():N}");
+        string temporaryRoot = CreateUniqueTempPath("beutl-hook-graph");
         string materializedRepositoryRoot = Path.Combine(temporaryRoot, "tree");
         try
         {
@@ -901,30 +978,17 @@ internal sealed partial class GitCliVersionControlService
                     projectFileRepositoryPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            await MaterializeHistoricalGraphFilesAsync(
+            IReadOnlySet<string> serializedPaths = await ReadMaterializedSerializedPathsAsync(
                     repository,
                     runner,
                     hookTree,
                     materializedRepositoryRoot,
+                    projectFileRepositoryPath,
                     graphFiles,
                     cancellationToken)
                 .ConfigureAwait(false);
-            string materializedProjectRoot = repository.Pathspec == "."
-                ? materializedRepositoryRoot
-                : GetMaterializedHistoricalPath(
-                    materializedRepositoryRoot,
-                    repository.Pathspec);
-            string materializedProjectFile = GetMaterializedHistoricalPath(
-                materializedRepositoryRoot,
-                projectFileRepositoryPath);
-            ValidateNoReservedProjectReferences(materializedProjectFile);
-            IReadOnlySet<string> serializedPaths = SerializedProjectGraph.GetRelativePaths(
-                materializedProjectFile,
-                materializedProjectRoot);
             string[] finalTemporaryPaths = serializedPaths
-                .Where(static path => path.EndsWith(
-                    ".tmp",
-                    StringComparison.OrdinalIgnoreCase))
+                .Where(static path => IsTemporaryProjectFile(path))
                 .ToArray();
             if (finalTemporaryPaths.Length != _requiredTemporaryProjectPaths.Count
                 || finalTemporaryPaths.Any(finalPath =>
@@ -950,7 +1014,7 @@ internal sealed partial class GitCliVersionControlService
                     ? projectRelativePath
                     : repository.Pathspec + "/" + projectRelativePath;
                 if (!finalModes.TryGetValue(repositoryRelativePath, out string? mode)
-                    || mode is not ("100644" or "100755"))
+                    || !IsRegularFileMode(mode))
                 {
                     throw new InvalidOperationException(
                         $"A commit hook left required project content '{projectRelativePath}' out of the snapshot tree.");

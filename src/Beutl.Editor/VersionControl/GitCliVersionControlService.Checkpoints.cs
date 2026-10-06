@@ -30,15 +30,8 @@ internal sealed partial class GitCliVersionControlService
             throw new GitIdentityRequiredException();
         }
 
-        string temporaryIndex = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-git-index-{Guid.NewGuid():N}");
-        var indexOptions = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
-            new Dictionary<string, string?>
-            {
-                ["GIT_INDEX_FILE"] = temporaryIndex,
-            });
+        string temporaryIndex = CreateUniqueTempPath("beutl-git-index");
+        GitCommandOptions indexOptions = CreateTemporaryIndexOptions(temporaryIndex);
 
         try
         {
@@ -99,62 +92,91 @@ internal sealed partial class GitCliVersionControlService
             string checkpointRef = GetCheckpointRefPrefix(repository)
                                    + Guid.NewGuid().ToString("N");
             var checkpoint = new ProjectCheckpoint(checkpointRef, checkpointCommit, baseHead);
-            try
-            {
-                await runner.RunAsync(
+            await PublishNewRefAsync(
                     repository,
-                    [
-                        "update-ref",
-                        "--create-reflog",
-                        "-m",
-                        "beutl safety checkpoint",
-                        checkpointRef,
-                        checkpointCommit,
-                        string.Empty,
-                    ],
-                    GitCommandOptions.Local,
-                    CancellationToken.None).ConfigureAwait(false);
-                return checkpoint;
-            }
-            catch (Exception publicationException)
-            {
-                string? observedCommit;
-                try
-                {
-                    observedCommit = await TryResolveCommitAsync(
-                            repository,
-                            runner,
-                            checkpointRef,
-                            CancellationToken.None)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception observationException)
-                {
-                    throw new AggregateException(
-                        "The safety checkpoint ref publication failed and its durable result could not be observed.",
-                        publicationException,
-                        observationException);
-                }
-
-                if (string.Equals(
-                        observedCommit,
-                        checkpointCommit,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    return checkpoint;
-                }
-
-                if (observedCommit is null)
-                {
-                    throw;
-                }
-
-                throw new ProjectCheckpointChangedException(checkpointRef);
-            }
+                    runner,
+                    checkpointRef,
+                    checkpointCommit,
+                    "beutl safety checkpoint",
+                    peelToCommit: true,
+                    "The safety checkpoint ref publication failed and its durable result could not be observed.",
+                    static refName => new ProjectCheckpointChangedException(refName))
+                .ConfigureAwait(false);
+            return checkpoint;
         }
         finally
         {
             TryDeleteTemporaryIndex(temporaryIndex);
+        }
+    }
+
+    // Creates a ref that must not exist yet. A failure Git reports is judged by the ref: at objectId the update
+    // landed; a missing ref rethrows the failure; any other value means someone else wrote the ref.
+    private static async Task PublishNewRefAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string refName,
+        string objectId,
+        string reflogMessage,
+        bool peelToCommit,
+        string observationFailureMessage,
+        Func<string, Exception> createChangedException)
+    {
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                [
+                    "update-ref",
+                    "--create-reflog",
+                    "-m",
+                    reflogMessage,
+                    refName,
+                    objectId,
+                    string.Empty,
+                ],
+                GitCommandOptions.Local,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception publicationException)
+        {
+            string? observedObject;
+            try
+            {
+                observedObject = peelToCommit
+                    ? await TryResolveCommitAsync(
+                            repository,
+                            runner,
+                            refName,
+                            CancellationToken.None)
+                        .ConfigureAwait(false)
+                    : await TryResolveObjectAsync(
+                            repository,
+                            runner,
+                            refName,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+            }
+            catch (Exception observationException)
+            {
+                throw new AggregateException(
+                    observationFailureMessage,
+                    publicationException,
+                    observationException);
+            }
+
+            if (!string.Equals(
+                    observedObject,
+                    objectId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (observedObject is null)
+                {
+                    throw;
+                }
+
+                throw createChangedException(refName);
+            }
         }
     }
 
@@ -272,16 +294,13 @@ internal sealed partial class GitCliVersionControlService
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
-        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+        await EnsureCheckedOutTipUnchangedAsync(
                 repository,
                 runner,
+                expectedCurrent,
+                "The checked-out branch changed before the project tree transition started.",
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!EqualsBranchTip(currentTip, expectedCurrent))
-        {
-            throw new InvalidOperationException(
-                "The checked-out branch changed before the project tree transition started.");
-        }
 
         string? resolvedSource = await TryResolveCommitAsync(
                 repository,

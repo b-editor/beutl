@@ -9,30 +9,13 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        string acknowledgementKey = LfsInstallFailedNoticeConfigKeyPrefix
-                                    + GetConfigKeyHash(repository.Pathspec);
-        if (await GetLocalBooleanConfigAsync(
+        await PresentOneTimeNoticeAsync(
                 repository,
                 runner,
-                acknowledgementKey,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
-
-        if (!await PresentPolicyNoticeAsync(
+                GetNoticeAcknowledgementKey(LfsInstallFailedNoticeConfigKeyPrefix, repository),
                 new VersionControlPolicyNotice.LfsInstallFailed(),
-                cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
-
-        await SetLocalConfigValueAsync(
-            repository,
-            runner,
-            acknowledgementKey,
-            "true",
-            cancellationToken).ConfigureAwait(false);
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task RaiseLfsQuotaNoticeIfNeededAsync(
@@ -48,31 +31,18 @@ internal sealed partial class GitCliVersionControlService
             return;
         }
 
-        string acknowledgementKey = LfsQuotaNoticeConfigKeyPrefix
-                                    + GetConfigKeyHash(repository.Pathspec);
-        if (!await IsLfsActiveAsync(repository, runner, cancellationToken).ConfigureAwait(false)
-            || await GetLocalBooleanConfigAsync(
+        if (!await IsLfsActiveAsync(repository, runner, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await PresentOneTimeNoticeAsync(
                 repository,
                 runner,
-                acknowledgementKey,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
-
-        if (!await PresentPolicyNoticeAsync(
+                GetNoticeAcknowledgementKey(LfsQuotaNoticeConfigKeyPrefix, repository),
                 new VersionControlPolicyNotice.LfsRemoteQuota(),
-                cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
-
-        await SetLocalConfigValueAsync(
-            repository,
-            runner,
-            acknowledgementKey,
-            "true",
-            cancellationToken).ConfigureAwait(false);
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task RaiseLargeMediaNoticeIfNeededAsync(
@@ -81,8 +51,7 @@ internal sealed partial class GitCliVersionControlService
         WorkspaceStatus status,
         CancellationToken cancellationToken)
     {
-        string acknowledgementKey = LargeMediaNoticeConfigKeyPrefix
-                                    + GetConfigKeyHash(repository.Pathspec);
+        string acknowledgementKey = GetNoticeAcknowledgementKey(LargeMediaNoticeConfigKeyPrefix, repository);
         (GitAvailability availability, _) = await GetGitRuntimeCoreAsync(cancellationToken)
             .ConfigureAwait(false);
         if (await GetLocalBooleanConfigAsync(
@@ -175,8 +144,7 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        string acknowledgementKey = MissingIdentityNoticeConfigKeyPrefix
-                                    + GetConfigKeyHash(repository.Pathspec);
+        string acknowledgementKey = GetNoticeAcknowledgementKey(MissingIdentityNoticeConfigKeyPrefix, repository);
         if (_identityRequest is not null
             && !await GetLocalBooleanConfigAsync(
                     repository,
@@ -201,8 +169,23 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        string acknowledgementKey = MissingIdentityNoticeConfigKeyPrefix
-                                    + GetConfigKeyHash(repository.Pathspec);
+        await PresentOneTimeNoticeAsync(
+                repository,
+                runner,
+                GetNoticeAcknowledgementKey(MissingIdentityNoticeConfigKeyPrefix, repository),
+                new VersionControlPolicyNotice.MissingIdentity(),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    // A notice is shown once per project: presenting it sets acknowledgementKey, and a set key skips it.
+    private async Task PresentOneTimeNoticeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string acknowledgementKey,
+        VersionControlPolicyNotice notice,
+        CancellationToken cancellationToken)
+    {
         if (await GetLocalBooleanConfigAsync(
                 repository,
                 runner,
@@ -213,7 +196,7 @@ internal sealed partial class GitCliVersionControlService
         }
 
         if (!await PresentPolicyNoticeAsync(
-                new VersionControlPolicyNotice.MissingIdentity(),
+                notice,
                 cancellationToken).ConfigureAwait(false))
         {
             return;
@@ -249,6 +232,11 @@ internal sealed partial class GitCliVersionControlService
         {
             return false;
         }
+    }
+
+    private static string GetNoticeAcknowledgementKey(string prefix, RepositoryInfo repository)
+    {
+        return prefix + GetConfigKeyHash(repository.Pathspec);
     }
 
     private static string GetConfigKeyHash(string value)

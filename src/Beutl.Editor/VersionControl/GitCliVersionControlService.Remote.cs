@@ -21,6 +21,11 @@ internal sealed partial class GitCliVersionControlService
         string RemoteName,
         string RemoteRef);
 
+    private sealed record FetchedUpstream(
+        string Commit,
+        PullRelation Relation,
+        RemoteOpResult? Failure = null);
+
     private async Task SetRemoteCoreAsync(
         GitRemoteUrl remote,
         CancellationToken cancellationToken)
@@ -248,88 +253,38 @@ internal sealed partial class GitCliVersionControlService
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
-        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+        await EnsureCheckedOutTipUnchangedAsync(
                 repository,
                 runner,
+                expectedCurrent,
+                "The checked-out branch changed before the pull preflight started.",
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!EqualsBranchTip(currentTip, expectedCurrent))
-        {
-            throw new InvalidOperationException(
-                "The checked-out branch changed before the pull preflight started.");
-        }
 
-        bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
-        PullFetchTarget fetchTarget = await ResolvePullFetchTargetAsync(
+        FetchedUpstream upstream = await FetchUpstreamAsync(
                 repository,
                 runner,
-                hasOrigin,
-                expectedCurrent.RefName,
+                expectedCurrent,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (fetchTarget.Refusal is not null)
+        if (upstream.Failure is not null)
         {
             return new PullPreflightResult(
-                fetchTarget.Refusal,
+                upstream.Failure,
                 RequiresTransition: false,
                 UpstreamCommit: null);
         }
 
-        try
-        {
-            await runner.RunAsync(
-                repository,
-                fetchTarget.Arguments,
-                GitCommandOptions.Network,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (GitOperationException ex)
-        {
-            CaptureRecoverableLock(ex);
-            return new PullPreflightResult(
-                MapRemoteFailure(ex),
-                RequiresTransition: false,
-                UpstreamCommit: null);
-        }
+        string upstreamCommit = upstream.Commit;
+        PullRelation relation = upstream.Relation;
 
-        string upstreamRef = fetchTarget.UpstreamRef;
-        GitCommandResult upstreamResult;
-        try
-        {
-            upstreamResult = await runner.RunAsync(
-                repository,
-                ["rev-parse", "--verify", $"{upstreamRef}^{{commit}}"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (GitOperationException ex)
-        {
-            CaptureRecoverableLock(ex);
-            return new PullPreflightResult(
-                MapRemoteFailure(ex),
-                RequiresTransition: false,
-                UpstreamCommit: null);
-        }
-
-        string upstreamCommit = upstreamResult.Stdout.Trim();
-        PullRelation relation = await GetPullRelationAsync(
+        await EnsureCheckedOutTipUnchangedAsync(
                 repository,
                 runner,
-                expectedCurrent.Commit,
-                upstreamCommit,
+                expectedCurrent,
+                "The checked-out branch changed while the pull preflight was running.",
                 cancellationToken)
             .ConfigureAwait(false);
-
-        currentTip = await GetCheckedOutBranchTipCoreAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!EqualsBranchTip(currentTip, expectedCurrent))
-        {
-            throw new InvalidOperationException(
-                "The checked-out branch changed while the pull preflight was running.");
-        }
 
         await EnsureNoExternalRepositoryOperationAsync(
                 repository,
@@ -383,16 +338,13 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
-        CheckedOutBranchTip currentTip = await GetCheckedOutBranchTipCoreAsync(
+        await EnsureCheckedOutTipUnchangedAsync(
                 repository,
                 runner,
+                expectedCurrent,
+                "The checked-out branch changed before the fast-forward pull started.",
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!EqualsBranchTip(currentTip, expectedCurrent))
-        {
-            throw new InvalidOperationException(
-                "The checked-out branch changed before the fast-forward pull started.");
-        }
 
         WorktreeStateFingerprint? checkpointState = null;
         string? checkpointTree = null;
@@ -442,67 +394,26 @@ internal sealed partial class GitCliVersionControlService
             }
         }
 
-        bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
-        PullFetchTarget fetchTarget = await ResolvePullFetchTargetAsync(
+        FetchedUpstream upstream = await FetchUpstreamAsync(
                 repository,
                 runner,
-                hasOrigin,
-                expectedCurrent.RefName,
+                expectedCurrent,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (fetchTarget.Refusal is not null)
+        if (upstream.Failure is not null)
         {
-            return new FastForwardPullResult(fetchTarget.Refusal, expectedCurrent);
+            return new FastForwardPullResult(upstream.Failure, expectedCurrent);
         }
 
-        try
-        {
-            await runner.RunAsync(
-                repository,
-                fetchTarget.Arguments,
-                GitCommandOptions.Network,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (GitOperationException ex)
-        {
-            CaptureRecoverableLock(ex);
-            return new FastForwardPullResult(MapRemoteFailure(ex), expectedCurrent);
-        }
-
-        string upstreamRef = fetchTarget.UpstreamRef;
-        GitCommandResult upstreamResult;
-        try
-        {
-            upstreamResult = await runner.RunAsync(
-                repository,
-                ["rev-parse", "--verify", $"{upstreamRef}^{{commit}}"],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (GitOperationException ex)
-        {
-            CaptureRecoverableLock(ex);
-            return new FastForwardPullResult(MapRemoteFailure(ex), expectedCurrent);
-        }
-
-        string upstreamCommit = upstreamResult.Stdout.Trim();
-        PullRelation relation = await GetPullRelationAsync(
+        string upstreamCommit = upstream.Commit;
+        PullRelation relation = upstream.Relation;
+        await EnsureCheckedOutTipUnchangedAsync(
                 repository,
                 runner,
-                expectedCurrent.Commit,
-                upstreamCommit,
+                expectedCurrent,
+                "The checked-out branch changed while the fast-forward pull was being prepared.",
                 cancellationToken)
             .ConfigureAwait(false);
-        currentTip = await GetCheckedOutBranchTipCoreAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!EqualsBranchTip(currentTip, expectedCurrent))
-        {
-            throw new InvalidOperationException(
-                "The checked-out branch changed while the fast-forward pull was being prepared.");
-        }
 
         if (relation == PullRelation.Diverged)
         {
@@ -551,6 +462,24 @@ internal sealed partial class GitCliVersionControlService
                 .ConfigureAwait(false);
         }
 
+        return await PullCleanWorktreeCoreAsync(
+                repository,
+                runner,
+                expectedCurrent,
+                upstreamCommit,
+                projectFile,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<FastForwardPullResult> PullCleanWorktreeCoreAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CheckedOutBranchTip expectedCurrent,
+        string upstreamCommit,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
         WorktreeStateFingerprint expectedWorktree = await CaptureWorktreeStateAsync(
                 repository,
                 runner,
@@ -564,13 +493,13 @@ internal sealed partial class GitCliVersionControlService
                 expectedCurrent.Commit,
                 cancellationToken)
             .ConfigureAwait(false);
-        currentTip = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
+        await EnsureCheckedOutTipUnchangedAsync(
+                repository,
+                runner,
+                expectedCurrent,
+                "The checked-out branch changed while the fast-forward pull was being prepared.",
+                cancellationToken)
             .ConfigureAwait(false);
-        if (!EqualsBranchTip(currentTip, expectedCurrent))
-        {
-            throw new InvalidOperationException(
-                "The checked-out branch changed while the fast-forward pull was being prepared.");
-        }
 
         if (!string.Equals(expectedWorktree.Tree, expectedTree, StringComparison.OrdinalIgnoreCase)
             || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
@@ -581,7 +510,7 @@ internal sealed partial class GitCliVersionControlService
                 expectedCurrent);
         }
 
-        ignoredCollision = await FindIgnoredIncomingPathAsync(
+        string? ignoredCollision = await FindIgnoredIncomingPathAsync(
                 repository,
                 runner,
                 expectedCurrent.Commit,
@@ -637,12 +566,7 @@ internal sealed partial class GitCliVersionControlService
             return new FastForwardPullResult(
                 failure,
                 transitionResult.ActualTip ?? expectedCurrent,
-                transitionResult.Outcome switch
-                {
-                    TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
-                    TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
-                    _ => PullTransitionState.Unchanged,
-                },
+                ToPullTransitionState(transitionResult.Outcome),
                 pulledTip);
         }
 
@@ -829,12 +753,7 @@ internal sealed partial class GitCliVersionControlService
                             transitionResult.Error?.Message
                             ?? "The checkpointed pull could not be applied safely."),
                 transitionResult.ActualTip ?? expectedCurrent,
-                transitionResult.Outcome switch
-                {
-                    TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
-                    TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
-                    _ => PullTransitionState.Unchanged,
-                },
+                ToPullTransitionState(transitionResult.Outcome),
                 safetyTip,
                 recovery);
         }
@@ -860,6 +779,78 @@ internal sealed partial class GitCliVersionControlService
             PullTransitionState.Applied,
             safetyTip,
             recovery);
+    }
+
+    // Fetches the branch's upstream and relates it to the expected tip. A refused or failed fetch comes back as
+    // Failure, which each caller reports in its own result.
+    private async Task<FetchedUpstream> FetchUpstreamAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CheckedOutBranchTip expectedCurrent,
+        CancellationToken cancellationToken)
+    {
+        bool hasOrigin = (await GetRemotesCoreAsync(cancellationToken).ConfigureAwait(false)).Count > 0;
+        PullFetchTarget fetchTarget = await ResolvePullFetchTargetAsync(
+                repository,
+                runner,
+                hasOrigin,
+                expectedCurrent.RefName,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (fetchTarget.Refusal is not null)
+        {
+            return new FetchedUpstream(string.Empty, default, fetchTarget.Refusal);
+        }
+
+        try
+        {
+            await runner.RunAsync(
+                repository,
+                fetchTarget.Arguments,
+                GitCommandOptions.Network,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            return new FetchedUpstream(string.Empty, default, MapRemoteFailure(ex));
+        }
+
+        string upstreamRef = fetchTarget.UpstreamRef;
+        GitCommandResult upstreamResult;
+        try
+        {
+            upstreamResult = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", $"{upstreamRef}^{{commit}}"],
+                GitCommandOptions.Local,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            CaptureRecoverableLock(ex);
+            return new FetchedUpstream(string.Empty, default, MapRemoteFailure(ex));
+        }
+
+        string upstreamCommit = upstreamResult.Stdout.Trim();
+        PullRelation relation = await GetPullRelationAsync(
+                repository,
+                runner,
+                expectedCurrent.Commit,
+                upstreamCommit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return new FetchedUpstream(upstreamCommit, relation);
+    }
+
+    private static PullTransitionState ToPullTransitionState(TreeTransitionOutcome outcome)
+    {
+        return outcome switch
+        {
+            TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
+            TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
+            _ => PullTransitionState.Unchanged,
+        };
     }
 
     private static async Task<PullFetchTarget> ResolvePullFetchTargetAsync(

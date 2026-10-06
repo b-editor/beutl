@@ -84,55 +84,16 @@ internal sealed partial class GitCliVersionControlService
         GitRevisionValidator.ValidateCommitId(descriptorObject, nameof(descriptorObject));
 
         cancellationToken.ThrowIfCancellationRequested();
-        try
-        {
-            await runner.RunAsync(
+        await PublishNewRefAsync(
                 repository,
-                [
-                    "update-ref",
-                    "--create-reflog",
-                    "-m",
-                    "beutl pending pull recovery",
-                    descriptorRef,
-                    descriptorObject,
-                    string.Empty,
-                ],
-                GitCommandOptions.Local,
-                CancellationToken.None).ConfigureAwait(false);
-        }
-        catch (Exception publicationException)
-        {
-            string? observedObject;
-            try
-            {
-                observedObject = await TryResolveObjectAsync(
-                        repository,
-                        runner,
-                        descriptorRef,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception observationException)
-            {
-                throw new AggregateException(
-                    "The pending pull recovery publication failed and its durable result could not be observed.",
-                    publicationException,
-                    observationException);
-            }
-
-            if (!string.Equals(
-                    observedObject,
-                    descriptorObject,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                if (observedObject is null)
-                {
-                    throw;
-                }
-
-                throw new PendingPullRecoveryChangedException(descriptorRef);
-            }
-        }
+                runner,
+                descriptorRef,
+                descriptorObject,
+                "beutl pending pull recovery",
+                peelToCommit: false,
+                "The pending pull recovery publication failed and its durable result could not be observed.",
+                static refName => new PendingPullRecoveryChangedException(refName))
+            .ConfigureAwait(false);
 
         return new PendingPullRecovery(
             id,
@@ -309,157 +270,188 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         if (EqualsBranchTip(actualTip, recovery.TargetTip))
         {
-            WorktreeStateFingerprint actualState = await CaptureWorktreeStateAsync(
+            return await RollBackPulledTargetAsync(
                     repository,
                     runner,
-                    recovery.TargetTip.Commit,
-                    ".",
+                    recovery,
                     cancellationToken)
                 .ConfigureAwait(false);
-            string targetTree = await ResolveTreeAsync(
-                    repository,
-                    runner,
-                    recovery.TargetTip.Commit,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!string.Equals(
-                    actualState.Tree,
-                    targetTree,
-                    StringComparison.OrdinalIgnoreCase)
-                || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                throw await CreatePreservedRecoveryExceptionAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        new InvalidOperationException(
-                            "The pulled branch tip is present, but its worktree state cannot be verified."))
-                    .ConfigureAwait(false);
-            }
-
-            TreeTransitionResult rollback;
-            try
-            {
-                rollback = await ApplyTreeTransitionAsync(
-                        repository,
-                        runner,
-                        recovery.TargetTip,
-                        recovery.Checkpoint.BaseTip,
-                        recovery.TargetTip.Commit,
-                        recovery.Checkpoint.BaseTip.Commit,
-                        "beutl roll back pending pull target",
-                        indexPlan: null,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                throw await CreatePreservedRecoveryExceptionAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        ex)
-                    .ConfigureAwait(false);
-            }
-
-            if (rollback.Outcome != TreeTransitionOutcome.AppliedTarget)
-            {
-                throw await CreatePreservedRecoveryExceptionAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        rollback.Error
-                        ?? new InvalidOperationException(
-                            "The pulled branch could not be rolled back safely."))
-                    .ConfigureAwait(false);
-            }
-
-            try
-            {
-                await RestoreProjectCheckpointCoreAsync(
-                        recovery.Checkpoint,
-                        CancellationToken.None,
-                        validatePreparedTarget: () =>
-                            ValidateRecoveryProjectFilePhysicalContainment(
-                                repository,
-                                recovery.ProjectFile))
-                    .ConfigureAwait(false);
-                ValidateRecoveryProjectFilePhysicalContainment(
-                    repository,
-                    recovery.ProjectFile);
-                return PendingPullRecoveryOutcome.RestoredOriginal;
-            }
-            catch (Exception ex)
-            {
-                throw await CreatePreservedRecoveryExceptionAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        ex)
-                    .ConfigureAwait(false);
-            }
         }
 
         if (!EqualsBranchTip(actualTip, recovery.Checkpoint.BaseTip))
         {
-            string recoveryBranchName;
-            try
-            {
-                recoveryBranchName = await PreserveCheckpointOnRecoveryBranchAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                throw await CreateCheckpointPreservationExceptionAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        ex)
-                    .ConfigureAwait(false);
-            }
-
-            try
-            {
-                if (!await TryReapplyCheckpointToExternallyOwnedTipAsync(
-                        repository,
-                        runner,
-                        recovery,
-                        actualTip,
-                        CancellationToken.None)
-                    .ConfigureAwait(false))
-                {
-                    throw new PendingPullRecoveryPreservedException(recoveryBranchName);
-                }
-
-                ValidateRecoveryProjectFilePhysicalContainment(
+            return await ReapplyCheckpointOnMovedTipAsync(
                     repository,
-                    recovery.ProjectFile);
-                return PendingPullRecoveryOutcome.ReappliedCheckpoint;
-            }
-            catch (PendingPullRecoveryPreservedException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new PendingPullRecoveryPreservedException(recoveryBranchName, ex);
-            }
+                    runner,
+                    recovery,
+                    actualTip)
+                .ConfigureAwait(false);
+        }
+
+        return await RestoreCheckpointAtBaseTipAsync(
+                repository,
+                runner,
+                recovery)
+            .ConfigureAwait(false);
+    }
+
+    // The branch still points at the pulled target: move it back to the base tip, then restore the checkpoint.
+    private async Task<PendingPullRecoveryOutcome> RollBackPulledTargetAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery,
+        CancellationToken cancellationToken)
+    {
+        WorktreeStateFingerprint actualState = await CaptureWorktreeStateAsync(
+                repository,
+                runner,
+                recovery.TargetTip.Commit,
+                ".",
+                cancellationToken)
+            .ConfigureAwait(false);
+        string targetTree = await ResolveTreeAsync(
+                repository,
+                runner,
+                recovery.TargetTip.Commit,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(
+                actualState.Tree,
+                targetTree,
+                StringComparison.OrdinalIgnoreCase)
+            || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            throw await CreatePreservedRecoveryExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    new InvalidOperationException(
+                        "The pulled branch tip is present, but its worktree state cannot be verified."))
+                .ConfigureAwait(false);
+        }
+
+        TreeTransitionResult rollback;
+        try
+        {
+            rollback = await ApplyTreeTransitionAsync(
+                    repository,
+                    runner,
+                    recovery.TargetTip,
+                    recovery.Checkpoint.BaseTip,
+                    recovery.TargetTip.Commit,
+                    recovery.Checkpoint.BaseTip.Commit,
+                    "beutl roll back pending pull target",
+                    indexPlan: null,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw await CreatePreservedRecoveryExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    ex)
+                .ConfigureAwait(false);
+        }
+
+        if (rollback.Outcome != TreeTransitionOutcome.AppliedTarget)
+        {
+            throw await CreatePreservedRecoveryExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    rollback.Error
+                    ?? new InvalidOperationException(
+                        "The pulled branch could not be rolled back safely."))
+                .ConfigureAwait(false);
         }
 
         try
         {
-            await RestoreProjectCheckpointCoreAsync(
-                    recovery.Checkpoint,
-                    CancellationToken.None,
-                    validatePreparedTarget: () =>
-                        ValidateRecoveryProjectFilePhysicalContainment(
-                            repository,
-                            recovery.ProjectFile))
+            await RestoreRecoveryCheckpointAsync(repository, recovery)
+                .ConfigureAwait(false);
+            ValidateRecoveryProjectFilePhysicalContainment(
+                repository,
+                recovery.ProjectFile);
+            return PendingPullRecoveryOutcome.RestoredOriginal;
+        }
+        catch (Exception ex)
+        {
+            throw await CreatePreservedRecoveryExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    ex)
+                .ConfigureAwait(false);
+        }
+    }
+
+    // Someone else moved the branch: keep the checkpoint on a recovery branch, then reapply it on the moved tip.
+    private async Task<PendingPullRecoveryOutcome> ReapplyCheckpointOnMovedTipAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery,
+        CheckedOutBranchTip actualTip)
+    {
+        string recoveryBranchName;
+        try
+        {
+            recoveryBranchName = await PreserveCheckpointOnRecoveryBranchAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw await CreateCheckpointPreservationExceptionAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    ex)
+                .ConfigureAwait(false);
+        }
+
+        try
+        {
+            if (!await TryReapplyCheckpointToExternallyOwnedTipAsync(
+                    repository,
+                    runner,
+                    recovery,
+                    actualTip,
+                    CancellationToken.None)
+                .ConfigureAwait(false))
+            {
+                throw new PendingPullRecoveryPreservedException(recoveryBranchName);
+            }
+
+            ValidateRecoveryProjectFilePhysicalContainment(
+                repository,
+                recovery.ProjectFile);
+            return PendingPullRecoveryOutcome.ReappliedCheckpoint;
+        }
+        catch (PendingPullRecoveryPreservedException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new PendingPullRecoveryPreservedException(recoveryBranchName, ex);
+        }
+    }
+
+    // The branch is at the base tip: restoring the checkpoint is enough.
+    private async Task<PendingPullRecoveryOutcome> RestoreCheckpointAtBaseTipAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        PendingPullRecovery recovery)
+    {
+        try
+        {
+            await RestoreRecoveryCheckpointAsync(repository, recovery)
                 .ConfigureAwait(false);
             CheckedOutBranchTip recoveredTip = await GetCheckedOutBranchTipCoreAsync(
                     repository,
@@ -486,6 +478,19 @@ internal sealed partial class GitCliVersionControlService
                     ex)
                 .ConfigureAwait(false);
         }
+    }
+
+    private Task RestoreRecoveryCheckpointAsync(
+        RepositoryInfo repository,
+        PendingPullRecovery recovery)
+    {
+        return RestoreProjectCheckpointCoreAsync(
+            recovery.Checkpoint,
+            CancellationToken.None,
+            validatePreparedTarget: () =>
+                ValidateRecoveryProjectFilePhysicalContainment(
+                    repository,
+                    recovery.ProjectFile));
     }
 
     private static async Task<Exception>
@@ -857,8 +862,9 @@ internal sealed partial class GitCliVersionControlService
         string message,
         CancellationToken cancellationToken)
     {
-        GitCommandResult result = await runner.RunAsync(
+        return await CommitTreeAndVerifyAsync(
                 repository,
+                runner,
                 ["commit-tree", tree, "-p", parentCommit, "-m", message],
                 new GitCommandOptions(
                     GitCommandExecutionKind.Local,
@@ -869,22 +875,9 @@ internal sealed partial class GitCliVersionControlService
                         ["GIT_COMMITTER_NAME"] = "Beutl Recovery",
                         ["GIT_COMMITTER_EMAIL"] = "beutl-recovery@localhost",
                     }),
+                "Git did not return the temporary recovery commit.",
                 cancellationToken)
             .ConfigureAwait(false);
-        string commit = result.Stdout.Trim();
-        if (commit.Length == 0)
-        {
-            throw new InvalidOperationException("Git did not return the temporary recovery commit.");
-        }
-
-        await runner.RunAsync(
-                repository,
-                ["cat-file", "-e", commit + "^{commit}"],
-                GitCommandOptions.Local,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        return commit;
     }
 
     private async Task CompletePendingPullRecoveryCoreAsync(
