@@ -178,18 +178,18 @@ public sealed class FFmpegReader : MediaReader
 
         if (length == 0)
         {
-            info = new AudioFrameInfo { SampleRate = AudioInfo.SampleRate, NumSamples = 0, DataLength = 0, };
+            info = CreateAudioFrameInfo(0);
             return true;
         }
 
         if (_audioDecoder == null || _currentAudioFrame == null)
             return false;
 
-        if (!(start >= _audioNowTimestamp && start < _audioNextTimestamp))
+        if (!IsInCurrentAudioFrame(start))
         {
             GrabAudio();
 
-            if (!(start >= _audioNowTimestamp && start < _audioNextTimestamp))
+            if (!IsInCurrentAudioFrame(start))
             {
                 SeekAudio(start);
             }
@@ -247,27 +247,30 @@ public sealed class FFmpegReader : MediaReader
 
                 if (decoded >= length || len <= 0)
                 {
-                    info = new AudioFrameInfo
-                    {
-                        SampleRate = AudioInfo.SampleRate,
-                        NumSamples = decoded,
-                        DataLength = decoded * sampleSize,
-                    };
+                    info = CreateAudioFrameInfo(decoded);
                     return true;
                 }
 
                 needGrab = skip + len >= _currentAudioFrame.NbSamples;
             }
 
-            info = new AudioFrameInfo
-            {
-                SampleRate = AudioInfo.SampleRate,
-                NumSamples = decoded,
-                DataLength = decoded * sampleSize,
-            };
+            info = CreateAudioFrameInfo(decoded);
             return true;
         }
     }
+
+    private unsafe AudioFrameInfo CreateAudioFrameInfo(int samples)
+    {
+        return new AudioFrameInfo
+        {
+            SampleRate = AudioInfo.SampleRate,
+            NumSamples = samples,
+            DataLength = samples * sizeof(Stereo32BitFloat),
+        };
+    }
+
+    private bool IsInCurrentAudioFrame(int start)
+        => start >= _audioNowTimestamp && start < _audioNextTimestamp;
 
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
@@ -277,11 +280,11 @@ public sealed class FFmpegReader : MediaReader
         if (filterFrame == null) return false;
 
         // フレームの色空間を取得
-        var colorSpace = (!Settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(filterFrame) : BitmapColorSpace.Srgb;
+        var colorSpace = ResolveFrameColorSpace(filterFrame);
         int width = filterFrame.Width;
         int height = filterFrame.Height;
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
-        int bytesPerPixel = _isHdr ? 8 : 4;
+        int bytesPerPixel = BytesPerPixel;
         var bmp = new Bitmap(width, height, colorType, BitmapAlphaType.Unpremul, colorSpace);
 
         try
@@ -321,12 +324,10 @@ public sealed class FFmpegReader : MediaReader
         try
         {
             // フレームの色空間を取得
-            var colorSpace = (!Settings.ForceSrgbGamma || _isHdr)
-                ? GetFrameColorSpace(filterFrame)
-                : BitmapColorSpace.Srgb;
+            var colorSpace = ResolveFrameColorSpace(filterFrame);
             int width = filterFrame.Width;
             int height = filterFrame.Height;
-            int bytesPerPixel = _isHdr ? 8 : 4;
+            int bytesPerPixel = BytesPerPixel;
             int byteCount = width * height * bytesPerPixel;
 
             info = new VideoFrameInfo
@@ -356,6 +357,12 @@ public sealed class FFmpegReader : MediaReader
             filterFrame.Unref();
         }
     }
+
+    // RGBA64LE (HDR) or BGRA (SDR), matching the format filter InitFilterGraph builds.
+    private int BytesPerPixel => _isHdr ? 8 : 4;
+
+    private BitmapColorSpace ResolveFrameColorSpace(MediaFrame frame)
+        => (!Settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(frame) : BitmapColorSpace.Srgb;
 
     private MediaFrame? ReadVideoCore(int frame)
     {
@@ -447,25 +454,15 @@ public sealed class FFmpegReader : MediaReader
         var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [dstPixFmt]);
 
-        if (_isHdr)
-        {
-            // HDR (PQ/HLG): RGBA64LEに変換のみ。
-            // 輝度マッピングはSkiaの色空間変換で行う（BuildHdrColorSpaceでガマット行列にスケーリングを組み込み済み）
-            var formatFilter = new MediaFilter("format");
-            var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=rgba64le");
+        // HDR (PQ/HLG): RGBA64LEに変換のみ。
+        // 輝度マッピングはSkiaの色空間変換で行う（BuildHdrColorSpaceでガマット行列にスケーリングを組み込み済み）
+        // SDR: BGRAに変換
+        string pixelFormats = _isHdr ? "pix_fmts=rgba64le" : "pix_fmts=bgra";
+        var formatFilter = new MediaFilter("format");
+        var formatCtx = _filterGraph.AddFilter(formatFilter, pixelFormats);
 
-            _bufferSrcCtx.LinkTo(0, formatCtx);
-            formatCtx.LinkTo(0, _bufferSinkCtx);
-        }
-        else
-        {
-            // SDR: BGRAに変換
-            var formatFilter = new MediaFilter("format");
-            var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=bgra");
-
-            _bufferSrcCtx.LinkTo(0, formatCtx);
-            formatCtx.LinkTo(0, _bufferSinkCtx);
-        }
+        _bufferSrcCtx.LinkTo(0, formatCtx);
+        formatCtx.LinkTo(0, _bufferSinkCtx);
 
         _filterGraph.Initialize();
 
@@ -656,16 +653,7 @@ public sealed class FFmpegReader : MediaReader
                 _videoStream.CodecparRef,
                 ctx =>
                 {
-                    if (Settings.ThreadCount != 0)
-                    {
-                        ctx.ThreadCount = Math.Min(
-                            Environment.ProcessorCount,
-                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
-                    }
-                    else
-                    {
-                        ctx.ThreadCount = 0;
-                    }
+                    ApplyThreadCount(ctx);
 
                     if (Settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
                     {
@@ -709,6 +697,20 @@ public sealed class FFmpegReader : MediaReader
         _videoAvgFrameRateDouble = ffmpeg.av_q2d(_videoStream.AvgFrameRate);
     }
 
+    private void ApplyThreadCount(MediaCodecContext ctx)
+    {
+        if (Settings.ThreadCount != 0)
+        {
+            ctx.ThreadCount = Math.Min(
+                Environment.ProcessorCount,
+                Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
+        }
+        else
+        {
+            ctx.ThreadCount = 0;
+        }
+    }
+
     private AVHWDeviceType? GetAVHWDeviceType()
     {
         return Settings.Acceleration switch
@@ -738,19 +740,7 @@ public sealed class FFmpegReader : MediaReader
             // デコーダー作成
             _audioDecoder = MediaDecoder.CreateDecoder(
                 _audioStream.CodecparRef,
-                ctx =>
-                {
-                    if (Settings.ThreadCount != 0)
-                    {
-                        ctx.ThreadCount = Math.Min(
-                            Environment.ProcessorCount,
-                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
-                    }
-                    else
-                    {
-                        ctx.ThreadCount = 0;
-                    }
-                });
+                ctx => ApplyThreadCount(ctx));
         }
         catch
         {
@@ -796,21 +786,8 @@ public sealed class FFmpegReader : MediaReader
             }
             else
             {
-                var transferFn = ColorSpaceHelper.GetTransferFunction(_videoStream.Codecpar->color_trc);
-                var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
-
-                if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
-                {
-                    _colorspace = BitmapColorSpace.Srgb;
-                }
-                else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
-                {
-                    _colorspace = BitmapColorSpace.LinearSrgb;
-                }
-                else
-                {
-                    _colorspace = BitmapColorSpace.CreateRgb(transferFn, gamut);
-                }
+                _colorspace = ColorSpaceHelper.BuildTargetColorSpace(
+                    _videoStream.Codecpar->color_trc, _videoStream.Codecpar->color_primaries);
             }
         }
 

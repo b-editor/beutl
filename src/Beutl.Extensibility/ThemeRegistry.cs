@@ -66,8 +66,7 @@ public static class ThemeRegistry
         bool removed;
         lock (s_lock)
         {
-            removed = s_themes.TryGetValue(descriptor.Id, out var entry)
-                      && ReferenceEquals(entry.Descriptor, descriptor)
+            removed = IsRegisteredInstance(descriptor, out _)
                       && s_themes.Remove(descriptor.Id);
         }
 
@@ -111,12 +110,18 @@ public static class ThemeRegistry
         ArgumentNullException.ThrowIfNull(descriptor);
         lock (s_lock)
         {
-            return s_themes.TryGetValue(descriptor.Id, out var entry)
-                   && ReferenceEquals(entry.Descriptor, descriptor)
+            return IsRegisteredInstance(descriptor, out var entry)
                 ? entry.Extension
                 : null;
         }
     }
+
+    // Called with s_lock held.
+    private static bool IsRegisteredInstance(
+        ThemeDescriptor descriptor,
+        out (ThemeDescriptor Descriptor, ThemeExtension? Extension) entry)
+        => s_themes.TryGetValue(descriptor.Id, out entry)
+           && ReferenceEquals(entry.Descriptor, descriptor);
 
     /// <summary>
     /// Resolves <paramref name="id"/>, falling back to the built-in Dark, then to the first

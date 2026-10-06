@@ -15,17 +15,7 @@ internal static class MFFrameBufferSize
 
     public static int Calculate(int width, int height, int bytesPerPixel)
     {
-        if (width <= 0)
-        {
-            throw CreateInvalidSizeException(width, height, bytesPerPixel);
-        }
-
-        if (height <= 0)
-        {
-            throw CreateInvalidSizeException(width, height, bytesPerPixel);
-        }
-
-        if (bytesPerPixel <= 0)
+        if (width <= 0 || height <= 0 || bytesPerPixel <= 0)
         {
             throw CreateInvalidSizeException(width, height, bytesPerPixel);
         }

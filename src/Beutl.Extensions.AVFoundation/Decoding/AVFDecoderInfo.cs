@@ -45,19 +45,5 @@ public sealed class AVFDecoderInfo(AVFDecodingExtension extension) : IDecoderInf
         }
     }
 
-    public IEnumerable<string> VideoExtensions()
-    {
-        yield return ".mp4";
-        yield return ".mov";
-        yield return ".m4v";
-        yield return ".avi";
-        yield return ".wmv";
-        yield return ".sami";
-        yield return ".smi";
-        yield return ".adts";
-        yield return ".asf";
-        yield return ".3gp";
-        yield return ".3gp2";
-        yield return ".3gpp";
-    }
+    public IEnumerable<string> VideoExtensions() => AVFFileExtensions.Video();
 }

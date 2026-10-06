@@ -73,8 +73,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
         // SendAndReceiveAsync surfaces a closed connection as IOException, an error response as
         // FFmpegWorkerException, and a host CancelEncode as OperationCanceledException, so the response here
         // is always a live ProvideFrame for this request.
-        var frameInfo = response.GetPayload<ProvideFrameMessage>()
-            ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
+        var frameInfo = response.RequirePayload<ProvideFrameMessage>(MessageType.ProvideFrame);
 
         // Validate the current frame before arming the prefetch so a mismatched DataLength can't leave
         // an unobserved _prefetchTask in flight nor mask the failure behind an extra RequestFrame.

@@ -4,11 +4,13 @@ namespace Beutl.Engine.SourceGenerators.Diagnostics;
 
 public static class DiagnosticDescriptors
 {
+    private const string Category = "Beutl.Engine.SourceGenerators";
+
     public static readonly DiagnosticDescriptor MissingPartial = new(
         id: "BESG001",
         title: "Partial declaration required",
         messageFormat: "Type '{0}' must be declared partial to generate Resource nested classes",
-        category: "Beutl.Engine.SourceGenerators",
+        category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
 
@@ -16,7 +18,7 @@ public static class DiagnosticDescriptors
         id: "BESG002",
         title: "Partial declaration required for IFallback",
         messageFormat: "Type '{0}' must be declared partial to generate IFallback implementation",
-        category: "Beutl.Engine.SourceGenerators",
+        category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
 
@@ -29,7 +31,7 @@ public static class DiagnosticDescriptors
             + "else; {2}. Declare the callback static, write it as a lambda closing over nothing but the "
             + "declaring node or as a method group naming one of that node's own methods, and carry every "
             + "other changing value through the state-passing overload or a bound render resource.",
-        category: "Beutl.Engine.SourceGenerators",
+        category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description:
@@ -71,7 +73,7 @@ public static class DiagnosticDescriptors
             + "whose symbol is not defined here, which is why this rule can answer differently in "
             + "Debug and in Release - are still invisible, so it staying silent is not proof that "
             + "the callback is state-free.",
-        category: "Beutl.Engine.SourceGenerators",
+        category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description:
@@ -170,7 +172,7 @@ public static class DiagnosticDescriptors
             + "element of it, or through a call that changes it in place - and the "
             + "declaration of an auto-property, a field-like event or a field that code outside '{0}' can "
             + "write, so it staying silent is not proof that every mutation is marked.",
-        category: "Beutl.Engine.SourceGenerators",
+        category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description:

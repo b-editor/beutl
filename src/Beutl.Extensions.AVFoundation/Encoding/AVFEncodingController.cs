@@ -99,37 +99,21 @@ public class AVFEncodingController : EncodingController
         using var image = await frameProvider.RenderFrame(frame);
         long ptsNum = frame * frameRateDen;
 
-        if (hdrTargetColorSpace is not null)
-        {
+        using var converted = hdrTargetColorSpace is not null
             // Skia converts the renderer's LinearSrgb working space to the HDR target
             // (e.g. Rec.2020 + PQ with luminance scaling baked into the gamut matrix),
             // emitting 16-bit-per-channel unpremultiplied RGBA for the Writer input.
-            using var converted = image.Convert(
-                BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace);
-            BeutlAVFException.ThrowIfFailed(
-                BeutlAVFNative.beutl_avf_writer_append_video(
-                    handle,
-                    converted.Data,
-                    converted.Width,
-                    converted.Height,
-                    converted.RowBytes,
-                    ptsNum,
-                    (int)frameRateNum));
-        }
-        else
-        {
-            using var bgra = image.Convert(
-                BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-            BeutlAVFException.ThrowIfFailed(
-                BeutlAVFNative.beutl_avf_writer_append_video(
-                    handle,
-                    bgra.Data,
-                    bgra.Width,
-                    bgra.Height,
-                    bgra.RowBytes,
-                    ptsNum,
-                    (int)frameRateNum));
-        }
+            ? image.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace)
+            : image.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        BeutlAVFException.ThrowIfFailed(
+            BeutlAVFNative.beutl_avf_writer_append_video(
+                handle,
+                converted.Data,
+                converted.Width,
+                converted.Height,
+                converted.RowBytes,
+                ptsNum,
+                (int)frameRateNum));
     }
 
     private static async ValueTask WriteAudioFrameAsync(

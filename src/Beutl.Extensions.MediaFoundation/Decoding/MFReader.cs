@@ -137,6 +137,12 @@ public class MFReader : MediaReader
 
     public override bool HasAudio { get; }
 
+    [MemberNotNullWhen(true, nameof(_decoder))]
+    private bool CanReadVideo() => HasVideo && _decoder != null && !IsDisposed;
+
+    [MemberNotNullWhen(true, nameof(_audioReader), nameof(_waveFormat), nameof(_provider))]
+    private bool CanReadAudio() => !IsDisposed && _audioReader != null && _waveFormat != null && _provider != null;
+
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         if (MFThread.Dispatcher.CheckAccess())
@@ -146,7 +152,7 @@ public class MFReader : MediaReader
         else
         {
             image = null;
-            if (!HasVideo || _decoder == null || IsDisposed)
+            if (!CanReadVideo())
                 return false;
 
             (bool result, Ref<Bitmap>? image1) = MFThread.Dispatcher.Invoke(() =>
@@ -162,7 +168,7 @@ public class MFReader : MediaReader
     private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
-        if (!HasVideo || _decoder == null || IsDisposed)
+        if (!CanReadVideo())
             return false;
 
         MFMediaInfo info = _decoder.GetMediaInfo();
@@ -210,7 +216,7 @@ public class MFReader : MediaReader
         else
         {
             sound = null;
-            if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
+            if (!CanReadAudio())
                 return false;
 
             (bool result, Ref<IPcm>? sound1) = MFThread.Dispatcher.Invoke(() =>
@@ -226,7 +232,7 @@ public class MFReader : MediaReader
     private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
-        if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
+        if (!CanReadAudio())
             return false;
 
         // Media Foundation can reject a seek past EOF instead of returning an empty read.

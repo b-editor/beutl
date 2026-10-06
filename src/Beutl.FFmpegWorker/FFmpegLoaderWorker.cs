@@ -51,17 +51,18 @@ internal static class FFmpegLoaderWorker
 
     private static string GetRootPath()
     {
+        string assemblyDirectory = Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName;
         var paths = new List<string>
         {
             s_defaultFFmpegPath,
-            Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+            assemblyDirectory,
             AppContext.BaseDirectory
         };
 
         if (OperatingSystem.IsWindows())
         {
             string rid = Beutl.Extensions.FFmpeg.FFmpegNativeRid.GetWindowsRid();
-            paths.Add(Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+            paths.Add(Path.Combine(assemblyDirectory,
                 "runtimes", rid, "native"));
             paths.Add(Path.Combine(AppContext.BaseDirectory,
                 "runtimes", rid, "native"));

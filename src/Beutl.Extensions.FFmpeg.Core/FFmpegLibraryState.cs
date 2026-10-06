@@ -51,12 +51,7 @@ public static class FFmpegLibraryState
         PendingNotification missingNotification;
         lock (s_stateGate)
         {
-            bool shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
-
-            if (shouldNotify)
-                availabilityNotification = QueueNotificationCore(
-                    NotificationKind.AvailabilityChanged,
-                    isLibrariesMissing: true);
+            availabilityNotification = LatchMissingCore();
             missingNotification = QueueNotificationCore(NotificationKind.LibrariesMissing, isLibrariesMissing: true);
         }
 
@@ -72,15 +67,11 @@ public static class FFmpegLibraryState
         lock (s_stateGate)
         {
             s_verificationInProgress = false;
-            bool shouldNotify;
             // Arm the cooldown before notifying: SetLibrariesMissing raises AvailabilityChanged, and
             // a listener that reacts synchronously must already see ShouldSkipStartProbe == true,
             // otherwise it can immediately re-probe the worker before the cooldown is in effect.
             ArmReprobeCooldownCore();
-            shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
-
-            if (shouldNotify)
-                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
+            notification = LatchMissingCore();
         }
 
         DrainNotifications(notification);
@@ -97,9 +88,7 @@ public static class FFmpegLibraryState
             if (!ShouldSkipStartProbeCore(Environment.TickCount64))
                 ArmReprobeCooldownCore();
 
-            bool shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
-            if (shouldNotify)
-                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
+            notification = LatchMissingCore();
         }
 
         DrainNotifications(notification);
@@ -126,18 +115,22 @@ public static class FFmpegLibraryState
     private static bool RecordMissingObservedCore(out PendingNotification? notification)
     {
         bool wasKnownMissing;
-        notification = null;
         lock (s_stateGate)
         {
-            bool shouldNotify;
             wasKnownMissing = s_librariesMissing;
-            shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
-
-            if (shouldNotify)
-                notification = QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true);
+            notification = LatchMissingCore();
         }
 
         return wasKnownMissing;
+    }
+
+    // The caller holds s_stateGate.
+    private static PendingNotification? LatchMissingCore()
+    {
+        bool shouldNotify = SetLibrariesMissingCore(true, notify: true, notifyWhenUnchanged: false);
+        return shouldNotify
+            ? QueueNotificationCore(NotificationKind.AvailabilityChanged, isLibrariesMissing: true)
+            : null;
     }
 
     // A worker process handshaked successfully, so FFmpeg loaded: clear any missing latch. This is

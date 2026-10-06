@@ -14,50 +14,14 @@ internal sealed class EncodingHandler : IDisposable
 
     public async Task<IpcMessage> HandleStartAsync(IpcMessage msg, IpcConnection connection, CancellationToken ct)
     {
-        var request = msg.GetPayload<EncodeStartRequest>()
-            ?? throw new InvalidOperationException("Missing payload for StartEncode");
+        var request = msg.RequirePayload<EncodeStartRequest>(MessageType.StartEncode);
 
         _encodeCts?.Dispose();
         _encodeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         try
         {
-            var encodingSettings = new FFmpegEncodingSettings();
-            encodingSettings.Acceleration = (FFmpegEncodingSettings.AccelerationOptions)request.Acceleration;
-            encodingSettings.ThreadCount = request.ThreadCount;
-
-            var controller = new FFmpegEncodingController(request.OutputFile, encodingSettings);
-
-            // Video settings
-            controller.VideoSettings.SourceSize = new PixelSize(request.SourceWidth, request.SourceHeight);
-            controller.VideoSettings.DestinationSize = new PixelSize(request.DestWidth, request.DestHeight);
-            controller.VideoSettings.FrameRate = new Rational(request.FrameRateNum, request.FrameRateDen);
-            controller.VideoSettings.Bitrate = request.VideoBitrate;
-            controller.VideoSettings.KeyframeRate = request.KeyframeRate;
-            controller.VideoSettings.Format = request.PixelFormat;
-            controller.VideoSettings.Codec = request.VideoCodecName == "Default"
-                ? CodecRecord.Default
-                : new CodecRecord(request.VideoCodecName, request.VideoCodecName);
-            controller.VideoSettings.ColorPrimaries = request.ColorPrimaries;
-            controller.VideoSettings.ColorTrc = request.ColorTrc;
-            controller.VideoSettings.ColorSpace = request.ColorSpace;
-            controller.VideoSettings.ColorRange = request.ColorRange;
-
-            // Video options
-            controller.VideoSettings.Options.Clear();
-            foreach (var kvp in request.VideoOptions)
-            {
-                controller.VideoSettings.Options.Add(new AdditionalOption(kvp.Key, kvp.Value));
-            }
-
-            // Audio settings
-            controller.AudioSettings.SampleRate = request.AudioSampleRate;
-            controller.AudioSettings.Channels = request.AudioChannels;
-            controller.AudioSettings.Bitrate = request.AudioBitrate;
-            controller.AudioSettings.Format = (FFmpegAudioEncoderSettings.AudioFormat)request.AudioFormat;
-            controller.AudioSettings.Codec = request.AudioCodecName == "Default"
-                ? CodecRecord.Default
-                : new CodecRecord(request.AudioCodecName, request.AudioCodecName);
+            var controller = CreateController(request);
 
             // 共有メモリ作成 (ダブルバッファリング)
             long videoBufferSize = (long)request.SourceWidth * request.SourceHeight * 8 + 64;
@@ -118,6 +82,51 @@ internal sealed class EncodingHandler : IDisposable
                     FFmpegErrorCode = FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex),
                 });
         }
+    }
+
+    private static FFmpegEncodingController CreateController(EncodeStartRequest request)
+    {
+        var encodingSettings = new FFmpegEncodingSettings();
+        encodingSettings.Acceleration = (FFmpegEncodingSettings.AccelerationOptions)request.Acceleration;
+        encodingSettings.ThreadCount = request.ThreadCount;
+
+        var controller = new FFmpegEncodingController(request.OutputFile, encodingSettings);
+
+        // Video settings
+        controller.VideoSettings.SourceSize = new PixelSize(request.SourceWidth, request.SourceHeight);
+        controller.VideoSettings.DestinationSize = new PixelSize(request.DestWidth, request.DestHeight);
+        controller.VideoSettings.FrameRate = new Rational(request.FrameRateNum, request.FrameRateDen);
+        controller.VideoSettings.Bitrate = request.VideoBitrate;
+        controller.VideoSettings.KeyframeRate = request.KeyframeRate;
+        controller.VideoSettings.Format = request.PixelFormat;
+        controller.VideoSettings.Codec = ToCodecRecord(request.VideoCodecName);
+        controller.VideoSettings.ColorPrimaries = request.ColorPrimaries;
+        controller.VideoSettings.ColorTrc = request.ColorTrc;
+        controller.VideoSettings.ColorSpace = request.ColorSpace;
+        controller.VideoSettings.ColorRange = request.ColorRange;
+
+        // Video options
+        controller.VideoSettings.Options.Clear();
+        foreach (var kvp in request.VideoOptions)
+        {
+            controller.VideoSettings.Options.Add(new AdditionalOption(kvp.Key, kvp.Value));
+        }
+
+        // Audio settings
+        controller.AudioSettings.SampleRate = request.AudioSampleRate;
+        controller.AudioSettings.Channels = request.AudioChannels;
+        controller.AudioSettings.Bitrate = request.AudioBitrate;
+        controller.AudioSettings.Format = (FFmpegAudioEncoderSettings.AudioFormat)request.AudioFormat;
+        controller.AudioSettings.Codec = ToCodecRecord(request.AudioCodecName);
+
+        return controller;
+    }
+
+    private static CodecRecord ToCodecRecord(string codecName)
+    {
+        return codecName == "Default"
+            ? CodecRecord.Default
+            : new CodecRecord(codecName, codecName);
     }
 
     public IpcMessage HandleCancel(IpcMessage msg)
