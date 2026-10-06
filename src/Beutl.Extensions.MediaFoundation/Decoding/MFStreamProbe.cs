@@ -25,6 +25,19 @@ internal static class MFStreamProbe
 
     private static int FindStreamIndex(IMFSourceReader sourceReader, Guid majorType)
     {
+        foreach ((int streamIndex, Guid streamMajorType) in EnumerateSelectedStreams(sourceReader))
+        {
+            if (streamMajorType == majorType)
+            {
+                return streamIndex;
+            }
+        }
+
+        return -1;
+    }
+
+    public static IEnumerable<(int StreamIndex, Guid MajorType)> EnumerateSelectedStreams(IMFSourceReader sourceReader)
+    {
         for (int streamIndex = 0; true; ++streamIndex)
         {
             IMFMediaType currentMediaType;
@@ -44,13 +57,8 @@ internal static class MFStreamProbe
                     continue;
                 }
 
-                if (currentMediaType.MajorType == majorType)
-                {
-                    return streamIndex;
-                }
+                yield return (streamIndex, currentMediaType.MajorType);
             }
         }
-
-        return -1;
     }
 }
