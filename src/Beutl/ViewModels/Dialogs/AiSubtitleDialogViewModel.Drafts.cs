@@ -1,32 +1,7 @@
-﻿using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Globalization;
-using System.Reactive.Disposables;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Platform.Storage;
-using Avalonia.Threading;
-using Beutl.Api.Services;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Editor.Services.Captions;
-using Beutl.Graphics.Shapes;
-using Beutl.Language;
-using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
-using Beutl.Media.Source;
-using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.Services.AI;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
-
-using static Beutl.Services.AI.CaptionTranslationBatcher;
-using static Beutl.Services.AI.SpeechWaveEncoder;
 
 namespace Beutl.ViewModels.Dialogs;
 

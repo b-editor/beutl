@@ -1,25 +1,6 @@
-﻿using System.Globalization;
-using System.Reactive.Disposables;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Platform.Storage;
-using Avalonia.Threading;
-using Beutl.Api;
-using Beutl.Api.Services;
-using Beutl.Editor.Services;
-using Beutl.Graphics;
-using Beutl.Language;
-using Beutl.Logging;
-using Beutl.Media;
-using Beutl.Media.Source;
-using Beutl.ProjectSystem;
-using Beutl.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Services.AI;
-using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 

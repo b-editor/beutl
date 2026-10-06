@@ -1,5 +1,4 @@
-﻿using System.Net.Http.Headers;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Microsoft.Extensions.Logging;

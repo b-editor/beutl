@@ -1,10 +1,6 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
-using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;

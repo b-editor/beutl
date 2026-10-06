@@ -1,9 +1,6 @@
 ﻿using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Runtime.InteropServices;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Api;
@@ -13,14 +10,11 @@ using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
-using Beutl.Media;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using SkiaSharp;
 
 namespace Beutl.ViewModels.Tools;
 
