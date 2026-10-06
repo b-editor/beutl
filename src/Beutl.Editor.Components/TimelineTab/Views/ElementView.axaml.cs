@@ -1046,6 +1046,9 @@ public sealed partial class ElementView : UserControl
             ForceRestoreVisualToModel(relatedElements);
             if (AssociatedObject is { ViewModel: { } viewModel })
             {
+                // Selection modifiers can leave the pressed clip out of the participant list.
+                if (!relatedElements.Contains(viewModel))
+                    ForceRestoreVisualToModel([viewModel]);
                 viewModel.Timeline.SnapBarPosition.Value = null;
             }
         }

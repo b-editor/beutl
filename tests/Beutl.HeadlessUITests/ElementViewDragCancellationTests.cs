@@ -23,26 +23,29 @@ namespace Beutl.HeadlessUITests;
 public class ElementViewDragCancellationTests
 {
     [AvaloniaTest]
-    [TestCase("left", false)]
-    [TestCase("right", false)]
-    [TestCase("move", false)]
-    [TestCase("duplicate", false)]
-    [TestCase("left", true)]
-    [TestCase("right", true)]
-    [TestCase("move", true)]
-    [TestCase("duplicate", true)]
-    public async Task CaptureLost_CancelsPreview_AndAllowsTheNextDragToCommit(string kind, bool grouped)
+    [TestCase("left", false, false)]
+    [TestCase("right", false, false)]
+    [TestCase("move", false, false)]
+    [TestCase("duplicate", false, false)]
+    [TestCase("left", true, false)]
+    [TestCase("right", true, false)]
+    [TestCase("move", true, false)]
+    [TestCase("duplicate", true, false)]
+    [TestCase("right", false, true)]
+    [TestCase("move", false, true)]
+    public async Task CaptureLost_CancelsPreview_AndAllowsTheNextDragToCommit(string kind, bool grouped, bool snapping)
     {
         bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled;
         bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
         GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled = false;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = snapping;
         Window? window = null;
         TimelineTabView? view = null;
         try
         {
             (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped);
             TimelineTabViewModel timeline = elements[0].Timeline;
+            if (snapping) elements[0].Scene.Duration = TimeSpan.FromSeconds(kind == "right" ? 4.5 : 6);
             view = new TimelineTabView { DataContext = timeline };
             window = new Window { Content = view, Width = 1200, Height = 420 };
             window.Show();
@@ -84,12 +87,14 @@ public class ElementViewDragCancellationTests
             }
             if (kind == "duplicate")
                 Assert.That(view.TimelinePanel.Children.Count, Is.GreaterThan(childCount), "The duplicate preview must include ghosts.");
-            Capture(window, $"{kind}-grouped-{grouped}-preview");
+            if (snapping)
+                Assert.That(timeline.SnapBarPosition.Value, Is.Not.Null, "The drag must display a real snap guide before cancellation.");
+            Capture(window, $"{kind}-grouped-{grouped}-snap-{snapping}-preview");
 
             // Cover both platform-style release and capture stolen by another control.
             pointer!.Capture(grouped ? view.FindControl<Border>("RulerBar") : null);
             HeadlessTestHelpers.Render(5);
-            Capture(window, $"{kind}-grouped-{grouped}-cancelled");
+            Capture(window, $"{kind}-grouped-{grouped}-snap-{snapping}-cancelled");
             AssertOriginalState();
             Assert.Multiple(() =>
             {
@@ -131,7 +136,7 @@ public class ElementViewDragCancellationTests
             await Task.Delay(300);
             HeadlessTestHelpers.Render(5);
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
-            Capture(window, $"{kind}-grouped-{grouped}-committed");
+            Capture(window, $"{kind}-grouped-{grouped}-snap-{snapping}-committed");
 
             void DragToPreview()
             {
@@ -167,7 +172,77 @@ public class ElementViewDragCancellationTests
         }
     }
 
-    private static async Task<(EditViewModel Editor, ElementViewModel[] Elements)> OpenElements(bool grouped)
+    [AvaloniaTest]
+    [TestCase(RawInputModifiers.Control)]
+    [TestCase(RawInputModifiers.Shift)]
+    public async Task CaptureLost_ModifierDrag_RestoresTheUnselectedPressedClip(RawInputModifiers modifiers)
+    {
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped: false, count: 2);
+            ElementViewModel selected = elements[0];
+            ElementViewModel pressed = elements[1];
+            TimelineTabViewModel timeline = pressed.Timeline;
+            timeline.ClearSelected();
+            timeline.SelectElement(selected);
+            Assert.That(pressed.GetGroupOrSelectedElements(), Does.Not.Contain(pressed));
+            editor.HistoryManager.Commit();
+            int undoCount = editor.HistoryManager.UndoCount;
+            view = new TimelineTabView { DataContext = timeline };
+            window = new Window { Content = view, Width = 1200, Height = 420 };
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = view.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ReferenceEquals(v.DataContext, pressed));
+            Border border = element.FindControl<Border>("border")!;
+            IPointer? pointer = null;
+            border.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
+                RoutingStrategies.Bubble, handledEventsToo: true);
+            Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
+            Point release = press + new Vector(TimeSpan.FromSeconds(1).TimeToPixel(timeline.Options.Value.Scale), FrameNumberHelper.LayerHeight);
+            window.MouseMove(press, modifiers);
+            window.MouseDown(press, MouseButton.Left, modifiers);
+            window.MouseMove(release, modifiers | RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render(5);
+            Assert.That(pointer, Is.Not.Null);
+            Assert.That(timeline.SelectedElements, Is.EqualTo(new[] { selected }), "Modifier drag must leave the pressed clip unselected.");
+            foreach (ElementViewModel vm in elements)
+                Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.TimeToPixel(timeline.Options.Value.Scale)));
+            Capture(window, $"{modifiers}-unselected-preview");
+
+            pointer!.Capture(null);
+            HeadlessTestHelpers.Render(5);
+            foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
+            Assert.Multiple(() =>
+            {
+                Assert.That(elements.Select(vm => vm.Model.Start), Is.All.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(elements.Select(vm => vm.Model.Length), Is.All.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(elements.Select(vm => vm.Model.ZIndex), Is.EqualTo(new[] { 0, 1 }));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            });
+            Capture(window, $"{modifiers}-unselected-cancelled");
+            window.MouseUp(new Point(5, 5), MouseButton.Left);
+            Point hover = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
+            window.MouseMove(hover);
+            HeadlessTestHelpers.Render(5);
+            foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
+        }
+        finally
+        {
+            window?.MouseUp(new Point(5, 5), MouseButton.Left);
+            if (view is not null) view.DataContext = null;
+            window?.Close();
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private static async Task<(EditViewModel Editor, ElementViewModel[] Elements)> OpenElements(bool grouped, int count = 1)
     {
         await TestReset.ResetShellAsync();
         string name = $"element-drag-cancel-{Guid.NewGuid():N}";
@@ -179,7 +254,7 @@ public class ElementViewDragCancellationTests
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        ElementDescription[] descriptions = Enumerable.Range(0, grouped ? 2 : 1)
+        ElementDescription[] descriptions = Enumerable.Range(0, grouped ? 2 : count)
             .Select(layer => new ElementDescription(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), layer,
                 new ElementSource.EngineObject(() => new RectShape())))
             .ToArray();
