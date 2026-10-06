@@ -101,40 +101,41 @@ public class UiFontsTests
         string cultureName, bool light)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;
-        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
-        var fontResources = (ResourceDictionary)AvaloniaXamlLoader.Load(
-            new Uri("avares://Beutl.Controls/Styling/Fonts.axaml"))!;
-        var family = (FontFamily)fontResources["BeutlUIFontFamily"]!;
-        var panel = new StackPanel { Margin = new Thickness(24), Spacing = 12 };
-        panel.Children.Add(new TextBlock
-        {
-            Text = $"{CultureInfo.CurrentUICulture.NativeName} · {family.Name}",
-            FontFamily = family,
-            FontSize = 24,
-            FontWeight = FontWeight.SemiBold,
-        });
-        TextBlock[] samples = s_weights.Select(weight => new TextBlock
-        {
-            Text = MixedText,
-            FontFamily = family,
-            FontSize = 18,
-            FontWeight = weight,
-            TextWrapping = TextWrapping.Wrap,
-        }).ToArray();
-        foreach (TextBlock sample in samples)
-            panel.Children.Add(sample);
-        panel.Children.Add(new TextBox { Text = MixedText, FontFamily = family });
-        panel.Children.Add(new Button { Content = "Save · 保存 · 저장 · Guardar", FontFamily = family });
-        var window = new Window
-        {
-            Width = 780,
-            Height = 460,
-            Content = panel,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
-        };
-        window.Resources.MergedDictionaries.Add(fontResources);
+        Window? window = null;
         try
         {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+            var fontResources = (ResourceDictionary)AvaloniaXamlLoader.Load(
+                new Uri("avares://Beutl.Controls/Styling/Fonts.axaml"))!;
+            var family = (FontFamily)fontResources["BeutlUIFontFamily"]!;
+            var panel = new StackPanel { Margin = new Thickness(24), Spacing = 12 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"{CultureInfo.CurrentUICulture.NativeName} · {family.Name}",
+                FontFamily = family,
+                FontSize = 24,
+                FontWeight = FontWeight.SemiBold,
+            });
+            TextBlock[] samples = s_weights.Select(weight => new TextBlock
+            {
+                Text = MixedText,
+                FontFamily = family,
+                FontSize = 18,
+                FontWeight = weight,
+                TextWrapping = TextWrapping.Wrap,
+            }).ToArray();
+            foreach (TextBlock sample in samples)
+                panel.Children.Add(sample);
+            panel.Children.Add(new TextBox { Text = MixedText, FontFamily = family });
+            panel.Children.Add(new Button { Content = "Save · 保存 · 저장 · Guardar", FontFamily = family });
+            window = new Window
+            {
+                Width = 780,
+                Height = 460,
+                Content = panel,
+                RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+            };
+            window.Resources.MergedDictionaries.Add(fontResources);
             window.Show();
             HeadlessTestHelpers.Render(3);
             Assert.That(family, Is.EqualTo(UiFonts.GetFontFamily(CultureInfo.CurrentUICulture)));
@@ -160,9 +161,15 @@ public class UiFontsTests
         }
         finally
         {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-            CultureInfo.CurrentUICulture = previous;
+            try
+            {
+                window?.Close();
+                HeadlessTestHelpers.Settle();
+            }
+            finally
+            {
+                CultureInfo.CurrentUICulture = previous;
+            }
         }
     }
 

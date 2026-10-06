@@ -1,5 +1,6 @@
 ﻿using Avalonia.Styling;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Extensibility;
 using DynamicData;
 using FluentAvalonia.Styling;
@@ -18,6 +19,7 @@ public static class OutProcessDialog
     {
         var startInfo = new ProcessStartInfo();
         DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog"));
+        startInfo.ArgumentList.AddRange([UiFonts.UiCultureArgument, CultureInfo.CurrentUICulture.Name]);
 
         startInfo.ArgumentList.AddRange(["--parent", Environment.ProcessId.ToString()]);
 

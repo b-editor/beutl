@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -12,6 +14,47 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class UIFontResourceTests
 {
+    [AvaloniaTest]
+    [TestCase("Beutl.ExceptionHandler", "ja-JP", "Noto Sans JP")]
+    [TestCase("Beutl.ExceptionHandler", "zh-CN", "Noto Sans SC")]
+    [TestCase("Beutl.ExceptionHandler", "ko-KR", "Noto Sans KR")]
+    [TestCase("Beutl.WaitingDialog", "ja-JP", "Noto Sans JP")]
+    [TestCase("Beutl.WaitingDialog", "zh-CN", "Noto Sans SC")]
+    [TestCase("Beutl.WaitingDialog", "ko-KR", "Noto Sans KR")]
+    public void Helper_startup_applies_parent_language_before_resolving_fonts(
+        string assemblyName, string cultureName, string expectedFamily)
+    {
+        CultureInfo previous = CultureInfo.CurrentUICulture;
+        CultureInfo? previousDefault = CultureInfo.DefaultThreadCurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            Type helperFonts = Assembly.Load(assemblyName).GetType(typeof(UiFonts).FullName!)!;
+            MethodInfo applyCulture = helperFonts.GetMethod("ApplyCultureArgument", BindingFlags.Static | BindingFlags.NonPublic)!;
+            string[] args = ["--title", "Localized title", UiFonts.UiCultureArgument, cultureName, "--progress"];
+            var remainingArgs = (string[])applyCulture.Invoke(null, [args])!;
+            var options = (FontManagerOptions)helperFonts.GetMethod(nameof(UiFonts.CreateFontManagerOptions))!
+                .Invoke(null, [CultureInfo.CurrentUICulture])!;
+            var resources = (ResourceDictionary)AvaloniaXamlLoader.Load(
+                new Uri($"avares://{assemblyName}/Styling/Fonts.axaml"))!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(CultureInfo.CurrentUICulture.Name, Is.EqualTo(cultureName));
+                Assert.That(CultureInfo.DefaultThreadCurrentUICulture!.Name, Is.EqualTo(cultureName));
+                Assert.That(remainingArgs, Is.EqualTo(new[] { "--title", "Localized title", "--progress" }));
+                Assert.That(new FontFamily(options.DefaultFamilyName!).Name, Is.EqualTo(expectedFamily));
+                Assert.That(((FontFamily)resources["BeutlUIFontFamily"]!).Name, Is.EqualTo(expectedFamily));
+            });
+        }
+        finally
+        {
+            CultureInfo.DefaultThreadCurrentUICulture = previousDefault;
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
     [AvaloniaTest]
     [TestCase("Beutl.ExceptionHandler")]
     [TestCase("Beutl.WaitingDialog")]

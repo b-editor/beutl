@@ -11,6 +11,7 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        args = UiFonts.ApplyCultureArgument(args);
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
     }
