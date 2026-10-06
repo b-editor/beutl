@@ -3,6 +3,7 @@ using Beutl.IO;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services.AI;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -159,10 +160,8 @@ internal static class UnsavedSceneStorage
             FilePathComparison.ResolutionContext paths,
             string ownedRoot)
         {
-            string destinationDirectory = Path.Combine(
-                Path.GetDirectoryName(sceneUri.LocalPath)!,
-                "resources",
-                "ai");
+            string destinationDirectory = AiResultImporter.GetResourceDirectoryIn(
+                Path.GetDirectoryName(sceneUri.LocalPath)!);
             var groups = new Dictionary<string, List<(IFileSource Source, Uri Original)>>(StringComparer.Ordinal);
             var seen = new HashSet<IFileSource>(ReferenceEqualityComparer.Instance);
             foreach (IFileSource source in scene.Children

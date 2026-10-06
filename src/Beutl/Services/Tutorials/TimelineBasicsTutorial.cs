@@ -1,17 +1,13 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using Beutl.Animation;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
@@ -22,10 +18,10 @@ public static class TimelineBasicsTutorial
 
     public static TutorialDefinition Create(EditorService editorService, ProjectService projectService)
     {
-        IDisposable? step1Subscription = null;
-        IDisposable? step2Subscription = null;
-        IDisposable? step3Subscription = null;
-        IDisposable? step4Subscription = null;
+        var step1Subscription = new TutorialStepSubscription();
+        var step2Subscription = new TutorialStepSubscription();
+        var step3Subscription = new TutorialStepSubscription();
+        var step4Subscription = new TutorialStepSubscription();
 
         return new TutorialDefinition
         {
@@ -56,15 +52,11 @@ public static class TimelineBasicsTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
-                        step1Subscription = TutorialHelpers.SubscribeToElementAdded<EllipseShape>(
+                        step1Subscription.Current = TutorialHelpers.SubscribeToElementAdded<EllipseShape>(
                             editVm.Scene,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step1Subscription?.Dispose();
-                        step1Subscription = null;
-                    },
+                    OnDismissed = step1Subscription.Release,
                 },
 
                 // Step 2: Select the element in the timeline
@@ -79,15 +71,11 @@ public static class TimelineBasicsTutorial
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
-                        step2Subscription = TutorialHelpers.SubscribeToElementSelection(
+                        step2Subscription.Current = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step2Subscription?.Dispose();
-                        step2Subscription = null;
-                    },
+                    OnDismissed = step2Subscription.Release,
                 },
 
                 // Step 3: Introduce the Source Operators tab
@@ -118,15 +106,11 @@ public static class TimelineBasicsTutorial
                         EllipseShape? ellipseOp = TutorialHelpers.GetObject<EllipseShape>(element);
                         if (ellipseOp == null) return;
 
-                        step3Subscription = TutorialHelpers.SubscribeToAnimationEnabled(
+                        step3Subscription.Current = TutorialHelpers.SubscribeToAnimationEnabled(
                             ellipseOp.Width,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step3Subscription?.Dispose();
-                        step3Subscription = null;
-                    },
+                    OnDismissed = step3Subscription.Release,
                 },
 
                 // Step 5: Move current time and prompt to add a keyframe
@@ -162,17 +146,13 @@ public static class TimelineBasicsTutorial
                         else
                         {
                             clock.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
-                            step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
+                            step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
                                 () => TutorialService.Current.AdvanceStep());
                         }
                     },
-                    OnDismissed = () =>
-                    {
-                        step4Subscription?.Dispose();
-                        step4Subscription = null;
-                    },
+                    OnDismissed = step4Subscription.Release,
                 },
 
                 // Step 6: Change the value (auto-change if default)
@@ -232,14 +212,5 @@ public static class TimelineBasicsTutorial
     }
 
     private static Control? FindWidthPropertyEditor()
-    {
-        TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
-            .OfType<NumberEditor<float>>()
-            .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
-                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
-                prop.GetOwnerObject() is EllipseShape &&
-                prop.Name == nameof(EllipseShape.Width));
-    }
+        => TutorialHelpers.FindFloatEditor<EllipseShape>(nameof(EllipseShape.Width));
 }

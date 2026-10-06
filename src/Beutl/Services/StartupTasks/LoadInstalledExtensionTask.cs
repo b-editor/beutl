@@ -54,16 +54,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                             return;
                         }
 
-                        try
-                        {
-                            _manager.Load(item);
-                        }
-                        catch (Exception e)
-                        {
-                            activity?.SetStatus(ActivityStatusCode.Error);
-                            _logger.LogError(e, "Failed to load package: {PackageName}", item.Name);
-                            Failures.Add((item, e));
-                        }
+                        TryLoadPackage(item, package => _manager.Load(package), _logger, activity, Failures);
                     });
 
                     activity?.AddEvent(new ActivityEvent("Finished loading installed packages."));
@@ -81,4 +72,25 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
 
     public bool IsRestrictedMode { get; private set; }
+
+    // Shared with LoadSideloadExtensionTask: a package that fails to load is recorded for the
+    // failure report and does not stop the others.
+    internal static void TryLoadPackage(
+        LocalPackage package,
+        Action<LocalPackage> load,
+        ILogger logger,
+        Activity? activity,
+        ConcurrentBag<(LocalPackage, Exception)> failures)
+    {
+        try
+        {
+            load(package);
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            logger.LogError(e, "Failed to load package: {PackageName}", package.Name);
+            failures.Add((package, e));
+        }
+    }
 }

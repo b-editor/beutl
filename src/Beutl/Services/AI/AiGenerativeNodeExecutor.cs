@@ -196,6 +196,61 @@ internal sealed class AiGenerativeNodeExecutor(
 
         // Checked as the AI tab's controls check it, before anything is reserved.
         string prompt = request.Prompt;
+        List<(string Role, AiUploadSource Upload, byte[] Bytes)> references =
+            ValidateVideoGeneration(request, prompt, limits);
+
+        // What a model does not take is left out, as the AI tab switches the control off.
+        bool generateAudio = limits.SupportsAudio && request.GenerateAudio;
+        int? seed = limits.SupportsSeed ? request.Seed : null;
+        AiUploadSource? firstFrame = request.FirstFrame is { } first
+            ? AiUploadSource.FromBytes(first.Name, first.EncodedPng)
+            : null;
+        AiUploadSource? lastFrame = request.LastFrame is { } last
+            ? AiUploadSource.FromBytes(last.Name, last.EncodedPng)
+            : null;
+
+        string?[] parts = BuildVideoGenerationParts(request, prompt, generateAudio, seed, model, references);
+        return await DispatchAsync(
+            request.RequestKeySeed,
+            "video.generate",
+            parts,
+            Strings.AiVideoSubmitting,
+            token => availability.CheckAsync(
+                new AiOperationAvailabilityRequest.Video(AiOperations.VideoGeneration, request.DurationSeconds, model),
+                token),
+            (key, token) => videos.CreateAsync(
+                new AiVideoGenerationRequest(
+                    prompt,
+                    request.DurationSeconds,
+                    new AiVideoResolutionId(request.Resolution),
+                    new AiVideoAspectRatioId(request.AspectRatio),
+                    generateAudio,
+                    seed: seed,
+                    firstFrame: firstFrame,
+                    lastFrame: lastFrame,
+                    model: model,
+                    idempotencyKey: key,
+                    inputReferences: references.Select(reference => reference.Upload).ToArray()),
+                token),
+            async (response, requestKey, name) =>
+            {
+                // Past here the clip has been reserved and paid for; the key is the way back.
+                string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
+                promptLibrary?.Record(request.Operation, prompt);
+                return new GenerativeExecutionResult(new Uri(path), model?.Value, seed, IsVideo: true);
+            },
+            progress,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Refuses a clip request the model would refuse and collects the files it refers to.
+    /// </summary>
+    private static List<(string Role, AiUploadSource Upload, byte[] Bytes)> ValidateVideoGeneration(
+        AiVideoGenerationNodeRequest request,
+        string prompt,
+        GenerativeVideoCapabilities limits)
+    {
         if (prompt.Length > Math.Min(limits.MaxPromptLength, AiRequestLimits.MaxPromptLength))
             throw new GenerativeExecutionException(AiPromptComposer.PromptTooLongMessage);
         if (!limits.DurationChoices.Contains(request.DurationSeconds)
@@ -253,16 +308,17 @@ internal sealed class AiGenerativeNodeExecutor(
             throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
         }
 
-        // What a model does not take is left out, as the AI tab switches the control off.
-        bool generateAudio = limits.SupportsAudio && request.GenerateAudio;
-        int? seed = limits.SupportsSeed ? request.Seed : null;
-        AiUploadSource? firstFrame = request.FirstFrame is { } first
-            ? AiUploadSource.FromBytes(first.Name, first.EncodedPng)
-            : null;
-        AiUploadSource? lastFrame = request.LastFrame is { } last
-            ? AiUploadSource.FromBytes(last.Name, last.EncodedPng)
-            : null;
+        return references;
+    }
 
+    private static string?[] BuildVideoGenerationParts(
+        AiVideoGenerationNodeRequest request,
+        string prompt,
+        bool generateAudio,
+        int? seed,
+        AiModelId? model,
+        List<(string Role, AiUploadSource Upload, byte[] Bytes)> references)
+    {
         // Laid out as the dialog lays out its key.
         string?[] parts =
         [
@@ -284,63 +340,16 @@ internal sealed class AiGenerativeNodeExecutor(
                 null,
                 null,
                 null,
-                .. references.Select(reference =>
-                    reference.Role + ":" + reference.Upload.MediaType + ":" + AiRequestKey.ContentStamp(reference.Bytes)),
+                .. references.Select(ReferenceStamp),
             ];
         }
 
-        using var requestKey = new AiRequestKey(seed: request.RequestKeySeed, operation: "video.generate");
-        AiRequestName name = requestKey.NameFor(parts);
-        try
-        {
-            progress.Report(new GenerativeProgress(Strings.AiVideoSubmitting));
-            AiVideoGenerationResult response = await AiMeteredDispatch.SendAsync(
-                requestKey,
-                name,
-                null,
-                token => availability.CheckAsync(
-                    new AiOperationAvailabilityRequest.Video(AiOperations.VideoGeneration, request.DurationSeconds, model),
-                    token),
-                token => videos.CreateAsync(
-                    new AiVideoGenerationRequest(
-                        prompt,
-                        request.DurationSeconds,
-                        new AiVideoResolutionId(request.Resolution),
-                        new AiVideoAspectRatioId(request.AspectRatio),
-                        generateAudio,
-                        seed: seed,
-                        firstFrame: firstFrame,
-                        lastFrame: lastFrame,
-                        model: model,
-                        idempotencyKey: name.Key,
-                        inputReferences: references.Select(reference => reference.Upload).ToArray()),
-                    token),
-                n => requestKey.WithdrawAfterNoReservation(n),
-                cancellationToken);
-
-            // Past here the clip has been reserved and paid for; the key is the way back.
-            string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
-            promptLibrary?.Record(request.Operation, prompt);
-            return new GenerativeExecutionResult(new Uri(path), model?.Value, seed, IsVideo: true);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
-        {
-            if (failure.RetiresName)
-                requestKey.Retire(name);
-            if (failure.IsResultDownloadFailure)
-                s_logger.LogError(ex, "Failed to download the AI result.");
-            throw new GenerativeExecutionException(failure.Message, ex) { SettledRequest = failure.RetiresName };
-        }
-        catch (Exception ex) when (ex is not GenerativeExecutionException)
-        {
-            s_logger.LogError(ex, "Failed to run a generative node.");
-            throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
-        }
+        return parts;
     }
+
+    // Laid out as the dialog lays out a referenced file in its key.
+    private static string ReferenceStamp((string Role, AiUploadSource Upload, byte[] Bytes) input)
+        => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes);
 
     /// <summary>Reads how long a clip lasts; replaced in tests, which have no decoder.</summary>
     internal Func<string, double> VideoDurationReader { get; init; } = static path =>
@@ -383,31 +392,7 @@ internal sealed class AiGenerativeNodeExecutor(
             : null;
         double seconds = ReadDuration(source);
         // Checked as the AI tab checks the chosen files, before anything is reserved.
-        try
-        {
-            AiVideoInputLimits.Validate(sourceUpload, "video", Math.Min(limits.MaxSourceVideoBytes, AiVideoInputLimits.MaxSourceBytes));
-            if (motion)
-            {
-                if (characterUpload is null)
-                    throw new GenerativeExecutionException(Strings.AiChooseCharacterImage);
-                AiVideoInputLimits.Validate(characterUpload, "image", AiRequestLimits.MaxFrameUploadBytes);
-            }
-        }
-        catch (AiFileTooLargeException)
-        {
-            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
-        }
-        catch (ArgumentException)
-        {
-            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable);
-        }
-
-        if (!double.IsFinite(seconds) || seconds <= 0 || seconds > 60
-            || seconds < (limits.MinSourceVideoSeconds ?? 0)
-            || seconds > (limits.MaxSourceVideoSeconds ?? 60))
-        {
-            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
-        }
+        ValidateSourceVideo(sourceUpload, characterUpload, motion, seconds, limits);
 
         // An edit keeps the clip's own length; the others take the chosen one.
         int durationSeconds = mode == AiSourceVideoMode.Edit
@@ -440,7 +425,7 @@ internal sealed class AiGenerativeNodeExecutor(
             null,
             motion ? orientation : null,
             motion ? quality : null,
-            .. inputs.Select(input => input.Role + ":" + input.Upload.MediaType + ":" + AiRequestKey.ContentStamp(input.Bytes)),
+            .. inputs.Select(ReferenceStamp),
         ];
 
         string keyOperation = mode switch
@@ -449,53 +434,67 @@ internal sealed class AiGenerativeNodeExecutor(
             AiSourceVideoMode.Motion => "video.motion",
             _ => "video.edit",
         };
-        using var requestKey = new AiRequestKey(seed: request.RequestKeySeed, operation: keyOperation);
-        AiRequestName name = requestKey.NameFor(parts);
+        return await DispatchAsync(
+            request.RequestKeySeed,
+            keyOperation,
+            parts,
+            Strings.AiVideoSubmitting,
+            token => availability.CheckAsync(
+                new AiOperationAvailabilityRequest.Video(operation, durationSeconds, model),
+                token),
+            (key, token) => videos.CreateFromSourceAsync(
+                new AiSourceVideoRequest(
+                    mode,
+                    prompt,
+                    sourceUpload,
+                    durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
+                    characterImage: motion ? characterUpload : null,
+                    orientation: orientation,
+                    quality: quality,
+                    model: model,
+                    idempotencyKey: key),
+                token),
+            async (response, requestKey, name) =>
+            {
+                string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
+                promptLibrary?.Record(request.Operation, prompt);
+                return new GenerativeExecutionResult(new Uri(path), model?.Value, null, IsVideo: true);
+            },
+            progress,
+            cancellationToken);
+    }
+
+    private static void ValidateSourceVideo(
+        AiUploadSource sourceUpload,
+        AiUploadSource? characterUpload,
+        bool motion,
+        double seconds,
+        GenerativeVideoCapabilities limits)
+    {
         try
         {
-            progress.Report(new GenerativeProgress(Strings.AiVideoSubmitting));
-            AiVideoGenerationResult response = await AiMeteredDispatch.SendAsync(
-                requestKey,
-                name,
-                null,
-                token => availability.CheckAsync(
-                    new AiOperationAvailabilityRequest.Video(operation, durationSeconds, model),
-                    token),
-                token => videos.CreateFromSourceAsync(
-                    new AiSourceVideoRequest(
-                        mode,
-                        prompt,
-                        sourceUpload,
-                        durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
-                        characterImage: motion ? characterUpload : null,
-                        orientation: orientation,
-                        quality: quality,
-                        model: model,
-                        idempotencyKey: name.Key),
-                    token),
-                n => requestKey.WithdrawAfterNoReservation(n),
-                cancellationToken);
+            AiVideoInputLimits.Validate(sourceUpload, "video", Math.Min(limits.MaxSourceVideoBytes, AiVideoInputLimits.MaxSourceBytes));
+            if (motion)
+            {
+                if (characterUpload is null)
+                    throw new GenerativeExecutionException(Strings.AiChooseCharacterImage);
+                AiVideoInputLimits.Validate(characterUpload, "image", AiRequestLimits.MaxFrameUploadBytes);
+            }
+        }
+        catch (AiFileTooLargeException)
+        {
+            throw new GenerativeExecutionException(Strings.AiFileTooLarge);
+        }
+        catch (ArgumentException)
+        {
+            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable);
+        }
 
-            string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
-            promptLibrary?.Record(request.Operation, prompt);
-            return new GenerativeExecutionResult(new Uri(path), model?.Value, null, IsVideo: true);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        if (!double.IsFinite(seconds) || seconds <= 0 || seconds > 60
+            || seconds < (limits.MinSourceVideoSeconds ?? 0)
+            || seconds > (limits.MaxSourceVideoSeconds ?? 60))
         {
-            throw;
-        }
-        catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
-        {
-            if (failure.RetiresName)
-                requestKey.Retire(name);
-            if (failure.IsResultDownloadFailure)
-                s_logger.LogError(ex, "Failed to download the AI result.");
-            throw new GenerativeExecutionException(failure.Message, ex) { SettledRequest = failure.RetiresName };
-        }
-        catch (Exception ex) when (ex is not GenerativeExecutionException)
-        {
-            s_logger.LogError(ex, "Failed to run a generative node.");
-            throw new GenerativeExecutionException(Strings.AiUnexpectedError, ex);
+            throw new GenerativeExecutionException(Strings.AiModelDoesNotSupportRequest);
         }
     }
 
@@ -605,10 +604,9 @@ internal sealed class AiGenerativeNodeExecutor(
 
     /// <summary>
     /// Sends one metered picture request through the dialogs' safeguards and saves what
-    /// comes back next to the scene. The node's persisted seed makes the key stable across
-    /// sessions: a request that never reported back is collected, not bought again.
+    /// comes back next to the scene.
     /// </summary>
-    private async Task<string> RunImageAsync(
+    private Task<string> RunImageAsync(
         string keySeed,
         string keyOperation,
         string?[] parts,
@@ -617,12 +615,52 @@ internal sealed class AiGenerativeNodeExecutor(
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
+        return DispatchAsync(
+            keySeed,
+            keyOperation,
+            parts,
+            Strings.AiGenerating,
+            checkAvailability,
+            send,
+            async (response, requestKey, name) =>
+            {
+                // Past here the picture has been paid for; the key stays the way back to it.
+                progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
+                byte[] encoded = await AiImageResultDownload.DownloadEncodedAsync(
+                    content,
+                    response.ContentUri,
+                    cancellationToken);
+                string path = await SaveAsync(encoded, ".png", cancellationToken);
+                requestKey.Retire(name);
+                return path;
+            },
+            progress,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends one metered request through the dialogs' safeguards and hands what comes back
+    /// to <paramref name="complete"/> under the same failure handling. The node's persisted
+    /// seed makes the key stable across sessions: a request that never reported back is
+    /// collected, not bought again.
+    /// </summary>
+    private async Task<TResult> DispatchAsync<TResponse, TResult>(
+        string keySeed,
+        string keyOperation,
+        string?[] parts,
+        string submittingStatus,
+        Func<CancellationToken, Task<bool>> checkAvailability,
+        Func<string, CancellationToken, Task<TResponse>> send,
+        Func<TResponse, AiRequestKey, AiRequestName, Task<TResult>> complete,
+        IProgress<GenerativeProgress> progress,
+        CancellationToken cancellationToken)
+    {
         using var requestKey = new AiRequestKey(seed: keySeed, operation: keyOperation);
         AiRequestName name = requestKey.NameFor(parts);
         try
         {
-            progress.Report(new GenerativeProgress(Strings.AiGenerating));
-            AiImageResult response = await AiMeteredDispatch.SendAsync(
+            progress.Report(new GenerativeProgress(submittingStatus));
+            TResponse response = await AiMeteredDispatch.SendAsync(
                 requestKey,
                 name,
                 null,
@@ -631,15 +669,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 n => requestKey.WithdrawAfterNoReservation(n),
                 cancellationToken);
 
-            // Past here the picture has been paid for; the key stays the way back to it.
-            progress.Report(new GenerativeProgress(Beutl.Language.NodeGraphStrings.Generative_Loading));
-            byte[] encoded = await AiImageResultDownload.DownloadEncodedAsync(
-                content,
-                response.ContentUri,
-                cancellationToken);
-            string path = await SaveAsync(encoded, ".png", cancellationToken);
-            requestKey.Retire(name);
-            return path;
+            return await complete(response, requestKey, name);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

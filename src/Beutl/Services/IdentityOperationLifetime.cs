@@ -80,11 +80,7 @@ internal sealed class IdentityOperationLifetime : IDisposable
                     return;
 
                 previous = _current;
-                previous.Retired = true;
-                previous.Cancelling = true;
-                _revision = checked(_revision + 1);
-                _current = new Generation(_revision);
-                _generations.Add(_revision, _current);
+                AdvanceRevision_NoLock(previous, clearPending: false);
                 // Keep the gate through clearing so no new-generation
                 // operation can publish into state that is about to be reset.
                 clearAccountState();
@@ -117,12 +113,8 @@ internal sealed class IdentityOperationLifetime : IDisposable
                 return;
 
             previous = _current;
-            previous.Retired = true;
-            previous.Cancelling = true;
-            _revision = checked(_revision + 1);
-            next = new Generation(_revision) { ClearPending = true };
-            _current = next;
-            _generations.Add(_revision, next);
+            AdvanceRevision_NoLock(previous, clearPending: true);
+            next = _current;
         }
 
         try
@@ -156,6 +148,16 @@ internal sealed class IdentityOperationLifetime : IDisposable
         {
             StartCancellation(previous);
         }
+    }
+
+    // Marks the current generation for cancellation and makes a new revision current.
+    private void AdvanceRevision_NoLock(Generation previous, bool clearPending)
+    {
+        previous.Retired = true;
+        previous.Cancelling = true;
+        _revision = checked(_revision + 1);
+        _current = new Generation(_revision) { ClearPending = clearPending };
+        _generations.Add(_revision, _current);
     }
 
     public void Dispose()

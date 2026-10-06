@@ -16,7 +16,7 @@ internal static class CoreObjectHelper
     /// <returns>A string representing the display name in the format "ElementName - TypeName" or just "TypeName" if no parent element exists.</returns>
     public static string GetDisplayName(CoreObject obj)
     {
-        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
+        var element = GetOwnerElement(obj);
         var typeName = TypeDisplayHelpers.GetLocalizedName(obj.GetType());
 
         return element != null ? $"{element.Name} - {typeName}" : typeName;

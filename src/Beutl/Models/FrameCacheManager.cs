@@ -226,62 +226,6 @@ public sealed partial class FrameCacheManager : IDisposable
         if (_isDisposed) return;
 
         int currentFrame = CurrentFrame;
-        KeyValuePair<int, CacheEntry>[] GetOldCaches(long targetCount)
-        {
-            return _entries
-                .Where(v => !v.Value.IsLocked)
-                .OrderBy(v => v.Value.LastAccessTime)
-                .Take((int)targetCount)
-                .ToArray();
-        }
-
-        KeyValuePair<int, CacheEntry>[] GetFarCaches(long targetCount)
-        {
-            return _entries
-                .Where(v => !v.Value.IsLocked && v.Key < currentFrame)
-                .OrderBy(v => v.Key - currentFrame)
-                .Take((int)targetCount)
-                .ToArray();
-        }
-
-        void DeleteItems(KeyValuePair<int, CacheEntry>[] items)
-        {
-            foreach (KeyValuePair<int, CacheEntry> item in items)
-            {
-                if (_size <= _maxSize.Value)
-                    break;
-
-                _size -= item.Value.ByteCount;
-                item.Value.Dispose();
-                _entries.Remove(item.Key);
-            }
-        }
-
-        void DeleteBackwardBlock()
-        {
-            ImmutableArray<CacheBlock> blocks = CalculateBlocks(int.MinValue, currentFrame);
-            CacheBlock? skip = null;
-
-            foreach (CacheBlock? item in blocks.Where(v => !v.IsLocked)
-                .OrderByDescending(b => b.Length)
-                .ToArray())
-            {
-                if (item.Start + item.Length < currentFrame)
-                {
-                    skip = item;
-                }
-
-                DeleteRange(item.Start, item.Start + item.Length);
-                if (_size <= _maxSize.Value)
-                    return;
-            }
-
-            if (skip != null)
-            {
-                DeleteRange(skip.Start, skip.Start + skip.Length - 1);
-            }
-        }
-
         lock (_lock)
         {
             int countBefore = _entries.Count;
@@ -294,7 +238,7 @@ public sealed partial class FrameCacheManager : IDisposable
                 {
                     if (strategy == FrameCacheDeletionStrategy.BackwardBlock)
                     {
-                        DeleteBackwardBlock();
+                        DeleteBackwardBlocks(currentFrame);
                         strategy = FrameCacheDeletionStrategy.Far;
                         if (_size <= _maxSize.Value)
                         {
@@ -310,9 +254,9 @@ public sealed partial class FrameCacheManager : IDisposable
                     long targetCount = Math.Max(1, excess / sizePerCache);
 
                     KeyValuePair<int, CacheEntry>[] items = strategy == FrameCacheDeletionStrategy.Old
-                        ? GetOldCaches(targetCount)
-                        : GetFarCaches(targetCount);
-                    DeleteItems(items);
+                        ? GetLeastRecentlyUsed(targetCount)
+                        : GetFarthestBehind(currentFrame, targetCount);
+                    DeleteUntilWithinBudget(items);
 
                     loop--;
                 }
@@ -326,6 +270,63 @@ public sealed partial class FrameCacheManager : IDisposable
                     UpdateBlocks();
                 }
             }
+        }
+    }
+
+    // The eviction steps below run under the caller's _lock.
+    private KeyValuePair<int, CacheEntry>[] GetLeastRecentlyUsed(long targetCount)
+    {
+        return _entries
+            .Where(v => !v.Value.IsLocked)
+            .OrderBy(v => v.Value.LastAccessTime)
+            .Take((int)targetCount)
+            .ToArray();
+    }
+
+    private KeyValuePair<int, CacheEntry>[] GetFarthestBehind(int currentFrame, long targetCount)
+    {
+        return _entries
+            .Where(v => !v.Value.IsLocked && v.Key < currentFrame)
+            .OrderBy(v => v.Key - currentFrame)
+            .Take((int)targetCount)
+            .ToArray();
+    }
+
+    private void DeleteUntilWithinBudget(KeyValuePair<int, CacheEntry>[] items)
+    {
+        foreach (KeyValuePair<int, CacheEntry> item in items)
+        {
+            if (_size <= _maxSize.Value)
+                break;
+
+            _size -= item.Value.ByteCount;
+            item.Value.Dispose();
+            _entries.Remove(item.Key);
+        }
+    }
+
+    private void DeleteBackwardBlocks(int currentFrame)
+    {
+        ImmutableArray<CacheBlock> blocks = CalculateBlocks(int.MinValue, currentFrame);
+        CacheBlock? skip = null;
+
+        foreach (CacheBlock? item in blocks.Where(v => !v.IsLocked)
+            .OrderByDescending(b => b.Length)
+            .ToArray())
+        {
+            if (item.Start + item.Length < currentFrame)
+            {
+                skip = item;
+            }
+
+            DeleteRange(item.Start, item.Start + item.Length);
+            if (_size <= _maxSize.Value)
+                return;
+        }
+
+        if (skip != null)
+        {
+            DeleteRange(skip.Start, skip.Start + skip.Length - 1);
         }
     }
 

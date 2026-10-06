@@ -40,6 +40,10 @@ internal sealed class BufferedPlayer : IPlayer
 
     internal RenderFailure? Failure => Volatile.Read(ref _renderFailure);
 
+    private bool IsCanceled => _isDisposed || _playbackToken.IsCancellationRequested;
+
+    private bool ShouldStopProducing => IsCanceled || !_isPlaying.Value;
+
     public BufferedPlayer(
         EditViewModel editViewModel, Scene scene,
         IReactiveProperty<bool> isPlaying, int rate,
@@ -52,7 +56,7 @@ internal sealed class BufferedPlayer : IPlayer
         _rate = rate;
         _playbackToken = playbackToken;
         _waitRenderGate = new(() => _isDisposed || _producerStopped || _playbackToken.IsCancellationRequested || !_isPlaying.Value);
-        _waitTimerGate = new(() => _isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value);
+        _waitTimerGate = new(() => ShouldStopProducing);
 
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
         {
@@ -75,7 +79,7 @@ internal sealed class BufferedPlayer : IPlayer
             FrameCacheManager? activeCacheManager = null;
             try
             {
-                if (_isDisposed || _playbackToken.IsCancellationRequested)
+                if (IsCanceled)
                     return;
 
                 _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
@@ -83,7 +87,7 @@ internal sealed class BufferedPlayer : IPlayer
                 int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
                 for (; frame < endFrame; frame++)
                 {
-                    if (_isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value)
+                    if (ShouldStopProducing)
                     {
                         _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
                         break;
@@ -94,7 +98,7 @@ internal sealed class BufferedPlayer : IPlayer
                         WaitTimer();
                     }
 
-                    if (_isDisposed || _playbackToken.IsCancellationRequested || !_isPlaying.Value)
+                    if (ShouldStopProducing)
                     {
                         _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
                         break;
@@ -112,37 +116,11 @@ internal sealed class BufferedPlayer : IPlayer
 
                     TimeSpan time = TimeSpanExtensions.ToTimeSpan(frame, _rate);
 
-                    // キャッシュを探す
-                    // cacheは参照を既に追加されている
-                    if (activeCacheManager.TryGet(frame, out Ref<Bitmap>? cache))
-                    {
-                        if (_isDisposed || _playbackToken.IsCancellationRequested)
-                        {
-                            cache.Dispose();
-                            break;
-                        }
-
-                        _queue.Enqueue(new(cache, frame));
-                    }
-                    else
-                    {
-                        var compositionFrame = activeRenderer.Compositor.EvaluateGraphics(time);
-                        activeRenderer.Render(compositionFrame);
-                        if (_isDisposed || _playbackToken.IsCancellationRequested)
-                            break;
-
-                        using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(activeRenderer.Snapshot()))
-                        {
-                            if (_isDisposed || _playbackToken.IsCancellationRequested)
-                                break;
-
-                            _queue.Enqueue(new(bitmap.Clone(), frame));
-                            activeCacheManager.Add(frame, bitmap);
-                        }
-                    }
+                    if (!TryEnqueueFrame(activeRenderer, activeCacheManager, frame, time))
+                        break;
 
                     _waitRenderGate.Cancel();
-                    if (!_isDisposed && !_playbackToken.IsCancellationRequested && _isPlaying.Value)
+                    if (!ShouldStopProducing)
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
                     int? requestedFrame = _requestedFrame;
@@ -173,7 +151,7 @@ internal sealed class BufferedPlayer : IPlayer
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception occurred while drawing frame {Frame}.", frame);
-                if (!_isDisposed && !_playbackToken.IsCancellationRequested && _isPlaying.Value)
+                if (!ShouldStopProducing)
                 {
                     Volatile.Write(ref _renderFailure, new RenderFailure(ex, frame));
                 }
@@ -196,6 +174,42 @@ internal sealed class BufferedPlayer : IPlayer
                 }
             }
         }, Threading.DispatchPriority.High);
+    }
+
+    // Queues the frame from the cache, or renders and caches it. False when playback was canceled
+    // part-way, which ends the producer loop.
+    private bool TryEnqueueFrame(SceneRenderer renderer, FrameCacheManager cacheManager, int frame, TimeSpan time)
+    {
+        // キャッシュを探す
+        // cacheは参照を既に追加されている
+        if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache))
+        {
+            if (IsCanceled)
+            {
+                cache.Dispose();
+                return false;
+            }
+
+            _queue.Enqueue(new(cache, frame));
+        }
+        else
+        {
+            var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
+            renderer.Render(compositionFrame);
+            if (IsCanceled)
+                return false;
+
+            using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(renderer.Snapshot()))
+            {
+                if (IsCanceled)
+                    return false;
+
+                _queue.Enqueue(new(bitmap.Clone(), frame));
+                cacheManager.Add(frame, bitmap);
+            }
+        }
+
+        return true;
     }
 
     public bool TryDequeue(out IPlayer.Frame frame)

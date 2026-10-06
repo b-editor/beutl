@@ -62,28 +62,15 @@ public partial class ProjectService
         }
     }
 
-    private async Task NotifyClosingPreparingAsync(
+    private static async Task InvokeCloseHandlersAsync(
+        Func<ProjectCloseContext, CancellationToken, Task>? handlers,
         ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
-        if (ClosingPreparing is { } closingPreparing)
+        if (handlers is { } closeHandlers)
         {
             foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
-                     in closingPreparing.GetInvocationList())
-            {
-                await handler(closeContext, cancellationToken);
-            }
-        }
-    }
-
-    private async Task NotifyClosingAsync(
-        ProjectCloseContext closeContext,
-        CancellationToken cancellationToken)
-    {
-        if (Closing is { } closing)
-        {
-            foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
-                     in closing.GetInvocationList())
+                     in closeHandlers.GetInvocationList())
             {
                 await handler(closeContext, cancellationToken);
             }

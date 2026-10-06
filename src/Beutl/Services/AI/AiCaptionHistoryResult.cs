@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Beutl.Api.Services;
 
 namespace Beutl.Services.AI;
@@ -74,9 +75,7 @@ internal static class AiCaptionHistoryResultParser
         foreach (JsonElement segment in segments.EnumerateArray())
         {
             if (!TryGetTimeRange(segment, out double start, out double end)
-                || !TryGetString(segment, "text", out string? text)
-                || string.IsNullOrWhiteSpace(text)
-                || text.Length > MaximumTextLength)
+                || !TryGetSegmentText(segment, out string? text))
             {
                 return false;
             }
@@ -112,10 +111,7 @@ internal static class AiCaptionHistoryResultParser
         int sequence = 0;
         foreach (JsonElement segment in segments.EnumerateArray())
         {
-            if (segment.ValueKind != JsonValueKind.Object
-                || !TryGetString(segment, "text", out string? text)
-                || string.IsNullOrWhiteSpace(text)
-                || text.Length > MaximumTextLength)
+            if (!TryGetSegmentText(segment, out string? text))
             {
                 return false;
             }
@@ -212,10 +208,7 @@ internal static class AiCaptionHistoryResultParser
         int index = 0;
         foreach (JsonElement segment in segments.EnumerateArray())
         {
-            if (segment.ValueKind != JsonValueKind.Object
-                || !TryGetString(segment, "text", out string? text)
-                || string.IsNullOrWhiteSpace(text)
-                || text.Length > MaximumTextLength)
+            if (!TryGetSegmentText(segment, out string? text))
             {
                 return false;
             }
@@ -232,6 +225,15 @@ internal static class AiCaptionHistoryResultParser
 
         result = new AiCaptionHistoryResult(jobId, parsed.ToArray(), targetLanguage);
         return true;
+    }
+
+    private static bool TryGetSegmentText(JsonElement segment, [NotNullWhen(true)] out string? text)
+    {
+        text = null;
+        return segment.ValueKind == JsonValueKind.Object
+            && TryGetString(segment, "text", out text)
+            && !string.IsNullOrWhiteSpace(text)
+            && text.Length <= MaximumTextLength;
     }
 
     private static bool TryGetTimeRange(
@@ -299,52 +301,5 @@ internal static class AiCaptionHistoryResultParser
         public double End { get; } = end;
 
         public SortedDictionary<int, string> Parts { get; } = [];
-    }
-}
-
-internal sealed class SizeLimitedMemoryStream(int maximumBytes) : MemoryStream
-{
-    public override void Write(byte[] buffer, int offset, int count)
-    {
-        EnsureWithinLimit(count);
-        base.Write(buffer, offset, count);
-    }
-
-    public override void Write(ReadOnlySpan<byte> buffer)
-    {
-        EnsureWithinLimit(buffer.Length);
-        base.Write(buffer);
-    }
-
-    public override Task WriteAsync(
-        byte[] buffer,
-        int offset,
-        int count,
-        CancellationToken cancellationToken)
-    {
-        EnsureWithinLimit(count);
-        return base.WriteAsync(buffer, offset, count, cancellationToken);
-    }
-
-    public override ValueTask WriteAsync(
-        ReadOnlyMemory<byte> buffer,
-        CancellationToken cancellationToken = default)
-    {
-        EnsureWithinLimit(buffer.Length);
-        return base.WriteAsync(buffer, cancellationToken);
-    }
-
-    public override void WriteByte(byte value)
-    {
-        EnsureWithinLimit(1);
-        base.WriteByte(value);
-    }
-
-    private void EnsureWithinLimit(int additionalBytes)
-    {
-        if (maximumBytes <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumBytes));
-        if (additionalBytes < 0 || Position > maximumBytes - additionalBytes)
-            throw new InvalidDataException("The AI result exceeds the supported size.");
     }
 }

@@ -118,10 +118,7 @@ public sealed partial class ProjectService
             // Deciding before the transition also keeps a plainly deleted project from taking one.
             if (preparations.Count == 0 && !File.Exists(file))
             {
-                _logger.LogInformation(
-                    "Skipping project open: file is unavailable. File: {File}",
-                    file);
-                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
+                ReportUnavailableProjectFile(file);
                 return;
             }
 
@@ -293,8 +290,7 @@ public sealed partial class ProjectService
 
             if (!File.Exists(file))
             {
-                _logger.LogInformation("Skipping project open: file is unavailable. File: {File}", file);
-                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
+                ReportUnavailableProjectFile(file);
                 usage?.Complete("skipped");
                 return;
             }
@@ -388,9 +384,9 @@ public sealed partial class ProjectService
         var closeContext = new ProjectCloseContext(closeIntent);
         try
         {
-            await NotifyClosingPreparingAsync(closeContext, cancellationToken);
+            await InvokeCloseHandlersAsync(ClosingPreparing, closeContext, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            await NotifyClosingAsync(closeContext, cancellationToken);
+            await InvokeCloseHandlersAsync(Closing, closeContext, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             await NotifyClosingFinalizingAsync(closeContext);
             // Keep the project published until the updater accepts the handoff. On
@@ -530,6 +526,12 @@ public sealed partial class ProjectService
         {
             _logger.LogWarning(ex, "Failed to update recent-project settings. File: {File}", file);
         }
+    }
+
+    private void ReportUnavailableProjectFile(string file)
+    {
+        _logger.LogInformation("Skipping project open: file is unavailable. File: {File}", file);
+        NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
     }
 
     private async Task ActivateProjectAsync(Project project)

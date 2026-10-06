@@ -19,6 +19,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     // issues in a session, so a reader's cached version can never coincide across a store-root swap.
     private const long ResolverVersionOffsetStep = 1L << 40;
 
+    private const string NotificationTitle = "Proxy media";
+
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyMediaServices>();
     private static readonly IReadOnlySet<string> s_noOpenProjectSources = new HashSet<string>();
 
@@ -124,7 +126,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             resolver,
             maxTotalBytes,
             result => NotificationService.ShowInformation(
-                "Proxy media",
+                NotificationTitle,
                 $"Evicted {result.RemovedCount} proxy file(s), reclaimed {FormatBytes(result.ReclaimedBytes)}."),
             minFreeDiskBytes: DefaultMinFreeDiskBytes,
             openProjectSourceProvider: CollectOpenProjectSources,
@@ -161,7 +163,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
             s_logger.LogWarning(ex, "Opening the proxy store at '{Path}' failed; falling back to the default location.", storeRootPath);
             NotificationService.ShowWarning(
-                "Proxy media",
+                NotificationTitle,
                 "The proxy store location could not be opened. Using the default location instead.");
             config.StoreRootPath = ProxyStoreConfig.DefaultStoreRootPath;
             return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
@@ -238,7 +240,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             // rejection instead of letting the exception escape the config setter and tear nothing down.
             s_logger.LogWarning(ex, "Rebuilding the proxy store at '{Path}' failed; keeping the previous store.", storeRootPath);
             NotificationService.ShowWarning(
-                "Proxy media",
+                NotificationTitle,
                 $"The proxy store location '{storeRootPath}' could not be opened. Keeping the previous location.");
             // Revert the persisted path to the last-good one so GlobalConfiguration's auto-save does not
             // write an unopenable store path to settings.json, which would fail proxy init on next launch.

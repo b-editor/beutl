@@ -87,7 +87,6 @@ public partial class FrameCacheManager
                     }
 
                     var resizedBitmap = new Bitmap(resized);
-                    if (ownsCurrentBitmap) bitmapRef.Dispose();
                     current = resizedBitmap;
                     ownsCurrentBitmap = true;
                 }

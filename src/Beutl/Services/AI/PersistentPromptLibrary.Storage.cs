@@ -26,8 +26,7 @@ internal partial class PersistentPromptLibrary
             StorageDocument document;
             using (FileStream stream = File.OpenRead(StoragePath))
             {
-                document = JsonSerializer.Deserialize<StorageDocument>(stream, s_jsonOptions)
-                    ?? throw new InvalidDataException("The prompt library document is empty.");
+                document = ReadStorageDocument(stream);
             }
 
             if (document.Version > CurrentStorageVersion)
@@ -46,37 +45,7 @@ internal partial class PersistentPromptLibrary
                 throw new InvalidDataException("The prompt library collections are missing.");
             }
 
-            var ids = new HashSet<Guid>();
-            bool migrateLegacyPrompts = document.Version == 1;
-            List<PromptHistoryEntry> history = LoadHistory(
-                document.History,
-                ids,
-                migrateLegacyPrompts,
-                out bool historyChanged);
-            List<PromptTemplate> templates = LoadTemplates(
-                document.Templates,
-                ids,
-                migrateLegacyPrompts,
-                out bool templatesChanged);
-
-            bool retentionChanged = false;
-            if (!_options.RetainRecentPromptText)
-            {
-                retentionChanged = history.RemoveAll(item => !item.IsPinned) > 0;
-            }
-
-            int historyCount = history.Count;
-            TrimRecentHistory(history);
-            bool trimChanged = history.Count != historyCount;
-
-            _history = history;
-            _templates = templates;
-
-            if (migrateLegacyPrompts
-                || historyChanged
-                || templatesChanged
-                || retentionChanged
-                || trimChanged)
+            if (MaterializeDocument(document.Version, document.History, document.Templates, []))
             {
                 // The file may change after the initial read and before this process can
                 // acquire the cross-process writer lock. Reload and normalize the winner
@@ -346,8 +315,7 @@ internal partial class PersistentPromptLibrary
         }
 
         using FileStream stream = File.OpenRead(StoragePath);
-        StorageDocument document = JsonSerializer.Deserialize<StorageDocument>(stream, s_jsonOptions)
-            ?? throw new InvalidDataException("The prompt library document is empty.");
+        StorageDocument document = ReadStorageDocument(stream);
         if (document.Version > CurrentStorageVersion)
         {
             throw new NotSupportedException(
@@ -360,16 +328,34 @@ internal partial class PersistentPromptLibrary
             throw new InvalidDataException("The prompt library document is invalid.");
         }
 
+        return MaterializeDocument(document.Version, document.History, document.Templates, localTransientHistory);
+    }
+
+    private static StorageDocument ReadStorageDocument(Stream stream)
+        => JsonSerializer.Deserialize<StorageDocument>(stream, s_jsonOptions)
+            ?? throw new InvalidDataException("The prompt library document is empty.");
+
+    // Publishes a validated document as the in-memory library, keeping this process's own
+    // transient entries when recent prompts are not retained on disk. True when the file
+    // needs rewriting: a legacy version, entries normalized on load, or history dropped by
+    // retention or trimming.
+    private bool MaterializeDocument(
+        int version,
+        IReadOnlyCollection<StoredHistoryEntry> storedHistory,
+        IReadOnlyCollection<StoredTemplate> storedTemplates,
+        PromptHistoryEntry[] localTransientHistory)
+    {
         var ids = new HashSet<Guid>();
+        bool migrateLegacyPrompts = version == 1;
         List<PromptHistoryEntry> history = LoadHistory(
-            document.History,
+            storedHistory,
             ids,
-            document.Version == 1,
+            migrateLegacyPrompts,
             out bool historyChanged);
         List<PromptTemplate> templates = LoadTemplates(
-            document.Templates,
+            storedTemplates,
             ids,
-            document.Version == 1,
+            migrateLegacyPrompts,
             out bool templatesChanged);
         bool retentionChanged = false;
         if (!_options.RetainRecentPromptText)
@@ -385,7 +371,7 @@ internal partial class PersistentPromptLibrary
         bool trimChanged = history.Count != historyCount;
         _history = history;
         _templates = templates;
-        return document.Version == 1
+        return migrateLegacyPrompts
             || historyChanged
             || templatesChanged
             || retentionChanged

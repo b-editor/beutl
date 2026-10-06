@@ -228,106 +228,116 @@ public static partial class AvaloniaTypeConverter
                 WriteableBitmap published = bitmap.ToAvaWriteableBitmap(null);
                 Stretch stretch = _drawableBrush.Stretch;
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    WriteableBitmap? previous;
-                    lock (_gate)
-                    {
-                        // A superseding update or a disposal must win over work that was already queued here.
-                        if (token.IsCancellationRequested || _disposeRequested)
-                        {
-                            published.Dispose();
-                            return;
-                        }
-
-                        previous = _bitmap;
-                        _bitmap = published;
-                    }
-
-                    Avalonia.Media.Stretch previousStretch = _imageBrush.Stretch;
-
-                    void Rollback()
-                    {
-                        bool disposed;
-                        lock (_gate)
-                        {
-                            disposed = _disposeRequested;
-                            _bitmap = disposed ? null : previous;
-                        }
-
-                        // Restoring either property can raise the same listener that rejected the
-                        // publication; a failure there must not leave the new bitmap owned by nobody.
-                        Restore(() => _imageBrush.Source = disposed ? null : previous);
-                        Restore(() => _imageBrush.Stretch = previousStretch);
-                        if (disposed)
-                        {
-                            // Dispose ran during the notification and already cleared and released the
-                            // publication, so restoring it would reinstate a thumbnail nobody owns.
-                            previous?.Dispose();
-                            return;
-                        }
-
-                        published.Dispose();
-                    }
-
-                    static void Restore(Action restore)
-                    {
-                        try
-                        {
-                            restore();
-                        }
-                        catch (Exception ex)
-                        {
-                            s_thumbnailLogger.LogWarning(ex, "Failed to roll back a thumbnail publication.");
-                        }
-                    }
-
-                    try
-                    {
-                        _imageBrush.Stretch = stretch switch
-                        {
-                            Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                            Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                            Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                            Stretch.None => Avalonia.Media.Stretch.None,
-                            _ => Avalonia.Media.Stretch.Fill,
-                        };
-
-                        // Assigning Stretch can notify listeners that start a superseding update or a
-                        // disposal, so the decision to commit has to be re-taken after it.
-                        bool superseded;
-                        lock (_gate)
-                        {
-                            superseded = token.IsCancellationRequested
-                                         || _disposeRequested
-                                         || !ReferenceEquals(_bitmap, published);
-                        }
-
-                        if (superseded)
-                        {
-                            Rollback();
-                            return;
-                        }
-
-                        _imageBrush.Source = published;
-
-                        // A listener can put the previous source back synchronously; that is a rejection.
-                        if (!ReferenceEquals(_imageBrush.Source, published))
-                        {
-                            Rollback();
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        s_thumbnailLogger.LogWarning(ex, "A thumbnail publication callback threw.");
-                        Rollback();
-                        return;
-                    }
-
-                    previous?.Dispose();
-                }, DispatcherPriority.Background);
+                await Dispatcher.UIThread.InvokeAsync(
+                    () => PublishThumbnail(published, stretch, token),
+                    DispatcherPriority.Background);
             }
+        }
+
+        // Runs on the UI thread, where the brush may be read and its listeners run.
+        private void PublishThumbnail(WriteableBitmap published, Stretch stretch, CancellationToken token)
+        {
+            WriteableBitmap? previous;
+            lock (_gate)
+            {
+                // A superseding update or a disposal must win over work that was already queued here.
+                if (token.IsCancellationRequested || _disposeRequested)
+                {
+                    published.Dispose();
+                    return;
+                }
+
+                previous = _bitmap;
+                _bitmap = published;
+            }
+
+            Avalonia.Media.Stretch previousStretch = _imageBrush.Stretch;
+
+            void Rollback()
+            {
+                bool disposed;
+                lock (_gate)
+                {
+                    disposed = _disposeRequested;
+                    _bitmap = disposed ? null : previous;
+                }
+
+                // Restoring either property can raise the same listener that rejected the
+                // publication; a failure there must not leave the new bitmap owned by nobody.
+                Restore(() => _imageBrush.Source = disposed ? null : previous);
+                Restore(() => _imageBrush.Stretch = previousStretch);
+                if (disposed)
+                {
+                    // Dispose ran during the notification and already cleared and released the
+                    // publication, so restoring it would reinstate a thumbnail nobody owns.
+                    previous?.Dispose();
+                    return;
+                }
+
+                published.Dispose();
+            }
+
+            static void Restore(Action restore)
+            {
+                try
+                {
+                    restore();
+                }
+                catch (Exception ex)
+                {
+                    s_thumbnailLogger.LogWarning(ex, "Failed to roll back a thumbnail publication.");
+                }
+            }
+
+            try
+            {
+                _imageBrush.Stretch = ToAvaStretch(stretch);
+
+                // Assigning Stretch can notify listeners that start a superseding update or a
+                // disposal, so the decision to commit has to be re-taken after it.
+                bool superseded;
+                lock (_gate)
+                {
+                    superseded = token.IsCancellationRequested
+                                 || _disposeRequested
+                                 || !ReferenceEquals(_bitmap, published);
+                }
+
+                if (superseded)
+                {
+                    Rollback();
+                    return;
+                }
+
+                _imageBrush.Source = published;
+
+                // A listener can put the previous source back synchronously; that is a rejection.
+                if (!ReferenceEquals(_imageBrush.Source, published))
+                {
+                    Rollback();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                s_thumbnailLogger.LogWarning(ex, "A thumbnail publication callback threw.");
+                Rollback();
+                return;
+            }
+
+            previous?.Dispose();
+        }
+
+        private static Avalonia.Media.Stretch ToAvaStretch(Stretch stretch)
+        {
+            return stretch switch
+            {
+                Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                Stretch.None => Avalonia.Media.Stretch.None,
+                _ => Avalonia.Media.Stretch.Fill,
+            };
         }
     }
 }

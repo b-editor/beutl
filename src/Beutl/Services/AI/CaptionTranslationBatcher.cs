@@ -19,6 +19,13 @@ internal static class CaptionTranslationBatcher
 
     internal sealed record TranslationBatch(IReadOnlyList<TranslationPiece> Pieces);
 
+    // The request settings every candidate piece and batch is checked against.
+    private sealed record TranslationTarget(
+        string? SourceLanguage,
+        string TargetLanguage,
+        AiModelId? Model,
+        AiCaptionTranslationLimits Limits);
+
     public static List<TranslationBatch> CreateBatches(
         CaptionDocument document,
         string? sourceLanguage,
@@ -26,6 +33,7 @@ internal static class CaptionTranslationBatcher
         AiModelId? model,
         AiCaptionTranslationLimits limits)
     {
+        var target = new TranslationTarget(sourceLanguage, targetLanguage, model, limits);
         var pieces = new List<TranslationPiece>();
         for (int cueIndex = 0; cueIndex < document.Count; cueIndex++)
         {
@@ -48,10 +56,7 @@ internal static class CaptionTranslationBatcher
                     offset,
                     maximumLength,
                     textElementBoundaries,
-                    sourceLanguage,
-                    targetLanguage,
-                    model,
-                    limits);
+                    target);
                 if (length <= 0)
                     throw new SubtitleInputException(Strings.AiFileTooLarge);
 
@@ -85,10 +90,7 @@ internal static class CaptionTranslationBatcher
                 pieces,
                 start,
                 candidateCount,
-                sourceLanguage,
-                targetLanguage,
-                model,
-                limits);
+                target);
             if (count <= 0)
                 throw new SubtitleInputException(Strings.AiFileTooLarge);
 
@@ -105,10 +107,7 @@ internal static class CaptionTranslationBatcher
         int offset,
         int maximumLength,
         int[] textElementBoundaries,
-        string? sourceLanguage,
-        string targetLanguage,
-        AiModelId? model,
-        AiCaptionTranslationLimits limits)
+        TranslationTarget target)
     {
         int low = 1;
         int high = maximumLength;
@@ -132,13 +131,8 @@ internal static class CaptionTranslationBatcher
                 cueIndex,
                 partIndex,
                 cue.Text.Substring(offset, length),
-                limits);
-            if (TranslationBatchFits(
-                    [piece],
-                    sourceLanguage,
-                    targetLanguage,
-                    model,
-                    limits))
+                target.Limits);
+            if (TranslationBatchFits([piece], target))
             {
                 best = Math.Max(best, length);
                 low = midpoint + 1;
@@ -155,10 +149,7 @@ internal static class CaptionTranslationBatcher
         List<TranslationPiece> pieces,
         int start,
         int maximumCount,
-        string? sourceLanguage,
-        string targetLanguage,
-        AiModelId? model,
-        AiCaptionTranslationLimits limits)
+        TranslationTarget target)
     {
         int low = 1;
         int high = maximumCount;
@@ -166,12 +157,7 @@ internal static class CaptionTranslationBatcher
         while (low <= high)
         {
             int count = low + ((high - low) / 2);
-            if (TranslationBatchFits(
-                    pieces.GetRange(start, count),
-                    sourceLanguage,
-                    targetLanguage,
-                    model,
-                    limits))
+            if (TranslationBatchFits(pieces.GetRange(start, count), target))
             {
                 best = count;
                 low = count + 1;
@@ -186,10 +172,7 @@ internal static class CaptionTranslationBatcher
 
     private static bool TranslationBatchFits(
         IReadOnlyList<TranslationPiece> pieces,
-        string? sourceLanguage,
-        string targetLanguage,
-        AiModelId? model,
-        AiCaptionTranslationLimits limits)
+        TranslationTarget target)
     {
         try
         {
@@ -204,10 +187,10 @@ internal static class CaptionTranslationBatcher
                         piece.Start,
                         piece.End),
                 }).ToArray(),
-                targetLanguage,
-                sourceLanguage,
-                model: model,
-                limits: limits);
+                target.TargetLanguage,
+                target.SourceLanguage,
+                model: target.Model,
+                limits: target.Limits);
             return true;
         }
         catch (ArgumentException)
@@ -270,12 +253,11 @@ internal static class CaptionTranslationBatcher
                 continue;
             }
 
-            int separatorIndex = candidateIndex - 1;
-            while (separatorIndex > offsetBoundaryIndex
-                   && char.IsWhiteSpace(text[textElementBoundaries[separatorIndex - 1]]))
-            {
-                separatorIndex--;
-            }
+            int separatorIndex = FirstSeparatorIndex(
+                text,
+                textElementBoundaries,
+                offsetBoundaryIndex,
+                candidateIndex - 1);
             int separatorStart = textElementBoundaries[separatorIndex];
             if (separatorStart > offset)
             {
@@ -289,12 +271,11 @@ internal static class CaptionTranslationBatcher
         if (char.IsWhiteSpace(text[trailingTextElement])
             && char.IsWhiteSpace(text[textElementBoundary]))
         {
-            int separatorIndex = boundaryIndex - 1;
-            while (separatorIndex > offsetBoundaryIndex
-                   && char.IsWhiteSpace(text[textElementBoundaries[separatorIndex - 1]]))
-            {
-                separatorIndex--;
-            }
+            int separatorIndex = FirstSeparatorIndex(
+                text,
+                textElementBoundaries,
+                offsetBoundaryIndex,
+                boundaryIndex - 1);
             int separatorStart = textElementBoundaries[separatorIndex];
             if (separatorStart > offset)
                 return separatorStart - offset;
@@ -303,6 +284,23 @@ internal static class CaptionTranslationBatcher
         // A single word longer than the provider limit still has to make
         // progress, but it may only be split between complete text elements.
         return textElementBoundary - offset;
+    }
+
+    // Steps back from separatorIndex over the whitespace text elements in front of it, staying
+    // after the piece's first text element.
+    private static int FirstSeparatorIndex(
+        string text,
+        int[] textElementBoundaries,
+        int offsetBoundaryIndex,
+        int separatorIndex)
+    {
+        while (separatorIndex > offsetBoundaryIndex
+               && char.IsWhiteSpace(text[textElementBoundaries[separatorIndex - 1]]))
+        {
+            separatorIndex--;
+        }
+
+        return separatorIndex;
     }
 
 }

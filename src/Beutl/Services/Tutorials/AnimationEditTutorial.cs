@@ -2,13 +2,11 @@
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Animation;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.LibraryTab.Views;
 using Beutl.Editor.Models;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -26,13 +24,13 @@ public static class AnimationEditTutorial
 
     public static TutorialDefinition Create(EditorService editorService, ProjectService projectService)
     {
-        IDisposable? step1Subscription = null;
-        IDisposable? step2Subscription = null;
-        IDisposable? step3Subscription = null;
-        IDisposable? step4Subscription = null;
-        IDisposable? step5Subscription = null;
-        IDisposable? step10Subscription = null;
-        IDisposable? step11Subscription = null;
+        var step1Subscription = new TutorialStepSubscription();
+        var step2Subscription = new TutorialStepSubscription();
+        var step3Subscription = new TutorialStepSubscription();
+        var step4Subscription = new TutorialStepSubscription();
+        var step5Subscription = new TutorialStepSubscription();
+        var step10Subscription = new TutorialStepSubscription();
+        var step11Subscription = new TutorialStepSubscription();
 
         return new TutorialDefinition
         {
@@ -77,15 +75,11 @@ public static class AnimationEditTutorial
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
-                        step1Subscription = TutorialHelpers.SubscribeToElementSelection(
+                        step1Subscription.Current = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step1Subscription?.Dispose();
-                        step1Subscription = null;
-                    },
+                    OnDismissed = step1Subscription.Release,
                 },
 
                 // Step 2: Add Transform via + button
@@ -125,14 +119,10 @@ public static class AnimationEditTutorial
                             }
 
                             group.Children.Attached += Handler;
-                            step2Subscription = Disposable.Create(() => group.Children.Attached -= Handler);
+                            step2Subscription.Current = Disposable.Create(() => group.Children.Attached -= Handler);
                         }
                     },
-                    OnDismissed = () =>
-                    {
-                        step2Subscription?.Dispose();
-                        step2Subscription = null;
-                    },
+                    OnDismissed = step2Subscription.Release,
                 },
 
                 // Step 3: Enable animation for X property
@@ -159,15 +149,11 @@ public static class AnimationEditTutorial
                             TutorialHelpers.GetDrawable(editVm));
                         if (translateTransform == null) return;
 
-                        step3Subscription = TutorialHelpers.SubscribeToAnimationEnabled(
+                        step3Subscription.Current = TutorialHelpers.SubscribeToAnimationEnabled(
                             translateTransform.X,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step3Subscription?.Dispose();
-                        step3Subscription = null;
-                    },
+                    OnDismissed = step3Subscription.Release,
                 },
 
                 // Step 4: Add keyframe
@@ -211,17 +197,13 @@ public static class AnimationEditTutorial
                         else
                         {
                             editorClock.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
-                            step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
+                            step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
                                 () => TutorialService.Current.AdvanceStep());
                         }
                     },
-                    OnDismissed = () =>
-                    {
-                        step4Subscription?.Dispose();
-                        step4Subscription = null;
-                    },
+                    OnDismissed = step4Subscription.Release,
                 },
 
                 // Step 5: Drag and drop easing
@@ -258,15 +240,11 @@ public static class AnimationEditTutorial
                             TutorialHelpers.GetDrawable(editVm));
                         if (translateTransform?.X.Animation is not KeyFrameAnimation<float> animation) return;
 
-                        step5Subscription = TutorialHelpers.SubscribeToEasingChanged(
+                        step5Subscription.Current = TutorialHelpers.SubscribeToEasingChanged(
                             animation,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step5Subscription?.Dispose();
-                        step5Subscription = null;
-                    },
+                    OnDismissed = step5Subscription.Release,
                 },
 
                 // Step 6: Graph editor overview
@@ -348,15 +326,11 @@ public static class AnimationEditTutorial
                             TutorialHelpers.GetDrawable(editVm));
                         if (translateTransform == null) return;
 
-                        step10Subscription = TutorialHelpers.SubscribeToAnimationEnabled(
+                        step10Subscription.Current = TutorialHelpers.SubscribeToAnimationEnabled(
                             translateTransform.Y,
                             () => TutorialService.Current.AdvanceStep());
                     },
-                    OnDismissed = () =>
-                    {
-                        step10Subscription?.Dispose();
-                        step10Subscription = null;
-                    },
+                    OnDismissed = step10Subscription.Release,
                 },
 
                 // Step 11: Paste animation
@@ -380,17 +354,13 @@ public static class AnimationEditTutorial
                             TutorialHelpers.GetDrawable(editVm));
                         if (translateTransform?.Y.Animation is KeyFrameAnimation<float> animation)
                         {
-                            step11Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
+                            step11Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
                                 () => TutorialService.Current.AdvanceStep());
                         }
                     },
-                    OnDismissed = () =>
-                    {
-                        step11Subscription?.Dispose();
-                        step11Subscription = null;
-                    },
+                    OnDismissed = step11Subscription.Release,
                 },
 
                 // Step 12: Final preview
@@ -437,26 +407,8 @@ public static class AnimationEditTutorial
     }
 
     private static Control? FindTranslateTransformXPropertyEditor()
-    {
-        TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
-            .OfType<NumberEditor<float>>()
-            .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
-                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
-                prop.GetOwnerObject() is TranslateTransform &&
-                prop.Name == nameof(TranslateTransform.X));
-    }
+        => TutorialHelpers.FindFloatEditor<TranslateTransform>(nameof(TranslateTransform.X));
 
     private static Control? FindTranslateTransformYPropertyEditor()
-    {
-        TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
-            .OfType<NumberEditor<float>>()
-            .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
-                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
-                prop.GetOwnerObject() is TranslateTransform &&
-                prop.Name == nameof(TranslateTransform.Y));
-    }
+        => TutorialHelpers.FindFloatEditor<TranslateTransform>(nameof(TranslateTransform.Y));
 }

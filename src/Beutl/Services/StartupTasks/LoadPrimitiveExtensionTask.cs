@@ -101,41 +101,26 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     activity?.AddEvent(new("Loading_FFmpeg"));
 
                     // Beutl.Extensions.FFmpeg.csproj
-                    var pkg = new LocalPackage
-                    {
-                        ShortDescription = "FFmpeg for beutl",
-                        Name = "Beutl.Embedding.FFmpeg",
-                        DisplayName = "Beutl.Embedding.FFmpeg",
-                        InstalledPath = AppContext.BaseDirectory,
-                        Tags =
-                        {
-                            "ffmpeg",
-                            "decoder",
-                            "decoding",
-                            "encoder",
-                            "encoding",
-                            "video",
-                            "audio"
-                        },
-                        Version = BeutlApplication.Version,
-                        WebSite = "https://github.com/b-editor/beutl",
-                        Publisher = "b-editor"
-                    };
+                    var pkg = CreateEmbeddedPackage(
+                        "FFmpeg",
+                        "ffmpeg",
+                        "decoder",
+                        "decoding",
+                        "encoder",
+                        "encoding",
+                        "video",
+                        "audio");
                     try
                     {
                         var decoding = new Extensions.FFmpeg.Decoding.FFmpegDecodingExtension();
                         var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
                         var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
                         var proxy = new Extensions.FFmpeg.Proxy.FFmpegProxyExtension();
-                        _manager.SetupExtensionSettings(decoding);
-                        _manager.SetupExtensionSettings(encoding);
-                        _manager.SetupExtensionSettings(propertyEditor);
-                        decoding.Load();
-                        encoding.Load();
-                        propertyEditor.Load();
-                        proxy.Load();
-
-                        provider.AddExtensions(pkg.LocalId, [decoding, encoding, propertyEditor, proxy]);
+                        LoadEmbedded(
+                            provider,
+                            pkg,
+                            [decoding, encoding, propertyEditor],
+                            [decoding, encoding, propertyEditor, proxy]);
                     }
                     catch (Exception ex)
                     {
@@ -155,25 +140,20 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     activity?.AddEvent(new("Loading_MediaFoundation"));
 
                     // Beutl.Extensions.FFmpeg.csproj
-                    var pkg = new LocalPackage
-                    {
-                        ShortDescription = "MediaFoundation for beutl",
-                        Name = "Beutl.Embedding.MediaFoundation",
-                        DisplayName = "Beutl.Embedding.MediaFoundation",
-                        InstalledPath = AppContext.BaseDirectory,
-                        Tags =
- { "windows", "media-foundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
-                        Version = BeutlApplication.Version,
-                        WebSite = "https://github.com/b-editor/beutl",
-                        Publisher = "b-editor"
-                    };
+                    var pkg = CreateEmbeddedPackage(
+                        "MediaFoundation",
+                        "windows",
+                        "media-foundation",
+                        "decoder",
+                        "decoding",
+                        "encoder",
+                        "encoding",
+                        "video",
+                        "audio");
                     try
                     {
                         var decoding = new Embedding.MediaFoundation.Decoding.MFDecodingExtension();
-                        _manager.SetupExtensionSettings(decoding);
-                        decoding.Load();
-
-                        provider.AddExtensions(pkg.LocalId, [decoding]);
+                        LoadEmbedded(provider, pkg, [decoding], [decoding]);
                     }
                     catch (Exception ex)
                     {
@@ -193,37 +173,21 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     activity?.AddEvent(new("Loading_AVFoundation"));
 
                     // Beutl.Extensions.FFmpeg.csproj
-                    var pkg = new LocalPackage
-                    {
-                        ShortDescription = "AVFoundation for beutl",
-                        Name = "Beutl.Embedding.AVFoundation",
-                        DisplayName = "Beutl.Embedding.AVFoundation",
-                        InstalledPath = AppContext.BaseDirectory,
-                        Tags =
-                        {
-                            "macos",
-                            "avfoundation",
-                            "decoder",
-                            "decoding",
-                            "encoder",
-                            "encoding",
-                            "video",
-                            "audio"
-                        },
-                        Version = BeutlApplication.Version,
-                        WebSite = "https://github.com/b-editor/beutl",
-                        Publisher = "b-editor"
-                    };
+                    var pkg = CreateEmbeddedPackage(
+                        "AVFoundation",
+                        "macos",
+                        "avfoundation",
+                        "decoder",
+                        "decoding",
+                        "encoder",
+                        "encoding",
+                        "video",
+                        "audio");
                     try
                     {
                         var decoding = new Extensions.AVFoundation.Decoding.AVFDecodingExtension();
                         var encoding = new Extensions.AVFoundation.Encoding.AVFEncodingExtension();
-                        _manager.SetupExtensionSettings(decoding);
-                        _manager.SetupExtensionSettings(encoding);
-                        decoding.Load();
-                        encoding.Load();
-
-                        provider.AddExtensions(pkg.LocalId, [decoding, encoding]);
+                        LoadEmbedded(provider, pkg, [decoding, encoding], [decoding, encoding]);
                     }
                     catch (Exception ex)
                     {
@@ -237,6 +201,47 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 #endif
             }
         });
+    }
+
+    // A media backend built into the app, registered under a package of its own.
+    private static LocalPackage CreateEmbeddedPackage(string technology, params string[] tags)
+    {
+        var pkg = new LocalPackage
+        {
+            ShortDescription = $"{technology} for beutl",
+            Name = $"Beutl.Embedding.{technology}",
+            DisplayName = $"Beutl.Embedding.{technology}",
+            InstalledPath = AppContext.BaseDirectory,
+        };
+        foreach (string tag in tags)
+        {
+            pkg.Tags.Add(tag);
+        }
+
+        pkg.Version = BeutlApplication.Version;
+        pkg.WebSite = "https://github.com/b-editor/beutl";
+        pkg.Publisher = "b-editor";
+        return pkg;
+    }
+
+    // Settings are restored for the first list only, before any extension of the package loads.
+    private void LoadEmbedded(
+        IExtensionRegistry provider,
+        LocalPackage pkg,
+        IReadOnlyList<Extension> withSettings,
+        IReadOnlyList<Extension> extensions)
+    {
+        foreach (Extension extension in withSettings)
+        {
+            _manager.SetupExtensionSettings(extension);
+        }
+
+        foreach (Extension extension in extensions)
+        {
+            extension.Load();
+        }
+
+        provider.AddExtensions(pkg.LocalId, extensions);
     }
 
     public override Task Task { get; }

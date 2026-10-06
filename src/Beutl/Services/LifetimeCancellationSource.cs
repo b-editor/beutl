@@ -16,27 +16,18 @@ internal sealed class LifetimeCancellationSource : IDisposable
 
     public bool IsCancellationRequested => Token.IsCancellationRequested;
 
-    public void Cancel()
+    public void Cancel() => CancelCore(requestDispose: false);
+
+    public void Dispose() => CancelCore(requestDispose: true);
+
+    private void CancelCore(bool requestDispose)
     {
         CancellationTokenSource? source;
         lock (_gate)
         {
             source = _source;
-            if (source is not null)
-                _activeCancellationCalls++;
-        }
-
-        if (source is not null)
-            CancelAndRelease(source);
-    }
-
-    public void Dispose()
-    {
-        CancellationTokenSource? source;
-        lock (_gate)
-        {
-            source = _source;
-            _disposeRequested = true;
+            if (requestDispose)
+                _disposeRequested = true;
             if (source is not null)
                 _activeCancellationCalls++;
         }

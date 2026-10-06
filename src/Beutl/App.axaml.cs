@@ -290,24 +290,22 @@ public sealed class App : Application
 
     private async void AboutBeutlClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null
-            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
-            var dialog = new SettingsDialog { DataContext = dialogViewModel };
-            dialogViewModel.GoToSettingsPage();
-            await dialog.ShowDialog(window);
-        }
+        await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToSettingsPage());
     }
 
     private async void OpenSettingsClicked(object? sender, EventArgs e)
+    {
+        await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
+    }
+
+    private async Task ShowSettingsDialogAsync(Action<SettingsDialogViewModel> navigate)
     {
         if (_mainViewModel != null
             && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
             using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
-            dialogViewModel.GoToAccountSettingsPage();
+            navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }
     }

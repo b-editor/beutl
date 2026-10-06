@@ -215,33 +215,20 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         CancellationToken cancellationToken)
     {
         bool disposeRunningProperty = false;
-        bool outputOperationReleased = false;
         while (true)
         {
             bool disposeContext;
             lock (_outputOperationSync)
             {
-                disposeContext = _disposeRequested
-                                 && !_contextDisposed
-                                 && ReferenceEquals(_executionTask, completion.Task);
-                if (disposeContext)
-                {
-                    _contextDisposed = true;
-                }
-                else
+                disposeContext = TryClaimDeferredContextDisposal_NoLock(completion);
+                if (!disposeContext)
                 {
                     // Keep admission until any deferred context disposal has finished. The terminal
                     // task is published before releasing the lease so a newly admitted workspace
                     // mutation can never overlap an execution that still appears incomplete.
                     CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
-                    disposeContext = _disposeRequested
-                                     && !_contextDisposed
-                                     && ReferenceEquals(_executionTask, completion.Task);
-                    if (disposeContext)
-                    {
-                        _contextDisposed = true;
-                    }
-                    else
+                    disposeContext = TryClaimDeferredContextDisposal_NoLock(completion);
+                    if (!disposeContext)
                     {
                         if (disposeRunningProperty)
                         {
@@ -251,46 +238,8 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                         // Publish the terminal result before clearing the single-flight task. A
                         // concurrent start must either join this execution or observe it as already
                         // complete; it must never enter the context between those two state changes.
-                        if (failures is null)
-                        {
-                            if (canceled)
-                            {
-                                completion.TrySetCanceled(cancellationToken);
-                            }
-                            else
-                            {
-                                completion.TrySetResult();
-                            }
-                        }
-                        else if (failures.Count == 1)
-                        {
-                            completion.TrySetException(failures[0]);
-                        }
-                        else
-                        {
-                            completion.TrySetException(new AggregateException(failures));
-                        }
-
-                        if (!outputOperationReleased)
-                        {
-                            try
-                            {
-                                outputOperation.Dispose();
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(
-                                    ex,
-                                    "The output workspace lease failed during terminal release.");
-                            }
-
-                            outputOperationReleased = true;
-                            if (ReferenceEquals(_outputOperation, outputOperation))
-                            {
-                                _outputOperation = null;
-                            }
-                        }
-
+                        PublishTerminalResult(completion, failures, canceled, cancellationToken);
+                        ReleaseOutputOperation_NoLock(outputOperation);
                         if (ReferenceEquals(_executionTask, completion.Task))
                         {
                             _executionTask = null;
@@ -306,6 +255,67 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                 CaptureCleanupFailure(DisposeOutputContext, ref failures);
                 disposeRunningProperty = true;
             }
+        }
+    }
+
+    // A Dispose that arrived while this execution ran left the context to it; the first caller to
+    // see that takes the disposal over.
+    private bool TryClaimDeferredContextDisposal_NoLock(TaskCompletionSource completion)
+    {
+        if (_disposeRequested
+            && !_contextDisposed
+            && ReferenceEquals(_executionTask, completion.Task))
+        {
+            _contextDisposed = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void PublishTerminalResult(
+        TaskCompletionSource completion,
+        List<Exception>? failures,
+        bool canceled,
+        CancellationToken cancellationToken)
+    {
+        if (failures is null)
+        {
+            if (canceled)
+            {
+                completion.TrySetCanceled(cancellationToken);
+            }
+            else
+            {
+                completion.TrySetResult();
+            }
+        }
+        else if (failures.Count == 1)
+        {
+            completion.TrySetException(failures[0]);
+        }
+        else
+        {
+            completion.TrySetException(new AggregateException(failures));
+        }
+    }
+
+    private void ReleaseOutputOperation_NoLock(IDisposable outputOperation)
+    {
+        try
+        {
+            outputOperation.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "The output workspace lease failed during terminal release.");
+        }
+
+        if (ReferenceEquals(_outputOperation, outputOperation))
+        {
+            _outputOperation = null;
         }
     }
 

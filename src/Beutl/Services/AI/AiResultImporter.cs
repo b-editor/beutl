@@ -330,8 +330,12 @@ internal sealed class AiResultImporter
         string projectDirectory = scene.Uri?.LocalPath is { } scenePath
             ? Path.GetDirectoryName(scenePath)!
             : GetUnsavedSceneDirectory(scene.Id);
-        return Path.Combine(projectDirectory, "resources", "ai");
+        return GetResourceDirectoryIn(projectDirectory);
     }
+
+    // Where AI results live beside a scene file; saving an unsaved scene moves them to the same place.
+    internal static string GetResourceDirectoryIn(string sceneDirectory)
+        => Path.Combine(sceneDirectory, "resources", "ai");
 
     private static string NormalizeVideoExtension(string extension)
     {

@@ -1,7 +1,5 @@
 ﻿using System.Reactive.Subjects;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Logging;
@@ -110,15 +108,7 @@ public sealed class TutorialServiceHandler : ITutorialService
         if (step.CanAdvance != null && !step.CanAdvance())
             return;
 
-        step.OnDismissed?.Invoke();
-
-        var newState = new TutorialState(current.Definition, current.CurrentStepIndex + 1);
-        _currentTutorial.OnNext(newState);
-        Dispatcher.UIThread.Post(() =>
-        {
-            UpdateOverlay(newState);
-            newState.CurrentStep.OnShown?.Invoke();
-        });
+        MoveToStep(current.Definition, step, current.CurrentStepIndex + 1);
     }
 
     public void PreviousStep()
@@ -127,9 +117,14 @@ public sealed class TutorialServiceHandler : ITutorialService
         if (current == null || current.IsFirstStep)
             return;
 
-        current.CurrentStep.OnDismissed?.Invoke();
+        MoveToStep(current.Definition, current.CurrentStep, current.CurrentStepIndex - 1);
+    }
 
-        var newState = new TutorialState(current.Definition, current.CurrentStepIndex - 1);
+    private void MoveToStep(TutorialDefinition definition, TutorialStep leaving, int stepIndex)
+    {
+        leaving.OnDismissed?.Invoke();
+
+        var newState = new TutorialState(definition, stepIndex);
         _currentTutorial.OnNext(newState);
         Dispatcher.UIThread.Post(() =>
         {
@@ -179,30 +174,7 @@ public sealed class TutorialServiceHandler : ITutorialService
 
     private static TutorialOverlay? GetOverlay()
     {
-        MainView? mainView = GetMainView();
+        MainView? mainView = MainViewLocator.Find();
         return mainView?.FindControl<TutorialOverlay>("TutorialOverlayPanel");
-    }
-
-    private static MainView? GetMainView()
-    {
-        IApplicationLifetime? lifetime = Application.Current?.ApplicationLifetime;
-
-        if (lifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime)
-        {
-            if (desktopLifetime.MainWindow is MainWindow window)
-            {
-                return window.mainView;
-            }
-            else if (desktopLifetime.MainWindow is MacWindow mwindow)
-            {
-                return mwindow.mainView;
-            }
-        }
-        else if (lifetime is ISingleViewApplicationLifetime singleViewLifetime)
-        {
-            return singleViewLifetime.MainView as MainView;
-        }
-
-        return null;
     }
 }

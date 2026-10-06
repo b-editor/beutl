@@ -60,69 +60,59 @@ internal static class PromptLibraryProvider
                     if (s_libraries.TryGetValue(accountKey, out PersistentPromptLibrary? cached))
                         return cached;
                     using FileStream migrationLock = AcquireMigrationLock();
+                    // ReadMigrationOwner yields null or a full account key. A marker naming another
+                    // account means the legacy prompts already went there; this one starts its own file.
                     string? migrationOwner = ReadMigrationOwner();
-                    if (migrationOwner is null)
+                    if (migrationOwner is null
+                        || StringComparer.OrdinalIgnoreCase.Equals(migrationOwner, accountKey))
                     {
-                    }
-                    else if (migrationOwner.Length == 0)
-                    {
-                        throw new InvalidDataException("Prompt migration marker is invalid.");
-                    }
-                    else if (migrationOwner is { Length: > 0 }
-                        && !StringComparer.OrdinalIgnoreCase.Equals(migrationOwner, accountKey))
-                    {
-                        if (File.Exists(path))
-                        {
-                            var existing = new PersistentPromptLibrary(path);
-                            s_libraries[accountKey] = existing;
-                            return existing;
-                        }
-                        var isolated = new PersistentPromptLibrary(path);
-                        s_libraries[accountKey] = isolated;
-                        return isolated;
+                        PrepareLegacyMigration(migrationOwner, accountKey, path);
                     }
 
-                    if (File.Exists(s_legacy) && !File.Exists(path))
-                    {
-                        try
-                        {
-                            if (migrationOwner is null)
-                                WriteMigrationMarker(accountKey);
-                            DurableMove(s_legacy, path, overwrite: false);
-                            migrationOwner = accountKey;
-                        }
-                        catch (IOException ex)
-                        {
-                            throw new IOException("Prompt library legacy migration is pending; retry for the owning account.", ex);
-                        }
-                    }
-                    else if (migrationOwner is not null && migrationOwner.Length > 0
-                        && StringComparer.OrdinalIgnoreCase.Equals(migrationOwner, accountKey)
-                        && !File.Exists(s_legacy) && !File.Exists(path))
-                    {
-                        throw new IOException("Prompt library migration owner data is missing.");
-                    }
-                    else if (migrationOwner is null
-                        && !File.Exists(s_legacy)
-                        && File.Exists(path))
-                    {
-                        try
-                        {
-                            WriteMigrationMarker(accountKey);
-                        }
-                        catch (IOException ex)
-                        {
-                            throw new IOException("Prompt library migration marker publication is pending.", ex);
-                        }
-                    }
-                    else if (migrationOwner is null && File.Exists(s_legacy))
-                    {
-                        throw new IOException("Prompt library legacy migration is unavailable.");
-                    }
                     var library = new PersistentPromptLibrary(path);
                     s_libraries[accountKey] = library;
                     return library;
                 }
+            }
+        }
+
+        private static void PrepareLegacyMigration(string? migrationOwner, string accountKey, string path)
+        {
+            if (File.Exists(s_legacy) && !File.Exists(path))
+            {
+                try
+                {
+                    if (migrationOwner is null)
+                        WriteMigrationMarker(accountKey);
+                    DurableMove(s_legacy, path, overwrite: false);
+                }
+                catch (IOException ex)
+                {
+                    throw new IOException("Prompt library legacy migration is pending; retry for the owning account.", ex);
+                }
+            }
+            else if (migrationOwner is not null
+                && StringComparer.OrdinalIgnoreCase.Equals(migrationOwner, accountKey)
+                && !File.Exists(s_legacy) && !File.Exists(path))
+            {
+                throw new IOException("Prompt library migration owner data is missing.");
+            }
+            else if (migrationOwner is null
+                && !File.Exists(s_legacy)
+                && File.Exists(path))
+            {
+                try
+                {
+                    WriteMigrationMarker(accountKey);
+                }
+                catch (IOException ex)
+                {
+                    throw new IOException("Prompt library migration marker publication is pending.", ex);
+                }
+            }
+            else if (migrationOwner is null && File.Exists(s_legacy))
+            {
+                throw new IOException("Prompt library legacy migration is unavailable.");
             }
         }
 

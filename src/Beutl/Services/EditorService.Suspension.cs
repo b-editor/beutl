@@ -13,8 +13,7 @@ public partial class EditorService
 
         lock (_editorSuspensionSync)
         {
-            bool isTrackedByTab = TabItems.Any(
-                item => ReferenceEquals(item.Context.Value, context));
+            bool isTrackedByTab = IsTrackedByTab(context);
             if (_editorSuspensions.TryGetValue(context, out var state))
             {
                 _editorSuspensions[context] = (
@@ -69,14 +68,16 @@ public partial class EditorService
             else
             {
                 _editorSuspensions.Remove(context);
-                if (!state.WasTrackedByTab
-                    || TabItems.Any(item => ReferenceEquals(item.Context.Value, context)))
+                if (!state.WasTrackedByTab || IsTrackedByTab(context))
                 {
                     context.IsEnabled.Value = state.WasEnabled;
                 }
             }
         }
     }
+
+    private bool IsTrackedByTab(IEditorContext context)
+        => TabItems.Any(item => ReferenceEquals(item.Context.Value, context));
 
     /// <summary>
     /// Disables every open editor until the returned handle is disposed.
