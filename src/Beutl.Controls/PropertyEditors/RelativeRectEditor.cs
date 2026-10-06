@@ -6,7 +6,6 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Language;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 

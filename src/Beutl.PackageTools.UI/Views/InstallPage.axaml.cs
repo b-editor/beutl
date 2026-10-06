@@ -2,16 +2,13 @@
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.ViewModels;
 using Beutl.Reactive;
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Navigation;
 
 namespace Beutl.PackageTools.UI.Views;

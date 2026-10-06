@@ -9,8 +9,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.Reactive;
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class Vector3Editor<TElement> : Vector3Editor

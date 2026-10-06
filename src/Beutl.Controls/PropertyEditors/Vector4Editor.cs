@@ -10,8 +10,6 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.Reactive;
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class Vector4Editor<TElement> : Vector4Editor
