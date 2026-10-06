@@ -9,7 +9,6 @@ public class Release
 {
     private readonly BeutlApiApplication _clients;
     private readonly ReactivePropertySlim<ReleaseResponse> _response;
-    private readonly ReactivePropertySlim<bool> _isDeleted = new();
 
     public Release(Package package, ReleaseResponse response, BeutlApiApplication clients)
     {
@@ -59,7 +58,6 @@ public class Release
 
         token.ThrowIfCancellationRequested();
         _response.Value = response;
-        _isDeleted.Value = false;
     }
 
     public async Task<FileResponse> GetAssetAsync(CancellationToken cancellationToken)

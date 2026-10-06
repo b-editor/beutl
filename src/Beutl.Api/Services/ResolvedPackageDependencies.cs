@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -31,6 +32,18 @@ internal static class ResolvedPackageDependencies
     public static IReadOnlyList<PackageIdentity> Load(PackageFolderReader reader, NuGetFramework framework, bool preserveCandidates = false)
     {
         PackageIdentity root = reader.GetIdentity();
+        if (TryLoadSnapshot(reader, framework, root, out IReadOnlyList<PackageIdentity>? snapshotPackages))
+            return snapshotPackages;
+
+        return ResolveInstalledGraph(reader, framework, root, preserveCandidates);
+    }
+
+    private static bool TryLoadSnapshot(
+        PackageFolderReader reader,
+        NuGetFramework framework,
+        PackageIdentity root,
+        [NotNullWhen(true)] out IReadOnlyList<PackageIdentity>? snapshotPackages)
+    {
         string directory = Path.GetDirectoryName(reader.GetNuspecFile())!;
         string path = Path.Combine(directory, FileName);
         if (File.Exists(path))
@@ -50,7 +63,10 @@ internal static class ResolvedPackageDependencies
                         throw new InvalidDataException("The package dependency snapshot is inconsistent.");
                     if (packages.All(package => PackageIdentityComparer.Default.Equals(package, root)
                                                 || Directory.Exists(Helper.ResolveInstalledDirectory(package))))
-                        return packages;
+                    {
+                        snapshotPackages = packages;
+                        return true;
+                    }
                 }
             }
             catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
@@ -60,6 +76,16 @@ internal static class ResolvedPackageDependencies
             }
         }
 
+        snapshotPackages = null;
+        return false;
+    }
+
+    private static IReadOnlyList<PackageIdentity> ResolveInstalledGraph(
+        PackageFolderReader reader,
+        NuGetFramework framework,
+        PackageIdentity root,
+        bool preserveCandidates)
+    {
         // Older installs have no snapshot. Resolve their complete installed graph,
         // rather than selecting each edge's minimum independently in traversal order.
         var available = new Dictionary<PackageIdentity, SourcePackageDependencyInfo>(PackageIdentityComparer.Default);

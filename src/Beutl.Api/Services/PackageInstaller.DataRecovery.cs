@@ -9,6 +9,7 @@ namespace Beutl.Api.Services;
 public partial class PackageInstaller
 {
     private const string DataInstallJournalFileName = "install.json";
+    private const string DataInstallStagingPrefix = ".data-install-";
     private static readonly Microsoft.Extensions.Logging.ILogger s_recoveryLogger = Log.CreateLogger<PackageInstaller>();
 
     internal Action<string>? AfterDataInstallStep { get; set; }
@@ -66,7 +67,7 @@ public partial class PackageInstaller
         {
             using FileStream installLock = AcquireDataInstallLock(waitForContention: true, cancellationToken,
                 () => afterStep?.Invoke("waiting-for-lock"));
-            foreach (string staging in Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), ".data-install-*"))
+            foreach (string staging in Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), DataInstallStagingPrefix + "*"))
             {
                 try
                 {
@@ -78,19 +79,7 @@ public partial class PackageInstaller
                     }
                     else if (journal.Phase == DataInstallPhase.Published)
                     {
-                        foreach (DataInstallPayload payload in journal.Payloads)
-                        {
-                            if (payload.Enabled) RequirePublishedPayload(payload.Destination, journal);
-                            else if (Path.Exists(payload.Destination))
-                                throw new IOException($"Retired payload '{payload.Destination}' was replaced by another writer.");
-                        }
-                        Action? notify = null;
-                        if (journal.RegisterPackage)
-                        {
-                            repository ??= new InstalledPackageRepository();
-                            notify = repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(journal.Name, NuGetVersion.Parse(journal.Version)));
-                        }
-                        WriteDataInstallJournal(staging, journal with { Phase = DataInstallPhase.Committed });
+                        Action? notify = CompletePublishedDataInstall(staging, journal, ref repository);
                         if (notify is not null) notifications.Add(notify);
                         afterStep?.Invoke("committed");
                     }
@@ -112,6 +101,29 @@ public partial class PackageInstaller
         foreach (Action notify in notifications) notify();
     }
 
+    // A transaction that crashed after publishing is completed rather than undone. Returns the deferred repository
+    // notification; the repository is created on first use and shared with later transactions.
+    private static Action? CompletePublishedDataInstall(
+        string staging,
+        DataInstallJournal journal,
+        ref InstalledPackageRepository? repository)
+    {
+        foreach (DataInstallPayload payload in journal.Payloads)
+        {
+            if (payload.Enabled) RequirePublishedPayload(payload.Destination, journal);
+            else if (Path.Exists(payload.Destination))
+                throw new IOException($"Retired payload '{payload.Destination}' was replaced by another writer.");
+        }
+        Action? notify = null;
+        if (journal.RegisterPackage)
+        {
+            repository ??= new InstalledPackageRepository();
+            notify = repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(journal.Name, NuGetVersion.Parse(journal.Version)));
+        }
+        WriteDataInstallJournal(staging, journal with { Phase = DataInstallPhase.Committed });
+        return notify;
+    }
+
     private static DataInstallJournal CreateDataInstallJournal(string name, string version, string deploymentId,
         List<PayloadChange> changes, bool register)
     {
@@ -121,19 +133,24 @@ public partial class PackageInstaller
             DataInstallPhase.Prepared, changes.Select(change => new DataInstallPayload(
                 change.Kind, change.Destination, change.Enabled, Directory.Exists(change.Destination),
                 ReadPayloadOwner(change.Destination))).ToArray());
-        ValidateDataInstallJournal(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), ".data-install-" + deploymentId), journal);
+        ValidateDataInstallJournal(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), DataInstallStagingPrefix + deploymentId), journal);
         return journal;
     }
 
     private static DataInstallJournal ReadDataInstallJournal(string staging)
     {
-        RejectDataInstallLink(staging);
-        string path = Path.Combine(staging, DataInstallJournalFileName);
-        RejectDataInstallLink(path);
-        var journal = JsonSerializer.Deserialize<DataInstallJournal>(File.ReadAllText(path))
+        var journal = DeserializeDataInstallJournal(staging)
             ?? throw new IOException($"Missing install journal in '{staging}'.");
         ValidateDataInstallJournal(staging, journal);
         return journal;
+    }
+
+    private static DataInstallJournal? DeserializeDataInstallJournal(string staging)
+    {
+        RejectDataInstallLink(staging);
+        string path = Path.Combine(staging, DataInstallJournalFileName);
+        RejectDataInstallLink(path);
+        return JsonSerializer.Deserialize<DataInstallJournal>(File.ReadAllText(path));
     }
 
     private static void ValidateDataInstallJournal(string staging, DataInstallJournal journal)
@@ -142,7 +159,7 @@ public partial class PackageInstaller
         string materials = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), journal.Name);
         string templates = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), journal.Name);
         if (journal.Format != 1 || !Guid.TryParseExact(journal.DeploymentId, "N", out _)
-            || Path.GetFileName(staging) != ".data-install-" + journal.DeploymentId
+            || Path.GetFileName(staging) != DataInstallStagingPrefix + journal.DeploymentId
             || !NuGetVersion.TryParse(journal.Version, out _) || !Enum.IsDefined(journal.Phase)
             || journal.MaterialsDestination != materials || journal.TemplatesDestination != templates
             || journal.Payloads is null || journal.Payloads.Length > 2
@@ -163,9 +180,12 @@ public partial class PackageInstaller
             RejectDataInstallLink(Path.GetDirectoryName(expected)!);
             RejectDataInstallLink(expected);
             RejectDataInstallLink(Path.Combine(staging, payload.Kind));
-            RejectDataInstallLink(Path.Combine(staging, "backup-" + payload.Kind));
+            RejectDataInstallLink(BackupDirectory(staging, payload.Kind));
         }
     }
+
+    private static string BackupDirectory(string staging, string kind)
+        => Path.Combine(staging, "backup-" + kind);
 
     private static void RejectDataInstallLink(string path)
     {
@@ -192,7 +212,7 @@ public partial class PackageInstaller
         foreach (DataInstallPayload payload in journal.Payloads)
         {
             string staged = Path.Combine(staging, payload.Kind);
-            string backup = Path.Combine(staging, "backup-" + payload.Kind);
+            string backup = BackupDirectory(staging, payload.Kind);
             // A damaged staged copy is not an original and need not be trusted to
             // restore the backup. Only validate a published directory we must move.
             if (payload.HadOriginal && payload.OriginalOwner is null)
@@ -227,7 +247,7 @@ public partial class PackageInstaller
         foreach (DataInstallPayload payload in journal.Payloads.Reverse())
         {
             string staged = Path.Combine(staging, payload.Kind);
-            string backup = Path.Combine(staging, "backup-" + payload.Kind);
+            string backup = BackupDirectory(staging, payload.Kind);
             if (Directory.Exists(backup) || !payload.HadOriginal)
             {
                 if (Directory.Exists(payload.Destination))
@@ -275,16 +295,13 @@ public partial class PackageInstaller
 
     private static void EnsureNoPendingDataInstall(string name, string? currentStaging)
     {
-        foreach (string staging in Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), ".data-install-*"))
+        foreach (string staging in Directory.GetDirectories(BeutlEnvironment.GetHomeDirectoryPath(), DataInstallStagingPrefix + "*"))
         {
             if (staging == currentStaging) continue;
             DataInstallJournal? journal;
             try
             {
-                RejectDataInstallLink(staging);
-                string path = Path.Combine(staging, DataInstallJournalFileName);
-                RejectDataInstallLink(path);
-                journal = JsonSerializer.Deserialize<DataInstallJournal>(File.ReadAllText(path));
+                journal = DeserializeDataInstallJournal(staging);
             }
             catch { continue; } // Unknown legacy data is retained, never deleted or inferred to belong to this package.
             if (journal is null || !StringComparer.OrdinalIgnoreCase.Equals(journal.Name, name)) continue;

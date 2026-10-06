@@ -43,15 +43,13 @@ internal static class AiEventStream
         string? name = null;
         var data = new StringBuilder();
         char[] buffer = ArrayPool<char>.Shared.Rent(4096);
-        int bufferOffset = 0;
-        int buffered = 0;
-        bool swallowLineFeed = false;
+        var lines = new BoundedLineReader(reader, buffer);
         try
         {
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                string? line = await ReadLineBoundedAsync();
+                string? line = await lines.ReadLineAsync(cancellationToken);
                 if (line is null)
                     break;
 
@@ -90,17 +88,25 @@ internal static class AiEventStream
         {
             ArrayPool<char>.Shared.Return(buffer);
         }
+    }
 
-        async ValueTask<string?> ReadLineBoundedAsync()
+    // Splits on CR, LF or CRLF over a caller-owned buffer, failing a line before it can outgrow the event bound.
+    private sealed class BoundedLineReader(StreamReader reader, char[] buffer)
+    {
+        private int _bufferOffset;
+        private int _buffered;
+        private bool _swallowLineFeed;
+
+        public async ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken)
         {
             var line = new StringBuilder();
             while (true)
             {
-                if (bufferOffset >= buffered)
+                if (_bufferOffset >= _buffered)
                 {
-                    buffered = await reader.ReadAsync(buffer.AsMemory(), cancellationToken);
-                    bufferOffset = 0;
-                    if (buffered == 0)
+                    _buffered = await reader.ReadAsync(buffer.AsMemory(), cancellationToken);
+                    _bufferOffset = 0;
+                    if (_buffered == 0)
                     {
                         if (line.Length == 0)
                             return null;
@@ -110,17 +116,17 @@ internal static class AiEventStream
                     }
                 }
 
-                char next = buffer[bufferOffset++];
-                if (swallowLineFeed)
+                char next = buffer[_bufferOffset++];
+                if (_swallowLineFeed)
                 {
-                    swallowLineFeed = false;
+                    _swallowLineFeed = false;
                     if (next == '\n')
                         continue;
                 }
 
                 if (next == '\r')
                 {
-                    swallowLineFeed = true;
+                    _swallowLineFeed = true;
                     return line.ToString();
                 }
                 if (next == '\n')

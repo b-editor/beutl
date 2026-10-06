@@ -36,19 +36,12 @@ internal sealed partial class AiVideoService
         }
     }
 
-    private async Task<AiVideoGenerationResult> CreateFromReferencesAsync(AiVideoGenerationRequest request, CancellationToken cancellationToken)
+    private async Task<AiVideoGenerationResult> CreateFromReferencesAsync(AiVideoGenerationRequest request, string key, CancellationToken cancellationToken)
     {
-        string key = request.IdempotencyKey ?? CreateIdempotencyKey();
         var streams = new List<Stream>();
         try
         {
-            var parts = new List<StreamPart>();
-            foreach (var source in request.InputReferences)
-            {
-                var stream = await AiUploadValidation.OpenAsync(source, AiVideoInputLimits.MaxSourceBytes, cancellationToken);
-                streams.Add(stream);
-                parts.Add(AiMultipartFormData.File(stream, source.FileName, source.MediaType, "reference[]"));
-            }
+            List<StreamPart> parts = await OpenReferencePartsAsync(request.InputReferences, AiVideoInputLimits.MaxSourceBytes, null, streams, cancellationToken);
             return await ExecuteAsync("AiVideoService.References",
                 (authorization, token) => Application.Ai.CreateVideoFromFrames(authorization,
                     key, null, null, parts,

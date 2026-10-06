@@ -135,37 +135,6 @@ public sealed class ExtensionProvider : IExtensionRegistry
         }
     }
 
-    internal ProjectItemExtension? MatchProjectItemExtension(string file)
-    {
-        lock (_lock)
-        {
-            foreach (Extension extension in _snapshot)
-            {
-                if (extension is ProjectItemExtension wsiExtension &&
-                    wsiExtension.IsSupported(file))
-                {
-                    return wsiExtension;
-                }
-            }
-
-            return null;
-        }
-    }
-
-    internal IEnumerable<ProjectItemExtension> MatchProjectItemExtensions(string file)
-    {
-        ProjectItemExtension[] result;
-        lock (_lock)
-        {
-            result = _snapshot
-                .OfType<ProjectItemExtension>()
-                .Where(extension => extension.IsSupported(file))
-                .ToArray();
-        }
-
-        return result;
-    }
-
     internal void AddExtensions(int packageId, IReadOnlyList<Extension> extensions)
     {
         ArgumentNullException.ThrowIfNull(extensions);
@@ -355,10 +324,7 @@ public sealed class ExtensionProvider : IExtensionRegistry
 
     private sealed class ExtensionEntry
     {
-        private readonly object _gate = new();
-        private TaskCompletionSource? _drained;
-        private int _activeLeases;
-        private bool _retired;
+        private readonly LeaseDrain _drain = new();
 
         public ExtensionEntry(Extension extension)
         {
@@ -379,44 +345,19 @@ public sealed class ExtensionProvider : IExtensionRegistry
             [NotNullWhen(true)] out IExtensionLease<TExtension>? lease)
             where TExtension : Extension
         {
-            lock (_gate)
+            if (Extension is not TExtension typed || !_drain.TryAcquire())
             {
-                if (_retired || Extension is not TExtension typed)
-                {
-                    lease = null;
-                    return false;
-                }
-
-                _activeLeases++;
-                lease = new ExtensionLease<TExtension>(this, typed);
-                return true;
-            }
-        }
-
-        public Task RetireAsync()
-        {
-            lock (_gate)
-            {
-                _retired = true;
-                return _activeLeases == 0
-                    ? Task.CompletedTask
-                    : (_drained ??= new TaskCompletionSource(
-                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-            }
-        }
-
-        public void Release()
-        {
-            TaskCompletionSource? drained = null;
-            lock (_gate)
-            {
-                _activeLeases--;
-                if (_retired && _activeLeases == 0)
-                    drained = _drained;
+                lease = null;
+                return false;
             }
 
-            drained?.TrySetResult();
+            lease = new ExtensionLease<TExtension>(this, typed);
+            return true;
         }
+
+        public Task RetireAsync() => _drain.RetireAsync();
+
+        public void Release() => _drain.Release();
     }
 
     private sealed class ExtensionLease<TExtension>(ExtensionEntry entry, TExtension extension)

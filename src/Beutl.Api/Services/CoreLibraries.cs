@@ -31,9 +31,7 @@ internal static class CoreLibraries
 
     public static IEnumerable<Dependency> CollectPackageDependencies()
     {
-        var assembly = Assembly.LoadFile(Path.Combine(AppContext.BaseDirectory, "Beutl.dll"));
-        DependencyContext? depsContext = DependencyContextLoader.Default.Load(assembly)
-            ?? throw new InvalidOperationException();
+        DependencyContext depsContext = LoadBeutlDependencyContext();
 
         var library = new HashSet<Dependency>();
 
@@ -47,9 +45,7 @@ internal static class CoreLibraries
 
     public static IEnumerable<Dependency> CollectRuntimeDependencies()
     {
-        var assembly = Assembly.LoadFile(Path.Combine(AppContext.BaseDirectory, "Beutl.dll"));
-        DependencyContext? depsContext = DependencyContextLoader.Default.Load(assembly)
-            ?? throw new InvalidOperationException();
+        DependencyContext depsContext = LoadBeutlDependencyContext();
 
         var library = new HashSet<Dependency>();
 
@@ -62,36 +58,9 @@ internal static class CoreLibraries
                     string fileName = Path.GetFileNameWithoutExtension(item.Path);
                     string? version = item.AssemblyVersion;
 
-                    if (version == null)
+                    if (version == null && IsBeutlAssembly(fileName))
                     {
-                        switch (fileName)
-                        {
-                            case "Beutl":
-                            case "Beutl.Api":
-                            case "Beutl.Configuration":
-                            case "Beutl.Controls":
-                            case "Beutl.Core":
-                            case "Beutl.Extensions.FFmpeg":
-                            case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
-                            case "Beutl.Extensions.AVFoundation" when OperatingSystem.IsMacOS():
-                            case "Beutl.Engine":
-                            case "Beutl.Extensibility":
-                            case "Beutl.Language":
-                            case "Beutl.NodeGraph":
-                            case "Beutl.ProjectSystem":
-                            case "Beutl.Threading":
-                            case "Beutl.Utilities":
-                            case "Beutl.WaitingDialog":
-                            case "Beutl.PackageTools.UI":
-                            case "Beutl.ExceptionHandler":
-                            case "Beutl.Editor":
-                            case "Beutl.Editor.Components":
-                            case "Beutl.Engine.SourceGenerators":
-                                version = BeutlApplication.Version;
-                                break;
-                            default:
-                                break;
-                        }
+                        version = BeutlApplication.Version;
                     }
 
                     if (version != null)
@@ -101,6 +70,45 @@ internal static class CoreLibraries
         }
 
         return library;
+    }
+
+    private static DependencyContext LoadBeutlDependencyContext()
+    {
+        var assembly = Assembly.LoadFile(Path.Combine(AppContext.BaseDirectory, "Beutl.dll"));
+        return DependencyContextLoader.Default.Load(assembly)
+            ?? throw new InvalidOperationException();
+    }
+
+    // Beutl's own project assemblies have no version in the deps file, so they take the application's.
+    private static bool IsBeutlAssembly(string fileName)
+    {
+        switch (fileName)
+        {
+            case "Beutl":
+            case "Beutl.Api":
+            case "Beutl.Configuration":
+            case "Beutl.Controls":
+            case "Beutl.Core":
+            case "Beutl.Extensions.FFmpeg":
+            case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
+            case "Beutl.Extensions.AVFoundation" when OperatingSystem.IsMacOS():
+            case "Beutl.Engine":
+            case "Beutl.Extensibility":
+            case "Beutl.Language":
+            case "Beutl.NodeGraph":
+            case "Beutl.ProjectSystem":
+            case "Beutl.Threading":
+            case "Beutl.Utilities":
+            case "Beutl.WaitingDialog":
+            case "Beutl.PackageTools.UI":
+            case "Beutl.ExceptionHandler":
+            case "Beutl.Editor":
+            case "Beutl.Editor.Components":
+            case "Beutl.Engine.SourceGenerators":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static FrozenDictionary<string, string[]> RuntimeDepsMap => s_runtimeMap.Value;

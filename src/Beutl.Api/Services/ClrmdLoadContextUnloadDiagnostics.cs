@@ -227,26 +227,7 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         // no GCRoot helper.)
         var parent = new Dictionary<ulong, (ulong Parent, string Edge, string Type)>();
         var queue = new Queue<ClrObject>();
-        bool truncated = false;
-
-        foreach (ClrRoot root in heap.EnumerateRoots())
-        {
-            // A root-heavy process can blow the object/time bound during seeding alone, before the walk below runs.
-            if (parent.Count >= MaxVisitedObjects || stopwatch.Elapsed > s_budget)
-            {
-                truncated = true;
-                break;
-            }
-
-            ClrObject obj = root.Object;
-            if (!obj.IsValid || obj.Address == 0 || parent.ContainsKey(obj.Address))
-            {
-                continue;
-            }
-
-            parent[obj.Address] = (0, root.RootKind.ToString(), obj.Type?.Name ?? "<unknown>");
-            queue.Enqueue(obj);
-        }
+        bool truncated = SeedRoots(heap, parent, queue, stopwatch);
 
         int visited = 0;
         while (queue.Count > 0)
@@ -294,6 +275,34 @@ internal sealed class ClrmdLoadContextUnloadDiagnostics : ILoadContextUnloadDiag
         }
 
         return (results, truncated);
+    }
+
+    // Returns true when the object/time bound stopped the seeding early.
+    private static bool SeedRoots(
+        ClrHeap heap,
+        Dictionary<ulong, (ulong Parent, string Edge, string Type)> parent,
+        Queue<ClrObject> queue,
+        Stopwatch stopwatch)
+    {
+        foreach (ClrRoot root in heap.EnumerateRoots())
+        {
+            // A root-heavy process can blow the object/time bound during seeding alone, before the walk runs.
+            if (parent.Count >= MaxVisitedObjects || stopwatch.Elapsed > s_budget)
+            {
+                return true;
+            }
+
+            ClrObject obj = root.Object;
+            if (!obj.IsValid || obj.Address == 0 || parent.ContainsKey(obj.Address))
+            {
+                continue;
+            }
+
+            parent[obj.Address] = (0, root.RootKind.ToString(), obj.Type?.Name ?? "<unknown>");
+            queue.Enqueue(obj);
+        }
+
+        return false;
     }
 
     internal static UnloadDiagnosticsRootPath BuildPath(

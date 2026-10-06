@@ -20,6 +20,12 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
     where TRegistration : class
     where TExtension : Extension
 {
+    private static readonly AiJobSlotRegistrationMode[] s_compositionPhases =
+    [
+        AiJobSlotRegistrationMode.Add,
+        AiJobSlotRegistrationMode.Replace,
+    ];
+
     private readonly Dictionary<AiJobKindId, List<Registration>> _registrations = [];
     private readonly HashSet<Task> _activeRegistrationRetirements = [];
     private readonly Dictionary<TExtension, List<Registration>> _extensionRegistrations =
@@ -283,6 +289,38 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
                 .Where(pair => !currentSet.Contains(pair.Key))
                 .ToArray();
 
+        List<(TExtension Extension, TRegistration[] Registrations)> candidates =
+            CollectCandidates(currentExtensions);
+
+        var failures = new Dictionary<TExtension, Exception>(ReferenceEqualityComparer.Instance);
+        List<(TExtension Extension, List<Registration> Owned)> retired;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            TRegistration[] baseRegistrations = SeedRegistrations_NoLock(removedRegistrations);
+            _ = TwoPhaseComposition.Compose(
+                candidates,
+                static candidate => candidate.Extension,
+                failures,
+                () => new List<TRegistration>(baseRegistrations),
+                ApplyCandidatePhase);
+            retired = ApplyComposition_NoLock(removedRegistrations, candidates, failures);
+        }
+
+        foreach ((TExtension extension, List<Registration> registrations) in retired)
+        {
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => DisposeRegistrationsAsync(registrations));
+        }
+
+        foreach ((TExtension extension, Exception failure) in failures)
+            ReportFailure(extension, failure);
+    }
+
+    private List<(TExtension Extension, TRegistration[] Registrations)> CollectCandidates(
+        TExtension[] currentExtensions)
+    {
         var candidates = new List<(TExtension Extension, TRegistration[] Registrations)>();
         foreach (TExtension extension in currentExtensions)
         {
@@ -299,123 +337,92 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
             }
         }
 
-        var failures = new Dictionary<TExtension, Exception>(ReferenceEqualityComparer.Instance);
-        List<(TExtension Extension, List<Registration> Owned)> retired = [];
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            var removedRegistrationSet = new HashSet<Registration>(
-                removedRegistrations.SelectMany(pair => pair.Value),
-                ReferenceEqualityComparer.Instance);
-            TRegistration[] baseRegistrations = _registrations
-                .Select(pair => new
-                {
-                    pair.Key,
-                    Registration = pair.Value.LastOrDefault(
-                        registration => !removedRegistrationSet.Contains(registration)),
-                })
-                .Where(pair => pair.Registration is not null)
-                .OrderBy(pair => pair.Key.Value, StringComparer.Ordinal)
-                .Select(pair => pair.Registration!.ToSeedRegistration())
-                .ToArray();
+        return candidates;
+    }
 
-            while (true)
+    // The latest surviving registration of each kind, in ordinal kind order, seeds every composition pass.
+    private TRegistration[] SeedRegistrations_NoLock(
+        KeyValuePair<TExtension, List<Registration>>[] removedRegistrations)
+    {
+        var removedRegistrationSet = new HashSet<Registration>(
+            removedRegistrations.SelectMany(pair => pair.Value),
+            ReferenceEqualityComparer.Instance);
+        return _registrations
+            .Select(pair => new
             {
-                var newFailures = new Dictionary<TExtension, (Exception Exception, int Phase)>(
-                    ReferenceEqualityComparer.Instance);
-                var working = new List<TRegistration>(baseRegistrations);
-                AiJobSlotRegistrationMode[] phases =
-                [
-                    AiJobSlotRegistrationMode.Add,
-                    AiJobSlotRegistrationMode.Replace,
-                ];
+                pair.Key,
+                Registration = pair.Value.LastOrDefault(
+                    registration => !removedRegistrationSet.Contains(registration)),
+            })
+            .Where(pair => pair.Registration is not null)
+            .OrderBy(pair => pair.Key.Value, StringComparer.Ordinal)
+            .Select(pair => pair.Registration!.ToSeedRegistration())
+            .ToArray();
+    }
 
-                for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
-                {
-                    AiJobSlotRegistrationMode mode = phases[phaseIndex];
-                    foreach ((TExtension extension, TRegistration[] registrations) in candidates)
-                    {
-                        if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
-                            continue;
+    // A scratch registry replays the composition so far plus this phase; it throws when the phase conflicts.
+    private List<TRegistration> ApplyCandidatePhase(
+        List<TRegistration> working,
+        (TExtension Extension, TRegistration[] Registrations) candidate,
+        int phaseIndex)
+    {
+        AiJobSlotRegistrationMode mode = s_compositionPhases[phaseIndex];
+        TRegistration[] phase = candidate.Registrations
+            .Where(registration => _getMode(registration) == mode)
+            .ToArray();
+        if (phase.Length == 0)
+            return working;
 
-                        TRegistration[] phase = registrations
-                            .Where(registration => _getMode(registration) == mode)
-                            .ToArray();
-                        if (phase.Length == 0)
-                            continue;
+        _ = CreateScratchRegistry(working.Concat(phase));
+        working.AddRange(phase);
+        return working;
+    }
 
-                        try
-                        {
-                            _ = CreateScratchRegistry(working.Concat(phase));
-                            working.AddRange(phase);
-                        }
-                        catch (Exception ex)
-                        {
-                            newFailures.Add(extension, (ex, phaseIndex));
-                        }
-                    }
-                }
+    private List<(TExtension Extension, List<Registration> Owned)> ApplyComposition_NoLock(
+        KeyValuePair<TExtension, List<Registration>>[] removedRegistrations,
+        List<(TExtension Extension, TRegistration[] Registrations)> candidates,
+        Dictionary<TExtension, Exception> failures)
+    {
+        List<(TExtension Extension, List<Registration> Owned)> retired = [];
+        foreach ((TExtension extension, List<Registration> registrations)
+                 in removedRegistrations)
+        {
+            _extensionRegistrations.Remove(extension);
+            foreach (Registration registration in registrations)
+                RetireRegistration_NoLock(registration);
+            retired.Add((extension, registrations));
+        }
 
-                if (newFailures.Count > 0)
-                {
-                    int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
-                    KeyValuePair<TExtension, (Exception Exception, int Phase)> rejected =
-                        newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
-                    failures.TryAdd(rejected.Key, rejected.Value.Exception);
+        var ownedByExtension = new Dictionary<TExtension, List<Registration>>(
+            ReferenceEqualityComparer.Instance);
+        foreach ((TExtension extension, _) in candidates)
+        {
+            if (!failures.ContainsKey(extension))
+                ownedByExtension.Add(extension, []);
+        }
+
+        foreach (AiJobSlotRegistrationMode mode in s_compositionPhases)
+        {
+            foreach ((TExtension extension, TRegistration[] registrations) in candidates)
+            {
+                if (failures.ContainsKey(extension))
                     continue;
-                }
 
-                foreach ((TExtension extension, List<Registration> registrations)
-                         in removedRegistrations)
+                List<Registration> owned = ownedByExtension[extension];
+                foreach (TRegistration registration in registrations
+                             .Where(registration => _getMode(registration) == mode))
                 {
-                    _extensionRegistrations.Remove(extension);
-                    foreach (Registration registration in registrations)
-                        RetireRegistration_NoLock(registration);
-                    retired.Add((extension, registrations));
+                    owned.Add(RegisterCore_NoLock(registration));
                 }
-
-                var ownedByExtension = new Dictionary<TExtension, List<Registration>>(
-                    ReferenceEqualityComparer.Instance);
-                foreach ((TExtension extension, _) in candidates)
-                {
-                    if (!failures.ContainsKey(extension))
-                        ownedByExtension.Add(extension, []);
-                }
-
-                foreach (AiJobSlotRegistrationMode mode in phases)
-                {
-                    foreach ((TExtension extension, TRegistration[] registrations) in candidates)
-                    {
-                        if (failures.ContainsKey(extension))
-                            continue;
-
-                        List<Registration> owned = ownedByExtension[extension];
-                        foreach (TRegistration registration in registrations
-                                     .Where(registration => _getMode(registration) == mode))
-                        {
-                            owned.Add(RegisterCore_NoLock(registration));
-                        }
-                    }
-                }
-
-                foreach ((TExtension extension, List<Registration> owned) in ownedByExtension)
-                {
-                    _extensionRegistrations[extension] = owned;
-                }
-
-                break;
             }
         }
 
-        foreach ((TExtension extension, List<Registration> registrations) in retired)
+        foreach ((TExtension extension, List<Registration> owned) in ownedByExtension)
         {
-            ExtensionRegistrationLifetimes.Retire(
-                extension,
-                () => DisposeRegistrationsAsync(registrations));
+            _extensionRegistrations[extension] = owned;
         }
 
-        foreach ((TExtension extension, Exception failure) in failures)
-            ReportFailure(extension, failure);
+        return retired;
     }
 
     private AiJobSlotRegistry<TCapability, TRegistration, TExtension> CreateScratchRegistry(
@@ -476,14 +483,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
                 _ = ForgetRetirementWhenCompleteAsync(drain);
             }
 
-            if (_registrations.TryGetValue(state.Kind, out List<Registration>? registrations))
-            {
-                registrations.Remove(registration);
-                if (registrations.Count == 0)
-                {
-                    _registrations.Remove(state.Kind);
-                }
-            }
+            RemoveRegistration_NoLock(state.Kind, registration);
         }
 
         return drain;
@@ -515,11 +515,16 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
         if (retired is null)
             return;
 
-        if (_registrations.TryGetValue(retired.Value.Kind, out List<Registration>? registrations))
+        RemoveRegistration_NoLock(retired.Value.Kind, registration);
+    }
+
+    private void RemoveRegistration_NoLock(AiJobKindId kind, Registration registration)
+    {
+        if (_registrations.TryGetValue(kind, out List<Registration>? registrations))
         {
             registrations.Remove(registration);
             if (registrations.Count == 0)
-                _registrations.Remove(retired.Value.Kind);
+                _registrations.Remove(kind);
         }
     }
 
@@ -546,10 +551,7 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
 
     private sealed class RegistrationState(AiJobKindId kind, TCapability capability)
     {
-        private readonly object _gate = new();
-        private TaskCompletionSource? _drained;
-        private int _activeLeases;
-        private bool _retired;
+        private readonly LeaseDrain _drain = new();
 
         public AiJobKindId Kind { get; } = kind;
 
@@ -557,46 +559,17 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
 
         public bool TryAcquire([NotNullWhen(true)] out AiJobSlotLease<TCapability>? lease)
         {
-            lock (_gate)
+            if (!_drain.TryAcquire())
             {
-                if (_retired)
-                {
-                    lease = null;
-                    return false;
-                }
-
-                _activeLeases++;
-                lease = new AiJobSlotLease<TCapability>(Capability, ReleaseLease);
-                return true;
-            }
-        }
-
-        public Task RetireAsync()
-        {
-            lock (_gate)
-            {
-                _retired = true;
-                return _activeLeases == 0
-                    ? Task.CompletedTask
-                    : (_drained ??= new TaskCompletionSource(
-                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-            }
-        }
-
-        private void ReleaseLease()
-        {
-            TaskCompletionSource? drained = null;
-            lock (_gate)
-            {
-                _activeLeases--;
-                if (_activeLeases == 0 && _retired)
-                {
-                    drained = _drained;
-                }
+                lease = null;
+                return false;
             }
 
-            drained?.TrySetResult();
+            lease = new AiJobSlotLease<TCapability>(Capability, _drain.Release);
+            return true;
         }
+
+        public Task RetireAsync() => _drain.RetireAsync();
     }
 
     private sealed class Registration : IAiJobSlotRegistration

@@ -42,6 +42,27 @@ public partial class PackageInstaller
         return all.Except(availablePackages, PackageIdentityComparer.Default).ToArray();
     }
 
+    private long MeasureInstalledSize(IEnumerable<PackageIdentity> packages)
+    {
+        long size = 0;
+        foreach (PackageIdentity package in packages)
+        {
+            string directory = Helper.ResolveInstalledDirectory(package);
+            if (!Directory.Exists(directory))
+            {
+                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                continue;
+            }
+
+            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            {
+                size += new FileInfo(file).Length;
+            }
+        }
+
+        return size;
+    }
+
     public PackageCleanContext PrepareForClean(IEnumerable<PackageIdentity>? excludedPackages = null, CancellationToken cancellationToken = default)
     {
         return TrackSyncOperation(() =>
@@ -53,21 +74,7 @@ public partial class PackageInstaller
                 .Except(excludedPackages, PackageIdentityComparer.Default)
                 .ToArray();
 
-            long size = 0;
-            foreach (PackageIdentity package in unnecessaryPackages)
-            {
-                string directory = Helper.ResolveInstalledDirectory(package);
-                if (!Directory.Exists(directory))
-                {
-                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                    continue;
-                }
-
-                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
-                {
-                    size += new FileInfo(file).Length;
-                }
-            }
+            long size = MeasureInstalledSize(unnecessaryPackages);
 
             _logger.LogInformation("Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes", unnecessaryPackages.Length, size);
 

@@ -21,8 +21,6 @@ public abstract class PackageLoader : IBeutlApiResource
             ?? Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
             ?? throw new Exception("Unknown Framework");
 
-        string name = Path.GetFileName(installedPath);
-
         string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
 
         var loadContext = new PluginLoadContext(mainDirectory, reader);

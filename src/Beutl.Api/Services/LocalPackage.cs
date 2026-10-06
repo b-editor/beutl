@@ -46,7 +46,6 @@ public class LocalPackage
             }
         }
 
-        //Logo = nuspecReader.GetIcon();
         Tags = [.. nuspecReader.GetTags().Split(' ', ';')];
     }
 

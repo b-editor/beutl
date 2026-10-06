@@ -65,33 +65,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         RecoverDataPackageInstalls(installedPackageRepository);
 
         const string ConfigFileName = "nuget.config";
-        string configPath = Path.Combine(Helper.AppRoot, ConfigFileName);
-        if (File.Exists(configPath))
-        {
-            using (StreamReader reader = File.OpenText(configPath))
-            {
-                while (reader.ReadLine() is string line)
-                {
-                    if (line.Contains("<clear"))
-                    {
-                        goto LoadSettings;
-                    }
-                }
-            }
+        EnsureNuGetConfig(Path.Combine(Helper.AppRoot, ConfigFileName));
 
-            File.Delete(configPath);
-        }
-
-        if (!File.Exists(configPath))
-        {
-            using (StreamWriter writer = File.CreateText(configPath))
-            {
-                writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
-            }
-        }
-
-    LoadSettings:
-        //_settings = Settings.LoadDefaultSettings(Helper.AppRoot);
         _settings = new Settings(Helper.AppRoot, ConfigFileName);
         _packageSourceProvider = new PackageSourceProvider(_settings);
 
@@ -114,436 +89,30 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         _ownsHttpClient = ownsHttpClient;
     }
 
-    public ValueTask DisposeAsync()
+    private static void EnsureNuGetConfig(string configPath)
     {
-        lock (_gate)
+        if (File.Exists(configPath))
         {
-            _disposed = true;
-            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
-        }
-    }
-
-    internal void BeginShutdown()
-    {
-        lock (_gate)
-        {
-            _disposed = true;
-            _shutdownFallbackPublicationEnabled = true;
-        }
-    }
-
-
-    protected virtual async Task DisposeCoreAsync()
-    {
-        long deadline = Environment.TickCount64 + DrainDeadlineMilliseconds;
-        bool drained = false;
-        while (!drained && Environment.TickCount64 < deadline)
-        {
-            Task[] operations;
-            lock (_gate)
+            using (StreamReader reader = File.OpenText(configPath))
             {
-                RemoveCompletedOperations_NoLock();
-                if (_operations.Count == 0)
+                while (reader.ReadLine() is string line)
                 {
-                    drained = true;
-                }
-                operations = _operations.ToArray();
-            }
-
-            if (drained)
-                break;
-
-            try
-            {
-                long remaining = deadline - Environment.TickCount64;
-                if (remaining <= 0)
-                    break;
-
-                await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            lock (_gate)
-            {
-                RemoveCompletedOperations_NoLock();
-            }
-        }
-
-        lock (_gate)
-        {
-            _drained = true;
-        }
-
-        if (drained)
-        {
-            DisposeResources();
-        }
-        else
-        {
-            _logger.LogWarning(
-                "Package installer did not drain within the shutdown deadline; "
-                + "keeping resources alive until tracked work stops.");
-            _ = DisposeResourcesWhenIdleAsync();
-        }
-    }
-
-    // Waits until every admitted operation has actually stopped before releasing the
-    // installer resources, so a slow download or NuGet phase that outlived the drain
-    // deadline never sees its cache context or HttpClient disposed underneath it.
-    private async Task DisposeResourcesWhenIdleAsync()
-    {
-        try
-        {
-            while (true)
-            {
-                Task[] operations;
-                lock (_gate)
-                {
-                    RemoveCompletedOperations_NoLock();
-                    operations = _operations.ToArray();
-                }
-
-                if (operations.Length == 0)
-                    break;
-
-                try
-                {
-                    await Task.WhenAll(operations).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Awaiting observes operation faults; resource disposal must still run.
+                    if (line.Contains("<clear"))
+                    {
+                        return;
+                    }
                 }
             }
 
-            DisposeResources();
+            File.Delete(configPath);
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to dispose package installer resources after tracked work stopped.");
-        }
-    }
 
-    private void DisposeResources()
-    {
-        _cacheContext.Dispose();
-        if (_ownsHttpClient)
+        if (!File.Exists(configPath))
         {
-            _httpClient.Dispose();
-        }
-    }
-
-    // Waits until every admitted operation has actually stopped, without the drain
-    // deadline: when Disposal ended at its deadline with operations still running,
-    // their fallback queueing must be observable before the shutdown snapshot of
-    // PackageChangesQueue is taken. The timeout keeps the wait bounded even when a
-    // tracked operation never completes, so shutdown cannot hang behind it.
-    internal async Task WaitUntilIdleAsync(TimeSpan timeout)
-    {
-        _shutdownFallbackPublicationEnabled = true;
-        long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
-        while (true)
-        {
-            long remaining = deadline - Environment.TickCount64;
-            if (remaining <= 0)
+            using (StreamWriter writer = File.CreateText(configPath))
             {
-                PublishShutdownFallbacks();
-                _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
-                return;
+                writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
             }
-
-            Task[] operations;
-            lock (_gate)
-            {
-                RemoveCompletedOperations_NoLock();
-                operations = _operations.ToArray();
-            }
-
-            if (operations.Length == 0)
-                return;
-
-            try
-            {
-                await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
-            }
-            catch
-            {
-                // Awaiting observes operation faults; the loop must keep waiting for
-                // every admitted operation to stop before the queue snapshot.
-            }
-        }
-    }
-
-    private void PublishShutdownFallbacks()
-    {
-        ShutdownFallback[] fallbacks;
-        lock (_gate)
-        {
-            RemoveCompletedOperations_NoLock();
-            BeforeShutdownFallbackSnapshot?.Invoke();
-            fallbacks = _shutdownFallbacks
-                .Select(pair => pair.Value)
-                .ToArray();
-        }
-
-        foreach (ShutdownFallback fallback in fallbacks)
-        {
-            try
-            {
-                fallback.Invoke();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish a package shutdown fallback.");
-            }
-        }
-    }
-
-    private void RemoveCompletedOperations_NoLock()
-    {
-        foreach (Task operation in _operations.Where(task => task.IsCompleted).ToArray())
-        {
-            _operations.Remove(operation);
-            _shutdownFallbacks.Remove(operation);
-        }
-    }
-
-    // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
-    protected virtual long DrainDeadlineMilliseconds => 30_000;
-
-    private Task TrackAsync(Func<Task> operation)
-        => TrackAsyncCore(operation);
-
-    private Task<T> TrackAsync<T>(Func<Task<T>> operation)
-        => TrackAsyncCore(operation);
-
-    public Task TrackInstallOperationAsync(Func<Task> operation)
-        => TrackInstallOperationWithShutdownFallbackAsync(operation, null);
-
-    internal Task TrackInstallOperationWithShutdownFallbackAsync(
-        Func<Task> operation,
-        Action? ensureShutdownFallback)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task task = proxy.Task;
-        ShutdownFallback? shutdownFallback = ensureShutdownFallback is null
-            ? null
-            : CreateOneShotFallback(ensureShutdownFallback);
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            RemoveCompletedOperations_NoLock();
-            // Register before invoking so a re-entrant DisposeAsync drains this transaction.
-            _operations.Add(task);
-            if (shutdownFallback is not null)
-                _shutdownFallbacks.Add(task, shutdownFallback);
-        }
-
-        // Invoke outside the lock: a delegate that blocks before its first incomplete await
-        // must not hold the gate, or a concurrent DisposeAsync could not even start its
-        // drain deadline. The operation's awaits use ConfigureAwait(false) so shutdown can
-        // block without deadlocking.
-        _ = RunTransactionAsync(operation, proxy, shutdownFallback);
-        return task;
-    }
-
-    private ShutdownFallback CreateOneShotFallback(Action fallback)
-        => new(fallback, _logger);
-
-    internal void TrackSyncOperation(Action operation)
-    {
-        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
-            _operations.Add(proxy.Task);
-        }
-
-        PackageInstaller? previous = s_transactionOwner.Value;
-        s_transactionOwner.Value = this;
-        try
-        {
-            operation();
-        }
-        finally
-        {
-            // The proxy exists only to keep disposal draining until the operation finishes;
-            // the caller observes the exception directly, so complete it normally to avoid
-            // an unobserved fault when the drain loop removes the completed task.
-            proxy.TrySetResult();
-            s_transactionOwner.Value = previous;
-        }
-    }
-
-    internal T TrackSyncOperation<T>(Func<T> operation)
-    {
-        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)), this);
-            _operations.Add(proxy.Task);
-        }
-
-        PackageInstaller? previous = s_transactionOwner.Value;
-        s_transactionOwner.Value = this;
-        try
-        {
-            return operation();
-        }
-        finally
-        {
-            // See TrackSyncOperation(Action): the proxy is lifetime-only, so complete it
-            // normally even when the operation throws.
-            proxy.TrySetResult();
-            s_transactionOwner.Value = previous;
-        }
-    }
-
-    private async Task RunTransactionAsync(
-        Func<Task> operation,
-        TaskCompletionSource proxy,
-        ShutdownFallback? shutdownFallback)
-    {
-        PackageInstaller? previous = s_transactionOwner.Value;
-        s_transactionOwner.Value = this;
-        try
-        {
-            await operation().ConfigureAwait(false);
-            if (shutdownFallback is not null)
-            {
-                // The operation has committed successfully. Disarm first so a
-                // shutdown snapshot that already retained this object cannot
-                // publish stale recovery work, then remove it and publish the
-                // successful proxy atomically under the tracking gate.
-                shutdownFallback.Disarm();
-                AfterSuccessfulInstallFallbackDisarmed?.Invoke();
-            }
-            lock (_gate)
-            {
-                _shutdownFallbacks.Remove(proxy.Task);
-                proxy.TrySetResult();
-            }
-        }
-        catch (OperationCanceledException ex)
-        {
-            if (_shutdownFallbackPublicationEnabled)
-                shutdownFallback?.Invoke();
-            proxy.TrySetCanceled(ex.CancellationToken);
-        }
-        catch (Exception ex)
-        {
-            // Propagate the failure so the caller reports it and queues fallback.
-            shutdownFallback?.Invoke();
-            proxy.TrySetException(ex);
-        }
-        finally
-        {
-            s_transactionOwner.Value = previous;
-        }
-    }
-
-    private sealed class ShutdownFallback(
-        Action fallback,
-        Microsoft.Extensions.Logging.ILogger logger)
-    {
-        private Action? _fallback = fallback;
-
-        public void Disarm()
-            => Interlocked.Exchange(ref _fallback, null);
-
-        public void Invoke()
-        {
-            Action? callback = Interlocked.Exchange(ref _fallback, null);
-            if (callback is null)
-                return;
-
-            try
-            {
-                callback();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to publish a package shutdown fallback.");
-            }
-        }
-    }
-
-    private Task TrackAsyncCore(Func<Task> operation)
-    {
-        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
-        {
-            // After draining, reject all work including nested phases.
-            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
-            {
-                throw new ObjectDisposedException(nameof(PackageInstaller));
-            }
-            RemoveCompletedOperations_NoLock();
-            // Register before invoking so a concurrent DisposeAsync drains this phase.
-            _operations.Add(proxy.Task);
-        }
-
-        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
-        _ = RunTrackedAsync(operation, proxy);
-        return proxy.Task;
-    }
-
-    private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
-    {
-        TaskCompletionSource<T> proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_gate)
-        {
-            if (_drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this)))
-            {
-                throw new ObjectDisposedException(nameof(PackageInstaller));
-            }
-            RemoveCompletedOperations_NoLock();
-            // Register before invoking so a concurrent DisposeAsync drains this phase.
-            _operations.Add(proxy.Task);
-        }
-
-        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
-        _ = RunTrackedAsync(operation, proxy);
-        return proxy.Task;
-    }
-
-    private async Task RunTrackedAsync(Func<Task> operation, TaskCompletionSource proxy)
-    {
-        try
-        {
-            await operation().ConfigureAwait(false);
-            proxy.TrySetResult();
-        }
-        catch (OperationCanceledException ex)
-        {
-            proxy.TrySetCanceled(ex.CancellationToken);
-        }
-        catch (Exception ex)
-        {
-            proxy.TrySetException(ex);
-        }
-    }
-
-    private async Task<T> RunTrackedAsync<T>(Func<Task<T>> operation, TaskCompletionSource<T> proxy)
-    {
-        try
-        {
-            T result = await operation().ConfigureAwait(false);
-            proxy.TrySetResult(result);
-            return result;
-        }
-        catch (OperationCanceledException ex)
-        {
-            proxy.TrySetCanceled(ex.CancellationToken);
-            return default!;
-        }
-        catch (Exception ex)
-        {
-            proxy.TrySetException(ex);
-            return default!;
         }
     }
 
@@ -572,26 +141,20 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         string version = release.Version.Value;
         var packageId = new PackageIdentity(name, new NuGetVersion(version));
 
-        if (!force && _installedPackageRepository.ExistsPackage(name, version))
-        {
-            throw new Exception("This package is already installed.");
-        }
-
-        if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
+        PackageInstallContext? context = FindPreparedContext(packageId, name, version, force);
+        if (context is not null)
         {
             return context;
         }
-        else
-        {
-            var asset = await release.GetAssetAsync(cancellationToken).ConfigureAwait(false);
 
-            context = new PackageInstallContext(name, version, asset.DownloadUrl)
-            {
-                Asset = asset
-            };
-            _installingContexts.Add(packageId, context);
-            return context;
-        }
+        var asset = await release.GetAssetAsync(cancellationToken).ConfigureAwait(false);
+
+        context = new PackageInstallContext(name, version, asset.DownloadUrl)
+        {
+            Asset = asset
+        };
+        _installingContexts.Add(packageId, context);
+        return context;
     }
 
     public PackageInstallContext PrepareForInstall(
@@ -612,24 +175,33 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         var packageId = new PackageIdentity(name, new NuGetVersion(version));
 
+        PackageInstallContext? context = FindPreparedContext(packageId, name, version, force);
+        if (context is not null)
+        {
+            return context;
+        }
+
+        context = new PackageInstallContext(name, version, string.Empty)
+        {
+            Phase = PackageInstallPhase.Downloaded
+        };
+        _installingContexts.Add(packageId, context);
+        return context;
+    }
+
+    // Refuses an installed package unless forced, and hands back the context an earlier preparation left.
+    private PackageInstallContext? FindPreparedContext(
+        PackageIdentity packageId,
+        string name,
+        string version,
+        bool force)
+    {
         if (!force && _installedPackageRepository.ExistsPackage(name, version))
         {
             throw new Exception("This package is already installed.");
         }
 
-        if (_installingContexts.TryGetValue(packageId, out PackageInstallContext? context))
-        {
-            return context;
-        }
-        else
-        {
-            context = new PackageInstallContext(name, version, string.Empty)
-            {
-                Phase = PackageInstallPhase.Downloaded
-            };
-            _installingContexts.Add(packageId, context);
-            return context;
-        }
+        return _installingContexts.TryGetValue(packageId, out PackageInstallContext? context) ? context : null;
     }
 
     public Task DownloadPackageFile(
@@ -683,101 +255,111 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        async Task<bool> Varify(HashAlgorithm algorithm, Stream stream, long totalLength, string hashValue)
+        cancellationToken.ThrowIfCancellationRequested();
+        if ((int)context.Phase > (int)PackageInstallPhase.Verifying)
+            return;
+
+        context.Phase = PackageInstallPhase.Verifying;
+        if (context.Asset is not { } asset
+            || context.NuGetPackageFile == null)
+            return;
+
+        using FileStream stream = File.OpenRead(context.NuGetPackageFile);
+        using var sha256 = SHA256.Create();
+        (HashAlgorithm, string?)[] items =
+        [
+            (sha256, asset.Sha256)
+        ];
+
+        long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
+        if (items.All(item => string.IsNullOrWhiteSpace(item.Item2)))
         {
-            long length = stream.Length;
-            int bufferSize = 81920;
-            byte[] buffer = new byte[bufferSize];
-            long totalBytesRead = 0;
-            int bytesRead;
-            while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
-            {
-                totalBytesRead += bytesRead;
-                if (totalBytesRead < length)
-                {
-                    algorithm.TransformBlock(buffer, 0, bytesRead, null, 0);
-                }
-                else
-                {
-                    algorithm.TransformFinalBlock(buffer, 0, bytesRead);
-                }
+            context.HashVerified = false;
+            return;
+        }
 
-                progress?.Report(totalBytesRead / (double)totalLength);
+        foreach ((HashAlgorithm algorithm, string? hash) in items)
+        {
+            if (!string.IsNullOrWhiteSpace(hash))
+            {
+                stream.Position = 0;
+                if (!await VerifyHashAsync(algorithm, stream, totalLength, hash, progress, cancellationToken))
+                    throw RejectDownloadedPackage(context, context.NuGetPackageFile, stream);
             }
+        }
 
-            if (totalBytesRead == 0)
-                algorithm.TransformFinalBlock([], 0, 0);
+        context.HashVerified = true;
+        context.Phase = PackageInstallPhase.Verified;
+    }
 
-            if (algorithm.Hash == null)
+    private static async Task<bool> VerifyHashAsync(
+        HashAlgorithm algorithm,
+        Stream stream,
+        long totalLength,
+        string hashValue,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
+    {
+        long length = stream.Length;
+        int bufferSize = 81920;
+        byte[] buffer = new byte[bufferSize];
+        long totalBytesRead = 0;
+        int bytesRead;
+        while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+        {
+            totalBytesRead += bytesRead;
+            if (totalBytesRead < length)
             {
-                return false;
+                algorithm.TransformBlock(buffer, 0, bytesRead, null, 0);
             }
             else
             {
-                string computedHash = ByteArrayToString(algorithm.Hash);
-                return StringComparer.OrdinalIgnoreCase.Equals(computedHash, hashValue);
+                algorithm.TransformFinalBlock(buffer, 0, bytesRead);
             }
+
+            progress?.Report(totalBytesRead / (double)totalLength);
         }
 
-        static string ByteArrayToString(byte[] bytes)
+        if (totalBytesRead == 0)
+            algorithm.TransformFinalBlock([], 0, 0);
+
+        if (algorithm.Hash == null)
         {
-            var sb = new StringBuilder(bytes.Length * 2);
-            foreach (byte item in bytes.AsSpan())
-            {
-                sb.Append($"{item:X2}");
-            }
-
-            return sb.ToString();
+            return false;
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        if ((int)context.Phase <= (int)PackageInstallPhase.Verifying)
+        else
         {
-            context.Phase = PackageInstallPhase.Verifying;
-            if (context.Asset is { } asset
-                && context.NuGetPackageFile != null)
-            {
-                using FileStream stream = File.OpenRead(context.NuGetPackageFile);
-                using var sha256 = SHA256.Create();
-                using var sha384 = SHA384.Create();
-                using var sha512 = SHA512.Create();
-                (HashAlgorithm, string?)[] items =
-                [
-                    (sha256, asset.Sha256)
-                ];
-
-                long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
-                if (items.All(item => string.IsNullOrWhiteSpace(item.Item2)))
-                {
-                    context.HashVerified = false;
-                    return;
-                }
-
-                foreach ((HashAlgorithm algorithm, string? hash) in items)
-                {
-                    if (!string.IsNullOrWhiteSpace(hash))
-                    {
-                        stream.Position = 0;
-                        if (!await Varify(algorithm, stream, totalLength, hash))
-                        {
-                            context.HashVerified = false;
-                            // Do not leave a rejected download where the local-package path
-                            // can later load it without the server's advertised digest.
-                            stream.Dispose();
-                            File.Delete(context.NuGetPackageFile);
-                            var identity = new PackageIdentity(context.PackageName, NuGetVersion.Parse(context.Version));
-                            if (_installingContexts.TryGetValue(identity, out PackageInstallContext? cached)
-                                && ReferenceEquals(cached, context))
-                                _installingContexts.Remove(identity);
-                            throw new InvalidDataException("The downloaded package does not match its advertised hash.");
-                        }
-                    }
-                }
-
-                context.HashVerified = true;
-                context.Phase = PackageInstallPhase.Verified;
-            }
+            string computedHash = ByteArrayToString(algorithm.Hash);
+            return StringComparer.OrdinalIgnoreCase.Equals(computedHash, hashValue);
         }
+    }
+
+    private static string ByteArrayToString(byte[] bytes)
+    {
+        var sb = new StringBuilder(bytes.Length * 2);
+        foreach (byte item in bytes.AsSpan())
+        {
+            sb.Append($"{item:X2}");
+        }
+
+        return sb.ToString();
+    }
+
+    private InvalidDataException RejectDownloadedPackage(
+        PackageInstallContext context,
+        string packageFile,
+        FileStream stream)
+    {
+        context.HashVerified = false;
+        // Do not leave a rejected download where the local-package path
+        // can later load it without the server's advertised digest.
+        stream.Dispose();
+        File.Delete(packageFile);
+        var identity = new PackageIdentity(context.PackageName, NuGetVersion.Parse(context.Version));
+        if (_installingContexts.TryGetValue(identity, out PackageInstallContext? cached)
+            && ReferenceEquals(cached, context))
+            _installingContexts.Remove(identity);
+        return new InvalidDataException("The downloaded package does not match its advertised hash.");
     }
 
     public Task ReResolveDependencies(
@@ -865,52 +447,17 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                         continue;
                     }
 
-                    string? installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                    string? installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall)
+                        ?? await InstallResolvedPackageAsync(
+                                packageToInstall,
+                                context,
+                                packageExtractionContext,
+                                logger,
+                                cancellationToken)
+                            .ConfigureAwait(false);
                     if (installedPath != null)
                     {
                         installedPaths.Add(installedPath);
-                    }
-                    else
-                    {
-                        // Helper.GetPackageDependencies only collects packages resolved from a repository.
-                        SourceRepository source = packageToInstall.Source
-                            ?? throw new InvalidOperationException(
-                                $"'{packageToInstall.Id} {packageToInstall.Version}' has no package source.");
-                        DownloadResource downloadResource
-                            = await source.GetResourceAsync<DownloadResource>(cancellationToken).ConfigureAwait(false)
-                            ?? throw new InvalidOperationException(
-                                $"'{source.PackageSource.Source}' cannot download packages.");
-                        using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
-                            packageToInstall,
-                            new PackageDownloadContext(_cacheContext),
-                            SettingsUtility.GetGlobalPackagesFolder(_settings),
-                            logger, cancellationToken)
-                            .ConfigureAwait(false);
-
-                        await ExtractDownloadedPackageAsync(
-                            downloadResult,
-                            packageToInstall,
-                            source.PackageSource.Source,
-                            packageExtractionContext,
-                            cancellationToken)
-                            .ConfigureAwait(false);
-
-                        installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
-                        if (installedPath != null)
-                        {
-                            var reader = new PackageFolderReader(installedPath);
-                            NuspecReader nuspec = reader.NuspecReader;
-
-                            // GetLicenseMetadataの戻り値はNullの可能性があるので、
-                            // https://github.com/NuGet/NuGet.Client/blob/e873b496daa6839a86f4b820d15945a9aad98e3d/src/NuGet.Core/NuGet.Packaging/NuspecReader.cs#L434
-                            if (nuspec.GetRequireLicenseAcceptance()
-                                && nuspec.GetLicenseMetadata() is { } license)
-                            {
-                                context.LicensesRequiringApproval.Add((packageToInstall, license));
-                            }
-
-                            installedPaths.Add(installedPath);
-                        }
                     }
                 }
 
@@ -928,6 +475,55 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 _installingContexts.Remove(package);
             }
         }
+    }
+
+    // Downloads and extracts a resolved package that is not installed yet; returns where it landed, or null.
+    private async Task<string?> InstallResolvedPackageAsync(
+        SourcePackageDependencyInfo packageToInstall,
+        PackageInstallContext context,
+        PackageExtractionContext packageExtractionContext,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        // Helper.GetPackageDependencies only collects packages resolved from a repository.
+        SourceRepository source = packageToInstall.Source
+            ?? throw new InvalidOperationException(
+                $"'{packageToInstall.Id} {packageToInstall.Version}' has no package source.");
+        DownloadResource downloadResource
+            = await source.GetResourceAsync<DownloadResource>(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException(
+                $"'{source.PackageSource.Source}' cannot download packages.");
+        using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
+            packageToInstall,
+            new PackageDownloadContext(_cacheContext),
+            SettingsUtility.GetGlobalPackagesFolder(_settings),
+            logger, cancellationToken)
+            .ConfigureAwait(false);
+
+        await ExtractDownloadedPackageAsync(
+            downloadResult,
+            packageToInstall,
+            source.PackageSource.Source,
+            packageExtractionContext,
+            cancellationToken)
+            .ConfigureAwait(false);
+
+        string? installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+        if (installedPath != null)
+        {
+            var reader = new PackageFolderReader(installedPath);
+            NuspecReader nuspec = reader.NuspecReader;
+
+            // GetLicenseMetadataの戻り値はNullの可能性があるので、
+            // https://github.com/NuGet/NuGet.Client/blob/e873b496daa6839a86f4b820d15945a9aad98e3d/src/NuGet.Core/NuGet.Packaging/NuspecReader.cs#L434
+            if (nuspec.GetRequireLicenseAcceptance()
+                && nuspec.GetLicenseMetadata() is { } license)
+            {
+                context.LicensesRequiringApproval.Add((packageToInstall, license));
+            }
+        }
+
+        return installedPath;
     }
 
     // NuGet reports a package it could not find, or a cancelled download, as a result with neither a
@@ -980,6 +576,28 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         var apiOrigin = new Uri(BeutlApiApplication.BaseUrl);
         Uri downloadUri = new(apiOrigin, url);
         using var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
+        await AuthorizeIfApiOriginAsync(request, apiOrigin, downloadUri, cancellationToken).ConfigureAwait(false);
+
+        using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+        {
+            response.EnsureSuccessStatusCode();
+            long? contentLength = response.Content.Headers.ContentLength;
+
+            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+            {
+                await CopyWithProgressAsync(download, destination, contentLength, progress, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+    }
+
+    // The bearer token only goes to the API origin; a download hosted elsewhere is fetched anonymously.
+    private async Task AuthorizeIfApiOriginAsync(
+        HttpRequestMessage request,
+        Uri apiOrigin,
+        Uri downloadUri,
+        CancellationToken cancellationToken)
+    {
         if (downloadUri.Scheme == apiOrigin.Scheme
             && downloadUri.IdnHost == apiOrigin.IdnHost
             && downloadUri.Port == apiOrigin.Port
@@ -999,32 +617,31 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 _logger.LogWarning(ex, "Failed to refresh authenticated user. Proceeding without authentication.");
             }
         }
+    }
 
-        using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+    private static async Task CopyWithProgressAsync(
+        Stream download,
+        Stream destination,
+        long? contentLength,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (!contentLength.HasValue)
         {
-            response.EnsureSuccessStatusCode();
-            long? contentLength = response.Content.Headers.ContentLength;
-
-            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+            progress?.Report(double.PositiveInfinity);
+            await download.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            int bufferSize = 81920;
+            byte[] buffer = new byte[bufferSize];
+            long totalBytesRead = 0;
+            int bytesRead;
+            while ((bytesRead = await download.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
             {
-                if (!contentLength.HasValue)
-                {
-                    progress?.Report(double.PositiveInfinity);
-                    await download.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
-                }
-                else
-                {
-                    int bufferSize = 81920;
-                    byte[] buffer = new byte[bufferSize];
-                    long totalBytesRead = 0;
-                    int bytesRead;
-                    while ((bytesRead = await download.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
-                    {
-                        await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
-                        totalBytesRead += bytesRead;
-                        progress?.Report(totalBytesRead / (double)contentLength.Value);
-                    }
-                }
+                await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+                totalBytesRead += bytesRead;
+                progress?.Report(totalBytesRead / (double)contentLength.Value);
             }
         }
     }

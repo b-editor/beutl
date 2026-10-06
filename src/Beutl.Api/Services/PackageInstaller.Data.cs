@@ -43,7 +43,7 @@ public partial class PackageInstaller
             throw new ArgumentException($"'{package.Name}' is an extension package and has no data payload.", nameof(package));
 
         string deploymentId = Guid.NewGuid().ToString("N");
-        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), $".data-install-{deploymentId}");
+        string staging = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), DataInstallStagingPrefix + deploymentId);
         Directory.CreateDirectory(staging);
         var changes = new List<PayloadChange>();
         try
@@ -63,7 +63,7 @@ public partial class PackageInstaller
         {
             token.ThrowIfCancellationRequested();
             string staged = Path.Combine(staging, kind);
-            var change = new PayloadChange(kind, enabled, Path.Combine(root, name), staged, Path.Combine(staging, "backup-" + kind));
+            var change = new PayloadChange(kind, enabled, Path.Combine(root, name), staged, BackupDirectory(staging, kind));
             if (!enabled)
             {
                 // Removing the tag explicitly retires the package's old payload.
@@ -119,81 +119,110 @@ public partial class PackageInstaller
                     using FileStream installLock = AcquireDataInstallLock();
                     EnsureNoPendingDataInstall(name, staging);
                     token.ThrowIfCancellationRequested();
-                    var active = new List<PayloadChange>();
-                    foreach (PayloadChange change in changes)
-                    {
-                        PayloadOwnership ownership = owner.GetPayloadOwnership(name, change.Kind, change.Destination);
-                        if (ownership == PayloadOwnership.Unknown)
-                            throw new IOException($"Cannot determine ownership of the legacy package directory '{change.Destination}' without its installed metadata.");
-                        bool owned = ownership == PayloadOwnership.Owned;
-                        if (!change.Enabled && !owned) continue;
-                        if (File.Exists(change.Destination))
-                            throw new IOException($"The payload destination '{change.Destination}' is a file.");
-                        if (Directory.Exists(change.Destination) && !owned)
-                            throw new IOException($"The package cannot replace the unowned directory '{change.Destination}'.");
-                        active.Add(change);
-                    }
+                    List<PayloadChange> active = SelectActiveChanges();
                     token.ThrowIfCancellationRequested();
                     var journal = CreateDataInstallJournal(name, version, deploymentId, active, register is not null);
                     foreach (PayloadChange change in active)
                         if (change.Enabled) RequirePublishedPayload(change.Staged, journal);
                     WriteDataInstallJournal(staging, journal);
                     _preserveBackup = true;
-                    try
-                    {
-                        owner.AfterDataInstallStep?.Invoke("prepared");
-                        foreach (PayloadChange change in active)
-                        {
-                            if (change.Enabled) RequirePublishedPayload(change.Staged, journal);
-                            Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
-                            if (Directory.Exists(change.Destination))
-                            {
-                                Directory.Move(change.Destination, change.Backup);
-                                owner.AfterDataInstallStep?.Invoke("backup-" + change.Kind);
-                            }
-                            if (change.Enabled)
-                            {
-                                Directory.Move(change.Staged, change.Destination);
-                                owner.AfterDataInstallStep?.Invoke("publish-" + change.Kind);
-                            }
-                        }
-                        // Registration is part of the same transaction. Its failure restores
-                        // replacements and removals while the previous backups still exist.
-                        journal = journal with { Phase = DataInstallPhase.Published };
-                        WriteDataInstallJournal(staging, journal);
-                        owner.AfterDataInstallStep?.Invoke("published");
-                        register?.Invoke();
-                    }
-                    catch (Exception failure)
-                    {
-                        try
-                        {
-                            journal = journal with { Phase = DataInstallPhase.RollingBack };
-                            WriteDataInstallJournal(staging, journal);
-                            RollBackDataInstall(staging, journal, owner.AfterDataInstallStep);
-                            _preserveBackup = false;
-                        }
-                        catch (Exception rollback)
-                        {
-                            throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failure, rollback);
-                        }
-                        throw;
-                    }
-                    // Registration has succeeded. If recording the final state fails, keep
-                    // Published so startup can finish registration again, never undo its payload.
-                    owner.AfterDataInstallStep?.Invoke("registered");
-                    try
-                    {
-                        WriteDataInstallJournal(staging, journal with { Phase = DataInstallPhase.Committed });
-                        owner.AfterDataInstallStep?.Invoke("committed");
-                        _preserveBackup = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        owner._logger.LogWarning(ex, "Package {PackageName} was published; completion will be retried from {Staging}.", name, staging);
-                    }
+                    journal = PublishOrRollBack(active, journal, register);
+                    MarkCommitted(journal);
                 }
             });
+        }
+
+        private List<PayloadChange> SelectActiveChanges()
+        {
+            var active = new List<PayloadChange>();
+            foreach (PayloadChange change in changes)
+            {
+                PayloadOwnership ownership = owner.GetPayloadOwnership(name, change.Kind, change.Destination);
+                if (ownership == PayloadOwnership.Unknown)
+                    throw new IOException($"Cannot determine ownership of the legacy package directory '{change.Destination}' without its installed metadata.");
+                bool owned = ownership == PayloadOwnership.Owned;
+                if (!change.Enabled && !owned) continue;
+                if (File.Exists(change.Destination))
+                    throw new IOException($"The payload destination '{change.Destination}' is a file.");
+                if (Directory.Exists(change.Destination) && !owned)
+                    throw new IOException($"The package cannot replace the unowned directory '{change.Destination}'.");
+                active.Add(change);
+            }
+
+            return active;
+        }
+
+        // Returns the Published journal; any failure is rethrown after the rollback, or wrapped with it when the
+        // rollback fails too.
+        private DataInstallJournal PublishOrRollBack(
+            List<PayloadChange> active,
+            DataInstallJournal journal,
+            Action? register)
+        {
+            try
+            {
+                owner.AfterDataInstallStep?.Invoke("prepared");
+                PublishChanges(active, journal);
+                // Registration is part of the same transaction. Its failure restores
+                // replacements and removals while the previous backups still exist.
+                journal = journal with { Phase = DataInstallPhase.Published };
+                WriteDataInstallJournal(staging, journal);
+                owner.AfterDataInstallStep?.Invoke("published");
+                register?.Invoke();
+            }
+            catch (Exception failure)
+            {
+                try
+                {
+                    journal = journal with { Phase = DataInstallPhase.RollingBack };
+                    WriteDataInstallJournal(staging, journal);
+                    RollBackDataInstall(staging, journal, owner.AfterDataInstallStep);
+                    _preserveBackup = false;
+                }
+                catch (Exception rollback)
+                {
+                    throw new AggregateException($"Package rollback failed; backups remain at '{staging}'.", failure, rollback);
+                }
+                throw;
+            }
+
+            return journal;
+        }
+
+        private void PublishChanges(List<PayloadChange> active, DataInstallJournal journal)
+        {
+            foreach (PayloadChange change in active)
+            {
+                if (change.Enabled) RequirePublishedPayload(change.Staged, journal);
+                Directory.CreateDirectory(Path.GetDirectoryName(change.Destination)!);
+                if (Directory.Exists(change.Destination))
+                {
+                    Directory.Move(change.Destination, change.Backup);
+                    owner.AfterDataInstallStep?.Invoke("backup-" + change.Kind);
+                }
+                if (change.Enabled)
+                {
+                    Directory.Move(change.Staged, change.Destination);
+                    owner.AfterDataInstallStep?.Invoke("publish-" + change.Kind);
+                }
+            }
+        }
+
+        private void MarkCommitted(DataInstallJournal journal)
+        {
+            // Registration has succeeded. If recording the final state fails, keep
+            // Published so startup can finish registration again, never undo its payload.
+            owner.AfterDataInstallStep?.Invoke("registered");
+            try
+            {
+                WriteDataInstallJournal(staging, journal with { Phase = DataInstallPhase.Committed });
+                owner.AfterDataInstallStep?.Invoke("committed");
+                _preserveBackup = false;
+            }
+            catch (Exception ex)
+            {
+                owner._logger.LogWarning(ex, "Package {PackageName} was published; completion will be retried from {Staging}.", name, staging);
+            }
         }
 
         public void Dispose()

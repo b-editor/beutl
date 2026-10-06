@@ -84,6 +84,25 @@ internal sealed class UnloadDiagnosticsReport
             .Append(" (across ").Append(SurvivingTypes.Count).AppendLine(" type(s))");
         sb.AppendLine();
 
+        AppendSurvivingTypes(sb);
+
+        sb.AppendLine();
+        AppendRootPaths(sb);
+
+        sb.AppendLine();
+        AppendThreadStacks(sb);
+
+        if (CaptureTruncated)
+        {
+            sb.AppendLine();
+            sb.AppendLine("(capture stopped early: an object, time, or frame budget exceeded; results may be partial)");
+        }
+
+        return sb.ToString();
+    }
+
+    private void AppendSurvivingTypes(StringBuilder sb)
+    {
         sb.AppendLine("--- Surviving objects by type ---");
         if (SurvivingTypes.Count == 0)
         {
@@ -97,8 +116,10 @@ internal sealed class UnloadDiagnosticsReport
                     .Append("  [").Append(group.AssemblyName).AppendLine("]");
             }
         }
+    }
 
-        sb.AppendLine();
+    private void AppendRootPaths(StringBuilder sb)
+    {
         sb.AppendLine("--- GC root paths (why the objects are still alive) ---");
         if (RootPaths.Count == 0)
         {
@@ -116,8 +137,10 @@ internal sealed class UnloadDiagnosticsReport
                 }
             }
         }
+    }
 
-        sb.AppendLine();
+    private void AppendThreadStacks(StringBuilder sb)
+    {
         sb.AppendLine("--- Managed thread stacks ---");
         if (ThreadStacks.Count == 0)
         {
@@ -142,13 +165,5 @@ internal sealed class UnloadDiagnosticsReport
                 }
             }
         }
-
-        if (CaptureTruncated)
-        {
-            sb.AppendLine();
-            sb.AppendLine("(capture stopped early: an object, time, or frame budget exceeded; results may be partial)");
-        }
-
-        return sb.ToString();
     }
 }
