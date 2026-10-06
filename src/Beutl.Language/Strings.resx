@@ -3309,4 +3309,31 @@ when history recording is enabled.</value>
   <data name="ModelFile" xml:space="preserve">
     <value>3D Model File</value>
   </data>
+  <data name="TabSwitcher_Title" xml:space="preserve">
+    <value>Switch tabs</value>
+  </data>
+  <data name="TabSwitcher_Documents" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="TabSwitcher_Tools" xml:space="preserve">
+    <value>Tool tabs</value>
+  </data>
+  <data name="TabSwitcher_Create" xml:space="preserve">
+    <value>Create tool tab</value>
+  </data>
+  <data name="TabSwitcher_NewTab" xml:space="preserve">
+    <value>New tab</value>
+  </data>
+  <data name="TabSwitcher_Next" xml:space="preserve">
+    <value>Switch to next tab</value>
+  </data>
+  <data name="TabSwitcher_Previous" xml:space="preserve">
+    <value>Switch to previous tab</value>
+  </data>
+  <data name="TabSwitcher_NextTool" xml:space="preserve">
+    <value>Switch to next tool tab</value>
+  </data>
+  <data name="TabSwitcher_PreviousTool" xml:space="preserve">
+    <value>Switch to previous tool tab</value>
+  </data>
 </root>

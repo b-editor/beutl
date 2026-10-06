@@ -142,6 +142,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _editorService,
             _extensionProvider);
         CommandPalette = new CommandPaletteViewModel(paletteService, _editorService);
+        TabSwitcher = new TabSwitcherViewModel(_editorService);
 
         ICoreReadOnlyList<Extension> allExtension = _extensionProvider.AllExtensions;
 
@@ -247,6 +248,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public ContextCommandManager? ContextCommandManager { get; }
 
     public CommandPaletteViewModel CommandPalette { get; }
+    public TabSwitcherViewModel TabSwitcher { get; }
 
     public SettingsDialogViewModel CreateSettingsDialog()
     {
@@ -571,6 +573,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         {
             _aiJobCompletionNotifier.Dispose();
             CommandPalette.Dispose();
+            TabSwitcher.Dispose();
         }
         catch (Exception ex)
         {
@@ -1037,11 +1040,21 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public Task ExecuteAsync(ContextCommandExecution execution)
     {
+        if (TabSwitcherViewModel.IsNavigationCommand(execution.CommandName))
+        {
+            bool opened = !TabSwitcherViewModel.IsTextInputGesture(execution.KeyEventArgs)
+                          && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value)
+                          && TabSwitcher.ExecuteCommand(execution);
+            if (execution.KeyEventArgs is { } args) args.Handled = opened;
+            return Task.CompletedTask;
+        }
+
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
 
         if (execution.CommandName == "ShowCommandPalette")
         {
+            TabSwitcher.Close();
             CommandPalette.Toggle();
             return Task.CompletedTask;
         }
@@ -1059,6 +1072,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public bool CanExecute(ContextCommandExecution execution)
     {
+        if (TabSwitcherViewModel.IsNavigationCommand(execution.CommandName))
+            return TabSwitcher.CanOpen
+                   && !TabSwitcherViewModel.IsTextInputGesture(execution.KeyEventArgs)
+                   && (execution.KeyEventArgs is null || !CommandPalette.IsOpen.Value);
+
         if (execution.CommandName == "ShowCommandPalette")
             return true;
 

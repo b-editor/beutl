@@ -10,6 +10,24 @@ namespace Beutl.ViewModels.Dock;
 
 public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 {
+    private sealed class ActivationStamp
+    {
+        public long Order;
+    }
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IDockable, ActivationStamp> _recentTools = new();
+    private long _activationOrder;
+
+    internal long GetActivationOrder(IDockable dockable) =>
+        _recentTools.TryGetValue(dockable, out var stamp) ? stamp.Order : 0;
+
+    public override void OnFocusedDockableChanged(IDockable? dockable)
+    {
+        if (dockable is BeutlToolDockable or PlayerToolDockable)
+            _recentTools.GetValue(dockable, _ => new()).Order = ++_activationOrder;
+        base.OnFocusedDockableChanged(dockable);
+    }
+
     private readonly record struct AnchorDefinition(
         string Id,
         Alignment Alignment,

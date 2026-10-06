@@ -1,0 +1,94 @@
+<UserControl x:Class="Beutl.Views.TabSwitcherView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels"
+             x:CompileBindings="True"
+             x:DataType="vm:TabSwitcherViewModel"
+             IsVisible="{Binding IsOpen.Value}">
+    <UserControl.Resources>
+        <DataTemplate x:Key="TabItemTemplate" x:DataType="vm:TabSwitcherItem">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" ToolTip.Tip="{Binding Description}">
+                <ui:FAIconSourceElement Width="16" Height="16"
+                                        IconSource="{Binding Icon}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Title}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="12,6,8,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+    <Panel>
+        <Border Background="Transparent" PointerPressed="OnBackdropPointerPressed" />
+        <Border x:Name="SwitcherContainer"
+                Margin="16" Padding="12"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="{DynamicResource OverlayCornerRadius}" BoxShadow="0 8 32 0 #40000000">
+            <Panel>
+                <Grid x:Name="NavigationPanel" ColumnDefinitions="0.9*,Auto,1.1*" ColumnSpacing="12"
+                      IsVisible="{Binding !IsCreating.Value}">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="*,Auto" Margin="8,0,0,6">
+                            <TextBlock Classes="section" Text="{x:Static lang:Strings.TabSwitcher_Tools}" />
+                            <Button x:Name="NewTabButton" Grid.Column="1" Width="28" Height="28" Padding="5"
+                                    IsEnabled="{Binding !!NewTools.Count}"
+                                    Theme="{StaticResource LiteButtonStyle}" Click="OnCreateTabClick"
+                                    ToolTip.Tip="{x:Static lang:Strings.TabSwitcher_Create}"
+                                    AutomationProperties.Name="{x:Static lang:Strings.TabSwitcher_Create}">
+                                <icons:FluentIcon Icon="Add" />
+                            </Button>
+                        </Grid>
+                        <ListBox x:Name="ToolsList" Grid.Row="1" ItemsSource="{Binding Tools}"
+                                 SelectedItem="{Binding SelectedTool.Value, Mode=TwoWay}"
+                                 ItemTemplate="{StaticResource TabItemTemplate}" Tapped="OnItemTapped"
+                                 AutomationProperties.Name="{x:Static lang:Strings.TabSwitcher_Tools}" />
+                    </Grid>
+                    <Border Grid.Column="1" Width="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                    <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                        <Border Height="28" Margin="0,0,0,6">
+                            <TextBlock Classes="section" Margin="8,0,0,0"
+                                       Text="{x:Static lang:Strings.TabSwitcher_Documents}" />
+                        </Border>
+                        <ListBox x:Name="DocumentsList" Grid.Row="1" ItemsSource="{Binding Documents}"
+                                 SelectedItem="{Binding SelectedDocument.Value, Mode=TwoWay}"
+                                 ItemTemplate="{StaticResource TabItemTemplate}" Tapped="OnItemTapped"
+                                 AutomationProperties.Name="{x:Static lang:Strings.TabSwitcher_Documents}" />
+                    </Grid>
+                </Grid>
+                <Grid x:Name="CreationPanel" RowDefinitions="Auto,*" IsVisible="{Binding IsCreating.Value}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,0,0,8">
+                        <Button x:Name="BackButton" Width="28" Height="28" Padding="5" Theme="{StaticResource LiteButtonStyle}"
+                                Click="OnBackClick" ToolTip.Tip="{x:Static lang:Strings.Back}"
+                                AutomationProperties.Name="{x:Static lang:Strings.Back}">
+                            <icons:FluentIcon Icon="ChevronLeft" />
+                        </Button>
+                        <TextBlock Grid.Column="1" Text="{x:Static lang:Strings.TabSwitcher_NewTab}"
+                                   VerticalAlignment="Center" FontWeight="SemiBold" />
+                    </Grid>
+                    <ListBox x:Name="NewToolsList" Grid.Row="1" ItemsSource="{Binding NewTools}"
+                             SelectedItem="{Binding SelectedNewTool.Value, Mode=TwoWay}"
+                             ItemTemplate="{StaticResource TabItemTemplate}" Tapped="OnItemTapped"
+                             AutomationProperties.Name="{x:Static lang:Strings.TabSwitcher_Create}" />
+                </Grid>
+            </Panel>
+        </Border>
+    </Panel>
+</UserControl>

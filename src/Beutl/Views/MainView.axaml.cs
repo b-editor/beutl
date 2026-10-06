@@ -42,6 +42,8 @@ public sealed partial class MainView : UserControl
     public MainView()
     {
         InitializeComponent();
+        AddHandler(KeyDownEvent, TabSwitcherOverlay.HandleKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, TabSwitcherOverlay.HandleKeyUp, RoutingStrategies.Tunnel, handledEventsToo: true);
 
         recentFiles.ItemsSource = _rawRecentFileItems;
         recentProjects.ItemsSource = _rawRecentProjItems;
@@ -108,7 +110,7 @@ public sealed partial class MainView : UserControl
     {
         var topLevel = (TopLevel)sender!;
         topLevel.Opened -= OnParentWindowOpened;
-        var cm = App.GetContextCommandManager();
+        var cm = (DataContext as MainViewModel)?.ContextCommandManager;
         cm?.Attach(this, MainViewExtension.Instance);
 
         if (sender is FAAppWindow cw)

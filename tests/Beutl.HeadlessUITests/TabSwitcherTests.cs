@@ -1,0 +1,732 @@
+﻿using System.Globalization;
+using System.Runtime.InteropServices;
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
+using Beutl.Api.Services;
+using Beutl.Extensibility;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
+using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
+using Beutl.Testing.Headless;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
+using Beutl.Views;
+using Dock.Model.Core;
+
+namespace Beutl.HeadlessUITests;
+
+[TestFixture]
+public sealed class TabSwitcherTests
+{
+    [AvaloniaTest]
+    [TestCase(1, false)]
+    [TestCase(1, true)]
+    [TestCase(3, false)]
+    [TestCase(3, true)]
+    public async Task Ctrl_tab_initially_selects_and_focuses_a_tool_tab(int documentCount, bool reverse)
+    {
+        await using var session = await Session.CreateAsync($"initial-tool-{documentCount}-{reverse}", documentCount: documentCount);
+        EditorTabItem document = TestShell.Editor.SelectedTabItem.Value!;
+        session.Press(Key.Tab, RawInputModifiers.Control | (reverse ? RawInputModifiers.Shift : RawInputModifiers.None));
+        HeadlessTestHelpers.Render(2);
+        ListBox tools = session.Overlay.FindControl<ListBox>("ToolsList")!;
+        ListBox files = session.Overlay.FindControl<ListBox>("DocumentsList")!;
+        TabSwitcherItem selected = session.Switcher.SelectedItem!;
+        var container = (ListBoxItem)tools.ContainerFromItem(selected)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+            Assert.That(selected.Tool, Is.Not.Null);
+            Assert.That(selected, Is.SameAs(reverse ? session.Switcher.Tools[^1] : session.Switcher.Tools[1]));
+            Assert.That(container.IsSelected, Is.True);
+            Assert.That(tools.IsKeyboardFocusWithin, Is.True);
+            Assert.That(files.SelectedItem, Is.Null);
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(document));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task File_list_keeps_a_stable_MRU_snapshot_and_commits_only_on_control_release()
+    {
+        await using var session = await Session.CreateAsync("mru");
+        EditorTabItem current = TestShell.Editor.SelectedTabItem.Value!;
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        session.Press(Key.Right, RawInputModifiers.Control);
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.True);
+            Assert.That(session.Switcher.SelectedItem!.Document, Is.SameAs(session.Documents[1]));
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(current));
+        });
+
+        var snapshot = session.Switcher.Documents.ToArray();
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedItem!.Document, Is.SameAs(session.Documents[0]));
+        session.Press(Key.Tab, RawInputModifiers.Control | RawInputModifiers.Shift);
+        Assert.That(session.Switcher.Documents, Is.EqualTo(snapshot));
+        session.Release(Key.LeftCtrl);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(session.Documents[1]));
+        });
+
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        session.Press(Key.Right, RawInputModifiers.Control);
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        session.Release(Key.RightCtrl);
+        Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(current));
+    }
+
+    [AvaloniaTest]
+    public async Task Reverse_navigation_wraps_and_releasing_shift_does_not_commit()
+    {
+        await using var session = await Session.CreateAsync("reverse");
+        session.Press(Key.Tab, RawInputModifiers.Control | RawInputModifiers.Shift);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[^1]));
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[0]));
+        session.Release(Key.LeftShift, RawInputModifiers.Control);
+        Assert.That(session.Switcher.IsOpen.Value, Is.True);
+        IDockable selected = session.Switcher.SelectedItem!.Tool!;
+        session.Release(Key.LeftCtrl);
+        Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.Tab)]
+    [TestCase(Key.F7)]
+    public async Task Alt_navigation_switches_tool_tabs_and_preserves_the_active_file(Key shortcut)
+    {
+        await using var session = await Session.CreateAsync("tools-" + shortcut);
+        EditorTabItem current = TestShell.Editor.SelectedTabItem.Value!;
+        var factory = session.Editor.DockHost.Factory;
+        BeutlToolDockable timeline = factory.EnumerateTools().Single(tool => tool.ToolContext.Extension == TimelineTabExtension.Instance);
+        factory.SetActiveDockable(timeline);
+        factory.SetFocusedDockable(session.Editor.DockHost.Layout.Value, timeline);
+        session.Input.Focus();
+
+        session.Press(shortcut, RawInputModifiers.Alt);
+        TabSwitcherItem selected = session.Switcher.SelectedItem!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+            Assert.That(selected.Tool, Is.Not.Null.And.Not.SameAs(timeline));
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(current));
+        });
+        session.Release(Key.LeftAlt);
+        Assert.Multiple(() =>
+        {
+            Assert.That(((IDock)selected.Tool!.Owner!).ActiveDockable, Is.SameAs(selected.Tool));
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(current));
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Escape_restores_text_input_focus_and_leaves_tabs_unchanged()
+    {
+        await using var session = await Session.CreateAsync("cancel");
+        EditorTabItem current = TestShell.Editor.SelectedTabItem.Value!;
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        session.Press(Key.Escape, RawInputModifiers.Control);
+        session.Release(Key.LeftCtrl);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(current));
+            Assert.That(session.Window.FocusManager!.GetFocusedElement(), Is.SameAs(session.Input));
+        });
+        session.Window.KeyTextInput("still editing");
+        Assert.That(session.Input.Text, Is.EqualTo("still editing"));
+    }
+
+    [AvaloniaTest]
+    public async Task Plain_tab_retains_focus_traversal_and_ctrl_tab_runs_before_child_handlers()
+    {
+        await using var session = await Session.CreateAsync("input");
+        session.Press(Key.Tab);
+        Assert.That(session.Switcher.IsOpen.Value, Is.False);
+        Assert.That(session.Window.FocusManager!.GetFocusedElement(), Is.Not.SameAs(session.Input));
+        session.Input.Focus();
+        bool childHandledTab = false;
+        session.Input.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.Tab)
+            {
+                childHandledTab = true;
+                e.Handled = true;
+            }
+        }, RoutingStrategies.Tunnel);
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.True);
+            Assert.That(childHandledTab, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Create_picker_opens_a_tool_in_the_original_dock_without_duplicating_singletons()
+    {
+        await using var session = await Session.CreateAsync("create");
+        var factory = session.Editor.DockHost.Factory;
+        BeutlToolDockable timeline = factory.EnumerateTools().Single(tool => tool.ToolContext.Extension == TimelineTabExtension.Instance);
+        factory.SetFocusedDockable(session.Editor.DockHost.Layout.Value, timeline);
+        IDock target = (IDock)timeline.Owner!;
+        RawInputModifiers modifier = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        session.Press(Key.T, modifier);
+        session.Release(OperatingSystem.IsMacOS() ? Key.LWin : Key.LeftCtrl);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.True, "Ctrl+T is a picker that stays open until confirmed.");
+            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.NewTools));
+            Assert.That(session.Switcher.NewTools.Any(item => item.Extension == TimelineTabExtension.Instance), Is.False);
+        });
+        int historyIndex = session.Switcher.NewTools.ToList().FindIndex(item => item.Extension == HistoryTabExtension.Instance);
+        Assert.That(historyIndex, Is.GreaterThanOrEqualTo(0));
+        session.Switcher.Select(TabSwitcherGroup.NewTools, historyIndex);
+        session.Press(Key.Enter);
+        var added = factory.EnumerateTools().Single(tool => tool.ToolContext.Extension == HistoryTabExtension.Instance);
+        Assert.Multiple(() =>
+        {
+            Assert.That(added.Owner, Is.SameAs(target));
+            Assert.That(target.ActiveDockable, Is.SameAs(added));
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+        });
+
+        session.Input.Focus();
+        session.Press(Key.T, modifier);
+        Assert.That(session.Switcher.NewTools.Any(item => item.Extension == HistoryTabExtension.Instance), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task Arrow_keys_switch_between_tool_and_file_lists_and_keep_the_previous_selection()
+    {
+        await using var session = await Session.CreateAsync("two-lists");
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        session.Press(Key.Right, RawInputModifiers.Control);
+        TabSwitcherItem document = session.Switcher.SelectedItem!;
+        session.Press(Key.Left, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+        TabSwitcherItem tool = session.Switcher.SelectedItem!;
+        session.Press(Key.Left, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(tool), "Left at the left list must not wrap to files.");
+        session.Press(Key.Right, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(document));
+        session.Press(Key.Right, RawInputModifiers.Control);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.SelectedItem, Is.SameAs(document));
+            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Documents));
+            Assert.That(session.Switcher.IsCreating.Value, Is.False);
+            Assert.That(session.Overlay.FindControl<ListBox>("NewToolsList")!.IsEffectivelyVisible, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Create_button_opens_a_separate_picker_that_waits_for_confirmation()
+    {
+        await using var session = await Session.CreateAsync("create-button");
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        int count = session.Editor.DockHost.Factory.EnumerateTools().Count();
+        session.Overlay.FindControl<Button>("NewTabButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        HeadlessTestHelpers.Settle();
+        session.Release(Key.LeftCtrl);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.True);
+            Assert.That(session.Switcher.IsCreating.Value, Is.True);
+            Assert.That(session.Editor.DockHost.Factory.EnumerateTools().Count(), Is.EqualTo(count));
+        });
+        int index = session.Switcher.NewTools.ToList().FindIndex(item => item.Extension == HistoryTabExtension.Instance);
+        session.Switcher.Select(TabSwitcherGroup.NewTools, index);
+        session.Press(Key.Enter);
+        Assert.That(session.Editor.DockHost.Factory.EnumerateTools().Count(), Is.EqualTo(count + 1));
+        Assert.That(session.Editor.DockHost.Factory.IsToolTabOpen(HistoryTabExtension.Instance), Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task A_single_file_remains_available_and_closed_tools_are_not_reactivated()
+    {
+        await using var session = await Session.CreateAsync("single", documentCount: 1);
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+        session.Press(Key.Right, RawInputModifiers.Control);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Documents));
+            Assert.That(session.Switcher.SelectedItem!.Document, Is.SameAs(session.Documents[0]));
+        });
+        session.Press(Key.Left, RawInputModifiers.Control);
+        Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+        BeutlToolDockable? selected = session.Switcher.SelectedItem?.Tool as BeutlToolDockable;
+        if (selected is null)
+        {
+            session.Press(Key.Tab, RawInputModifiers.Control);
+            selected = (BeutlToolDockable)session.Switcher.SelectedItem!.Tool!;
+        }
+        var factory = session.Editor.DockHost.Factory;
+        factory.CloseDockable(selected);
+        session.Release(Key.LeftCtrl);
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.EnumerateTools(), Does.Not.Contain(selected));
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(session.Window.FocusManager!.GetFocusedElement(), Is.SameAs(session.Input));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Project_transitions_and_command_palette_prevent_tab_navigation()
+    {
+        await using var session = await Session.CreateAsync("lifecycle");
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        using (TestShell.Editor.BeginLifecycleActivity(ProjectLifecycleActivity.ClosingProject))
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            session.Input.Focus();
+            session.Press(Key.Tab, RawInputModifiers.Control);
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+        }
+        TestShell.MainViewModel.CommandPalette.Toggle();
+        HeadlessTestHelpers.Settle();
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.That(session.Switcher.IsOpen.Value, Is.False);
+        TestShell.MainViewModel.CommandPalette.Close();
+    }
+
+    [AvaloniaTest]
+    public async Task Remapped_shortcuts_replace_the_defaults()
+    {
+        await using var session = await Session.CreateAsync("remap");
+        var manager = TestShell.MainViewModel.ContextCommandManager!;
+        var entry = manager.GetDefinitions<MainViewExtension>().Single(command => command.Definition.Name == MainViewExtension.NextTabCommandName);
+        OSPlatform platform = OperatingSystem.IsMacOS() ? OSPlatform.OSX : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
+        KeyGesture? original = entry.KeyGestures.First(gesture => gesture.Platform == platform).KeyGesture;
+        try
+        {
+            manager.ChangeKeyGesture(entry, new(Key.J, KeyModifiers.Control), platform);
+            session.Press(Key.Tab, RawInputModifiers.Control);
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            session.Input.Focus();
+            session.Press(Key.J, RawInputModifiers.Control);
+            Assert.That(session.Switcher.IsOpen.Value, Is.True);
+            session.Press(Key.J, RawInputModifiers.Control);
+            IDockable selected = session.Switcher.SelectedItem!.Tool!;
+            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+            session.Release(Key.LeftCtrl);
+            Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(session.Documents[^1]));
+        }
+        finally
+        {
+            manager.ChangeKeyGesture(entry, original, platform);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(Key.LeftShift)]
+    [TestCase(Key.RightShift)]
+    public async Task Shift_only_navigation_confirms_when_shift_is_released(Key shiftKey)
+    {
+        await using var session = await Session.CreateAsync("shift-only-" + shiftKey);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Shift));
+        session.View.Focus();
+
+        session.Press(Key.J, RawInputModifiers.Shift);
+        IDockable selected = session.Switcher.SelectedItem!.Tool!;
+        Assert.That(session.Switcher.HeldModifiers, Is.EqualTo(KeyModifiers.Shift));
+        session.Release(shiftKey);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(MainViewExtension.NextTabCommandName, Key.J, Key.Tab, KeyModifiers.Control, RawInputModifiers.Control)]
+    [TestCase(MainViewExtension.NextToolTabCommandName, Key.K, Key.F7, KeyModifiers.Alt, RawInputModifiers.Alt)]
+    public async Task Removed_navigation_gestures_do_not_move_an_open_switcher(
+        string command, Key replacement, Key original, KeyModifiers modifiers, RawInputModifiers rawModifiers)
+    {
+        await using var session = await Session.CreateAsync("open-remap-" + original);
+        using var gestures = new NavigationGestures();
+        gestures.Set(command, new(replacement, modifiers));
+
+        session.Press(replacement, rawModifiers);
+        TabSwitcherItem selected = session.Switcher.SelectedItem!;
+        session.Press(original, rawModifiers);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(selected));
+        session.Press(replacement, rawModifiers);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[2]));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Remapped_tab_gestures_keep_the_command_direction_on_repeated_presses(bool reverse)
+    {
+        await using var session = await Session.CreateAsync("mapped-direction-" + reverse);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, reverse
+            ? new(Key.J, KeyModifiers.Control)
+            : new(Key.Tab, KeyModifiers.Control | KeyModifiers.Shift));
+        gestures.Set(MainViewExtension.PreviousTabCommandName, reverse
+            ? new(Key.Tab, KeyModifiers.Control)
+            : new(Key.J, KeyModifiers.Control));
+        RawInputModifiers modifiers = RawInputModifiers.Control | (reverse ? RawInputModifiers.None : RawInputModifiers.Shift);
+
+        session.Press(Key.Tab, modifiers);
+        int first = reverse ? session.Switcher.Tools.Count - 1 : 1;
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[first]));
+        session.Press(Key.Tab, modifiers);
+        int next = first + (reverse ? -1 : 1);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[next]));
+        IDockable selected = session.Switcher.SelectedItem!.Tool!;
+        session.Release(Key.LeftCtrl, reverse ? RawInputModifiers.None : RawInputModifiers.Shift);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Bare_tab_and_shift_tab_move_a_persistent_picker_after_navigation_is_remapped()
+    {
+        await using var session = await Session.CreateAsync("bare-picker-tab");
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Control));
+        await TestShell.MainViewModel.ExecuteAsync(new(MainViewExtension.NextTabCommandName));
+        HeadlessTestHelpers.Settle();
+        TabSwitcherItem selected = session.Switcher.SelectedItem!;
+
+        session.Press(Key.Tab);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(session.Switcher.Tools[2]));
+        session.Press(Key.Tab, RawInputModifiers.Shift);
+        Assert.That(session.Switcher.SelectedItem, Is.SameAs(selected));
+    }
+
+    [AvaloniaTest]
+    public async Task Back_button_has_a_localized_accessible_name_and_tooltip()
+    {
+        await using var session = await Session.CreateAsync("accessible-back");
+        session.Press(Key.T, OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control);
+        HeadlessTestHelpers.Render(2);
+        Button back = session.Overlay.FindControl<Button>("BackButton")!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(AutomationProperties.GetName(back), Is.EqualTo(Beutl.Language.Strings.Back));
+            Assert.That(ToolTip.GetTip(back), Is.EqualTo(Beutl.Language.Strings.Back));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Plain_and_shift_only_mappings_do_not_consume_text_box_input(bool shift)
+    {
+        await using var session = await Session.CreateAsync("typing-" + shift);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
+        session.Input.Focus();
+
+        session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        session.Window.KeyTextInput(shift ? "J" : "j");
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(session.Input.Text, Is.EqualTo(shift ? "J" : "j"));
+        });
+
+        session.View.Focus();
+        session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        Assert.That(session.Switcher.IsOpen.Value, Is.True, "The mapping should remain available outside text entry.");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Plain_and_shift_only_mappings_leave_marked_text_entry_keys_unhandled(bool shift)
+    {
+        await using var session = await Session.CreateAsync("marked-typing-" + shift);
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, shift ? KeyModifiers.Shift : KeyModifiers.None));
+        var leaf = new Border { Focusable = true };
+        var textSurface = new Border { Child = leaf, Width = 80, Height = 24 };
+        ContextCommandInput.SetIsTextInput(textSurface, true);
+        ((Grid)session.View.Content!).Children.Add(textSurface);
+        HeadlessTestHelpers.Render(2);
+        Assert.That(leaf.Focus(), Is.True);
+        bool? handled = null;
+        session.Window.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.J) handled = e.Handled;
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
+
+        session.Press(Key.J, shift ? RawInputModifiers.Shift : RawInputModifiers.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(handled, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Main_command_handler_defers_unmodified_text_input_but_accepts_control_shortcuts(bool shift)
+    {
+        await using var session = await Session.CreateAsync("dispatch-typing-" + shift);
+        var key = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Source = session.Input,
+            Key = Key.J,
+            KeyModifiers = shift ? KeyModifiers.Shift : KeyModifiers.None,
+        };
+        var execution = new ContextCommandExecution(MainViewExtension.NextTabCommandName) { KeyEventArgs = key };
+        Assert.That(TestShell.MainViewModel.CanExecute(execution), Is.False);
+        await TestShell.MainViewModel.ExecuteAsync(execution);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.False);
+            Assert.That(key.Handled, Is.False);
+        });
+
+        var modifiedKey = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Source = session.Input,
+            Key = Key.J,
+            KeyModifiers = key.KeyModifiers | KeyModifiers.Control,
+        };
+        var modifiedExecution = new ContextCommandExecution(MainViewExtension.NextTabCommandName)
+        {
+            KeyEventArgs = modifiedKey,
+        };
+        Assert.That(TestShell.MainViewModel.CanExecute(modifiedExecution), Is.True);
+        await TestShell.MainViewModel.ExecuteAsync(modifiedExecution);
+        Assert.Multiple(() =>
+        {
+            Assert.That(session.Switcher.IsOpen.Value, Is.True);
+            Assert.That(modifiedKey.Handled, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Selecting_preview_focuses_its_frame_in_docked_and_floating_windows(bool floating)
+    {
+        await using var session = await Session.CreateAsync("preview-focus-" + floating);
+        var factory = session.Editor.DockHost.Factory;
+        PlayerToolDockable preview = BeutlDockFactory.Traverse(session.Editor.DockHost.Layout.Value)
+            .OfType<PlayerToolDockable>().Single();
+        IHostWindow? floatingHost = null;
+        try
+        {
+            if (floating)
+            {
+                factory.SplitToWindow((IDock)preview.Owner!, preview, 20, 20, 500, 400, null);
+                HeadlessTestHelpers.Render(2);
+                floatingHost = factory.FindRoot(preview, _ => true)!.Window!.Host;
+                Assert.That(floatingHost, Is.InstanceOf<Window>());
+            }
+            var owner = floatingHost as Window ?? session.Window;
+            PlayerView player = owner.GetVisualDescendants().OfType<PlayerView>()
+                .Single(view => ReferenceEquals(view.DataContext, preview.Player));
+            session.Window.Activate();
+            session.Input.Focus();
+            session.Press(Key.Tab, RawInputModifiers.Control);
+            int index = session.Switcher.Tools.ToList().FindIndex(item => ReferenceEquals(item.Tool, preview));
+            Assert.That(index, Is.GreaterThanOrEqualTo(0));
+            session.Switcher.Select(TabSwitcherGroup.Tools, index);
+            session.Release(Key.LeftCtrl);
+            HeadlessTestHelpers.Render(2);
+            Assert.That(owner.FocusManager!.GetFocusedElement(), Is.SameAs(player.FindControl<Control>("framePanel")));
+        }
+        finally
+        {
+            if (floatingHost is not null)
+            {
+                preview.CanClose = true;
+                floatingHost.Exit();
+                HeadlessTestHelpers.Settle();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(1000, false)]
+    [TestCase(1000, true)]
+    [TestCase(420, false)]
+    [TestCase(420, true)]
+    public async Task Switcher_renders_in_both_themes_and_narrow_windows(int width, bool light)
+    {
+        CultureInfo previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+        try
+        {
+            await using var session = await Session.CreateAsync($"render-{width}-{light}", width: width, light: light);
+            session.Press(Key.Tab, RawInputModifiers.Control);
+            HeadlessTestHelpers.Render(2);
+            Border container = session.Overlay.FindControl<Border>("SwitcherContainer")!;
+            Assert.That(container.Bounds.Width, Is.LessThanOrEqualTo(width - 32));
+            Assert.That(container.Bounds.Height, Is.LessThanOrEqualTo(340));
+            ListBox documents = session.Overlay.FindControl<ListBox>("DocumentsList")!;
+            ListBox tools = session.Overlay.FindControl<ListBox>("ToolsList")!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(documents.IsEffectivelyVisible, Is.True);
+                Assert.That(tools.IsEffectivelyVisible, Is.True);
+                Assert.That(documents.Bounds.Width, Is.GreaterThan(150));
+                Assert.That(tools.TranslatePoint(default, session.Overlay)!.Value.X,
+                    Is.LessThan(documents.TranslatePoint(default, session.Overlay)!.Value.X));
+            });
+            session.Capture($"switcher-{width}-{light}");
+            session.Overlay.FindControl<Button>("NewTabButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(2);
+            Assert.That(session.Overlay.FindControl<ListBox>("NewToolsList")!.IsEffectivelyVisible, Is.True);
+            Assert.That(documents.IsEffectivelyVisible, Is.False);
+            Assert.That(tools.IsEffectivelyVisible, Is.False);
+            Assert.That(container.Bounds.Height, Is.LessThanOrEqualTo(390));
+            session.Capture($"create-{width}-{light}");
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    private sealed class NavigationGestures : IDisposable
+    {
+        private readonly ContextCommandManager _manager = TestShell.MainViewModel.ContextCommandManager!;
+        private readonly OSPlatform _platform = OperatingSystem.IsMacOS() ? OSPlatform.OSX
+            : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
+        private readonly List<(ContextCommandEntry Entry, KeyGesture? Gesture)> _originals = [];
+
+        public void Set(string name, KeyGesture gesture)
+        {
+            ContextCommandEntry entry = _manager.GetDefinitions<MainViewExtension>()
+                .Single(command => command.Definition.Name == name);
+            _originals.Add((entry, entry.KeyGestures.First(item => item.Platform == _platform).KeyGesture));
+            _manager.ChangeKeyGesture(entry, gesture, _platform);
+        }
+
+        public void Dispose()
+        {
+            foreach (var original in _originals)
+                _manager.ChangeKeyGesture(original.Entry, original.Gesture, _platform);
+        }
+    }
+
+    private sealed class Session : IAsyncDisposable
+    {
+        private Session(Window window, MainView view, TextBox input, EditorTabItem[] documents)
+        {
+            Window = window;
+            View = view;
+            Input = input;
+            Documents = documents;
+        }
+
+        public Window Window { get; }
+        public MainView View { get; }
+        public TextBox Input { get; }
+        public EditorTabItem[] Documents { get; }
+        public TabSwitcherViewModel Switcher => TestShell.MainViewModel.TabSwitcher;
+        public TabSwitcherView Overlay => View.FindControl<TabSwitcherView>("TabSwitcherOverlay")!;
+        public EditViewModel Editor => (EditViewModel)Documents[^1].Context.Value;
+
+        public static async Task<Session> CreateAsync(string name, int documentCount = 3, int width = 1000, bool light = false)
+        {
+            await TestReset.ResetShellAsync();
+            string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "tab-switcher-" + name);
+            Directory.CreateDirectory(directory);
+            for (int index = 0; index < documentCount; index++)
+            {
+                var scene = new Scene(640, 480, "Scene " + index)
+                {
+                    Uri = new Uri(Path.Combine(directory, $"Scene {index}.scene")),
+                };
+                CoreSerializer.StoreToUri(scene, scene.Uri);
+                TestShell.Editor.ActivateTabItem(scene);
+            }
+            HeadlessTestHelpers.Settle();
+            var view = new MainView { DataContext = TestShell.MainViewModel };
+            var input = new TextBox
+            {
+                Width = 140,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom
+            };
+            ((Grid)view.Content!).Children.Add(input);
+            var window = new Window
+            {
+                Content = view,
+                Width = width,
+                Height = 720,
+                RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render(2);
+                input.Focus();
+                return new(window, view, input, TestShell.Editor.TabItems.ToArray());
+            }
+            catch
+            {
+                window.Close();
+                await TestReset.ResetShellAsync();
+                throw;
+            }
+        }
+
+        public void Press(Key key, RawInputModifiers modifiers = RawInputModifiers.None)
+        {
+            Window.KeyPress(key, modifiers, PhysicalKey.None, null);
+            HeadlessTestHelpers.Settle();
+        }
+
+        public void Release(Key key, RawInputModifiers modifiers = RawInputModifiers.None)
+        {
+            Window.KeyRelease(key, modifiers, PhysicalKey.None, null);
+            HeadlessTestHelpers.Settle();
+        }
+
+        public void Capture(string name)
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "beutl-tab-switcher-captures");
+            Directory.CreateDirectory(directory);
+            using var frame = Window.CaptureRenderedFrame();
+            Assert.That(frame, Is.Not.Null);
+            frame!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            Switcher.Close();
+            TestShell.MainViewModel.CommandPalette.Close();
+            Window.Close();
+            HeadlessTestHelpers.Settle();
+            await TestReset.ResetShellAsync();
+        }
+    }
+}
