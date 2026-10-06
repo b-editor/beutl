@@ -1,11 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Api.Services;
+﻿using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
-using Beutl.PropertyAdapters;
 using Beutl.Services;
-using Beutl.Services.Adapters;
 using Beutl.ViewModels.Editors;
 
 using DynamicData;
@@ -16,18 +13,15 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEditorContextVisitor, IServiceProvider
 {
-    private readonly HistoryManager _history;
-    private readonly ExtensionProvider _extensionProvider;
-    private PropertyEditorFactoryAdapter? _propertyEditorFactory;
-    private PropertiesEditorFactoryImpl? _propertiesEditorFactory;
+    private readonly PropertyEditorHostServices _services;
 
     public AnExtensionSettingsPageViewModel(Extension extension, ExtensionProvider extensionProvider)
     {
         Extension = extension;
-        _extensionProvider = extensionProvider;
 
         var sequenceGenerator = new OperationSequenceGenerator();
-        _history = new HistoryManager(extension.Settings!, sequenceGenerator);
+        _services = new PropertyEditorHostServices(
+            new HistoryManager(extension.Settings!, sequenceGenerator), extensionProvider);
 
         InitializeCoreObject(extension.Settings!, (_, m) => m.Browsable, extensionProvider);
 
@@ -46,24 +40,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(HistoryManager))
-        {
-            return _history;
-        }
-
-        // Expose the session ExtensionProvider and property-editor factories so nested object /
-        // list editors resolve them through the service chain even though this host is not an
-        // EditViewModel.
-        if (serviceType == typeof(ExtensionProvider))
-            return _extensionProvider;
-
-        if (serviceType.IsAssignableTo(typeof(IPropertyEditorFactory)))
-            return _propertyEditorFactory ??= new PropertyEditorFactoryAdapter(_extensionProvider);
-
-        if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
-            return _propertiesEditorFactory ??= new PropertiesEditorFactoryImpl(_extensionProvider);
-
-        return null;
+        return _services.GetService(serviceType);
     }
 
     public void Visit(IPropertyEditorContext context)
@@ -72,17 +49,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
     private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate, ExtensionProvider extensionProvider)
     {
-        Type objType = obj.GetType();
-        Type adapterType = typeof(CorePropertyAdapter<>);
-
-        List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
-        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
-        List<IPropertyAdapter> props = cprops.ConvertAll(x =>
-        {
-            CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
-            Type adapterGType = adapterType.MakeGenericType(x.PropertyType);
-            return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
-        });
+        List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateAdapters(obj, predicate);
 
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
         IPropertyAdapter[]? foundItems;
@@ -103,32 +70,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
             }
         } while (foundItems != null && extension != null);
 
-        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
-        {
-            if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
-            {
-                return (adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute)
-                    ?.GetGroupName();
-            }
-            else
-            {
-                return null;
-            }
-        })
-            .Select(x => (x.Key, x.ToArray()))
-            .ToArray())
-        {
-            if (group.Key != null)
-            {
-                IPropertyEditorContext?[] array = group.Value;
-                if (array.Length >= 1)
-                {
-                    int index = tempItems.IndexOf(array[0]);
-                    tempItems.RemoveMany(array);
-                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
-                }
-            }
-        }
+        CoreObjectPropertyEditorBuilder.GroupByDisplayGroupName(tempItems);
 
         // Put consecutive settings without a named group in a shared frame too,
         // keeping their order relative to the named groups.

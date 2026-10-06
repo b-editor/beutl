@@ -55,7 +55,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     public int OriginalIndex { get; set; }
 
-    public ReactiveProperty<bool> IsExpanded { get; } = new(true);
+    public ReactiveProperty<bool> IsExpanded { get; }
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
@@ -95,12 +95,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
     public void Dispose()
     {
         GraphNode.Items.CollectionChanged -= OnItemsCollectionChanged;
-        foreach (IPropertyEditorContext? item in Properties)
-        {
-            item?.Dispose();
-        }
-
-        Properties.Clear();
+        DisposeAndClearProperties();
         _disposables.Dispose();
 
         _parent = null!;
@@ -156,14 +151,19 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
                 break;
 
             case NotifyCollectionChangedAction.Reset:
-                foreach (IPropertyEditorContext? item in Properties)
-                {
-                    item?.Dispose();
-                }
-
-                Properties.Clear();
+                DisposeAndClearProperties();
                 break;
         }
+    }
+
+    private void DisposeAndClearProperties()
+    {
+        foreach (IPropertyEditorContext? item in Properties)
+        {
+            item?.Dispose();
+        }
+
+        Properties.Clear();
     }
 
     private IPropertyEditorContext? CreatePropertyContext(IPropertyAdapter[] atmp, INodeMember item)

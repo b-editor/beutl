@@ -3,7 +3,6 @@ using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
-using Dock.Model.Core;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -16,15 +15,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
     private bool _layoutInitialized;
-
-    // Set only while ApplyLayout is walking a restore, so a failure mid-walk can dispose the tools
-    // built so far. Null at every other time.
-    private List<BeutlToolDockable>? _restoredTools;
-
-    // Set while restoring an arrangement-only payload (a saved layout). Such a payload deliberately
-    // omits tool state, so handing it to IToolContext.ReadFromJson would feed every reader a
-    // document missing the fields its writer produces.
-    private bool _restoringArrangementOnly;
 
     public DockHostViewModel(string sceneId, EditViewModel editViewModel)
     {
@@ -193,7 +183,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         _logger.LogInformation("Writing DockHostViewModel to JSON ({SceneId})", _sceneId);
         json["_dockVersion"] = DockVersion;
-        json["DockLayout"] = SaveNode(Layout.Value);
+        json["DockLayout"] = DockLayoutJsonWriter.SaveNode(Layout.Value);
     }
 
     public void ReadFromJson(JsonObject json)
@@ -206,7 +196,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             try
             {
-                var restored = RestoreNode(layoutObj);
+                var reader = new DockLayoutJsonReader(
+                    Factory, _editViewModel, _logger, _sceneId, restoredTools: null, restoringArrangementOnly: false);
+                var restored = reader.RestoreNode(layoutObj);
                 if (restored is IRootDock rootDock)
                 {
                     Factory.SetRootDock(rootDock);
@@ -258,7 +250,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return new JsonObject
         {
             ["_dockVersion"] = DockVersion,
-            ["DockLayout"] = SaveNode(Layout.Value, includeToolState: false),
+            ["DockLayout"] = DockLayoutJsonWriter.SaveNode(Layout.Value, includeToolState: false),
         };
     }
 
@@ -277,9 +269,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         IRootDock restored;
         // Collects every tool built during the walk, so a mid-walk failure can dispose them.
         var built = new List<BeutlToolDockable>();
-        _restoredTools = built;
         // A saved layout carries no tool state (see CaptureLayout), so the readers must be skipped.
-        _restoringArrangementOnly = true;
+        var reader = new DockLayoutJsonReader(
+            Factory, _editViewModel, _logger, _sceneId, built, restoringArrangementOnly: true);
         try
         {
             if (!IsCurrentVersion(layout))
@@ -296,7 +288,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 return false;
             }
 
-            if (RestoreNode(layoutObj) is not IRootDock rootDock)
+            if (reader.RestoreNode(layoutObj) is not IRootDock rootDock)
             {
                 _logger.LogWarning("Saved dock layout did not restore to an IRootDock ({SceneId})", _sceneId);
                 DisposeAll(built, "partially restored");
@@ -310,11 +302,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             _logger.LogError(ex, "Failed to restore a saved dock layout ({SceneId})", _sceneId);
             DisposeAll(built, "partially restored");
             return false;
-        }
-        finally
-        {
-            _restoredTools = null;
-            _restoringArrangementOnly = false;
         }
 
         // Dispose after the swap, and directly — CloseDockable would walk the old tree.
@@ -375,378 +362,4 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _layoutInitialized = false;
         EnsureDefaultLayout();
     }
-
-    private JsonObject SaveNode(IDockable node, bool includeToolState = true)
-    {
-        return node switch
-        {
-            IRootDock root => SaveRootDock(root, includeToolState),
-            IProportionalDockSplitter => new JsonObject { ["$type"] = "splitter" },
-            IProportionalDock prop => SaveProportionalDock(prop, includeToolState),
-            IToolDock toolDock => SaveToolDock(toolDock, includeToolState),
-            BeutlToolDockable tool => SaveBeutlTool(tool, includeToolState),
-            PlayerToolDockable => new JsonObject { ["$type"] = "player" },
-            _ => new JsonObject { ["$type"] = "unknown" },
-        };
-    }
-
-    private JsonObject SaveRootDock(IRootDock root, bool includeToolState)
-    {
-        var obj = new JsonObject
-        {
-            ["$type"] = "root",
-            ["id"] = root.Id
-        };
-
-        if (root.VisibleDockables is { Count: > 0 } visible)
-        {
-            var children = new JsonArray();
-            foreach (var child in visible)
-                children.Add(SaveNode(child, includeToolState));
-            obj["children"] = children;
-        }
-
-        SaveDockableList(obj, "hidden", root.HiddenDockables, includeToolState);
-        SaveDockableList(obj, "leftPinned", root.LeftPinnedDockables, includeToolState);
-        SaveDockableList(obj, "rightPinned", root.RightPinnedDockables, includeToolState);
-        SaveDockableList(obj, "topPinned", root.TopPinnedDockables, includeToolState);
-        SaveDockableList(obj, "bottomPinned", root.BottomPinnedDockables, includeToolState);
-
-        if (root.Windows is { Count: > 0 } windows)
-        {
-            var windowsArray = new JsonArray();
-            foreach (var w in windows)
-            {
-                if (w.Layout is null) continue;
-                var wObj = new JsonObject
-                {
-                    ["layout"] = SaveNode(w.Layout, includeToolState),
-                    ["x"] = w.X,
-                    ["y"] = w.Y,
-                    ["width"] = w.Width,
-                    ["height"] = w.Height,
-                    ["topmost"] = w.Topmost,
-                };
-                if (!string.IsNullOrEmpty(w.Title))
-                    wObj["title"] = w.Title;
-                windowsArray.Add(wObj);
-            }
-
-            obj["windows"] = windowsArray;
-        }
-
-        return obj;
-    }
-
-    private void SaveDockableList(JsonObject parent, string key, IList<IDockable>? list, bool includeToolState)
-    {
-        if (list is not { Count: > 0 }) return;
-        var array = new JsonArray();
-        foreach (var item in list)
-            array.Add(SaveNode(item, includeToolState));
-        parent[key] = array;
-    }
-
-    private JsonObject SaveProportionalDock(IProportionalDock prop, bool includeToolState)
-    {
-        var obj = new JsonObject
-        {
-            ["$type"] = "proportional",
-            ["id"] = prop.Id,
-            ["orientation"] = prop.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
-        };
-        if (!double.IsNaN(prop.Proportion))
-            obj["proportion"] = prop.Proportion;
-
-        if (prop.VisibleDockables is { Count: > 0 } visible)
-        {
-            var children = new JsonArray();
-            foreach (var child in visible)
-                children.Add(SaveNode(child, includeToolState));
-            obj["children"] = children;
-        }
-
-        return obj;
-    }
-
-    private JsonObject SaveToolDock(IToolDock toolDock, bool includeToolState)
-    {
-        var obj = new JsonObject
-        {
-            ["$type"] = "tool_dock",
-            ["id"] = toolDock.Id,
-            ["alignment"] = toolDock.Alignment.ToString().ToLowerInvariant(),
-            ["minWidth"] = toolDock.MinWidth,
-            ["minHeight"] = toolDock.MinHeight,
-        };
-        if (!double.IsNaN(toolDock.Proportion))
-            obj["proportion"] = toolDock.Proportion;
-
-        if (toolDock.VisibleDockables is { Count: > 0 } visible)
-        {
-            var tools = new JsonArray();
-            int activeDockableIndex = -1;
-            for (int i = 0; i < visible.Count; i++)
-            {
-                var child = visible[i];
-                tools.Add(SaveNode(child, includeToolState));
-                if (child == toolDock.ActiveDockable)
-                    activeDockableIndex = i;
-            }
-
-            obj["tools"] = tools;
-            if (activeDockableIndex >= 0)
-                obj["activeDockableIndex"] = activeDockableIndex;
-        }
-
-        return obj;
-    }
-
-    private static JsonObject SaveBeutlTool(BeutlToolDockable dockable, bool includeToolState)
-    {
-        var ctx = dockable.ToolContext;
-        var obj = new JsonObject
-        {
-            ["$type"] = "tool",
-            ["id"] = dockable.Id
-        };
-        var extObj = new JsonObject();
-        extObj.WriteDiscriminator(ctx.Extension.GetType());
-        obj["extension"] = extObj;
-
-        // A tool's serializer can have side effects (some write their own per-scene state file), so
-        // a preset capture must not invoke it just to discard the result.
-        if (includeToolState)
-        {
-            ctx.WriteToJson(obj);
-        }
-
-        return obj;
-    }
-
-    private IDockable? RestoreNode(JsonObject obj)
-    {
-        if (!obj.TryGetPropertyValueAsJsonValue("$type", out string? type))
-            return null;
-
-        return type switch
-        {
-            "root" => RestoreRootDock(obj),
-            "proportional" => RestoreProportionalDock(obj),
-            "splitter" => Factory.CreateProportionalDockSplitter(),
-            "tool_dock" => RestoreToolDock(obj),
-            "tool" => RestoreBeutlTool(obj),
-            "player" => RestorePlayerDockable(),
-            _ => null,
-        };
-    }
-
-    private IRootDock RestoreRootDock(JsonObject obj)
-    {
-        var rootDock = Factory.CreateRootDock();
-        rootDock.Id = obj["id"]?.GetValue<string>() ?? DockIds.Root;
-        rootDock.Title = "Editor";
-        rootDock.IsCollapsable = false;
-
-        var children = RestoreChildren(obj);
-        rootDock.VisibleDockables = Factory.CreateList<IDockable>(children.ToArray());
-        if (rootDock.VisibleDockables.Count > 0)
-        {
-            rootDock.ActiveDockable = rootDock.VisibleDockables[0];
-            rootDock.DefaultDockable = rootDock.VisibleDockables[0];
-        }
-
-        rootDock.HiddenDockables = RestoreDockableList(obj, "hidden");
-        rootDock.LeftPinnedDockables = RestoreDockableList(obj, "leftPinned");
-        rootDock.RightPinnedDockables = RestoreDockableList(obj, "rightPinned");
-        rootDock.TopPinnedDockables = RestoreDockableList(obj, "topPinned");
-        rootDock.BottomPinnedDockables = RestoreDockableList(obj, "bottomPinned");
-
-        // Restore floating windows
-        if (obj.TryGetPropertyValue("windows", out var wNode) && wNode is JsonArray wArray)
-        {
-            foreach (var wItem in wArray)
-            {
-                if (wItem is not JsonObject wObj) continue;
-                if (!wObj.TryGetPropertyValue("layout", out var layoutNode) || layoutNode is not JsonObject layoutObj) continue;
-                var layout = RestoreNode(layoutObj);
-                if (layout is null) continue;
-
-                if (!BeutlDockFactory.Traverse(layout).Any(i => i is BeutlToolDockable or PlayerToolDockable))
-                {
-                    continue;
-                }
-
-                var window = Factory.CreateDockWindow();
-                window.Layout = layout as IRootDock ?? CreateWindowRootDock(layout);
-                if (wObj["x"] is JsonValue xVal && xVal.TryGetValue(out double x)) window.X = x;
-                if (wObj["y"] is JsonValue yVal && yVal.TryGetValue(out double y)) window.Y = y;
-                if (wObj["width"] is JsonValue wVal && wVal.TryGetValue(out double width)) window.Width = width;
-                if (wObj["height"] is JsonValue hVal && hVal.TryGetValue(out double height)) window.Height = height;
-                if (wObj["topmost"] is JsonValue tVal && tVal.TryGetValue(out bool topmost)) window.Topmost = topmost;
-                if (wObj["title"] is JsonValue titleVal && titleVal.TryGetValue(out string? title)) window.Title = title ?? string.Empty;
-                rootDock.Windows ??= Factory.CreateList<IDockWindow>();
-                rootDock.Windows.Add(window);
-            }
-        }
-
-        return rootDock;
-    }
-
-    private IList<IDockable>? RestoreDockableList(JsonObject obj, string key)
-    {
-        if (!obj.TryGetPropertyValue(key, out var node) || node is not JsonArray array)
-            return null;
-        var list = new List<IDockable>();
-        foreach (var item in array)
-        {
-            if (item is not JsonObject itemObj) continue;
-            var restored = RestoreNode(itemObj);
-            if (restored is not null) list.Add(restored);
-        }
-
-        return list.Count == 0 ? null : Factory.CreateList<IDockable>(list.ToArray());
-    }
-
-    private IRootDock CreateWindowRootDock(IDockable content)
-    {
-        var windowRoot = Factory.CreateRootDock();
-        windowRoot.VisibleDockables = Factory.CreateList<IDockable>(content);
-        windowRoot.ActiveDockable = content;
-        return windowRoot;
-    }
-
-    private IProportionalDock RestoreProportionalDock(JsonObject obj)
-    {
-        var dock = Factory.CreateProportionalDock();
-        dock.Id = obj["id"]?.GetValue<string>() ?? string.Empty;
-        dock.Orientation = obj["orientation"]?.GetValue<string>() == "horizontal"
-            ? Orientation.Horizontal
-            : Orientation.Vertical;
-        if (obj["proportion"] is JsonValue pv && pv.TryGetValue(out double prop))
-            dock.Proportion = prop;
-
-        var children = RestoreChildren(obj);
-        dock.VisibleDockables = Factory.CreateList<IDockable>(children.ToArray());
-        return dock;
-    }
-
-    private IToolDock RestoreToolDock(JsonObject obj)
-    {
-        var id = obj["id"]?.GetValue<string>() ?? string.Empty;
-        var alignment = obj["alignment"]?.GetValue<string>() is { } alignStr
-            ? ParseAlignment(alignStr)
-            : Alignment.Unset;
-        var proportion = obj["proportion"] is JsonValue pv && pv.TryGetValue(out double p) ? p : double.NaN;
-        var minWidth = obj["minWidth"] is JsonValue mwVal && mwVal.TryGetValue(out double mw) ? mw : 0.0;
-        var minHeight = obj["minHeight"] is JsonValue mhVal && mhVal.TryGetValue(out double mh) ? mh : 0.0;
-        var dock = Factory.CreateStyledToolDock(id, alignment, proportion, minWidth, minHeight);
-
-        var dockables = new List<IDockable>();
-        int activeDockableIndex = -1;
-        if (obj["activeDockableIndex"] is JsonValue aiVal)
-            aiVal.TryGetValue(out activeDockableIndex);
-
-        if (obj.TryGetPropertyValue("tools", out var toolsNode) && toolsNode is JsonArray toolsArray)
-        {
-            foreach (var toolNode in toolsArray)
-            {
-                if (toolNode is not JsonObject toolObj) continue;
-                var restored = RestoreNode(toolObj);
-                if (restored is not null)
-                    dockables.Add(restored);
-            }
-        }
-
-        dock.VisibleDockables = Factory.CreateList<IDockable>(dockables.ToArray());
-        if (activeDockableIndex >= 0 && activeDockableIndex < dockables.Count)
-        {
-            var active = dockables[activeDockableIndex];
-            dock.ActiveDockable = active;
-            if (active is BeutlToolDockable btd)
-            {
-                btd.IsActive = true;
-                btd.ToolContext.IsSelected.Value = true;
-            }
-        }
-        else if (dockables.Count > 0)
-        {
-            dock.ActiveDockable = dockables[0];
-        }
-
-        return dock;
-    }
-
-    private BeutlToolDockable? RestoreBeutlTool(JsonObject obj)
-    {
-        if (obj["extension"] is not JsonObject extObj || !extObj.TryGetDiscriminator(out Type? extType))
-            return null;
-
-        var extension = _editViewModel.ExtensionProvider.AllExtensions
-            .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
-        if (extension is null) return null;
-
-        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) return null;
-
-        if (!_restoringArrangementOnly)
-        {
-            try
-            {
-                ctx.ReadFromJson(obj);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to restore tool state for '{ToolType}' ({SceneId})",
-                    extType.FullName,
-                    _sceneId);
-            }
-        }
-
-        var dockable = new BeutlToolDockable(ctx, _editViewModel);
-        // Registered before anything that can throw — including the id parse just below — so a
-        // failure anywhere after construction can still dispose it.
-        _restoredTools?.Add(dockable);
-
-        if (obj["id"] is JsonValue idValue
-            && idValue.TryGetValue(out string? savedId)
-            && savedId.Length > 0)
-        {
-            dockable.Id = savedId;
-        }
-
-        return dockable;
-    }
-
-    private PlayerToolDockable? RestorePlayerDockable()
-    {
-        return new PlayerToolDockable(_editViewModel.Player, Strings.Preview);
-    }
-
-    private List<IDockable> RestoreChildren(JsonObject obj)
-    {
-        var result = new List<IDockable>();
-        if (!obj.TryGetPropertyValue("children", out var childrenNode) || childrenNode is not JsonArray childrenArray)
-            return result;
-
-        foreach (var childNode in childrenArray)
-        {
-            if (childNode is not JsonObject childObj) continue;
-            var restored = RestoreNode(childObj);
-            if (restored is not null)
-                result.Add(restored);
-        }
-
-        return result;
-    }
-
-    private static Alignment ParseAlignment(string value) => value switch
-    {
-        "left" => Alignment.Left,
-        "right" => Alignment.Right,
-        "bottom" => Alignment.Bottom,
-        "top" => Alignment.Top,
-        _ => Alignment.Unset,
-    };
 }

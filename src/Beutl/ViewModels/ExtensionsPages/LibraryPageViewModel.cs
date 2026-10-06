@@ -99,29 +99,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         foreach (PackageUpdate item in updates)
                         {
                             _lifetimeCts.Token.ThrowIfCancellationRequested();
-                            LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
-                                x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
-
-                            if (localPackage != null)
-                            {
-                                localPackage.LatestRelease.Value = item.NewVersion;
-                            }
-
-                            RemoteUserPackageViewModel? remotePackage = Packages.OfType<RemoteUserPackageViewModel>()
-                                .FirstOrDefault(
-                                    x => x?.Package?.Name?.Equals(item.Package.Name,
-                                        StringComparison.OrdinalIgnoreCase) == true);
-
-                            if (remotePackage != null)
-                                Packages.Remove(remotePackage);
-                            remotePackage ??= new RemoteUserPackageViewModel(item.Package, _clients, _editorService, _projectService)
-                            {
-                                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
-                            };
-
-                            remotePackage.LatestRelease.Value = item.NewVersion;
-
-                            Packages.Insert(0, remotePackage);
+                            ApplyPackageUpdate(item);
                         }
                     }
                 }
@@ -269,15 +247,43 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         }
     }
 
+    // Shows the newer release on the installed package, and moves the library entry to the top.
+    private void ApplyPackageUpdate(PackageUpdate item)
+    {
+        LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
+            x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (localPackage != null)
+        {
+            localPackage.LatestRelease.Value = item.NewVersion;
+        }
+
+        RemoteUserPackageViewModel? remotePackage = Packages.OfType<RemoteUserPackageViewModel>()
+            .FirstOrDefault(
+                x => x?.Package?.Name?.Equals(item.Package.Name,
+                    StringComparison.OrdinalIgnoreCase) == true);
+
+        if (remotePackage != null)
+            Packages.Remove(remotePackage);
+        remotePackage ??= new RemoteUserPackageViewModel(item.Package, _clients, _editorService, _projectService)
+        {
+            OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+        };
+
+        remotePackage.LatestRelease.Value = item.NewVersion;
+
+        Packages.Insert(0, remotePackage);
+    }
+
     private async Task<List<Package>> LoadAll(CancellationToken cancellationToken)
     {
         var list = new List<Package>();
-        Package[] array = await _service.GetPackages(cancellationToken, 0, 30);
+        Package[] array = await _service.GetPackages(cancellationToken, 0, PackagePageList.PageSize);
         list.AddRange(array);
-        while (array.Length == 30)
+        while (array.Length == PackagePageList.PageSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            array = await _service.GetPackages(cancellationToken, list.Count, 30);
+            array = await _service.GetPackages(cancellationToken, list.Count, PackagePageList.PageSize);
             list.AddRange(array);
         }
 

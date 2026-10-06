@@ -91,11 +91,28 @@ public partial class MenuBarViewModel
         return data;
     }
 
+    private bool TryGetSelectedElement(
+        [NotNullWhen(true)] out EditViewModel? viewModel,
+        [NotNullWhen(true)] out Scene? scene,
+        [NotNullWhen(true)] out Element? element)
+    {
+        if (TryGetSelectedEditViewModel(out viewModel)
+            && viewModel.Scene is Scene selectedScene
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element selectedElement)
+        {
+            scene = selectedScene;
+            element = selectedElement;
+            return true;
+        }
+
+        scene = null;
+        element = null;
+        return false;
+    }
+
     private void OnExcludeElement()
     {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+        if (TryGetSelectedElement(out EditViewModel? viewModel, out Scene? scene, out Element? element))
         {
             viewModel.GetRequiredService<IElementStructureService>()
                 .Exclude(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
@@ -104,9 +121,7 @@ public partial class MenuBarViewModel
 
     private async Task OnCutElement()
     {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+        if (TryGetSelectedElement(out EditViewModel? viewModel, out Scene? scene, out Element? element))
         {
             await viewModel.GetRequiredService<IElementClipboardService>()
                 .CutAsync(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);

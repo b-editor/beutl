@@ -117,14 +117,8 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
         using (await _discoverService.Lock.LockAsync(cancellationToken))
         {
-            Package[] array = await SearchPackages(0, 30, cancellationToken);
-            Packages.Clear();
-            Packages.AddRange(array);
-
-            if (array.Length == 30)
-            {
-                Packages.Add(new LoadMoreItem());
-            }
+            Package[] array = await SearchPackages(0, PackagePageList.PageSize, cancellationToken);
+            PackagePageList.ShowFirstPage(Packages, array);
         }
     }
 
@@ -132,14 +126,9 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
     {
         using (await _discoverService.Lock.LockAsync(cancellationToken))
         {
-            Packages.RemoveAt(Packages.Count - 1);
-            Package[] array = await SearchPackages(Packages.Count, 30, cancellationToken);
-            Packages.AddRange(array);
-
-            if (array.Length == 30)
-            {
-                Packages.Add(new LoadMoreItem());
-            }
+            PackagePageList.RemoveLoadMoreItem(Packages);
+            Package[] array = await SearchPackages(Packages.Count, PackagePageList.PageSize, cancellationToken);
+            PackagePageList.AppendPage(Packages, array);
         }
     }
 }

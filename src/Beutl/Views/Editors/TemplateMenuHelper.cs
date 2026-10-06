@@ -41,61 +41,7 @@ public static class TemplateMenuHelper
         var applySubMenu = new FAMenuFlyoutSubItem { Text = Strings.ApplyTemplate };
         var addSubMenu = new FAMenuFlyoutSubItem { Text = Strings.AddFromTemplate };
 
-        menuFlyout.Opening += (_, _) =>
-        {
-            applySubMenu.Items.Clear();
-            addSubMenu.Items.Clear();
-
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm)
-            {
-                applySubMenu.IsVisible = true;
-                addSubMenu.IsVisible = false;
-                applySubMenu.IsEnabled = false;
-                return;
-            }
-
-            bool isListItem = vm.IsListItemAdapter;
-            bool isGroup = vm.IsTemplateGroup;
-            var templates = vm.GetApplicableTemplates().ToList();
-
-            if (isListItem)
-            {
-                // ListItem: 「テンプレートを適用」(置き換え) と「テンプレートから追加」(親リストに追加) の2つを表示
-                applySubMenu.IsVisible = true;
-                addSubMenu.IsVisible = true;
-
-                foreach (ObjectTemplateItem t in templates)
-                {
-                    applySubMenu.Items.Add(CreateApplyMenuItem(t, vm));
-                    addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: false));
-                }
-            }
-            else if (isGroup)
-            {
-                // Group: 「テンプレートから追加」のみ表示（ApplyTemplate がグループに追加する）
-                applySubMenu.IsVisible = false;
-                addSubMenu.IsVisible = true;
-
-                foreach (ObjectTemplateItem t in templates)
-                {
-                    addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: true));
-                }
-            }
-            else
-            {
-                // 通常: 「テンプレートを適用」のみ
-                applySubMenu.IsVisible = true;
-                addSubMenu.IsVisible = false;
-
-                foreach (ObjectTemplateItem t in templates)
-                {
-                    applySubMenu.Items.Add(CreateApplyMenuItem(t, vm));
-                }
-            }
-
-            applySubMenu.IsEnabled = applySubMenu.Items.Count > 0;
-            addSubMenu.IsEnabled = addSubMenu.Items.Count > 0;
-        };
+        menuFlyout.Opening += (_, _) => RebuildTemplateSubMenus(control, applySubMenu, addSubMenu);
 
         var separator = new FAMenuFlyoutSeparator();
         separator.Bind(
@@ -107,6 +53,63 @@ public static class TemplateMenuHelper
         menuFlyout.Items.Add(saveMenu);
         menuFlyout.Items.Add(applySubMenu);
         menuFlyout.Items.Add(addSubMenu);
+    }
+
+    private static void RebuildTemplateSubMenus(
+        Control control, FAMenuFlyoutSubItem applySubMenu, FAMenuFlyoutSubItem addSubMenu)
+    {
+        applySubMenu.Items.Clear();
+        addSubMenu.Items.Clear();
+
+        if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm)
+        {
+            applySubMenu.IsVisible = true;
+            addSubMenu.IsVisible = false;
+            applySubMenu.IsEnabled = false;
+            return;
+        }
+
+        bool isListItem = vm.IsListItemAdapter;
+        bool isGroup = vm.IsTemplateGroup;
+        var templates = vm.GetApplicableTemplates().ToList();
+
+        if (isListItem)
+        {
+            // ListItem: 「テンプレートを適用」(置き換え) と「テンプレートから追加」(親リストに追加) の2つを表示
+            applySubMenu.IsVisible = true;
+            addSubMenu.IsVisible = true;
+
+            foreach (ObjectTemplateItem t in templates)
+            {
+                applySubMenu.Items.Add(CreateApplyMenuItem(t, vm));
+                addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: false));
+            }
+        }
+        else if (isGroup)
+        {
+            // Group: 「テンプレートから追加」のみ表示（ApplyTemplate がグループに追加する）
+            applySubMenu.IsVisible = false;
+            addSubMenu.IsVisible = true;
+
+            foreach (ObjectTemplateItem t in templates)
+            {
+                addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: true));
+            }
+        }
+        else
+        {
+            // 通常: 「テンプレートを適用」のみ
+            applySubMenu.IsVisible = true;
+            addSubMenu.IsVisible = false;
+
+            foreach (ObjectTemplateItem t in templates)
+            {
+                applySubMenu.Items.Add(CreateApplyMenuItem(t, vm));
+            }
+        }
+
+        applySubMenu.IsEnabled = applySubMenu.Items.Count > 0;
+        addSubMenu.IsEnabled = addSubMenu.Items.Count > 0;
     }
 
     private static FAMenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)

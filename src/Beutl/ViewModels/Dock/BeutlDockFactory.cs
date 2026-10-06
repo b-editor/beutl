@@ -64,10 +64,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         var leftDock = CreateAnchoredDock(DockAnchor.Left);
 
-        var playerDockable = new PlayerToolDockable(editViewModel.Player, Strings.Preview);
-        var playerDock = CreateAnchoredDock(DockAnchor.Player);
-        playerDock.VisibleDockables = CreateList<IDockable>(playerDockable);
-        playerDock.ActiveDockable = playerDockable;
+        var playerDock = CreatePlayerDock();
 
         var rightDock = CreateAnchoredDock(DockAnchor.Right);
 
@@ -93,25 +90,12 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             CreateProportionalDockSplitter(),
             bottomDock);
 
-        var rootDock = CreateRootDock();
-        rootDock.Id = DockIds.Root;
-        rootDock.Title = "Editor";
-        rootDock.IsCollapsable = false;
-        rootDock.VisibleDockables = CreateList<IDockable>(root);
-        rootDock.ActiveDockable = root;
-        rootDock.DefaultDockable = root;
-
-        _rootDock = rootDock;
-        _anchorCacheDirty = true;
-        return rootDock;
+        return CreateEditorRootDock(root);
     }
 
     private IRootDock CreatePortraitLayout()
     {
-        var playerDockable = new PlayerToolDockable(editViewModel.Player, Strings.Preview);
-        var playerDock = CreateAnchoredDock(DockAnchor.Player);
-        playerDock.VisibleDockables = CreateList<IDockable>(playerDockable);
-        playerDock.ActiveDockable = playerDockable;
+        var playerDock = CreatePlayerDock();
 
         var leftDock = CreateAnchoredDock(DockAnchor.Left);
         var rightDock = CreateAnchoredDock(DockAnchor.Right);
@@ -147,6 +131,20 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             CreateProportionalDockSplitter(),
             rightColumn);
 
+        return CreateEditorRootDock(root);
+    }
+
+    private IToolDock CreatePlayerDock()
+    {
+        var playerDockable = new PlayerToolDockable(editViewModel.Player, Strings.Preview);
+        var playerDock = CreateAnchoredDock(DockAnchor.Player);
+        playerDock.VisibleDockables = CreateList<IDockable>(playerDockable);
+        playerDock.ActiveDockable = playerDockable;
+        return playerDock;
+    }
+
+    private IRootDock CreateEditorRootDock(IDockable root)
+    {
         var rootDock = CreateRootDock();
         rootDock.Id = DockIds.Root;
         rootDock.Title = "Editor";

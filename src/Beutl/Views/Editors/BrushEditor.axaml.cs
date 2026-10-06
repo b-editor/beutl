@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
@@ -50,10 +49,7 @@ public sealed partial class BrushEditor : UserControl
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
 
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && viewModel.ApplyTemplate(template))
+        if (EditorDragDropHelper.TryApplyDroppedTemplate(e, viewModel))
         {
             e.Handled = true;
         }
@@ -61,11 +57,7 @@ public sealed partial class BrushEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(DataFormat.File))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        EditorDragDropHelper.HandleTemplateFileDragOver(e);
     }
 
     public Avalonia.Media.Brush? Brush
@@ -238,25 +230,7 @@ public sealed partial class BrushEditor : UserControl
                  or BrushType.LinearGradientBrush
                  or BrushType.RadialGradientBrush)
         {
-            var gradStops = new List<GradientStop>();
-            if (viewModel.Value.Value is GradientBrush oldBrush)
-            {
-                gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color.CurrentValue, v.Offset.CurrentValue)));
-            }
-            else
-            {
-                gradStops.Add(new GradientStop(Colors.White, 0));
-                gradStops.Add(new GradientStop(Colors.Black, 1));
-            }
-
-            GradientBrush brush = e switch
-            {
-                BrushType.LinearGradientBrush => new LinearGradientBrush(),
-                BrushType.ConicGradientBrush => new ConicGradientBrush(),
-                BrushType.RadialGradientBrush => new RadialGradientBrush(),
-                _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
-            };
-            brush.GradientStops.Replace(gradStops);
+            GradientBrush brush = CreateGradientBrush(e, viewModel.Value.Value);
 
             viewModel.SetValue(viewModel.Value.Value, brush);
         }
@@ -268,6 +242,31 @@ public sealed partial class BrushEditor : UserControl
         {
             viewModel.SetValue(viewModel.Value.Value, new BrushPresenter());
         }
+    }
+
+    // Keeps the stops of the current gradient, or starts from white to black.
+    private static GradientBrush CreateGradientBrush(BrushType e, Media.Brush? current)
+    {
+        var gradStops = new List<GradientStop>();
+        if (current is GradientBrush oldBrush)
+        {
+            gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color.CurrentValue, v.Offset.CurrentValue)));
+        }
+        else
+        {
+            gradStops.Add(new GradientStop(Colors.White, 0));
+            gradStops.Add(new GradientStop(Colors.Black, 1));
+        }
+
+        GradientBrush brush = e switch
+        {
+            BrushType.LinearGradientBrush => new LinearGradientBrush(),
+            BrushType.ConicGradientBrush => new ConicGradientBrush(),
+            BrushType.RadialGradientBrush => new RadialGradientBrush(),
+            _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
+        };
+        brush.GradientStops.Replace(gradStops);
+        return brush;
     }
 
     private void OnColorConfirmed(object? sender, (Color2 OldValue, Color2 NewValue) e)

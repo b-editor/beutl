@@ -46,21 +46,26 @@ public sealed partial class AiAgentSettingsPage : UserControl
 
     private async void CopyLiveMcpUrl_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is AiAgentSettingsPageViewModel vm
-            && vm.LiveMcpUrl.Value is { Length: > 0 } url
-            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        if (DataContext is AiAgentSettingsPageViewModel vm)
         {
-            await clipboard.SetTextAsync(url);
+            await CopyToClipboardAsync(vm.LiveMcpUrl.Value);
         }
     }
 
     private async void CopyLiveMcpAuthHeader_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is AiAgentSettingsPageViewModel vm
-            && vm.LiveMcpAuthHeader.Value is { Length: > 0 } header
+        if (DataContext is AiAgentSettingsPageViewModel vm)
+        {
+            await CopyToClipboardAsync(vm.LiveMcpAuthHeader.Value);
+        }
+    }
+
+    private async Task CopyToClipboardAsync(string? text)
+    {
+        if (text is { Length: > 0 }
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
-            await clipboard.SetTextAsync(header);
+            await clipboard.SetTextAsync(text);
         }
     }
 

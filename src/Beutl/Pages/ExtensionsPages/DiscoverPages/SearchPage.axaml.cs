@@ -1,10 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 
-using Beutl.Api.Objects;
-
-using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using FluentAvalonia.UI.Controls;
@@ -25,7 +21,7 @@ public partial class SearchPage : UserControl
     {
         if (e.Parameter is string keyword)
         {
-            DestoryDataContext();
+            DestroyDataContext();
             DataContextFactory factory = GetDataContextFactory();
             DataContext = factory.SearchPage(keyword);
         }
@@ -33,32 +29,27 @@ public partial class SearchPage : UserControl
 
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
-        DestoryDataContext();
+        DestroyDataContext();
     }
 
-    private void DestoryDataContext()
+    private void DestroyDataContext()
     {
-        if (DataContext is SearchPageViewModel disposable)
-        {
-            disposable.Dispose();
-        }
-
-        DataContext = null;
+        DiscoverPageHelper.DestroyDataContext<SearchPageViewModel>(this);
     }
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
+        return DiscoverPageHelper.GetDataContextFactory(this);
     }
 
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: Package package }
-            && this.FindLogicalAncestorOfType<FAFrame>() is { } frame)
+        if (DiscoverPageHelper.TryNavigateToPackage(this, sender))
         {
-            frame.Navigate(typeof(PackageDetailsPage), package);
+            return;
         }
-        else if (DataContext is SearchPageViewModel viewModel)
+
+        if (DataContext is SearchPageViewModel viewModel)
         {
             viewModel.More.Execute();
         }

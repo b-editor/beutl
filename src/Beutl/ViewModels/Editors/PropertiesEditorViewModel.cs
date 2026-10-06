@@ -112,23 +112,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
             Type adapterGType = determinedType.MakeGenericType(x.ValueType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
-        Properties.EnsureCapacity(props.Count);
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
-
-        do
-        {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props, _extensionProvider);
-            if (foundItems != null && extension != null)
-            {
-                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
-                {
-                    Properties.Add(context);
-                }
-
-                props.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
+        AddContexts(props);
     }
 
     private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
@@ -144,6 +128,11 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
             Type adapterGType = determinedType.MakeGenericType(x.PropertyType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
+        AddContexts(props);
+    }
+
+    private void AddContexts(List<IPropertyAdapter> props)
+    {
         Properties.EnsureCapacity(props.Count);
         IPropertyAdapter[]? foundItems;
         PropertyEditorExtension? extension;
