@@ -11,6 +11,10 @@ src/Beutl.Engine/runtimes/**/libSkiaSharp.* binary
 # Keep upstream license text as provided, including its whitespace.
 src/Beutl.Engine/runtimes/**/Skia.NOTICES -whitespace
 
+# Keep upstream font license text as provided.
+src/Beutl.Controls/Assets/Fonts/**/OFL.txt -whitespace
+src/Beutl.Controls/Assets/Fonts/NotoSansCJK-LICENSE.txt -whitespace
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

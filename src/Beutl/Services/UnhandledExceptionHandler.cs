@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
@@ -51,6 +52,8 @@ public static class UnhandledExceptionHandler
                 UseShellExecute = true
             };
             DotNetProcess.Configure(startInfo, exePath);
+            startInfo.ArgumentList.Add(UiFonts.UiCultureArgument);
+            startInfo.ArgumentList.Add(CultureInfo.CurrentUICulture.Name);
             startInfo.ArgumentList.Add("--session-id");
             startInfo.ArgumentList.Add(Telemetry.Instance._sessionId);
             Process.Start(startInfo);

@@ -5,7 +5,7 @@
     <OutputType>WinExe</OutputType>
     <NeutralLanguage>en</NeutralLanguage>
     <SelfContained>false</SelfContained>
-    <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler</DefineConstants>
+    <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler;BEUTL_LINKED_UI_FONTS</DefineConstants>
     <DesktopExeRids>true</DesktopExeRids>
     <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
@@ -22,7 +22,10 @@
     <Compile Include="..\Beutl.Core\BeutlEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
-    <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(Filename)%(Extension)" />
+    <Compile Include="..\Beutl.Controls\Styling\UiFonts.cs" Link="Styling\UiFonts.cs" />
+    <Compile Include="..\Beutl.Controls\Styling\UiFontFamilyExtension.cs" Link="Styling\UiFontFamilyExtension.cs" />
+    <AvaloniaResource Include="..\Beutl.Controls\Styling\Fonts.axaml" Link="Styling\Fonts.axaml" />
+    <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx" />

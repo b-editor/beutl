@@ -5,6 +5,7 @@
     <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <OutputType>WinExe</OutputType>
     <SelfContained>false</SelfContained>
+    <DefineConstants>$(DefineConstants);BEUTL_LINKED_UI_FONTS</DefineConstants>
     <DesktopExeRids>true</DesktopExeRids>
   </PropertyGroup>
 
@@ -24,7 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(Filename)%(Extension)" />
+    <Compile Include="..\Beutl.Controls\Styling\UiFonts.cs" Link="Styling\UiFonts.cs" />
+    <Compile Include="..\Beutl.Controls\Styling\UiFontFamilyExtension.cs" Link="Styling\UiFontFamilyExtension.cs" />
+    <AvaloniaResource Include="..\Beutl.Controls\Styling\Fonts.axaml" Link="Styling\Fonts.axaml" />
+    <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -1,8 +1,7 @@
-﻿using System.Runtime.CompilerServices;
-using Avalonia;
-using Avalonia.Media;
+﻿using Avalonia;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Logging;
 using Beutl.Services;
 
@@ -45,16 +44,11 @@ internal class Program
         }
     }
 
-    // FontManager must not initialize before Main recovers package payloads.
-    [MethodImpl(MethodImplOptions.NoInlining)]
     public static AppBuilder BuildAvaloniaApp()
     {
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .With(new FontManagerOptions
-            {
-                DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
-            })
+            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture))
             .LogToTrace();
     }
 }

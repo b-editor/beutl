@@ -90,7 +90,7 @@ public sealed class App : Application
         foreach (string fileName in s_bundledEngineFonts)
         {
             using Stream stream = AssetLoader.Open(
-                new Uri($"avares://Beutl.Controls/Assets/Fonts/{fileName}"));
+                new Uri($"avares://Beutl.Controls/Assets/Fonts/NotoSansJP/{fileName}"));
             Media.FontManager.Instance.AddFont(stream);
         }
     }
