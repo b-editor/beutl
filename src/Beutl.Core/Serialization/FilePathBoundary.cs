@@ -8,10 +8,6 @@ internal static class PathBoundary
 
     public static StringComparison Comparison => s_comparison;
 
-    public static StringComparer Comparer { get; } = s_comparison == StringComparison.OrdinalIgnoreCase
-        ? StringComparer.OrdinalIgnoreCase
-        : StringComparer.Ordinal;
-
     public static bool IsPathInsideRoot(string root, string candidate)
         => FilePathComparison.IsSameOrDescendant(root, candidate);
 

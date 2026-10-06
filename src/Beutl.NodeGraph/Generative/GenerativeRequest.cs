@@ -59,6 +59,10 @@ public abstract record GenerativeRequest
 
     /// <summary>A short description for the generation history.</summary>
     public abstract string Summary { get; }
+
+    // Up to 80 characters of a prompt; a longer one is cut to 79 and an ellipsis.
+    internal static string Abbreviate(string prompt)
+        => prompt.Length <= 80 ? prompt : string.Concat(prompt.AsSpan(0, 79), "…");
 }
 
 public sealed record AiImageGenerationNodeRequest : GenerativeRequest
@@ -86,7 +90,7 @@ public sealed record AiImageGenerationNodeRequest : GenerativeRequest
             .. References.Select(reference => reference.ContentHash),
         ]);
 
-    public override string Summary => Prompt.Length <= 80 ? Prompt : string.Concat(Prompt.AsSpan(0, 79), "…");
+    public override string Summary => Abbreviate(Prompt);
 }
 
 public enum AiImageEditTask
@@ -223,7 +227,7 @@ public sealed record AiVideoEditNodeRequest : GenerativeRequest
     public override string Fingerprint => GenerativeFingerprint.Combine(
         [nameof(GenerativeOperation.VideoEdit), ParameterFingerprint, SourceVideo.ContentHash, CharacterImage?.ContentHash]);
 
-    public override string Summary => Prompt.Length <= 80 ? Prompt : string.Concat(Prompt.AsSpan(0, 79), "…");
+    public override string Summary => Abbreviate(Prompt);
 }
 
 /// <summary>A media file handed to a generation as input, read at queue time.</summary>
@@ -270,7 +274,7 @@ public sealed record AiVideoGenerationNodeRequest : GenerativeRequest
             .. VideoReferences.Select(reference => reference.ContentHash),
         ]);
 
-    public override string Summary => Prompt.Length <= 80 ? Prompt : string.Concat(Prompt.AsSpan(0, 79), "…");
+    public override string Summary => Abbreviate(Prompt);
 }
 
 /// <summary>A report from a running generation: what it is doing and a rough picture.</summary>

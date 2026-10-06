@@ -63,25 +63,6 @@ public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumb
 
     public override string? Validate(ValidationContext context, TNumber value)
     {
-        if (Attribute == null)
-        {
-            return null;
-        }
-
-        if (!Attribute.RequiresValidationContext)
-        {
-            if (!Attribute.IsValid(value))
-            {
-                return Attribute.FormatErrorMessage(context.Property?.Name ?? typeof(TNumber).Name);
-            }
-            else
-            {
-                return null;
-            }
-        }
-        else
-        {
-            throw new InvalidOperationException("System.ComponentModel.DataAnnotations.ValidationContext required validation is not yet supported.");
-        }
+        return DataAnnotationValidation.ValidateWithAttribute(Attribute, context, value, typeof(TNumber));
     }
 }

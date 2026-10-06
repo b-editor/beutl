@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -18,7 +17,6 @@ public abstract class CoreProperty : ICoreProperty
     private readonly Dictionary<Type, ICorePropertyMetadata> _metadataCache = [];
     private readonly object _metadataLock = new();
     private bool _hasMetadataOverrides;
-    private bool _isTryedToGetPropertyInfo;
 
     protected CoreProperty(
         string name,
@@ -53,20 +51,6 @@ public abstract class CoreProperty : ICoreProperty
     public IObservable<CorePropertyChangedEventArgs> Changed => GetChanged();
 
     internal abstract bool HasObservers { get; }
-
-    internal PropertyInfo? PropertyInfo { get; set; }
-
-    internal PropertyInfo? GetPropertyInfo()
-    {
-        if (PropertyInfo == null
-            && !_isTryedToGetPropertyInfo)
-        {
-            PropertyInfo = OwnerType.GetProperty(Name);
-            _isTryedToGetPropertyInfo = true;
-        }
-
-        return PropertyInfo;
-    }
 
     internal abstract void RouteSetValue(ICoreObject o, object? value);
 

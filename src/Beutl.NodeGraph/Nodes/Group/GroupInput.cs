@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
 using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
 
@@ -51,16 +50,7 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if (context.GetValue<JsonArray>("Items") is { } itemsArray)
-        {
-            foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
-            {
-                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IOutputPort)) is IOutputPort port)
-                {
-                    Items.Add(port);
-                }
-            }
-        }
+        RestoreDynamicPorts<IOutputPort>(context);
     }
 
     public partial class Resource

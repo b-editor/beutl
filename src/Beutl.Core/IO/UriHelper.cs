@@ -2,6 +2,17 @@
 
 internal static class UriHelper
 {
+    // How a reference to uri is written: relative to baseUri when both share a scheme.
+    public static Uri ToSerializedUri(Uri uri, Uri? baseUri)
+    {
+        if (baseUri?.Scheme == uri.Scheme)
+        {
+            return baseUri.MakeRelativeUri(uri);
+        }
+
+        return uri;
+    }
+
     public static Uri ResolvePersistedReference(string? value, Uri? baseUri, bool allowRelative = false)
     {
         if (!Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out Uri? uri))

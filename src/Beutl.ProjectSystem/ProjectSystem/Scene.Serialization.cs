@@ -15,28 +15,6 @@ public partial class Scene
     {
         base.Serialize(context);
 
-        static void Process(JsonObject jobject, string jsonName, List<string> list)
-        {
-            if (list.Count == 1)
-            {
-                jobject[jsonName] = JsonValue.Create(NormalizeElementPatternForStorage(list[0]));
-            }
-            else if (list.Count >= 2)
-            {
-                var jarray = new JsonArray();
-                foreach (string item in list)
-                {
-                    jarray.Add(JsonValue.Create(NormalizeElementPatternForStorage(item)));
-                }
-
-                jobject[jsonName] = jarray;
-            }
-            else
-            {
-                jobject.Remove(jsonName);
-            }
-        }
-
         context.SetValue("Width", FrameSize.Width);
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
@@ -63,8 +41,8 @@ public partial class Scene
 
             UpdateInclude();
 
-            Process(elementsNode, "Include", _includeElements);
-            Process(elementsNode, "Exclude", _excludeElements);
+            WriteElementPatterns(elementsNode, "Include", _includeElements);
+            WriteElementPatterns(elementsNode, "Exclude", _excludeElements);
 
             context.SetValue("Elements", elementsNode);
         }
@@ -73,30 +51,6 @@ public partial class Scene
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-
-        static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
-        {
-            list.Clear();
-            if (node is JsonValue jvalue &&
-                jvalue.TryGetValue(out string? pattern))
-            {
-                pattern = NormalizeElementPatternForRead(pattern);
-                list.Add(pattern);
-                add(pattern);
-            }
-            else if (node is JsonArray array)
-            {
-                foreach (JsonValue item in array.OfType<JsonValue>())
-                {
-                    if (item.TryGetValue(out pattern))
-                    {
-                        pattern = NormalizeElementPatternForRead(pattern);
-                        list.Add(pattern);
-                        add(pattern);
-                    }
-                }
-            }
-        }
 
         if (context.Contains("Width") && context.Contains("Height"))
         {
@@ -123,13 +77,13 @@ public partial class Scene
                 // 含めるクリップ
                 if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
                 {
-                    Process(matcher.AddInclude, includeNode!, _includeElements);
+                    ReadElementPatterns(matcher.AddInclude, includeNode!, _includeElements);
                 }
 
                 // 除外するクリップ
                 if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
                 {
-                    Process(matcher.AddExclude, excludeNode!, _excludeElements);
+                    ReadElementPatterns(matcher.AddExclude, excludeNode!, _excludeElements);
                 }
 
                 PatternMatchingResult result = matcher.Execute(directory);
@@ -163,6 +117,52 @@ public partial class Scene
             }
         }
 
+    }
+
+    private static void WriteElementPatterns(JsonObject jobject, string jsonName, List<string> list)
+    {
+        if (list.Count == 1)
+        {
+            jobject[jsonName] = JsonValue.Create(NormalizeElementPattern(list[0]));
+        }
+        else if (list.Count >= 2)
+        {
+            var jarray = new JsonArray();
+            foreach (string item in list)
+            {
+                jarray.Add(JsonValue.Create(NormalizeElementPattern(item)));
+            }
+
+            jobject[jsonName] = jarray;
+        }
+        else
+        {
+            jobject.Remove(jsonName);
+        }
+    }
+
+    private static void ReadElementPatterns(Func<string, Matcher> add, JsonNode node, List<string> list)
+    {
+        list.Clear();
+        if (node is JsonValue jvalue &&
+            jvalue.TryGetValue(out string? pattern))
+        {
+            pattern = NormalizeElementPattern(pattern);
+            list.Add(pattern);
+            add(pattern);
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonValue item in array.OfType<JsonValue>())
+            {
+                if (item.TryGetValue(out pattern))
+                {
+                    pattern = NormalizeElementPattern(pattern);
+                    list.Add(pattern);
+                    add(pattern);
+                }
+            }
+        }
     }
 
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
@@ -211,7 +211,7 @@ public partial class Scene
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
         foreach (Element item in Children)
         {
-            string rel = NormalizeElementPatternForStorage(
+            string rel = NormalizeElementPattern(
                 Path.GetRelativePath(dirPath, item.Uri!.LocalPath));
 
             // 含まれていない場合追加
@@ -222,12 +222,7 @@ public partial class Scene
         }
     }
 
-    private static string NormalizeElementPatternForRead(string pattern)
-    {
-        return pattern.Replace('\\', '/');
-    }
-
-    private static string NormalizeElementPatternForStorage(string pattern)
+    private static string NormalizeElementPattern(string pattern)
     {
         return pattern.Replace('\\', '/');
     }

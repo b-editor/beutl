@@ -170,43 +170,10 @@ public static partial class CoreSerializer
         json["minAppVersion"] = Project.GetMaximumVersion(persisted, project.MinAppVersion);
         json["appVersion"] = project.AppVersion;
 
-        string? directory = Path.GetDirectoryName(path);
-        if (directory != null)
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            using (var stream = StorageWriteTransaction.CreateTemporaryFile(temporaryPath, path))
-            using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
-            {
-                json.WriteTo(writer, JsonHelper.SerializerOptions);
-                writer.Flush();
-                stream.Flush(flushToDisk: true);
-            }
-
-            StorageWriteTransaction.MoveIntoPlace(
-                temporaryPath,
-                path,
-                overwrite: true,
-                isCompatibilityGate: true);
-        }
-        catch
-        {
-            try
-            {
-                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
-            }
-            catch
-            {
-                // 失敗しても元の例外は投げる
-            }
-
-            throw;
-        }
-
+        WriteJsonAtomically(
+            path,
+            isCompatibilityGate: true,
+            writer => json.WriteTo(writer, JsonHelper.SerializerOptions));
         return true;
     }
 
@@ -253,18 +220,6 @@ public static partial class CoreSerializer
         return false;
     }
 
-    /// <summary>
-    /// Raises the migration requirement of every value that reports one only while its owner is
-    /// written, so the preflight above still runs before the files carrying those values.
-    /// </summary>
-    /// <remarks>
-    /// A value deserialized on its own hands its requirement to its owner during serialization, and
-    /// waiting for the real write would put the compatibility gate behind the sidecars it guards.
-    /// Serializing to a discarded buffer first is the same discovery <c>SceneRecovery</c> performs,
-    /// and nothing reaches the disk: <see cref="CoreSerializationMode.Write"/> on its own leaves a
-    /// referenced object as a URI, and the caller runs this only while a gate about to be written
-    /// does not already cover every requirement a live value carries.
-    /// </remarks>
     /// <summary>
     /// The minimum application version the file at <paramref name="destination"/> advertises, or
     /// <see langword="null"/> when it advertises none this can compare against.
@@ -325,6 +280,18 @@ public static partial class CoreSerializer
         }
     }
 
+    /// <summary>
+    /// Raises the migration requirement of every value that reports one only while its owner is
+    /// written, so the preflight above still runs before the files carrying those values.
+    /// </summary>
+    /// <remarks>
+    /// A value deserialized on its own hands its requirement to its owner during serialization, and
+    /// waiting for the real write would put the compatibility gate behind the sidecars it guards.
+    /// Serializing to a discarded buffer first is the same discovery <c>SceneRecovery</c> performs,
+    /// and nothing reaches the disk: <see cref="CoreSerializationMode.Write"/> on its own leaves a
+    /// referenced object as a URI, and the caller runs this only while a gate about to be written
+    /// does not already cover every requirement a live value carries.
+    /// </remarks>
     private static void RaiseAttachedMigrations(CoreObject[] objects)
     {
         var visited = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);

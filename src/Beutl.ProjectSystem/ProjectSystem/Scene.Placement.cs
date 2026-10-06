@@ -36,40 +36,6 @@ public partial class Scene
         return element.ZIndex;
     }
 
-    private Element? GetBefore(Element element)
-    {
-        Element? tmp = null;
-        foreach (Element? item in Children.GetMarshal().Value)
-        {
-            if (item != element && item.ZIndex == element.ZIndex && item.Start < element.Range.End)
-            {
-                if (tmp == null || tmp.Start <= item.Start)
-                {
-                    tmp = item;
-                }
-            }
-        }
-
-        return tmp;
-    }
-
-    private Element? GetAfter(Element element)
-    {
-        Element? tmp = null;
-        foreach (Element? item in Children.GetMarshal().Value)
-        {
-            if (item != element && item.ZIndex == element.ZIndex && item.Range.End > element.Range.End)
-            {
-                if (tmp == null || tmp.Range.End >= item.Range.End)
-                {
-                    tmp = item;
-                }
-            }
-        }
-
-        return tmp;
-    }
-
     internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(Element element)
     {
         Element? beforeTmp = null;
@@ -81,22 +47,7 @@ public partial class Scene
         {
             if (item != element && item.ZIndex == element.ZIndex)
             {
-                if (item.Start < range.Start
-                    && (beforeTmp == null || beforeTmp.Start <= item.Start))
-                {
-                    beforeTmp = item;
-                }
-
-                if (item.Range.End > range.End
-                    && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
-                {
-                    afterTmp = item;
-                }
-
-                if (range.Contains(item.Range) || range == item.Range)
-                {
-                    coverTmp = item;
-                }
+                Element.AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
             }
         }
 
@@ -120,6 +71,11 @@ public partial class Scene
 
             return false;
         });
+    }
+
+    private bool IsFreeRange(TimeRange range, int zindex)
+    {
+        return range.Duration > TimeSpan.Zero && !IsOverlapping(range, zindex);
     }
 
     private (TimeRange Range, int ZIndex) GetCorrectPosition(Element element, ElementOverlapHandling handling)
@@ -152,7 +108,7 @@ public partial class Scene
             foreach (TimeSpan cEnd in candidateEnd)
             {
                 TimeRange range = TimeRange.FromRange(start, cEnd);
-                if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
+                if (IsFreeRange(range, element.ZIndex))
                 {
                     return (range, element.ZIndex);
                 }
@@ -160,7 +116,7 @@ public partial class Scene
                 foreach (TimeSpan cStart in candidateStart)
                 {
                     range = TimeRange.FromRange(cStart, cEnd);
-                    if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
+                    if (IsFreeRange(range, element.ZIndex))
                     {
                         return (range, element.ZIndex);
                     }
@@ -173,7 +129,7 @@ public partial class Scene
             foreach (TimeSpan item in candidateEnd)
             {
                 TimeRange range = TimeRange.FromRange(start, item);
-                if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
+                if (IsFreeRange(range, element.ZIndex))
                 {
                     return (range, element.ZIndex);
                 }
@@ -185,7 +141,7 @@ public partial class Scene
             foreach (TimeSpan item in candidateStart)
             {
                 TimeRange range = TimeRange.FromRange(item, end);
-                if (range.Duration > TimeSpan.Zero && !IsOverlapping(range, element.ZIndex))
+                if (IsFreeRange(range, element.ZIndex))
                 {
                     return (range, element.ZIndex);
                 }

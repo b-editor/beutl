@@ -155,6 +155,10 @@ public abstract partial class GenerativeNode : GraphNode
     /// </summary>
     protected internal abstract GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context);
 
+    // A blank model input means the operation's default model.
+    internal static string? NormalizeModelId(string? model)
+        => string.IsNullOrWhiteSpace(model) ? null : model!.Trim();
+
     /// <summary>
     /// The request for the <paramref name="index"/>th of several variations queued at once.
     /// Nodes with a seed move it on by the index; others send the same request, which the

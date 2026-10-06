@@ -378,30 +378,7 @@ public static partial class FilePathComparison
                 return entry;
             }
 
-            if (string.Equals(entryName, component, StringComparison.OrdinalIgnoreCase))
-            {
-                TrackUniqueMatch(
-                    entry,
-                    ref equivalentMatch,
-                    ref equivalentMatchAmbiguous);
-                continue;
-            }
-
-            string normalizedEntryName = entryName.Normalize(NormalizationForm.FormC);
-            if (string.Equals(
-                    normalizedEntryName,
-                    normalizedComponent,
-                    StringComparison.Ordinal))
-            {
-                TrackUniqueMatch(
-                    entry,
-                    ref equivalentMatch,
-                    ref equivalentMatchAmbiguous);
-            }
-            else if (string.Equals(
-                         normalizedEntryName,
-                         normalizedComponent,
-                         StringComparison.OrdinalIgnoreCase))
+            if (IsEquivalentEntryName(entryName, component, normalizedComponent))
             {
                 TrackUniqueMatch(
                     entry,
@@ -411,6 +388,17 @@ public static partial class FilePathComparison
         }
 
         return equivalentMatchAmbiguous ? candidate : equivalentMatch ?? candidate;
+    }
+
+    // Case-insensitively equal as spelled, or else after NFC normalization, which only runs when the
+    // spelled names differ.
+    private static bool IsEquivalentEntryName(string entryName, string component, string normalizedComponent)
+    {
+        return string.Equals(entryName, component, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(
+                   entryName.Normalize(NormalizationForm.FormC),
+                   normalizedComponent,
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static void TrackUniqueMatch(

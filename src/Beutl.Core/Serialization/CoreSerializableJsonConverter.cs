@@ -39,11 +39,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                     CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
             }
 
-            var serializedUri = coreObj.Uri;
-            if (parentContext.BaseUri?.Scheme == coreObj.Uri.Scheme)
-            {
-                serializedUri = parentContext.BaseUri.MakeRelativeUri(coreObj.Uri);
-            }
+            var serializedUri = UriHelper.ToSerializedUri(coreObj.Uri, parentContext.BaseUri);
 
             if (parentContext.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
                 && CoreSerializer.SerializeEmbeddedReference(coreObj, serializedUri) is { } node)

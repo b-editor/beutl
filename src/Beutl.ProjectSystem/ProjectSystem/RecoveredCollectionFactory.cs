@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using Beutl.Utilities;
 
 namespace Beutl.ProjectSystem;
 
@@ -76,6 +77,46 @@ internal static class RecoveredCollectionFactory
                 return constructor.Invoke([array, comparer]);
             if (comparer == null && parameters is [var value] && value.ParameterType.IsInstanceOfType(array))
                 return constructor.Invoke([array]);
+        }
+
+        return null;
+    }
+
+    public static object? RebuildReadOnlyList(IList source, object?[] items)
+    {
+        Type sourceType = source.GetType();
+        Type? elementType = sourceType.GetInterfaces()
+            .Where(static type => type.IsGenericType
+                                  && type.GetGenericTypeDefinition() == typeof(IList<>))
+            .Select(static type => type.GetGenericArguments()[0])
+            .FirstOrDefault();
+        if (elementType is null)
+        {
+            return null;
+        }
+
+        Array array = Array.CreateInstance(elementType, items.Length);
+        try
+        {
+            for (int i = 0; i < items.Length; i++)
+            {
+                array.SetValue(items[i], i);
+            }
+
+            foreach (ConstructorInfo constructor in sourceType.GetConstructors())
+            {
+                ParameterInfo[] parameters = constructor.GetParameters();
+                if (parameters.Length == 1 && parameters[0].ParameterType.IsInstanceOfType(array))
+                {
+                    return constructor.Invoke([array]);
+                }
+            }
+        }
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex)
+                                  && ex is ArgumentException
+                                       or TargetInvocationException
+                                       or MemberAccessException)
+        {
         }
 
         return null;

@@ -25,6 +25,19 @@ public abstract partial class GenerativeNode
         return new GenerativeImageInput($"{name}.png", stream.ToArray());
     }
 
+    // Rasterizes each reference as "reference-{n}", skipping the ones that draw nothing.
+    internal static void AddRasterizedReferences(
+        List<GenerativeImageInput> into,
+        List<RenderNode?> nodes,
+        GraphCompositionContext context)
+    {
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            if (RasterizeInput(nodes[i], $"reference-{i + 1}", context) is { } input)
+                into.Add(input);
+        }
+    }
+
     // A copy the caller owns, to encode for upload; the rasterization stays with its renderer.
     private static Bitmap? RenderToBitmap(RenderNode? node, GraphCompositionContext context)
     {
@@ -33,23 +46,26 @@ public abstract partial class GenerativeNode
 
         try
         {
-            using var renderer = new RenderNodeRenderer(
+            return RasterizeCopy(
                 node,
                 new RenderNodeRenderRequest { Intent = RenderIntent.Preview, ManageCacheLifecycle = false });
-            using RenderNodeRasterization rasterization = renderer.Rasterize();
-            return rasterization.Bitmap?.Clone();
         }
         catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
         {
-            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            return RasterizeCopy(node, new RenderNodeRenderRequest
             {
                 Intent = RenderIntent.Preview,
                 TargetDomain = domain,
                 ManageCacheLifecycle = false,
             });
-            using RenderNodeRasterization rasterization = renderer.Rasterize();
-            return rasterization.Bitmap?.Clone();
         }
+    }
+
+    private static Bitmap? RasterizeCopy(RenderNode node, RenderNodeRenderRequest request)
+    {
+        using var renderer = new RenderNodeRenderer(node, request);
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        return rasterization.Bitmap?.Clone();
     }
 
     /// <summary>

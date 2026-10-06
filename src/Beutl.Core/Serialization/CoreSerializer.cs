@@ -123,38 +123,58 @@ public static partial class CoreSerializer
 
         try
         {
-            if (!baseType.IsAssignableFrom(actualType))
-            {
-                throw new InvalidCastException(
-                    $"Discriminator type '{actualType}' is not assignable to the expected type '{baseType}'.");
-            }
-
-            var obj = Activator.CreateInstance(actualType) as ICoreSerializable
-                      ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
-
-            var parentContext = ThreadLocalSerializationContext.Current;
-            ReflectUri(json, obj, parentContext, ref options);
-
-            var context = new JsonSerializationContext(actualType, parentContext, json, options);
-            context.EnablePersistedContentMigrationReporting();
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                obj.Deserialize(context);
-                context.AfterDeserialized(obj);
-            }
-
-            if (obj is IFallback fallbackObj)
-            {
-                fallbackObj.Reason = FallbackReason.TypeNotFound;
-                DeserializationIncidents.RecordFallback(fallbackObj);
-            }
-
+            ICoreSerializable obj = InstantiateDiscriminatedType(baseType, actualType);
+            DeserializeInstance(obj, json, actualType, ThreadLocalSerializationContext.Current, options);
             return obj;
         }
         catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
             baseType, actualType, json, ex) is { } fallback)
         {
             return fallback;
+        }
+    }
+
+    // Creates the type a discriminator names once it is known to stand in for baseType.
+    internal static ICoreSerializable InstantiateDiscriminatedType(Type baseType, Type actualType)
+    {
+        if (!baseType.IsAssignableFrom(actualType))
+        {
+            throw new InvalidCastException(
+                $"Discriminator type '{actualType}' is not assignable to the expected type '{baseType}'.");
+        }
+
+        return Activator.CreateInstance(actualType) as ICoreSerializable
+               ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
+    }
+
+    // Deserializes a newly created instance under a child of parent. Callers read parent themselves, so
+    // each keeps its own order between creating the instance and reading the ambient context.
+    internal static void DeserializeInstance(
+        ICoreSerializable obj,
+        JsonObject json,
+        Type actualType,
+        ICoreSerializationContext? parent,
+        CoreSerializerOptions? options)
+    {
+        ReflectUri(json, obj, parent, ref options);
+
+        var context = new JsonSerializationContext(actualType, parent, json, options);
+        context.EnablePersistedContentMigrationReporting();
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            obj.Deserialize(context);
+            context.AfterDeserialized(obj);
+        }
+
+        MarkFallbackInstance(obj);
+    }
+
+    private static void MarkFallbackInstance(ICoreSerializable obj)
+    {
+        if (obj is IFallback fallbackObj)
+        {
+            fallbackObj.Reason = FallbackReason.TypeNotFound;
+            DeserializationIncidents.RecordFallback(fallbackObj);
         }
     }
 
@@ -229,10 +249,7 @@ public static partial class CoreSerializer
     public static object RestoreFromUri(Uri uri, Type type)
     {
         using var stream = UriHelper.ResolveStream(uri);
-        ReferencedStorageCapture.Record(uri);
-
-        var node = JsonNode.Parse(stream);
-        if (node is not JsonObject jsonObject) throw new JsonException();
+        JsonObject jsonObject = ParseStoredObject(stream, uri);
 
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
@@ -289,25 +306,8 @@ public static partial class CoreSerializer
             var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
-            if (obj is CoreObject coreObj)
-            {
-                coreObj.Uri = uri;
-            }
-
-            var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-            PopulateFromJsonObjectCore(obj, type, jsonObject, options, addedTypeDiscriminator);
-            if (obj is CoreObject restoredCoreObject)
-            {
-                restoredCoreObject.WasTypeDiscriminatorAddedDuringRestore =
-                    addedTypeDiscriminator;
-            }
-
-            if (obj is IFallback fallbackObj)
-            {
-                fallbackObj.Reason = FallbackReason.TypeNotFound;
-                DeserializationIncidents.RecordFallback(fallbackObj);
-            }
-
+            PopulateFromStorage(obj, type, jsonObject, uri, addedTypeDiscriminator);
+            MarkFallbackInstance(obj);
             return obj;
         }
         catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
@@ -328,18 +328,35 @@ public static partial class CoreSerializer
     public static void PopulateFromUri(ICoreSerializable obj, Type type, Uri uri)
     {
         using var stream = UriHelper.ResolveStream(uri);
+        JsonObject jsonObject = ParseStoredObject(stream, uri);
+        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
+        PopulateFromStorage(obj, type, jsonObject, uri, addedTypeDiscriminator);
+    }
+
+    // The caller owns the stream, so the file stays open until the whole restore has finished.
+    private static JsonObject ParseStoredObject(Stream stream, Uri uri)
+    {
         ReferencedStorageCapture.Record(uri);
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) throw new JsonException();
-        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
+        return jsonObject;
+    }
+
+    private static void PopulateFromStorage(
+        ICoreSerializable obj,
+        Type type,
+        JsonObject json,
+        Uri uri,
+        bool addedTypeDiscriminator)
+    {
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
         }
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-        PopulateFromJsonObjectCore(obj, type, jsonObject, options, addedTypeDiscriminator);
+        PopulateFromJsonObjectCore(obj, type, json, options, addedTypeDiscriminator);
         if (obj is CoreObject populatedCoreObject)
         {
             populatedCoreObject.WasTypeDiscriminatorAddedDuringRestore =

@@ -102,7 +102,7 @@ public sealed partial class AiVideoEditNode : GenerativeNode, IPromptLibraryTarg
             CharacterImage = character,
             Orientation = r.Orientation,
             Quality = r.Quality,
-            ModelId = string.IsNullOrWhiteSpace(r.Model) ? null : r.Model!.Trim(),
+            ModelId = NormalizeModelId(r.Model),
             RequestKeySeed = RequestKeySeed,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };

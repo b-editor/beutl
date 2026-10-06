@@ -55,18 +55,9 @@ public static class CoreObjectExtensions
         foreach (CoreProperty prop in props)
         {
             object? inner = obj.GetValue(prop);
-            if (inner != null && !hashSet.Contains(inner))
+            if (inner != null && MatchOrSearch(inner, predicate, hashSet) is { } match)
             {
-                if (predicate(inner))
-                {
-                    return inner;
-                }
-                else if ((inner as ICoreObject)?.Find(predicate, true, hashSet) is { } match)
-                {
-                    return match;
-                }
-
-                hashSet.Add(inner);
+                return match;
             }
         }
 
@@ -77,19 +68,31 @@ public static class CoreObjectExtensions
     {
         foreach (IHierarchical item in hierarchical.HierarchicalChildren)
         {
-            if (!hashSet.Contains(item))
+            if (MatchOrSearch(item, predicate, hashSet) is { } match)
             {
-                if (predicate(item))
-                {
-                    return item;
-                }
-                else if ((item as ICoreObject)?.Find(predicate, true, hashSet) is { } match)
-                {
-                    return match;
-                }
-
-                hashSet.Add(item);
+                return match;
             }
+        }
+
+        return null;
+    }
+
+    // The candidate when it matches, else the first match inside it. A candidate that yields neither
+    // is marked searched.
+    private static object? MatchOrSearch(object candidate, Predicate<object?> predicate, HashSet<object> hashSet)
+    {
+        if (!hashSet.Contains(candidate))
+        {
+            if (predicate(candidate))
+            {
+                return candidate;
+            }
+            else if ((candidate as ICoreObject)?.Find(predicate, true, hashSet) is { } match)
+            {
+                return match;
+            }
+
+            hashSet.Add(candidate);
         }
 
         return null;

@@ -105,91 +105,7 @@ public static partial class CoreSerializer
     {
         if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
-            if (uri == suppressed.SourceUri)
-            {
-                // The source location is skip-protected only while the on-disk bytes still match
-                // the retained recovery bytes. A repair that was undone re-establishes the
-                // suppression record through history with WasReinstated set, and the retained
-                // bytes must be restored verbatim so the next open sees the same recovery state
-                // the undo recorded. A continuously held record treats a mismatch as an external
-                // repair of the sidecar and leaves the changed file alone — clobbering it would
-                // destroy the user's repair.
-                string sourcePath = uri.LocalPath;
-                if (suppressed.WasReinstated)
-                    CopyReferencedStorageSources(suppressed, uri, suppressed.SourceRootPath, restore: true);
-                RestoreReinstatedBytes(suppressed, sourcePath);
-                return;
-            }
-
-            if (suppressed.WasReinstated && uri == suppressedObj.Uri)
-            {
-                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath, restore: true);
-                RestoreReinstatedBytes(suppressed, uri.LocalPath);
-                return;
-            }
-
-            if (uri.Scheme != "file")
-            {
-                throw new JsonException();
-            }
-
-            // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
-            // element. SourceUri stays unchanged so the source location remains skip-protected if a
-            // failed multi-file save rolls Uri back afterwards.
-            string rehomedPath = uri.LocalPath;
-            if (File.Exists(rehomedPath))
-            {
-                EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-
-                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-                ClearReinstatement(suppressed);
-                suppressedObj.Uri = uri;
-                return;
-            }
-
-            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-
-            string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
-            if (rehomedDirectory != null)
-            {
-                Directory.CreateDirectory(rehomedDirectory);
-            }
-
-            string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
-            try
-            {
-                using (var stream = StorageWriteTransaction.CreateTemporaryFile(tempPath, rehomedPath))
-                {
-                    stream.Write(suppressed.RawBytes);
-                    stream.Flush(flushToDisk: true);
-                }
-
-                try
-                {
-                    StorageWriteTransaction.MoveIntoPlace(tempPath, rehomedPath, overwrite: false);
-                }
-                catch (IOException) when (File.Exists(rehomedPath))
-                {
-                    EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-
-                    ClearReinstatement(suppressed);
-                    suppressedObj.Uri = uri;
-                    return;
-                }
-            }
-            finally
-            {
-                try
-                {
-                    File.Delete(tempPath);
-                }
-                catch
-                {
-                }
-            }
-
-            ClearReinstatement(suppressed);
-            suppressedObj.Uri = uri;
+            StoreSuppressedSource(suppressed, suppressedObj, uri, authorizedRootPath);
             return;
         }
 
@@ -200,53 +116,156 @@ public static partial class CoreSerializer
                 coreObj.Uri = uri;
             }
 
-            var path = uri.LocalPath;
-            var directory = Path.GetDirectoryName(path);
-            if (directory != null)
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            // tmp に書き出してから rename する。書き込み中のクラッシュや電源断で
-            // 既存のプロジェクトファイル / Element ファイルがゼロバイト化したり
-            // 中途半端な状態で残るのを防ぐ。
-            // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
-            // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? DefaultStoreMode };
-            string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
-            try
-            {
-                using (var stream = StorageWriteTransaction.CreateTemporaryFile(tmp, path))
-                using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
-                {
-                    SerializeToJsonObject(obj, options)
-                        .WriteTo(writer, JsonHelper.SerializerOptions);
-                    writer.Flush();
-                    stream.Flush(flushToDisk: true);
-                }
-
-                StorageWriteTransaction.MoveIntoPlace(
-                    tmp,
-                    path,
-                    overwrite: true,
-                    isCompatibilityGate: obj is Project);
-            }
-            catch
-            {
-                try
-                {
-                    if (File.Exists(tmp)) File.Delete(tmp);
-                }
-                catch
-                {
-                    // 失敗しても元の例外は投げる
-                }
-                throw;
-            }
+            WriteJsonAtomically(
+                uri.LocalPath,
+                isCompatibilityGate: obj is Project,
+                writer => SerializeToJsonObject(obj, options)
+                    .WriteTo(writer, JsonHelper.SerializerOptions));
         }
         else
         {
             throw new JsonException();
+        }
+    }
+
+    // A recovered object keeps its retained bytes on disk: saving it restores or rehomes them verbatim
+    // instead of serializing it.
+    private static void StoreSuppressedSource(
+        SuppressedStorageSource suppressed,
+        CoreObject suppressedObj,
+        Uri uri,
+        string? authorizedRootPath)
+    {
+        if (uri == suppressed.SourceUri)
+        {
+            // The source location is skip-protected only while the on-disk bytes still match
+            // the retained recovery bytes. A repair that was undone re-establishes the
+            // suppression record through history with WasReinstated set, and the retained
+            // bytes must be restored verbatim so the next open sees the same recovery state
+            // the undo recorded. A continuously held record treats a mismatch as an external
+            // repair of the sidecar and leaves the changed file alone — clobbering it would
+            // destroy the user's repair.
+            string sourcePath = uri.LocalPath;
+            if (suppressed.WasReinstated)
+                CopyReferencedStorageSources(suppressed, uri, suppressed.SourceRootPath, restore: true);
+            RestoreReinstatedBytes(suppressed, sourcePath);
+            return;
+        }
+
+        if (suppressed.WasReinstated && uri == suppressedObj.Uri)
+        {
+            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath, restore: true);
+            RestoreReinstatedBytes(suppressed, uri.LocalPath);
+            return;
+        }
+
+        if (uri.Scheme != "file")
+        {
+            throw new JsonException();
+        }
+
+        // Rehomed (save-as): the retained bytes move verbatim so the new project copy keeps the
+        // element. SourceUri stays unchanged so the source location remains skip-protected if a
+        // failed multi-file save rolls Uri back afterwards.
+        string rehomedPath = uri.LocalPath;
+        if (File.Exists(rehomedPath))
+        {
+            EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
+
+            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
+            ClearReinstatement(suppressed);
+            suppressedObj.Uri = uri;
+            return;
+        }
+
+        CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
+
+        string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
+        if (rehomedDirectory != null)
+        {
+            Directory.CreateDirectory(rehomedDirectory);
+        }
+
+        string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = StorageWriteTransaction.CreateTemporaryFile(tempPath, rehomedPath))
+            {
+                stream.Write(suppressed.RawBytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            try
+            {
+                StorageWriteTransaction.MoveIntoPlace(tempPath, rehomedPath, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(rehomedPath))
+            {
+                EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
+
+                ClearReinstatement(suppressed);
+                suppressedObj.Uri = uri;
+                return;
+            }
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch
+            {
+            }
+        }
+
+        ClearReinstatement(suppressed);
+        suppressedObj.Uri = uri;
+    }
+
+    // tmp に書き出してから rename する。書き込み中のクラッシュや電源断で
+    // 既存のプロジェクトファイル / Element ファイルがゼロバイト化したり
+    // 中途半端な状態で残るのを防ぐ。
+    // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
+    // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
+    private static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
+    {
+        string? directory = Path.GetDirectoryName(path);
+        if (directory != null)
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var stream = StorageWriteTransaction.CreateTemporaryFile(temporaryPath, path))
+            using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
+            {
+                write(writer);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
+
+            StorageWriteTransaction.MoveIntoPlace(
+                temporaryPath,
+                path,
+                overwrite: true,
+                isCompatibilityGate: isCompatibilityGate);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
+            catch
+            {
+                // 失敗しても元の例外は投げる
+            }
+
+            throw;
         }
     }
 

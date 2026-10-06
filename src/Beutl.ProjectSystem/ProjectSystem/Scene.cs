@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using Beutl.Collections;
 using Beutl.Language;
 using Beutl.Media;
@@ -282,15 +283,10 @@ public partial class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                if (dirPath is not null && item.Uri is { IsFile: true } itemUri)
+                if (TryGetStoredElementPattern(dirPath, item, out string? itemPath, out string? rel)
+                    && !_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
-                    string itemPath = itemUri.LocalPath;
-                    string rel = NormalizeElementPatternForStorage(
-                        Path.GetRelativePath(dirPath, itemPath));
-                    if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
-                    {
-                        _excludeElements.Add(rel);
-                    }
+                    _excludeElements.Add(rel);
                 }
 
                 affectedRange.Add(item.Range);
@@ -301,15 +297,10 @@ public partial class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                if (dirPath is not null && item.Uri is { IsFile: true } itemUri)
+                if (TryGetStoredElementPattern(dirPath, item, out string? itemPath, out string? rel)
+                    && _excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
-                    string itemPath = itemUri.LocalPath;
-                    string rel = NormalizeElementPatternForStorage(
-                        Path.GetRelativePath(dirPath, itemPath));
-                    if (_excludeElements.Contains(rel) && File.Exists(itemPath))
-                    {
-                        _excludeElements.Remove(rel);
-                    }
+                    _excludeElements.Remove(rel);
                 }
 
                 affectedRange.Add(item.Range);
@@ -317,6 +308,26 @@ public partial class Scene : ProjectItem, INotifyEdited
         }
 
         Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
+    }
+
+    // The element's file as a pattern relative to the scene directory, when both are on disk.
+    private static bool TryGetStoredElementPattern(
+        string? dirPath,
+        Element item,
+        [NotNullWhen(true)] out string? itemPath,
+        [NotNullWhen(true)] out string? pattern)
+    {
+        if (dirPath is not null && item.Uri is { IsFile: true } itemUri)
+        {
+            itemPath = itemUri.LocalPath;
+            pattern = NormalizeElementPattern(
+                Path.GetRelativePath(dirPath, itemPath));
+            return true;
+        }
+
+        itemPath = null;
+        pattern = null;
+        return false;
     }
 
     private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

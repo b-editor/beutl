@@ -8,7 +8,6 @@ using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl;
 
@@ -20,23 +19,7 @@ public static class JsonHelper
     // Program.Main calls GlobalConfiguration.Restore through JsonHelper before Telemetry
     // configures Log.LoggerFactory. Keep that early NullLogger uncached so later calls can
     // switch to the real application logger.
-    private static ILogger Logger
-    {
-        get
-        {
-            if (s_logger is not null) return s_logger;
-            if (!Log.IsLoggerFactoryConfigured) return NullLogger.Instance;
-
-            try
-            {
-                return s_logger = Log.CreateLogger(typeof(JsonHelper));
-            }
-            catch (Exception)
-            {
-                return NullLogger.Instance;
-            }
-        }
-    }
+    private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(JsonHelper));
 
     public static JsonWriterOptions WriterOptions { get; } = new()
     {
@@ -193,21 +176,7 @@ public static class JsonHelper
 
     public static bool TryGetDiscriminator(this JsonNode node, [NotNullWhen(true)] out Type? type)
     {
-        type = null;
-        if (node is JsonObject obj)
-        {
-            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
-                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
-                               : null;
-
-            if (typeNode is JsonValue typeValue
-                && typeValue.TryGetValue(out string? typeStr)
-                && !string.IsNullOrWhiteSpace(typeStr))
-            {
-                type = TypeFormat.ToType(typeStr);
-            }
-        }
-
+        type = node.TryGetDiscriminator(out string? typeStr) ? TypeFormat.ToType(typeStr) : null;
         return type != null;
     }
 

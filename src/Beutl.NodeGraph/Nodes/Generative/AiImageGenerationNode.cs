@@ -98,11 +98,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
 
         List<RenderNode?> referenceNodes = context.CollectListInputValues(References);
         var references = new List<GenerativeImageInput>(referenceNodes.Count);
-        for (int i = 0; i < referenceNodes.Count; i++)
-        {
-            if (RasterizeInput(referenceNodes[i], $"reference-{i + 1}", context) is { } input)
-                references.Add(input);
-        }
+        AddRasterizedReferences(references, referenceNodes, context);
 
         return new AiImageGenerationNodeRequest(this)
         {
@@ -110,7 +106,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
             AspectRatio = string.IsNullOrWhiteSpace(r.AspectRatio) ? DefaultAspectRatio : r.AspectRatio!.Trim(),
             Background = string.IsNullOrWhiteSpace(r.Background) ? "auto" : r.Background!.Trim(),
             Seed = SeedFor(r),
-            ModelId = string.IsNullOrWhiteSpace(r.Model) ? null : r.Model!.Trim(),
+            ModelId = NormalizeModelId(r.Model),
             References = references,
             RequestKeySeed = RequestKeySeed,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
@@ -136,6 +132,17 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
         }
     }
 
+    /// <summary>The seed of the <paramref name="index"/>th variation, wrapped into the seed range.</summary>
+    internal static int VarySeed(int seed, int index)
+        => (int)(((long)seed + index) % ((long)MaxSeed + 1));
+
+    /// <summary>Puts a reproduced seed on the seed input unless a connection drives it.</summary>
+    internal static void ApplySeedInput(InputPort<int> seedPort, int? seed)
+    {
+        if (seed is int value && seedPort.Connection.IsNull)
+            seedPort.Property?.SetValue(value);
+    }
+
     private static int? SeedFor(Resource r)
         => r.SeedControl == GenerativeSeedControl.ModelDefault ? null : r.Seed;
 
@@ -148,7 +155,7 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
         if (index == 0 || request.Seed is not int seed)
             return request;
 
-        int varied = (int)(((long)seed + index) % ((long)AiImageGenerationNode.MaxSeed + 1));
+        int varied = VarySeed(seed, index);
         return request with
         {
             Seed = varied,
@@ -158,14 +165,12 @@ public sealed partial class AiImageGenerationNode : GenerativeNode, IPromptLibra
 
     protected internal override void ApplyRequestInputs(GenerativeRequest request)
     {
-        if (request is AiImageGenerationNodeRequest { Seed: int seed } && Seed.Connection.IsNull)
-            Seed.Property?.SetValue(seed);
+        ApplySeedInput(Seed, (request as AiImageGenerationNodeRequest)?.Seed);
     }
 
     protected internal override void ApplyRecordInputs(GenerationRecord record)
     {
-        if (record.Seed is int seed && Seed.Connection.IsNull)
-            Seed.Property?.SetValue(seed);
+        ApplySeedInput(Seed, record.Seed);
     }
 
     public partial class Resource

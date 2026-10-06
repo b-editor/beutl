@@ -62,11 +62,7 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
         var parentContext = ThreadLocalSerializationContext.Current;
         if (parentContext == null) throw new JsonException("Cannot serialize IFileSource without a parent context.");
 
-        var serializedUri = value.Uri;
-        if (parentContext.BaseUri?.Scheme == value.Uri.Scheme)
-        {
-            serializedUri = parentContext.BaseUri.MakeRelativeUri(value.Uri);
-        }
+        var serializedUri = UriHelper.ToSerializedUri(value.Uri, parentContext.BaseUri);
 
         writer.WriteStringValue(serializedUri.ToString());
     }
