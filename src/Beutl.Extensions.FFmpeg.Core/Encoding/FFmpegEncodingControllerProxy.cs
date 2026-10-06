@@ -35,38 +35,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         }
 
         // エンコード設定をシリアライズ
-        var startRequest = new EncodeStartRequest
-        {
-            OutputFile = OutputFile,
-            FrameCount = frameProvider.FrameCount,
-            FrameRateNum = frameProvider.FrameRate.Numerator,
-            FrameRateDen = frameProvider.FrameRate.Denominator,
-            SampleCount = sampleProvider.SampleCount,
-            ProviderSampleRate = sampleProvider.SampleRate,
-            SourceWidth = VideoSettings.SourceSize.Width,
-            SourceHeight = VideoSettings.SourceSize.Height,
-            DestWidth = VideoSettings.DestinationSize.Width,
-            DestHeight = VideoSettings.DestinationSize.Height,
-            VideoBitrate = VideoSettings.Bitrate,
-            KeyframeRate = VideoSettings.KeyframeRate,
-            PixelFormat = VideoSettings.Format,
-            VideoCodecName = VideoSettings.Codec.Name,
-            ColorPrimaries = VideoSettings.ColorPrimaries,
-            ColorTrc = VideoSettings.ColorTrc,
-            ColorSpace = VideoSettings.ColorSpace,
-            ColorRange = VideoSettings.ColorRange,
-            VideoOptions = VideoSettings.Options
-                .Where(o => !string.IsNullOrWhiteSpace(o.Name))
-                .ToDictionary(o => o.Name, o => o.Value),
-            IsHdr = IsHdr(),
-            AudioSampleRate = AudioSettings.SampleRate,
-            AudioChannels = AudioSettings.Channels,
-            AudioBitrate = AudioSettings.Bitrate,
-            AudioFormat = (int)AudioSettings.Format,
-            AudioCodecName = AudioSettings.Codec.Name,
-            ThreadCount = settings.ThreadCount,
-            Acceleration = (int)settings.Acceleration,
-        };
+        EncodeStartRequest startRequest = CreateStartRequest(frameProvider, sampleProvider);
 
         // StartEncode送信
         var startMsg = IpcMessage.Create(connection.NextId(), MessageType.StartEncode, startRequest);
@@ -150,16 +119,8 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                         }
 
                     case MessageType.EncodeComplete:
-                        {
-                            var complete = msg.GetPayload<EncodeCompleteMessage>();
-                            if (complete != null && !complete.Success)
-                            {
-                                throw new FFmpegWorkerException(
-                                    complete.Error ?? "Encoding failed",
-                                    ffmpegErrorCode: complete.FFmpegErrorCode);
-                            }
-                            return;
-                        }
+                        ThrowIfEncodeFailed(msg);
+                        return;
 
                     case MessageType.Error:
                         throw new FFmpegWorkerException(msg.Error ?? "Unknown error", msg.ErrorStackTrace, msg.ErrorCode);
@@ -174,18 +135,70 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         catch (OperationCanceledException)
         {
             // キャンセル時にWorkerへ通知
-            try
-            {
-                await connection.SendAsync(
-                    IpcMessage.CreateSimple(connection.NextId(), MessageType.CancelEncode),
-                    CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to send cancel notification to FFmpeg worker");
-            }
+            await NotifyWorkerCanceledAsync(connection);
 
             throw;
+        }
+    }
+
+    private EncodeStartRequest CreateStartRequest(IFrameProvider frameProvider, ISampleProvider sampleProvider)
+    {
+        return new EncodeStartRequest
+        {
+            OutputFile = OutputFile,
+            FrameCount = frameProvider.FrameCount,
+            FrameRateNum = frameProvider.FrameRate.Numerator,
+            FrameRateDen = frameProvider.FrameRate.Denominator,
+            SampleCount = sampleProvider.SampleCount,
+            ProviderSampleRate = sampleProvider.SampleRate,
+            SourceWidth = VideoSettings.SourceSize.Width,
+            SourceHeight = VideoSettings.SourceSize.Height,
+            DestWidth = VideoSettings.DestinationSize.Width,
+            DestHeight = VideoSettings.DestinationSize.Height,
+            VideoBitrate = VideoSettings.Bitrate,
+            KeyframeRate = VideoSettings.KeyframeRate,
+            PixelFormat = VideoSettings.Format,
+            VideoCodecName = VideoSettings.Codec.Name,
+            ColorPrimaries = VideoSettings.ColorPrimaries,
+            ColorTrc = VideoSettings.ColorTrc,
+            ColorSpace = VideoSettings.ColorSpace,
+            ColorRange = VideoSettings.ColorRange,
+            VideoOptions = VideoSettings.Options
+                .Where(o => !string.IsNullOrWhiteSpace(o.Name))
+                .ToDictionary(o => o.Name, o => o.Value),
+            IsHdr = IsHdr(),
+            AudioSampleRate = AudioSettings.SampleRate,
+            AudioChannels = AudioSettings.Channels,
+            AudioBitrate = AudioSettings.Bitrate,
+            AudioFormat = (int)AudioSettings.Format,
+            AudioCodecName = AudioSettings.Codec.Name,
+            ThreadCount = settings.ThreadCount,
+            Acceleration = (int)settings.Acceleration,
+        };
+    }
+
+    private static void ThrowIfEncodeFailed(IpcMessage msg)
+    {
+        var complete = msg.GetPayload<EncodeCompleteMessage>();
+        if (complete != null && !complete.Success)
+        {
+            throw new FFmpegWorkerException(
+                complete.Error ?? "Encoding failed",
+                ffmpegErrorCode: complete.FFmpegErrorCode);
+        }
+    }
+
+    private async ValueTask NotifyWorkerCanceledAsync(IpcConnection connection)
+    {
+        try
+        {
+            await connection.SendAsync(
+                IpcMessage.CreateSimple(connection.NextId(), MessageType.CancelEncode),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send cancel notification to FFmpeg worker");
         }
     }
 

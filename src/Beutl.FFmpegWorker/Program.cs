@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipes;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Transport;
@@ -13,31 +14,8 @@ internal static class Program
 
     static async Task<int> Main(string[] args)
     {
-        string? pipeName = null;
-        int parentPid = -1;
-
-        for (int i = 0; i < args.Length - 1; i++)
-        {
-            switch (args[i])
-            {
-                case "--pipe":
-                    pipeName = args[++i];
-                    break;
-                case "--parent":
-                    if (!int.TryParse(args[++i], out parentPid))
-                    {
-                        WorkerLog.Error($"Invalid parent PID: {args[i]}");
-                        return 1;
-                    }
-                    break;
-            }
-        }
-
-        if (pipeName == null)
-        {
-            WorkerLog.Error("Usage: Beutl.FFmpegWorker --pipe <name> --parent <pid>");
+        if (!TryParseArguments(args, out string? pipeName, out int parentPid))
             return 1;
-        }
 
         // ロギング初期化: すべてのログを stdout に [ffmpeg:<Level>] プレフィックス付きで出力する
         Log.LoggerFactory = LoggerFactory.Create(builder =>
@@ -101,6 +79,38 @@ internal static class Program
         await host.RunAsync(s_shutdownCts.Token);
 
         return 0;
+    }
+
+    private static bool TryParseArguments(
+        string[] args, [NotNullWhen(true)] out string? pipeName, out int parentPid)
+    {
+        pipeName = null;
+        parentPid = -1;
+
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            switch (args[i])
+            {
+                case "--pipe":
+                    pipeName = args[++i];
+                    break;
+                case "--parent":
+                    if (!int.TryParse(args[++i], out parentPid))
+                    {
+                        WorkerLog.Error($"Invalid parent PID: {args[i]}");
+                        return false;
+                    }
+                    break;
+            }
+        }
+
+        if (pipeName == null)
+        {
+            WorkerLog.Error("Usage: Beutl.FFmpegWorker --pipe <name> --parent <pid>");
+            return false;
+        }
+
+        return true;
     }
 
     private static void MonitorParent(int parentPid)

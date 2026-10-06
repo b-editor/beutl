@@ -25,10 +25,11 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         {
             // A record copies itself through a virtual clone, so the copy constructor that runs is the one
             // of the type the value was made as.
-            made = FollowHeldCreation(
+            made = FollowValueCreation(
                 context,
-                GetCreationHeldBy(context, model, with.Expression),
+                model,
                 body,
+                with.Expression,
                 with,
                 depth,
                 walked,
@@ -108,10 +109,11 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
             INamedTypeSymbol? made = value is null
                 ? null
-                : FollowHeldCreation(
+                : FollowValueCreation(
                     context,
-                    GetCreationHeldBy(context, model, value),
+                    model,
                     body,
+                    value,
                     scope,
                     depth,
                     walked,
@@ -225,7 +227,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
             context,
             construct,
             collection,
-            RunsAStaticMethod(construct) ? "static method" : "method",
+            DescribeCallKind(construct),
             depth,
             walked,
             report);
@@ -279,7 +281,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
                 context,
                 appended,
                 interpolated,
-                RunsAStaticMethod(appended) ? "static method" : "method",
+                DescribeCallKind(appended),
                 depth,
                 walked,
                 report);
@@ -346,10 +348,11 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
             INamedTypeSymbol? made = on is null
                 ? null
-                : FollowHeldCreation(
+                : FollowValueCreation(
                     context,
-                    GetCreationHeldBy(context, model, on),
+                    model,
                     body,
+                    on,
                     node,
                     depth,
                     walked,
@@ -364,7 +367,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
             // that a type derived from it may replace them again.
             INamedTypeSymbol? dispatch = exact ?? (on is null ? previousResult as INamedTypeSymbol : null);
             IMethodSymbol runs = RunsAsMade(dispatch, rewritten);
-            string kind = RunsAStaticMethod(rewritten) ? "static method" : "method";
+            string kind = DescribeCallKind(rewritten);
             FollowCall(context, runs, node, kind, depth, walked, report);
 
             if (exact is null)
@@ -458,10 +461,11 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
         // Only the sequence is a value the callback can be shown the making of; the enumerator is whatever
         // GetEnumerator handed back.
-        INamedTypeSymbol? madeSequence = FollowHeldCreation(
+        INamedTypeSymbol? madeSequence = FollowValueCreation(
             context,
-            GetCreationHeldBy(context, model, loop.Expression),
+            model,
             body,
+            loop.Expression,
             loop,
             depth,
             walked,
@@ -483,7 +487,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
                 return null;
 
             IMethodSymbol run = RunsAsMade(made ?? dispatch, bound);
-            kind ??= RunsAStaticMethod(run) ? "static method" : "method";
+            kind ??= DescribeCallKind(run);
             FollowCall(context, run, loop, kind, depth, walked, report);
 
             if (made is null)
@@ -566,16 +570,17 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         {
             INamedTypeSymbol? made = value is null
                 ? null
-                : FollowHeldCreation(
+                : FollowValueCreation(
                     context,
-                    GetCreationHeldBy(context, model, value),
+                    model,
                     body,
+                    value,
                     node,
                     depth,
                     walked,
                     report);
             IMethodSymbol runs = RunsAsMade(made, deconstruct);
-            string kind = RunsAStaticMethod(runs) ? "static method" : "method";
+            string kind = DescribeCallKind(runs);
 
             if (runs.IsImplicitlyDeclared)
                 FollowGeneratedDeconstruct(context, runs, made, receiver, node, depth, walked, report);

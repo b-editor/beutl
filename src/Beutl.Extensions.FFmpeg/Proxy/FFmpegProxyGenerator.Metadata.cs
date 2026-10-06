@@ -15,19 +15,14 @@ public sealed partial class FFmpegProxyGenerator
             .Where(existing => existing.Preset != entry.Preset)
             .Append(entry)
             .ToArray();
-        var metadata = new ProxySourceMetadata
-        {
-            Source = entry.Source,
-            Entries = [.. entries],
-        };
-        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        WriteMetadataFile(metadataPath, entry.Source, entries);
     }
 
     private static void RemoveMetadataEntry(string finalPath, ProxyEntry entry)
     {
         try
         {
-            string metadataPath = Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json");
+            string metadataPath = GetMetadataPath(finalPath);
             if (!File.Exists(metadataPath))
                 return;
 
@@ -40,16 +35,21 @@ public sealed partial class FFmpegProxyGenerator
                 return;
             }
 
-            var metadata = new ProxySourceMetadata
-            {
-                Source = entry.Source,
-                Entries = [.. entries],
-            };
-            File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+            WriteMetadataFile(metadataPath, entry.Source, entries);
         }
         catch
         {
         }
+    }
+
+    private static void WriteMetadataFile(string metadataPath, ProxyFingerprint source, ProxyEntry[] entries)
+    {
+        var metadata = new ProxySourceMetadata
+        {
+            Source = source,
+            Entries = [.. entries],
+        };
+        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
     }
 
     private static IEnumerable<ProxyEntry> ReadMetadataEntries(string metadataPath, ProxyFingerprint source)

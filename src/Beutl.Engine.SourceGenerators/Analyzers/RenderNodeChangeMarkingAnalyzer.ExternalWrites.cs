@@ -23,10 +23,7 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
 
         // A source base whose own Process reads a declaration already reports it when that type is analyzed.
         // Leave that diagnostic there instead of repeating it once for every derived node that reads it.
-        for (INamedTypeSymbol? declaring = type.BaseType;
-             declaring is not null
-             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
-             declaring = declaring.BaseType)
+        foreach (INamedTypeSymbol declaring in EnumerateTypeChain(type.BaseType, renderNodeType))
         {
             if (IsDeclaredInCompilation(context.Compilation, declaring))
             {
@@ -35,10 +32,7 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
             }
         }
 
-        for (INamedTypeSymbol? declaring = type;
-             declaring is not null
-             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
-             declaring = declaring.BaseType)
+        foreach (INamedTypeSymbol declaring in EnumerateTypeChain(type, renderNodeType))
         {
             // Metadata exposes accessibility but not whether a property or event is compiler-backed, so
             // only declarations whose source this compilation owns participate in this rule.

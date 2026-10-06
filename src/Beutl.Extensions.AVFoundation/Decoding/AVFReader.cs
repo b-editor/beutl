@@ -102,10 +102,13 @@ public sealed class AVFReader : MediaReader
 
     public override bool HasAudio { get; }
 
+    [MemberNotNullWhen(true, nameof(_handle))]
+    private bool IsHandleUsable() => _handle != null && !_handle.IsClosed && !_handle.IsInvalid;
+
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
-        if (!HasVideo || _handle == null || _handle.IsClosed || _handle.IsInvalid)
+        if (!HasVideo || !IsHandleUsable())
         {
             return false;
         }
@@ -139,7 +142,7 @@ public sealed class AVFReader : MediaReader
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
-        if (!HasAudio || _handle == null || _handle.IsClosed || _handle.IsInvalid)
+        if (!HasAudio || !IsHandleUsable())
         {
             return false;
         }

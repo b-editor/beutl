@@ -300,22 +300,25 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
 
         public IEnumerable<IMethodSymbol> ConstructorSubscriptions(INamedTypeSymbol declaring)
         {
-            for (INamedTypeSymbol? current = declaring;
-                 current is not null && !SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, renderNodeType);
-                 current = current.BaseType)
+            foreach (INamedTypeSymbol current in EnumerateTypeChain(declaring, renderNodeType))
                 foreach (IMethodSymbol constructor in current.InstanceConstructors)
                     foreach (BodyWithModel body in GetBodies(constructor))
                         foreach (AnonymousFunctionExpressionSyntax lambda in body.Body.DescendantNodes(child => RunsNestedFunction(body.Model, body.Body, child,
                                      localFunctionsFollowedAsCallees: false)).OfType<AnonymousFunctionExpressionSyntax>())
                         {
-                            bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
-                                && assignment.IsKind(SyntaxKind.AddAssignmentExpression)
-                                && body.Model.GetSymbolInfo(assignment.Left).Symbol is IEventSymbol;
-                            bool subscription = lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation }
-                                && body.Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Subscribe" };
-                            if ((eventHandler || subscription) && body.Model.GetOperation(lambda) is IAnonymousFunctionOperation operation)
+                            if (IsSubscriptionCallback(lambda, body.Model) && body.Model.GetOperation(lambda) is IAnonymousFunctionOperation operation)
                                 yield return operation.Symbol;
                         }
+        }
+
+        private static bool IsSubscriptionCallback(AnonymousFunctionExpressionSyntax lambda, SemanticModel model)
+        {
+            bool eventHandler = lambda.Parent is AssignmentExpressionSyntax assignment
+                && assignment.IsKind(SyntaxKind.AddAssignmentExpression)
+                && model.GetSymbolInfo(assignment.Left).Symbol is IEventSymbol;
+            bool subscription = lambda.Parent is ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation }
+                && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Subscribe" };
+            return eventHandler || subscription;
         }
 
         private IEnumerable<BodyWithModel> GetBodies(IMethodSymbol method)

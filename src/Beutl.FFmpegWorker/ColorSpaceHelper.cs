@@ -19,12 +19,6 @@ internal static class ColorSpaceHelper
         AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
         => BitmapColorSpaceMapping.BuildHdrColorSpace(ToTransfer(trc), ToPrimaries(primaries));
 
-    public static BitmapColorSpaceTransferFn GetTransferFunction(AVColorTransferCharacteristic trc)
-        => BitmapColorSpaceMapping.GetTransferFunction(ToTransfer(trc));
-
-    public static BitmapColorSpaceXyz GetBitmapColorSpaceXyz(AVColorPrimaries primaries)
-        => BitmapColorSpaceMapping.GetPrimaries(ToPrimaries(primaries));
-
     private static BitmapColorTransfer ToTransfer(AVColorTransferCharacteristic trc)
     {
         return trc switch

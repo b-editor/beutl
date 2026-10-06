@@ -105,89 +105,101 @@ public sealed class IpcConnection : IDisposable
         _receiveLoopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var loopCt = _receiveLoopCts.Token;
 
-        _receiveLoopTask = Task.Run(async () =>
+        _receiveLoopTask = Task.Run(() => RunReceiveLoopAsync(loopCt), CancellationToken.None);
+    }
+
+    private async Task RunReceiveLoopAsync(CancellationToken loopCt)
+    {
+        // 受信ループが終了する理由を以下のように区別する:
+        //   - loopCt キャンセル/ObjectDisposedException: 自プロセス由来の停止。
+        //     finally で待機中 TCS を TrySetCanceled(loopCt) してキャンセル扱い。
+        //   - EOF (msg == null) / IOException: 相手側起因の切断。
+        //     terminationError に詰めて TrySetException で伝播し、
+        //     「ユーザーがキャンセル」と「接続が死んだ」を呼び出し元から区別可能にする。
+        //   - 想定外例外 (プロトコル破損/JSON 失敗 など): 同じ termination 経路に集約し、
+        //     IOException として待機中 TCS と _receiveLoopFault に伝播する。
+        Exception? terminationError = null;
+        try
         {
-            // 受信ループが終了する理由を以下のように区別する:
-            //   - loopCt キャンセル/ObjectDisposedException: 自プロセス由来の停止。
-            //     finally で待機中 TCS を TrySetCanceled(loopCt) してキャンセル扱い。
-            //   - EOF (msg == null) / IOException: 相手側起因の切断。
-            //     terminationError に詰めて TrySetException で伝播し、
-            //     「ユーザーがキャンセル」と「接続が死んだ」を呼び出し元から区別可能にする。
-            //   - 想定外例外 (プロトコル破損/JSON 失敗 など): 同じ termination 経路に集約し、
-            //     IOException として待機中 TCS と _receiveLoopFault に伝播する。
-            Exception? terminationError = null;
-            try
+            while (!loopCt.IsCancellationRequested)
             {
-                while (!loopCt.IsCancellationRequested)
+                var msg = await MessageSerializer.ReadMessageAsync(_pipe, loopCt).ConfigureAwait(false);
+                if (msg == null)
                 {
-                    var msg = await MessageSerializer.ReadMessageAsync(_pipe, loopCt).ConfigureAwait(false);
-                    if (msg == null)
-                    {
-                        terminationError = new IOException(
-                            "IPC receive loop terminated: remote endpoint closed the pipe.");
-                        break;
-                    }
-
-                    if (_pendingRequests.TryRemove(msg.Id, out var tcs))
-                    {
-                        // tcs が既にキャンセル済みなら TrySetResult は false を返す。
-                        // その場合、呼び出し元はレスポンスを受け取らないので
-                        // 上位レイヤーに通知してリソース解放のチャンスを与える。
-                        if (!tcs.TrySetResult(msg))
-                        {
-                            InvokeDroppedResponseHandler(msg);
-                        }
-                    }
-                    else
-                    {
-                        // 待機中の TCS が居ない (キャンセル後に到着した stray message)。
-                        InvokeDroppedResponseHandler(msg);
-                    }
+                    terminationError = new IOException(
+                        "IPC receive loop terminated: remote endpoint closed the pipe.");
+                    break;
                 }
-            }
-            catch (OperationCanceledException oce) when (oce.CancellationToken == loopCt && loopCt.IsCancellationRequested) { }
-            catch (ObjectDisposedException) when (loopCt.IsCancellationRequested) { }
-            catch (IOException ex)
-            {
-                terminationError = new IOException(
-                    "IPC receive loop terminated due to a broken pipe. The remote endpoint may have crashed.", ex);
-            }
-            catch (Exception ex) when (!IsFatal(ex))
-            {
-                // プロトコル破損 (length out of range, JSON deserialize 失敗, 想定外の状態) など
-                // I/O 以外の例外も同じ termination 経路に集約し、呼び出し元から
-                // 「キャンセル」と「ループが死んだ」を区別可能にする。
-                // 致命系 (OOM/SOE/AVE) は IOException に包んで誤魔化さず、プロセス側に
-                // 元のクラッシュ意図を伝播させる (InvokeDroppedResponseHandler と同じ規約)。
-                terminationError = new IOException(
-                    "IPC receive loop terminated due to an unexpected protocol or deserialization error.", ex);
-            }
-            finally
-            {
-                // ストア順序: Volatile.Write (release) → foreach の順を厳守する。
-                // 送信側は TryAdd 後に Volatile.Read (acquire) で fault を読み直すので、
-                // この release/acquire ペアが ARM などの弱メモリモデルでも保証される。
-                // 逆順だと foreach で拾われなかった TCS が永久 await になる。
-                // clean-cancel の場合も「fault 無し」ではなく ObjectDisposedException を
-                // 載せて fail-fast を保証する。
-                Volatile.Write(
-                    ref _receiveLoopFault,
-                    terminationError ?? (Exception)new ObjectDisposedException(
-                        nameof(IpcConnection),
-                        "IPC receive loop has stopped; the connection no longer accepts multiplexed requests."));
 
-                foreach (var kvp in _pendingRequests)
-                {
-                    if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
-                    {
-                        if (terminationError != null)
-                            tcs.TrySetException(terminationError);
-                        else
-                            tcs.TrySetCanceled(loopCt);
-                    }
-                }
+                RouteResponse(msg);
             }
-        }, CancellationToken.None);
+        }
+        catch (OperationCanceledException oce) when (oce.CancellationToken == loopCt && loopCt.IsCancellationRequested) { }
+        catch (ObjectDisposedException) when (loopCt.IsCancellationRequested) { }
+        catch (IOException ex)
+        {
+            terminationError = new IOException(
+                "IPC receive loop terminated due to a broken pipe. The remote endpoint may have crashed.", ex);
+        }
+        catch (Exception ex) when (!IsFatal(ex))
+        {
+            // プロトコル破損 (length out of range, JSON deserialize 失敗, 想定外の状態) など
+            // I/O 以外の例外も同じ termination 経路に集約し、呼び出し元から
+            // 「キャンセル」と「ループが死んだ」を区別可能にする。
+            // 致命系 (OOM/SOE/AVE) は IOException に包んで誤魔化さず、プロセス側に
+            // 元のクラッシュ意図を伝播させる (InvokeDroppedResponseHandler と同じ規約)。
+            terminationError = new IOException(
+                "IPC receive loop terminated due to an unexpected protocol or deserialization error.", ex);
+        }
+        finally
+        {
+            // ストア順序: Volatile.Write (release) → foreach の順を厳守する。
+            // 送信側は TryAdd 後に Volatile.Read (acquire) で fault を読み直すので、
+            // この release/acquire ペアが ARM などの弱メモリモデルでも保証される。
+            // 逆順だと foreach で拾われなかった TCS が永久 await になる。
+            // clean-cancel の場合も「fault 無し」ではなく ObjectDisposedException を
+            // 載せて fail-fast を保証する。
+            Volatile.Write(
+                ref _receiveLoopFault,
+                terminationError ?? (Exception)new ObjectDisposedException(
+                    nameof(IpcConnection),
+                    "IPC receive loop has stopped; the connection no longer accepts multiplexed requests."));
+
+            FailPendingRequests(terminationError, loopCt);
+        }
+    }
+
+    private void RouteResponse(IpcMessage msg)
+    {
+        if (_pendingRequests.TryRemove(msg.Id, out var tcs))
+        {
+            // tcs が既にキャンセル済みなら TrySetResult は false を返す。
+            // その場合、呼び出し元はレスポンスを受け取らないので
+            // 上位レイヤーに通知してリソース解放のチャンスを与える。
+            if (!tcs.TrySetResult(msg))
+            {
+                InvokeDroppedResponseHandler(msg);
+            }
+        }
+        else
+        {
+            // 待機中の TCS が居ない (キャンセル後に到着した stray message)。
+            InvokeDroppedResponseHandler(msg);
+        }
+    }
+
+    private void FailPendingRequests(Exception? terminationError, CancellationToken loopCt)
+    {
+        foreach (var kvp in _pendingRequests)
+        {
+            if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
+            {
+                if (terminationError != null)
+                    tcs.TrySetException(terminationError);
+                else
+                    tcs.TrySetCanceled(loopCt);
+            }
+        }
     }
 
     public async ValueTask SendAsync(IpcMessage message, CancellationToken ct = default)

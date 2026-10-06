@@ -150,12 +150,7 @@ public sealed partial class FFmpegProxyGenerator
     }
 
     private static string CreateBackupPathForOutput(string path)
-    {
-        string directory = Path.GetDirectoryName(path) ?? string.Empty;
-        string extension = Path.GetExtension(path);
-        string fileName = $"{Path.GetFileNameWithoutExtension(path)}.{Guid.NewGuid():N}.bak{extension}";
-        return Path.Combine(directory, fileName);
-    }
+        => CreateSiblingPath(path, "bak");
 
     private static string? CopyExistingFileToBackup(string path)
     {

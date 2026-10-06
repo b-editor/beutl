@@ -71,9 +71,19 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         if (readState.IsEmpty)
             return;
 
-        ReportUnmarkedMutators(context, analysis, type, renderNodeType, processClosure, readState);
-        ReportExternallyWritableState(context, analysis, type, renderNodeType, readState);
         List<ReportedByBase> reportedByBases = CollectReportsByBaseTypes(analysis, type, renderNodeType);
+        ReportUnmarkedMutators(context, analysis, type, renderNodeType, processClosure, readState, reportedByBases);
+        ReportExternallyWritableState(context, analysis, type, renderNodeType, readState);
+        ReportUnmarkedConstructorSubscriptions(context, analysis, type, readState, reportedByBases);
+    }
+
+    private static void ReportUnmarkedConstructorSubscriptions(
+        SymbolAnalysisContext context,
+        TypeAnalysis analysis,
+        INamedTypeSymbol type,
+        ImmutableHashSet<ISymbol> readState,
+        List<ReportedByBase> reportedByBases)
+    {
         foreach (IMethodSymbol callback in analysis.ConstructorSubscriptions(type))
         {
             if (analysis.MarksChanged(callback)) continue;
@@ -115,13 +125,12 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol type,
         INamedTypeSymbol renderNodeType,
         ImmutableHashSet<ISymbol> processClosure,
-        ImmutableHashSet<ISymbol> readState)
+        ImmutableHashSet<ISymbol> readState,
+        List<ReportedByBase> reportedByBases)
     {
         HashSet<ISymbol> overridden = CollectOverriddenMethods(type, renderNodeType);
         ImmutableHashSet<ISymbol> reachedUnmarked =
             CollectReachedFromUnmarkedEntryPoints(analysis, type, renderNodeType, processClosure, overridden);
-
-        List<ReportedByBase> reportedByBases = CollectReportsByBaseTypes(analysis, type, renderNodeType);
 
         foreach (IMethodSymbol method in EnumerateChainMethods(type, renderNodeType))
         {
@@ -160,10 +169,7 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     {
         var reported = new List<ReportedByBase>();
 
-        for (INamedTypeSymbol? declaring = type.BaseType;
-             declaring is not null
-             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
-             declaring = declaring.BaseType)
+        foreach (INamedTypeSymbol declaring in EnumerateTypeChain(type.BaseType, renderNodeType))
         {
             ImmutableHashSet<ISymbol> state = analysis.ReadStateOfProcessFor(declaring, renderNodeType);
             if (state.IsEmpty || FindProcessMethod(declaring, renderNodeType) is not { } process)
@@ -272,16 +278,27 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol type,
         INamedTypeSymbol renderNodeType)
     {
-        for (INamedTypeSymbol? declaring = type;
-             declaring is not null
-             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
-             declaring = declaring.BaseType)
+        foreach (INamedTypeSymbol declaring in EnumerateTypeChain(type, renderNodeType))
         {
             foreach (ISymbol member in declaring.GetMembers())
             {
                 if (member is IMethodSymbol method)
                     yield return method;
             }
+        }
+    }
+
+    /// <summary><paramref name="first"/> and the base types after it, most derived first, stopping at <c>RenderNode</c>.</summary>
+    private static IEnumerable<INamedTypeSymbol> EnumerateTypeChain(
+        INamedTypeSymbol? first,
+        INamedTypeSymbol renderNodeType)
+    {
+        for (INamedTypeSymbol? declaring = first;
+             declaring is not null
+             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
+             declaring = declaring.BaseType)
+        {
+            yield return declaring;
         }
     }
 

@@ -49,6 +49,25 @@ public sealed partial class MetadataCallbackPurityAnalyzer
             walked,
             report);
 
+    /// <summary>The type <paramref name="value"/> was made as, or null where its making cannot be read.</summary>
+    private static INamedTypeSymbol? FollowValueCreation(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        ExpressionSyntax value,
+        SyntaxNode reference,
+        int depth,
+        Dictionary<ISymbol, int> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+        => FollowHeldCreation(
+            context,
+            GetCreationHeldBy(context, model, value),
+            body,
+            reference,
+            depth,
+            walked,
+            report);
+
     /// <summary>The type <paramref name="held"/> was made as, following the constructor that made it.</summary>
     private static INamedTypeSymbol? FollowHeldCreation(
         SyntaxNodeAnalysisContext context,

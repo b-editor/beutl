@@ -49,7 +49,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
                         context,
                         add,
                         added,
-                        RunsAStaticMethod(add) ? "static method" : "method",
+                        DescribeCallKind(add),
                         depth,
                         walked,
                         report);
@@ -183,12 +183,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        void Report(ISymbol? member, string construct)
-        {
-            // A compiler-generated member, such as a positional record's Deconstruct, has no body anyone wrote.
-            if (member is not null && !member.IsImplicitlyDeclared && IsDeclaredInSource(member))
-                report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
-        }
+        void Report(ISymbol? member, string construct) => ReportUnfollowedMember(node, member, construct, report);
 
         switch (node)
         {
@@ -262,6 +257,17 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         }
     }
 
+    private static void ReportUnfollowedMember(
+        SyntaxNode node,
+        ISymbol? member,
+        string construct,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        // A compiler-generated member, such as a positional record's Deconstruct, has no body anyone wrote.
+        if (member is not null && !member.IsImplicitlyDeclared && IsDeclaredInSource(member))
+            report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
+    }
+
     /// <summary>
     /// Reports a member a construct runs without naming it, where an override the rule cannot see past
     /// may replace the body it followed.
@@ -319,7 +325,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
     {
         IPropertySymbol { IsIndexer: true } => "indexer",
         IPropertySymbol => "property",
-        IMethodSymbol method when RunsAStaticMethod(method) => "static method",
+        IMethodSymbol method => DescribeCallKind(method),
         _ => "method",
     };
 
@@ -335,11 +341,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         string construct,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        void Report(ISymbol? member)
-        {
-            if (member is not null && !member.IsImplicitlyDeclared && IsDeclaredInSource(member))
-                report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
-        }
+        void Report(ISymbol? member) => ReportUnfollowedMember(node, member, construct, report);
 
         // GetAwaiter can be an extension method, which is found where the construct is written.
         IMethodSymbol? getAwaiter = awaitable is null

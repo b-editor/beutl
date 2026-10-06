@@ -14,6 +14,8 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
 {
     private static readonly ILogger s_logger = Log.CreateLogger<FFmpegProxyGenerator>();
 
+    private const string StillImageSkipReason = "Still images are not eligible for proxy generation.";
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -53,7 +55,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         }
 
         if (IsAlwaysStillImage(sourcePath))
-            throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
+            throw new ProxyGenerationSkippedException(StillImageSkipReason);
 
         using MediaReader reader = OpenSourceReader(sourcePath);
 
@@ -68,7 +70,7 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
         // multi-frame form is an expensive timeline source worth proxying. A single-frame one is a
         // still image, so skip it here — the frame count, not the extension, decides.
         if (frameCount <= 1 && IsAnimatableImage(sourcePath))
-            throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
+            throw new ProxyGenerationSkippedException(StillImageSkipReason);
 
         PixelSize originalSize = reader.VideoInfo.FrameSize;
         if (originalSize.Width <= 0 || originalSize.Height <= 0)
@@ -264,10 +266,13 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
     }
 
     internal static string CreateTempPathForOutput(string finalPath)
+        => CreateSiblingPath(finalPath, "tmp");
+
+    private static string CreateSiblingPath(string path, string tag)
     {
-        string directory = Path.GetDirectoryName(finalPath) ?? string.Empty;
-        string extension = Path.GetExtension(finalPath);
-        string fileName = $"{Path.GetFileNameWithoutExtension(finalPath)}.{Guid.NewGuid():N}.tmp{extension}";
+        string directory = Path.GetDirectoryName(path) ?? string.Empty;
+        string extension = Path.GetExtension(path);
+        string fileName = $"{Path.GetFileNameWithoutExtension(path)}.{Guid.NewGuid():N}.{tag}{extension}";
         return Path.Combine(directory, fileName);
     }
 }

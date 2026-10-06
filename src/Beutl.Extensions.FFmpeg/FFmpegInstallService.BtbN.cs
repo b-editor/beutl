@@ -317,28 +317,28 @@ public partial class FFmpegInstallService
             if (Directory.Exists(binDir))
             {
                 // Move all files from bin to destination
-                foreach (string file in Directory.GetFiles(binDir))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    string destFile = Path.Combine(destinationPath, Path.GetFileName(file));
-                    File.Move(file, destFile, true);
-                }
+                MoveFiles(binDir, destinationPath, ct);
 
                 // Also copy library files if they exist separately (for shared builds)
                 string libDir = Path.Combine(extractedDir, "lib");
                 if (Directory.Exists(libDir))
                 {
-                    foreach (string file in Directory.GetFiles(libDir))
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        string destFile = Path.Combine(destinationPath, Path.GetFileName(file));
-                        File.Move(file, destFile, true);
-                    }
+                    MoveFiles(libDir, destinationPath, ct);
                 }
 
                 // Delete the extracted subdirectory
                 Directory.Delete(extractedDir, true);
             }
+        }
+    }
+
+    private static void MoveFiles(string sourceDir, string destinationPath, CancellationToken ct)
+    {
+        foreach (string file in Directory.GetFiles(sourceDir))
+        {
+            ct.ThrowIfCancellationRequested();
+            string destFile = Path.Combine(destinationPath, Path.GetFileName(file));
+            File.Move(file, destFile, true);
         }
     }
 }

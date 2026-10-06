@@ -68,7 +68,7 @@ public static class FallbackClassAnalyzer
         {
             foreach (IMethodSymbol method in current.GetMembers()
                 .OfType<IMethodSymbol>()
-                .Where(m => m is { IsAbstract: true, MethodKind: MethodKind.Ordinary, IsStatic: false }))
+                .Where(IsAbstractOrdinaryInstance))
             {
                 string key = GetMethodSignatureKey(method);
                 if (!abstractMethods.ContainsKey(key))
@@ -81,7 +81,7 @@ public static class FallbackClassAnalyzer
         // Remove methods already overridden in the user's partial declaration
         foreach (string key in symbol.GetMembers()
             .OfType<IMethodSymbol>()
-            .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary })
+            .Where(IsOrdinaryOverride)
             .Select(GetMethodSignatureKey))
         {
             abstractMethods.Remove(key);
@@ -106,7 +106,7 @@ public static class FallbackClassAnalyzer
             {
                 foreach (IMethodSymbol method in nestedType.GetMembers()
                     .OfType<IMethodSymbol>()
-                    .Where(m => m is { IsAbstract: true, MethodKind: MethodKind.Ordinary, IsStatic: false }))
+                    .Where(IsAbstractOrdinaryInstance))
                 {
                     result.Add(new AbstractMethodInfo(method, method.DeclaredAccessibility));
                 }
@@ -118,7 +118,7 @@ public static class FallbackClassAnalyzer
         {
             foreach (string key in nestedType.GetMembers()
                 .OfType<IMethodSymbol>()
-                .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary })
+                .Where(IsOrdinaryOverride)
                 .Select(GetMethodSignatureKey))
             {
                 result.RemoveAll(info => GetMethodSignatureKey(info.Method) == key);
@@ -127,6 +127,12 @@ public static class FallbackClassAnalyzer
 
         return result.ToImmutable();
     }
+
+    private static bool IsAbstractOrdinaryInstance(IMethodSymbol method)
+        => method is { IsAbstract: true, MethodKind: MethodKind.Ordinary, IsStatic: false };
+
+    private static bool IsOrdinaryOverride(IMethodSymbol method)
+        => method is { IsOverride: true, MethodKind: MethodKind.Ordinary };
 
     private static string GetMethodSignatureKey(IMethodSymbol method)
     {

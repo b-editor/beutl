@@ -227,6 +227,9 @@ public sealed partial class MetadataCallbackPurityAnalyzer
     private static bool RunsAStaticMethod(IMethodSymbol method)
         => method.IsStatic || method.ReducedFrom is { IsStatic: true };
 
+    private static string DescribeCallKind(IMethodSymbol method)
+        => RunsAStaticMethod(method) ? "static method" : "method";
+
     private static void FollowCall(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol called,
@@ -239,8 +242,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         // Keyed on the method that declares the body rather than on the symbol the call site bound to, so
         // an extension reached in both its spellings is walked - and reported - once.
         ISymbol declaration = (called.ReducedFrom ?? called).OriginalDefinition;
-        if (walked.TryGetValue(declaration, out int previousDepth) && previousDepth >= depth) return;
-        walked[declaration] = depth;
+        if (!TryEnterWalk(walked, declaration, depth)) return;
 
         if (GetBody(context, called) is not { } body)
             return;
@@ -254,6 +256,19 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         WalkBody(context, GetSemanticModel(context, body.SyntaxTree), body, depth - 1, walked, report);
     }
 
+    /// <summary>
+    /// Records <paramref name="key"/> as walked at <paramref name="depth"/>, and says whether it still needs
+    /// walking: one already walked at least this deep has nothing more to give.
+    /// </summary>
+    private static bool TryEnterWalk(Dictionary<ISymbol, int> walked, ISymbol key, int depth)
+    {
+        if (walked.TryGetValue(key, out int previousDepth) && previousDepth >= depth)
+            return false;
+
+        walked[key] = depth;
+        return true;
+    }
+
     private static void FollowConstructor(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol constructor,
@@ -262,8 +277,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (walked.TryGetValue(constructor.OriginalDefinition, out int previousDepth) && previousDepth >= depth) return;
-        walked[constructor.OriginalDefinition] = depth;
+        if (!TryEnterWalk(walked, constructor.OriginalDefinition, depth)) return;
 
         List<SyntaxNode> bodies = GetConstructorBodies(context, constructor);
         IMethodSymbol? implicitBase = GetImplicitBaseConstructor(context, constructor);

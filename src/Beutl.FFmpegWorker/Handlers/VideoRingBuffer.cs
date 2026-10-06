@@ -139,12 +139,7 @@ internal sealed class VideoRingBuffer : IDisposable
         _lastServedSlot = hitSlot;
 
         // 色空間情報
-        bool colorSpaceChanged = _lastColorSpace != slotMeta.ColorSpace;
-        _lastColorSpace = slotMeta.ColorSpace;
-        if (colorSpaceChanged || _lastToXyzD50 == null || _lastTransferFn == null)
-        {
-            (_lastTransferFn, _lastToXyzD50) = ColorSpaceIpcHelper.Extract(slotMeta.ColorSpace);
-        }
+        bool colorSpaceChanged = UpdateColorSpaceCache(slotMeta.ColorSpace);
 
         // プリフェッチ再開シグナル
         _prefetchSignal.Set();
@@ -188,17 +183,10 @@ internal sealed class VideoRingBuffer : IDisposable
         var fi = frameInfo.Value;
 
         // 色空間情報
-        bool colorSpaceChanged = _lastColorSpace != fi.ColorSpace;
-        _lastColorSpace = fi.ColorSpace;
-        if (colorSpaceChanged || _lastToXyzD50 == null || _lastTransferFn == null)
-        {
-            (_lastTransferFn, _lastToXyzD50) = ColorSpaceIpcHelper.Extract(fi.ColorSpace);
-        }
+        bool colorSpaceChanged = UpdateColorSpaceCache(fi.ColorSpace);
 
         // スロットメタデータ更新
-        _slots[writeSlot] = SlotMetadata.FromFrameInfo(frame, fi);
-        _slotFrameNumbers[writeSlot] = frame;
-        _nextWriteSlot = (writeSlot + 1) % _slotCount;
+        CommitSlot(writeSlot, frame, fi);
         LastRequestedFrame = frame;
         _lastServedSlot = writeSlot;
 
@@ -222,6 +210,27 @@ internal sealed class VideoRingBuffer : IDisposable
             TransferFn = colorSpaceChanged ? _lastTransferFn : null,
             ToXyzD50 = colorSpaceChanged ? _lastToXyzD50 : null,
         };
+    }
+
+    // Call with ReaderLock held.
+    private bool UpdateColorSpaceCache(BitmapColorSpace colorSpace)
+    {
+        bool colorSpaceChanged = _lastColorSpace != colorSpace;
+        _lastColorSpace = colorSpace;
+        if (colorSpaceChanged || _lastToXyzD50 == null || _lastTransferFn == null)
+        {
+            (_lastTransferFn, _lastToXyzD50) = ColorSpaceIpcHelper.Extract(colorSpace);
+        }
+
+        return colorSpaceChanged;
+    }
+
+    // Call with ReaderLock held.
+    private void CommitSlot(int slot, int frame, VideoFrameInfo info)
+    {
+        _slots[slot] = SlotMetadata.FromFrameInfo(frame, info);
+        _slotFrameNumbers[slot] = frame;
+        _nextWriteSlot = (slot + 1) % _slotCount;
     }
 
     // ReaderLock保持下で呼ぶこと。
@@ -293,7 +302,7 @@ internal sealed class VideoRingBuffer : IDisposable
     }
 
     // ReaderLock保持下で呼ぶこと。
-    private unsafe void StartPrefetch()
+    private void StartPrefetch()
     {
         _prefetchCts = new CancellationTokenSource();
         var ct = _prefetchCts.Token;
@@ -311,15 +320,8 @@ internal sealed class VideoRingBuffer : IDisposable
                     if (baseFrame < 0) break;
 
                     // 既にバッファにあるフレーム数をカウント
-                    int cachedAhead = 0;
                     int maxAhead = _slotCount - 1;
-                    for (int i = 1; i <= maxAhead; i++)
-                    {
-                        if (FindSlot(baseFrame + i) >= 0)
-                            cachedAhead++;
-                        else
-                            break;
-                    }
+                    int cachedAhead = CountCachedAhead(baseFrame, maxAhead);
 
                     if (cachedAhead >= maxAhead)
                     {
@@ -342,32 +344,7 @@ internal sealed class VideoRingBuffer : IDisposable
                         if (ct.IsCancellationRequested) break;
                         if (FindSlot(nextFrame) >= 0) continue;
 
-                        // LastServedSlotを上書きしないようにする
-                        int writeSlot = _nextWriteSlot;
-                        if (writeSlot == _lastServedSlot)
-                        {
-                            writeSlot = (writeSlot + 1) % _slotCount;
-                        }
-
-                        long slotOffset = writeSlot * _slotSize;
-                        byte* pfPtr = VideoBuffer.AcquirePointer();
-                        try
-                        {
-                            var destination = new Span<byte>(pfPtr + slotOffset, (int)_slotSize);
-
-                            if (_reader.ReadVideo(nextFrame, destination, out var pfInfo)
-                                && pfInfo.DataLength <= _slotSize)
-                            {
-                                _slots[writeSlot] = SlotMetadata.FromFrameInfo(nextFrame, pfInfo);
-                                _slotFrameNumbers[writeSlot] = nextFrame;
-                                _nextWriteSlot = (writeSlot + 1) % _slotCount;
-                                decodedAhead = true;
-                            }
-                        }
-                        finally
-                        {
-                            VideoBuffer.ReleasePointer();
-                        }
+                        decodedAhead = TryPrefetchUnderLock(nextFrame);
                     }
                     finally
                     {
@@ -390,6 +367,51 @@ internal sealed class VideoRingBuffer : IDisposable
                 WorkerLog.Error("Prefetch error", ex);
             }
         }, ct);
+    }
+
+    private int CountCachedAhead(int baseFrame, int maxAhead)
+    {
+        int cachedAhead = 0;
+        for (int i = 1; i <= maxAhead; i++)
+        {
+            if (FindSlot(baseFrame + i) >= 0)
+                cachedAhead++;
+            else
+                break;
+        }
+
+        return cachedAhead;
+    }
+
+    // Call with ReaderLock held.
+    private unsafe bool TryPrefetchUnderLock(int nextFrame)
+    {
+        // LastServedSlotを上書きしないようにする
+        int writeSlot = _nextWriteSlot;
+        if (writeSlot == _lastServedSlot)
+        {
+            writeSlot = (writeSlot + 1) % _slotCount;
+        }
+
+        long slotOffset = writeSlot * _slotSize;
+        byte* pfPtr = VideoBuffer.AcquirePointer();
+        try
+        {
+            var destination = new Span<byte>(pfPtr + slotOffset, (int)_slotSize);
+
+            if (_reader.ReadVideo(nextFrame, destination, out var pfInfo)
+                && pfInfo.DataLength <= _slotSize)
+            {
+                CommitSlot(writeSlot, nextFrame, pfInfo);
+                return true;
+            }
+        }
+        finally
+        {
+            VideoBuffer.ReleasePointer();
+        }
+
+        return false;
     }
 
     internal struct SlotMetadata
