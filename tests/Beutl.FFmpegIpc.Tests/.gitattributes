@@ -1,0 +1,2 @@
+# The decode fixture is a binary media file; never apply EOL normalization to it.
+*.flv binary

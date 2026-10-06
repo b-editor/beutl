@@ -22,6 +22,11 @@
          (FFmpegWorkerProcess) live in the MIT extension, which does NOT reference the GPL
          Beutl.FFmpegWorker. The worker is reached only as a spawned process over IPC. -->
     <ProjectReference Include="..\..\src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Fixtures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Order the GPL worker's build before the copy below so the copy is deterministic even on a clean

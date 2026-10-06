@@ -1,6 +1,7 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using SharpGen.Runtime.Diagnostics;
 using Vortice.MediaFoundation;
@@ -95,6 +96,59 @@ public class MFDecoderLifecycleTests
         }
 
         return count;
+    }
+
+    [Test]
+    public void Constructor_UnsupportedByteStream_LogsDebugAndDisposesCreatedComObjects()
+    {
+        string file = Path.Combine(_workDir, "unsupported.mp4");
+        File.WriteAllText(file, "This is not a recognized media byte stream.");
+        var logger = new CaptureLogger();
+        int before = CountTrackedMediaFoundationObjects();
+
+        SharpGenException? exception = Assert.Throws<SharpGenException>(() =>
+            _ = new MFDecoder(file, new MediaOptions(MediaMode.Video), new MFDecodingExtension(), logger));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.ResultCode.Code, Is.EqualTo(unchecked((int)0xC00D36C4)));
+            Assert.That(logger.Entries.Select(entry => entry.Level), Is.EqualTo(new[] { LogLevel.Debug }));
+            Assert.That(logger.Entries[0].Exception, Is.SameAs(exception));
+            Assert.That(CountTrackedMediaFoundationObjects(), Is.EqualTo(before),
+                "Unsupported input must release the attributes created before the source-reader failure.");
+        });
+    }
+
+    [Test]
+    public void Constructor_OtherInitializationFailure_StillLogsError()
+    {
+        string file = Path.Combine(_workDir, "missing.mp4");
+        var logger = new CaptureLogger();
+        int before = CountTrackedMediaFoundationObjects();
+
+        SharpGenException? exception = Assert.Throws<SharpGenException>(() =>
+            _ = new MFDecoder(file, new MediaOptions(MediaMode.Video), new MFDecodingExtension(), logger));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.ResultCode.Code, Is.Not.EqualTo(unchecked((int)0xC00D36C4)));
+            Assert.That(logger.Entries.Select(entry => entry.Level), Is.EqualTo(new[] { LogLevel.Error }));
+            Assert.That(logger.Entries[0].Exception, Is.SameAs(exception));
+            Assert.That(CountTrackedMediaFoundationObjects(), Is.EqualTo(before));
+        });
+    }
+
+    private sealed class CaptureLogger : ILogger
+    {
+        public List<(LogLevel Level, Exception? Exception)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, exception));
     }
 
     private string WriteSineWav(int sampleRate = 44100, int channels = 2, double seconds = 0.2)
