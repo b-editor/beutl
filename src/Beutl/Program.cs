@@ -1,9 +1,8 @@
 ﻿using System.Runtime;
-using System.Runtime.CompilerServices;
 using Avalonia;
-using Avalonia.Media;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
@@ -68,9 +67,6 @@ internal static class Program
         UnhandledExceptionHandler.Exit();
     }
 
-    // Keep FontManager's beforefieldinit initialization inside the builder call,
-    // after Main has recovered package fonts.
-    [MethodImpl(MethodImplOptions.NoInlining)]
     public static AppBuilder BuildAvaloniaApp()
     {
         return AppBuilder.Configure<App>()
@@ -80,10 +76,7 @@ internal static class Program
             {
                 WinUICompositionBackdropCornerRadius = 8f
             })
-            .With(new FontManagerOptions
-            {
-                DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
-            })
+            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture))
             .AfterSetup(_ => Telemetry.CompressLogFiles())
 #if DEBUG
             .LogToTrace();

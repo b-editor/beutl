@@ -2,8 +2,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform;
+using Beutl.Controls.Styling;
 
 namespace Beutl.HeadlessUITests;
 
@@ -11,7 +13,29 @@ namespace Beutl.HeadlessUITests;
 public class UIFontResourceTests
 {
     [AvaloniaTest]
-    public void ContentControlThemeFontFamily_uses_noto_sans_jp()
+    [TestCase("Beutl.ExceptionHandler")]
+    [TestCase("Beutl.WaitingDialog")]
+    public void Helper_dialog_font_resources_resolve_their_linked_assets(string assemblyName)
+    {
+        var resources = (ResourceDictionary)AvaloniaXamlLoader.Load(
+            new Uri($"avares://{assemblyName}/Styling/Fonts.axaml"))!;
+        var family = (FontFamily)resources["BeutlUIFontFamily"]!;
+        Assert.That(family.FamilyNames, Is.EqualTo(UiFonts.DefaultFontFamily.FamilyNames));
+
+        foreach (string name in family.FamilyNames)
+        {
+            var embedded = new FontFamily($"avares://{assemblyName}/Assets/Fonts/{name.Replace(" ", "")}#{name}");
+            foreach (FontWeight weight in new[] { FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold })
+            {
+                Assert.That(FontManager.Current.TryGetGlyphTypeface(
+                    new Typeface(embedded, weight: weight), out GlyphTypeface? typeface), Is.True);
+                Assert.That(typeface!.Weight, Is.EqualTo(weight));
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public void ContentControlThemeFontFamily_uses_localized_noto_sans_with_other_languages()
     {
         object? resource = Application.Current!.FindResource("ContentControlThemeFontFamily");
 
@@ -22,7 +46,7 @@ public class UIFontResourceTests
         string[] familyNames = fontFamily!.FamilyNames
             .Select(static name => name.ToString())
             .ToArray();
-        Assert.That(familyNames, Does.Contain("Noto Sans JP"));
+        Assert.That(familyNames, Is.EqualTo(UiFonts.DefaultFontFamily.FamilyNames));
     }
 
     [AvaloniaTest]
@@ -38,7 +62,7 @@ public class UIFontResourceTests
 
         foreach (string fileName in fileNames)
         {
-            var uri = new Uri($"avares://Beutl.Controls/Assets/Fonts/{fileName}");
+            var uri = new Uri($"avares://Beutl.Controls/Assets/Fonts/NotoSansJP/{fileName}");
 
             Assert.That(AssetLoader.Exists(uri), Is.True);
         }

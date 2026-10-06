@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls.Platform;
 using Avalonia.Headless;
+using Beutl.Controls.Styling;
 using Beutl.HeadlessUITests;
 using Beutl.Helpers;
 using Beutl.Testing.Headless;
@@ -24,6 +25,7 @@ public static class TestAppBuilder
         return AppBuilder.Configure<TestApp>()
             .UseReactiveUI(builder => builder.WithMainThreadScheduler(UiThreadScheduler.Instance))
             .UseSkia()
+            .With(UiFonts.CreateFontManagerOptions(System.Globalization.CultureInfo.CurrentUICulture))
             .With<IStorageProviderFactory>(new TestStorageProviderFactory())
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
     }

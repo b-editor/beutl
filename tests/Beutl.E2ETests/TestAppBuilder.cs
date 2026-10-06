@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Headless;
+using Beutl.Controls.Styling;
 using Beutl.E2ETests;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
@@ -11,5 +12,6 @@ public static class TestAppBuilder
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<TestApp>()
             .UseSkia()
+            .With(UiFonts.CreateFontManagerOptions(System.Globalization.CultureInfo.CurrentUICulture))
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }

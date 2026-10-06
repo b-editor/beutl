@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Beutl.Controls.Styling;
 
 namespace Beutl.ExceptionHandler;
 
@@ -15,5 +16,6 @@ internal class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(UiFonts.CreateFontManagerOptions(System.Globalization.CultureInfo.CurrentUICulture))
             .LogToTrace();
 }

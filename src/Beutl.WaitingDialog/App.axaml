@@ -4,9 +4,9 @@
              xmlns:sty="using:FluentAvalonia.Styling">
     <Application.Resources>
         <ResourceDictionary>
-            <FontFamily x:Key="NotoSansJP">avares://Beutl.WaitingDialog/Assets/Fonts#Noto Sans JP</FontFamily>
-            <FontFamily x:Key="BeutlUIFontFamily">avares://Beutl.WaitingDialog/Assets/Fonts#Noto Sans JP</FontFamily>
-            <StaticResource x:Key="ContentControlThemeFontFamily" ResourceKey="BeutlUIFontFamily" />
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styling/Fonts.axaml" />
+            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 
