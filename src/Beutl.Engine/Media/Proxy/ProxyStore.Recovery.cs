@@ -372,7 +372,7 @@ public sealed partial class ProxyStore
         {
         }
 
-        // A effect-item single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
+        // An effect-item single-ProxyEntry sidecar also deserializes as ProxySourceMetadata (Version and
         // Entries take their defaults), so only treat it as a wrapper when it actually carries
         // entries — otherwise fall through to the effect-item ProxyEntry parse so recovery still adopts it.
         if (metadata is { Entries.Count: > 0 })
