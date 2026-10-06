@@ -1,9 +1,14 @@
 ﻿using System.Runtime.Versioning;
 
+using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Embedding.MediaFoundation.Decoding;
+using Beutl.Engine;
+using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
 
@@ -105,6 +110,97 @@ public class MFReaderIntegrationTests
         using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.Video));
 
         Assert.That(reader, Is.Null);
+    }
+
+    [TestCase(1, 8820)]
+    [TestCase(1, 13230)]
+    [TestCase(2, 8820)]
+    [TestCase(2, 13230)]
+    [TestCase(2, int.MaxValue)]
+    public void ReadAudio_AtOrPastEndOfStream_ReturnsEmptyBuffer(int channels, int start)
+    {
+        // The 0.2s fixture has 8820 frames, independently of its channel count.
+        string wav = WriteSineWav(channels: channels);
+        using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.Audio));
+        Assert.That(reader, Is.Not.Null);
+
+        bool read = reader!.ReadAudio(start, 4096, out var pcm);
+        Assert.That(read, Is.True);
+        using (pcm)
+        {
+            Assert.That(pcm, Is.Not.Null);
+            Assert.That(pcm!.Value.NumSamples, Is.Zero);
+            Assert.That(pcm.Value.SampleRate, Is.EqualTo(44100));
+            Assert.That(pcm.Value.NumChannels, Is.EqualTo(2));
+        }
+
+        // An EOF request must leave the reader usable for a later in-range seek.
+        Assert.That(reader.ReadAudio(0, 1024, out var firstSamples), Is.True);
+        using (firstSamples)
+        {
+            Assert.That(firstSamples!.Value.NumSamples, Is.EqualTo(1024));
+        }
+    }
+
+    [TestCase(1)]
+    [TestCase(2)]
+    public void ReadAudio_CrossingEndOfStream_PreservesRemainingSamples(int channels)
+    {
+        string wav = WriteSineWav(channels: channels);
+        using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.Audio));
+        Assert.That(reader, Is.Not.Null);
+
+        bool read = reader!.ReadAudio(4410, 8820, out var pcm);
+        Assert.That(read, Is.True);
+        using (pcm)
+        {
+            Assert.That(pcm!.Value.NumSamples, Is.EqualTo(4410));
+            var samples = ((Pcm<Stereo32BitFloat>)pcm.Value).DataSpan;
+            Assert.That(samples.ToArray().Any(sample => Math.Abs(sample.Left) > 1e-4f), Is.True);
+        }
+    }
+
+    [NonParallelizable]
+    [TestCase(3d, 0d, 100f)]
+    [TestCase(2d, 0.5d, 100f)]
+    [TestCase(2d, 0d, 200f)]
+    public async Task GetWaveformChunks_SourceRangePastEnd_ProducesAllChunksWithSilentTail(
+        double duration, double offset, float speed)
+    {
+        string wav = WriteSineWav(seconds: 2);
+        IDecoderInfo decoder = CreateDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(wav));
+            using var metadata = source.ToResource(CompositionContext.Default);
+            Assert.That(metadata.MediaReader, Is.TypeOf<MFReader>());
+
+            var sound = new SourceSound
+            {
+                Source = { CurrentValue = source },
+                TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(duration)),
+                OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
+                Speed = { CurrentValue = speed }
+            };
+
+            var chunks = new List<WaveformChunk>();
+            await foreach (var chunk in sound.GetWaveformChunksAsync(20, 4096, null))
+            {
+                chunks.Add(chunk);
+            }
+
+            Assert.That(chunks.Select(chunk => chunk.Index), Is.EqualTo(Enumerable.Range(0, 20)));
+            Assert.That(chunks[0].MinValue, Is.LessThan(-0.1f));
+            Assert.That(chunks[0].MaxValue, Is.GreaterThan(0.1f));
+            Assert.That(chunks[^1].MinValue, Is.EqualTo(0f).Within(1e-6f));
+            Assert.That(chunks[^1].MaxValue, Is.EqualTo(0f).Within(1e-6f));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
     }
 
     [Test]
