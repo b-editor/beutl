@@ -122,9 +122,4 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     {
         Edited?.Invoke(this, EventArgs.Empty);
     }
-
-    //void IKeyFrame.SetDuration(TimeSpan timeSpan)
-    //{
-    //    Duration = timeSpan;
-    //}
 }

@@ -95,11 +95,7 @@ public static class SplineEasingHelper
 
         public InterpolationInfo(SplineEasing easing, KeyFrame<T> keyframe, KeyFrame<T> prevKeyFrame)
         {
-            Decrease = keyframe.Value < prevKeyFrame.Value;
-            Height = float.CreateChecked(T.Abs(keyframe.Value - prevKeyFrame.Value));
-            Width = (float)(keyframe.KeyTime - prevKeyFrame.KeyTime).TotalSeconds;
-            P1 = (X: 0f, Y: Decrease ? Height : 0f);
-            P2 = (X: Width, Y: Decrease ? 0f : Height);
+            Update(keyframe, prevKeyFrame);
 
             CP1 = (X: easing.X1 * Width, Y: Decrease ? (1 - easing.Y1) * Height : easing.Y1 * Height);
             CP2 = (X: easing.X2 * Width, Y: Decrease ? (1 - easing.Y2) * Height : easing.Y2 * Height);
@@ -129,28 +125,7 @@ public static class SplineEasingHelper
 
         public void MakeControlPoint1Symmetry(InterpolationInfo<T> prevInfo)
         {
-            var vector = prevInfo.ControlPoint2Vector();
-
-            // ベクトルの角度を取得
-            float radians = MathF.Atan2(vector.Y, vector.X);
-
-            var length = Length(vector.X, vector.Y);
-            var newPoint = CalculatePoint(radians, length);
-            newPoint.X += P1.X;
-            newPoint.Y += P1.Y;
-
-            newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
-            if (Decrease)
-            {
-                newPoint.Y = 1 - (newPoint.Y / Height);
-            }
-            else
-            {
-                newPoint.Y = newPoint.Y / Height;
-            }
-
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 0;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 0;
+            var newPoint = ToEasingControlPoint(prevInfo.ControlPoint2Vector(), P1, 0);
 
             // Update CP1
             Easing.X1 = newPoint.X;
@@ -159,28 +134,7 @@ public static class SplineEasingHelper
 
         public void MakeControlPoint2Symmetry(InterpolationInfo<T> nextInfo)
         {
-            var vector = nextInfo.ControlPoint1Vector();
-
-            // ベクトルの角度を取得
-            float radians = MathF.Atan2(vector.Y, vector.X);
-
-            var length = Length(vector.X, vector.Y);
-            var newPoint = CalculatePoint(radians, length);
-            newPoint.X += P2.X;
-            newPoint.Y += P2.Y;
-
-            newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
-            if (Decrease)
-            {
-                newPoint.Y = 1 - (newPoint.Y / Height);
-            }
-            else
-            {
-                newPoint.Y = newPoint.Y / Height;
-            }
-
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
+            var newPoint = ToEasingControlPoint(nextInfo.ControlPoint1Vector(), P2, 1);
 
             // Update CP2
             Easing.X2 = newPoint.X;
@@ -189,44 +143,35 @@ public static class SplineEasingHelper
 
         public void UpdateControlPoint1((float X, float Y) vector)
         {
-            vector = (-vector.X, -vector.Y);
-            // ベクトルの角度を取得
-            float radians = MathF.Atan2(vector.Y, vector.X);
-
-            var length = Length(vector.X, vector.Y);
-            var newPoint = CalculatePoint(radians, length);
-            newPoint.X += P1.X;
-            newPoint.Y += P1.Y;
-
-            newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
-            if (Decrease)
-            {
-                newPoint.Y = 1 - (newPoint.Y / Height);
-            }
-            else
-            {
-                newPoint.Y = newPoint.Y / Height;
-            }
-
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 0;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 0;
+            var newPoint = ToEasingControlPoint((-vector.X, -vector.Y), P1, 0);
 
             // Update CP1
-            var easing = Easing;
-            easing.X1 = newPoint.X;
-            easing.Y1 = newPoint.Y;
+            Easing.X1 = newPoint.X;
+            Easing.Y1 = newPoint.Y;
         }
 
         public void UpdateControlPoint2((float X, float Y) vector)
         {
-            vector = (-vector.X, -vector.Y);
+            var newPoint = ToEasingControlPoint((-vector.X, -vector.Y), P2, 1);
+
+            // Update CP2
+            Easing.X2 = newPoint.X;
+            Easing.Y2 = newPoint.Y;
+        }
+
+        // Places a handle at anchor + vector (X in seconds, Y in value units) and normalizes it into this
+        // segment's easing space. A degenerate segment makes the division non-finite, so the coordinate falls
+        // back to the linear easing's value for that control point.
+        private (float X, float Y) ToEasingControlPoint(
+            (float X, float Y) vector, (float X, float Y) anchor, float fallback)
+        {
             // ベクトルの角度を取得
             float radians = MathF.Atan2(vector.Y, vector.X);
 
             var length = Length(vector.X, vector.Y);
             var newPoint = CalculatePoint(radians, length);
-            newPoint.X += P2.X;
-            newPoint.Y += P2.Y;
+            newPoint.X += anchor.X;
+            newPoint.Y += anchor.Y;
 
             newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
             if (Decrease)
@@ -238,13 +183,10 @@ public static class SplineEasingHelper
                 newPoint.Y = newPoint.Y / Height;
             }
 
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
+            if (!double.IsFinite(newPoint.X)) newPoint.X = fallback;
+            if (!double.IsFinite(newPoint.Y)) newPoint.Y = fallback;
 
-            // Update CP2
-            var easing = Easing;
-            easing.X2 = newPoint.X;
-            easing.Y2 = newPoint.Y;
+            return newPoint;
         }
 
         // X1 > X2になる場合調整を行う
@@ -290,24 +232,8 @@ public static class SplineEasingHelper
 
     public static void Remove(IKeyFrameAnimation animation, int index)
     {
-        var type = animation.ValueType;
-        if (!s_cachedRemoveGenericMethods.TryGetValue(type, out var method))
-        {
-            s_cachedRemoveGenericMethods[type] = method = default;
-            Type[] interfaces = type.GetInterfaces();
-            if (type.IsValueType &&
-                interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
-            {
-                Type methodType = typeof(SplineEasingHelper);
-                var methodInfo = methodType.GetMethod(nameof(RemoveGeneric), BindingFlags.Public | BindingFlags.Static);
-                if (methodInfo != null)
-                {
-                    var genericMethod = methodInfo.MakeGenericMethod(type);
-                    s_cachedRemoveGenericMethods[type] = method = genericMethod;
-                }
-            }
-        }
-
+        var method = GetNumericGenericMethod(
+            s_cachedRemoveGenericMethods, animation.ValueType, nameof(RemoveGeneric));
         if (method.HasValue)
         {
             method.Value.Invoke(null, [animation, index]);
@@ -321,24 +247,8 @@ public static class SplineEasingHelper
     public static void Move(
         IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
     {
-        var type = animation.ValueType;
-        if (!s_cachedMoveGenericMethods.TryGetValue(type, out var method))
-        {
-            s_cachedMoveGenericMethods[type] = method = default;
-            Type[] interfaces = type.GetInterfaces();
-            if (type.IsValueType &&
-                interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
-            {
-                Type methodType = typeof(SplineEasingHelper);
-                var methodInfo = methodType.GetMethod(nameof(MoveGeneric), BindingFlags.Public | BindingFlags.Static);
-                if (methodInfo != null)
-                {
-                    var genericMethod = methodInfo.MakeGenericMethod(type);
-                    s_cachedMoveGenericMethods[type] = method = genericMethod;
-                }
-            }
-        }
-
+        var method = GetNumericGenericMethod(
+            s_cachedMoveGenericMethods, animation.ValueType, nameof(MoveGeneric));
         if (method.HasValue)
         {
             method.Value.Invoke(null, [animation, keyFrame, keyTime]);
@@ -347,6 +257,31 @@ public static class SplineEasingHelper
         {
             keyFrame.KeyTime = keyTime;
         }
+    }
+
+    // Resolves the INumber<T> instantiation of a generic helper once per value type. A non-numeric type
+    // caches an empty result, so later calls go straight to the non-spline fallback.
+    private static Optional<MethodInfo> GetNumericGenericMethod(
+        ConcurrentDictionary<Type, Optional<MethodInfo>> cache, Type type, string name)
+    {
+        if (!cache.TryGetValue(type, out var method))
+        {
+            cache[type] = method = default;
+            Type[] interfaces = type.GetInterfaces();
+            if (type.IsValueType &&
+                interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
+            {
+                Type methodType = typeof(SplineEasingHelper);
+                var methodInfo = methodType.GetMethod(name, BindingFlags.Public | BindingFlags.Static);
+                if (methodInfo != null)
+                {
+                    var genericMethod = methodInfo.MakeGenericMethod(type);
+                    cache[type] = method = genericMethod;
+                }
+            }
+        }
+
+        return method;
     }
 
     public static void RemoveGeneric<T>(KeyFrameAnimation<T> animation, int index)

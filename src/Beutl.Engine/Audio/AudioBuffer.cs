@@ -95,14 +95,7 @@ public sealed class AudioBuffer : IDisposable
 
     public void CopyTo(AudioBuffer destination)
     {
-        ArgumentNullException.ThrowIfNull(destination);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(destination._disposed, destination);
-
-        if (destination.SampleRate != SampleRate)
-            throw new ArgumentException("Sample rates must match.", nameof(destination));
-        if (destination.ChannelCount != ChannelCount)
-            throw new ArgumentException("Channel counts must match.", nameof(destination));
+        ThrowIfIncompatibleDestination(destination);
         if (destination.SampleCount != SampleCount)
             throw new ArgumentException("Sample counts must match.", nameof(destination));
 
@@ -111,14 +104,7 @@ public sealed class AudioBuffer : IDisposable
 
     public void CopyTo(AudioBuffer destination, int offset)
     {
-        ArgumentNullException.ThrowIfNull(destination);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(destination._disposed, destination);
-
-        if (destination.SampleRate != SampleRate)
-            throw new ArgumentException("Sample rates must match.", nameof(destination));
-        if (destination.ChannelCount != ChannelCount)
-            throw new ArgumentException("Channel counts must match.", nameof(destination));
+        ThrowIfIncompatibleDestination(destination);
         if (offset < 0 || offset + SampleCount > destination.SampleCount)
             throw new ArgumentOutOfRangeException(nameof(offset), "Offset is out of range for the destination buffer.");
 
@@ -132,14 +118,7 @@ public sealed class AudioBuffer : IDisposable
 
     public void CopyTo(AudioBuffer destination, int offset, int count)
     {
-        ArgumentNullException.ThrowIfNull(destination);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(destination._disposed, destination);
-
-        if (destination.SampleRate != SampleRate)
-            throw new ArgumentException("Sample rates must match.", nameof(destination));
-        if (destination.ChannelCount != ChannelCount)
-            throw new ArgumentException("Channel counts must match.", nameof(destination));
+        ThrowIfIncompatibleDestination(destination);
         if (count < 0)
             throw new ArgumentOutOfRangeException(nameof(count), "Count must be non-negative.");
         if (count > SampleCount)
@@ -153,6 +132,19 @@ public sealed class AudioBuffer : IDisposable
             var dest = destination.GetChannelData(ch).Slice(offset, count);
             src.CopyTo(dest);
         }
+    }
+
+    // Shared CopyTo preconditions: both buffers alive and the destination in the same format.
+    private void ThrowIfIncompatibleDestination(AudioBuffer destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(destination._disposed, destination);
+
+        if (destination.SampleRate != SampleRate)
+            throw new ArgumentException("Sample rates must match.", nameof(destination));
+        if (destination.ChannelCount != ChannelCount)
+            throw new ArgumentException("Channel counts must match.", nameof(destination));
     }
 
     public void Dispose()

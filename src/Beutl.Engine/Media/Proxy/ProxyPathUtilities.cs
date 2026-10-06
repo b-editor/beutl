@@ -68,8 +68,7 @@ internal static class ProxyPathUtilities
         if (parts.Length == 4 && !Guid.TryParseExact(parts[2], "N", out _))
             return false;
 
-        return Enum.GetNames<ProxyPreset>()
-            .Any(name => parts[0].Equals(name, StringComparison.OrdinalIgnoreCase));
+        return IsPresetName(parts[0]);
     }
 
     public static bool IsGeneratedProxyFinalPath(string storeRootPath, string path)
@@ -80,8 +79,13 @@ internal static class ProxyPathUtilities
         if (parts.Length != 1 && (parts.Length != 2 || !Guid.TryParseExact(parts[1], "N", out _)))
             return false;
 
+        return IsPresetName(parts[0]);
+    }
+
+    private static bool IsPresetName(string value)
+    {
         return Enum.GetNames<ProxyPreset>()
-            .Any(name => parts[0].Equals(name, StringComparison.OrdinalIgnoreCase));
+            .Any(name => value.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool TryGetProxyFileParts(string storeRootPath, string path, out string[] parts)
@@ -123,23 +127,21 @@ internal static class ProxyPathUtilities
         string normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         string normalizedCandidate = Path.GetFullPath(candidate);
         string rootWithSeparator = normalizedRoot + Path.DirectorySeparatorChar;
-        StringComparison comparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
 
-        return normalizedCandidate.StartsWith(rootWithSeparator, comparison);
+        return normalizedCandidate.StartsWith(rootWithSeparator, PathComparison);
     }
 
     private static bool AreSameDirectory(string left, string right)
     {
         string normalizedLeft = Path.TrimEndingDirectorySeparator(Path.GetFullPath(left));
         string normalizedRight = Path.TrimEndingDirectorySeparator(Path.GetFullPath(right));
-        StringComparison comparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
 
-        return string.Equals(normalizedLeft, normalizedRight, comparison);
+        return string.Equals(normalizedLeft, normalizedRight, PathComparison);
     }
+
+    private static StringComparison PathComparison => OperatingSystem.IsWindows()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
 
     private static bool IsLowerHex(char c)
         => c is >= '0' and <= '9' or >= 'a' and <= 'f';

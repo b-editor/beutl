@@ -31,55 +31,6 @@ public sealed class FontManager
 
     private FontManager()
     {
-        Typeface GetDefaultTypeface()
-        {
-            if (OperatingSystem.IsLinux())
-            {
-                var output = new StringBuilder();
-                string applicationPath = "/usr/bin/fc-match";
-                var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
-                foreach (var path in paths)
-                {
-                    var fullPath = Path.Combine(path, "fc-match");
-                    if (File.Exists(fullPath))
-                    {
-                        applicationPath = fullPath;
-                        break;
-                    }
-                }
-                using Process process = Process.Start(new ProcessStartInfo(applicationPath, "--format %{file}")
-                {
-                    RedirectStandardOutput = true
-                })!;
-                process.OutputDataReceived += (sender, e) =>
-                {
-                    if (e.Data != null)
-                        output.Append(e.Data);
-                };
-                process.BeginOutputReadLine();
-                process.WaitForExit();
-
-                process.CancelOutputRead();
-
-                string file = output.ToString();
-                SKTypeface? sktypeface = SKTypeface.FromFile(file);
-                if (sktypeface != null)
-                {
-                    Typeface typeface = Typeface.FromSKTypeface(sktypeface);
-                    bool isAdded = AddFont(sktypeface);
-                    if (!isAdded)
-                    {
-                        sktypeface.Dispose();
-                    }
-                    return typeface;
-                }
-            }
-
-            SKTypeface sk = SKTypeface.Default;
-            AddFont(sk);
-            return Typeface.FromSKTypeface(sk);
-        }
-
         // A material package installs its fonts under the home directory, which is not one
         // of the OS font directories the user configures.
         _fontDirs =
@@ -87,6 +38,13 @@ public sealed class FontManager
             .. GlobalConfiguration.Instance.FontConfig.FontDirectories,
             BeutlEnvironment.GetMaterialsDirectoryPath()
         ];
+
+        RegisterInstalledFonts();
+        DefaultTypeface = ResolveDefaultTypeface();
+    }
+
+    private void RegisterInstalledFonts()
+    {
         var list = new List<SKTypeface>();
 
         foreach (string file in _fontDirs
@@ -110,22 +68,76 @@ public sealed class FontManager
 
             if (!_fontNames.ContainsKey(family))
             {
-                try
+                TryRegisterFontName(family, typefaces[0]);
+            }
+        }
+    }
+
+    private void TryRegisterFontName(FontFamily family, SKTypeface typeface)
+    {
+        // The OpenType 'name' table.
+        const uint NameTableTag = 0x6E616D65;
+
+        try
+        {
+            byte[]? buffer = typeface.GetTableData(NameTableTag);
+            using var ms = new MemoryStream(buffer);
+            var fontName = FontName.ReadFontName(ms);
+            _fontNames.Add(family, fontName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read font name from {FontFamily}", family);
+        }
+    }
+
+    private Typeface ResolveDefaultTypeface()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            var output = new StringBuilder();
+            string applicationPath = "/usr/bin/fc-match";
+            var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
+            foreach (var path in paths)
+            {
+                var fullPath = Path.Combine(path, "fc-match");
+                if (File.Exists(fullPath))
                 {
-                    // name
-                    byte[]? buffer = typefaces[0].GetTableData(0x6E616D65);
-                    using var ms = new MemoryStream(buffer);
-                    var fontName = FontName.ReadFontName(ms);
-                    _fontNames.Add(family, fontName);
+                    applicationPath = fullPath;
+                    break;
                 }
-                catch (Exception ex)
+            }
+            using Process process = Process.Start(new ProcessStartInfo(applicationPath, "--format %{file}")
+            {
+                RedirectStandardOutput = true
+            })!;
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                    output.Append(e.Data);
+            };
+            process.BeginOutputReadLine();
+            process.WaitForExit();
+
+            process.CancelOutputRead();
+
+            string file = output.ToString();
+            SKTypeface? sktypeface = SKTypeface.FromFile(file);
+            if (sktypeface != null)
+            {
+                Typeface typeface = Typeface.FromSKTypeface(sktypeface);
+                bool isAdded = AddFont(sktypeface);
+                if (!isAdded)
                 {
-                    _logger.LogError(ex, "Failed to read font name from {FontFamily}", family);
+                    sktypeface.Dispose();
                 }
+                return typeface;
             }
         }
 
-        DefaultTypeface = GetDefaultTypeface();
+        SKTypeface sk = SKTypeface.Default;
+        AddFont(sk);
+        return Typeface.FromSKTypeface(sk);
     }
 
     public IEnumerable<FontFamily> FontFamilies

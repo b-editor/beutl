@@ -1,5 +1,4 @@
 ﻿using Beutl.Audio.Effects.Equalizer;
-using Beutl.Media;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -155,9 +154,7 @@ public sealed class EqualizerNode : AudioNode
             {
                 int chunkSize = Math.Min(maxChunkSize, input.SampleCount - processed);
 
-                var chunkStart = context.GetTimeForSample(processed);
-                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+                var chunkRange = context.GetChunkRange(processed, chunkSize);
 
                 // Process each channel
                 for (int ch = 0; ch < input.ChannelCount; ch++)

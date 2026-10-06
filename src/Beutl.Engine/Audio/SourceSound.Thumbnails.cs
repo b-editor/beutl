@@ -129,22 +129,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 if (cacheHit)
                     return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
 
-                var firstChannel = buffer.GetChannelData(0);
-                var secondChannel = buffer.GetChannelData(1);
-
-                float minValue = float.MaxValue;
-                float maxValue = float.MinValue;
-
-                for (int i = 0; i < Math.Min(sampleCount, buffer.SampleCount); i++)
-                {
-                    float left = firstChannel[i];
-                    float right = secondChannel[i];
-
-                    float monoValue = (left + right) * 0.5f;
-                    minValue = Math.Min(minValue, monoValue);
-                    maxValue = Math.Max(maxValue, monoValue);
-                }
-
+                (float minValue, float maxValue) = MeasureMonoRange(buffer, sampleCount);
                 return new WaveformChunk(chunkIndex, minValue, maxValue);
             }, DispatchPriority.Low, cancellationToken);
 
@@ -156,6 +141,28 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 yield return chunk.Value;
             }
         }
+    }
+
+    // The extremes of the left/right average over at most sampleCount samples.
+    private static (float Min, float Max) MeasureMonoRange(AudioBuffer buffer, int sampleCount)
+    {
+        var firstChannel = buffer.GetChannelData(0);
+        var secondChannel = buffer.GetChannelData(1);
+
+        float minValue = float.MaxValue;
+        float maxValue = float.MinValue;
+
+        for (int i = 0; i < Math.Min(sampleCount, buffer.SampleCount); i++)
+        {
+            float left = firstChannel[i];
+            float right = secondChannel[i];
+
+            float monoValue = (left + right) * 0.5f;
+            minValue = Math.Min(minValue, monoValue);
+            maxValue = Math.Max(maxValue, monoValue);
+        }
+
+        return (minValue, maxValue);
     }
 
     internal static long GetWaveformChunkSamplePosition(int chunkIndex, long totalSamples, int chunkCount)

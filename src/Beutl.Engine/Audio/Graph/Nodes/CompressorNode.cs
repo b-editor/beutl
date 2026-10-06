@@ -1,7 +1,6 @@
 ﻿using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
-using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 using static Beutl.Audio.Effects.CompressorParameters;
@@ -159,9 +158,7 @@ public sealed class CompressorNode : DynamicsNode
             {
                 int chunkSize = Math.Min(bufferSize, sampleCount - processed);
 
-                var chunkStart = context.GetTimeForSample(processed);
-                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+                var chunkRange = context.GetChunkRange(processed, chunkSize);
 
                 context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(Ratio, chunkRange, context.SampleRate, ratios[..chunkSize]);

@@ -82,15 +82,9 @@ public static class ResourceReconciler
                     changed = true;
                     oldItem.Dispose();
                 }
-                else
+                else if (UpdateInPlace(item, child, context))
                 {
-                    var oldVersion = item.Version;
-                    var _ = false;
-                    item.Update(child, context, ref _);
-                    if (!changed && oldVersion != item.Version)
-                    {
-                        changed = true;
-                    }
+                    changed = true;
                 }
             }
             else
@@ -145,18 +139,21 @@ public static class ResourceReconciler
                     changed = true;
                     oldField.Dispose();
                 }
-                else
+                else if (UpdateInPlace(field, value, context))
                 {
-                    var oldVersion = field.Version;
-                    var _ = false;
-                    field.Update(value, context, ref _);
-                    if (oldVersion != field.Version)
-                    {
-                        changed = true;
-                    }
+                    changed = true;
                 }
             }
         }
+    }
+
+    // Reconciles a resource against the object it was built from and reports whether that moved its Version.
+    internal static bool UpdateInPlace(EngineObject.Resource resource, EngineObject original, CompositionContext context)
+    {
+        int oldVersion = resource.Version;
+        bool updateOnly = false;
+        resource.Update(original, context, ref updateOnly);
+        return oldVersion != resource.Version;
     }
 
     internal static bool ReconcileChildrenFromFlow<TItem, TResource>(
