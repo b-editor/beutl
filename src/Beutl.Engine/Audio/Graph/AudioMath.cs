@@ -7,9 +7,6 @@ namespace Beutl.Audio.Graph;
 
 public static class AudioMath
 {
-    private const float DbToLinearConstant = 0.11512925464970229f; // 1 / (20 * log10(e))
-    private const float LinearToDbConstant = 8.6858896380650365f;  // 20 * log10(e)
-
     public static float ConvertDbToLinear(float db)
     {
         return MathF.Pow(10f, db * 0.05f);

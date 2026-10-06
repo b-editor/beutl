@@ -105,17 +105,10 @@ public sealed partial class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<TNode>().FirstOrDefault(n => comparer(parameters, n)) is { } existing)
         {
-            var existing = _previousNodes.OfType<TNode>()
-                .FirstOrDefault(n => comparer(parameters, n));
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                updater(parameters, existing);
-                return AddNode(existing);
-            }
+            updater(parameters, Reclaim(existing));
+            return AddNode(existing);
         }
 
         var node = factory(parameters);
@@ -134,16 +127,9 @@ public sealed partial class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(source);
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<SourceNode>().FirstOrDefault(n => source.Compare(n.Source)) is { } existing)
         {
-            var existing = _previousNodes.OfType<SourceNode>()
-                .FirstOrDefault(n => source.Compare(n.Source));
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                return AddNode(existing);
-            }
+            return AddNode(Reclaim(existing));
         }
 
         var node = new SourceNode { Source = source.Capture() };
@@ -164,18 +150,11 @@ public sealed partial class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(gain);
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<GainNode>().FirstOrDefault(n => n.Gain == gain) is { } existing)
         {
-            var existing = _previousNodes.OfType<GainNode>()
-                .FirstOrDefault(n => n.Gain == gain);
-            if (existing != null)
-            {
-                // Matched by Gain reference, so existing.Gain already == gain; no re-assignment needed
-                // (and Gain is now init-only).
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                return AddNode(existing);
-            }
+            // Matched by Gain reference, so existing.Gain already == gain; no re-assignment needed
+            // (and Gain is now init-only).
+            return AddNode(Reclaim(existing));
         }
 
         var node = new GainNode
@@ -196,16 +175,9 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<ShiftNode>().FirstOrDefault(n => n.Shift == shift) is { } existing)
         {
-            var existing = _previousNodes.OfType<ShiftNode>()
-                .FirstOrDefault(n => n.Shift == shift);
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                return AddNode(existing);
-            }
+            return AddNode(Reclaim(existing));
         }
 
         var node = new ShiftNode
@@ -228,16 +200,9 @@ public sealed partial class AudioContext : IDisposable
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<ClipNode>().FirstOrDefault(n => n.Duration == duration && n.Start == start) is { } existing)
         {
-            var existing = _previousNodes.OfType<ClipNode>()
-                .FirstOrDefault(n => n.Duration == duration && n.Start == start);
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                return AddNode(existing);
-            }
+            return AddNode(Reclaim(existing));
         }
 
         var node = new ClipNode
@@ -258,15 +223,9 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<MixerNode>().FirstOrDefault() is { } existing)
         {
-            var existing = _previousNodes.OfType<MixerNode>().FirstOrDefault();
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                return AddNode(existing);
-            }
+            return AddNode(Reclaim(existing));
         }
 
         var node = new MixerNode();
@@ -285,16 +244,9 @@ public sealed partial class AudioContext : IDisposable
         if (sourceSampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sourceSampleRate), "Source sample rate must be positive.");
 
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<ResampleNode>().FirstOrDefault(n => n.SourceSampleRate == sourceSampleRate) is { } existing)
         {
-            var existing = _previousNodes.OfType<ResampleNode>()
-                .FirstOrDefault(n => n.SourceSampleRate == sourceSampleRate);
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                return AddNode(existing);
-            }
+            return AddNode(Reclaim(existing));
         }
 
         var node = new ResampleNode { SourceSampleRate = sourceSampleRate };
@@ -315,17 +267,10 @@ public sealed partial class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(speed);
 
         // Try to reuse from previous nodes
-        if (_previousNodes != null)
+        if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed) is { } existing)
         {
-            var existing = _previousNodes.OfType<SpeedNode>()
-                .FirstOrDefault(n => n.Speed == speed);
-            if (existing != null)
-            {
-                RemoveReference(_previousNodes, existing);
-                existing.ClearInputs();
-                existing.Speed = speed;
-                return AddNode(existing);
-            }
+            Reclaim(existing).Speed = speed;
+            return AddNode(existing);
         }
 
         var node = new SpeedNode
@@ -523,6 +468,15 @@ public sealed partial class AudioContext : IDisposable
         }
 
         return -1;
+    }
+
+    // Takes a node matched in the previous graph out of the reuse pool and detaches its old inputs.
+    private TNode Reclaim<TNode>(TNode node)
+        where TNode : AudioNode
+    {
+        RemoveReference(_previousNodes!, node);
+        node.ClearInputs();
+        return node;
     }
 
     private static bool RemoveReference(List<AudioNode> nodes, AudioNode node)

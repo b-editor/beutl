@@ -43,27 +43,13 @@ public sealed partial class SpeedNode : AudioNode
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        int upstreamLatency = 0;
-        foreach (AudioNode input in Inputs)
-        {
-            int inputTotal = input.GetTotalLatencySamples(sampleRate);
-            if (inputTotal < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative total latency {inputTotal}.");
-            }
-
-            upstreamLatency = Math.Max(upstreamLatency, inputTotal);
-        }
-
+        int upstreamLatency = GetMaxInputLatency(sampleRate, drain: false);
         if (upstreamLatency == 0)
             return 0;
         if (upstreamLatency == int.MaxValue)
             return int.MaxValue;
 
-        if (!TryGetMinimumSpeedFactor(out double minimumSpeed)
-            || !double.IsFinite(minimumSpeed)
-            || minimumSpeed <= 0)
+        if (!TryGetBoundedMinimumSpeedFactor(out double minimumSpeed))
         {
             // Saturate when no positive finite speed bounds the drain duration.
             return int.MaxValue;
@@ -77,19 +63,7 @@ public sealed partial class SpeedNode : AudioNode
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        int upstreamLatency = 0;
-        foreach (AudioNode input in Inputs)
-        {
-            int inputTotal = input.GetDrainLatencySamples(sampleRate);
-            if (inputTotal < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
-            }
-
-            upstreamLatency = Math.Max(upstreamLatency, inputTotal);
-        }
-
+        int upstreamLatency = GetMaxInputLatency(sampleRate, drain: true);
         if (upstreamLatency == 0 || upstreamLatency == int.MaxValue)
             return upstreamLatency;
 
@@ -110,9 +84,7 @@ public sealed partial class SpeedNode : AudioNode
         {
             // An animation whose output range cannot be proven bounded remains unbounded even when
             // its last sampled value happened to be finite.
-            if (!TryGetMinimumSpeedFactor(out double minimumSpeed)
-                || !double.IsFinite(minimumSpeed)
-                || minimumSpeed <= 0)
+            if (!TryGetBoundedMinimumSpeedFactor(out double minimumSpeed))
             {
                 drainSpeed = default;
                 return false;
@@ -128,6 +100,14 @@ public sealed partial class SpeedNode : AudioNode
         }
 
         return double.IsFinite(drainSpeed) && drainSpeed > 0;
+    }
+
+    // Only a positive finite minimum speed bounds how long the upstream tail takes to drain.
+    private bool TryGetBoundedMinimumSpeedFactor(out double minimumSpeed)
+    {
+        return TryGetMinimumSpeedFactor(out minimumSpeed)
+            && double.IsFinite(minimumSpeed)
+            && minimumSpeed > 0;
     }
 
     private bool TryGetMinimumSpeedFactor(out double minimumSpeed)
@@ -179,26 +159,13 @@ public sealed partial class SpeedNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        if (animation == null)
-        {
-            AudioBuffer result = ProcessStaticSpeed(
-                context,
-                expectedOutputSampleCount,
-                draining,
-                forceReanchor: _mappingInvalidated && !draining);
-            if (!draining)
-                _mappingInvalidated = false;
-            return result;
-        }
-
-        AudioBuffer animatedResult = ProcessAnimatedSpeed(
-            context,
-            expectedOutputSampleCount,
-            draining,
-            forceReanchor: _mappingInvalidated && !draining);
+        bool forceReanchor = _mappingInvalidated && !draining;
+        AudioBuffer result = animation == null
+            ? ProcessStaticSpeed(context, expectedOutputSampleCount, draining, forceReanchor)
+            : ProcessAnimatedSpeed(context, expectedOutputSampleCount, draining, forceReanchor);
         if (!draining)
             _mappingInvalidated = false;
-        return animatedResult;
+        return result;
     }
 
     private AudioBuffer ProcessStaticSpeed(

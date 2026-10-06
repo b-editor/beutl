@@ -129,6 +129,15 @@ public sealed class AudioProcessContext
         return TimeRange.Start + TimeSpan.FromSeconds(offsetSeconds);
     }
 
+    // The absolute time range of samples [startSample, startSample + sampleCount) in this block; nodes sample
+    // their animated parameters one chunk at a time. GetTimeForSample already includes TimeRange.Start.
+    internal TimeRange GetChunkRange(int startSample, int sampleCount)
+    {
+        var chunkStart = GetTimeForSample(startSample);
+        var chunkEnd = GetTimeForSample(startSample + sampleCount);
+        return new TimeRange(chunkStart, chunkEnd - chunkStart);
+    }
+
     public int GetSampleForTime(TimeSpan time)
     {
         var offset = time - TimeRange.Start;

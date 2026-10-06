@@ -109,7 +109,7 @@ public sealed class MixerNode : AudioNode
                 if (budget.RemainingSamples <= 0)
                     continue;
 
-                total = Math.Max(total, ScaleSampleCount(budget.RemainingSamples, budget.SampleRate, sampleRate));
+                total = Math.Max(total, AudioLatency.ScaleSampleCount(budget.RemainingSamples, budget.SampleRate, sampleRate));
                 continue;
             }
 
@@ -120,11 +120,7 @@ public sealed class MixerNode : AudioNode
                 continue;
 
             int branchLatency = input.GetDrainLatencySamples(sampleRate);
-            if (branchLatency < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative drain latency {branchLatency}.");
-            }
+            AudioLatency.ThrowIfNegative(input, branchLatency, "drain latency");
 
             if (branchLatency != int.MaxValue
                 && _branchEndTimes.TryGetValue(input, out TimeSpan branchEndTime)
@@ -323,30 +319,12 @@ public sealed class MixerNode : AudioNode
         if (remainingSamples <= 0)
             return CreateSilentFlush(context);
 
-        var drainContext = new AudioProcessContext(
-            new TimeRange(
-                context.TimeRange.Start,
-                AudioProcessContext.GetDurationForSampleCount(remainingSamples, context.SampleRate)),
-            context.SampleRate,
-            context.AnimationSampler,
-            context.OriginalTimeRange);
-        using AudioBuffer drained = branch.Flush(drainContext);
-        var output = new AudioBuffer(drained.SampleRate, drained.ChannelCount, sampleCount);
-        try
-        {
-            int copyCount = Math.Min(drained.SampleCount, sampleCount);
-            if (copyCount > 0)
-                drained.CopyTo(output, 0, copyCount);
-
-            drainedSamples = remainingSamples;
-            budget.RemainingSamples = 0;
-            return output;
-        }
-        catch
-        {
-            output.Dispose();
-            throw;
-        }
+        // The full-window and empty cases returned above, so FlushIntoWindow always builds a shortened drain
+        // context here.
+        AudioBuffer output = AudioLatency.FlushIntoWindow(branch, context, remainingSamples, sampleCount);
+        drainedSamples = remainingSamples;
+        budget.RemainingSamples = 0;
+        return output;
     }
 
     private static long GetTailEndTicks(TimeSpan branchEndTime, int branchLatency, int sampleRate)
@@ -365,11 +343,7 @@ public sealed class MixerNode : AudioNode
         int sampleRate)
     {
         int branchLatency = branch.GetDrainLatencySamples(sampleRate);
-        if (branchLatency < 0)
-        {
-            throw new InvalidOperationException(
-                $"{branch.GetType().Name} returned negative drain latency {branchLatency}.");
-        }
+        AudioLatency.ThrowIfNegative(branch, branchLatency, "drain latency");
 
         if (branchLatency == int.MaxValue)
             return;
@@ -385,15 +359,6 @@ public sealed class MixerNode : AudioNode
             RemainingSamples = remainingSamples,
             SampleRate = sampleRate,
         };
-    }
-
-    private static int ScaleSampleCount(int sampleCount, int sourceSampleRate, int destinationSampleRate)
-    {
-        if (sampleCount == int.MaxValue || sourceSampleRate == destinationSampleRate)
-            return sampleCount;
-
-        double scaled = sampleCount * (double)destinationSampleRate / sourceSampleRate;
-        return scaled >= int.MaxValue ? int.MaxValue : (int)Math.Ceiling(scaled);
     }
 
     private bool IsBranchEnded(int index, AudioProcessContext context)
@@ -471,27 +436,27 @@ public sealed class MixerNode : AudioNode
 
     protected override void OnInputsCleared()
     {
-        _gains = Array.Empty<float>();
-        _branchEndTimes.Clear();
-        _processedBranches.Clear();
-        _unknownDrainAttempts.Clear();
-        _branchTailBudgets.Clear();
-        _lastTimeRangeEnd = null;
+        ResetBranchState();
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _gains = Array.Empty<float>();
-            _branchEndTimes.Clear();
-            _processedBranches.Clear();
-            _unknownDrainAttempts.Clear();
-            _branchTailBudgets.Clear();
-            _lastTimeRangeEnd = null;
+            ResetBranchState();
         }
 
         base.Dispose(disposing);
+    }
+
+    private void ResetBranchState()
+    {
+        _gains = Array.Empty<float>();
+        _branchEndTimes.Clear();
+        _processedBranches.Clear();
+        _unknownDrainAttempts.Clear();
+        _branchTailBudgets.Clear();
+        _lastTimeRangeEnd = null;
     }
 
     private void EnsureConnectedInput(AudioNode input)

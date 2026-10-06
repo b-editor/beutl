@@ -2,6 +2,8 @@
 
 using Microsoft.Extensions.Logging;
 
+using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset);
+
 namespace Beutl.Media.Proxy;
 
 public sealed partial class ProxyStore
@@ -11,19 +13,12 @@ public sealed partial class ProxyStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*", SearchOption.AllDirectories)
-                         .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path)
-                             || ProxyPathUtilities.IsGeneratedProxyBackupPath(StoreRootPath, path))
-                         .Where(IsOldEnoughToCleanGeneratedTemp))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                TryDelete(tmp);
-            }
+            DeleteAgedGeneratedTempFiles(cancellationToken);
 
             List<ProxyEntry> sidecarCandidates = CollectSidecarCandidates(cancellationToken);
 
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> changedKeys = [];
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys;
+            HashSet<ProxyKey> changedKeys = [];
+            HashSet<ProxyKey> adoptedKeys;
             List<ProxyEntry> snapshot;
             lock (_lock)
             {
@@ -36,87 +31,16 @@ public sealed partial class ProxyStore
             // (symlink resolve) over the whole store would otherwise block the preview hot path
             // (TryGet/Touch/Enumerate) behind startup reconciliation. The mutations below re-acquire
             // _lock and re-validate each key against the current entry before acting.
-            List<ProxyEntry> missing = [];
-            List<ProxyEntry> changed = [];
-            foreach (ProxyEntry entry in snapshot)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                string path;
-                try
-                {
-                    path = GetAbsolutePath(entry);
-                }
-                catch
-                {
-                    missing.Add(entry);
-                    continue;
-                }
-
-                if (entry.State == ProxyState.Failed)
-                    continue;
-
-                if (!File.Exists(path))
-                {
-                    missing.Add(entry);
-                    continue;
-                }
-
-                if (entry.State is ProxyState.Ready or ProxyState.Stale
-                    && !HasValidReadyFile(entry, path))
-                {
-                    missing.Add(entry);
-                    continue;
-                }
-
-                if (entry.State == ProxyState.Ready
-                    && File.Exists(entry.Source.SourcePath)
-                    && ProxyFingerprint.FromFile(entry.Source.SourcePath) != entry.Source)
-                {
-                    changed.Add(entry);
-                }
-            }
+            ClassifyTrackedEntries(snapshot, cancellationToken, out List<ProxyEntry> missing, out List<ProxyEntry> changed);
 
             List<ProxyEntry> removedEntries = [];
             List<ProxyEntry> changedEntries = [];
-            HashSet<string> trackedProxyPaths;
-            lock (_lock)
-            {
-                HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> removedKeys = [];
-                foreach (ProxyEntry entry in missing)
-                {
-                    var key = (entry.Source, entry.Preset);
-                    // Act only on entries unchanged since the unlocked scan; a concurrent
-                    // Register/TryTransition/Touch supersedes our now-stale decision.
-                    if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
-                    {
-                        _entries.Remove(key);
-                        removedKeys.Add(key);
-                        removedEntries.Add(entry);
-                    }
-                }
-
-                foreach (ProxyEntry entry in changed)
-                {
-                    var key = (entry.Source, entry.Preset);
-                    if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
-                    {
-                        _entries[key] = entry with
-                        {
-                            State = ProxyState.Stale,
-                            LastUsedUtc = DateTime.UtcNow,
-                        };
-                        changedKeys.Add(key);
-                        changedEntries.Add(entry);
-                    }
-                }
-
-                if (removedKeys.Count > 0 || changedKeys.Count > 0)
-                {
-                    FlushCore(changedKeys, removedKeys);
-                }
-
-                trackedProxyPaths = CollectTrackedProxyPaths();
-            }
+            HashSet<string> trackedProxyPaths = ApplyReconcileDecisions(
+                missing,
+                changed,
+                changedKeys,
+                removedEntries,
+                changedEntries);
 
             // Scan and delete orphaned proxy files outside the store lock: this walks the whole store
             // root and stats/deletes files, which would otherwise block UI paths (TryGet/Touch/
@@ -125,30 +49,7 @@ public sealed partial class ProxyStore
             ReclaimRetiredProxyFiles();
             ReclaimOrphanProxyFiles(trackedProxyPaths, cancellationToken);
 
-            foreach (ProxyEntry entry in removedEntries)
-            {
-                OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Deleted);
-            }
-
-            foreach (ProxyEntry entry in changedEntries)
-            {
-                OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.StateChanged);
-            }
-
-            // Notify for sidecars adopted after services were exposed, so a tab/preview that already
-            // saw the missing entry reloads the recovered proxy. Skip keys the stat pass above then
-            // removed or marked stale — those already fired their own notification.
-            var supersededKeys = new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)>();
-            foreach (ProxyEntry entry in removedEntries)
-                supersededKeys.Add((entry.Source, entry.Preset));
-            foreach (ProxyEntry entry in changedEntries)
-                supersededKeys.Add((entry.Source, entry.Preset));
-
-            foreach ((ProxyFingerprint source, ProxyPreset preset) in adoptedKeys)
-            {
-                if (!supersededKeys.Contains((source, preset)))
-                    OnChanged(source, preset, ProxyStoreChangeKind.Registered);
-            }
+            RaiseReconcileNotifications(removedEntries, changedEntries, adoptedKeys);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -163,6 +64,143 @@ public sealed partial class ProxyStore
         }
 
         return Task.CompletedTask;
+    }
+
+    private void DeleteAgedGeneratedTempFiles(CancellationToken cancellationToken)
+    {
+        foreach (string tmp in Directory.EnumerateFiles(StoreRootPath, "*", SearchOption.AllDirectories)
+                     .Where(path => ProxyPathUtilities.IsGeneratedProxyTempPath(StoreRootPath, path)
+                         || ProxyPathUtilities.IsGeneratedProxyBackupPath(StoreRootPath, path))
+                     .Where(IsOldEnoughToCleanGeneratedTemp))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TryDelete(tmp);
+        }
+    }
+
+    private void ClassifyTrackedEntries(
+        List<ProxyEntry> snapshot,
+        CancellationToken cancellationToken,
+        out List<ProxyEntry> missing,
+        out List<ProxyEntry> changed)
+    {
+        missing = [];
+        changed = [];
+        foreach (ProxyEntry entry in snapshot)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string path;
+            try
+            {
+                path = GetAbsolutePath(entry);
+            }
+            catch
+            {
+                missing.Add(entry);
+                continue;
+            }
+
+            if (entry.State == ProxyState.Failed)
+                continue;
+
+            if (!File.Exists(path))
+            {
+                missing.Add(entry);
+                continue;
+            }
+
+            if (entry.State is ProxyState.Ready or ProxyState.Stale
+                && !HasValidReadyFile(entry, path))
+            {
+                missing.Add(entry);
+                continue;
+            }
+
+            if (entry.State == ProxyState.Ready
+                && File.Exists(entry.Source.SourcePath)
+                && ProxyFingerprint.FromFile(entry.Source.SourcePath) != entry.Source)
+            {
+                changed.Add(entry);
+            }
+        }
+    }
+
+    private HashSet<string> ApplyReconcileDecisions(
+        List<ProxyEntry> missing,
+        List<ProxyEntry> changed,
+        HashSet<ProxyKey> changedKeys,
+        List<ProxyEntry> removedEntries,
+        List<ProxyEntry> changedEntries)
+    {
+        lock (_lock)
+        {
+            HashSet<ProxyKey> removedKeys = [];
+            foreach (ProxyEntry entry in missing)
+            {
+                var key = (entry.Source, entry.Preset);
+                // Act only on entries unchanged since the unlocked scan; a concurrent
+                // Register/TryTransition/Touch supersedes our now-stale decision.
+                if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
+                {
+                    _entries.Remove(key);
+                    removedKeys.Add(key);
+                    removedEntries.Add(entry);
+                }
+            }
+
+            foreach (ProxyEntry entry in changed)
+            {
+                var key = (entry.Source, entry.Preset);
+                if (_entries.TryGetValue(key, out ProxyEntry? current) && current == entry)
+                {
+                    _entries[key] = entry with
+                    {
+                        State = ProxyState.Stale,
+                        LastUsedUtc = DateTime.UtcNow,
+                    };
+                    changedKeys.Add(key);
+                    changedEntries.Add(entry);
+                }
+            }
+
+            if (removedKeys.Count > 0 || changedKeys.Count > 0)
+            {
+                FlushCore(changedKeys, removedKeys);
+            }
+
+            return CollectTrackedProxyPaths();
+        }
+    }
+
+    private void RaiseReconcileNotifications(
+        List<ProxyEntry> removedEntries,
+        List<ProxyEntry> changedEntries,
+        HashSet<ProxyKey> adoptedKeys)
+    {
+        foreach (ProxyEntry entry in removedEntries)
+        {
+            OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Deleted);
+        }
+
+        foreach (ProxyEntry entry in changedEntries)
+        {
+            OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.StateChanged);
+        }
+
+        // Notify for sidecars adopted after services were exposed, so a tab/preview that already
+        // saw the missing entry reloads the recovered proxy. Skip keys the stat pass then removed or
+        // marked stale — those already fired their own notification.
+        var supersededKeys = new HashSet<ProxyKey>();
+        foreach (ProxyEntry entry in removedEntries)
+            supersededKeys.Add((entry.Source, entry.Preset));
+        foreach (ProxyEntry entry in changedEntries)
+            supersededKeys.Add((entry.Source, entry.Preset));
+
+        foreach ((ProxyFingerprint source, ProxyPreset preset) in adoptedKeys)
+        {
+            if (!supersededKeys.Contains((source, preset)))
+                OnChanged(source, preset, ProxyStoreChangeKind.Registered);
+        }
     }
 
     private void LoadIndex()
@@ -207,7 +245,7 @@ public sealed partial class ProxyStore
 
         try
         {
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys =
+            HashSet<ProxyKey> adoptedKeys =
                 MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
             FlushCore(adoptedKeys);
         }
@@ -251,9 +289,9 @@ public sealed partial class ProxyStore
     }
 
     // Must be called with _lock held: merges the lock-free candidate scan into _entries.
-    private HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> MergeSidecarCandidates(List<ProxyEntry> candidates)
+    private HashSet<ProxyKey> MergeSidecarCandidates(List<ProxyEntry> candidates)
     {
-        HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> adoptedKeys = [];
+        HashSet<ProxyKey> adoptedKeys = [];
         foreach (ProxyEntry entry in candidates)
         {
             var key = (entry.Source, entry.Preset);

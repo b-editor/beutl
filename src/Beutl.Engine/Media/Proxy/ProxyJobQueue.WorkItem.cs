@@ -93,11 +93,7 @@ public sealed partial class ProxyJobQueue
             {
                 int attempt = ++_consecutiveAdmissionRejections;
                 firstRejection = attempt == 1;
-                double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
-                double milliseconds = Math.Min(
-                    maximum.TotalMilliseconds,
-                    minimum.TotalMilliseconds * factor);
-                return TimeSpan.FromMilliseconds(milliseconds);
+                return ExponentialBackoff(attempt, minimum, maximum);
             }
         }
 

@@ -80,34 +80,10 @@ public static class DecoderRegistry
         // degrades to the original-decode path below. A generated proxy carries silent audio (the
         // FFmpeg generator feeds SilentSampleProvider), so substitute it only for video-only opens;
         // an Audio/AudioVideo request keeps reading the original audio track.
-        if (options.PreferProxy && options.StreamsToLoad == MediaMode.Video && ProxyResolver is { } resolver)
+        if (options.PreferProxy && options.StreamsToLoad == MediaMode.Video && ProxyResolver is { } resolver
+            && TryOpenProxy(file, options, resolver) is { } proxyReader)
         {
-            IDisposable? pin = null;
-            try
-            {
-                var sourceUri = ToFileUri(file);
-                if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
-                {
-                    pin = resolver.Pin(resolution);
-                    var proxyOptions = options with { PreferProxy = false };
-                    foreach (IDecoderInfo decoder in GuessDecoder(resolution.AbsoluteProxyFilePath))
-                    {
-                        if (decoder.Open(resolution.AbsoluteProxyFilePath, proxyOptions) is { } reader)
-                        {
-                            return new ProxyMediaReader(reader, pin, resolution);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogWarning(
-                    ex,
-                    "Proxy resolution or open failed for '{File}'; falling back to the original media.",
-                    file);
-            }
-
-            pin?.Dispose();
+            return proxyReader;
         }
 
         // The original decode can only succeed if the file is present; when a PreferProxy open reached
@@ -124,6 +100,39 @@ public static class DecoderRegistry
             }
         }
 
+        return null;
+    }
+
+    // Returns null, with the pin released, when no proxy resolves or opens; a proxy-side fault is logged
+    // and also returns null.
+    private static MediaReader? TryOpenProxy(string file, MediaOptions options, IProxyResolver resolver)
+    {
+        IDisposable? pin = null;
+        try
+        {
+            var sourceUri = ToFileUri(file);
+            if (resolver.Resolve(sourceUri, options.PreferredProxyPreset) is { } resolution)
+            {
+                pin = resolver.Pin(resolution);
+                var proxyOptions = options with { PreferProxy = false };
+                foreach (IDecoderInfo decoder in GuessDecoder(resolution.AbsoluteProxyFilePath))
+                {
+                    if (decoder.Open(resolution.AbsoluteProxyFilePath, proxyOptions) is { } reader)
+                    {
+                        return new ProxyMediaReader(reader, pin, resolution);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(
+                ex,
+                "Proxy resolution or open failed for '{File}'; falling back to the original media.",
+                file);
+        }
+
+        pin?.Dispose();
         return null;
     }
 

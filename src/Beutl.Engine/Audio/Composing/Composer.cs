@@ -201,15 +201,7 @@ public partial class Composer : IComposer
                     if (latency <= 0)
                         continue;
 
-                    foreach (AudioNode outputNode in outputNodes)
-                    {
-                        int outputLatency = GetOutputLatency(entry, outputNode, SampleRate);
-                        if (outputLatency <= 0)
-                            continue;
-
-                        buffers.Add(FlushTail(outputNode, context, outputLatency, sampleCount, out int drainedSamples));
-                        RecordTailAfterDrain(entry, outputNode, outputLatency, drainedSamples);
-                    }
+                    DrainEntryTails(entry, outputNodes, context, sampleCount, buffers);
                 }
 
                 mixedBuffer = MixBuffers(buffers)
@@ -331,15 +323,7 @@ public partial class Composer : IComposer
 
             var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
             int sampleCount = flushContext.GetSampleCount();
-            foreach (var outputNode in outputNodes)
-            {
-                int outputLatency = GetOutputLatency(entry, outputNode, SampleRate);
-                if (outputLatency <= 0)
-                    continue;
-
-                buffers.Add(FlushTail(outputNode, flushContext, outputLatency, sampleCount, out int drainedSamples));
-                RecordTailAfterDrain(entry, outputNode, outputLatency, drainedSamples);
-            }
+            DrainEntryTails(entry, outputNodes, flushContext, sampleCount, buffers);
         }
     }
 
@@ -408,6 +392,11 @@ public partial class Composer : IComposer
             entry.TailBudgets.Clear();
         }
 
+        ResetWindowState();
+    }
+
+    private void ResetWindowState()
+    {
         _currentEntry.Clear();
         _previousEntry.Clear();
         _previousRange = null;
@@ -477,10 +466,7 @@ public partial class Composer : IComposer
         _audioCache.Clear();
 
         // Invalidation also clears previous-window state so disposed graphs cannot be flushed.
-        _currentEntry.Clear();
-        _previousEntry.Clear();
-        _previousRange = null;
-        _lastEligibility = null;
+        ResetWindowState();
     }
 
     /// <summary>

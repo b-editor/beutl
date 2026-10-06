@@ -5,6 +5,8 @@ using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
+using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset);
+
 namespace Beutl.Media.Proxy;
 
 public sealed partial class ProxyStore : IProxyStore
@@ -30,16 +32,16 @@ public sealed partial class ProxyStore : IProxyStore
     };
 
     private readonly Lock _lock = new();
-    private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> _entries = [];
+    private readonly Dictionary<ProxyKey, ProxyEntry> _entries = [];
     private readonly Dictionary<string, int> _filePins = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ProxyEntry> _retiredFiles = new(StringComparer.Ordinal);
     private readonly HashSet<string> _reclaimingPaths = new(StringComparer.Ordinal);
-    private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _touchDirtyKeys = [];
+    private readonly HashSet<ProxyKey> _touchDirtyKeys = [];
 
     // Changes whose durable write was skipped under lock contention; re-applied on the
     // next successful flush so a briefly-contended lock never permanently loses them.
-    private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _pendingPersistKeys = [];
-    private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _pendingRemoveKeys = [];
+    private readonly HashSet<ProxyKey> _pendingPersistKeys = [];
+    private readonly HashSet<ProxyKey> _pendingRemoveKeys = [];
     private readonly string _indexPath;
     private readonly string _indexLockPath;
     private readonly int _lockAcquireMaxAttempts;
@@ -119,7 +121,7 @@ public sealed partial class ProxyStore : IProxyStore
                     _retiredFiles[previousPath] = previous;
             }
 
-            FlushCore(changedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { key });
+            FlushCore(changedKeys: new HashSet<ProxyKey> { key });
         }
 
         OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
@@ -248,7 +250,7 @@ public sealed partial class ProxyStore : IProxyStore
             };
             var key = (source, preset);
             _entries[key] = updated;
-            FlushCore(changedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { key });
+            FlushCore(changedKeys: new HashSet<ProxyKey> { key });
         }
 
         OnChanged(source, preset, ProxyStoreChangeKind.StateChanged);
@@ -269,7 +271,7 @@ public sealed partial class ProxyStore : IProxyStore
             _entries.Remove((source, preset));
             if (!IsProxyFileReferenced(proxyPath))
                 _retiredFiles[ProxyFingerprint.NormalizeAbsolutePath(proxyPath)] = removed;
-            FlushCore(removedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
+            FlushCore(removedKeys: new HashSet<ProxyKey> { (source, preset) });
         }
 
         // Delete the proxy file outside _lock: File.Delete has no bound (a network-share store can stall
@@ -352,7 +354,7 @@ public sealed partial class ProxyStore : IProxyStore
         lock (_lock)
         {
             return _entries.Values.Concat(_retiredFiles.Values)
-                .Where(static e => e.State is ProxyState.Ready or ProxyState.Stale or ProxyState.Failed)
+                .Where(static e => ProxyEntryChecks.CountsTowardStoreSize(e.State))
                 .Sum(static e => e.ProxyFileSizeBytes);
         }
     }
@@ -366,7 +368,7 @@ public sealed partial class ProxyStore : IProxyStore
         {
             return _entries.Values.Concat(_retiredFiles.Values)
                 .Where(e => normalized.Contains(e.Source.AbsolutePath))
-                .Where(static e => e.State is ProxyState.Ready or ProxyState.Stale or ProxyState.Failed)
+                .Where(static e => ProxyEntryChecks.CountsTowardStoreSize(e.State))
                 .Sum(static e => e.ProxyFileSizeBytes);
         }
     }
@@ -388,7 +390,7 @@ public sealed partial class ProxyStore : IProxyStore
         return ProxyPathUtilities.ResolveRelativePath(StoreRootPath, entry.ProxyFileRelative);
     }
 
-    private static (ProxyFingerprint Source, ProxyPreset Preset) GetKey(ProxyEntry entry)
+    private static ProxyKey GetKey(ProxyEntry entry)
     {
         return (entry.Source, entry.Preset);
     }
@@ -418,11 +420,7 @@ public sealed partial class ProxyStore : IProxyStore
 
     private static bool HasValidReadyFile(ProxyEntry entry, string absolutePath)
     {
-        if (entry.ProxyFileSizeBytes <= 0
-            || entry.OriginalLogicalFrameSize.Width <= 0
-            || entry.OriginalLogicalFrameSize.Height <= 0
-            || entry.ProxyDecodedFrameSize.Width <= 0
-            || entry.ProxyDecodedFrameSize.Height <= 0)
+        if (!ProxyEntryChecks.HasPositiveSizes(entry))
         {
             return false;
         }

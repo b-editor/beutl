@@ -36,42 +36,16 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
             Sound original = child.RequireOriginal();
             if (original.TimeRange.Start < TimeRange.Start)
             {
-                var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
-                original.Compose(internalContext, child);
-                foreach (AudioNode node in internalContext.Nodes)
-                {
-                    context.AddNode(node);
-                }
-
-                foreach (var outputNode in internalContext.GetOutputNodes())
-                {
-                    var shiftNode = context.CreateShiftNode(original.TimeRange.Start);
-                    var clipNode2 = context.CreateClipNode(
-                        original.TimeRange.Start, TimeRange.Start - original.TimeRange.Start);
-                    context.Connect(outputNode, shiftNode);
-                    context.Connect(shiftNode, clipNode2);
-                    context.MarkAsOutput(clipNode2);
-                }
+                PassThroughOutsideGroup(
+                    context, original, child,
+                    original.TimeRange.Start, TimeRange.Start - original.TimeRange.Start);
             }
 
             if (original.TimeRange.End > TimeRange.End)
             {
-                var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
-                original.Compose(internalContext, child);
-                foreach (AudioNode node in internalContext.Nodes)
-                {
-                    context.AddNode(node);
-                }
-
-                foreach (var outputNode in internalContext.GetOutputNodes())
-                {
-                    var shiftNode = context.CreateShiftNode(TimeRange.End);
-                    var clipNode2 = context.CreateClipNode(
-                        TimeRange.End, original.TimeRange.End - TimeRange.End);
-                    context.Connect(outputNode, shiftNode);
-                    context.Connect(shiftNode, clipNode2);
-                    context.MarkAsOutput(clipNode2);
-                }
+                PassThroughOutsideGroup(
+                    context, original, child,
+                    TimeRange.End, original.TimeRange.End - TimeRange.End);
             }
         }
 
@@ -81,15 +55,9 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         foreach (var child in r.Children)
         {
             Sound original = child.RequireOriginal();
-            var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
-            original.Compose(internalContext, child);
-            foreach (AudioNode node in internalContext.Nodes)
-            {
-                context.AddNode(node);
-            }
 
             // 各子要素の出力ノードにShiftNodeを挿入してMixerに接続
-            foreach (var outputNode in internalContext.GetOutputNodes())
+            foreach (var outputNode in ComposeChildInto(context, original, child))
             {
                 // ShiftNodeでSoundGroupのStartを加算して打ち消す
                 var shiftNode = context.CreateShiftNode(TimeRange.Start);
@@ -117,6 +85,39 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(currentNode, clipNode);
         context.MarkAsOutput(clipNode);
+    }
+
+    // Composes the child in a private context, moves its nodes into the group's context and returns the
+    // child's outputs for the caller to route.
+    private static IEnumerable<AudioNode> ComposeChildInto(AudioContext context, Sound original, Sound.Resource child)
+    {
+        var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
+        original.Compose(internalContext, child);
+        foreach (AudioNode node in internalContext.Nodes)
+        {
+            context.AddNode(node);
+        }
+
+        return internalContext.GetOutputNodes();
+    }
+
+    // Routes the part of a child outside the group's range straight to the output, bypassing the group's
+    // gain and effect; start is both the shift and the clip start.
+    private static void PassThroughOutsideGroup(
+        AudioContext context,
+        Sound original,
+        Sound.Resource child,
+        TimeSpan start,
+        TimeSpan duration)
+    {
+        foreach (var outputNode in ComposeChildInto(context, original, child))
+        {
+            var shiftNode = context.CreateShiftNode(start);
+            var clipNode2 = context.CreateClipNode(start, duration);
+            context.Connect(outputNode, shiftNode);
+            context.Connect(shiftNode, clipNode2);
+            context.MarkAsOutput(clipNode2);
+        }
     }
 
     public partial class Resource

@@ -25,20 +25,7 @@ public sealed partial class AudioContext
 
     private void ClearConnectionsCore()
     {
-
-        var snapshots = new List<InputSnapshot>(_nodes.Count);
-        foreach (AudioNode node in _nodes)
-        {
-            AudioNode[] inputs = [.. node.Inputs];
-            object?[] states = new object?[inputs.Length];
-            for (int i = 0; i < inputs.Length; i++)
-            {
-                states[i] = node.CaptureInputStateForRollback(inputs[i], i);
-            }
-
-            snapshots.Add(new InputSnapshot(node, inputs, states));
-        }
-
+        List<InputSnapshot> snapshots = CaptureInputSnapshots();
         foreach (InputSnapshot snapshot in snapshots)
         {
             snapshot.Node.BeginInputTopologyTransaction();
@@ -59,20 +46,7 @@ public sealed partial class AudioContext
                 }
             }
 
-            bool nodesUnchanged = _nodes.Count == snapshots.Count;
-            if (nodesUnchanged)
-            {
-                for (int i = 0; i < snapshots.Count; i++)
-                {
-                    if (!ReferenceEquals(snapshots[i].Node, _nodes[i]))
-                    {
-                        nodesUnchanged = false;
-                        break;
-                    }
-                }
-            }
-
-            if (!nodesUnchanged)
+            if (!MatchesNodeSet(snapshots))
             {
                 throw new InvalidOperationException(
                     "Audio connection clearing hooks must not mutate the context node set.");
@@ -107,39 +81,7 @@ public sealed partial class AudioContext
         }
         catch (Exception clearException)
         {
-            List<Exception>? rollbackFailures = null;
-            for (int i = cleared.Count - 1; i >= 0; i--)
-            {
-                try
-                {
-                    RestoreInputs(cleared[i]);
-                }
-                catch (Exception rollbackException)
-                {
-                    (rollbackFailures ??= []).Add(rollbackException);
-                }
-            }
-
-            for (int i = snapshots.Count - 1; i >= 0; i--)
-            {
-                try
-                {
-                    snapshots[i].Node.RollbackInputTopologyTransaction();
-                }
-                catch (Exception rollbackException)
-                {
-                    (rollbackFailures ??= []).Add(rollbackException);
-                }
-            }
-
-            if (rollbackFailures is { Count: > 0 })
-            {
-                rollbackFailures.Insert(0, clearException);
-                throw new AggregateException(
-                    "Audio connection clearing failed and rollback encountered one or more errors.",
-                    rollbackFailures);
-            }
-
+            RollBackClear(clearException, cleared, snapshots);
             throw;
         }
 
@@ -151,11 +93,82 @@ public sealed partial class AudioContext
         _outputNodes.Clear();
         _currentNode = null;
 
-        if (commitFailures is { Count: > 0 })
+        ThrowIfLifecycleHooksFailed(
+            commitFailures,
+            "Audio connection clearing committed, but one or more lifecycle hooks failed.");
+    }
+
+    private List<InputSnapshot> CaptureInputSnapshots()
+    {
+        var snapshots = new List<InputSnapshot>(_nodes.Count);
+        foreach (AudioNode node in _nodes)
         {
+            AudioNode[] inputs = [.. node.Inputs];
+            object?[] states = new object?[inputs.Length];
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                states[i] = node.CaptureInputStateForRollback(inputs[i], i);
+            }
+
+            snapshots.Add(new InputSnapshot(node, inputs, states));
+        }
+
+        return snapshots;
+    }
+
+    // Clearing hooks must leave the context's node list exactly as it was captured.
+    private bool MatchesNodeSet(List<InputSnapshot> snapshots)
+    {
+        if (_nodes.Count != snapshots.Count)
+            return false;
+
+        for (int i = 0; i < snapshots.Count; i++)
+        {
+            if (!ReferenceEquals(snapshots[i].Node, _nodes[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    // Undoes a failed clear newest-first. Throws when rollback itself fails; otherwise the caller rethrows
+    // the original failure.
+    private static void RollBackClear(
+        Exception clearException,
+        List<InputSnapshot> cleared,
+        List<InputSnapshot> snapshots)
+    {
+        List<Exception>? rollbackFailures = null;
+        for (int i = cleared.Count - 1; i >= 0; i--)
+        {
+            try
+            {
+                RestoreInputs(cleared[i]);
+            }
+            catch (Exception rollbackException)
+            {
+                (rollbackFailures ??= []).Add(rollbackException);
+            }
+        }
+
+        for (int i = snapshots.Count - 1; i >= 0; i--)
+        {
+            try
+            {
+                snapshots[i].Node.RollbackInputTopologyTransaction();
+            }
+            catch (Exception rollbackException)
+            {
+                (rollbackFailures ??= []).Add(rollbackException);
+            }
+        }
+
+        if (rollbackFailures is { Count: > 0 })
+        {
+            rollbackFailures.Insert(0, clearException);
             throw new AggregateException(
-                "Audio connection clearing committed, but one or more lifecycle hooks failed.",
-                commitFailures);
+                "Audio connection clearing failed and rollback encountered one or more errors.",
+                rollbackFailures);
         }
     }
 
@@ -238,46 +251,7 @@ public sealed partial class AudioContext
         }
         catch (Exception removalException)
         {
-            List<Exception>? rollbackFailures = null;
-            for (int i = removedFrom.Count - 1; i >= 0; i--)
-            {
-                (AudioNode otherNode, int index, object? state) = removedFrom[i];
-                try
-                {
-                    otherNode.RestoreInput(node, index);
-                    otherNode.RestoreInputStateForRollback(node, index, state);
-                }
-                catch (Exception rollbackException)
-                {
-                    (rollbackFailures ??= []).Add(rollbackException);
-                }
-            }
-
-            for (int i = affected.Length - 1; i >= 0; i--)
-            {
-                try
-                {
-                    affected[i].RollbackInputTopologyTransaction();
-                }
-                catch (Exception rollbackException)
-                {
-                    (rollbackFailures ??= []).Add(rollbackException);
-                }
-            }
-
-            foreach (AudioNode contextNode in _nodes)
-            {
-                contextNode.EndInputTopologyCommitGuard();
-            }
-
-            if (rollbackFailures is { Count: > 0 })
-            {
-                rollbackFailures.Insert(0, removalException);
-                throw new AggregateException(
-                    "Audio node removal failed and rollback encountered one or more errors.",
-                    rollbackFailures);
-            }
-
+            RollBackRemoval(removalException, node, removedFrom, affected);
             throw;
         }
 
@@ -293,11 +267,65 @@ public sealed partial class AudioContext
 
         RemoveReference(_nodes, node);
 
-        if (commitFailures is { Count: > 0 })
+        ThrowIfLifecycleHooksFailed(
+            commitFailures,
+            "Audio node removal committed, but one or more lifecycle hooks failed.");
+    }
+
+    // Undoes a failed removal newest-first and lifts the commit guard. Throws when rollback itself fails;
+    // otherwise the caller rethrows the original failure.
+    private void RollBackRemoval(
+        Exception removalException,
+        AudioNode node,
+        List<(AudioNode Node, int Index, object? State)> removedFrom,
+        AudioNode[] affected)
+    {
+        List<Exception>? rollbackFailures = null;
+        for (int i = removedFrom.Count - 1; i >= 0; i--)
         {
+            (AudioNode otherNode, int index, object? state) = removedFrom[i];
+            try
+            {
+                otherNode.RestoreInput(node, index);
+                otherNode.RestoreInputStateForRollback(node, index, state);
+            }
+            catch (Exception rollbackException)
+            {
+                (rollbackFailures ??= []).Add(rollbackException);
+            }
+        }
+
+        for (int i = affected.Length - 1; i >= 0; i--)
+        {
+            try
+            {
+                affected[i].RollbackInputTopologyTransaction();
+            }
+            catch (Exception rollbackException)
+            {
+                (rollbackFailures ??= []).Add(rollbackException);
+            }
+        }
+
+        foreach (AudioNode contextNode in _nodes)
+        {
+            contextNode.EndInputTopologyCommitGuard();
+        }
+
+        if (rollbackFailures is { Count: > 0 })
+        {
+            rollbackFailures.Insert(0, removalException);
             throw new AggregateException(
-                "Audio node removal committed, but one or more lifecycle hooks failed.",
-                commitFailures);
+                "Audio node removal failed and rollback encountered one or more errors.",
+                rollbackFailures);
+        }
+    }
+
+    private static void ThrowIfLifecycleHooksFailed(List<Exception>? failures, string message)
+    {
+        if (failures is { Count: > 0 })
+        {
+            throw new AggregateException(message, failures);
         }
     }
 

@@ -2,6 +2,8 @@
 
 using Microsoft.Extensions.Logging;
 
+using ProxyKey = (Beutl.Media.Proxy.ProxyFingerprint Source, Beutl.Media.Proxy.ProxyPreset Preset);
+
 namespace Beutl.Media.Proxy;
 
 public sealed partial class ProxyStore
@@ -18,8 +20,8 @@ public sealed partial class ProxyStore
     // LOW-severity finding and not deterministically testable. The Touch debounce (1 s) and
     // DegradePersistence (pending replay on the next uncontended flush) mitigate the perf concern.
     private void FlushCore(
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? changedKeys = null,
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys = null)
+        IReadOnlySet<ProxyKey>? changedKeys = null,
+        IReadOnlySet<ProxyKey>? removedKeys = null)
     {
         Directory.CreateDirectory(StoreRootPath);
         FileStream? indexLock = AcquireIndexLock(out Exception? lockFailure);
@@ -42,110 +44,150 @@ public sealed partial class ProxyStore
                 return;
             }
 
-            // Seed from the degraded-and-pending ops, then let this flush's own ops supersede them per key:
-            // a fresh registration cancels a stale pending delete (the delete/regenerate race after
-            // transient lock contention) and a fresh delete cancels a stale pending persist. Without the
-            // supersede, effectiveChanged.ExceptWith below would drop the freshly registered proxy and
-            // _entries.Clear() would lose it from memory too. Mirrors the re-Register-supersedes-Delete rule
-            // DegradePersistence already applies on the degrade path.
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveRemoved = [.. _pendingRemoveKeys];
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> effectiveChanged = [.. _pendingPersistKeys];
-            if (changedKeys != null)
+            ComputeEffectiveKeys(
+                changedKeys,
+                removedKeys,
+                out HashSet<ProxyKey> effectiveChanged,
+                out HashSet<ProxyKey> effectiveRemoved);
+            Dictionary<ProxyKey, ProxyEntry> merged = MergeWithDisk(
+                diskEntries,
+                effectiveChanged,
+                effectiveRemoved,
+                out HashSet<ProxyKey> touchedKeys);
+            ReplaceEntries(merged);
+            WriteIndex(merged, touchedKeys, changedKeys, removedKeys);
+        }
+    }
+
+    // The FlushCore phases below run with _lock and the cross-process index.lock held.
+    private void ComputeEffectiveKeys(
+        IReadOnlySet<ProxyKey>? changedKeys,
+        IReadOnlySet<ProxyKey>? removedKeys,
+        out HashSet<ProxyKey> effectiveChanged,
+        out HashSet<ProxyKey> effectiveRemoved)
+    {
+        // Seed from the degraded-and-pending ops, then let this flush's own ops supersede them per key:
+        // a fresh registration cancels a stale pending delete (the delete/regenerate race after
+        // transient lock contention) and a fresh delete cancels a stale pending persist. Without the
+        // supersede, effectiveChanged.ExceptWith below would drop the freshly registered proxy and
+        // _entries.Clear() would lose it from memory too. Mirrors the re-Register-supersedes-Delete rule
+        // DegradePersistence already applies on the degrade path.
+        effectiveRemoved = [.. _pendingRemoveKeys];
+        effectiveChanged = [.. _pendingPersistKeys];
+        if (changedKeys != null)
+        {
+            effectiveRemoved.ExceptWith(changedKeys);
+            effectiveChanged.UnionWith(changedKeys);
+        }
+
+        if (removedKeys != null)
+        {
+            effectiveChanged.ExceptWith(removedKeys);
+            effectiveRemoved.UnionWith(removedKeys);
+        }
+
+        effectiveChanged.ExceptWith(effectiveRemoved);
+    }
+
+    private Dictionary<ProxyKey, ProxyEntry> MergeWithDisk(
+        List<ProxyEntry> diskEntries,
+        HashSet<ProxyKey> effectiveChanged,
+        HashSet<ProxyKey> effectiveRemoved,
+        out HashSet<ProxyKey> touchedKeys)
+    {
+        Dictionary<ProxyKey, ProxyEntry> merged = [];
+        foreach (ProxyEntry entry in diskEntries)
+        {
+            var key = GetKey(entry);
+            if (effectiveRemoved.Contains(key))
+                continue;
+
+            merged[key] = entry;
+        }
+
+        touchedKeys = [.. _touchDirtyKeys];
+        foreach (var key in touchedKeys)
+        {
+            if (effectiveRemoved.Contains(key))
+                continue;
+
+            if (merged.TryGetValue(key, out ProxyEntry? diskEntry)
+                && _entries.TryGetValue(key, out ProxyEntry? localEntry))
             {
-                effectiveRemoved.ExceptWith(changedKeys);
-                effectiveChanged.UnionWith(changedKeys);
+                DateTime lastUsedUtc = diskEntry.LastUsedUtc >= localEntry.LastUsedUtc
+                    ? diskEntry.LastUsedUtc
+                    : localEntry.LastUsedUtc;
+                merged[key] = diskEntry with { LastUsedUtc = lastUsedUtc };
             }
-
-            if (removedKeys != null)
+            else if (!effectiveChanged.Contains(key))
             {
-                effectiveChanged.ExceptWith(removedKeys);
-                effectiveRemoved.UnionWith(removedKeys);
+                // A touched key that is not yet on disk but is pending persistence (e.g. a
+                // registration degraded by transient lock contention) must survive this replay;
+                // the effectiveChanged pass below writes it. Only drop keys with no pending change.
+                _entries.Remove(key);
             }
+        }
 
-            effectiveChanged.ExceptWith(effectiveRemoved);
-
-            Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> merged = [];
-            foreach (ProxyEntry entry in diskEntries)
-            {
-                var key = GetKey(entry);
-                if (effectiveRemoved.Contains(key))
-                    continue;
-
+        foreach (var key in effectiveChanged)
+        {
+            if (_entries.TryGetValue(key, out ProxyEntry? entry))
                 merged[key] = entry;
-            }
+        }
 
-            HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> touchedKeys = [.. _touchDirtyKeys];
+        return merged;
+    }
+
+    private void ReplaceEntries(Dictionary<ProxyKey, ProxyEntry> merged)
+    {
+        _entries.Clear();
+        foreach (ProxyEntry entry in merged.Values)
+        {
+            _entries[GetKey(entry)] = entry;
+        }
+    }
+
+    private void WriteIndex(
+        Dictionary<ProxyKey, ProxyEntry> merged,
+        HashSet<ProxyKey> touchedKeys,
+        IReadOnlySet<ProxyKey>? changedKeys,
+        IReadOnlySet<ProxyKey>? removedKeys)
+    {
+        var index = new ProxyStoreIndex { Entries = [.. merged.Values] };
+        string json = JsonSerializer.Serialize(index, s_jsonOptions);
+        string tmp = Path.Combine(
+            StoreRootPath,
+            $"{Path.GetFileName(_indexPath)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(tmp, json);
+            File.Move(tmp, _indexPath, overwrite: true);
             foreach (var key in touchedKeys)
             {
-                if (effectiveRemoved.Contains(key))
-                    continue;
-
-                if (merged.TryGetValue(key, out ProxyEntry? diskEntry)
-                    && _entries.TryGetValue(key, out ProxyEntry? localEntry))
-                {
-                    DateTime lastUsedUtc = diskEntry.LastUsedUtc >= localEntry.LastUsedUtc
-                        ? diskEntry.LastUsedUtc
-                        : localEntry.LastUsedUtc;
-                    merged[key] = diskEntry with { LastUsedUtc = lastUsedUtc };
-                }
-                else if (!effectiveChanged.Contains(key))
-                {
-                    // A touched key that is not yet on disk but is pending persistence (e.g. a
-                    // registration degraded by transient lock contention) must survive this replay;
-                    // the effectiveChanged pass below writes it. Only drop keys with no pending change.
-                    _entries.Remove(key);
-                }
+                _touchDirtyKeys.Remove(key);
             }
 
-            foreach (var key in effectiveChanged)
-            {
-                if (_entries.TryGetValue(key, out ProxyEntry? entry))
-                    merged[key] = entry;
-            }
-
-            _entries.Clear();
-            foreach (ProxyEntry entry in merged.Values)
-            {
-                _entries[GetKey(entry)] = entry;
-            }
-
-            var index = new ProxyStoreIndex { Entries = [.. merged.Values] };
-            string json = JsonSerializer.Serialize(index, s_jsonOptions);
-            string tmp = Path.Combine(
-                StoreRootPath,
-                $"{Path.GetFileName(_indexPath)}.{Guid.NewGuid():N}.tmp");
-            try
-            {
-                File.WriteAllText(tmp, json);
-                File.Move(tmp, _indexPath, overwrite: true);
-                foreach (var key in touchedKeys)
-                {
-                    _touchDirtyKeys.Remove(key);
-                }
-
-                _touchDirty = _touchDirtyKeys.Count > 0;
-                _pendingPersistKeys.Clear();
-                _pendingRemoveKeys.Clear();
-                _persistenceDegraded = false;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // A durable-write failure (transient I/O or a store root without write permission)
-                // degrades like a contended lock instead of throwing out of Register/TryTransition/
-                // FlushAsync; the pending sets are left populated (not cleared above) so the change
-                // replays on the next flush.
-                DegradePersistence(changedKeys, removedKeys, ex);
-            }
-            finally
-            {
-                TryDelete(tmp);
-            }
+            _touchDirty = _touchDirtyKeys.Count > 0;
+            _pendingPersistKeys.Clear();
+            _pendingRemoveKeys.Clear();
+            _persistenceDegraded = false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A durable-write failure (transient I/O or a store root without write permission)
+            // degrades like a contended lock instead of throwing out of Register/TryTransition/
+            // FlushAsync; the pending sets are left populated (not cleared above) so the change
+            // replays on the next flush.
+            DegradePersistence(changedKeys, removedKeys, ex);
+        }
+        finally
+        {
+            TryDelete(tmp);
         }
     }
 
     private void DegradePersistence(
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? changedKeys,
-        IReadOnlySet<(ProxyFingerprint Source, ProxyPreset Preset)>? removedKeys,
+        IReadOnlySet<ProxyKey>? changedKeys,
+        IReadOnlySet<ProxyKey>? removedKeys,
         Exception? cause = null)
     {
         bool firstDegradation = !_persistenceDegraded;

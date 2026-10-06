@@ -40,6 +40,57 @@ public class AnimatedImageReader : MediaReader
 
     public override bool HasAudio => false;
 
+    // Returns the frame shown at the given time, or -1 when there is none.
+    private int FindFrameIndex(long ms)
+    {
+        if (_repetitionCount == 0)
+            return 0;
+
+        // 元コードは `for (rp; rp < _repetitionCount || _repetitionCount == -1; rp++)`
+        // で外側を永久ループにしていたため、ms がコンテンツ全体の duration を
+        // 超えるとレンダリングスレッドがハングしていた。1巡分の duration を
+        // 先に計算し、無限ループ素材は ms をその範囲に wrap してフレーム検出する。
+        int cycleDuration = 0;
+        for (int i = 0; i < _frameCount; i++)
+        {
+            cycleDuration += _frameInfo[i].Duration;
+        }
+
+        if (cycleDuration <= 0)
+        {
+            // 全フレームの duration が 0。元コードなら無限ループだったケース。
+            return -1;
+        }
+
+        long effective = ms;
+
+        if (_repetitionCount > 0)
+        {
+            long fullDuration = (long)cycleDuration * _repetitionCount;
+            if (effective >= fullDuration)
+            {
+                return -1;
+            }
+        }
+
+        // wrap effective into [0, cycleDuration)
+        effective %= cycleDuration;
+
+        int accumulated = 0;
+        for (int i = 0; i < _frameCount; i++)
+        {
+            if (effective <= accumulated)
+            {
+                return i;
+            }
+
+            accumulated += _frameInfo[i].Duration;
+        }
+
+        // 端数で最終フレームを超えた判定になった場合は最終フレームを返す。
+        return _frameCount - 1;
+    }
+
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
@@ -48,63 +99,8 @@ public class AnimatedImageReader : MediaReader
 
         // frameを秒数に変換
         long ms = frame * VideoInfo.FrameRate.Denominator * 1000 / VideoInfo.FrameRate.Numerator;
-        // var seconds = frame / VideoInfo.FrameRate;
 
-        int detectedFrame = -1;
-        if (_repetitionCount == 0)
-        {
-            detectedFrame = 0;
-        }
-        else
-        {
-            // 元コードは `for (rp; rp < _repetitionCount || _repetitionCount == -1; rp++)`
-            // で外側を永久ループにしていたため、ms がコンテンツ全体の duration を
-            // 超えるとレンダリングスレッドがハングしていた。1巡分の duration を
-            // 先に計算し、無限ループ素材は ms をその範囲に wrap してフレーム検出する。
-            int cycleDuration = 0;
-            for (int i = 0; i < _frameCount; i++)
-            {
-                cycleDuration += _frameInfo[i].Duration;
-            }
-
-            if (cycleDuration <= 0)
-            {
-                // 全フレームの duration が 0。元コードなら無限ループだったケース。
-                return false;
-            }
-
-            long effective = ms;
-
-            if (_repetitionCount > 0)
-            {
-                long fullDuration = (long)cycleDuration * _repetitionCount;
-                if (effective >= fullDuration)
-                {
-                    return false;
-                }
-            }
-
-            // wrap effective into [0, cycleDuration)
-            effective %= cycleDuration;
-
-            int accumulated = 0;
-            for (int i = 0; i < _frameCount; i++)
-            {
-                if (effective <= accumulated)
-                {
-                    detectedFrame = i;
-                    goto BreakNestedLoop;
-                }
-
-                accumulated += _frameInfo[i].Duration;
-            }
-
-            // 端数で最終フレームを超えた判定になった場合は最終フレームを返す。
-            detectedFrame = _frameCount - 1;
-
-        BreakNestedLoop:;
-        }
-
+        int detectedFrame = FindFrameIndex(ms);
         if (detectedFrame == -1)
             return false;
 

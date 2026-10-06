@@ -316,23 +316,19 @@ public class EngineObject : Hierarchical, INotifyEdited
     }
 
     protected void MovePropertyBefore(IProperty property, IProperty target)
-    {
-        EnsureDisplayProperties();
-        _displayProperties.Remove(property);
-        int targetIndex = _displayProperties.IndexOf(target);
-        if (targetIndex >= 0)
-            _displayProperties.Insert(targetIndex, property);
-        else
-            _displayProperties.Add(property);
-    }
+        => MovePropertyNextTo(property, target, offset: 0);
 
     protected void MovePropertyAfter(IProperty property, IProperty target)
+        => MovePropertyNextTo(property, target, offset: 1);
+
+    // A target that is not displayed sends the property to the end.
+    private void MovePropertyNextTo(IProperty property, IProperty target, int offset)
     {
         EnsureDisplayProperties();
         _displayProperties.Remove(property);
         int targetIndex = _displayProperties.IndexOf(target);
         if (targetIndex >= 0)
-            _displayProperties.Insert(targetIndex + 1, property);
+            _displayProperties.Insert(targetIndex + offset, property);
         else
             _displayProperties.Add(property);
     }
@@ -451,11 +447,17 @@ public class EngineObject : Hierarchical, INotifyEdited
             if (IsEnabled != obj.IsEnabled)
             {
                 IsEnabled = obj.IsEnabled;
-                if (!updateOnly)
-                {
-                    Version++;
-                    updateOnly = true;
-                }
+                BumpVersion(ref updateOnly);
+            }
+        }
+
+        // Moves Version for the first change a reconcile pass finds; updateOnly then suppresses further bumps.
+        private void BumpVersion(ref bool updateOnly)
+        {
+            if (!updateOnly)
+            {
+                Version++;
+                updateOnly = true;
             }
         }
 
@@ -495,27 +497,16 @@ public class EngineObject : Hierarchical, INotifyEdited
                         updateOnly = true;
                         oldItem.Dispose();
                     }
-                    else
+                    else if (ResourceReconciler.UpdateInPlace(item, child, context))
                     {
-                        var oldVersion = item.Version;
-                        var _ = false;
-                        item.Update(child, context, ref _);
-                        if (!updateOnly && oldVersion != item.Version)
-                        {
-                            Version++;
-                            updateOnly = true;
-                        }
+                        BumpVersion(ref updateOnly);
                     }
                 }
                 else
                 {
                     var item = (TResource)child.ToResource(context);
                     field.Add(item);
-                    if (!updateOnly)
-                    {
-                        Version++;
-                        updateOnly = true;
-                    }
+                    BumpVersion(ref updateOnly);
                 }
             }
 
@@ -543,11 +534,7 @@ public class EngineObject : Hierarchical, INotifyEdited
                 {
                     field.Dispose();
                     field = null;
-                    if (!updateOnly)
-                    {
-                        Version++;
-                        updateOnly = true;
-                    }
+                    BumpVersion(ref updateOnly);
                 }
             }
             else
@@ -555,11 +542,7 @@ public class EngineObject : Hierarchical, INotifyEdited
                 if (field is null)
                 {
                     field = (TResource)value.ToResource(context);
-                    if (!updateOnly)
-                    {
-                        Version++;
-                        updateOnly = true;
-                    }
+                    BumpVersion(ref updateOnly);
                 }
                 else
                 {
@@ -571,16 +554,9 @@ public class EngineObject : Hierarchical, INotifyEdited
                         updateOnly = true;
                         oldField.Dispose();
                     }
-                    else
+                    else if (ResourceReconciler.UpdateInPlace(field, value, context))
                     {
-                        var oldVersion = field.Version;
-                        var _ = false;
-                        field.Update(value, context, ref _);
-                        if (!updateOnly && oldVersion != field.Version)
-                        {
-                            Version++;
-                            updateOnly = true;
-                        }
+                        BumpVersion(ref updateOnly);
                     }
                 }
             }

@@ -28,56 +28,41 @@ public sealed class ResampleNode : AudioNode
     }
 
     public override AudioBuffer Process(AudioProcessContext context)
-    {
-        if (Inputs.Count != 1)
-            throw new InvalidOperationException("Resample node requires exactly one input.");
-
-        AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
-        AudioBuffer input = Inputs[0].Process(newContext);
-        _sourceSampleCursor = checked(sourceStart + input.SampleCount);
-        return RecordProcessedOutput(Resample(context, input));
-    }
+        => ProcessCore(context, draining: false);
 
     public override AudioBuffer Flush(AudioProcessContext context)
-    {
-        if (Inputs.Count != 1)
-            throw new InvalidOperationException("Resample node requires exactly one input.");
-
-        AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
-        AudioBuffer input = Inputs[0].Flush(newContext);
-        _sourceSampleCursor = checked(sourceStart + input.SampleCount);
-        return RecordProcessedOutput(Resample(context, input));
-    }
+        => ProcessCore(context, draining: true);
 
     public override int GetTotalLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        int sourceLatency = base.GetTotalLatencySamples(SourceSampleRate);
-        if (sourceLatency == 0 || sourceLatency == int.MaxValue)
-            return sourceLatency;
-
-        double scaled = Math.Ceiling(sourceLatency * (double)sampleRate / SourceSampleRate);
-        return scaled >= int.MaxValue ? int.MaxValue : (int)scaled;
+        return ScaleFromSourceRate(base.GetTotalLatencySamples(SourceSampleRate), sampleRate);
     }
 
     public override int GetDrainLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        int sourceLatency = 0;
-        foreach (AudioNode input in Inputs)
-        {
-            int inputTotal = input.GetDrainLatencySamples(SourceSampleRate);
-            if (inputTotal < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
-            }
+        return ScaleFromSourceRate(GetMaxInputLatency(SourceSampleRate, drain: true), sampleRate);
+    }
 
-            sourceLatency = Math.Max(sourceLatency, inputTotal);
-        }
+    private AudioBuffer ProcessCore(AudioProcessContext context, bool draining)
+    {
+        if (Inputs.Count != 1)
+            throw new InvalidOperationException("Resample node requires exactly one input.");
 
+        AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
+        AudioBuffer input = draining
+            ? Inputs[0].Flush(newContext)
+            : Inputs[0].Process(newContext);
+        _sourceSampleCursor = checked(sourceStart + input.SampleCount);
+        return RecordProcessedOutput(Resample(context, input));
+    }
+
+    // Upstream latency is counted at SourceSampleRate; round up so the output-rate budget never falls short.
+    private int ScaleFromSourceRate(int sourceLatency, int sampleRate)
+    {
         if (sourceLatency == 0 || sourceLatency == int.MaxValue)
             return sourceLatency;
 

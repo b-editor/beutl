@@ -1,6 +1,5 @@
 ﻿using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
-using Beutl.Media;
 
 namespace Beutl.Audio.Composing;
 
@@ -14,6 +13,24 @@ public partial class Composer
         public bool UnknownFollowUpPending { get; set; }
     }
 
+    private void DrainEntryTails(
+        AudioNodeEntry entry,
+        AudioNode[] outputNodes,
+        AudioProcessContext context,
+        int sampleCount,
+        List<AudioBuffer> buffers)
+    {
+        foreach (AudioNode outputNode in outputNodes)
+        {
+            int outputLatency = GetOutputLatency(entry, outputNode, SampleRate);
+            if (outputLatency <= 0)
+                continue;
+
+            buffers.Add(FlushTail(outputNode, context, outputLatency, sampleCount, out int drainedSamples));
+            RecordTailAfterDrain(entry, outputNode, outputLatency, drainedSamples);
+        }
+    }
+
     private AudioBuffer FlushTail(
         AudioNode outputNode,
         AudioProcessContext context,
@@ -22,33 +39,7 @@ public partial class Composer
         out int drainedSamples)
     {
         drainedSamples = Math.Min(outputLatency, sampleCount);
-        AudioProcessContext drainContext = drainedSamples == sampleCount
-            ? context
-            : new AudioProcessContext(
-                new TimeRange(
-                    context.TimeRange.Start,
-                    AudioProcessContext.GetDurationForSampleCount(drainedSamples, SampleRate)),
-                SampleRate,
-                context.AnimationSampler,
-                context.OriginalTimeRange);
-
-        using AudioBuffer drained = outputNode.Flush(drainContext);
-        var output = new AudioBuffer(drained.SampleRate, drained.ChannelCount, sampleCount);
-        try
-        {
-            int copyCount = Math.Min(drained.SampleCount, sampleCount);
-            if (copyCount > 0)
-            {
-                drained.CopyTo(output, 0, copyCount);
-            }
-
-            return output;
-        }
-        catch
-        {
-            output.Dispose();
-            throw;
-        }
+        return AudioLatency.FlushIntoWindow(outputNode, context, drainedSamples, sampleCount);
     }
 
     private void RecordInlineDrainBudget(AudioNodeEntry entry, AudioNode[] outputNodes)
@@ -61,11 +52,7 @@ public partial class Composer
         foreach (AudioNode outputNode in outputNodes)
         {
             int outputLatency = outputNode.GetDrainLatencySamples(SampleRate);
-            if (outputLatency < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{outputNode.GetType().Name} returned negative total latency {outputLatency}.");
-            }
+            AudioLatency.ThrowIfNegative(outputNode, outputLatency, "total latency");
 
             bool inlineDrainAttempted = TryGetInlineDrain(
                 outputNode,
@@ -110,7 +97,7 @@ public partial class Composer
         foreach (InlineDrainBranch branch in branches)
         {
             int branchRemaining = SubtractTail(
-                AddLatency(branch.LatencySamples, branch.DownstreamLatencySamples), branch.PaddingSamples);
+                AudioLatency.SaturatingAdd(branch.LatencySamples, branch.DownstreamLatencySamples), branch.PaddingSamples);
             if (branchRemaining == int.MaxValue)
             {
                 remainingLatency = int.MaxValue;
@@ -152,11 +139,7 @@ public partial class Composer
             if (node is ClipNode { InlineDrainAttempted: true } clipNode)
             {
                 int latency = clipNode.GetDrainLatencySamples(sampleRate);
-                if (latency < 0)
-                {
-                    throw new InvalidOperationException(
-                        $"{clipNode.GetType().Name} returned negative drain latency {latency}.");
-                }
+                AudioLatency.ThrowIfNegative(clipNode, latency, "drain latency");
 
                 branches.Add(new InlineDrainBranch(
                     latency,
@@ -168,18 +151,14 @@ public partial class Composer
             }
 
             int ownLatency = node.GetLatencySamples(sampleRate);
-            if (ownLatency < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{node.GetType().Name} returned negative latency {ownLatency}.");
-            }
+            AudioLatency.ThrowIfNegative(node, ownLatency, "latency");
 
-            int nextDownstreamLatency = AddLatency(downstreamLatency, ownLatency);
+            int nextDownstreamLatency = AudioLatency.SaturatingAdd(downstreamLatency, ownLatency);
             int nextSampleRate = sampleRate;
             double nextOutputScale = outputScale;
             if (node is ResampleNode resampleNode)
             {
-                nextDownstreamLatency = ScaleSampleCount(
+                nextDownstreamLatency = AudioLatency.ScaleSampleCount(
                     nextDownstreamLatency,
                     sampleRate,
                     resampleNode.SourceSampleRate);
@@ -219,15 +198,6 @@ public partial class Composer
         }
     }
 
-    private static int AddLatency(int first, int second)
-    {
-        if (first == int.MaxValue || second == int.MaxValue)
-            return int.MaxValue;
-
-        long sum = (long)first + second;
-        return sum >= int.MaxValue ? int.MaxValue : (int)sum;
-    }
-
     private static int ScaleByFactor(int sampleCount, double factor)
     {
         if (sampleCount == int.MaxValue)
@@ -264,46 +234,50 @@ public partial class Composer
 
     private int GetOutputLatency(AudioNodeEntry entry, AudioNode outputNode, int sampleRate)
     {
-        if (entry.TailBudgets.TryGetValue(outputNode, out var budget))
-        {
-            if (budget.StopFurtherDrains)
-                return 0;
-            if (budget.UnknownFollowUpPending)
-                return int.MaxValue;
-            if (budget.IsKnown)
-                return ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
-        }
+        if (TryGetBudgetedLatency(entry, outputNode, sampleRate, out int budgeted))
+            return budgeted;
 
         int latency = outputNode.GetTotalLatencySamples(sampleRate);
-        if (latency < 0)
-        {
-            throw new InvalidOperationException(
-                $"{outputNode.GetType().Name} returned negative total latency {latency}.");
-        }
-
+        AudioLatency.ThrowIfNegative(outputNode, latency, "total latency");
         return latency;
     }
 
     private int GetDrainOutputLatency(AudioNodeEntry entry, AudioNode outputNode, int sampleRate)
     {
+        if (TryGetBudgetedLatency(entry, outputNode, sampleRate, out int budgeted))
+            return budgeted;
+
+        int latency = outputNode.GetDrainLatencySamples(sampleRate);
+        AudioLatency.ThrowIfNegative(outputNode, latency, "drain latency");
+        return latency;
+    }
+
+    // Once part of an output's tail has been drained, its recorded budget replaces the node's own report.
+    private bool TryGetBudgetedLatency(AudioNodeEntry entry, AudioNode outputNode, int sampleRate, out int latency)
+    {
         if (entry.TailBudgets.TryGetValue(outputNode, out var budget))
         {
             if (budget.StopFurtherDrains)
-                return 0;
+            {
+                latency = 0;
+                return true;
+            }
+
             if (budget.UnknownFollowUpPending)
-                return int.MaxValue;
+            {
+                latency = int.MaxValue;
+                return true;
+            }
+
             if (budget.IsKnown)
-                return ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
+            {
+                latency = AudioLatency.ScaleSampleCount(budget.RemainingSamples, SampleRate, sampleRate);
+                return true;
+            }
         }
 
-        int latency = outputNode.GetDrainLatencySamples(sampleRate);
-        if (latency < 0)
-        {
-            throw new InvalidOperationException(
-                $"{outputNode.GetType().Name} returned negative drain latency {latency}.");
-        }
-
-        return latency;
+        latency = 0;
+        return false;
     }
 
     private static void RecordTailAfterDrain(
@@ -342,15 +316,6 @@ public partial class Composer
         }
 
         entry.TailBudgets[outputNode] = budget;
-    }
-
-    private static int ScaleSampleCount(int sampleCount, int sourceSampleRate, int destinationSampleRate)
-    {
-        if (sampleCount == int.MaxValue || sourceSampleRate == destinationSampleRate)
-            return sampleCount;
-
-        double scaled = sampleCount * (double)destinationSampleRate / sourceSampleRate;
-        return scaled >= int.MaxValue ? int.MaxValue : (int)Math.Ceiling(scaled);
     }
 
     private static int SubtractTail(int latency, int samples)

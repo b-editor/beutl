@@ -30,11 +30,20 @@ internal static class LimiterParameters
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
 
-        int maxLookaheadSamples = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
+        int maxLookaheadSamples = MaxLookaheadSampleCapacity(sampleRate);
         if (!float.IsFinite(lookaheadMs))
             lookaheadMs = MinLookaheadMs;
 
         lookaheadMs = Math.Clamp(lookaheadMs, MinLookaheadMs, MaxLookaheadMs);
         return Math.Clamp((int)(lookaheadMs / 1000f * sampleRate), 0, maxLookaheadSamples - 1);
+    }
+
+    // The limiter's delay-line length. +1 because CircularBuffer.Read(samplesBack) returns silence when
+    // samplesBack >= length, so length must exceed the maximum lookaheadSamples we ever clamp to
+    // (MaxLookaheadMs · sampleRate). The buffer rounds up to a power of two internally; the +1 is for the
+    // read-bounds check, not the rounding.
+    public static int MaxLookaheadSampleCapacity(int sampleRate)
+    {
+        return Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
     }
 }

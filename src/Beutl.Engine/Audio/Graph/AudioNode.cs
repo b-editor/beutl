@@ -343,32 +343,10 @@ public abstract class AudioNode : IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        int upstream = 0;
-        foreach (AudioNode input in _inputs)
-        {
-            int inputTotal = input.GetTotalLatencySamples(sampleRate);
-            if (inputTotal < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative total latency {inputTotal}.");
-            }
-
-            if (inputTotal > upstream)
-                upstream = inputTotal;
-        }
-
+        int upstream = GetMaxInputLatency(sampleRate, drain: false);
         int ownLatency = GetLatencySamples(sampleRate);
-        if (ownLatency < 0)
-        {
-            throw new InvalidOperationException(
-                $"{GetType().Name} returned negative latency {ownLatency}.");
-        }
-
-        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
-            return int.MaxValue;
-
-        long total = (long)ownLatency + upstream;
-        return total >= int.MaxValue ? int.MaxValue : (int)total;
+        AudioLatency.ThrowIfNegative(this, ownLatency, "latency");
+        return AudioLatency.SaturatingAdd(ownLatency, upstream);
     }
 
     /// <summary>
@@ -381,32 +359,30 @@ public abstract class AudioNode : IDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
+        int upstream = GetMaxInputLatency(sampleRate, drain: true);
+        int ownLatency = GetLatencySamples(sampleRate);
+        AudioLatency.ThrowIfNegative(this, ownLatency, "latency");
+        return AudioLatency.SaturatingAdd(ownLatency, upstream);
+    }
+
+    /// <summary>
+    /// The largest total (or, with <paramref name="drain"/>, drain) latency reported by <see cref="Inputs"/>:
+    /// the slowest branch a fan-in has to wait for. A negative report fails at the input that made it.
+    /// </summary>
+    internal int GetMaxInputLatency(int sampleRate, bool drain)
+    {
         int upstream = 0;
         foreach (AudioNode input in _inputs)
         {
-            int inputTotal = input.GetDrainLatencySamples(sampleRate);
-            if (inputTotal < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
-            }
-
+            int inputTotal = drain
+                ? input.GetDrainLatencySamples(sampleRate)
+                : input.GetTotalLatencySamples(sampleRate);
+            AudioLatency.ThrowIfNegative(input, inputTotal, drain ? "drain latency" : "total latency");
             if (inputTotal > upstream)
                 upstream = inputTotal;
         }
 
-        int ownLatency = GetLatencySamples(sampleRate);
-        if (ownLatency < 0)
-        {
-            throw new InvalidOperationException(
-                $"{GetType().Name} returned negative latency {ownLatency}.");
-        }
-
-        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
-            return int.MaxValue;
-
-        long total = (long)ownLatency + upstream;
-        return total >= int.MaxValue ? int.MaxValue : (int)total;
+        return upstream;
     }
 
     protected virtual void Dispose(bool disposing)
