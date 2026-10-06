@@ -38,6 +38,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class ElementView : UserControl
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
     private readonly CompositeDisposable _disposables = [];
     private TimelineTabView? _timeline;
     private TimeSpan _pointerPosition;
@@ -378,6 +379,26 @@ public sealed partial class ElementView : UserControl
         return [.. members];
     }
 
+    // Restore previews when a drag is cancelled or its completion animation fails.
+    private static void ForceRestoreVisualToModel(IEnumerable<ElementViewModel> targets)
+    {
+        foreach (ElementViewModel vm in targets)
+        {
+            // Restoration must not let one element's failure escape an event handler.
+            try
+            {
+                float scale = vm.Timeline.Options.Value.Scale;
+                vm.BorderMargin.Value = new Thickness(vm.Model.Start.TimeToPixel(scale), 0, 0, 0);
+                vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex), 0, 0);
+                vm.Width.Value = vm.Model.Length.TimeToPixel(scale);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "Failed to restore visual state to model for element {Id}.", vm.Model.Id);
+            }
+        }
+    }
+
     private sealed class _ResizeBehavior : Behavior<ElementView>
     {
         private record struct ElementResizeContext(
@@ -447,19 +468,26 @@ public sealed partial class ElementView : UserControl
             }
         }
 
-        // A normal release also raises PointerCaptureLost (the implicit capture is released
-        // after PointerReleased), so this only acts when the trim-drag state is still live —
-        // i.e. the capture was stolen mid-drag (window deactivation, another control capturing,
-        // touch cancel). Without the restore, Roll/Slide would leave the neighbour clips frozen
-        // at their previewed geometry, out of sync with the model.
+        // PointerReleased clears _pressed before committing, so the capture loss that follows
+        // a normal release must not restore visuals while the completion animation is running.
+        // Mid-drag capture loss cancels both ordinary resizing and Roll/Slide previews.
         private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         {
-            if (_trimDrag.Kind is TrimDragKind.None) return;
+            if (!_pressed) return;
 
+            _pressed = false;
             TrimDragContext ctx = _trimDrag;
             _trimDrag = default;
-            _pressed = false;
-            RestoreTrimDragVisuals(ctx);
+            ElementResizeContext[] resizeContexts = _resizeContexts;
+            _resizeContexts = [];
+            if (ctx.Kind is not TrimDragKind.None)
+            {
+                RestoreTrimDragVisuals(ctx);
+            }
+            else
+            {
+                ForceRestoreVisualToModel(resizeContexts.Select(context => context.ViewModel));
+            }
             if (AssociatedObject is { ViewModel: { } viewModel })
             {
                 viewModel.Timeline.SnapBarPosition.Value = null;
@@ -969,8 +997,6 @@ public sealed partial class ElementView : UserControl
 
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
-        private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
-
         private bool _pressed;
         private bool _duplicateMode;
         private bool _isSlipDrag;
@@ -1004,18 +1030,20 @@ public sealed partial class ElementView : UserControl
             AssociatedObject.border.RemoveHandler(PointerCaptureLostEvent, OnBorderPointerCaptureLost);
         }
 
-        // A normal release also raises PointerCaptureLost (the implicit capture is released
-        // after PointerReleased), so this only acts while a slip drag is still live — i.e.
-        // the capture was stolen mid-drag (window deactivation, another control capturing,
-        // touch cancel). Slip has no geometry preview, so only the flags and the snap guide
-        // need resetting; the pending slip is intentionally dropped, not committed.
+        // Only an unfinished drag is cancelled: normal release clears _pressed before
+        // committing and starting its animation. Slip has no geometry preview to restore.
         private void OnBorderPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         {
-            if (!_isSlipDrag) return;
+            if (!_pressed) return;
 
-            _isSlipDrag = false;
             _pressed = false;
+            _isSlipDrag = false;
+            _duplicateMode = false;
             _slipTargets = [];
+            IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
+            _relatedElements = [];
+            if (AssociatedObject?._timeline is { } timeline) RemoveGhosts(timeline);
+            ForceRestoreVisualToModel(relatedElements);
             if (AssociatedObject is { ViewModel: { } viewModel })
             {
                 viewModel.Timeline.SnapBarPosition.Value = null;
@@ -1163,27 +1191,6 @@ public sealed partial class ElementView : UserControl
                 viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementSlipService>()
                     .Slip(viewModel.Scene, targets, delta);
-            }
-        }
-
-        // Snap the visual state back to the model when AnimationRequest aborts midway,
-        // otherwise margins/width stay frozen at the dragged position.
-        private static void ForceRestoreVisualToModel(IEnumerable<ElementViewModel> targets)
-        {
-            foreach (ElementViewModel vm in targets)
-            {
-                // Never let a per-element NRE escape — we're on the async void handler path.
-                try
-                {
-                    float scale = vm.Timeline.Options.Value.Scale;
-                    vm.BorderMargin.Value = new Thickness(vm.Model.Start.TimeToPixel(scale), 0, 0, 0);
-                    vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex), 0, 0);
-                    vm.Width.Value = vm.Model.Length.TimeToPixel(scale);
-                }
-                catch (Exception ex)
-                {
-                    s_logger.LogWarning(ex, "Failed to restore visual state to model for element {Id}.", vm.Model.Id);
-                }
             }
         }
 
