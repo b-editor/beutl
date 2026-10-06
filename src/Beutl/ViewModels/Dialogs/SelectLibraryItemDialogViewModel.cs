@@ -135,10 +135,7 @@ public class SelectLibraryItemDialogViewModel
         if (type == null) return;
 
         _pinnedItems.Add(type);
-        string[] array = _pinnedItems
-            .Select(TypeFormat.ToString)
-            .ToArray();
-        Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
+        SavePinnedItems();
         ProcessSearchText();
     }
 
@@ -148,11 +145,16 @@ public class SelectLibraryItemDialogViewModel
         if (type == null) return;
 
         _pinnedItems.Remove(type);
+        SavePinnedItems();
+        ProcessSearchText();
+    }
+
+    private void SavePinnedItems()
+    {
         string[] array = _pinnedItems
             .Select(TypeFormat.ToString)
             .ToArray();
         Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
-        ProcessSearchText();
     }
 
     private Type? GetImplementationType(LibraryItem item)

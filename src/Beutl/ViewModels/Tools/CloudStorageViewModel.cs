@@ -124,10 +124,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         _breadcrumbs.Clear();
         _breadcrumbs.Add(new(Strings.CloudStorage, null));
         Error.Value = null;
-        IsLoading.Value = false;
-        IsLoadingMore.Value = false;
-        IsLoadingVisible.Value = false;
-        IsLoadingMoreVisible.Value = false;
+        ClearLoadingFlags();
         ClearListing(clearUsage: true);
         _usageLoad?.Cancel();
         _owner = user;
@@ -232,10 +229,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
                 _load = null;
                 if (!_disposed && version == _version)
                 {
-                    IsLoading.Value = false;
-                    IsLoadingMore.Value = false;
-                    IsLoadingVisible.Value = false;
-                    IsLoadingMoreVisible.Value = false;
+                    ClearLoadingFlags();
                 }
             }
         }
@@ -431,10 +425,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         _load?.Cancel();
         _load = null;
         ++_version;
-        IsLoading.Value = false;
-        IsLoadingMore.Value = false;
-        IsLoadingVisible.Value = false;
-        IsLoadingMoreVisible.Value = false;
+        ClearLoadingFlags();
         Error.Value = null;
         ResetFolder(folder);
         if (TryGetCachedFolder(folder, out var cached))
@@ -466,6 +457,14 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageBrowser
         var dialog = new SettingsDialog { DataContext = vm };
         vm.GoToAccountSettingsPage();
         await dialog.ShowDialog(owner);
+    }
+
+    private void ClearLoadingFlags()
+    {
+        IsLoading.Value = false;
+        IsLoadingMore.Value = false;
+        IsLoadingVisible.Value = false;
+        IsLoadingMoreVisible.Value = false;
     }
 
     private void ClearListing(bool clearUsage = false)

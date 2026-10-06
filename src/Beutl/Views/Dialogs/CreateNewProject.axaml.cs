@@ -1,6 +1,4 @@
-﻿using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
+﻿using Avalonia.Interactivity;
 
 using Beutl.ViewModels.Dialogs;
 
@@ -65,16 +63,10 @@ public sealed partial class CreateNewProject : FAContentDialog
     // 場所を選択
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is CreateNewProjectViewModel vm && TopLevel.GetTopLevel(this) is Window parent)
+        if (DataContext is CreateNewProjectViewModel vm
+            && await LocationPicker.PickFolderAsync(this) is { } localPath)
         {
-            var options = new FolderPickerOpenOptions();
-            IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
-
-            if (result.Count > 0
-                && result[0].TryGetLocalPath() is string localPath)
-            {
-                vm.Location.Value = localPath;
-            }
+            vm.Location.Value = localPath;
         }
     }
 }

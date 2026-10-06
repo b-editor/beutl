@@ -18,50 +18,15 @@ public sealed class CreateNewSceneViewModel
         _editorService = editorService;
         _proj = projectService.CurrentProject.Value;
         Location.Value = GetInitialLocation();
-        Name.Value = GenSceneName(Location.Value);
+        Name.Value = NewDocumentValidation.UniqueName(Location.Value, "Scene");
 
-        Name.SetValidateNotifyError(n =>
-        {
-            if (string.IsNullOrEmpty(n) || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
-            {
-                return MessageStrings.InvalidString;
-            }
-            else if (Directory.Exists(Path.Combine(Location.Value, n)))
-            {
-                return MessageStrings.AlreadyExists;
-            }
-            else
-            {
-                return null;
-            }
-        });
+        Name.SetValidateNotifyError(n => NewDocumentValidation.ValidateName(n, Location.Value));
         Location.Subscribe(_ => Name.ForceValidate());
-        Size.SetValidateNotifyError(s =>
-        {
-            if (s.Width <= 0 || s.Height <= 0)
-            {
-                return MessageStrings.ValueLessThanOrEqualToZero;
-            }
-            else
-            {
-                return null;
-            }
-        });
+        Size.SetValidateNotifyError(NewDocumentValidation.ValidateSize);
 
-        CanCreate = Name.CombineLatest(Location, Size).Select(t =>
-        {
-            string name = t.First;
-            string location = t.Second;
-            PixelSize size = t.Third;
-
-            if (location != null && name != null)
-            {
-                return !Directory.Exists(Path.Combine(location, name)) &&
-                       size.Width > 0 &&
-                       size.Height > 0;
-            }
-            else return false;
-        }).ToReadOnlyReactivePropertySlim();
+        CanCreate = Name.CombineLatest(Location, Size)
+            .Select(t => NewDocumentValidation.CanCreateAt(t.First, t.Second, t.Third))
+            .ToReadOnlyReactivePropertySlim();
         Create = new AsyncReactiveCommand(CanCreate);
         Create.Subscribe(async () =>
         {
@@ -119,18 +84,5 @@ public sealed class CreateNewSceneViewModel
         }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-    }
-
-    private static string GenSceneName(string location)
-    {
-        const string name = "Scene";
-        int n = 1;
-
-        while (Directory.Exists(Path.Combine(location, name + n)))
-        {
-            n++;
-        }
-
-        return name + n;
     }
 }

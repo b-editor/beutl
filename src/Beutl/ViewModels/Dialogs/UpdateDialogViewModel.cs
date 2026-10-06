@@ -150,20 +150,13 @@ public class UpdateDialogViewModel
         }
         else if (metadata.Type == "zip")
         {
-            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.ps1");
-            await using (var fs = File.Create(scriptPath))
+            if (await WriteUpdateScriptAsync("update.ps1", "Beutl.Resources.win-update.ps1", withBom: true)
+                is not { } scriptPath)
             {
-                // UTF-8 BOMを書き込む
-                await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
-                if (!await LoadScript("Beutl.Resources.win-update.ps1", fs))
-                {
-                    ProgressText.Value = MessageStrings.FailedToLoadScript;
-                    return;
-                }
+                return;
             }
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
-                new DirectoryInfo(AppContext.BaseDirectory).Name);
+            var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
 
             var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
@@ -211,18 +204,13 @@ public class UpdateDialogViewModel
         }
         else if (metadata.Type == "zip")
         {
-            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
-            await using (var fs = File.Create(scriptPath))
+            if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.linux-update.sh", withBom: false)
+                is not { } scriptPath)
             {
-                if (!await LoadScript("Beutl.Resources.linux-update.sh", fs))
-                {
-                    ProgressText.Value = MessageStrings.FailedToLoadScript;
-                    return;
-                }
+                return;
             }
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
-                new DirectoryInfo(AppContext.BaseDirectory).Name);
+            var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
 
             var psi = new ProcessStartInfo("gnome-terminal")
@@ -242,20 +230,16 @@ public class UpdateDialogViewModel
 
     private async Task InstallOnOSX(AssetMetadataJson metadata)
     {
-        string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
-        await using (var fs = File.Create(scriptPath))
+        if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.osx-update.sh", withBom: false)
+            is not { } scriptPath)
         {
-            if (!await LoadScript("Beutl.Resources.osx-update.sh", fs))
-            {
-                ProgressText.Value = MessageStrings.FailedToLoadScript;
-                return;
-            }
+            return;
         }
 
-        var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
+        var directory = UpdateStagingRoot;
         if (metadata.Type == "zip")
         {
-            directory = Path.Combine(directory, new DirectoryInfo(AppContext.BaseDirectory).Name);
+            directory = ZipStagingDirectory;
         }
         else if (metadata.Type == "app")
         {
@@ -333,23 +317,7 @@ public class UpdateDialogViewModel
 
             if (metadata.Type is "zip" or "app")
             {
-                var destination = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
-                if (metadata.Type == "zip")
-                {
-                    destination = Path.Combine(destination, new DirectoryInfo(AppContext.BaseDirectory).Name);
-                }
-
-                if (Directory.Exists(destination))
-                {
-                    Directory.Delete(destination, true);
-                }
-
-                Directory.CreateDirectory(destination);
-                var result = await ExtractIfNeeded(metadata, _downloadFile, destination);
-                if (!result) return;
-
-                ProgressText.Value = MessageStrings.ApplicationRestartRequired;
-                IsPrimaryButtonEnabled.Value = true;
+                if (!await StageExtractedUpdateAsync(metadata, _downloadFile)) return;
             }
 
             if (metadata.Type is "installer" or "debian")
@@ -358,6 +326,85 @@ public class UpdateDialogViewModel
                 IsPrimaryButtonEnabled.Value = true;
             }
         });
+    }
+
+    // Where an update is unpacked before the update script copies it over the application.
+    private static string UpdateStagingRoot
+        => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
+
+    // A zip update unpacks into a folder named like the one the application runs from.
+    private static string ZipStagingDirectory
+        => Path.Combine(UpdateStagingRoot, new DirectoryInfo(AppContext.BaseDirectory).Name);
+
+    // Unpacks a zip or app update into an empty staging folder and offers the restart.
+    private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
+    {
+        var destination = UpdateStagingRoot;
+        if (metadata.Type == "zip")
+        {
+            destination = ZipStagingDirectory;
+        }
+
+        if (Directory.Exists(destination))
+        {
+            Directory.Delete(destination, true);
+        }
+
+        Directory.CreateDirectory(destination);
+        var result = await ExtractIfNeeded(metadata, file, destination);
+        if (!result) return false;
+
+        ProgressText.Value = MessageStrings.ApplicationRestartRequired;
+        IsPrimaryButtonEnabled.Value = true;
+        return true;
+    }
+
+    // Writes the update script resource to the home directory's tmp folder. A script that
+    // cannot be loaded is reported and gives no path.
+    private async Task<string?> WriteUpdateScriptAsync(string fileName, string resourceName, bool withBom)
+    {
+        string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", fileName);
+        await using (var fs = File.Create(scriptPath))
+        {
+            if (withBom)
+            {
+                // UTF-8 BOMを書き込む
+                await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
+            }
+            if (!await LoadScript(resourceName, fs))
+            {
+                ProgressText.Value = MessageStrings.FailedToLoadScript;
+                return null;
+            }
+        }
+
+        return scriptPath;
+    }
+
+    // The file the update downloads to: the given path, or the name the server or the URL
+    // gives it in the home directory's tmp folder, which is created when missing.
+    private string ResolveDownloadTarget(HttpResponseMessage response, string? destinationPath)
+    {
+        var file = destinationPath ?? response.Content.Headers.ContentDisposition?.FileName;
+        if (file == null)
+        {
+            // urlからファイル名を取得
+            var arr = Update.DownloadUrl!.Split('/');
+            file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
+        }
+
+        _logger.LogInformation("Guessed file name: {FileName}", file);
+
+        var directory = destinationPath != null ? Path.GetDirectoryName(destinationPath)!
+            : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
+        if (!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        file = destinationPath ?? Path.Combine(directory, file);
+
+        return file;
     }
 
     internal async Task<string?> DownloadFile(string? destinationPath = null, HttpClient? httpClient = null, long? maximumBytes = null)
@@ -380,24 +427,7 @@ public class UpdateDialogViewModel
             long? contentLength = response.Content.Headers.ContentLength;
             long limit = maximumBytes ?? (IsFlatpak ? FlatpakUpdater.MaximumBundleBytes : long.MaxValue);
             if (contentLength > limit) throw new InvalidDataException(MessageStrings.DownloadFailed);
-            var file = destinationPath ?? response.Content.Headers.ContentDisposition?.FileName;
-            if (file == null)
-            {
-                // urlからファイル名を取得
-                var arr = Update.DownloadUrl!.Split('/');
-                file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
-            }
-
-            _logger.LogInformation("Guessed file name: {FileName}", file);
-
-            var directory = destinationPath != null ? Path.GetDirectoryName(destinationPath)!
-                : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
-            if (!Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            file = destinationPath ?? Path.Combine(directory, file);
+            var file = ResolveDownloadTarget(response, destinationPath);
 
             await using var destination = File.Create(file);
             await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
@@ -448,81 +478,13 @@ public class UpdateDialogViewModel
         {
             if (metadata.Type is "zip")
             {
-                using var source = ZipFile.Open(file, ZipArchiveMode.Read);
-                string extractionRoot = Path.GetFullPath(destination);
-                if (!Path.EndsInDirectorySeparator(extractionRoot))
-                    extractionRoot += Path.DirectorySeparatorChar;
-
-                ProgressMax.Value = source.Entries.Count;
-                ProgressText.Value = MessageStrings.Extracting;
-                foreach (var entry in source.Entries)
-                {
-                    if (entry.Length != 0)
-                    {
-                        string dst = Path.GetFullPath(Path.Combine(extractionRoot, entry.FullName));
-                        if (!dst.StartsWith(extractionRoot, StringComparison.Ordinal))
-                        {
-                            _logger.LogError("Entry is outside of the target directory: {Entry}", entry.FullName);
-                            throw new InvalidOperationException("Entry is outside of the target directory.");
-                        }
-
-                        Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-                        // The framework extractor restores Unix permissions from the ZIP, including
-                        // the executable bits required by the FFmpeg worker and other helper apps.
-                        await entry.ExtractToFileAsync(dst, overwrite: true, ct).ConfigureAwait(false);
-                    }
-
-                    ProgressValue.Value++;
-                }
-
-                ValidateApplicationPayload(metadata, destination);
+                // Not back on the caller's context: like the extractor's own awaits, the rest of
+                // this method runs wherever the extraction finished.
+                await ExtractZipAsync(metadata, file, destination, ct).ConfigureAwait(false);
             }
             else if (metadata.Type is "app")
             {
-                // dittoを使って展開
-                IsIndeterminate.Value = true;
-                var psi = new ProcessStartInfo("/usr/bin/ditto")
-                {
-                    ArgumentList =
-                    {
-                        "-xk",
-                        file,
-                        destination
-                    }
-                };
-                using var process = Process.Start(psi);
-                if (process == null)
-                {
-                    _logger.LogError("Failed to start ditto");
-                    throw new InvalidOperationException("Failed to start ditto");
-                }
-
-                try
-                {
-                    await process.WaitForExitAsync(ct);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Join the extractor before removing its partial output.
-                    if (!process.HasExited)
-                        process.Kill(entireProcessTree: true);
-                    await process.WaitForExitAsync(CancellationToken.None);
-                    throw;
-                }
-
-                string contents = Path.Combine(destination, "Beutl.app", "Contents");
-                string executable = Path.Combine(contents, "MacOS", "Beutl");
-                if (process.ExitCode != 0
-                    || !File.Exists(Path.Combine(contents, "Info.plist"))
-                    || !File.Exists(executable)
-                    || new FileInfo(executable).Length == 0)
-                {
-                    _logger.LogError("The update bundle was not completely extracted. Exit code: {ExitCode}",
-                        process.ExitCode);
-                    throw new InvalidDataException(MessageStrings.OperationFailed);
-                }
-
-                ValidateApplicationPayload(metadata, Path.Combine(contents, "MacOS"));
+                await ExtractAppBundleAsync(metadata, file, destination, ct);
             }
 
             File.Delete(file);
@@ -560,6 +522,94 @@ public class UpdateDialogViewModel
                 }
             }
         }
+    }
+
+    private async Task ExtractZipAsync(
+        AssetMetadataJson metadata,
+        string file,
+        string destination,
+        CancellationToken ct)
+    {
+        using var source = ZipFile.Open(file, ZipArchiveMode.Read);
+        string extractionRoot = Path.GetFullPath(destination);
+        if (!Path.EndsInDirectorySeparator(extractionRoot))
+            extractionRoot += Path.DirectorySeparatorChar;
+
+        ProgressMax.Value = source.Entries.Count;
+        ProgressText.Value = MessageStrings.Extracting;
+        foreach (var entry in source.Entries)
+        {
+            if (entry.Length != 0)
+            {
+                string dst = Path.GetFullPath(Path.Combine(extractionRoot, entry.FullName));
+                if (!dst.StartsWith(extractionRoot, StringComparison.Ordinal))
+                {
+                    _logger.LogError("Entry is outside of the target directory: {Entry}", entry.FullName);
+                    throw new InvalidOperationException("Entry is outside of the target directory.");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                // The framework extractor restores Unix permissions from the ZIP, including
+                // the executable bits required by the FFmpeg worker and other helper apps.
+                await entry.ExtractToFileAsync(dst, overwrite: true, ct).ConfigureAwait(false);
+            }
+
+            ProgressValue.Value++;
+        }
+
+        ValidateApplicationPayload(metadata, destination);
+    }
+
+    private async Task ExtractAppBundleAsync(
+        AssetMetadataJson metadata,
+        string file,
+        string destination,
+        CancellationToken ct)
+    {
+        // dittoを使って展開
+        IsIndeterminate.Value = true;
+        var psi = new ProcessStartInfo("/usr/bin/ditto")
+        {
+            ArgumentList =
+            {
+                "-xk",
+                file,
+                destination
+            }
+        };
+        using var process = Process.Start(psi);
+        if (process == null)
+        {
+            _logger.LogError("Failed to start ditto");
+            throw new InvalidOperationException("Failed to start ditto");
+        }
+
+        try
+        {
+            await process.WaitForExitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Join the extractor before removing its partial output.
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(CancellationToken.None);
+            throw;
+        }
+
+        string contents = Path.Combine(destination, "Beutl.app", "Contents");
+        string executable = Path.Combine(contents, "MacOS", "Beutl");
+        if (process.ExitCode != 0
+            || !File.Exists(Path.Combine(contents, "Info.plist"))
+            || !File.Exists(executable)
+            || new FileInfo(executable).Length == 0)
+        {
+            _logger.LogError("The update bundle was not completely extracted. Exit code: {ExitCode}",
+                process.ExitCode);
+            throw new InvalidDataException(MessageStrings.OperationFailed);
+        }
+
+        ValidateApplicationPayload(metadata, Path.Combine(contents, "MacOS"));
     }
 
     private void ValidateApplicationPayload(AssetMetadataJson metadata, string directory)

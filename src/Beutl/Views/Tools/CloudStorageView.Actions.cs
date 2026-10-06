@@ -42,8 +42,29 @@ public sealed partial class CloudStorageView
     private void OnStorageContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if (DataContext is not CloudStorageViewModel vm) return;
-        bool pointer = e.TryGetPosition(StorageItems, out _);
-        var container = (e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true);
+        CloudStorageItem[] targets = ResolveContextTargets(e, out bool pointer, out ListBoxItem? container);
+        var context = vm.CaptureActionContext(targets);
+        e.Handled = true;
+        if (context == null) return;
+        CancelPrefetchIntent();
+        _storageMenu?.Close();
+        var menu = CreateStorageMenu(targets, context);
+        _storageMenu = menu;
+        menu.Placement = pointer ? PlacementMode.Pointer : PlacementMode.Bottom;
+        menu.PlacementTarget = (Control?)container ?? StorageItems;
+        menu.Open(StorageItems);
+    }
+
+    // What the menu acts on: the clicked folder, or the selected files when a file is clicked,
+    // or the selection when the menu comes from the keyboard. A click selects what it lands on,
+    // and a click on empty space clears the selection.
+    private CloudStorageItem[] ResolveContextTargets(
+        ContextRequestedEventArgs e,
+        out bool pointer,
+        out ListBoxItem? container)
+    {
+        pointer = e.TryGetPosition(StorageItems, out _);
+        container = (e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true);
         var clicked = container?.DataContext as CloudStorageItem;
         if (!pointer && clicked == null) clicked = StorageItems.SelectedItem as CloudStorageItem;
         CloudStorageItem[] targets = [];
@@ -54,11 +75,11 @@ public sealed partial class CloudStorageView
             targets = clicked.IsFolder ? [clicked] : StorageItems.SelectedItems!.OfType<CloudStorageItem>().Where(x => !x.IsFolder).ToArray();
         }
         else if (pointer) StorageItems.SelectedItem = null;
-        var context = vm.CaptureActionContext(targets);
-        e.Handled = true;
-        if (context == null) return;
-        CancelPrefetchIntent();
-        _storageMenu?.Close();
+        return targets;
+    }
+
+    private ContextMenu CreateStorageMenu(CloudStorageItem[] targets, StorageActionContext context)
+    {
         var menu = new ContextMenu { Name = "StorageContextMenu" };
         int lastGroup = -1;
         void Add(string id, string label, Icon icon, int group)
@@ -100,10 +121,7 @@ public sealed partial class CloudStorageView
                 menu.Items.Add(new MenuItem { IsEnabled = false, Header = new TextBlock { Text = Strings.CloudStorageDedicatedHint, Width = 230, TextWrapping = TextWrapping.Wrap } });
             }
         }
-        _storageMenu = menu;
-        menu.Placement = pointer ? PlacementMode.Pointer : PlacementMode.Bottom;
-        menu.PlacementTarget = (Control?)container ?? StorageItems;
-        menu.Open(StorageItems);
+        return menu;
     }
 
     internal async Task ExecuteStorageActionAsync(string action, StorageActionContext context)
@@ -125,11 +143,7 @@ public sealed partial class CloudStorageView
                     await vm.OpenFolderAsync(single);
                     break;
                 case "open" when single?.Can("open") == true:
-                    if (await vm.GetContentUriAsync(context) is { } uri)
-                    {
-                        if (UriLauncher != null) await UriLauncher(uri);
-                        else Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true })?.Dispose();
-                    }
+                    await OpenStorageItemAsync(vm, context);
                     break;
                 case "copyLink" when single?.Can("copyLink") == true:
                     if (await vm.GetContentUriAsync(context, publicOnly: true) is { } link && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
@@ -156,27 +170,42 @@ public sealed partial class CloudStorageView
                 case "setPublic": await vm.SetVisibilityAsync(context, true); break;
                 case "setPrivate": await vm.SetVisibilityAsync(context, false); break;
                 case "delete":
-                    string message;
-                    if (single is { IsFolder: true })
-                    {
-                        if (await vm.GetFolderDetailsAsync(context, single.Id) is not { } summary) return;
-                        message = string.Format(Strings.CloudStorageDeleteFolder, single.Name, summary.FolderCount, summary.FileCount);
-                    }
-                    else
-                    {
-                        int count = context.Items.Count(x => x.Can("delete"));
-                        if (count == 0) return;
-                        message = string.Format(Strings.CloudStorageDeleteFiles, count);
-                        if (count < context.Items.Length) message += Environment.NewLine + string.Format(Strings.CloudStorageDeleteSkipped, context.Items.Length - count);
-                    }
-                    bool confirmed = DeletePrompt != null ? await DeletePrompt(message) : await ConfirmStorageDeleteAsync(message);
-                    if (confirmed) await vm.DeleteAsync(context);
+                    await DeleteWithConfirmationAsync(vm, context, single);
                     break;
                 case "refresh": await Task.WhenAll(vm.LoadAsync(), vm.LoadUsageAsync()); break;
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (vm.IsActionCurrent(context)) vm.ReportActionError(ex); }
+    }
+
+    private async Task OpenStorageItemAsync(CloudStorageViewModel vm, StorageActionContext context)
+    {
+        if (await vm.GetContentUriAsync(context) is { } uri)
+        {
+            if (UriLauncher != null) await UriLauncher(uri);
+            else Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true })?.Dispose();
+        }
+    }
+
+    // Asks before deleting, naming what a folder holds or how many files go and how many stay.
+    private async Task DeleteWithConfirmationAsync(CloudStorageViewModel vm, StorageActionContext context, CloudStorageItem? single)
+    {
+        string message;
+        if (single is { IsFolder: true })
+        {
+            if (await vm.GetFolderDetailsAsync(context, single.Id) is not { } summary) return;
+            message = string.Format(Strings.CloudStorageDeleteFolder, single.Name, summary.FolderCount, summary.FileCount);
+        }
+        else
+        {
+            int count = context.Items.Count(x => x.Can("delete"));
+            if (count == 0) return;
+            message = string.Format(Strings.CloudStorageDeleteFiles, count);
+            if (count < context.Items.Length) message += Environment.NewLine + string.Format(Strings.CloudStorageDeleteSkipped, context.Items.Length - count);
+        }
+        bool confirmed = DeletePrompt != null ? await DeletePrompt(message) : await ConfirmStorageDeleteAsync(message);
+        if (confirmed) await vm.DeleteAsync(context);
     }
 
     private async Task<FAContentDialogResult> ShowStorageDialogAsync(FAContentDialog dialog)

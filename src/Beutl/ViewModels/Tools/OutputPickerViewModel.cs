@@ -66,34 +66,27 @@ public sealed class OutputPickerViewModel : IDisposable
         SelectedProfile.Value = ProfileItems.FirstOrDefault(i => ReferenceEquals(i.UserData, currentProfile));
     }
 
-    public void Pin(PinnableOutputItem item)
-    {
-        switch (item.UserData)
-        {
-            case OutputProfileItem profile:
-                _pinnedProfiles.Add(profile.Context.Name.Value);
-                Save(PinnedProfilesKey, _pinnedProfiles);
-                RebuildProfiles();
-                break;
-            case OutputPresetItem preset:
-                _pinnedPresets.Add(preset.Name.Value);
-                Save(PinnedPresetsKey, _pinnedPresets);
-                RebuildPresets();
-                break;
-        }
-    }
+    public void Pin(PinnableOutputItem item) => SetPinned(item, true);
 
-    public void Unpin(PinnableOutputItem item)
+    public void Unpin(PinnableOutputItem item) => SetPinned(item, false);
+
+    private void SetPinned(PinnableOutputItem item, bool pinned)
     {
         switch (item.UserData)
         {
             case OutputProfileItem profile:
-                _pinnedProfiles.Remove(profile.Context.Name.Value);
+                if (pinned)
+                    _pinnedProfiles.Add(profile.Context.Name.Value);
+                else
+                    _pinnedProfiles.Remove(profile.Context.Name.Value);
                 Save(PinnedProfilesKey, _pinnedProfiles);
                 RebuildProfiles();
                 break;
             case OutputPresetItem preset:
-                _pinnedPresets.Remove(preset.Name.Value);
+                if (pinned)
+                    _pinnedPresets.Add(preset.Name.Value);
+                else
+                    _pinnedPresets.Remove(preset.Name.Value);
                 Save(PinnedPresetsKey, _pinnedPresets);
                 RebuildPresets();
                 break;
@@ -112,47 +105,43 @@ public sealed class OutputPickerViewModel : IDisposable
     private void OnPresetSourceChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildPresets();
 
     private void RebuildProfiles()
-    {
-        var selected = SelectedProfile.Value?.UserData;
-        ProfileItems.ClearOnScheduler();
-
-        IEnumerable<PinnableOutputItem> items = _profileSource
-            .Select(p => new PinnableOutputItem(
-                p.Context.Name.Value,
-                _pinnedProfiles.Contains(p.Context.Name.Value),
-                p));
-
-        items = ApplyFilterAndSort(items);
-
-        foreach (var item in items)
-        {
-            ProfileItems.Add(item);
-            if (selected != null && ReferenceEquals(item.UserData, selected))
-            {
-                SelectedProfile.Value = item;
-            }
-        }
-    }
+        => Rebuild(
+            ProfileItems,
+            SelectedProfile,
+            _profileSource
+                .Select(p => new PinnableOutputItem(
+                    p.Context.Name.Value,
+                    _pinnedProfiles.Contains(p.Context.Name.Value),
+                    p)));
 
     private void RebuildPresets()
-    {
-        var selected = SelectedPreset.Value?.UserData;
-        PresetItems.ClearOnScheduler();
+        => Rebuild(
+            PresetItems,
+            SelectedPreset,
+            _presetSource
+                .Select(p => new PinnableOutputItem(
+                    p.Name.Value,
+                    _pinnedPresets.Contains(p.Name.Value),
+                    p)));
 
-        IEnumerable<PinnableOutputItem> items = _presetSource
-            .Select(p => new PinnableOutputItem(
-                p.Name.Value,
-                _pinnedPresets.Contains(p.Name.Value),
-                p));
+    // Refills target, filtered and sorted, keeping the selection on the item it held. The items
+    // are only enumerated after the selection has been read and target cleared.
+    private void Rebuild(
+        ReactiveCollection<PinnableOutputItem> target,
+        ReactiveProperty<PinnableOutputItem?> selection,
+        IEnumerable<PinnableOutputItem> items)
+    {
+        var selected = selection.Value?.UserData;
+        target.ClearOnScheduler();
 
         items = ApplyFilterAndSort(items);
 
         foreach (var item in items)
         {
-            PresetItems.Add(item);
+            target.Add(item);
             if (selected != null && ReferenceEquals(item.UserData, selected))
             {
-                SelectedPreset.Value = item;
+                selection.Value = item;
             }
         }
     }

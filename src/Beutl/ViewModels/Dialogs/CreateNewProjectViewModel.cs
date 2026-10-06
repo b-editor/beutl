@@ -31,73 +31,22 @@ public sealed class CreateNewProjectViewModel
         _versionControlInitializer = versionControlInitializer;
         _requestIdentityAsync = requestIdentityAsync;
         Location.Value = GetDefaultLocation();
-        Name.Value = GenProjectName(Location.Value);
+        Name.Value = NewDocumentValidation.UniqueName(Location.Value, "Project");
         _ = DetectGitAsync();
 
-        Name.SetValidateNotifyError(n =>
-        {
-            if (n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
-            {
-                return MessageStrings.InvalidString;
-            }
-            else if (Directory.Exists(Path.Combine(Location.Value, n)))
-            {
-                return MessageStrings.AlreadyExists;
-            }
-            else
-            {
-                return null;
-            }
-        });
+        Name.SetValidateNotifyError(n => NewDocumentValidation.ValidateName(n, Location.Value));
         Location.Subscribe(_ => Name.ForceValidate());
-        Size.SetValidateNotifyError(s =>
-        {
-            if (s.Width <= 0 || s.Height <= 0)
-            {
-                return MessageStrings.ValueLessThanOrEqualToZero;
-            }
-            else
-            {
-                return null;
-            }
-        });
-        FrameRate.SetValidateNotifyError(n =>
-        {
-            if (n <= 0)
-            {
-                return MessageStrings.ValueLessThanOrEqualToZero;
-            }
-            else
-            {
-                return null;
-            }
-        });
-        SampleRate.SetValidateNotifyError(n =>
-        {
-            if (n <= 0)
-            {
-                return MessageStrings.ValueLessThanOrEqualToZero;
-            }
-            else
-            {
-                return null;
-            }
-        });
+        Size.SetValidateNotifyError(NewDocumentValidation.ValidateSize);
+        FrameRate.SetValidateNotifyError(NewDocumentValidation.ValidatePositive);
+        SampleRate.SetValidateNotifyError(NewDocumentValidation.ValidatePositive);
 
         CanCreate = Name.CombineLatest(Location, Size, FrameRate, SampleRate)
             .Select(t =>
             {
                 (string name, string location, PixelSize size, int framerate, int samplerate) = t;
-
-                if (location != null && name != null)
-                {
-                    return !Directory.Exists(Path.Combine(location, name)) &&
-                        size.Width > 0 &&
-                        size.Height > 0 &&
-                        framerate > 0 &&
-                        samplerate > 0;
-                }
-                else return false;
+                return NewDocumentValidation.CanCreateAt(name, location, size)
+                    && framerate > 0
+                    && samplerate > 0;
             })
             .ToReadOnlyReactivePropertySlim();
         Create = new AsyncReactiveCommand(CanCreate);
@@ -221,18 +170,5 @@ public sealed class CreateNewProjectViewModel
         }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-    }
-
-    private static string GenProjectName(string location)
-    {
-        const string name = "Project";
-        int n = 1;
-
-        while (Directory.Exists(Path.Combine(location, name + n)))
-        {
-            n++;
-        }
-
-        return name + n;
     }
 }
