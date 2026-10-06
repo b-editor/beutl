@@ -374,7 +374,9 @@ final class AudioReaderContext {
 
         let sampleRate = Int(info.sampleRate)
         if cursor < currentSample || (currentSample + thresholdSampleCount) < cursor {
-            let dest = CMTime(value: CMTimeValue(cursor), timescale: CMTimeScale(sampleRate))
+            let streamTime = CMTime(value: CMTimeValue(cursor), timescale: CMTimeScale(sampleRate))
+            // Undo PTS normalization for the absolute track end and AVAssetReader time range.
+            let dest = CMTimeAdd(streamTime, firstGapTimestamp)
             // AVAssetReader can fail to start when its timeRange begins at/past the track end.
             // Treat that seek as EOF, preserving any frames already copied from the cache.
             if endTimestamp.isNumeric && CMTimeCompare(dest, endTimestamp) >= 0 {
