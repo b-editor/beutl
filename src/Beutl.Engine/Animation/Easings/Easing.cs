@@ -1,5 +1,9 @@
-﻿namespace Beutl.Animation.Easings;
+﻿using System.Text.Json.Serialization;
+using Beutl.Converters;
 
+namespace Beutl.Animation.Easings;
+
+[JsonConverter(typeof(EasingJsonConverter))]
 public abstract class Easing
 {
     public abstract float Ease(float progress);
