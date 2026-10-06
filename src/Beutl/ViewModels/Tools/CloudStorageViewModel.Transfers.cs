@@ -51,7 +51,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
     internal string? CurrentFolderId => _folderId;
 
     internal bool IsTransferCurrent(StorageActionContext context) => !_disposed
-        && ReferenceEquals(_owner, context.User) && ReferenceEquals(_clients.AuthenticatedUser.Value, context.User)
+        && IsCurrentOwner(context.User)
         && context.Version == _version && context.FolderId == _folderId;
 
     internal Task<bool> MoveDroppedEntriesAsync(StorageActionContext context, string? destination)
@@ -358,11 +358,7 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
                     await using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
                     await _clients.SendAuthenticatedAsync(async (auth, ct) =>
                     {
-                        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/storage/files/{Uri.EscapeDataString(id)}/content");
-                        request.Headers.Authorization = AuthenticationHeaderValue.Parse(auth);
-                        using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-                        response.EnsureSuccessStatusCode();
-                        await CopyDownloadAsync(response.Content, output, expectedLength,
+                        await DownloadFileContentAsync(auth, id, output, expectedLength,
                             value => { if (visibleItem != null) progress.Report(visibleItem, value); }, ct);
                         return true;
                     }, token, context.User);
@@ -375,6 +371,22 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         catch (IOException ex) { _logger.LogWarning(ex, "Could not remove an incomplete storage download."); }
         catch (UnauthorizedAccessException ex) { _logger.LogWarning(ex, "Could not remove an incomplete storage download."); }
         return null;
+    }
+
+    // Streams one file's content from storage into destination.
+    private async Task DownloadFileContentAsync(
+        string authorization,
+        string fileId,
+        Stream destination,
+        long? expectedLength,
+        Action<double?> report,
+        CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/storage/files/{Uri.EscapeDataString(fileId)}/content");
+        request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
+        using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+        await CopyDownloadAsync(response.Content, destination, expectedLength, report, ct);
     }
 
     private static async Task CopyDownloadAsync(HttpContent content, Stream destination, long? expectedLength, Action<double?> report, CancellationToken token)

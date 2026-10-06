@@ -37,7 +37,7 @@ public sealed partial class AiSubtitleDialogViewModel
         using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
         if (operationLifetime is null)
             return;
-        IStorageProvider? storage = GetStorageProvider();
+        IStorageProvider? storage = AiDialogStorage.MainWindowStorage();
         if (storage is null)
             return;
 
@@ -82,7 +82,7 @@ public sealed partial class AiSubtitleDialogViewModel
         if (!TryBuildCaptionDocument(out CaptionDocument? document, out _) || document is null)
             return;
 
-        IStorageProvider? storage = GetStorageProvider();
+        IStorageProvider? storage = AiDialogStorage.MainWindowStorage();
         if (storage is null)
             return;
 
@@ -502,14 +502,4 @@ public sealed partial class AiSubtitleDialogViewModel
                 .ToArray(),
             MimeTypes = ["text/plain", "application/octet-stream"],
         };
-
-    private static IStorageProvider? GetStorageProvider()
-    {
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window })
-        {
-            return null;
-        }
-        return TopLevel.GetTopLevel(window)?.StorageProvider;
-    }
 }

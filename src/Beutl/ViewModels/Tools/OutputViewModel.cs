@@ -242,14 +242,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
 
         // Defensive re-check: reject if supersampled surface cannot be allocated.
-        if (SupersampleWarning.Value is { } supersampleWarning)
-        {
-            NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
-            _logger.LogWarning(
-                "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
-                SupersampleFactor.Value, Model.FrameSize);
-            throw CreateReportedFailure(supersampleWarning);
-        }
+        EnsureSupersamplingFits();
 
         // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
         // then run only the per-path File.Exists — which can stall on slow storage — off-thread.
@@ -271,21 +264,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             throw;
         }
 
-        if (missingSources.Count > 0)
-        {
-            string message = string.Format(
-                System.Globalization.CultureInfo.CurrentCulture,
-                MessageStrings.ExportMissingSourceFile,
-                missingSources[0],
-                missingSources.Count);
-            ProgressText.Value = message;
-            NotificationService.ShowError(MessageStrings.OutputException, message);
-            _logger.LogWarning(
-                "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
-                missingSources.Count,
-                missingSources[0]);
-            throw CreateReportedFailure(message);
-        }
+        EnsureNoSourceIsMissing(missingSources);
 
         var stopwatch = new Stopwatch();
         bool succeeded = false;
@@ -307,85 +286,21 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
             _logger.LogInformation("Starting encoding process.");
             LogEncodingSettings();
-            _isEncoding.Value = true;
-            IsCompleted.Value = false;
-            ProgressText.Value = "";
-            ProgressMain.Value = Strings.Encoding;
-            ProgressSub.Value = string.Empty;
-            Elapsed.Value = "00:00:00";
-            Eta.Value = "--:--:--";
-            CurrentSize.Value = "0 MB";
-            EstimatedSize.Value = "-- MB";
-            CurrentFrame.Value = 0;
-            TotalFrames.Value = 0;
-            FrameProgressText.Value = "0 / 0";
+            BeginProgress();
             _activeDestination = output.DestinationPath;
             stopwatch.Start();
 
-            await Task.Run(async () =>
-            {
-                _isIndeterminate.Value = false;
-                videoSettings.SourceSize = Model.FrameSize;
-
-                ProgressMax.Value = Model.Duration.TotalSeconds * 2;
-
-                double frameRate = videoSettings.FrameRate.ToDouble();
-                if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
-                long totalFrames = (long)Math.Round(Model.Duration.TotalSeconds * frameRate);
-                TotalFrames.Value = totalFrames;
-                FrameProgressText.Value = $"0 / {totalFrames}";
-
-                _logger.LogInformation("Using encoding controller: {Controller}", controller);
-
-                ClearEditViewModelCaches();
-
-                float renderScale = Math.Max(1, SupersampleFactor.Value);
-                using var renderer = ExportRendererFactory.Create(Model, renderScale);
-                var frameProgress = new Subject<TimeSpan>();
-                using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-                using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
-                {
-                    SampleRate = audioSettings.SampleRate
-                };
-                var sampleProgress = new Subject<TimeSpan>();
-                using var sampleProvider = new SampleProviderImpl(
-                    Model, composer, audioSettings.SampleRate, sampleProgress);
-
-                string destinationPath = output.TemporaryPath;
-
-                using (frameProgress
-                           .Subscribe(t =>
-                           {
-                               long frame = (long)Math.Round(t.TotalSeconds * frameRate);
-                               CurrentFrame.Value = frame;
-                               FrameProgressText.Value = totalFrames > 0
-                                   ? $"{frame} / {totalFrames}"
-                                   : $"{frame}";
-                           }))
-                using (frameProgress.CombineLatest(sampleProgress)
-                           .Subscribe(t =>
-                           {
-                               double value = t.Item1.TotalSeconds + t.Item2.TotalSeconds;
-                               ProgressValue.Value = value;
-                               UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
-                           }))
-                {
-                    await controller.Encode(frameProvider, sampleProvider, cancellationToken);
-                }
-            });
+            await Task.Run(() => EncodeOnWorkerAsync(
+                controller,
+                videoSettings,
+                audioSettings,
+                output,
+                stopwatch,
+                cancellationToken));
 
             output.Commit(cancellationToken);
             succeeded = true;
-            ProgressValue.Value = ProgressMax.Value;
-            CurrentFrame.Value = TotalFrames.Value;
-            FrameProgressText.Value = TotalFrames.Value > 0
-                ? $"{TotalFrames.Value} / {TotalFrames.Value}"
-                : FrameProgressText.Value;
-            ProgressText.Value = Strings.Completed;
-            ProgressMain.Value = Strings.Completed;
-            ProgressSub.Value = string.Empty;
-            Eta.Value = "00:00:00";
-            _logger.LogInformation("Encoding process completed successfully.");
+            ShowCompletedProgress();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -394,56 +309,192 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (Exception ex)
         {
-            // Translate known FFmpeg failures for users.
-            string userMessage = ex.Message;
-            if (ex is FFmpegWorkerException ffmpegEx
-                && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
-            {
-                userMessage = ffmpegErrorKind switch
-                {
-                    FFmpegErrorKind.InvalidData => MessageStrings.FFmpegErrorInvalidData,
-                    FFmpegErrorKind.DecoderNotFound => MessageStrings.FFmpegErrorDecoderNotFound,
-                    FFmpegErrorKind.DemuxerNotFound => MessageStrings.FFmpegErrorDemuxerNotFound,
-                    FFmpegErrorKind.ProtocolNotFound => MessageStrings.FFmpegErrorProtocolNotFound,
-                    FFmpegErrorKind.StreamNotFound => MessageStrings.FFmpegErrorStreamNotFound,
-                    _ => ex.Message,
-                };
-            }
-
-            // Keep the translated message visible after failure.
-            ProgressText.Value = userMessage;
-            NotificationService.ShowError(MessageStrings.OutputException, userMessage);
-            MarkFailureAsReported(ex);
-            if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
-            {
-                // Keep the code for diagnostics.
-                _logger.LogError(
-                    ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
-                    ffmpegErrorCode);
-            }
-            else if (ex is not FFmpegLibrariesNotFoundException)
-            {
-                _logger.LogError(ex, "An exception occurred during the encoding process.");
-            }
-
+            ReportEncodingFailure(ex);
             throw;
         }
         finally
         {
-            stopwatch.Stop();
-            Elapsed.Value = FormatDuration(stopwatch.Elapsed);
-            _progress.Value = 0;
-            _isIndeterminate.Value = false;
-            _isEncoding.Value = false;
-            IsCompleted.Value = succeeded;
-            string? completedPath = _activeDestination;
-            _activeDestination = null;
-            _logger.LogInformation("Encoding process finished.");
+            FinishEncoding(stopwatch, succeeded);
+        }
+    }
 
-            if (succeeded && completedPath != null)
+    private void EnsureSupersamplingFits()
+    {
+        if (SupersampleWarning.Value is { } supersampleWarning)
+        {
+            NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
+            _logger.LogWarning(
+                "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
+                SupersampleFactor.Value, Model.FrameSize);
+            throw CreateReportedFailure(supersampleWarning);
+        }
+    }
+
+    private void EnsureNoSourceIsMissing(IReadOnlyList<string> missingSources)
+    {
+        if (missingSources.Count > 0)
+        {
+            string message = string.Format(
+                System.Globalization.CultureInfo.CurrentCulture,
+                MessageStrings.ExportMissingSourceFile,
+                missingSources[0],
+                missingSources.Count);
+            ProgressText.Value = message;
+            NotificationService.ShowError(MessageStrings.OutputException, message);
+            _logger.LogWarning(
+                "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
+                missingSources.Count,
+                missingSources[0]);
+            throw CreateReportedFailure(message);
+        }
+    }
+
+    private void BeginProgress()
+    {
+        _isEncoding.Value = true;
+        IsCompleted.Value = false;
+        ProgressText.Value = "";
+        ProgressMain.Value = Strings.Encoding;
+        ProgressSub.Value = string.Empty;
+        Elapsed.Value = "00:00:00";
+        Eta.Value = "--:--:--";
+        CurrentSize.Value = "0 MB";
+        EstimatedSize.Value = "-- MB";
+        CurrentFrame.Value = 0;
+        TotalFrames.Value = 0;
+        FrameProgressText.Value = "0 / 0";
+    }
+
+    // Runs on a worker thread, from Task.Run, for the whole length of the encode.
+    private async Task EncodeOnWorkerAsync(
+        EncodingController controller,
+        VideoEncoderSettings videoSettings,
+        AudioEncoderSettings audioSettings,
+        StagedOutputFile output,
+        Stopwatch stopwatch,
+        CancellationToken cancellationToken)
+    {
+        _isIndeterminate.Value = false;
+        videoSettings.SourceSize = Model.FrameSize;
+
+        ProgressMax.Value = Model.Duration.TotalSeconds * 2;
+
+        double frameRate = videoSettings.FrameRate.ToDouble();
+        if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
+        long totalFrames = (long)Math.Round(Model.Duration.TotalSeconds * frameRate);
+        TotalFrames.Value = totalFrames;
+        FrameProgressText.Value = $"0 / {totalFrames}";
+
+        _logger.LogInformation("Using encoding controller: {Controller}", controller);
+
+        ClearEditViewModelCaches();
+
+        float renderScale = Math.Max(1, SupersampleFactor.Value);
+        using var renderer = ExportRendererFactory.Create(Model, renderScale);
+        var frameProgress = new Subject<TimeSpan>();
+        using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
+        using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)
+        {
+            SampleRate = audioSettings.SampleRate
+        };
+        var sampleProgress = new Subject<TimeSpan>();
+        using var sampleProvider = new SampleProviderImpl(
+            Model, composer, audioSettings.SampleRate, sampleProgress);
+
+        string destinationPath = output.TemporaryPath;
+
+        using (frameProgress
+                   .Subscribe(t =>
+                   {
+                       long frame = (long)Math.Round(t.TotalSeconds * frameRate);
+                       CurrentFrame.Value = frame;
+                       FrameProgressText.Value = totalFrames > 0
+                           ? $"{frame} / {totalFrames}"
+                           : $"{frame}";
+                   }))
+        using (frameProgress.CombineLatest(sampleProgress)
+                   .Subscribe(t =>
+                   {
+                       double value = t.Item1.TotalSeconds + t.Item2.TotalSeconds;
+                       ProgressValue.Value = value;
+                       UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
+                   }))
+        {
+            await controller.Encode(frameProvider, sampleProvider, cancellationToken);
+        }
+    }
+
+    private void ShowCompletedProgress()
+    {
+        ProgressValue.Value = ProgressMax.Value;
+        CurrentFrame.Value = TotalFrames.Value;
+        FrameProgressText.Value = TotalFrames.Value > 0
+            ? $"{TotalFrames.Value} / {TotalFrames.Value}"
+            : FrameProgressText.Value;
+        ProgressText.Value = Strings.Completed;
+        ProgressMain.Value = Strings.Completed;
+        ProgressSub.Value = string.Empty;
+        Eta.Value = "00:00:00";
+        _logger.LogInformation("Encoding process completed successfully.");
+    }
+
+    private void ReportEncodingFailure(Exception ex)
+    {
+        string userMessage = TranslateEncodingFailure(ex);
+
+        // Keep the translated message visible after failure.
+        ProgressText.Value = userMessage;
+        NotificationService.ShowError(MessageStrings.OutputException, userMessage);
+        MarkFailureAsReported(ex);
+        if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
+        {
+            // Keep the code for diagnostics.
+            _logger.LogError(
+                ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
+                ffmpegErrorCode);
+        }
+        else if (ex is not FFmpegLibrariesNotFoundException)
+        {
+            _logger.LogError(ex, "An exception occurred during the encoding process.");
+        }
+    }
+
+    // Translate known FFmpeg failures for users.
+    private static string TranslateEncodingFailure(Exception ex)
+    {
+        string userMessage = ex.Message;
+        if (ex is FFmpegWorkerException ffmpegEx
+            && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
+        {
+            userMessage = ffmpegErrorKind switch
             {
-                ShowCompletionNotification(completedPath);
-            }
+                FFmpegErrorKind.InvalidData => MessageStrings.FFmpegErrorInvalidData,
+                FFmpegErrorKind.DecoderNotFound => MessageStrings.FFmpegErrorDecoderNotFound,
+                FFmpegErrorKind.DemuxerNotFound => MessageStrings.FFmpegErrorDemuxerNotFound,
+                FFmpegErrorKind.ProtocolNotFound => MessageStrings.FFmpegErrorProtocolNotFound,
+                FFmpegErrorKind.StreamNotFound => MessageStrings.FFmpegErrorStreamNotFound,
+                _ => ex.Message,
+            };
+        }
+
+        return userMessage;
+    }
+
+    private void FinishEncoding(Stopwatch stopwatch, bool succeeded)
+    {
+        stopwatch.Stop();
+        Elapsed.Value = FormatDuration(stopwatch.Elapsed);
+        _progress.Value = 0;
+        _isIndeterminate.Value = false;
+        _isEncoding.Value = false;
+        IsCompleted.Value = succeeded;
+        string? completedPath = _activeDestination;
+        _activeDestination = null;
+        _logger.LogInformation("Encoding process finished.");
+
+        if (succeeded && completedPath != null)
+        {
+            ShowCompletionNotification(completedPath);
         }
     }
 
@@ -661,35 +712,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    private void PopulateEncoderSettings(MediaEncoderSettings? settings, JsonObject json)
+    // Settings that cannot be read back are logged and left as they were.
+    private void TryPopulate(Action populate)
     {
         try
         {
-            EncoderSettingsJson.Populate(settings, json);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "An exception occurred during deserialization.");
-        }
-    }
-
-    private void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json)
-    {
-        try
-        {
-            EncoderSettingsJson.PopulateVideoPreset(settings, json);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "An exception occurred during deserialization.");
-        }
-    }
-
-    private void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json)
-    {
-        try
-        {
-            EncoderSettingsJson.PopulateAudioPreset(settings, json);
+            populate();
         }
         catch (Exception e)
         {
@@ -731,24 +759,18 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         if (!applyingPreset)
         {
-            if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
-                && dstFileNode is JsonValue dstFileValue
-                && dstFileValue.TryGetValue(out string? dstFile))
+            if (json.TryGetPropertyValueAsJsonValue(nameof(DestinationFile), out string? dstFile))
             {
                 DestinationFile.Value = dstFile;
             }
 
-            if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
-                && nameNode is JsonValue nameValue
-                && nameValue.TryGetValue(out string? name))
+            if (json.TryGetPropertyValueAsJsonValue(nameof(Name), out string? name))
             {
                 Name.Value = name;
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
-            && encoderNode is JsonValue encoderValue
-            && encoderValue.TryGetValue(out string? encoderStr)
+        if (json.TryGetPropertyValueAsJsonValue(nameof(SelectedEncoder), out string? encoderStr)
             && TypeFormat.ToType(encoderStr) is { } encoderType
             && _editViewModel.ExtensionProvider.GetExtensions<ControllableEncodingExtension>()
                 .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
@@ -756,9 +778,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             SelectedEncoder.Value = encoder;
         }
 
-        if (json.TryGetPropertyValue(nameof(SupersampleFactor), out JsonNode? ssNode)
-            && ssNode is JsonValue ssValue
-            && ssValue.TryGetValue(out int ssFactor)
+        if (json.TryGetPropertyValueAsJsonValue(nameof(SupersampleFactor), out int ssFactor)
             && SupersampleFactors.Contains(ssFactor))
         {
             SupersampleFactor.Value = ssFactor;
@@ -771,11 +791,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             if (applyingPreset)
             {
-                PopulateVideoPreset(videoSettings, videoObj);
+                TryPopulate(() => EncoderSettingsJson.PopulateVideoPreset(videoSettings, videoObj));
             }
             else
             {
-                PopulateEncoderSettings(videoSettings, videoObj);
+                TryPopulate(() => EncoderSettingsJson.Populate(videoSettings, videoObj));
             }
         }
 
@@ -785,11 +805,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             if (applyingPreset)
             {
-                PopulateAudioPreset(audioSettings, audioObj);
+                TryPopulate(() => EncoderSettingsJson.PopulateAudioPreset(audioSettings, audioObj));
             }
             else
             {
-                PopulateEncoderSettings(audioSettings, audioObj);
+                TryPopulate(() => EncoderSettingsJson.Populate(audioSettings, audioObj));
             }
         }
 

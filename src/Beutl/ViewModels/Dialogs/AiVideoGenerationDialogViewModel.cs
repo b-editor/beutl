@@ -30,7 +30,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
     private readonly IdentityOperationLifetime _identityOperations = new();
-    private readonly object _disposeGate = new();
+    private readonly OnceAsyncDisposal _disposal = new();
     private readonly ILogger _logger = Log.CreateLogger<AiVideoGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
@@ -43,9 +43,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private readonly AiOperationAvailabilityTracker _availabilityTracker;
     private readonly AiRequestKey _requestKey;
     private readonly AiRequestRecoveryContext? _requestRecoveryContext;
-    // The model the outstanding name was built from. A refresh that withdraws
-    // that model would otherwise rebuild the name around whatever the picker
-    // fell back to, and the job the first attempt paid for would be left behind.
     private readonly CancellationTokenSource _availabilityLifetimeCts = new();
     private readonly EditViewModel? _editViewModel;
     // Preserve the user's choices separately from the displayed values, which are narrowed when
@@ -69,7 +66,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private AiVideoResultSnapshot? _resultSnapshot;
     private AiPendingAttempt? _selectedRecovery;
     private readonly ReactivePropertySlim<int> _recoveryRevision = new();
-    private Task? _disposeTask;
 
     internal AiVideoGenerationDialogViewModel(
         IAiEntitlementService entitlements,
@@ -183,36 +179,11 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 !video.DurationsSeconds.IsSpecified || !video.DurationsSeconds.Values.IsEmpty,
             _ => video.CanServeAnything(),
         });
-        SelectedDuration.Subscribe(option =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenDuration = option;
-            })
-            .DisposeWith(_disposables);
-        SelectedResolution.Subscribe(option =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenResolution = option;
-            })
-            .DisposeWith(_disposables);
-        SelectedAspectRatio.Subscribe(option =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenAspectRatio = option;
-            })
-            .DisposeWith(_disposables);
-        GenerateAudio.Subscribe(value =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenAudio = value;
-            })
-            .DisposeWith(_disposables);
-        Seed.Subscribe(seed =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenSeed = seed;
-            })
-            .DisposeWith(_disposables);
+        RememberChoice(SelectedDuration, option => _chosenDuration = option);
+        RememberChoice(SelectedResolution, option => _chosenResolution = option);
+        RememberChoice(SelectedAspectRatio, option => _chosenAspectRatio = option);
+        RememberChoice(GenerateAudio, value => _chosenAudio = value);
+        RememberChoice(Seed, seed => _chosenSeed = seed);
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
         // The shape, and whether frames may guide the clip at all, follow the
@@ -270,28 +241,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 LastFramePath,
                 (canGenerate, firstFrame, lastFrame) =>
                     canGenerate && (string.IsNullOrEmpty(lastFrame) || !string.IsNullOrEmpty(firstFrame)))
-            .CombineLatest(
-                EstimatedUsage.CanAfford,
-                _requestKey.HasOutstandingName,
-                // Or a name already handed out: the server answers a repeat with the
-                // job that name made before it looks at the balance, so the request
-                // that spent the last of it is exactly the one that must stay
-                // collectable.
-                (canGenerate, canAfford, outstanding) =>
-                    canGenerate && (canAfford || outstanding))
-            .CombineLatest(
-                ModelPicker.OffersNothingUsable,
-                _requestKey.HasOutstandingName,
-                // Every model the operation registered was ruled out, so a new
-                // request would be refused however it is shaped — but a name
-                // already handed out is answered from the job it made, whatever
-                // the catalog says now.
-                (can, nothingUsable, outstanding) =>
-                    can && (!nothingUsable || outstanding))
-            // Until the list has been asked for, a request would name no model
-            // and run on the server's default, which may cost more than what
-            // this screen was about to offer.
-            .CombineLatest(ModelPicker.IsLoaded, (can, loaded) => can && loaded)
+            .WhenAffordable(EstimatedUsage.CanAfford, _requestKey.HasOutstandingName)
+            .WhenSomeModelUsable(ModelPicker.OffersNothingUsable, _requestKey.HasOutstandingName)
+            .WhenModelsLoaded(ModelPicker.IsLoaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -405,6 +357,11 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
 
     public decimal SeedMaximum => AiRequestLimits.MaxSeed;
 
+    // Where the model sits in the request's parts. It is filled in last: which
+    // model a request carries depends on whether a name is already outstanding
+    // for the rest of it.
+    private const int ModelPartIndex = 6;
+
     /// <summary>
     /// What this client asks for when the server says nothing about a model —
     /// the lists it offered before models could publish their own. The server
@@ -414,11 +371,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private static readonly int[] DefaultDurations = [4, 6, 8];
 
     private static readonly string[] DefaultResolutions = ["720p", "1080p"];
-
-    // Where the model sits in the request's parts. It is filled in last: which
-    // model a request carries depends on whether a name is already outstanding
-    // for the rest of it.
-    private const int ModelPartIndex = 6;
 
     private static readonly string[] DefaultAspectRatios = ["16:9", "9:16"];
 
@@ -558,21 +510,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     internal static AiVideoAspectRatioOption GetSuggestedAspectRatio(
         IReadOnlyList<AiVideoAspectRatioOption> options,
         Beutl.Media.PixelSize? frameSize)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        if (options.Count == 0)
-        {
-            throw new ArgumentException(
-                "At least one aspect ratio option is required.",
-                nameof(options));
-        }
-
-        string ratio = AiAspectRatioSuggestion.Nearest(
-            options.Select(option => option.Value).ToArray(),
-            frameSize,
-            "16:9");
-        return options.FirstOrDefault(option => option.Value == ratio) ?? options[0];
-    }
+        => AiAspectRatioSuggestion.Choose(options, option => option.Value, frameSize);
 
     public ReactivePropertySlim<string> Prompt { get; } = new();
 
@@ -694,6 +632,16 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
+    // What the person chose, kept apart from what a model change shows: values the dialog sets
+    // while applying a model's capabilities are not choices.
+    private void RememberChoice<T>(IObservable<T> source, Action<T> remember)
+        => source.Subscribe(value =>
+            {
+                if (!_applyingCapabilities)
+                    remember(value);
+            })
+            .DisposeWith(_disposables);
+
     public void Dispose() => _ = BeginDisposeAsync();
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
@@ -701,33 +649,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     private IdentityOperationLifetime.Operation? TryEnterIdentityOperation()
         => _identityOperations.TryEnter(_operations);
 
-    private Task BeginDisposeAsync()
-    {
-        lock (_disposeGate)
-        {
-            if (_disposeTask is not null)
-                return _disposeTask;
-
-            var completion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            _ = CompleteDisposeAsync(completion);
-            return completion.Task;
-        }
-    }
-
-    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
-    {
-        try
-        {
-            await DisposeCoreAsync();
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync);
 
     private async Task DisposeCoreAsync()
     {
@@ -897,7 +819,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             if (IsSourceVideo && _selectedRecovery is null)
             {
                 sourceSeconds = await ReadSourceSnapshotDurationAsync(
-                    inputs.Single(input => input.Role == "source-video"), operation.CancellationToken);
+                    inputs.Single(input => input.Role == SourceVideoRole), operation.CancellationToken);
                 if (!operation.TryPublish(() => SourceDuration.Value = sourceSeconds))
                     return;
                 if (SourceMode == AiSourceVideoMode.Edit)
@@ -906,8 +828,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             if (IsSourceVideo)
             {
                 // Live paths can change after capture; validate the same bytes that will be uploaded.
-                ValidateSourceInputs(inputs.Single(input => input.Role == "source-video").Upload,
-                    inputs.FirstOrDefault(input => input.Role == "character-image")?.Upload,
+                ValidateSourceInputs(inputs.Single(input => input.Role == SourceVideoRole).Upload,
+                    inputs.FirstOrDefault(input => input.Role == CharacterImageRole)?.Upload,
                     sourceSeconds, ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted);
             }
 
@@ -918,16 +840,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             // name one set of bytes and upload another if a frame changed in
             // between, and the answer would be recorded under a name that
             // describes something else.
-            AiRequestRecoverySource? existingFirstSource = _selectedRecovery?.EffectiveSources
-                .FirstOrDefault(source => source.Role == "first-frame");
-            AiRequestRecoverySource? existingLastSource = _selectedRecovery?.EffectiveSources
-                .FirstOrDefault(source => source.Role == "last-frame");
-            if (existingFirstSource is not null
-                && !RecoverySourceMatchesPath(existingFirstSource, firstFramePath))
-                existingFirstSource = null;
-            if (existingLastSource is not null
-                && !RecoverySourceMatchesPath(existingLastSource, lastFramePath))
-                existingLastSource = null;
+            AiRequestRecoverySource? existingFirstSource = FindRecoveredFrameSource(FirstFrameRole, firstFramePath);
+            AiRequestRecoverySource? existingLastSource = FindRecoveredFrameSource(LastFrameRole, lastFramePath);
             (AiUploadSource? firstFrame, string firstFrameStamp, byte[]? firstFrameBytes, string? firstFrameName) = await ReadFrameAsync(
                 firstFramePath,
                 operation.CancellationToken,
@@ -983,35 +897,21 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                     recoverySources.Add(FileAiRequestRecoveryStore.CreateExternalSource(input.Role, input.Path, input.Name, input.Bytes));
                 if (firstFramePath is { } firstPath && firstFrame is not null && firstFrameBytes is not null)
                 {
-                    recoverySources.Add(
-                        IsTemporaryFile(firstPath) && _requestKey.HasDurableRecovery
-                            ? _requestKey.CreateDurableSource(
-                                "first-frame",
-                                firstFrameName ?? Path.GetFileName(firstPath),
-                                firstFrameBytes,
-                                firstFrameElementId)
-                            : FileAiRequestRecoveryStore.CreateExternalSource(
-                                "first-frame",
-                                firstPath,
-                                firstFrameName ?? Path.GetFileName(firstPath),
-                                firstFrameBytes,
-                                firstFrameElementId));
+                    recoverySources.Add(CreateFrameRecoverySource(
+                        FirstFrameRole,
+                        firstPath,
+                        firstFrameName,
+                        firstFrameBytes,
+                        firstFrameElementId));
                 }
                 if (lastFramePath is { } lastPath && lastFrame is not null && lastFrameBytes is not null)
                 {
-                    recoverySources.Add(
-                        IsTemporaryFile(lastPath) && _requestKey.HasDurableRecovery
-                            ? _requestKey.CreateDurableSource(
-                                "last-frame",
-                                lastFrameName ?? Path.GetFileName(lastPath),
-                                lastFrameBytes,
-                                lastFrameElementId)
-                            : FileAiRequestRecoveryStore.CreateExternalSource(
-                                "last-frame",
-                                lastPath,
-                                lastFrameName ?? Path.GetFileName(lastPath),
-                                lastFrameBytes,
-                                lastFrameElementId));
+                    recoverySources.Add(CreateFrameRecoverySource(
+                        LastFrameRole,
+                        lastPath,
+                        lastFrameName,
+                        lastFrameBytes,
+                        lastFrameElementId));
                 }
             }
             catch
@@ -1054,10 +954,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                     token),
                 async token => SourceMode is { } mode
                     ? await _videos.CreateFromSourceAsync(new AiSourceVideoRequest(mode, prompt,
-                        sourceVideo: inputs.FirstOrDefault(input => input.Role == "source-video")?.Upload
+                        sourceVideo: inputs.FirstOrDefault(input => input.Role == SourceVideoRole)?.Upload
                             ?? throw new InvalidDataException(Strings.AiVideoInputUnavailable),
                         durationSeconds: mode == AiSourceVideoMode.Edit ? null : durationSeconds,
-                        characterImage: inputs.FirstOrDefault(input => input.Role == "character-image")?.Upload,
+                        characterImage: inputs.FirstOrDefault(input => input.Role == CharacterImageRole)?.Upload,
                         orientation: orientation, quality: quality, model: model, idempotencyKey: name.Key), token)
                     : await _videos.CreateAsync(
                     new AiVideoGenerationRequest(
@@ -1080,12 +980,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             // wrong while it is waited on, the name stays: it is the way back.
             persistedServerJob = true;
 
-            var pendingSnapshot = new AiVideoResultSnapshot(SourceMode switch
-            {
-                AiSourceVideoMode.Edit when sourceSeconds is { } exactSeconds => exactSeconds,
-                AiSourceVideoMode.Extend when sourceSeconds is { } originalSeconds => originalSeconds + durationSeconds,
-                _ => durationSeconds,
-            });
+            var pendingSnapshot = new AiVideoResultSnapshot(
+                ResultDurationSeconds(sourceSeconds, durationSeconds));
             if (!operation.TryPublish(() =>
                 {
                     if (IsGeneration) PromptLibrary.Record(prompt);
@@ -1146,6 +1042,16 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         Exclusions.Value));
 
     private sealed record AiVideoResultSnapshot(double DurationSeconds);
+
+    // How long the clip that comes back runs: an edit keeps the source's length, and an
+    // extension adds to it.
+    private double ResultDurationSeconds(double? sourceSeconds, int durationSeconds)
+        => SourceMode switch
+        {
+            AiSourceVideoMode.Edit when sourceSeconds is { } exactSeconds => exactSeconds,
+            AiSourceVideoMode.Extend when sourceSeconds is { } originalSeconds => originalSeconds + durationSeconds,
+            _ => durationSeconds,
+        };
 
 }
 

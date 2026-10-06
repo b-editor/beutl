@@ -35,8 +35,8 @@ internal sealed class AiWorkspaceSectionViewModel : IAsyncDisposable
 {
     private readonly Func<IAsyncDisposable> _create;
     private readonly object _disposeGate = new();
+    private readonly OnceAsyncDisposal _disposal;
     private IAsyncDisposable? _content;
-    private Task? _disposeTask;
     private bool _disposed;
 
     internal AiWorkspaceSectionViewModel(
@@ -49,6 +49,7 @@ internal sealed class AiWorkspaceSectionViewModel : IAsyncDisposable
         DisplayName = displayName;
         Icon = icon;
         _create = create;
+        _disposal = new OnceAsyncDisposal(_disposeGate);
     }
 
     public AiWorkspaceSection Id { get; }
@@ -70,34 +71,7 @@ internal sealed class AiWorkspaceSectionViewModel : IAsyncDisposable
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
 
-    private Task BeginDisposeAsync()
-    {
-        lock (_disposeGate)
-        {
-            if (_disposeTask is not null)
-                return _disposeTask;
-
-            _disposed = true;
-            var completion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            _ = CompleteDisposeAsync(completion);
-            return completion.Task;
-        }
-    }
-
-    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
-    {
-        try
-        {
-            await DisposeCoreAsync();
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync, () => _disposed = true);
 
     private async Task DisposeCoreAsync()
     {
@@ -128,8 +102,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
     private readonly IAiEntitlementService? _entitlementService;
     private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly ILogger _logger = Log.CreateLogger<AiWorkspaceViewModel>();
-    private readonly object _disposeGate = new();
-    private Task? _disposeTask;
+    private readonly OnceAsyncDisposal _disposal = new();
     private bool _disposed;
     private AuthenticatedUser? _gateAccount;
 
@@ -343,15 +316,10 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // SendAuthenticatedAsync converts a superseded session's cancellation
             // into this exception; the post-flight recheck owns the new account.
         }
-        catch (ApiException ex)
-        {
-            _logger.LogError(ex, "AI workspace sign-in failed.");
-            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AI workspace sign-in failed.");
-            PublishGateFailure(MessageStrings.UnexpectedError, account);
+            ReportGateFailure(ex, account);
         }
         finally
         {
@@ -393,15 +361,10 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // SendAuthenticatedAsync converts a superseded session's cancellation
             // into this exception; the post-flight recheck owns the new account.
         }
-        catch (ApiException ex)
-        {
-            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
-            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AI workspace entitlement refresh failed.");
-            PublishGateFailure(MessageStrings.UnexpectedError, account);
+            ReportGateFailure(ex, account);
         }
         finally
         {
@@ -435,15 +398,10 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // SendAuthenticatedAsync converts a superseded session's cancellation
             // into this exception; the post-flight recheck owns the new account.
         }
-        catch (ApiException ex)
-        {
-            _logger.LogError(ex, "AI workspace initial entitlement load failed.");
-            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AI workspace initial entitlement load failed.");
-            PublishGateFailure(MessageStrings.UnexpectedError, account);
+            ReportGateFailure(ex, account);
         }
     }
 
@@ -484,17 +442,18 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             // into this exception; a fresh load for the new account is already
             // running or rechecked, so this carries no failure.
         }
-        catch (ApiException ex)
-        {
-            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
-            PublishGateFailure(MessageStrings.ApiErrorOccurred, account);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "AI workspace entitlement refresh failed.");
-            PublishGateFailure(MessageStrings.UnexpectedError, account);
+            ReportGateFailure(ex, account);
         }
     }
+
+    // An API error is reported as one; anything else as unexpected.
+    private void ReportGateFailure(Exception ex, AuthenticatedUser? account)
+        => PublishGateFailure(
+            ex is ApiException ? MessageStrings.ApiErrorOccurred : MessageStrings.UnexpectedError,
+            account);
 
     private void PublishRefreshTimeout(
         OperationCanceledException ex,
@@ -691,34 +650,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 
     public void Dispose() => _ = BeginDisposeAsync();
 
-    private Task BeginDisposeAsync()
-    {
-        lock (_disposeGate)
-        {
-            if (_disposeTask is not null)
-                return _disposeTask;
-
-            _disposed = true;
-            var completion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            _ = CompleteDisposeAsync(completion);
-            return completion.Task;
-        }
-    }
-
-    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
-    {
-        try
-        {
-            await DisposeCoreAsync();
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync, () => _disposed = true);
 
     private async Task DisposeCoreAsync()
     {

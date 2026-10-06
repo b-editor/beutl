@@ -1,4 +1,11 @@
-﻿namespace Beutl.ViewModels.Dialogs;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
+using Beutl.Graphics;
+using Beutl.Media;
+
+namespace Beutl.ViewModels.Dialogs;
 
 /// <summary>
 /// The result of an AI dialog save picker. The picker and the file replacement
@@ -6,6 +13,44 @@
 /// before it mutates that destination.
 /// </summary>
 internal sealed record AiSaveFileDestination(string Path);
+
+/// <summary>
+/// The main window's storage provider, and the save picker the AI dialogs open on it.
+/// </summary>
+internal static class AiDialogStorage
+{
+    public static IStorageProvider? MainWindowStorage()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } window })
+        {
+            return null;
+        }
+        return TopLevel.GetTopLevel(window)?.StorageProvider;
+    }
+
+    /// <summary>
+    /// Asks <paramref name="seam"/> when a test set one; otherwise opens the main window's save
+    /// picker at <paramref name="startFolder"/>. The picked file is handed back for the caller to
+    /// dispose once it has written the destination.
+    /// </summary>
+    public static async Task<(AiSaveFileDestination? Destination, IStorageFile? File)> PickSaveDestinationAsync(
+        Func<CancellationToken, Task<AiSaveFileDestination?>>? seam,
+        Func<FilePickerSaveOptions> createOptions,
+        WellKnownFolder startFolder,
+        CancellationToken cancellationToken)
+    {
+        if (seam is not null)
+            return (await seam(cancellationToken), null);
+
+        if (MainWindowStorage() is not { } storage)
+            return (null, null);
+        FilePickerSaveOptions options = createOptions();
+        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(startFolder);
+        IStorageFile? file = await storage.SaveFilePickerAsync(options);
+        return (file is null ? null : new AiSaveFileDestination(file.Path.LocalPath), file);
+    }
+}
 
 internal static class AiImageFileFormat
 {
@@ -82,4 +127,18 @@ internal static class AiAtomicFileWriter
             }
         }
     }
+
+    public static void WritePng(
+        string destinationPath,
+        Bitmap bitmap,
+        string encodeFailure,
+        CancellationToken cancellationToken)
+        => Write(
+            destinationPath,
+            stream =>
+            {
+                if (!bitmap.Save(stream, EncodedImageFormat.Png))
+                    throw new IOException(encodeFailure);
+            },
+            cancellationToken);
 }

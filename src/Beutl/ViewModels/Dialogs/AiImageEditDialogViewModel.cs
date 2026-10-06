@@ -28,7 +28,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
     private readonly IdentityOperationLifetime _identityOperations = new();
-    private readonly object _disposeGate = new();
+    private readonly OnceAsyncDisposal _disposal = new();
     private readonly ILogger _logger = Log.CreateLogger<AiImageEditDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
@@ -38,9 +38,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     private readonly IAuthenticatedContentService _content;
     private readonly AiRequestKey _requestKey;
     private readonly AiRequestRecoveryContext? _requestRecoveryContext;
-    // The model the outstanding name was built from. A refresh that withdraws
-    // that model would otherwise rebuild the name around whatever the picker
-    // fell back to, and the job the first attempt paid for would be left behind.
     // The request details associated with every unsettled name. Remembering only one would
     // forget an earlier request's model after another request and charge again when returning.
     private readonly AiOutstandingRequests _outstanding = new();
@@ -53,7 +50,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     private string? _sourceElementId;
     private bool _modelsRequireResolution;
     private string? _modelsRequiredBackground;
-    private Task? _disposeTask;
     private IdentityOperationLifetime.Operation? _runningRequest;
 
     internal AiImageEditDialogViewModel(
@@ -103,11 +99,11 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
 
         Tasks =
         [
-            new AiImageEditTaskOption("remove_background", Strings.AiEditRemoveBackground),
-            new AiImageEditTaskOption("upscale", Strings.AiEditUpscale),
-            new AiImageEditTaskOption("restyle", Strings.AiEditRestyle),
-            new AiImageEditTaskOption("remove_object", Strings.AiEditRemoveObject),
-            new AiImageEditTaskOption("outpaint", Strings.AiEditOutpaint),
+            new AiImageEditTaskOption(RemoveBackgroundTask, Strings.AiEditRemoveBackground),
+            new AiImageEditTaskOption(UpscaleTask, Strings.AiEditUpscale),
+            new AiImageEditTaskOption(RestyleTask, Strings.AiEditRestyle),
+            new AiImageEditTaskOption(RemoveObjectTask, Strings.AiEditRemoveObject),
+            new AiImageEditTaskOption(OutpaintTask, Strings.AiEditOutpaint),
         ];
         SelectedTask = new ReactivePropertySlim<AiImageEditTaskOption>(Tasks[0])
             .DisposeWith(_disposables);
@@ -153,19 +149,19 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             .Subscribe(task => _ = ReloadModelsAsync(task))
             .DisposeWith(_disposables);
         RequiresPrompt = SelectedTask
-            .Select(task => task.Value is "restyle" or "remove_object" or "outpaint")
+            .Select(task => task.Value is RestyleTask or RemoveObjectTask or OutpaintTask)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         ShowOutpaintExpansion = SelectedTask
-            .Select(task => task.Value == "outpaint")
+            .Select(task => task.Value == OutpaintTask)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         PromptWatermark = SelectedTask
             .Select(task => task.Value switch
             {
-                "restyle" => Strings.AiEditRestylePrompt,
-                "remove_object" => Strings.AiEditRemoveObjectPrompt,
-                "outpaint" => Strings.AiEditOutpaintPrompt,
+                RestyleTask => Strings.AiEditRestylePrompt,
+                RemoveObjectTask => Strings.AiEditRemoveObjectPrompt,
+                OutpaintTask => Strings.AiEditOutpaintPrompt,
                 _ => Strings.AiPrompt_Placeholder,
             })
             .ToReadOnlyReactivePropertySlim(Strings.AiPrompt_Placeholder)
@@ -203,27 +199,9 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             .Select(x => !string.IsNullOrEmpty(x))
             .CombineLatest(IsEditing, (hasSource, editing) => hasSource && !editing)
             .CombineLatest(PromptValidationError, (canEdit, error) => canEdit && error is null)
-            .CombineLatest(
-                EstimatedUsage.CanAfford,
-                HoldsRequestName,
-                // Or a name already handed out: the server answers a repeat with the
-                // job that name made before it looks at the balance, so the request
-                // that spent the last of it is exactly the one that must stay
-                // collectable.
-                (canEdit, canAfford, outstanding) => canEdit && (canAfford || outstanding))
-            .CombineLatest(
-                ModelPicker.OffersNothingUsable,
-                HoldsRequestName,
-                // Every model the operation registered was ruled out, so a new
-                // request would be refused however it is shaped — but a name
-                // already handed out is answered from the job it made, whatever
-                // the catalog says now.
-                (can, nothingUsable, outstanding) =>
-                    can && (!nothingUsable || outstanding))
-            // Until the list has been asked for, a request would name no model
-            // and run on the server's default, which may cost more than what
-            // this task was about to offer.
-            .CombineLatest(ModelPicker.IsLoaded, (can, loaded) => can && loaded)
+            .WhenAffordable(EstimatedUsage.CanAfford, HoldsRequestName)
+            .WhenSomeModelUsable(ModelPicker.OffersNothingUsable, HoldsRequestName)
+            .WhenModelsLoaded(ModelPicker.IsLoaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -422,33 +400,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     private IdentityOperationLifetime.Operation? TryEnterIdentityOperation()
         => _identityOperations.TryEnter(_operations);
 
-    private Task BeginDisposeAsync()
-    {
-        lock (_disposeGate)
-        {
-            if (_disposeTask is not null)
-                return _disposeTask;
-
-            var completion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            _ = CompleteDisposeAsync(completion);
-            return completion.Task;
-        }
-    }
-
-    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
-    {
-        try
-        {
-            await DisposeCoreAsync();
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync);
 
     private async Task DisposeCoreAsync()
     {
@@ -518,18 +470,18 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     // Asking for a size is what upscaling is; the other tasks keep the one they
     // were given.
     private static bool RequiresResolution(string? task)
-        => string.Equals(task, "upscale", StringComparison.Ordinal);
+        => string.Equals(task, UpscaleTask, StringComparison.Ordinal);
 
-    // Cutting a background out is asking for a transparent one.
+    // Where the task and the model sit in the request's parts.
+    private const int TaskPartIndex = 0;
     // Where the model sits in the request's parts. It is filled in last: which
     // model a request carries depends on whether a name is already outstanding
     // for the rest of it.
-    // Where the task and the model sit in the request's parts.
-    private const int TaskPartIndex = 0;
     private const int ModelPartIndex = 2;
 
+    // Cutting a background out is asking for a transparent one.
     private static string? RequiredBackground(string? task)
-        => string.Equals(task, "remove_background", StringComparison.Ordinal)
+        => string.Equals(task, RemoveBackgroundTask, StringComparison.Ordinal)
             ? "transparent"
             : null;
 
@@ -596,11 +548,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                 });
             return;
         }
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window })
-            return;
-
-        if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+        if (AiDialogStorage.MainWindowStorage() is not { } storage)
             return;
 
         FilePickerOpenOptions options = SharedFilePickerOptions.OpenAiInputImage();
@@ -667,7 +615,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         {
             string task = SelectedTask.Value.Value;
             string? prompt = RequiresPrompt.Value ? Prompt.Value.Trim() : null;
-            int? outpaintExpansionPercent = task == "outpaint"
+            int? outpaintExpansionPercent = task == OutpaintTask
                 ? SelectedOutpaintExpansion.Value.Percent
                 : null;
             string uploadPath = filePath;
@@ -680,18 +628,18 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                 ? preparedName
                 : Path.GetFileName(filePath);
             bool recoveredPreparedSource = _selectedRecovery?.Form?.SourceIsPrepared == true;
-            if (task == "outpaint" && recoveredPreparedSource)
+            if (task == OutpaintTask && recoveredPreparedSource)
             {
-                prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
+                prompt = ToOutpaintPrompt(prompt);
             }
-            if (task == "outpaint" && !recoveredPreparedSource)
+            if (task == OutpaintTask && !recoveredPreparedSource)
             {
                 preparedFilePath = PrepareOutpaintSource(
                     filePath,
                     outpaintExpansionPercent!.Value);
                 uploadPath = preparedFilePath;
                 uploadName = $"{Path.GetFileNameWithoutExtension(filePath)}-outpaint.png";
-                prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
+                prompt = ToOutpaintPrompt(prompt);
             }
 
             // Read once, and named by that reading. What the server
@@ -735,9 +683,9 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                 Task: task,
                 OutpaintExpansionPercent: outpaintExpansionPercent,
                 SourceName: uploadName,
-                SourceIsPrepared: task == "outpaint",
+                SourceIsPrepared: task == OutpaintTask,
                 SourceElementId: _sourceElementId);
-            AiRequestRecoverySource recoverySource = task == "outpaint" && _requestKey.HasDurableRecovery
+            AiRequestRecoverySource recoverySource = task == OutpaintTask && _requestKey.HasDurableRecovery
                 ? _requestKey.CreateDurableSource(
                     "image",
                     uploadName,
@@ -878,15 +826,28 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         return (expandedWidth, expandedHeight, horizontal, vertical);
     }
 
+    // The ids the server knows the edits by. Requests and recovery records carry them.
+    private const string RemoveBackgroundTask = "remove_background";
+    private const string UpscaleTask = "upscale";
+    private const string RestyleTask = "restyle";
+    private const string RemoveObjectTask = "remove_object";
+    private const string OutpaintTask = "outpaint";
+
+    // An outpaint request leads with this, so its length counts against the prompt limit too.
+    private const string OutpaintPromptPrefix =
+        "Extend the image naturally into the transparent canvas while preserving the original center.";
+
+    private static string ToOutpaintPrompt(string? prompt) => $"{OutpaintPromptPrefix} {prompt}";
+
     private static string? GetPromptValidationError(string task, string prompt)
     {
-        if (task is not ("restyle" or "remove_object" or "outpaint"))
+        if (task is not (RestyleTask or RemoveObjectTask or OutpaintTask))
             return null;
         if (string.IsNullOrWhiteSpace(prompt))
             return Strings.AiPromptRequired;
 
-        string finalPrompt = task == "outpaint"
-            ? $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt.Trim()}"
+        string finalPrompt = task == OutpaintTask
+            ? ToOutpaintPrompt(prompt.Trim())
             : prompt.Trim();
         return finalPrompt.Length > AiRequestLimits.MaxPromptLength
             ? AiPromptComposer.PromptTooLongMessage
@@ -905,16 +866,9 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
 
         try
         {
-            TimeSpan start = _editViewModel.Player.CurrentFrame.Value;
-            int layer = _editViewModel.Scene.Children
-                .Where(item => item.Start <= start && start < item.Range.End)
-                .Select(item => item.ZIndex)
-                .DefaultIfEmpty(-1)
-                .Max() + 1;
-            AiResultImportOptions options = new(
-                start,
+            AiResultImportOptions options = AiDialogResults.PlaceAtPlayhead(
+                _editViewModel,
                 TimeSpan.FromSeconds(5),
-                layer,
                 Strings.AiImageEdit);
             ElementAddResult result;
             if (ResultImporter is { } importer)
@@ -932,18 +886,12 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
                     operation.CancellationToken);
             }
 
-            if (result.Failure is LockedElementLayerFailure)
-            {
-                operation.TryPublish(() =>
-                    NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
-                return;
-            }
-            EnsureImportSucceeded(result);
-            if (result.IsSuccess)
-            {
-                operation.TryPublish(() =>
-                    NotificationService.ShowSuccess(Strings.AiImageEdit, Strings.AiImageAddedToScene));
-            }
+            AiDialogResults.PublishImport(
+                operation,
+                result,
+                Strings.AiImageEdit,
+                Strings.AiImageAddedToScene,
+                "edited image");
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -956,15 +904,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
 
     }
 
-    private static void EnsureImportSucceeded(ElementAddResult result)
-    {
-        if (result.IsSuccess)
-            return;
-        throw new InvalidOperationException(
-            $"Failed to add the edited image: {result.Failure?.Id}.",
-            result.Failure?.Exception);
-    }
-
     private async Task SaveToFileCore()
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
@@ -974,27 +913,18 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         if (resultImage?.Value is not { } bitmap)
             return;
 
-        AiSaveFileDestination? destination;
-        IStorageFile? selectedStorageFile = null;
-        if (SaveFilePicker is { } picker)
-        {
-            destination = await picker(operation.CancellationToken);
-        }
-        else
-        {
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-                { MainWindow: { } window }
-                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
-                return;
-            FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
-            options.SuggestedFileName = $"AI Edit {DateTime.Now:yyyy-MM-dd HHmmss}";
-            options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
-            options.DefaultExtension = "png";
-            selectedStorageFile = await storage.SaveFilePickerAsync(options);
-            destination = selectedStorageFile is null
-                ? null
-                : new AiSaveFileDestination(selectedStorageFile.Path.LocalPath);
-        }
+        (AiSaveFileDestination? destination, IStorageFile? selectedStorageFile) =
+            await AiDialogStorage.PickSaveDestinationAsync(
+                SaveFilePicker,
+                () =>
+                {
+                    FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
+                    options.SuggestedFileName = $"AI Edit {DateTime.Now:yyyy-MM-dd HHmmss}";
+                    options.DefaultExtension = "png";
+                    return options;
+                },
+                WellKnownFolder.Pictures,
+                operation.CancellationToken);
         using IStorageFile? storageFileOwnership = selectedStorageFile;
 
         if (destination is null || !operation.IsCurrent)
@@ -1007,13 +937,10 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             if (!operation.TryPublish(() =>
                 {
                     operation.CancellationToken.ThrowIfCancellationRequested();
-                    AiAtomicFileWriter.Write(
+                    AiAtomicFileWriter.WritePng(
                         destination.Path,
-                        stream =>
-                        {
-                            if (!bitmap.Save(stream, EncodedImageFormat.Png))
-                                throw new IOException("Failed to encode the edited AI image as PNG.");
-                        },
+                        bitmap,
+                        "Failed to encode the edited AI image as PNG.",
                         operation.CancellationToken);
                 }))
                 return;

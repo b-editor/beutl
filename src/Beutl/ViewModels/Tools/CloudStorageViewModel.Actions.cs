@@ -27,8 +27,12 @@ internal sealed partial class CloudStorageViewModel
     }
 
     internal bool IsActionCurrent(StorageActionContext context) => !_disposed && !IsBusy.Value
-        && ReferenceEquals(_owner, context.User) && ReferenceEquals(_clients.AuthenticatedUser.Value, context.User)
+        && IsCurrentOwner(context.User)
         && _version == context.Version && _folderId == context.FolderId && context.Items.All(Items.Contains);
+
+    // The account the listing was loaded for is still the one signed in.
+    private bool IsCurrentOwner(AuthenticatedUser user)
+        => ReferenceEquals(_owner, user) && ReferenceEquals(_clients.AuthenticatedUser.Value, user);
 
     internal static bool IsValidName(string name) => name.Trim().Length is > 0 and <= 255
         && !name.Any(c => c < 32 || c == 127);
@@ -103,7 +107,7 @@ internal sealed partial class CloudStorageViewModel
         catch (OperationCanceledException) when (operation.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (!_disposed && ReferenceEquals(_owner, context.User) && ReferenceEquals(_clients.AuthenticatedUser.Value, context.User))
+            if (!_disposed && IsCurrentOwner(context.User))
             {
                 _logger.LogError(ex, "Storage operation failed.");
                 ActionError.Value = ActionErrorMessage(ex);
@@ -119,9 +123,9 @@ internal sealed partial class CloudStorageViewModel
         }
         // Refresh even after an unsuccessful response: a connection can fail after the server
         // commits, and a large folder deletion can finish some batches before finding an in-use file.
-        if (!_disposed && ReferenceEquals(_owner, context.User) && ReferenceEquals(_clients.AuthenticatedUser.Value, context.User))
+        if (!_disposed && IsCurrentOwner(context.User))
             await Task.WhenAll(LoadAsync(), LoadUsageAsync());
-        return succeeded && !_disposed && ReferenceEquals(_owner, context.User) && ReferenceEquals(_clients.AuthenticatedUser.Value, context.User);
+        return succeeded && !_disposed && IsCurrentOwner(context.User);
     }
 
     internal async Task<StorageFolderDetailsResponse?> GetFolderDetailsAsync(StorageActionContext context, string id)
@@ -157,11 +161,7 @@ internal sealed partial class CloudStorageViewModel
         {
             await _clients.SendAuthenticatedAsync(async (authorization, ct) =>
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v3/storage/files/{Uri.EscapeDataString(item.Id)}/content");
-                request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
-                using var response = await _clients.HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-                response.EnsureSuccessStatusCode();
-                await CopyDownloadAsync(response.Content, destination, item.Entry?.Size, value => progress.Report(item, value), ct);
+                await DownloadFileContentAsync(authorization, item.Id, destination, item.Entry?.Size, value => progress.Report(item, value), ct);
                 return true;
             }, token, context.User);
         }, refresh: false, cancellationToken);

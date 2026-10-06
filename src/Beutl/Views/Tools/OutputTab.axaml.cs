@@ -52,8 +52,7 @@ public partial class OutputTab : UserControl
         if (DataContext is not OutputTabViewModel viewModel) return;
         if (sender is ICommandSource { CommandParameter: OutputProfileItem item })
         {
-            viewModel.RemoveItem(item);
-            viewModel.Save();
+            RemoveAndSave(viewModel, item);
         }
     }
 
@@ -61,22 +60,27 @@ public partial class OutputTab : UserControl
     {
         if (sender is not ICommandSource { CommandParameter: OutputProfileItem item }) return;
 
-        OutputPresetService.Instance.AddItem(item.Context, $"{item.Context.Name.Value} (Preset)");
-        OutputPresetService.Instance.SaveItems();
+        ConvertToPreset(item);
     }
 
     private void OnRenameClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not OutputTabViewModel viewModel) return;
+        if (DataContext is not OutputTabViewModel) return;
         if ((sender as ICommandSource)?.CommandParameter is not OutputProfileItem item) return;
 
-        var flyout = new RenameFlyout { Text = item.Context.Name.Value };
-        flyout.Confirmed += (_, text) =>
-        {
-            item.Context.Name.Value = text ?? "";
-            viewModel.Save();
-        };
-        flyout.ShowAt(MoreButton);
+        ShowRenameFlyout(item, MoreButton);
+    }
+
+    private static void RemoveAndSave(OutputTabViewModel viewModel, OutputProfileItem profile)
+    {
+        viewModel.RemoveItem(profile);
+        viewModel.Save();
+    }
+
+    private static void ConvertToPreset(OutputProfileItem profile)
+    {
+        OutputPresetService.Instance.AddItem(profile.Context, $"{profile.Context.Name.Value} (Preset)");
+        OutputPresetService.Instance.SaveItems();
     }
 
     private sealed class _DataTemplate : IDataTemplate
@@ -168,11 +172,7 @@ public partial class OutputTab : UserControl
                         Text = Language.Strings.Remove,
                         IconSource = new FluentIconSource { Icon = Icon.Delete }
                     };
-                    removeItem.Click += (_, _) =>
-                    {
-                        viewModel.RemoveItem(profile);
-                        viewModel.Save();
-                    };
+                    removeItem.Click += (_, _) => RemoveAndSave(viewModel, profile);
                     menu.Items.Add(removeItem);
 
                     var renameItem = new FAMenuFlyoutItem { Text = Language.Strings.Rename };
@@ -180,11 +180,7 @@ public partial class OutputTab : UserControl
                     menu.Items.Add(renameItem);
 
                     var convertItem = new FAMenuFlyoutItem { Text = Language.Strings.Convert_to_preset };
-                    convertItem.Click += (_, _) =>
-                    {
-                        OutputPresetService.Instance.AddItem(profile.Context, $"{profile.Context.Name.Value} (Preset)");
-                        OutputPresetService.Instance.SaveItems();
-                    };
+                    convertItem.Click += (_, _) => ConvertToPreset(profile);
                     menu.Items.Add(convertItem);
                     break;
                 }

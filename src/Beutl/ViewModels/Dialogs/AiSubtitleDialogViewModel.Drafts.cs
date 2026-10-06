@@ -125,6 +125,29 @@ public sealed partial class AiSubtitleDialogViewModel
         Superseded,
     }
 
+    // Whether a run may go on after writing itself down. A run that is no longer the one on
+    // screen stops quietly; one that should have been written down and was not throws, since a
+    // request sent now would take its name with it when the session ends.
+    private static bool CanRunContinue(CaptionDraftOutcome outcome)
+        => outcome switch
+        {
+            CaptionDraftOutcome.Superseded => false,
+            CaptionDraftOutcome.NotRecorded => throw new SubtitleInputException(
+                Strings.AiSubtitle_RunCannotBeRecorded),
+            _ => true,
+        };
+
+    // How far a run has come, once a piece of it has come back.
+    private void ShowRunProgress(int completed, int total, string partialFormat)
+        => PartialResultMessage.Value = completed <= 0
+            ? null
+            : string.Format(
+                completed == total
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : partialFormat,
+                completed,
+                total);
+
     private CaptionDraftOutcome SetPartialResult(RecoverableCaptionResult result)
     {
         if (!IsCurrentCaptionDraftScope(result.DraftScopeRevision))
@@ -385,133 +408,16 @@ public sealed partial class AiSubtitleDialogViewModel
                 draftScopeRevision);
 
             if (draft.TranslationResume is { } translation)
-            {
-                try
-                {
-                    TranslationOperation operation = RestoreTranslationOperation(
-                        draft,
-                        Interlocked.Read(ref _captionDocumentRevision),
-                        draftScopeRevision);
-                    // The unfinished batches are named partly by the model the
-                    // run used. Landing on another one would name them
-                    // differently and buy them again.
-                    _restoredTranslationModel =
-                        string.IsNullOrEmpty(translation.RequestKeyModel)
-                            ? null
-                            : new AiModelId(translation.RequestKeyModel);
-                    PreferRestoredModel(
-                        TranslationModelPicker,
-                        _restoredTranslationModel);
-                    _pendingTranslation = operation;
-                    CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
-                        string.Equals(
-                            option.Code,
-                            translation.SelectedSourceLanguage,
-                            StringComparison.Ordinal));
-                    CaptionLanguageOption? targetOption = TargetLanguages.FirstOrDefault(option =>
-                        string.Equals(
-                            option.Code,
-                            translation.TargetLanguage,
-                            StringComparison.Ordinal));
-                    if (sourceOption is not null)
-                        SelectedSourceLanguage.Value = sourceOption;
-                    if (targetOption is not null)
-                        SelectedTargetLanguage.Value = targetOption;
-                    if (draft.CompletedSteps == 0
-                        && translation.RequestKeyNamePending
-                        && _editableCues.Count == 0)
-                    {
-                        ReplaceCues(new CaptionDocument(
-                            operation.SourceDocument.Cues.Select(cue => cue with { })));
-                        operation.ExpectedCaptionRevision = Interlocked.Read(
-                            ref _captionDocumentRevision);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Restored a paid caption draft without resumable translation state.");
-                }
-            }
+                RestoreTranslationResume(draft, translation, draftScopeRevision);
 
             if (draft.SceneTranscriptionResume is { } scene
                 && scene.SceneId == _editViewModel?.Scene.Id)
             {
-                // Scene audio is composed rather than read from a file. A pending first chunk is
-                // safe to retry because the server validates that chunk's fingerprint, and a
-                // complete result needs no new audio. A partially completed run carries its old
-                // session identifier so it cannot combine those unverifiable chunks with audio
-                // composed by this dialog lifetime.
-                _pendingSceneTranscription = new SceneTranscriptionOperation(
-                    null,
-                    scene.Language,
-                    scene.RangeStart,
-                    scene.Duration,
-                    scene.ChunkDuration,
-                    scene.ChunkCount,
-                    Interlocked.Read(ref _captionDocumentRevision),
-                    draftScopeRevision,
-                    Interlocked.Read(ref _sceneAudioRevision),
-                    scene.SceneId,
-                    scene.AudioSessionId,
-                    string.IsNullOrEmpty(scene.RequestKeySeed) ? null : scene.RequestKeySeed,
-                    scene.RequestKeyNamePending)
-                {
-                    CompletedChunkCount = scene.CompletedChunkCount,
-                    DetectedLanguage = scene.DetectedLanguage,
-                    RequestKeyModel = scene.RequestKeyModel,
-                };
-                _pendingSceneTranscription.Segments.AddRange(CloneSegments(scene.Segments));
-                _restoredTranscriptionModel =
-                    string.IsNullOrEmpty(scene.RequestKeyModel)
-                        ? null
-                        : new AiModelId(scene.RequestKeyModel);
-                PreferRestoredModel(
-                    TranscriptionModelPicker,
-                    _restoredTranscriptionModel);
-                CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
-                    string.Equals(option.Code, scene.Language, StringComparison.Ordinal));
-                if (sourceOption is not null)
-                    SelectedSourceLanguage.Value = sourceOption;
+                RestoreSceneResume(draft, scene, draftScopeRevision);
             }
 
             if (draft.SourceTranscriptionResume is { } source)
-            {
-                _pendingSourceTranscription = new SourceTranscriptionOperation(
-                    null,
-                    source.FilePath,
-                    source.ElementId,
-                    source.FileLength,
-                    source.LastWriteTimeUtcTicks,
-                    source.Language,
-                    source.SampleRate,
-                    source.SourceStartSamples ?? -1,
-                    source.TotalSamples,
-                    source.ChunkSamples,
-                    source.ChunkCount,
-                    Interlocked.Read(ref _captionDocumentRevision),
-                    draftScopeRevision,
-                    string.IsNullOrEmpty(source.RequestKeySeed) ? null : source.RequestKeySeed,
-                    source.RequestKeyNamePending)
-                {
-                    CompletedChunkCount = source.CompletedChunkCount,
-                    DetectedLanguage = source.DetectedLanguage,
-                    RequestKeyModel = source.RequestKeyModel,
-                };
-                _restoredTranscriptionModel =
-                    string.IsNullOrEmpty(source.RequestKeyModel)
-                        ? null
-                        : new AiModelId(source.RequestKeyModel);
-                PreferRestoredModel(
-                    TranscriptionModelPicker,
-                    _restoredTranscriptionModel);
-                _pendingSourceTranscription.SourceSegments.AddRange(CloneSegments(source.Segments));
-                CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
-                    string.Equals(option.Code, source.Language, StringComparison.Ordinal));
-                if (sourceOption is not null)
-                    SelectedSourceLanguage.Value = sourceOption;
-            }
+                RestoreSourceResume(source, draftScopeRevision);
 
             // A draft written the moment its first piece was named holds the
             // way back to that piece and nothing to apply yet.
@@ -537,6 +443,123 @@ public sealed partial class AiSubtitleDialogViewModel
             _logger.LogWarning(ex, "Ignored an invalid recoverable caption draft.");
             ClearPartialResult();
         }
+    }
+
+    private void RestoreTranslationResume(
+        CaptionDraft draft,
+        CaptionTranslationResume translation,
+        long draftScopeRevision)
+    {
+        try
+        {
+            TranslationOperation operation = RestoreTranslationOperation(
+                draft,
+                Interlocked.Read(ref _captionDocumentRevision),
+                draftScopeRevision);
+            // The unfinished batches are named partly by the model the
+            // run used. Landing on another one would name them
+            // differently and buy them again.
+            _restoredTranslationModel = ModelIdOrNull(translation.RequestKeyModel);
+            PreferRestoredModel(
+                TranslationModelPicker,
+                _restoredTranslationModel);
+            _pendingTranslation = operation;
+            CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
+                string.Equals(
+                    option.Code,
+                    translation.SelectedSourceLanguage,
+                    StringComparison.Ordinal));
+            CaptionLanguageOption? targetOption = TargetLanguages.FirstOrDefault(option =>
+                string.Equals(
+                    option.Code,
+                    translation.TargetLanguage,
+                    StringComparison.Ordinal));
+            if (sourceOption is not null)
+                SelectedSourceLanguage.Value = sourceOption;
+            if (targetOption is not null)
+                SelectedTargetLanguage.Value = targetOption;
+            if (draft.CompletedSteps == 0
+                && translation.RequestKeyNamePending
+                && _editableCues.Count == 0)
+            {
+                ReplaceCues(new CaptionDocument(
+                    operation.SourceDocument.Cues.Select(cue => cue with { })));
+                operation.ExpectedCaptionRevision = Interlocked.Read(
+                    ref _captionDocumentRevision);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Restored a paid caption draft without resumable translation state.");
+        }
+    }
+
+    private void RestoreSceneResume(
+        CaptionDraft draft,
+        CaptionSceneTranscriptionResume scene,
+        long draftScopeRevision)
+    {
+        // Scene audio is composed rather than read from a file. A pending first chunk is
+        // safe to retry because the server validates that chunk's fingerprint, and a
+        // complete result needs no new audio. A partially completed run carries its old
+        // session identifier so it cannot combine those unverifiable chunks with audio
+        // composed by this dialog lifetime.
+        _pendingSceneTranscription = RestoreSceneTranscriptionOperation(
+            draft,
+            null,
+            Interlocked.Read(ref _captionDocumentRevision),
+            draftScopeRevision,
+            Interlocked.Read(ref _sceneAudioRevision));
+        _restoredTranscriptionModel = ModelIdOrNull(scene.RequestKeyModel);
+        PreferRestoredModel(
+            TranscriptionModelPicker,
+            _restoredTranscriptionModel);
+        SelectSourceLanguage(scene.Language);
+    }
+
+    // Built here rather than by RestoreSourceTranscriptionOperation so the segments still
+    // arrive after the model is chosen, as they always have.
+    private void RestoreSourceResume(
+        CaptionSourceTranscriptionResume source,
+        long draftScopeRevision)
+    {
+        _pendingSourceTranscription = new SourceTranscriptionOperation(
+            null,
+            source.FilePath,
+            source.ElementId,
+            source.FileLength,
+            source.LastWriteTimeUtcTicks,
+            source.Language,
+            source.SampleRate,
+            source.SourceStartSamples ?? -1,
+            source.TotalSamples,
+            source.ChunkSamples,
+            source.ChunkCount,
+            Interlocked.Read(ref _captionDocumentRevision),
+            draftScopeRevision,
+            SeedOrNull(source.RequestKeySeed),
+            source.RequestKeyNamePending)
+        {
+            CompletedChunkCount = source.CompletedChunkCount,
+            DetectedLanguage = source.DetectedLanguage,
+            RequestKeyModel = source.RequestKeyModel,
+        };
+        _restoredTranscriptionModel = ModelIdOrNull(source.RequestKeyModel);
+        PreferRestoredModel(
+            TranscriptionModelPicker,
+            _restoredTranscriptionModel);
+        _pendingSourceTranscription.SourceSegments.AddRange(CloneSegments(source.Segments));
+        SelectSourceLanguage(source.Language);
+    }
+
+    private void SelectSourceLanguage(string? code)
+    {
+        CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
+            string.Equals(option.Code, code, StringComparison.Ordinal));
+        if (sourceOption is not null)
+            SelectedSourceLanguage.Value = sourceOption;
     }
 
     private static bool SegmentsEqual(

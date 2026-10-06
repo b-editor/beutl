@@ -52,31 +52,11 @@ internal sealed partial class AiImageGenerationDialogViewModel
     }
 
     private void OnIdentityChanged()
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            _identityOperations.SwitchDeferred(
-                action => Dispatcher.UIThread.Post(() => RunDeferredIdentityClear(action)),
-                ClearIdentityState,
-                TryAutoRecoverForCurrentIdentity);
-            return;
-        }
-
-        _identityOperations.Switch(ClearIdentityState);
-        TryAutoRecoverForCurrentIdentity();
-    }
-
-    private void RunDeferredIdentityClear(Action clear)
-    {
-        try
-        {
-            clear();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to clear image-generation state after an account change.");
-        }
-    }
+        => AiFormRecovery.SwitchIdentity(
+            _identityOperations,
+            ClearIdentityState,
+            TryAutoRecoverForCurrentIdentity,
+            ex => _logger.LogError(ex, "Failed to clear image-generation state after an account change."));
 
     private void TryAutoRecoverForCurrentIdentity()
     {
@@ -218,9 +198,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
         {
             _requestKey.Abandon(attempt);
             if (_selectedRecovery is { } selected
-                && selected.AccountId == attempt.AccountId
-                && selected.Operation == attempt.Operation
-                && selected.Fingerprint == attempt.Fingerprint)
+                && AiFormRecovery.IsSameAttempt(selected, attempt))
             {
                 ClearActiveRecovery();
                 ModelPicker.ReconcileRecoveryModels();
@@ -237,6 +215,8 @@ internal sealed partial class AiImageGenerationDialogViewModel
         }
     }
 
+    // The model a request should carry: the one the outstanding name was built
+    // from while there is one, and the picker's otherwise.
     private AiModelId? ModelForRequest(AiModelId? selected)
         => _selectedRecovery is { } attempt
             ? attempt.Model is { } model ? new AiModelId(model) : null
@@ -271,21 +251,8 @@ internal sealed partial class AiImageGenerationDialogViewModel
     }
 
     private void SelectRecoveredModel()
-    {
-        if (_selectedRecovery is not { } recovery)
-            return;
-        if (recovery.Model is not { } model)
-        {
-            ModelPicker.Selected.Value = null;
-            return;
-        }
-        AiModelId id = new(model);
-        ModelPicker.Selected.Value = ModelPicker.Options.FirstOrDefault(option => option.Id == id);
-    }
+        => AiFormRecovery.SelectRecoveredModel(ModelPicker, _selectedRecovery);
 
-    // The model a request should carry: the one the outstanding name was built
-    // from while there is one, and the picker's otherwise.
-    //
     // Only this one request is settled. Retiring the whole run instead would
     // throw away the name of anything else still waiting to be collected.
     private void RetireRequestName(AiRequestName name)
@@ -293,8 +260,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
         if (!_requestKey.Retire(name))
             return;
         if (_selectedRecovery is { } selected
-            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
-                || !_requestKey.IsCurrentPending(selected)))
+            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
         {
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
@@ -314,8 +280,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
         if (!_requestKey.WithdrawAfterNoReservation(name))
             return;
         if (_selectedRecovery is { } selected
-            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
-                || !_requestKey.IsCurrentPending(selected)))
+            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
         {
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();

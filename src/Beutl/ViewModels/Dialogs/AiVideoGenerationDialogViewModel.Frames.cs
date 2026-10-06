@@ -40,9 +40,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
         else
         {
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-                { MainWindow: { } window }
-                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+            if (AiDialogStorage.MainWindowStorage() is not { } storage)
                 return;
             IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
                 SharedFilePickerOptions.OpenAiVideoFrame());
@@ -233,17 +231,34 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             fileName);
     }
 
-    private static bool RecoverySourceMatchesPath(
-        AiRequestRecoverySource source,
-        string? path)
+    // The frame the recovered request was named with, as long as the dialog still shows it.
+    private AiRequestRecoverySource? FindRecoveredFrameSource(string role, string? path)
     {
-        if (path is null)
-            return false;
-        return source.DurableFile is { } durable
-            ? string.Equals(Path.GetFileName(path), durable, StringComparison.Ordinal)
-            : string.Equals(
-                Path.GetFullPath(source.Path ?? string.Empty),
-                Path.GetFullPath(path),
-                StringComparison.Ordinal);
+        AiRequestRecoverySource? recovered = _selectedRecovery?.EffectiveSources
+            .FirstOrDefault(source => source.Role == role);
+        if (recovered is not null && !recovered.MatchesPath(path))
+            recovered = null;
+        return recovered;
     }
+
+    // A captured frame lives in a temporary file, so it is kept as a durable copy when the
+    // key can hold one; a frame the person chose is pointed at where it is.
+    private AiRequestRecoverySource CreateFrameRecoverySource(
+        string role,
+        string path,
+        string? name,
+        byte[] bytes,
+        string? elementId)
+        => IsTemporaryFile(path) && _requestKey.HasDurableRecovery
+            ? _requestKey.CreateDurableSource(
+                role,
+                name ?? Path.GetFileName(path),
+                bytes,
+                elementId)
+            : FileAiRequestRecoveryStore.CreateExternalSource(
+                role,
+                path,
+                name ?? Path.GetFileName(path),
+                bytes,
+                elementId);
 }

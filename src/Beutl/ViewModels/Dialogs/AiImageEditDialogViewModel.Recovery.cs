@@ -51,31 +51,11 @@ internal sealed partial class AiImageEditDialogViewModel
     }
 
     private void OnIdentityChanged()
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            _identityOperations.SwitchDeferred(
-                action => Dispatcher.UIThread.Post(() => RunDeferredIdentityClear(action)),
-                ClearIdentityState,
-                TryAutoRecoverForCurrentIdentity);
-            return;
-        }
-
-        _identityOperations.Switch(ClearIdentityState);
-        TryAutoRecoverForCurrentIdentity();
-    }
-
-    private void RunDeferredIdentityClear(Action clear)
-    {
-        try
-        {
-            clear();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to clear image-edit state after an account change.");
-        }
-    }
+        => AiFormRecovery.SwitchIdentity(
+            _identityOperations,
+            ClearIdentityState,
+            TryAutoRecoverForCurrentIdentity,
+            ex => _logger.LogError(ex, "Failed to clear image-edit state after an account change."));
 
     private void TryAutoRecoverForCurrentIdentity()
     {
@@ -173,9 +153,7 @@ internal sealed partial class AiImageEditDialogViewModel
         {
             _requestKey.Abandon(attempt);
             if (_selectedRecovery is { } selected
-                && selected.AccountId == attempt.AccountId
-                && selected.Operation == attempt.Operation
-                && selected.Fingerprint == attempt.Fingerprint)
+                && AiFormRecovery.IsSameAttempt(selected, attempt))
             {
                 ClearActiveRecovery();
                 ModelPicker.ReconcileRecoveryModels();
@@ -190,6 +168,13 @@ internal sealed partial class AiImageEditDialogViewModel
         }
     }
 
+    // The model a request should carry: the one the outstanding name was built
+    // from while there is one, and the picker's otherwise.
+    // Whatever the outstanding name was built from, including no model at all:
+    // a request that named none was fingerprinted without one, and letting a
+    // catalog that has since loaded name one would make it a different request.
+    // Only for the same request: an edit of another picture, or with another
+    // prompt, is a new request and is priced and run on the model on screen.
     private AiModelId? ModelForRequest(AiModelId? selected)
         => _selectedRecovery is { } attempt
             ? attempt.Model is { } model ? new AiModelId(model) : null
@@ -210,20 +195,8 @@ internal sealed partial class AiImageEditDialogViewModel
     }
 
     private void SelectRecoveredModel()
-    {
-        if (_selectedRecovery is not { } recovery)
-            return;
-        if (recovery.Model is not { } model)
-        {
-            ModelPicker.Selected.Value = null;
-            return;
-        }
-        AiModelId id = new(model);
-        ModelPicker.Selected.Value = ModelPicker.Options.FirstOrDefault(option => option.Id == id);
-    }
+        => AiFormRecovery.SelectRecoveredModel(ModelPicker, _selectedRecovery);
 
-    // The model a request should carry: the one the outstanding name was built
-    // from while there is one, and the picker's otherwise.
     // Only this one request is settled. Retiring the whole run instead would
     // throw away the name of anything else still waiting to be collected.
     private void RetireRequestName(AiRequestName name)
@@ -232,8 +205,7 @@ internal sealed partial class AiImageEditDialogViewModel
             return;
         Forget(name);
         if (_selectedRecovery is { } selected
-            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
-                || !_requestKey.IsCurrentPending(selected)))
+            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
         {
             if (!string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
                 Forget(new AiRequestName(selected.Key, IsRepeat: true));
@@ -254,8 +226,7 @@ internal sealed partial class AiImageEditDialogViewModel
             return;
         Forget(name);
         if (_selectedRecovery is { } selected
-            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
-                || !_requestKey.IsCurrentPending(selected)))
+            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
         {
             if (!string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
                 Forget(new AiRequestName(selected.Key, IsRepeat: true));
@@ -271,11 +242,6 @@ internal sealed partial class AiImageEditDialogViewModel
         _outstandingRevision.Value++;
     }
 
-    // Whatever the outstanding name was built from, including no model at all:
-    // a request that named none was fingerprinted without one, and letting a
-    // catalog that has since loaded name one would make it a different request.
-    // Only for the same request: an edit of another picture, or with another
-    // prompt, is a new request and is priced and run on the model on screen.
     // Whether any request still waiting to be collected belongs to this task.
     // Each of the five is its own operation with its own models and its own
     // price, so a name outstanding on one says nothing about another.

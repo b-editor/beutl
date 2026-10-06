@@ -131,9 +131,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
         }
         else
         {
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-                { MainWindow: { } window }
-                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+            if (AiDialogStorage.MainWindowStorage() is not { } storage)
                 return;
             FilePickerOpenOptions options = SharedFilePickerOptions.OpenAiInputImage();
             options.AllowMultiple = true;
@@ -206,16 +204,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
             AiRequestRecoverySource? recovered = recoveredSources is { Count: > 0 }
                 ? recoveredSources.FirstOrDefault(source => source.Role == $"reference-{index.ToString(CultureInfo.InvariantCulture)}")
                 : null;
-            if (recovered is not null
-                && (recovered.DurableFile is null
-                    ? !string.Equals(
-                        Path.GetFullPath(recovered.Path ?? string.Empty),
-                        Path.GetFullPath(paths[index]),
-                        StringComparison.Ordinal)
-                    : !string.Equals(
-                        Path.GetFileName(paths[index]),
-                        recovered.DurableFile,
-                        StringComparison.Ordinal)))
+            if (recovered is not null && !recovered.MatchesPath(paths[index]))
             {
                 // A user-selected locator may be replaced after recovery. Read
                 // the current file and let the fingerprint check decide whether

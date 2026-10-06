@@ -122,11 +122,6 @@ public sealed partial class AiSubtitleDialogViewModel
     public ReactivePropertySlim<bool> HasPartialResult { get; } = new();
 
     /// <summary>
-    /// Whether a caption run has named a piece the server has not been seen to
-    /// settle. Not the same as having a partial result: the very first piece of
-    /// a run may have been charged and lost before anything came back.
-    /// </summary>
-    /// <summary>
     /// Whether a transcription run holds a name the server may answer from a
     /// job it has already been paid for.
     /// </summary>
@@ -257,7 +252,40 @@ public sealed partial class AiSubtitleDialogViewModel
                 _translationAvailability.State)
             .DisposeWith(_captionDisposables);
 
-        CanTranslate = HasTimingValidCues
+        CanTranslate = CreateCanTranslate();
+        InitializeCaptionCommands();
+
+        ResultSegments.Subscribe(ApplyTranscriptionSegments).DisposeWith(_captionDisposables);
+        MaximumLineLength.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
+        MaximumLineCount.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
+        SelectedCaptionTemplate.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
+        SelectedSubtitlePageIndex.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
+        SelectedCue.Subscribe(_ =>
+        {
+            RefreshCueCommandStates();
+            RefreshTemplatePreview();
+        }).DisposeWith(_captionDisposables);
+        SelectedSourceLanguage.Subscribe(_ => InvalidatePartialResultResume()).DisposeWith(_captionDisposables);
+        SelectedTargetLanguage.Subscribe(_ => RefreshTranslationEstimate()).DisposeWith(_captionDisposables);
+        _captionDraftScopes
+            .DistinctUntilChanged()
+            .Subscribe(HandleCaptionDraftScopeChanged)
+            .DisposeWith(_captionDisposables);
+        if (_editViewModel is { } editViewModel)
+        {
+            editViewModel.Scene.GetObservable(Scene.FrameSizeProperty)
+                .DistinctUntilChanged()
+                .Skip(1)
+                .Subscribe(_ => RefreshTemplatePreview())
+                .DisposeWith(_captionDisposables);
+            editViewModel.Scene.Edited += OnCaptionSceneEdited;
+            Disposable.Create(() => editViewModel.Scene.Edited -= OnCaptionSceneEdited)
+                .DisposeWith(_captionDisposables);
+        }
+    }
+
+    private ReadOnlyReactivePropertySlim<bool> CreateCanTranslate()
+        => HasTimingValidCues
             .CombineLatest(
                 IsTranslating,
                 IsTranscribing,
@@ -270,22 +298,15 @@ public sealed partial class AiSubtitleDialogViewModel
                 (hasCues, translating, transcribing, canAfford, outstanding) =>
                     hasCues && !translating && !transcribing
                     && (canAfford || outstanding))
-            .CombineLatest(
+            .WhenSomeModelUsable(
                 TranslationModelPicker.OffersNothingUsable,
-                HasOutstandingTranslationRequest,
-                // Every model the operation registered was ruled out, so a new
-                // request would be refused however it is shaped — but a run
-                // already holding a name is answered from the job it made.
-                (can, nothingUsable, outstanding) =>
-                    can && (!nothingUsable || outstanding))
-            // Until the list has been asked for, a request would name no model
-            // and run on the server's default, which may cost more than what
-            // this screen was about to offer.
-            .CombineLatest(
-                TranslationModelPicker.IsLoaded,
-                (can, loaded) => can && loaded)
+                HasOutstandingTranslationRequest)
+            .WhenModelsLoaded(TranslationModelPicker.IsLoaded)
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_captionDisposables);
+
+    private void InitializeCaptionCommands()
+    {
         Translate = new AsyncReactiveCommand(CanTranslate)
             .WithSubscribe(TranslateCore)
             .DisposeWith(_captionDisposables);
@@ -327,34 +348,6 @@ public sealed partial class AiSubtitleDialogViewModel
         MergeCue.Subscribe(MergeCueCore).DisposeWith(_captionDisposables);
         WrapCues = new ReactiveCommand().DisposeWith(_captionDisposables);
         WrapCues.Subscribe(WrapCuesCore).DisposeWith(_captionDisposables);
-
-        ResultSegments.Subscribe(ApplyTranscriptionSegments).DisposeWith(_captionDisposables);
-        MaximumLineLength.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
-        MaximumLineCount.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
-        SelectedCaptionTemplate.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
-        SelectedSubtitlePageIndex.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
-        SelectedCue.Subscribe(_ =>
-        {
-            RefreshCueCommandStates();
-            RefreshTemplatePreview();
-        }).DisposeWith(_captionDisposables);
-        SelectedSourceLanguage.Subscribe(_ => InvalidatePartialResultResume()).DisposeWith(_captionDisposables);
-        SelectedTargetLanguage.Subscribe(_ => RefreshTranslationEstimate()).DisposeWith(_captionDisposables);
-        _captionDraftScopes
-            .DistinctUntilChanged()
-            .Subscribe(HandleCaptionDraftScopeChanged)
-            .DisposeWith(_captionDisposables);
-        if (_editViewModel is { } editViewModel)
-        {
-            editViewModel.Scene.GetObservable(Scene.FrameSizeProperty)
-                .DistinctUntilChanged()
-                .Skip(1)
-                .Subscribe(_ => RefreshTemplatePreview())
-                .DisposeWith(_captionDisposables);
-            editViewModel.Scene.Edited += OnCaptionSceneEdited;
-            Disposable.Create(() => editViewModel.Scene.Edited -= OnCaptionSceneEdited)
-                .DisposeWith(_captionDisposables);
-        }
     }
 
     private void OnEditableCuesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -385,7 +378,7 @@ public sealed partial class AiSubtitleDialogViewModel
     private void OnCaptionSceneEdited(object? sender, EventArgs e)
     {
         Interlocked.Increment(ref _sceneAudioRevision);
-        _ = LoadAudioSourcesAsync();
+        LoadAudioSources();
     }
 
     private static CaptionDocument CreateCaptionDocument(
@@ -447,9 +440,14 @@ public sealed partial class AiSubtitleDialogViewModel
         AiModelId? selected)
         => !hasNamedAnything
             ? selected
-            : string.IsNullOrEmpty(recorded)
-                ? null
-                : new AiModelId(recorded);
+            : ModelIdOrNull(recorded);
+
+    // A model or a key seed is written down as an empty string when there is none.
+    private static AiModelId? ModelIdOrNull(string? model)
+        => string.IsNullOrEmpty(model) ? null : new AiModelId(model);
+
+    private static string? SeedOrNull(string? seed)
+        => string.IsNullOrEmpty(seed) ? null : seed;
 
     private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
     {
@@ -459,6 +457,26 @@ public sealed partial class AiSubtitleDialogViewModel
         if (!await tracker.CheckNowAsync(request, RequestToken))
             throw new AiUsageLimitExceededException();
     }
+
+    // The refusals both runs report to the person as they are.
+    private static string? KnownRunFailureMessage(Exception exception)
+        => exception switch
+        {
+            AuthenticationRequiredException => Strings.AiAuthenticationRequired,
+            AiPlanRequiredException => Strings.AiProRequired,
+            AiUsageLimitExceededException => Strings.AiUsageLimitExceeded,
+            AiProviderErrorException => Strings.AiProviderError,
+            // Reachable because a piece keeps its name across attempts: asking again for one the
+            // server is still working on is how its result is recovered rather than bought twice.
+            // Neither of these is a settlement, so the run keeps its names and can be resumed;
+            // saying "an unexpected error" instead sent the user back to a button that looked
+            // like it would start over.
+            AiResultUnavailableException => Strings.AiResultUnavailable,
+            AiRequestInProgressException => Strings.AiRequestInProgress,
+            AiModelUnavailableException => Strings.AiModelUnavailable,
+            AiModelDoesNotSupportRequestException => Strings.AiModelDoesNotSupportRequest,
+            _ => null,
+        };
 
     private static string? CreateDetectedLanguageText(string? language)
         => string.IsNullOrWhiteSpace(language)

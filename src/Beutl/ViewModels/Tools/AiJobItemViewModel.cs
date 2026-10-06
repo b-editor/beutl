@@ -335,8 +335,6 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
             CreateDetails(),
             false);
         AiJobStatusSemantics status = AiJobStatusSemantics.Unknown;
-        bool canRetry = false;
-        bool canHandleResult = false;
         try
         {
             status = _jobKinds.GetStatus(_response);
@@ -346,6 +344,30 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
             status = AiJobStatusSemantics.Unknown;
         }
 
+        bool canRetry = ReadCanRetry(status);
+        presentation = ReadPresentation(status, presentation);
+        bool canHandleResult = ReadCanApplyResult(status);
+
+        Summary = presentation.Summary;
+        Details = presentation.Details;
+        HasDetails = Details.Length > 0;
+        CreatedAtText = RelativeTimeText.Format(_response.CreatedAt, DateTimeOffset.Now);
+        CreatedAtTooltip = _response.CreatedAt.ToLocalTime().ToString("g");
+        IsTerminal = status.IsTerminal;
+        ShouldPoll = status.ShouldPoll;
+        IsFailed = presentation.IsFailure;
+        CanDelete = status.IsTerminal;
+        CanRetry = canRetry && !_retrySubmitted;
+        CanAddToScene = canHandleResult;
+        KindDisplayName = presentation.KindDisplayName;
+        StatusDisplayName = presentation.StatusDisplayName;
+        HasImagePreview = presentation.HasImagePreview && ContentUri is not null;
+    }
+
+    // Whether the kind's retry handler takes this job; false without a handler or when it fails.
+    private bool ReadCanRetry(AiJobStatusSemantics status)
+    {
+        bool canRetry = false;
         if (_jobKinds.TryAcquireRetryHandler(
                 _response.Kind,
                 out IAiJobRetryHandlerLease? retryLease))
@@ -367,6 +389,13 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
             }
         }
 
+        return canRetry;
+    }
+
+    // The kind's own presentation of this job, or fallback without a presenter or when it fails.
+    private AiJobPresentation ReadPresentation(AiJobStatusSemantics status, AiJobPresentation fallback)
+    {
+        AiJobPresentation presentation = fallback;
         if (_resultHandlers.TryAcquirePresenter(
                 _response.Kind,
                 out IAiJobPresenterLease? presenterLease))
@@ -387,6 +416,13 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
             }
         }
 
+        return presentation;
+    }
+
+    // Whether the kind's result applicator takes this job; false without one or when it fails.
+    private bool ReadCanApplyResult(AiJobStatusSemantics status)
+    {
+        bool canHandleResult = false;
         if (_resultHandlers.TryAcquireApplicator(
                 _response.Kind,
                 out IAiJobResultApplicatorLease? applicatorLease))
@@ -404,20 +440,7 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
             }
         }
 
-        Summary = presentation.Summary;
-        Details = presentation.Details;
-        HasDetails = Details.Length > 0;
-        CreatedAtText = RelativeTimeText.Format(_response.CreatedAt, DateTimeOffset.Now);
-        CreatedAtTooltip = _response.CreatedAt.ToLocalTime().ToString("g");
-        IsTerminal = status.IsTerminal;
-        ShouldPoll = status.ShouldPoll;
-        IsFailed = presentation.IsFailure;
-        CanDelete = status.IsTerminal;
-        CanRetry = canRetry && !_retrySubmitted;
-        CanAddToScene = canHandleResult;
-        KindDisplayName = presentation.KindDisplayName;
-        StatusDisplayName = presentation.StatusDisplayName;
-        HasImagePreview = presentation.HasImagePreview && ContentUri is not null;
+        return canHandleResult;
     }
 
     private static void ValidatePresentation(AiJobPresentation presentation)

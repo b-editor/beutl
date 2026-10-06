@@ -17,149 +17,181 @@ public sealed partial class CloudStorageView
 {
     private async Task<StorageDestination?> PickStorageFolderAsync(CloudStorageViewModel vm, StorageActionContext context)
     {
-        using var cancellation = new CancellationTokenSource();
-        string? target = context.FolderId;
-        string? parent = null;
-        string? nextCursor = null;
-        string? movingFolder = context.Items is [var item] && item.IsFolder ? item.Id : null;
-        bool loading = false;
-        int generation = 0;
-        var choices = new ObservableCollection<StorageEntryResponse>();
-        var location = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        var error = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        var progress = new ProgressBar { Height = 2, IsIndeterminate = true };
-        var home = new Button { Content = Strings.Home };
-        var up = new Button { Content = Strings.CloudStorageUp };
-        var retry = new Button { Name = "StorageFolderRetry", Content = Strings.CloudStorageRetryLoadMore, IsVisible = false };
-        (string? Destination, bool Append) failedLoad = default;
-        var list = new ListBox
-        {
-            Name = "StorageFolderDestinations",
-            ItemsSource = choices,
-            Height = Math.Clamp((TopLevel.GetTopLevel(this)?.Bounds.Height ?? 580) - 300, 160, 280),
-            ItemTemplate = new FuncDataTemplate<StorageEntryResponse>((folder, _) => new TextBlock
-            {
-                Text = folder?.Name,
-                Margin = new Thickness(4),
-                Opacity = folder?.Id == movingFolder ? 0.4 : 1,
-            }),
-        };
-        var dialog = new FAContentDialog
-        {
-            Title = Strings.Move,
-            PrimaryButtonText = Strings.CloudStorageMoveHere,
-            CloseButtonText = Strings.Cancel,
-            IsPrimaryButtonEnabled = false,
-            DefaultButton = FAContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Width = 320,
-                Spacing = 8,
-                Children = { new TextBlock { Text = Strings.CloudStorageMoveDescription, TextWrapping = TextWrapping.Wrap },
-                    new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { home, up } }, location, progress, list, error, retry },
-            },
-        };
+        using var picker = new StorageFolderPicker(this, vm, context);
+        return await picker.ShowAsync();
+    }
 
-        void SetLocation(StorageResponse response)
+    // The folder chooser a move opens. One instance serves one call: its fields are that dialog's
+    // controls and how far its listing has got.
+    private sealed class StorageFolderPicker : IDisposable
+    {
+        private readonly CloudStorageView _owner;
+        private readonly CloudStorageViewModel _vm;
+        private readonly StorageActionContext _context;
+        private readonly CancellationTokenSource _cancellation = new();
+        private readonly string? _movingFolder;
+        private readonly ObservableCollection<StorageEntryResponse> _choices = new();
+        private readonly TextBlock _location = new() { TextWrapping = TextWrapping.Wrap };
+        private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap };
+        private readonly ProgressBar _progress = new() { Height = 2, IsIndeterminate = true };
+        private readonly Button _home = new() { Content = Strings.Home };
+        private readonly Button _up = new() { Content = Strings.CloudStorageUp };
+        private readonly Button _retry = new() { Name = "StorageFolderRetry", Content = Strings.CloudStorageRetryLoadMore, IsVisible = false };
+        private readonly ListBox _list;
+        private readonly FAContentDialog _dialog;
+        private string? _target;
+        private string? _parent;
+        private string? _nextCursor;
+        private bool _loading;
+        private int _generation;
+        private (string? Destination, bool Append) _failedLoad;
+
+        public StorageFolderPicker(CloudStorageView owner, CloudStorageViewModel vm, StorageActionContext context)
         {
-            target = response.ParentId;
-            parent = response.Path.LastOrDefault()?.ParentId;
-            location.Text = string.Join(" / ", new[] { Strings.CloudStorage }.Concat(response.Path.Select(x => x.Name)));
+            _owner = owner;
+            _vm = vm;
+            _context = context;
+            _target = context.FolderId;
+            _movingFolder = context.Items is [var item] && item.IsFolder ? item.Id : null;
+            _list = new ListBox
+            {
+                Name = "StorageFolderDestinations",
+                ItemsSource = _choices,
+                Height = Math.Clamp((TopLevel.GetTopLevel(owner)?.Bounds.Height ?? 580) - 300, 160, 280),
+                ItemTemplate = new FuncDataTemplate<StorageEntryResponse>((folder, _) => new TextBlock
+                {
+                    Text = folder?.Name,
+                    Margin = new Thickness(4),
+                    Opacity = folder?.Id == _movingFolder ? 0.4 : 1,
+                }),
+            };
+            _dialog = new FAContentDialog
+            {
+                Title = Strings.Move,
+                PrimaryButtonText = Strings.CloudStorageMoveHere,
+                CloseButtonText = Strings.Cancel,
+                IsPrimaryButtonEnabled = false,
+                DefaultButton = FAContentDialogButton.Primary,
+                Content = new StackPanel
+                {
+                    Width = 320,
+                    Spacing = 8,
+                    Children = { new TextBlock { Text = Strings.CloudStorageMoveDescription, TextWrapping = TextWrapping.Wrap },
+                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { _home, _up } }, _location, _progress, _list, _error, _retry },
+                },
+            };
+
+            _home.Click += async (_, _) => await LoadAsync(null);
+            _up.Click += async (_, _) => await LoadAsync(_parent);
+            _retry.Click += async (_, _) => await LoadAsync(_failedLoad.Destination, _failedLoad.Append);
+            _list.DoubleTapped += async (_, _) => await OpenSelectedAsync();
+            _list.AddHandler(KeyDownEvent, async (_, args) =>
+            {
+                if (args.Key != Key.Enter) return;
+                args.Handled = true;
+                await OpenSelectedAsync();
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            _list.TemplateApplied += (_, _) =>
+            {
+                if (_list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
+                    scroll.ScrollChanged += async (_, _) => await OnScrollChangedAsync(scroll);
+            };
         }
 
-        async Task LoadAsync(string? destination, bool append = false)
+        public async Task<StorageDestination?> ShowAsync()
         {
-            if (loading || cancellation.IsCancellationRequested) return;
-            loading = true;
-            int version = append ? generation : ++generation;
-            progress.IsVisible = true;
-            home.IsEnabled = up.IsEnabled = list.IsEnabled = false;
-            error.Text = "";
-            retry.IsVisible = false;
+            var shown = _owner.ShowStorageDialogAsync(_dialog);
+            var initial = LoadAsync(_target);
+            var result = await shown;
+            _cancellation.Cancel();
+            await initial;
+            return result == FAContentDialogResult.Primary && _vm.IsActionCurrent(_context) ? new StorageDestination(_target) : null;
+        }
+
+        public void Dispose() => _cancellation.Dispose();
+
+        private void SetLocation(StorageResponse response)
+        {
+            _target = response.ParentId;
+            _parent = response.Path.LastOrDefault()?.ParentId;
+            _location.Text = string.Join(" / ", new[] { Strings.CloudStorage }.Concat(response.Path.Select(x => x.Name)));
+        }
+
+        private async Task LoadAsync(string? destination, bool append = false)
+        {
+            if (_loading || _cancellation.IsCancellationRequested) return;
+            _loading = true;
+            int version = append ? _generation : ++_generation;
+            _progress.IsVisible = true;
+            _home.IsEnabled = _up.IsEnabled = _list.IsEnabled = false;
+            _error.Text = "";
+            _retry.IsVisible = false;
             if (!append)
             {
                 // Optional child pages leave the already validated destination usable.
-                dialog.IsPrimaryButtonEnabled = false;
-                choices.Clear();
-                nextCursor = null;
+                _dialog.IsPrimaryButtonEnabled = false;
+                _choices.Clear();
+                _nextCursor = null;
             }
             try
             {
-                string? cursor = append ? nextCursor : null;
-                var response = await vm.GetFolderChoicesAsync(context, destination, cursor, cancellation.Token);
-                if (response == null || cancellation.IsCancellationRequested || version != generation) return;
+                string? cursor = append ? _nextCursor : null;
+                var response = await _vm.GetFolderChoicesAsync(_context, destination, cursor, _cancellation.Token);
+                if (response == null || _cancellation.IsCancellationRequested || version != _generation) return;
                 if (append && response.ParentId != destination)
                 {
                     // The old cursor and children belong to a different folder. Restart
                     // from the resolved location, including when the reload needs a retry.
                     destination = response.ParentId;
                     append = false;
-                    version = ++generation;
-                    cursor = nextCursor = null;
-                    choices.Clear();
-                    dialog.IsPrimaryButtonEnabled = false;
+                    version = ++_generation;
+                    cursor = _nextCursor = null;
+                    _choices.Clear();
+                    _dialog.IsPrimaryButtonEnabled = false;
                     SetLocation(response);
-                    response = await vm.GetFolderChoicesAsync(context, destination, null, cancellation.Token);
-                    if (response == null || cancellation.IsCancellationRequested || version != generation) return;
+                    response = await _vm.GetFolderChoicesAsync(_context, destination, null, _cancellation.Token);
+                    if (response == null || _cancellation.IsCancellationRequested || version != _generation) return;
                 }
                 SetLocation(response);
                 foreach (var folder in response.Entries.Where(x => x.Kind == "folder"))
-                    if (choices.All(x => x.Id != folder.Id)) choices.Add(folder);
-                nextCursor = response.NextCursor != cursor ? response.NextCursor : null;
-                dialog.IsPrimaryButtonEnabled = target != context.FolderId
-                    && (movingFolder == null || target != movingFolder && response.Path.All(x => x.Id != movingFolder));
+                    if (_choices.All(x => x.Id != folder.Id)) _choices.Add(folder);
+                _nextCursor = response.NextCursor != cursor ? response.NextCursor : null;
+                _dialog.IsPrimaryButtonEnabled = _target != _context.FolderId
+                    && (_movingFolder == null || _target != _movingFolder && response.Path.All(x => x.Id != _movingFolder));
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                if (!cancellation.IsCancellationRequested)
+                if (!_cancellation.IsCancellationRequested)
                 {
-                    error.Text = Strings.CloudStorageLoadFailed;
-                    failedLoad = (destination, append);
-                    retry.IsVisible = true;
+                    _error.Text = Strings.CloudStorageLoadFailed;
+                    _failedLoad = (destination, append);
+                    _retry.IsVisible = true;
                 }
                 Debug.WriteLine(ex);
             }
             finally
             {
-                loading = false;
-                progress.IsVisible = false;
-                home.IsEnabled = target != null;
-                up.IsEnabled = target != null;
-                list.IsEnabled = true;
+                _loading = false;
+                _progress.IsVisible = false;
+                _home.IsEnabled = _target != null;
+                _up.IsEnabled = _target != null;
+                _list.IsEnabled = true;
             }
         }
 
-        async Task OpenSelectedAsync()
+        private async Task OpenSelectedAsync()
         {
-            if (list.SelectedItem is StorageEntryResponse folder && folder.Id != movingFolder)
+            if (_list.SelectedItem is StorageEntryResponse folder && folder.Id != _movingFolder)
                 await LoadAsync(folder.Id);
         }
-        home.Click += async (_, _) => await LoadAsync(null);
-        up.Click += async (_, _) => await LoadAsync(parent);
-        retry.Click += async (_, _) => await LoadAsync(failedLoad.Destination, failedLoad.Append);
-        list.DoubleTapped += async (_, _) => await OpenSelectedAsync();
-        list.AddHandler(KeyDownEvent, async (_, args) =>
+
+        // The next page loads once the list is scrolled within half a screen of its end.
+        private async Task OnScrollChangedAsync(ScrollViewer scroll)
         {
-            if (args.Key != Key.Enter) return;
-            args.Handled = true;
-            await OpenSelectedAsync();
-        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-        list.TemplateApplied += (_, _) =>
-        {
-            if (list.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll)
-                scroll.ScrollChanged += async (_, _) =>
-                {
-                    if (!loading && !retry.IsVisible && nextCursor != null && scroll.Viewport.Height > 0
-                        && scroll.Extent.Height - scroll.Viewport.Height - scroll.Offset.Y < scroll.Viewport.Height / 2)
-                        await LoadAsync(target, append: true);
-                };
-        };
-        var shown = ShowStorageDialogAsync(dialog);
-        var initial = LoadAsync(target);
-        var result = await shown;
-        cancellation.Cancel();
-        await initial;
-        return result == FAContentDialogResult.Primary && vm.IsActionCurrent(context) ? new StorageDestination(target) : null;
+            if (!_loading && !_retry.IsVisible && _nextCursor != null && scroll.Viewport.Height > 0
+                && scroll.Extent.Height - scroll.Viewport.Height - scroll.Offset.Y < scroll.Viewport.Height / 2)
+                await LoadAsync(_target, append: true);
+        }
     }
 }

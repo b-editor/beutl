@@ -85,21 +85,7 @@ public class OutputTabViewModel : IToolContext
             {
                 // CoreList updates its backing collection before notifying observers. Repair the
                 // selection even when one of those observers throws after the removal committed.
-                if (Items.Count > 0)
-                {
-                    if (index < Items.Count)
-                    {
-                        SelectedItem.Value = Items[index];
-                    }
-                    else if (index == Items.Count)
-                    {
-                        SelectedItem.Value = Items[^1];
-                    }
-                }
-                else
-                {
-                    SelectedItem.Value = null;
-                }
+                RestoreSelectionAfterRemoval(index);
             }
         }
         finally
@@ -116,6 +102,26 @@ public class OutputTabViewModel : IToolContext
         }
 
         _logger.LogInformation("Item removed successfully.");
+    }
+
+    // The item that moved into the removed one's place, else the new last item, else none.
+    private void RestoreSelectionAfterRemoval(int index)
+    {
+        if (Items.Count > 0)
+        {
+            if (index < Items.Count)
+            {
+                SelectedItem.Value = Items[index];
+            }
+            else if (index == Items.Count)
+            {
+                SelectedItem.Value = Items[^1];
+            }
+        }
+        else
+        {
+            SelectedItem.Value = null;
+        }
     }
 
     public void Save()

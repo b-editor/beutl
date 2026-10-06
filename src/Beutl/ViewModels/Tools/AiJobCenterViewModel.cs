@@ -211,67 +211,21 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
                 return;
             }
 
-            using (lease)
+            if (!await SubmitRetryAsync(
+                    item,
+                    lease,
+                    confirmed: confirmedLease is not null,
+                    confirmedHandler,
+                    lifetimeOperation.CancellationToken))
             {
-                AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-                IAiJobRetryHandler retryHandler = confirmedHandler ?? lease.Handler;
-                if (!retryHandler.CanRetry(item.Job, status))
-                {
-                    SetOperationError(Strings.AiPricingUnavailable);
-                    return;
-                }
-
-                if (confirmedLease is null)
-                {
-                    AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
-                        item.Job,
-                        lifetimeOperation.CancellationToken);
-                    if (!estimate.CanSubmit)
-                    {
-                        SetOperationError(estimate.Explanation);
-                        return;
-                    }
-                }
-
-                AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
-                    item.Job,
-                    lifetimeOperation.CancellationToken);
-                await using (prepared)
-                {
-                    if (!prepared.IsReady)
-                    {
-                        SetOperationError(prepared.Explanation);
-                        return;
-                    }
-
-                    IAiJobRetryPreparation preparation = prepared.TakePreparation();
-                    await using (preparation)
-                    {
-                        await preparation.ExecuteAsync(lifetimeOperation.CancellationToken);
-                    }
-                }
+                return;
             }
 
             item.MarkRetrySubmitted();
 
             if (!IsDisposed)
             {
-                try
-                {
-                    await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "AI job {JobId} was retried, but refreshing the job list failed",
-                        item.Id);
-                    SetOperationError(Strings.AiJobCenter_LoadFailed);
-                }
+                await RefreshAfterRetryAsync(item, lifetimeOperation.CancellationToken);
             }
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
@@ -300,6 +254,80 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         {
             _logger.LogError(ex, "Failed to retry AI job {JobId}", item.Id);
             SetOperationError(Strings.AiJobCenter_RetryFailed);
+        }
+    }
+
+    // Sends the retry under the lease, which is disposed once it has gone out or been refused.
+    // False when it was refused, with the reason already shown.
+    private async Task<bool> SubmitRetryAsync(
+        AiJobItemViewModel item,
+        IAiJobRetryHandlerLease lease,
+        bool confirmed,
+        IAiJobRetryHandler? confirmedHandler,
+        CancellationToken cancellationToken)
+    {
+        using (lease)
+        {
+            AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
+            IAiJobRetryHandler retryHandler = confirmedHandler ?? lease.Handler;
+            if (!retryHandler.CanRetry(item.Job, status))
+            {
+                SetOperationError(Strings.AiPricingUnavailable);
+                return false;
+            }
+
+            if (!confirmed)
+            {
+                AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
+                    item.Job,
+                    cancellationToken);
+                if (!estimate.CanSubmit)
+                {
+                    SetOperationError(estimate.Explanation);
+                    return false;
+                }
+            }
+
+            AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
+                item.Job,
+                cancellationToken);
+            await using (prepared)
+            {
+                if (!prepared.IsReady)
+                {
+                    SetOperationError(prepared.Explanation);
+                    return false;
+                }
+
+                IAiJobRetryPreparation preparation = prepared.TakePreparation();
+                await using (preparation)
+                {
+                    await preparation.ExecuteAsync(cancellationToken);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // The retry has gone out; a list that fails to refresh is reported but does not undo it.
+    private async Task RefreshAfterRetryAsync(AiJobItemViewModel item, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _jobMonitor.RefreshAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "AI job {JobId} was retried, but refreshing the job list failed",
+                item.Id);
+            SetOperationError(Strings.AiJobCenter_LoadFailed);
         }
     }
 

@@ -184,58 +184,11 @@ public sealed partial class AiSubtitleDialogViewModel
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
-            var elements = new List<Element>();
             using (ICaptionTemplateLease template = _captionTemplates.Acquire(
                        templateId))
             {
-                CaptionElementContext context = new(
-                    0,
-                    Strings.AiSubtitle,
-                    new Beutl.Graphics.Point(
-                        0,
-                        frameSize.Height * 0.35f));
-                foreach (ElementDescription description in template.CreateElements(cue, context))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    Element element;
-                    switch (description.Source)
-                    {
-                        case ElementSource.EngineObject source:
-                            element = new Element
-                            {
-                                Start = description.Start,
-                                Length = description.Length ?? TimeSpan.FromSeconds(2),
-                                ZIndex = description.Layer,
-                            };
-                            element.AddObject(source.Factory());
-                            break;
-                        case ElementSource.ElementTemplate source:
-                            element = source.Factory()
-                                ?? throw new InvalidOperationException("The element-template factory returned null.");
-                            element.Start = description.Start;
-                            if (description.Length is { } length)
-                                element.Length = length;
-                            element.ZIndex = description.Layer;
-                            break;
-                        default:
-                            return;
-                    }
-
-                    if (description.Position is { } position)
-                    {
-                        foreach (Beutl.Graphics.Drawable drawable in element.Objects.OfType<Beutl.Graphics.Drawable>())
-                        {
-                            Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.CurrentValue;
-                            Beutl.Helpers.AddOrSetHelper.AddOrSet(
-                                ref transform,
-                                new Beutl.Graphics.Transformation.TranslateTransform(position));
-                            drawable.Transform.CurrentValue = transform;
-                        }
-                    }
-
-                    elements.Add(element);
-                }
-                if (elements.Count == 0)
+                List<Element>? elements = CreatePreviewElements(template, cue, frameSize, cancellationToken);
+                if (elements is null || elements.Count == 0)
                     return;
 
                 byte[]? png = await TemplatePreviewRenderer(
@@ -287,6 +240,65 @@ public sealed partial class AiSubtitleDialogViewModel
             }
             cts.Dispose();
         }
+    }
+
+    // The elements the template makes for cue, placed as the preview frame shows them; null when
+    // the template describes a source the preview cannot build.
+    private static List<Element>? CreatePreviewElements(
+        ICaptionTemplateLease template,
+        CaptionCue cue,
+        Beutl.Media.PixelSize frameSize,
+        CancellationToken cancellationToken)
+    {
+        var elements = new List<Element>();
+        CaptionElementContext context = new(
+            0,
+            Strings.AiSubtitle,
+            new Beutl.Graphics.Point(
+                0,
+                frameSize.Height * 0.35f));
+        foreach (ElementDescription description in template.CreateElements(cue, context))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Element element;
+            switch (description.Source)
+            {
+                case ElementSource.EngineObject source:
+                    element = new Element
+                    {
+                        Start = description.Start,
+                        Length = description.Length ?? TimeSpan.FromSeconds(2),
+                        ZIndex = description.Layer,
+                    };
+                    element.AddObject(source.Factory());
+                    break;
+                case ElementSource.ElementTemplate source:
+                    element = source.Factory()
+                        ?? throw new InvalidOperationException("The element-template factory returned null.");
+                    element.Start = description.Start;
+                    if (description.Length is { } length)
+                        element.Length = length;
+                    element.ZIndex = description.Layer;
+                    break;
+                default:
+                    return null;
+            }
+
+            if (description.Position is { } position)
+            {
+                foreach (Beutl.Graphics.Drawable drawable in element.Objects.OfType<Beutl.Graphics.Drawable>())
+                {
+                    Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.CurrentValue;
+                    Beutl.Helpers.AddOrSetHelper.AddOrSet(
+                        ref transform,
+                        new Beutl.Graphics.Transformation.TranslateTransform(position));
+                    drawable.Transform.CurrentValue = transform;
+                }
+            }
+
+            elements.Add(element);
+        }
+        return elements;
     }
 
     private void StopTemplatePreviewAdmission()

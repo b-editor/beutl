@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
@@ -122,67 +123,17 @@ public sealed class HistoryViewModel : IToolContext
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add when e.NewItems is not null:
-                    {
-                        int insertIndex = e.NewStartingIndex >= 0 ? e.NewStartingIndex : _entries.Count;
-                        foreach (object? item in e.NewItems)
-                        {
-                            if (item is HistoryEntry entry)
-                            {
-                                _entries.Insert(insertIndex++, entry);
-                            }
-                        }
-                        break;
-                    }
+                    ApplyAdd(e.NewStartingIndex, e.NewItems);
+                    break;
                 case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
-                    {
-                        int removeAt = e.OldStartingIndex;
-                        if (removeAt < 0)
-                        {
-                            ResyncEntries();
-                        }
-                        else
-                        {
-                            for (int i = 0; i < e.OldItems.Count; i++)
-                            {
-                                if (removeAt < _entries.Count)
-                                {
-                                    _entries.RemoveAt(removeAt);
-                                }
-                            }
-                        }
-                        break;
-                    }
+                    ApplyRemove(e.OldStartingIndex, e.OldItems);
+                    break;
                 case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
-                    {
-                        int start = e.NewStartingIndex;
-                        if (start < 0)
-                        {
-                            ResyncEntries();
-                            break;
-                        }
-                        for (int i = 0; i < e.NewItems.Count; i++)
-                        {
-                            if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
-                            {
-                                _entries[start + i] = entry;
-                            }
-                        }
-                        break;
-                    }
+                    ApplyReplace(e.NewStartingIndex, e.NewItems);
+                    break;
                 case NotifyCollectionChangedAction.Move:
-                    {
-                        if (e.OldStartingIndex < 0 || e.NewStartingIndex < 0
-                            || e.OldStartingIndex >= _entries.Count
-                            || e.NewStartingIndex >= _entries.Count)
-                        {
-                            ResyncEntries();
-                        }
-                        else
-                        {
-                            _entries.Move(e.OldStartingIndex, e.NewStartingIndex);
-                        }
-                        break;
-                    }
+                    ApplyMove(e.OldStartingIndex, e.NewStartingIndex);
+                    break;
                 case NotifyCollectionChangedAction.Reset:
                 default:
                     ResyncEntries();
@@ -196,6 +147,66 @@ public sealed class HistoryViewModel : IToolContext
         }
 
         SyncCurrentIndex();
+    }
+
+    private void ApplyAdd(int startingIndex, IList newItems)
+    {
+        int insertIndex = startingIndex >= 0 ? startingIndex : _entries.Count;
+        foreach (object? item in newItems)
+        {
+            if (item is HistoryEntry entry)
+            {
+                _entries.Insert(insertIndex++, entry);
+            }
+        }
+    }
+
+    private void ApplyRemove(int removeAt, IList oldItems)
+    {
+        if (removeAt < 0)
+        {
+            ResyncEntries();
+        }
+        else
+        {
+            for (int i = 0; i < oldItems.Count; i++)
+            {
+                if (removeAt < _entries.Count)
+                {
+                    _entries.RemoveAt(removeAt);
+                }
+            }
+        }
+    }
+
+    private void ApplyReplace(int start, IList newItems)
+    {
+        if (start < 0)
+        {
+            ResyncEntries();
+            return;
+        }
+        for (int i = 0; i < newItems.Count; i++)
+        {
+            if (newItems[i] is HistoryEntry entry && start + i < _entries.Count)
+            {
+                _entries[start + i] = entry;
+            }
+        }
+    }
+
+    private void ApplyMove(int oldIndex, int newIndex)
+    {
+        if (oldIndex < 0 || newIndex < 0
+            || oldIndex >= _entries.Count
+            || newIndex >= _entries.Count)
+        {
+            ResyncEntries();
+        }
+        else
+        {
+            _entries.Move(oldIndex, newIndex);
+        }
     }
 
     private void ResyncEntries()

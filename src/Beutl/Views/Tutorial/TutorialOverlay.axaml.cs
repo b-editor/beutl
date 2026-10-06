@@ -16,6 +16,13 @@ namespace Beutl.Views.Tutorial;
 
 public partial class TutorialOverlay : UserControl
 {
+    // How far a highlight reaches past its target on every side.
+    private const double HighlightPadding = 4;
+    // How far the tip keeps from its target and from the overlay's edge.
+    private const double TipGap = 16;
+    // Half the tip's MaxWidth in the XAML, to center the tip under its target.
+    private const double TipHalfWidth = 200;
+
     private readonly List<Border> _highlightBorders = [];
     private readonly List<Control> _currentTargets = [];
     private Control? _primaryTarget;
@@ -57,14 +64,7 @@ public partial class TutorialOverlay : UserControl
         if (_currentTargets.Count > 0)
         {
             PositionHighlights();
-            if (_primaryTarget != null)
-            {
-                PositionTip(_primaryTarget, step.PreferredPlacement);
-            }
-            else
-            {
-                PositionTip(_currentTargets[0], step.PreferredPlacement);
-            }
+            PositionTip(_primaryTarget ?? _currentTargets[0], step.PreferredPlacement);
         }
         else
         {
@@ -155,15 +155,16 @@ public partial class TutorialOverlay : UserControl
                 Point? pos = target.TranslatePoint(new Point(0, 0), this);
                 if (pos.HasValue)
                 {
+                    var rect = new Rect(
+                        pos.Value.X - HighlightPadding, pos.Value.Y - HighlightPadding,
+                        target.Bounds.Width + HighlightPadding * 2, target.Bounds.Height + HighlightPadding * 2);
                     border.IsVisible = true;
-                    Canvas.SetLeft(border, pos.Value.X - 4);
-                    Canvas.SetTop(border, pos.Value.Y - 4);
-                    border.Width = target.Bounds.Width + 8;
-                    border.Height = target.Bounds.Height + 8;
+                    Canvas.SetLeft(border, rect.X);
+                    Canvas.SetTop(border, rect.Y);
+                    border.Width = rect.Width;
+                    border.Height = rect.Height;
 
-                    targetRects.Add(new Rect(
-                        pos.Value.X - 4, pos.Value.Y - 4,
-                        target.Bounds.Width + 8, target.Bounds.Height + 8));
+                    targetRects.Add(rect);
                 }
                 else
                 {
@@ -252,31 +253,31 @@ public partial class TutorialOverlay : UserControl
             TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
             TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
 
-            double tipLeft = Math.Max(16, targetCenterX - 200);
+            double tipLeft = Math.Max(TipGap, targetCenterX - TipHalfWidth);
             double tipTop;
 
             if (placement == TutorialStepPlacement.Top)
             {
-                tipTop = targetTop - 16;
+                tipTop = targetTop - TipGap;
                 TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom;
                 TipContainer.Margin = new Thickness(tipLeft, 0, 0, tipTop);
             }
             else if (placement == TutorialStepPlacement.Left)
             {
-                tipLeft = Bounds.Width - (targetLeft - 16);
+                tipLeft = Bounds.Width - (targetLeft - TipGap);
                 tipTop = targetCenterY;
                 TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
                 TipContainer.Margin = new Thickness(0, tipTop, tipLeft, 0);
             }
             else if (placement == TutorialStepPlacement.Right)
             {
-                tipLeft = targetRight + 16;
+                tipLeft = targetRight + TipGap;
                 tipTop = targetCenterY;
                 TipContainer.Margin = new Thickness(tipLeft, tipTop, 0, 0);
             }
             else if (placement == TutorialStepPlacement.Bottom)
             {
-                tipTop = targetBottom + 16;
+                tipTop = targetBottom + TipGap;
                 TipContainer.Margin = new Thickness(tipLeft, tipTop, 0, 0);
             }
         }

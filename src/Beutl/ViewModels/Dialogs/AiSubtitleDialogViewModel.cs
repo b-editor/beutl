@@ -147,29 +147,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 IsTranscribing,
                 IsTranslating,
                 (hasInput, transcribing, translating) => hasInput && !transcribing && !translating)
-            .CombineLatest(
-                TranscriptionEstimate.CanAfford,
-                HasOutstandingTranscriptionRequest,
-                // Or a run that has already named pieces: the server answers a
-                // repeat with the job that name made before it looks at the
-                // balance, so a run whose last piece spent the balance has to
-                // stay collectable.
-                (canTranscribe, canAfford, outstanding) =>
-                    canTranscribe && (canAfford || outstanding))
-            .CombineLatest(
+            // A run that has already named pieces holds a name: a run whose last
+            // piece spent the balance has to stay collectable.
+            .WhenAffordable(TranscriptionEstimate.CanAfford, HasOutstandingTranscriptionRequest)
+            .WhenSomeModelUsable(
                 TranscriptionModelPicker.OffersNothingUsable,
-                HasOutstandingTranscriptionRequest,
-                // Every model the operation registered was ruled out, so a new
-                // request would be refused however it is shaped — but a run
-                // already holding a name is answered from the job it made.
-                (can, nothingUsable, outstanding) =>
-                    can && (!nothingUsable || outstanding))
-            // Until the list has been asked for, a request would name no model
-            // and run on the server's default, which may cost more than what
-            // this screen was about to offer.
-            .CombineLatest(
-                TranscriptionModelPicker.IsLoaded,
-                (can, loaded) => can && loaded)
+                HasOutstandingTranscriptionRequest)
+            .WhenModelsLoaded(TranscriptionModelPicker.IsLoaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -199,7 +183,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             .DisposeWith(_disposables);
 
         _ = LoadEntitlementsAsync();
-        _ = LoadAudioSourcesAsync();
+        LoadAudioSources();
     }
 
     public ReactivePropertySlim<IReadOnlyList<AudioSourceItem>> AudioSources { get; }
@@ -389,19 +373,53 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
     }
 
-    private Task LoadAudioSourcesAsync()
+    private void LoadAudioSources()
     {
         if (_disposed)
-            return Task.CompletedTask;
+            return;
 
         if (_editViewModel == null)
         {
             AudioSources.Value = [];
-            return Task.CompletedTask;
+            return;
         }
 
+        List<AudioSourceItem> items = CollectAudioSources(_editViewModel.Scene);
+
+        AudioSourceItem? previous = SelectedAudioSource.Value;
+        AudioSourceItem? selected = previous is null
+            ? items.FirstOrDefault()
+            : items.FirstOrDefault(item =>
+                AudioSourceItem.HasSameSelectionIdentity(item, previous))
+              ?? items.FirstOrDefault();
+        if (selected is not null
+            && previous is not null
+            && AudioSourceItem.CanReuseSelectionSnapshot(selected, previous))
+        {
+            int selectedIndex = items.IndexOf(selected);
+            items[selectedIndex] = previous;
+            selected = previous;
+        }
+
+        AudioSources.Value = items;
+        if (!ReferenceEquals(SelectedAudioSource.Value, selected))
+        {
+            _updatingAudioSources = true;
+            try
+            {
+                SelectedAudioSource.Value = selected;
+            }
+            finally
+            {
+                _updatingAudioSources = false;
+            }
+        }
+    }
+
+    // The scene mix first, then every element that plays a sound file.
+    private static List<AudioSourceItem> CollectAudioSources(Scene scene)
+    {
         var items = new List<AudioSourceItem>();
-        Scene scene = _editViewModel.Scene;
         items.Add(AudioSourceItem.CreateSceneMix(
             Strings.AiSubtitle_SceneMix,
             scene.Start,
@@ -434,35 +452,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
             }
         }
 
-        AudioSourceItem? previous = SelectedAudioSource.Value;
-        AudioSourceItem? selected = previous is null
-            ? items.FirstOrDefault()
-            : items.FirstOrDefault(item =>
-                AudioSourceItem.HasSameSelectionIdentity(item, previous))
-              ?? items.FirstOrDefault();
-        if (selected is not null
-            && previous is not null
-            && AudioSourceItem.CanReuseSelectionSnapshot(selected, previous))
-        {
-            int selectedIndex = items.IndexOf(selected);
-            items[selectedIndex] = previous;
-            selected = previous;
-        }
-
-        AudioSources.Value = items;
-        if (!ReferenceEquals(SelectedAudioSource.Value, selected))
-        {
-            _updatingAudioSources = true;
-            try
-            {
-                SelectedAudioSource.Value = selected;
-            }
-            finally
-            {
-                _updatingAudioSources = false;
-            }
-        }
-        return Task.CompletedTask;
+        return items;
     }
 
     /// <summary>
@@ -496,44 +486,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         {
             await TranscribeSelectedSourceAsync(source, operation);
         }
-        catch (AuthenticationRequiredException)
+        catch (Exception ex) when (KnownRunFailureMessage(ex) is { } message)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired);
-        }
-        catch (AiPlanRequiredException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProRequired);
-        }
-        catch (AiUsageLimitExceededException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUsageLimitExceeded);
+            SetCaptionErrorIfCurrent(draftScopeRevision, message);
         }
         catch (AiFileTooLargeException)
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiFileTooLarge);
-        }
-        catch (AiResultUnavailableException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiResultUnavailable);
-        }
-        catch (AiModelUnavailableException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable);
-        }
-        catch (AiModelDoesNotSupportRequestException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelDoesNotSupportRequest);
-        }
-        catch (AiProviderErrorException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError);
-        }
-        // Reachable because a chunk keeps its name across attempts: asking again
-        // for one the server is still working on is how its result is recovered
-        // rather than bought twice, and until it finishes the answer is this.
-        catch (AiRequestInProgressException)
-        {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
         }
         // This execution's name belongs to another request. Scene-mixed audio can change whenever
         // it is recomposed, so a restored execution can arrive here. Keep paid chunks as-is and

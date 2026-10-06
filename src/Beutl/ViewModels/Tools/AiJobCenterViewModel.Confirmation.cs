@@ -106,27 +106,15 @@ public sealed partial class AiJobCenterViewModel
         }
         catch (AuthenticationRequiredException)
         {
-            if (IsCurrentConfirmation(revision, lease))
-            {
-                SetOperationError(Strings.AiAuthenticationRequired);
-                ReleaseConfirmationResources();
-            }
+            FailConfirmation(revision, lease, Strings.AiAuthenticationRequired);
         }
         catch (AiJobRetryPreparationRejectedException)
         {
-            if (IsCurrentConfirmation(revision, lease))
-            {
-                SetOperationError(Strings.AiResultUnavailable);
-                ReleaseConfirmationResources();
-            }
+            FailConfirmation(revision, lease, Strings.AiResultUnavailable);
         }
         catch (AiJobRetryPreparationUnavailableException)
         {
-            if (IsCurrentConfirmation(revision, lease))
-            {
-                SetOperationError(Strings.AiPricingUnavailable);
-                ReleaseConfirmationResources();
-            }
+            FailConfirmation(revision, lease, Strings.AiPricingUnavailable);
         }
         catch (OperationCanceledException) when (preflightCts?.IsCancellationRequested == true)
         {
@@ -189,6 +177,16 @@ public sealed partial class AiJobCenterViewModel
         => revision == Volatile.Read(ref _confirmationRevision)
             && !IsDisposed
             && (lease is null || ReferenceEquals(_confirmationLease, lease));
+
+    // Says why the confirmation on show cannot go ahead, unless another has replaced it.
+    private void FailConfirmation(long revision, IAiJobRetryHandlerLease? lease, string error)
+    {
+        if (IsCurrentConfirmation(revision, lease))
+        {
+            SetOperationError(error);
+            ReleaseConfirmationResources();
+        }
+    }
 
     internal void RequestDeleteConfirmation(AiJobItemViewModel item)
     {

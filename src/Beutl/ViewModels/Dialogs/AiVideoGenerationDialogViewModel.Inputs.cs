@@ -110,18 +110,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             }
             else if (FirstFramePath.Value is null)
             {
-                var references = ReferenceGroups.SelectMany(group => group.Files).Select(file => Describe(file.Path, file.Name)).ToArray();
-                AiVideoInputLimits.ValidateReferences(references);
-                if (_selectedRecovery is null)
-                {
-                    if (references.Length == 0 && !limits.SupportsPromptToVideo) throw new VideoInputException(Strings.AiChooseVideoInput);
-                    foreach (var group in ReferenceGroups.Where(group => group.Files.Count > 0))
-                    {
-                        if (!group.IsSupported.Value || group.Files.Count > group.MaximumCount
-                            || group.Files.Any(file => new FileInfo(file.Path).Length > group.MaximumBytes))
-                            throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
-                    }
-                }
+                ValidateReferenceInputs(limits);
             }
             InputError.Value = null;
         }
@@ -130,6 +119,22 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         catch (ArgumentException) { InputError.Value = Strings.AiVideoInputUnavailable; }
         catch (IOException) { InputError.Value = Strings.AiVideoInputUnavailable; }
         catch (UnauthorizedAccessException) { InputError.Value = Strings.AiVideoInputUnavailable; }
+    }
+
+    private void ValidateReferenceInputs(AiVideoModelCapabilities limits)
+    {
+        var references = ReferenceGroups.SelectMany(group => group.Files).Select(file => Describe(file.Path, file.Name)).ToArray();
+        AiVideoInputLimits.ValidateReferences(references);
+        if (_selectedRecovery is null)
+        {
+            if (references.Length == 0 && !limits.SupportsPromptToVideo) throw new VideoInputException(Strings.AiChooseVideoInput);
+            foreach (var group in ReferenceGroups.Where(group => group.Files.Count > 0))
+            {
+                if (!group.IsSupported.Value || group.Files.Count > group.MaximumCount
+                    || group.Files.Any(file => new FileInfo(file.Path).Length > group.MaximumBytes))
+                    throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
+            }
+        }
     }
 
     private void ValidateSourceInputs(AiUploadSource source, AiUploadSource? character, double? duration, AiVideoModelCapabilities limits)
@@ -182,9 +187,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 foreach (var file in files) file.Dispose();
             }
             if (paths.Count == 0) return;
-            string kind = role is "source" or "video" ? "video" : role == "audio" ? "audio" : "image";
-            foreach (string path in paths) AiVideoInputLimits.Validate(Describe(path), kind,
-                kind == "image" ? AiRequestLimits.MaxFrameUploadBytes : kind == "audio" ? AiVideoInputLimits.MaxAudioBytes : AiVideoInputLimits.MaxSourceBytes);
+            string kind = InputKind(role);
+            foreach (string path in paths) AiVideoInputLimits.Validate(Describe(path), kind, PickLimitBytes(kind));
             double? duration = role == "source" ? await ReadVideoDurationAsync(paths[0], operation.CancellationToken) : null;
             operation.TryPublish(() =>
             {
@@ -203,7 +207,22 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         catch (Exception ex) { operation.TryPublish(() => Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable); }
     }
 
+    // What a picker for role chooses: the source and video references are videos, audio is audio,
+    // and the rest are images.
+    private static string InputKind(string role) => role is "source" or "video" ? "video" : role == "audio" ? "audio" : "image";
+
+    private static long PickLimitBytes(string kind)
+        => kind == "image" ? AiRequestLimits.MaxFrameUploadBytes : kind == "audio" ? AiVideoInputLimits.MaxAudioBytes : AiVideoInputLimits.MaxSourceBytes;
+
     private sealed record InputSnapshot(string Role, string Path, string Name, byte[] Bytes, AiUploadSource Upload);
+
+    // The roles a request's inputs are recorded under. Recovery files keep them, so their values
+    // never change.
+    private const string SourceVideoRole = "source-video";
+    private const string CharacterImageRole = "character-image";
+    private const string FirstFrameRole = "first-frame";
+    private const string LastFrameRole = "last-frame";
+    private const string ReferenceRolePrefix = "reference-";
 
     private Task<double> ReadVideoDurationAsync(string path, CancellationToken token) => Task.Run(() =>
     {
@@ -231,27 +250,20 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private async Task<InputSnapshot[]> ReadVideoInputsAsync(CancellationToken token, bool references)
     {
         var paths = new List<(string Role, string Path, string Name)>();
-        if (IsSourceVideo && SourceVideoPath.Value is { } source) paths.Add(("source-video", source, Path.GetFileName(source)));
-        if (IsMotionControl && CharacterImagePath.Value is { } image) paths.Add(("character-image", image, Path.GetFileName(image)));
+        if (IsSourceVideo && SourceVideoPath.Value is { } source) paths.Add((SourceVideoRole, source, Path.GetFileName(source)));
+        if (IsMotionControl && CharacterImagePath.Value is { } image) paths.Add((CharacterImageRole, image, Path.GetFileName(image)));
         if (IsGeneration && references)
             foreach (var group in ReferenceGroups)
                 for (int i = 0; i < group.Files.Count; i++)
-                    paths.Add(($"reference-{group.Kind}-{i}", group.Files[i].Path, group.Files[i].Name));
+                    paths.Add(($"{ReferenceRolePrefix}{group.Kind}-{i}", group.Files[i].Path, group.Files[i].Name));
         var result = new List<InputSnapshot>();
         var limits = ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted;
         long totalBytes = 0;
         foreach (var (role, path, name) in paths)
         {
-            var recovery = _selectedRecovery?.EffectiveSources.FirstOrDefault(item => item.Role == role && RecoverySourceMatchesPath(item, path));
+            var recovery = _selectedRecovery?.EffectiveSources.FirstOrDefault(item => item.Role == role && item.MatchesPath(path));
             string fileName = recovery?.Name ?? name;
-            long maximum = role switch
-            {
-                "character-image" => AiRequestLimits.MaxFrameUploadBytes,
-                "source-video" => _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes,
-                _ when role.StartsWith("reference-image-", StringComparison.Ordinal) => _selectedRecovery is null ? limits.MaxInputReferenceBytes : AiRequestLimits.MaxFrameUploadBytes,
-                _ when role.StartsWith("reference-audio-", StringComparison.Ordinal) => _selectedRecovery is null ? limits.MaxAudioReferenceBytes : AiVideoInputLimits.MaxAudioBytes,
-                _ => _selectedRecovery is null ? limits.MaxVideoReferenceBytes : AiVideoInputLimits.MaxSourceBytes,
-            };
+            long maximum = UploadLimitBytes(role, limits);
             byte[] bytes = recovery is null ? await AiUploadBytes.ReadWithinAsync(path, maximum, token) : _requestKey.ReadSourceBytes(recovery);
             totalBytes += bytes.LongLength;
             if (bytes.LongLength > maximum || totalBytes > AiVideoInputLimits.MaxSourceBytes + (IsMotionControl ? AiRequestLimits.MaxFrameUploadBytes : 0))
@@ -262,6 +274,15 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         return result.ToArray();
     }
 
+    private long UploadLimitBytes(string role, AiVideoModelCapabilities limits) => role switch
+    {
+        CharacterImageRole => AiRequestLimits.MaxFrameUploadBytes,
+        SourceVideoRole => _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes,
+        _ when role.StartsWith(ReferenceRolePrefix + "image-", StringComparison.Ordinal) => _selectedRecovery is null ? limits.MaxInputReferenceBytes : AiRequestLimits.MaxFrameUploadBytes,
+        _ when role.StartsWith(ReferenceRolePrefix + "audio-", StringComparison.Ordinal) => _selectedRecovery is null ? limits.MaxAudioReferenceBytes : AiVideoInputLimits.MaxAudioBytes,
+        _ => _selectedRecovery is null ? limits.MaxVideoReferenceBytes : AiVideoInputLimits.MaxSourceBytes,
+    };
+
     private void RestoreVideoInputs(AiPendingAttempt attempt, IReadOnlyList<string> paths)
     {
         foreach (var group in ReferenceGroups) group.Files.Clear();
@@ -270,10 +291,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         for (int i = 0; i < paths.Count; i++)
         {
             var source = attempt.EffectiveSources[i];
-            if (source.Role == "source-video") SourceVideoPath.Value = paths[i];
-            else if (source.Role == "character-image") CharacterImagePath.Value = paths[i];
-            else if (source.Role.StartsWith("reference-", StringComparison.Ordinal))
-                ReferenceGroups.Single(group => source.Role.StartsWith($"reference-{group.Kind}-", StringComparison.Ordinal)).Add(paths[i], source.Name);
+            if (source.Role == SourceVideoRole) SourceVideoPath.Value = paths[i];
+            else if (source.Role == CharacterImageRole) CharacterImagePath.Value = paths[i];
+            else if (source.Role.StartsWith(ReferenceRolePrefix, StringComparison.Ordinal))
+                ReferenceGroups.Single(group => source.Role.StartsWith($"{ReferenceRolePrefix}{group.Kind}-", StringComparison.Ordinal)).Add(paths[i], source.Name);
         }
         var form = attempt.Form!;
         SourceDuration.Value = form.SourceVideoSeconds;

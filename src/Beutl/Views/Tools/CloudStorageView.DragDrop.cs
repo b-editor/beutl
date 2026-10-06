@@ -198,10 +198,7 @@ public sealed partial class CloudStorageView
         _preparingDrag = true;
         var consumption = new StorageDragConsumption();
         var prepared = new TaskCompletionSource<IReadOnlyList<string>>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingDragData = new StorageDragData("beutl", context.User,
-            context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), [],
-            () => vm.IsTransferCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
-        { PendingLocalPaths = prepared.Task, CanMoveTo = destination => destination != context.FolderId, Consumption = consumption };
+        _pendingDragData = CreateDragData(vm, context, [], () => vm.IsTransferCurrent(context), consumption, prepared.Task);
         string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "storage", "downloads", Guid.NewGuid().ToString("N"));
         bool retained = false;
         var handles = new List<IStorageItem>();
@@ -231,10 +228,7 @@ public sealed partial class CloudStorageView
             if (data.Items.Count == 0) return;
             // Keep metadata on a file item: an in-process-only item has no writable native
             // pasteboard formats and cannot be used as a macOS dragging item.
-            data.Items[0].Set(StorageDragData.Format, new StorageDragData("beutl", context.User,
-                context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), paths,
-                () => vm.IsActionCurrent(context), destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
-            { CanMoveTo = destination => destination != context.FolderId, Consumption = consumption });
+            data.Items[0].Set(StorageDragData.Format, CreateDragData(vm, context, paths, () => vm.IsActionCurrent(context), consumption));
             _nativeDrag = true;
             trigger.Pointer.Capture(null);
             var effect = DragStarter != null ? await DragStarter(trigger, data) : await DragDrop.DoDragDropAsync(trigger, data, DragDropEffects.Copy);
@@ -262,6 +256,20 @@ public sealed partial class CloudStorageView
             ResetStorageDrag();
         }
     }
+
+    // What a storage drag carries: the dragged entries, their local copies once there are any, and
+    // how a drop moves them.
+    private static StorageDragData CreateDragData(
+        CloudStorageViewModel vm,
+        StorageActionContext context,
+        IReadOnlyList<string> paths,
+        Func<bool> isCurrent,
+        StorageDragConsumption consumption,
+        Task<IReadOnlyList<string>>? pendingLocalPaths = null)
+        => new StorageDragData("beutl", context.User,
+            context.Items.Select(x => new StorageDragEntry(x.Id, x.Name, x.IsFolder)).ToArray(), paths,
+            isCurrent, destination => vm.MoveDroppedEntriesAsync(context, destination), vm)
+        { PendingLocalPaths = pendingLocalPaths, CanMoveTo = destination => destination != context.FolderId, Consumption = consumption };
 
     private void ResetStorageDrag()
     {

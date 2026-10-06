@@ -60,17 +60,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
         try
         {
-            TimeSpan start = _editViewModel.Player.CurrentFrame.Value;
-            int layer = _editViewModel.Scene.Children
-                .Where(item => item.Start <= start && start < item.Range.End)
-                .Select(item => item.ZIndex)
-                .DefaultIfEmpty(-1)
-                .Max() + 1;
             double durationSeconds = _resultSnapshot?.DurationSeconds ?? SelectedDuration.Value.Seconds;
-            AiResultImportOptions options = new(
-                start,
+            AiResultImportOptions options = AiDialogResults.PlaceAtPlayhead(
+                _editViewModel,
                 TimeSpan.FromSeconds(durationSeconds),
-                layer,
                 Strings.AiVideoGeneration);
             ElementAddResult result;
             if (ResultImporter is { } importer)
@@ -88,18 +81,12 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                     operation.CancellationToken);
             }
 
-            if (result.Failure is LockedElementLayerFailure)
-            {
-                operation.TryPublish(() =>
-                    NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
-                return;
-            }
-            EnsureImportSucceeded(result);
-            if (result.IsSuccess)
-            {
-                operation.TryPublish(() =>
-                    NotificationService.ShowSuccess(Strings.AiVideoGeneration, Strings.AiVideoAddedToScene));
-            }
+            AiDialogResults.PublishImport(
+                operation,
+                result,
+                Strings.AiVideoGeneration,
+                Strings.AiVideoAddedToScene,
+                "generated video");
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -112,15 +99,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
     }
 
-    private static void EnsureImportSucceeded(ElementAddResult result)
-    {
-        if (result.IsSuccess)
-            return;
-        throw new InvalidOperationException(
-            $"Failed to add the generated video: {result.Failure?.Id}.",
-            result.Failure?.Exception);
-    }
-
     private async Task SaveToFileCore()
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
@@ -130,27 +108,18 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             return;
         using IDisposable fileLease = AcquireTemporaryFileLease(filePath);
 
-        AiSaveFileDestination? destination;
-        IStorageFile? selectedStorageFile = null;
-        if (SaveFilePicker is { } picker)
-        {
-            destination = await picker(operation.CancellationToken);
-        }
-        else
-        {
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-                { MainWindow: { } window }
-                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
-                return;
-            FilePickerSaveOptions options = SharedFilePickerOptions.SaveVideo();
-            options.SuggestedFileName = $"AI Video {DateTime.Now:yyyy-MM-dd HHmmss}";
-            options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Videos);
-            options.DefaultExtension = Path.GetExtension(filePath).TrimStart('.');
-            selectedStorageFile = await storage.SaveFilePickerAsync(options);
-            destination = selectedStorageFile is null
-                ? null
-                : new AiSaveFileDestination(selectedStorageFile.Path.LocalPath);
-        }
+        (AiSaveFileDestination? destination, IStorageFile? selectedStorageFile) =
+            await AiDialogStorage.PickSaveDestinationAsync(
+                SaveFilePicker,
+                () =>
+                {
+                    FilePickerSaveOptions options = SharedFilePickerOptions.SaveVideo();
+                    options.SuggestedFileName = $"AI Video {DateTime.Now:yyyy-MM-dd HHmmss}";
+                    options.DefaultExtension = Path.GetExtension(filePath).TrimStart('.');
+                    return options;
+                },
+                WellKnownFolder.Videos,
+                operation.CancellationToken);
         using IStorageFile? storageFileOwnership = selectedStorageFile;
 
         if (destination is null || !operation.IsCurrent)

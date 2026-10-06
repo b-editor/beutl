@@ -43,6 +43,28 @@ internal static class AiAspectRatioSuggestion
         return nearest ?? (ratios.Contains(fallback) ? fallback : ratios[0]);
     }
 
+    // The option whose ratio is nearest the frame's; 16:9 when the frame has no size.
+    public static T Choose<T>(
+        IReadOnlyList<T> options,
+        Func<T, string> valueOf,
+        PixelSize? frameSize)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Count == 0)
+        {
+            throw new ArgumentException(
+                "At least one aspect ratio option is required.",
+                nameof(options));
+        }
+
+        string ratio = Nearest(
+            options.Select(valueOf).ToArray(),
+            frameSize,
+            "16:9");
+        return options.FirstOrDefault(option => valueOf(option) == ratio) ?? options[0];
+    }
+
     private static bool TryParse(string value, out double ratio)
     {
         ratio = 0;

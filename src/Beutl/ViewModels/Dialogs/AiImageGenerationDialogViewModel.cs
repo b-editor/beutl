@@ -29,7 +29,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
     private readonly IdentityOperationLifetime _identityOperations = new();
-    private readonly object _disposeGate = new();
+    private readonly OnceAsyncDisposal _disposal = new();
     private readonly ILogger _logger = Log.CreateLogger<AiImageGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
@@ -53,7 +53,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     // not replace the preserved values.
     private bool _applyingCapabilities;
     private readonly EditViewModel? _editViewModel;
-    private Task? _disposeTask;
 
     internal AiImageGenerationDialogViewModel(
         IAiEntitlementService entitlements,
@@ -125,24 +124,9 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         // would only ever produce a request the server refuses.
         ModelPicker.Filter = model =>
             model.Image is not { } image || image.CanServeAnything(false);
-        SelectedAspectRatio.Subscribe(option =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenAspectRatio = option;
-            })
-            .DisposeWith(_disposables);
-        SelectedBackground.Subscribe(option =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenBackground = option;
-            })
-            .DisposeWith(_disposables);
-        Seed.Subscribe(seed =>
-            {
-                if (!_applyingCapabilities)
-                    _chosenSeed = seed;
-            })
-            .DisposeWith(_disposables);
+        RememberChoice(SelectedAspectRatio, option => _chosenAspectRatio = option);
+        RememberChoice(SelectedBackground, option => _chosenBackground = option);
+        RememberChoice(Seed, seed => _chosenSeed = seed);
         ModelPicker.Selected.Subscribe(option => ApplyModelCapabilities(option?.Model))
             .DisposeWith(_disposables);
         // The shape and the background follow the chosen model, so replacing the
@@ -186,24 +170,8 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
 
         CanGenerate = PromptValidationError
             .CombineLatest(IsGenerating, (error, generating) => error is null && !generating)
-            .CombineLatest(
-                EstimatedUsage.CanAfford,
-                _requestKey.HasOutstandingName,
-                // Or a name already handed out: the server answers a repeat with the
-                // job that name made before it looks at the balance, so the request
-                // that spent the last of it is exactly the one that must stay
-                // collectable.
-                (canGenerate, canAfford, outstanding) =>
-                    canGenerate && (canAfford || outstanding))
-            .CombineLatest(
-                ModelPicker.OffersNothingUsable,
-                _requestKey.HasOutstandingName,
-                // Every model the operation registered was ruled out, so a new
-                // request would be refused however it is shaped — but a name
-                // already handed out is answered from the job it made, whatever
-                // the catalog says now.
-                (can, nothingUsable, outstanding) =>
-                    can && (!nothingUsable || outstanding))
+            .WhenAffordable(EstimatedUsage.CanAfford, _requestKey.HasOutstandingName)
+            .WhenSomeModelUsable(ModelPicker.OffersNothingUsable, _requestKey.HasOutstandingName)
             .CombineLatest(
                 ModelPicker.Selected,
                 _recoveryRevision,
@@ -211,10 +179,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 // collectable on its retained model because the server resolves its name before
                 // checking current affordability.
                 (can, selected, _) => can && CanUseSelectedModel(selected))
-            // Until the list has been asked for, a request would name no model
-            // and run on the server's default, which may cost more than what
-            // this screen was about to offer.
-            .CombineLatest(ModelPicker.IsLoaded, (can, loaded) => can && loaded)
+            .WhenModelsLoaded(ModelPicker.IsLoaded)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -423,15 +388,15 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
-    /// <summary>
-    /// What this client asks for when the server says nothing about a model —
-    /// the shapes it offered before models could publish their own.
-    /// </summary>
     // Where the model sits in the request's parts. It is filled in last: which
     // model a request carries depends on whether a name is already outstanding
     // for the rest of it.
     private const int ModelPartIndex = 4;
 
+    /// <summary>
+    /// What this client asks for when the server says nothing about a model —
+    /// the shapes it offered before models could publish their own.
+    /// </summary>
     private static readonly string[] DefaultAspectRatios =
         ["16:9", "1:1", "9:16", "4:3", "3:4", "3:2", "2:3"];
 
@@ -527,21 +492,17 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     internal static AiImageAspectRatioOption GetSuggestedAspectRatio(
         IReadOnlyList<AiImageAspectRatioOption> options,
         Beutl.Media.PixelSize? frameSize)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        if (options.Count == 0)
-        {
-            throw new ArgumentException(
-                "At least one aspect ratio option is required.",
-                nameof(options));
-        }
+        => AiAspectRatioSuggestion.Choose(options, option => option.Value, frameSize);
 
-        string ratio = AiAspectRatioSuggestion.Nearest(
-            options.Select(option => option.Value).ToArray(),
-            frameSize,
-            "16:9");
-        return options.FirstOrDefault(option => option.Value == ratio) ?? options[0];
-    }
+    // What the person chose, kept apart from what a model change shows: values the dialog sets
+    // while applying a model's capabilities are not choices.
+    private void RememberChoice<T>(IObservable<T> source, Action<T> remember)
+        => source.Subscribe(value =>
+            {
+                if (!_applyingCapabilities)
+                    remember(value);
+            })
+            .DisposeWith(_disposables);
 
     public void Dispose() => _ = BeginDisposeAsync();
 
@@ -550,33 +511,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     private IdentityOperationLifetime.Operation? TryEnterIdentityOperation()
         => _identityOperations.TryEnter(_operations);
 
-    private Task BeginDisposeAsync()
-    {
-        lock (_disposeGate)
-        {
-            if (_disposeTask is not null)
-                return _disposeTask;
-
-            var completion = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            _ = CompleteDisposeAsync(completion);
-            return completion.Task;
-        }
-    }
-
-    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
-    {
-        try
-        {
-            await DisposeCoreAsync();
-            completion.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            completion.TrySetException(ex);
-        }
-    }
+    private Task BeginDisposeAsync() => _disposal.Run(DisposeCoreAsync);
 
     private async Task DisposeCoreAsync()
     {
@@ -878,16 +813,9 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
 
         try
         {
-            TimeSpan start = _editViewModel.Player.CurrentFrame.Value;
-            int layer = _editViewModel.Scene.Children
-                .Where(item => item.Start <= start && start < item.Range.End)
-                .Select(item => item.ZIndex)
-                .DefaultIfEmpty(-1)
-                .Max() + 1;
-            AiResultImportOptions options = new(
-                start,
+            AiResultImportOptions options = AiDialogResults.PlaceAtPlayhead(
+                _editViewModel,
                 TimeSpan.FromSeconds(5),
-                layer,
                 Strings.AiImageGeneration);
             ElementAddResult result;
             if (ResultImporter is { } importer)
@@ -905,18 +833,12 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                     operation.CancellationToken);
             }
 
-            if (result.Failure is LockedElementLayerFailure)
-            {
-                operation.TryPublish(() =>
-                    NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
-                return;
-            }
-            EnsureImportSucceeded(result);
-            if (result.IsSuccess)
-            {
-                operation.TryPublish(() =>
-                    NotificationService.ShowSuccess(Strings.AiImageGeneration, Strings.AiImageAddedToScene));
-            }
+            AiDialogResults.PublishImport(
+                operation,
+                result,
+                Strings.AiImageGeneration,
+                Strings.AiImageAddedToScene,
+                "generated image");
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -937,27 +859,18 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         if (resultImage?.Value is not { } bitmap)
             return;
 
-        AiSaveFileDestination? destination;
-        IStorageFile? selectedStorageFile = null;
-        if (SaveFilePicker is { } picker)
-        {
-            destination = await picker(operation.CancellationToken);
-        }
-        else
-        {
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-                { MainWindow: { } window }
-                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
-                return;
-            FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
-            options.SuggestedFileName = $"AI Image {DateTime.Now:yyyy-MM-dd HHmmss}";
-            options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
-            options.DefaultExtension = "png";
-            selectedStorageFile = await storage.SaveFilePickerAsync(options);
-            destination = selectedStorageFile is null
-                ? null
-                : new AiSaveFileDestination(selectedStorageFile.Path.LocalPath);
-        }
+        (AiSaveFileDestination? destination, IStorageFile? selectedStorageFile) =
+            await AiDialogStorage.PickSaveDestinationAsync(
+                SaveFilePicker,
+                () =>
+                {
+                    FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
+                    options.SuggestedFileName = $"AI Image {DateTime.Now:yyyy-MM-dd HHmmss}";
+                    options.DefaultExtension = "png";
+                    return options;
+                },
+                WellKnownFolder.Pictures,
+                operation.CancellationToken);
         using IStorageFile? storageFileOwnership = selectedStorageFile;
 
         if (destination is null || !operation.IsCurrent)
@@ -970,13 +883,10 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
             if (!operation.TryPublish(() =>
                 {
                     operation.CancellationToken.ThrowIfCancellationRequested();
-                    AiAtomicFileWriter.Write(
+                    AiAtomicFileWriter.WritePng(
                         destination.Path,
-                        stream =>
-                        {
-                            if (!bitmap.Save(stream, EncodedImageFormat.Png))
-                                throw new IOException("Failed to encode the AI image as PNG.");
-                        },
+                        bitmap,
+                        "Failed to encode the AI image as PNG.",
                         operation.CancellationToken);
                 }))
                 return;
@@ -998,15 +908,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         Style.Value,
         Composition.Value,
         Exclusions: Exclusions.Value));
-
-    private static void EnsureImportSucceeded(ElementAddResult result)
-    {
-        if (result.IsSuccess)
-            return;
-        throw new InvalidOperationException(
-            $"Failed to add the generated image: {result.Failure?.Id}.",
-            result.Failure?.Exception);
-    }
 
 }
 
