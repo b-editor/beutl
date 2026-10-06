@@ -28,7 +28,7 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private void ApplyIdentityList(IList list, Type elementBaseType, string fieldName, JsonArray desired, CoreObject? owner)
     {
-        if (!IsIdentityArray(desired))
+        if (!CollectionReconciler.IsIdentityArray(desired))
         {
             ReplaceList(list, elementBaseType, fieldName, desired, owner);
             return;
@@ -49,62 +49,14 @@ internal sealed partial class DeclarativeDocumentApplier
                     "Each identity-array member must be a JSON object with an optional Id; remove null/primitive entries."));
             }
 
-            CoreObject item;
-            string itemPath = CreateIdentityListItemPath(fieldName, desiredIndex);
-            try
-            {
-                if (TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
-                {
-                    item = existing;
-                    ApplyCoreObject(existing, itemJson);
-                }
-                else
-                {
-                    item = CreateIdentityListItem(itemJson, elementBaseType, owner);
-                    if (owner is Scene scene && item is Element element)
-                    {
-                        JsonObject elementJson = (JsonObject)itemJson.DeepClone();
-                        elementJson.Remove("Uri");
-                        // The subtree's relative media URIs were written against the incoming
-                        // element's own .belm, which may sit in a subdirectory of the scene. That
-                        // path only survives in the JSON: the element is still detached here, and
-                        // AssignNewElementUri later rehomes it directly under the scene.
-                        Uri? incomingBaseUri = ResolveIncomingBaseUri(scene.Uri, itemJson);
-                        ApplyDetached(element, elementJson, incomingBaseUri);
-                        AssignNewElementUri(scene, element);
-                    }
-                    else
-                    {
-                        // Same detachment as above: the item is populated before insertion, so it
-                        // cannot reach the owner through HierarchicalParent.
-                        ApplyDetached(item, itemJson, ResolveBaseUri(owner));
-                    }
-                }
-            }
-            catch (Exception ex) when (ex is not ReconcileException)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    $"Desired document produced a fallback object or invalid serialized object at '{itemPath}': {ex.Message}",
-                    itemPath,
-                    "Call get_schema for the concrete type, then retry apply_edit with serialized property shapes returned by the schema. Objects require concrete EngineObject discriminators from get_schema; typed property values such as Pen, Brush, Transform, Effect, and Animation also require concrete schema-returned object shapes."));
-            }
-
+            CoreObject item = ApplyOrCreateListItem(
+                list,
+                elementBaseType,
+                itemJson,
+                CreateIdentityListItemPath(fieldName, desiredIndex),
+                owner);
             desiredIds.Add(item.Id);
-            int currentIndex = IndexOfReference(list, item);
-            if (currentIndex < 0)
-            {
-                if (owner is Scene scene && item is Element { Uri: null } element)
-                {
-                    AssignNewElementUri(scene, element);
-                }
-
-                list.Insert(Math.Min(desiredIndex, list.Count), item);
-            }
-            else if (currentIndex != desiredIndex)
-            {
-                Move(list, currentIndex, desiredIndex);
-            }
+            PlaceListItem(list, item, desiredIndex, owner);
         }
 
         for (int index = list.Count - 1; index >= 0; index--)
@@ -116,6 +68,74 @@ internal sealed partial class DeclarativeDocumentApplier
         }
 
         ValidateFlowOperatorPortalPairing(owner, list);
+    }
+
+    private CoreObject ApplyOrCreateListItem(
+        IList list,
+        Type elementBaseType,
+        JsonObject itemJson,
+        string itemPath,
+        CoreObject? owner)
+    {
+        CoreObject item;
+        try
+        {
+            if (CollectionReconciler.TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
+            {
+                item = existing;
+                ApplyCoreObject(existing, itemJson);
+            }
+            else
+            {
+                item = CreateIdentityListItem(itemJson, elementBaseType, owner);
+                if (owner is Scene scene && item is Element element)
+                {
+                    JsonObject elementJson = (JsonObject)itemJson.DeepClone();
+                    elementJson.Remove("Uri");
+                    // The subtree's relative media URIs were written against the incoming
+                    // element's own .belm, which may sit in a subdirectory of the scene. That
+                    // path only survives in the JSON: the element is still detached here, and
+                    // AssignNewElementUri later rehomes it directly under the scene.
+                    Uri? incomingBaseUri = ResolveIncomingBaseUri(scene.Uri, itemJson);
+                    ApplyDetached(element, elementJson, incomingBaseUri);
+                    AssignNewElementUri(scene, element);
+                }
+                else
+                {
+                    // Same detachment as above: the item is populated before insertion, so it
+                    // cannot reach the owner through HierarchicalParent.
+                    ApplyDetached(item, itemJson, ResolveBaseUri(owner));
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not ReconcileException)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Desired document produced a fallback object or invalid serialized object at '{itemPath}': {ex.Message}",
+                itemPath,
+                "Call get_schema for the concrete type, then retry apply_edit with serialized property shapes returned by the schema. Objects require concrete EngineObject discriminators from get_schema; typed property values such as Pen, Brush, Transform, Effect, and Animation also require concrete schema-returned object shapes."));
+        }
+
+        return item;
+    }
+
+    private static void PlaceListItem(IList list, CoreObject item, int desiredIndex, CoreObject? owner)
+    {
+        int currentIndex = IndexOfReference(list, item);
+        if (currentIndex < 0)
+        {
+            if (owner is Scene scene && item is Element { Uri: null } element)
+            {
+                AssignNewElementUri(scene, element);
+            }
+
+            list.Insert(Math.Min(desiredIndex, list.Count), item);
+        }
+        else if (currentIndex != desiredIndex)
+        {
+            Move(list, currentIndex, desiredIndex);
+        }
     }
 
     // Element.AddObject/InsertObject always pair a PortalObject before a flow operator — it is the

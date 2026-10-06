@@ -26,14 +26,7 @@ public sealed partial class QueryTools
             // race UI-thread edits to scene.Children.
             return session.ReadOnSession(() =>
             {
-                if (session.Root is not Scene scene)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
-                        session.Root.Id.ToString()));
-                }
-
+                Scene scene = RequireSceneRoot(session);
                 return new DocumentSummaryResponse(
                     session.SessionId,
                     session.Source.ToString(),
@@ -160,7 +153,7 @@ public sealed partial class QueryTools
 
                     if (property is IListProperty listProperty)
                     {
-                        foreach (string child in CreateListNestedAnimatedPropertySummaries(propertyPath, listProperty, visited))
+                        foreach (string child in CreateNestedAnimatedPropertySummaries(propertyPath, listProperty, visited))
                         {
                             yield return child;
                         }
@@ -181,20 +174,6 @@ public sealed partial class QueryTools
                 }
 
                 break;
-        }
-    }
-
-    private static IEnumerable<string> CreateListNestedAnimatedPropertySummaries(string path, IListProperty listProperty, ISet<Guid> visited)
-    {
-        int index = 0;
-        foreach (object? item in listProperty)
-        {
-            foreach (string child in CreateNestedAnimatedPropertySummaries($"{path}[{index}]", item, visited))
-            {
-                yield return child;
-            }
-
-            index++;
         }
     }
 

@@ -44,6 +44,17 @@ internal sealed class CodexMcpConfigEditor
     {
         _containers.Add(new Container([], _document.KeyValues));
         VisitItems(_document.KeyValues, []);
+        VisitTables();
+        AssignPendingSettings();
+        WriteAdditions();
+        InsertNewTables();
+        string updated = _document.ToString();
+        SyntaxParser.ParseStrict(updated);
+        return updated;
+    }
+
+    private void VisitTables()
+    {
         foreach (TableSyntaxBase table in _document.Tables.ToArray())
         {
             string[] path = KeyPath(table.Name!);
@@ -52,19 +63,19 @@ internal sealed class CodexMcpConfigEditor
 
             if (IsSelected(path) && (table is TableArraySyntax || !TryGet(_desired, path, out object? value) || value is not TomlTable))
             {
-                RemoveNode(_document.Tables, table, table.Tokens().SelectMany(token => token switch
-                {
-                    SyntaxTrivia trivia => new[] { trivia },
-                    SyntaxToken { TokenKind: TokenKind.NewLine } tokenNewline => new[] { new SyntaxTrivia(TokenKind.NewLine, tokenNewline.Text!) },
-                    _ => Array.Empty<SyntaxTrivia>(),
-                }));
+                RemoveNode(_document.Tables, table, TableTrivia(table));
                 continue;
             }
 
             _containers.Add(new Container(path, table.Items) { Table = table });
             VisitItems(table.Items, path);
         }
+    }
 
+    // Each pending setting goes to the deepest existing container on its path; a setting nested
+    // below a missing table gets a new table container that InsertNewTables places later.
+    private void AssignPendingSettings()
+    {
         foreach (Setting setting in _pending)
         {
             Container container = _containers.Where(c => IsPrefix(c.Path, setting.Path)).MaxBy(c => c.Path.Length)!;
@@ -78,7 +89,10 @@ internal sealed class CodexMcpConfigEditor
 
             container.Additions.Add(setting);
         }
+    }
 
+    private void WriteAdditions()
+    {
         foreach (Container container in _containers.Where(c => c.Additions.Count > 0))
         {
             if (container.Inline is { } inline)
@@ -98,11 +112,18 @@ internal sealed class CodexMcpConfigEditor
                 RestoreSuffix(container, suffix);
             }
         }
+    }
 
-        InsertNewTables();
-        string updated = _document.ToString();
-        SyntaxParser.ParseStrict(updated);
-        return updated;
+    // A removed table's comments and line breaks (newline tokens converted to trivia) are carried
+    // over to the next node by RemoveNode, so the user's layout around it survives.
+    private static IEnumerable<SyntaxTrivia> TableTrivia(TableSyntaxBase table)
+    {
+        return table.Tokens().SelectMany(token => token switch
+        {
+            SyntaxTrivia trivia => new[] { trivia },
+            SyntaxToken { TokenKind: TokenKind.NewLine } tokenNewline => new[] { new SyntaxTrivia(TokenKind.NewLine, tokenNewline.Text!) },
+            _ => Array.Empty<SyntaxTrivia>(),
+        });
     }
 
     private void InsertNewTables()

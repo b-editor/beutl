@@ -10,6 +10,96 @@ namespace Beutl.AgentToolkit.Tools;
 
 public sealed partial class RenderTools
 {
+    private StoryboardRenderPlan PlanStoryboardOutputs(
+        Scene scene,
+        float renderScale,
+        IReadOnlyList<ResolvedStoryboardFrame> resolvedShots,
+        string normalizedDirectory,
+        string safeBasename,
+        bool confirmOverwrite)
+    {
+        var plannedShots = new List<(ResolvedStoryboardFrame Shot, string ResolvedPath)>(resolvedShots.Count);
+        for (int i = 0; i < resolvedShots.Count; i++)
+        {
+            ResolvedStoryboardFrame shot = resolvedShots[i];
+            string stillPath = Path.Combine(
+                normalizedDirectory,
+                $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
+            string resolvedPath = workspace.ResolveForWrite(stillPath);
+            destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
+            plannedShots.Add((shot, resolvedPath));
+        }
+
+        string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
+        string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
+        destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
+        return new StoryboardRenderPlan(scene, renderScale, plannedShots, resolvedContactSheetPath, confirmOverwrite);
+    }
+
+    private async Task<RenderStoryboardResponse> RenderStoryboardFramesAsync(
+        StoryboardRenderPlan plan,
+        RenderJobProgressReporter progress,
+        CancellationToken token)
+    {
+        // Re-verify the overwrite guards at write time: background jobs are serialized, so a
+        // preceding job may have created these files after the pre-flight check passed.
+        foreach ((_, string plannedPath) in plan.Shots)
+        {
+            destructiveGuard.EnsureOverwriteAllowed(plannedPath, plan.ConfirmOverwrite);
+        }
+
+        destructiveGuard.EnsureOverwriteAllowed(plan.ContactSheetPath, plan.ConfirmOverwrite);
+
+        var renderedShots = new List<RenderStoryboardShot>(plan.Shots.Count);
+        var contactSheetFrames = new List<StoryboardContactSheetFrame>(plan.Shots.Count);
+        var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plan.Shots.Count);
+        progress.Report(0, plan.Shots.Count, "rendering shots");
+        foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plan.Shots)
+        {
+            progress.Report(renderedShots.Count, plan.Shots.Count, "rendering shots");
+            using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
+                plan.Scene,
+                shot.Time,
+                plan.RenderScale,
+                token).ConfigureAwait(false);
+            SaveStoryboardStill(frame.Bitmap, resolvedPath);
+            StillFrameVisibilityAnalysis visibility = StillRenderer.AnalyzeFrameVisibility(frame.Bitmap);
+            NormalizedFocalPoint? focalPoint = string.Equals(shot.Kind, StoryboardFrameKindShot, StringComparison.Ordinal)
+                ? StillRenderer.EstimateFocalPoint(plan.Scene, frame, visibility)
+                : null;
+            var renderedShot = new RenderStoryboardShot(
+                shot.Name,
+                shot.Time.TotalSeconds,
+                resolvedPath,
+                visibility,
+                shot.Kind,
+                shot.SubdivisionLevel);
+            renderedShots.Add(renderedShot);
+            contactSheetFrames.Add(ToContactSheetFrame(renderedShot));
+            if (focalPoint is not null)
+            {
+                eyeTraceFrames.Add(new StoryboardEyeTraceFrame(
+                    shot.Name,
+                    focalPoint));
+            }
+        }
+
+        progress.Report(plan.Shots.Count, plan.Shots.Count, "contact sheet");
+        storyboardRenderer.RenderContactSheet(contactSheetFrames, plan.ContactSheetPath);
+        CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
+        return new RenderStoryboardResponse(plan.ContactSheetPath, renderedShots, cutEyeTrace);
+    }
+
+    private static StoryboardContactSheetFrame ToContactSheetFrame(RenderStoryboardShot shot)
+    {
+        return new StoryboardContactSheetFrame(
+            shot.Name,
+            shot.TimeSeconds,
+            shot.StillPath,
+            shot.Kind,
+            shot.SubdivisionLevel);
+    }
+
     private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)
     {
         string? directory = Path.GetDirectoryName(outputPath);
@@ -60,30 +150,17 @@ public sealed partial class RenderTools
             // Validate explicit shots up front (finite, in-range, non-duplicate) instead of silently
             // filtering/clamping — a typo like a 30s shot in a 5s scene must fail like the
             // timeSeconds path does, not render a blank/misleading frame.
-            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            TimeSpan duration = GetEffectiveSceneDuration(scene);
             var seen = new HashSet<TimeSpan>();
             var explicitShots = new List<ResolvedStoryboardShot>(shots.Length);
             for (int i = 0; i < shots.Length; i++)
             {
-                double seconds = shots[i].TimeSeconds;
-                if (!double.IsFinite(seconds))
-                {
-                    throw CreateStoryboardTimeValidationError($"render_storyboard shots[{i}].timeSeconds must be finite.");
-                }
-
-                if (seconds < 0 || seconds > duration.TotalSeconds)
-                {
-                    throw CreateStoryboardTimeValidationError(
-                        $"render_storyboard shots[{i}].timeSeconds={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
-                }
-
-                TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
-                if (!seen.Add(time))
-                {
-                    throw CreateStoryboardTimeValidationError(
-                        $"render_storyboard shots contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
-                }
-
+                TimeSpan time = ResolveExplicitStoryboardTime(
+                    shots[i].TimeSeconds,
+                    duration,
+                    seen,
+                    $"shots[{i}].timeSeconds",
+                    "shots");
                 explicitShots.Add(new ResolvedStoryboardShot(
                     string.IsNullOrWhiteSpace(shots[i].Name) ? $"shot-{i + 1}" : shots[i].Name.Trim(),
                     time));
@@ -108,9 +185,7 @@ public sealed partial class RenderTools
                 // Element.Start lives on the absolute timeline axis while shot times are
                 // scene-relative (the renderer re-applies scene.Start); normalize and clamp so a
                 // trimmed scene (Scene.Start > 0) does not sample past the element.
-                TimeSpan midpoint = element.Length > TimeSpan.Zero
-                    ? element.Start + TimeSpan.FromTicks(element.Length.Ticks / 2)
-                    : element.Start;
+                TimeSpan midpoint = element.Start + TimeSpan.FromTicks(element.Length.Ticks / 2);
                 TimeSpan relative = midpoint - scene.Start;
                 if (relative < TimeSpan.Zero)
                 {
@@ -238,36 +313,52 @@ public sealed partial class RenderTools
             throw CreateStoryboardTimeValidationError("render_storyboard timeSeconds must contain at least one scene time.");
         }
 
-        TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+        TimeSpan duration = GetEffectiveSceneDuration(scene);
         var seen = new HashSet<TimeSpan>();
         var result = new List<ResolvedStoryboardShot>(timeSeconds.Length);
         for (int i = 0; i < timeSeconds.Length; i++)
         {
             double seconds = timeSeconds[i];
-            if (!double.IsFinite(seconds))
-            {
-                throw CreateStoryboardTimeValidationError($"render_storyboard timeSeconds[{i}] must be finite.");
-            }
-
-            if (seconds < 0 || seconds > duration.TotalSeconds)
-            {
-                throw CreateStoryboardTimeValidationError(
-                    $"render_storyboard timeSeconds[{i}]={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
-            }
-
-            TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
-            if (!seen.Add(time))
-            {
-                throw CreateStoryboardTimeValidationError(
-                    $"render_storyboard timeSeconds contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
-            }
-
+            TimeSpan time = ResolveExplicitStoryboardTime(
+                seconds,
+                duration,
+                seen,
+                $"timeSeconds[{i}]",
+                "timeSeconds");
             result.Add(new ResolvedStoryboardShot(CreateExplicitStoryboardTimeName(seconds), time));
         }
 
         return result
             .OrderBy(shot => shot.Time)
             .ToArray();
+    }
+
+    private static TimeSpan ResolveExplicitStoryboardTime(
+        double seconds,
+        TimeSpan duration,
+        HashSet<TimeSpan> seen,
+        string itemLabel,
+        string listLabel)
+    {
+        if (!double.IsFinite(seconds))
+        {
+            throw CreateStoryboardTimeValidationError($"render_storyboard {itemLabel} must be finite.");
+        }
+
+        if (seconds < 0 || seconds > duration.TotalSeconds)
+        {
+            throw CreateStoryboardTimeValidationError(
+                $"render_storyboard {itemLabel}={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
+        }
+
+        TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
+        if (!seen.Add(time))
+        {
+            throw CreateStoryboardTimeValidationError(
+                $"render_storyboard {listLabel} contains duplicate time {seconds.ToString(CultureInfo.InvariantCulture)}.");
+        }
+
+        return time;
     }
 
     // Element.Range treats its end as exclusive, so a shot exactly at Duration renders past every
@@ -426,4 +517,11 @@ public sealed partial class RenderTools
     private sealed record StoryboardEyeTraceFrame(
         string Name,
         NormalizedFocalPoint FocalPoint);
+
+    private sealed record StoryboardRenderPlan(
+        Scene Scene,
+        float RenderScale,
+        IReadOnlyList<(ResolvedStoryboardFrame Shot, string ResolvedPath)> Shots,
+        string ContactSheetPath,
+        bool ConfirmOverwrite);
 }

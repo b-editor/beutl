@@ -115,14 +115,19 @@ public sealed partial class CompositionTemplateCatalog
 
     private static double LumaOf(double hue, double saturation, double value)
     {
-        Color color = new Hsv((float)Wrap360(hue), (float)Math.Clamp(saturation, 0, 100), (float)Math.Clamp(value, 0, 100), 1f).ToColor();
+        Color color = HsvToColor(hue, saturation, value);
         return ((0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B)) / 255d;
     }
 
     private static string HsvHex(double hue, double saturation, double value)
     {
-        Color color = new Hsv((float)Wrap360(hue), (float)Math.Clamp(saturation, 0, 100), (float)Math.Clamp(value, 0, 100), 1f).ToColor();
+        Color color = HsvToColor(hue, saturation, value);
         return $"#ff{color.R:x2}{color.G:x2}{color.B:x2}";
+    }
+
+    private static Color HsvToColor(double hue, double saturation, double value)
+    {
+        return new Hsv((float)Wrap360(hue), (float)Math.Clamp(saturation, 0, 100), (float)Math.Clamp(value, 0, 100), 1f).ToColor();
     }
 
     private static void SetIfMissing(CompositionContext context, string name, string value)

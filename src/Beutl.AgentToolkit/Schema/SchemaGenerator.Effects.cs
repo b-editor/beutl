@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.NodeGraph;
 using Beutl.Services;
+using static Beutl.AgentToolkit.Schema.SamplePatchBuilder;
 
 namespace Beutl.AgentToolkit.Schema;
 
@@ -97,55 +98,12 @@ public sealed partial class SchemaGenerator
     {
         string lower = name.ToLowerInvariant();
         List<string> tags = ["effect"];
-        if (lower.Contains("blur", StringComparison.Ordinal)
-            || lower.Contains("shadow", StringComparison.Ordinal)
-            || lower.Contains("stroke", StringComparison.Ordinal))
+        foreach ((string[] keywords, string[] ruleTags) in s_inferredEffectTagRules)
         {
-            tags.AddRange(["glow", "depth", "outline"]);
-        }
-
-        if (lower.Contains("color", StringComparison.Ordinal)
-            || lower.Contains("hue", StringComparison.Ordinal)
-            || lower.Contains("saturate", StringComparison.Ordinal)
-            || lower.Contains("brightness", StringComparison.Ordinal)
-            || lower.Contains("contrast", StringComparison.Ordinal)
-            || lower.Contains("gamma", StringComparison.Ordinal)
-            || lower.Contains("threshold", StringComparison.Ordinal)
-            || lower.Contains("invert", StringComparison.Ordinal)
-            || lower.Contains("curve", StringComparison.Ordinal)
-            || lower.Contains("luma", StringComparison.Ordinal))
-        {
-            tags.AddRange(["color", "grade"]);
-        }
-
-        if (lower.Contains("mosaic", StringComparison.Ordinal)
-            || lower.Contains("pixel", StringComparison.Ordinal)
-            || lower.Contains("shift", StringComparison.Ordinal)
-            || lower.Contains("shake", StringComparison.Ordinal)
-            || lower.Contains("split", StringComparison.Ordinal))
-        {
-            tags.AddRange(["glitch", "stylize"]);
-        }
-
-        if (lower.Contains("key", StringComparison.Ordinal))
-        {
-            tags.AddRange(["keying", "transparent"]);
-        }
-
-        if (lower.Contains("transform", StringComparison.Ordinal)
-            || lower.Contains("displacement", StringComparison.Ordinal)
-            || lower.Contains("path", StringComparison.Ordinal)
-            || lower.Contains("delay", StringComparison.Ordinal)
-            || lower.Contains("layer", StringComparison.Ordinal)
-            || lower.Contains("blend", StringComparison.Ordinal))
-        {
-            tags.AddRange(["motion", "composite"]);
-        }
-
-        if (lower.Contains("script", StringComparison.Ordinal)
-            || lower.Contains("nodegraph", StringComparison.Ordinal))
-        {
-            tags.AddRange(["advanced", "programmable"]);
+            if (keywords.Any(keyword => lower.Contains(keyword, StringComparison.Ordinal)))
+            {
+                tags.AddRange(ruleTags);
+            }
         }
 
         return tags.Distinct(StringComparer.Ordinal).ToArray();

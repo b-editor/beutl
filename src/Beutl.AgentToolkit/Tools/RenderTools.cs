@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Beutl;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
@@ -10,11 +9,9 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
-using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -149,100 +146,31 @@ public sealed partial class RenderTools(
                 timeSeconds is null ? "subdivisionLevel" : "timeSeconds");
             string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
             string safeBasename = NormalizeStoryboardBasename(basename ?? CreateDefaultOutputBasename("storyboard"));
-
-            var plannedShots = new List<(ResolvedStoryboardFrame Shot, string ResolvedPath)>(resolvedShots.Count);
-            for (int i = 0; i < resolvedShots.Count; i++)
-            {
-                ResolvedStoryboardFrame shot = resolvedShots[i];
-                string stillPath = Path.Combine(
-                    normalizedDirectory,
-                    $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
-                string resolvedPath = workspace.ResolveForWrite(stillPath);
-                destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
-                plannedShots.Add((shot, resolvedPath));
-            }
-
-            string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
-            string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
-            destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
-
-            async Task<RenderStoryboardResponse> RunStoryboardAsync(RenderJobProgressReporter progress, CancellationToken token)
-            {
-                // Re-verify the overwrite guards at write time: background jobs are serialized, so a
-                // preceding job may have created these files after the pre-flight check passed.
-                foreach ((_, string plannedPath) in plannedShots)
-                {
-                    destructiveGuard.EnsureOverwriteAllowed(plannedPath, confirmOverwrite);
-                }
-
-                destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
-
-                var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
-                var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
-                var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plannedShots.Count);
-                progress.Report(0, plannedShots.Count, "rendering shots");
-                foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
-                {
-                    progress.Report(renderedShots.Count, plannedShots.Count, "rendering shots");
-                    using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
-                        scene,
-                        shot.Time,
-                        renderScale,
-                        token).ConfigureAwait(false);
-                    SaveStoryboardStill(frame.Bitmap, resolvedPath);
-                    StillFrameVisibilityAnalysis visibility = StillRenderer.AnalyzeFrameVisibility(frame.Bitmap);
-                    NormalizedFocalPoint? focalPoint = string.Equals(shot.Kind, StoryboardFrameKindShot, StringComparison.Ordinal)
-                        ? StillRenderer.EstimateFocalPoint(scene, frame, visibility)
-                        : null;
-                    renderedShots.Add(new RenderStoryboardShot(
-                        shot.Name,
-                        shot.Time.TotalSeconds,
-                        resolvedPath,
-                        visibility,
-                        shot.Kind,
-                        shot.SubdivisionLevel));
-                    contactSheetFrames.Add(new StoryboardContactSheetFrame(
-                        shot.Name,
-                        shot.Time.TotalSeconds,
-                        resolvedPath,
-                        shot.Kind,
-                        shot.SubdivisionLevel));
-                    if (focalPoint is not null)
-                    {
-                        eyeTraceFrames.Add(new StoryboardEyeTraceFrame(
-                            shot.Name,
-                            focalPoint));
-                    }
-                }
-
-                progress.Report(plannedShots.Count, plannedShots.Count, "contact sheet");
-                storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
-                CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
-                return new RenderStoryboardResponse(resolvedContactSheetPath, renderedShots, cutEyeTrace);
-            }
+            StoryboardRenderPlan plan = PlanStoryboardOutputs(
+                scene,
+                renderScale,
+                resolvedShots,
+                normalizedDirectory,
+                safeBasename,
+                confirmOverwrite);
 
             if (background)
             {
                 string jobId = outputOperation.Transfer(lease => renderJobs.Enqueue(
                     "storyboard",
                     async (progress, token) => JsonSerializer.SerializeToNode(
-                        await RunStoryboardAsync(progress, token).ConfigureAwait(false),
+                        await RenderStoryboardFramesAsync(plan, progress, token).ConfigureAwait(false),
                         s_jobResultOptions)!,
                     lease));
                 return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
-            RenderStoryboardResponse response = await RunStoryboardAsync(NullProgress, cancellationToken).ConfigureAwait(false);
+            RenderStoryboardResponse response = await RenderStoryboardFramesAsync(plan, NullProgress, cancellationToken).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
                     storyboardRenderer.RenderContactSheetPng(
                         response.Shots
-                            .Select(shot => new StoryboardContactSheetFrame(
-                                shot.Name,
-                                shot.TimeSeconds,
-                                shot.StillPath,
-                                shot.Kind,
-                                shot.SubdivisionLevel))
+                            .Select(ToContactSheetFrame)
                             .ToArray(),
                         ImagePreviewEncoder.DefaultMaxLongEdge).Bytes,
                     "image/png")
@@ -355,33 +283,7 @@ public sealed partial class RenderTools(
                     "The stdio MCP host (source-run or standalone install) does not place the FFmpeg worker next to the server. Use the in-app MCP endpoint (Tools > AI Agents) for video export, or run from the installed Beutl app directory where the worker is copied under FFmpegWorker/."));
             }
 
-            if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "Frame-rate numerator and denominator must be positive."));
-            }
-
-            if (crf is int crfValue && (crfValue < 0 || crfValue > 51))
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "crf must be between 0 and 51."));
-            }
-
-            if (bitrate is int bitrateValue && bitrateValue <= 0)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "bitrate must be positive."));
-            }
-
-            if (crf.HasValue && bitrate.HasValue)
-            {
-                throw new ReconcileException(new ToolError(
-                    ErrorCode.ValidationRejected,
-                    "Provide either crf or bitrate, not both."));
-            }
+            ValidateExportOptions(frameRateNumerator, frameRateDenominator, crf, bitrate);
 
             string resolvedPath = workspace.ResolveForWrite(outputPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
@@ -451,6 +353,37 @@ public sealed partial class RenderTools(
                    jobId));
     }
 
+    private static void ValidateExportOptions(int frameRateNumerator, int frameRateDenominator, int? crf, int? bitrate)
+    {
+        if (frameRateNumerator <= 0 || frameRateDenominator <= 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "Frame-rate numerator and denominator must be positive."));
+        }
+
+        if (crf is int crfValue && (crfValue < 0 || crfValue > 51))
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "crf must be between 0 and 51."));
+        }
+
+        if (bitrate is int bitrateValue && bitrateValue <= 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "bitrate must be positive."));
+        }
+
+        if (crf.HasValue && bitrate.HasValue)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                "Provide either crf or bitrate, not both."));
+        }
+    }
+
     private static async ValueTask<CallToolResult> ExecuteMcpAsync<T>(
         Func<ValueTask<(T Value, ImageContentBlock? Image)>> action)
     {
@@ -463,21 +396,6 @@ public sealed partial class RenderTools(
         {
             ToolError error = ToolErrorMapper.Map(ex);
             return ToCallToolResult(ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint));
-        }
-    }
-
-    private static async ValueTask<CallToolResult> ExecuteMcpManyAsync<T>(
-        Func<ValueTask<(T Value, IReadOnlyList<ImageContentBlock> Images)>> action)
-    {
-        try
-        {
-            (T value, IReadOnlyList<ImageContentBlock> images) = await action().ConfigureAwait(false);
-            return ToCallToolResult(ToolResult<T>.Success(value), images);
-        }
-        catch (Exception ex)
-        {
-            ToolError error = ToolErrorMapper.Map(ex);
-            return ToCallToolResult(ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint), []);
         }
     }
 
@@ -536,7 +454,7 @@ public sealed partial class RenderTools(
 
         if (explicitTimes is { Count: >= 2 })
         {
-            TimeSpan duration = scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
+            TimeSpan duration = GetEffectiveSceneDuration(scene);
             // TimeRange.Contains excludes the end, so clamp to the last renderable tick rather than the
             // exclusive Duration, which would sample a blank frame with no active elements.
             TimeSpan lastRenderable = duration - TimeSpan.FromTicks(1);
@@ -562,12 +480,15 @@ public sealed partial class RenderTools(
         }
 
         int count = Math.Clamp(sampleCount, 2, 8);
-        double durationSeconds = scene.Duration > TimeSpan.Zero ? scene.Duration.TotalSeconds : 1;
+        double durationSeconds = GetEffectiveSceneDuration(scene).TotalSeconds;
         return Enumerable
             .Range(0, count)
             .Select(index => TimeSpan.FromSeconds(durationSeconds * (index + 0.5) / count))
             .ToArray();
     }
+
+    private static TimeSpan GetEffectiveSceneDuration(Scene scene)
+        => scene.Duration > TimeSpan.Zero ? scene.Duration : TimeSpan.FromSeconds(1);
 
     private OwnedOutputOperation BeginOutputOperation()
     {

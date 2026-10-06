@@ -5,16 +5,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Engine;
-using Beutl.Graphics;
-using Beutl.Graphics.Effects;
-using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
-using Beutl.Media;
-using Beutl.ProjectSystem;
-using Beutl.Serialization;
+using static Beutl.AgentToolkit.Schema.SamplePatchBuilder;
 
 namespace Beutl.AgentToolkit.Schema;
 
@@ -195,23 +187,19 @@ public sealed partial class CompositionTemplateCatalog
             return null;
         }
 
-        string text = node.ToJsonString();
-        foreach ((string name, string[] tokens) in s_templateInferenceTokens)
-        {
-            if (tokens.Any(token => text.Contains(token, StringComparison.OrdinalIgnoreCase)))
-            {
-                return name;
-            }
-        }
-
-        return null;
+        return FindTemplateNameByToken(node.ToJsonString());
     }
 
     public static string? TryInferTemplateNameFromExampleName(string exampleName)
     {
+        return FindTemplateNameByToken(exampleName);
+    }
+
+    private static string? FindTemplateNameByToken(string text)
+    {
         foreach ((string name, string[] tokens) in s_templateInferenceTokens)
         {
-            if (tokens.Any(token => exampleName.Contains(token, StringComparison.OrdinalIgnoreCase)))
+            if (tokens.Any(token => text.Contains(token, StringComparison.OrdinalIgnoreCase)))
             {
                 return name;
             }
@@ -560,170 +548,6 @@ public sealed partial class CompositionTemplateCatalog
                    || spec.StyleAxes.Any(axis =>
                        axis.Key.Contains(token, StringComparison.OrdinalIgnoreCase)
                        || axis.Value.Contains(token, StringComparison.OrdinalIgnoreCase)));
-    }
-
-    private static string[] SearchTokens(string query)
-    {
-        return query
-            .Split([' ', '-', '_', '/', ',', ';', ':', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(token => token.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static LinearGradientBrush CreateLinearGradient(string startColor, string endColor)
-    {
-        return new LinearGradientBrush
-        {
-            StartPoint = { CurrentValue = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
-            EndPoint = { CurrentValue = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
-            GradientStops =
-            {
-                new GradientStop(Color.Parse(startColor), 0),
-                new GradientStop(Color.Parse(endColor), 1)
-            }
-        };
-    }
-
-    private static LinearGradientBrush CreateSoftLinearGradient(string startColor, string midColor, string endColor)
-    {
-        return new LinearGradientBrush
-        {
-            StartPoint = { CurrentValue = new RelativePoint(0.1f, 0f, RelativeUnit.Relative) },
-            EndPoint = { CurrentValue = new RelativePoint(0.9f, 1f, RelativeUnit.Relative) },
-            GradientStops =
-            {
-                new GradientStop(Color.Parse(startColor), 0),
-                new GradientStop(Color.Parse(midColor), 0.55f),
-                new GradientStop(Color.Parse(endColor), 1)
-            }
-        };
-    }
-
-    private static Pen CreatePen(string color, float thickness)
-    {
-        return new Pen
-        {
-            Brush = { CurrentValue = new SolidColorBrush(Color.Parse(color)) },
-            Thickness = { CurrentValue = thickness }
-        };
-    }
-
-    private static Blur CreateBlur(float sigma)
-    {
-        var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(sigma, sigma);
-        return blur;
-    }
-
-    private static Brightness CreateBrightness(float amount)
-    {
-        var brightness = new Brightness();
-        brightness.Amount.CurrentValue = amount;
-        return brightness;
-    }
-
-    private static DropShadow CreateDropShadow(float x, float y, float sigma, string color)
-    {
-        var dropShadow = new DropShadow();
-        dropShadow.Position.CurrentValue = new Point(x, y);
-        dropShadow.Sigma.CurrentValue = new Size(sigma, sigma);
-        dropShadow.Color.CurrentValue = Color.Parse(color);
-        return dropShadow;
-    }
-
-    private static Saturate CreateSaturate(float amount)
-    {
-        var saturate = new Saturate();
-        saturate.Amount.CurrentValue = amount;
-        return saturate;
-    }
-
-    private static HueRotate CreateHueRotate(float angle)
-    {
-        var hueRotate = new HueRotate();
-        hueRotate.Angle.CurrentValue = angle;
-        return hueRotate;
-    }
-
-    private static HighContrast CreateHighContrast(float contrast)
-    {
-        var highContrast = new HighContrast();
-        highContrast.Contrast.CurrentValue = contrast;
-        return highContrast;
-    }
-
-    private static MosaicEffect CreateMosaic(float tileSize)
-    {
-        var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(tileSize, tileSize);
-        return mosaic;
-    }
-
-    private static JsonObject SerializeElement(Element element)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(element);
-        RemoveIds(json);
-        return json;
-    }
-
-    private static JsonObject GetFirstObjectJson(JsonObject element)
-    {
-        return (JsonObject)((JsonArray)element[nameof(Element.Objects)]!)[0]!;
-    }
-
-    private static JsonObject GetTransformChildJson(JsonObject drawable, Type transformType)
-    {
-        string discriminator = IdentityHelper.WriteDiscriminator(transformType);
-        JsonArray children = (JsonArray)drawable[nameof(Drawable.Transform)]![nameof(TransformGroup.Children)]!;
-        return children
-            .OfType<JsonObject>()
-            .Single(child => string.Equals(child["$type"]?.GetValue<string>(), discriminator, StringComparison.Ordinal));
-    }
-
-    private static void AddFloatAnimation(JsonObject target, string property, params (double Seconds, float Value, Type Easing)[] keyframes)
-    {
-        JsonObject animations = target["Animations"] as JsonObject ?? [];
-        animations[property] = CreateFloatAnimation(keyframes);
-        target["Animations"] = animations;
-    }
-
-    private static JsonObject CreateFloatAnimation(params (double Seconds, float Value, Type Easing)[] keyframes)
-    {
-        string animationType = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>));
-        string keyFrameType = IdentityHelper.WriteDiscriminator(typeof(KeyFrame<float>));
-        return new JsonObject
-        {
-            ["$type"] = animationType,
-            [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(keyframes
-                .Select(keyframe => new JsonObject
-                {
-                    ["$type"] = keyFrameType,
-                    [nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(Math.Max(0, keyframe.Seconds)).ToString("c"),
-                    [nameof(KeyFrame<float>.Value)] = keyframe.Value,
-                    [nameof(KeyFrame.Easing)] = IdentityHelper.WriteDiscriminator(keyframe.Easing)
-                })
-                .ToArray<JsonNode?>())
-        };
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
     }
 
     private static JsonObject CloneObject(JsonObject value)

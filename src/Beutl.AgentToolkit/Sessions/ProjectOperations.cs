@@ -73,8 +73,7 @@ public static class ProjectOperations
             throw new InvalidOperationException("Project must have a Uri before scenes can be added.");
         }
 
-        string projectDirectory = Path.GetDirectoryName(project.Uri.LocalPath)
-                                  ?? throw new InvalidOperationException("Project Uri must have a directory.");
+        string projectDirectory = GetProjectDirectory(project.Uri);
         string sceneName = options.Name ?? $"Scene{project.Items.Count + 1}";
         ValidateSceneName(sceneName);
 
@@ -136,8 +135,7 @@ public static class ProjectOperations
             throw new InvalidOperationException("Project must have a Uri before it can be saved.");
         }
 
-        string projectDirectory = Path.GetDirectoryName(project.Uri.LocalPath)
-                                  ?? throw new InvalidOperationException("Project Uri must have a directory.");
+        string projectDirectory = GetProjectDirectory(project.Uri);
 
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
@@ -200,8 +198,7 @@ public static class ProjectOperations
             return;
         }
 
-        string sceneDirectory = Path.GetDirectoryName(scene.Uri.LocalPath)
-                                ?? throw new InvalidOperationException("Scene Uri must have a directory.");
+        string sceneDirectory = GetSceneDirectory(scene.Uri);
         var usedPaths = scene.Children
             .Where(element => element.Uri is not null
                               && IsInsideDirectory(projectDirectory, element.Uri.LocalPath))
@@ -211,31 +208,55 @@ public static class ProjectOperations
         {
             if (element.Uri is not null && !IsInsideDirectory(projectDirectory, element.Uri.LocalPath))
             {
-                string relativePath = previousSceneDirectory is not null
-                    ? Path.GetRelativePath(previousSceneDirectory, element.Uri.LocalPath)
-                    : Path.GetFileName(element.Uri.LocalPath);
-                string candidate = Path.GetFullPath(Path.Combine(sceneDirectory, relativePath));
-                if (!IsInsideDirectory(sceneDirectory, candidate))
-                {
-                    candidate = Path.Combine(sceneDirectory, Path.GetFileName(element.Uri.LocalPath));
-                }
-
-                string uniqueCandidate = candidate;
-                string name = Path.GetFileNameWithoutExtension(candidate);
-                string extension = Path.GetExtension(candidate);
-                for (int suffix = 2;
-                     FileSystemEntryExists(uniqueCandidate)
-                     || !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate)));
-                     suffix++)
-                {
-                    uniqueCandidate = Path.Combine(
-                        Path.GetDirectoryName(candidate)!,
-                        $"{name}-{suffix}{extension}");
-                }
-
-                element.Uri = CreateFileUri(uniqueCandidate);
+                element.Uri = CreateFileUri(
+                    ReserveRehomedElementPath(element.Uri, previousSceneDirectory, sceneDirectory, usedPaths));
             }
         }
+    }
+
+    // Keeps the sidecar's scene-relative layout while it stays inside the scene directory, then
+    // suffixes the name until it is free both on disk and among the scene's other sidecars.
+    private static string ReserveRehomedElementPath(
+        Uri elementUri,
+        string? previousSceneDirectory,
+        string sceneDirectory,
+        HashSet<string> usedPaths)
+    {
+        string relativePath = previousSceneDirectory is not null
+            ? Path.GetRelativePath(previousSceneDirectory, elementUri.LocalPath)
+            : Path.GetFileName(elementUri.LocalPath);
+        string candidate = Path.GetFullPath(Path.Combine(sceneDirectory, relativePath));
+        if (!IsInsideDirectory(sceneDirectory, candidate))
+        {
+            candidate = Path.Combine(sceneDirectory, Path.GetFileName(elementUri.LocalPath));
+        }
+
+        string uniqueCandidate = candidate;
+        string name = Path.GetFileNameWithoutExtension(candidate);
+        string extension = Path.GetExtension(candidate);
+        for (int suffix = 2;
+             FileSystemEntryExists(uniqueCandidate)
+             || !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate)));
+             suffix++)
+        {
+            uniqueCandidate = Path.Combine(
+                Path.GetDirectoryName(candidate)!,
+                $"{name}-{suffix}{extension}");
+        }
+
+        return uniqueCandidate;
+    }
+
+    private static string GetProjectDirectory(Uri projectUri)
+    {
+        return Path.GetDirectoryName(projectUri.LocalPath)
+               ?? throw new InvalidOperationException("Project Uri must have a directory.");
+    }
+
+    private static string GetSceneDirectory(Uri sceneUri)
+    {
+        return Path.GetDirectoryName(sceneUri.LocalPath)
+               ?? throw new InvalidOperationException("Scene Uri must have a directory.");
     }
 
     private static bool IsInsideDirectory(string directory, string candidate)
@@ -259,8 +280,7 @@ public static class ProjectOperations
 
         if (scene.FindHierarchicalParent<Project>() is { Uri: { } projectUri } project)
         {
-            string projectDirectory = Path.GetDirectoryName(projectUri.LocalPath)
-                                      ?? throw new InvalidOperationException("Project Uri must have a directory.");
+            string projectDirectory = GetProjectDirectory(projectUri);
             RehomeSidecarsOutsideProject(project, projectDirectory, scene);
             EnsureSceneUri(project, scene);
         }
@@ -287,8 +307,7 @@ public static class ProjectOperations
             throw new InvalidOperationException("Scene must have a Uri before its elements can be saved.");
         }
 
-        string sceneDirectory = Path.GetDirectoryName(scene.Uri.LocalPath)
-                                ?? throw new InvalidOperationException("Scene Uri must have a directory.");
+        string sceneDirectory = GetSceneDirectory(scene.Uri);
         if (createDirectory)
         {
             Directory.CreateDirectory(sceneDirectory);
@@ -310,8 +329,7 @@ public static class ProjectOperations
             return;
         }
 
-        string projectDirectory = Path.GetDirectoryName(project.Uri!.LocalPath)
-                                  ?? throw new InvalidOperationException("Project Uri must have a directory.");
+        string projectDirectory = GetProjectDirectory(project.Uri!);
         string sceneName = string.IsNullOrWhiteSpace(scene.Name) ? $"Scene{project.Items.IndexOf(scene) + 1}" : scene.Name;
         ValidateSceneName(sceneName);
         scene.Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: scene);

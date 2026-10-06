@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -9,6 +8,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using static Beutl.AgentToolkit.Schema.SamplePatchBuilder;
 
 namespace Beutl.AgentToolkit.Schema;
 
@@ -101,12 +101,11 @@ public sealed partial class SchemaGenerator
     {
         string elementType = IdentityHelper.WriteDiscriminator(typeof(Element));
         string textType = IdentityHelper.WriteDiscriminator(typeof(TextBlock));
-        JsonObject opacityAnimation = CreateFloatAnimation(
+        JsonObject opacityAnimation = CreateFloatAnimationWithLocalClock(
             (0, 0, typeof(LinearEasing)),
             (0.35, 100, typeof(SineEaseOut)),
             (1.65, 100, typeof(LinearEasing)),
             (2, 0, typeof(LinearEasing)));
-        opacityAnimation[nameof(KeyFrameAnimation.UseGlobalClock)] = false;
 
         return new DeclarativeExample(
             "insert-new-animated-text-keyframes",
@@ -188,7 +187,7 @@ public sealed partial class SchemaGenerator
         });
 
         Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, rig);
-        JsonObject elementJson = SerializeExampleElement(element);
+        JsonObject elementJson = SerializeWithoutIds(element);
         AddCameraRigPushInAnimations(GetFlowGroupJson(elementJson));
 
         return new DeclarativeExample(
@@ -228,7 +227,7 @@ public sealed partial class SchemaGenerator
                 Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
             });
 
-        JsonObject rigJson = SerializeExampleElement(rigElement);
+        JsonObject rigJson = SerializeWithoutIds(rigElement);
         AddCameraRigPushInAnimations(GetFlowGroupJson(rigJson));
 
         return new DeclarativeExample(
@@ -238,8 +237,8 @@ public sealed partial class SchemaGenerator
             {
                 ["Elements"] = new JsonArray(
                     rigJson,
-                    SerializeExampleElement(plateElement),
-                    SerializeExampleElement(titleElement))
+                    SerializeWithoutIds(plateElement),
+                    SerializeWithoutIds(titleElement))
             });
     }
 
@@ -311,9 +310,9 @@ public sealed partial class SchemaGenerator
                 }
             });
 
-        JsonObject backgroundJson = SerializeExampleElement(background);
-        JsonObject ribbonJson = SerializeExampleElement(ribbon);
-        JsonObject titleJson = SerializeExampleElement(title);
+        JsonObject backgroundJson = SerializeWithoutIds(background);
+        JsonObject ribbonJson = SerializeWithoutIds(ribbon);
+        JsonObject titleJson = SerializeWithoutIds(title);
 
         JsonObject ribbonObject = GetFirstObjectJson(ribbonJson);
         AddFloatAnimation(ribbonObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (1.2, 100, typeof(CubicEaseOut)), (8, 100, typeof(SineEaseInOut)));
@@ -535,12 +534,12 @@ public sealed partial class SchemaGenerator
                 }
             });
 
-        JsonObject outerRingJson = SerializeExampleElement(outerRing);
-        JsonObject innerRingJson = SerializeExampleElement(innerRing);
-        JsonObject signalNodeJson = SerializeExampleElement(signalNode);
-        JsonObject sweepJson = SerializeExampleElement(sweep);
-        JsonObject titleJson = SerializeExampleElement(title);
-        JsonObject subtitleJson = SerializeExampleElement(subtitle);
+        JsonObject outerRingJson = SerializeWithoutIds(outerRing);
+        JsonObject innerRingJson = SerializeWithoutIds(innerRing);
+        JsonObject signalNodeJson = SerializeWithoutIds(signalNode);
+        JsonObject sweepJson = SerializeWithoutIds(sweep);
+        JsonObject titleJson = SerializeWithoutIds(title);
+        JsonObject subtitleJson = SerializeWithoutIds(subtitle);
 
         JsonObject outerObject = GetFirstObjectJson(outerRingJson);
         AddFloatAnimation(outerObject, nameof(Drawable.Opacity), (0, 20, typeof(CubicEaseOut)), (1.4, 100, typeof(CubicEaseOut)), (8, 72, typeof(SineEaseInOut)));
@@ -576,7 +575,7 @@ public sealed partial class SchemaGenerator
             {
                 ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),
                 ["Elements"] = new JsonArray(
-                    SerializeExampleElement(background),
+                    SerializeWithoutIds(background),
                     outerRingJson,
                     innerRingJson,
                     signalNodeJson,
@@ -782,12 +781,12 @@ public sealed partial class SchemaGenerator
                 }
             });
 
-        JsonObject panelJson = SerializeExampleElement(panel);
-        JsonObject headlineJson = SerializeExampleElement(headline);
-        JsonObject captionJson = SerializeExampleElement(caption);
-        JsonObject wideBlockJson = SerializeExampleElement(wideBlock);
-        JsonObject tallBlockJson = SerializeExampleElement(tallBlock);
-        JsonObject labelJson = SerializeExampleElement(label);
+        JsonObject panelJson = SerializeWithoutIds(panel);
+        JsonObject headlineJson = SerializeWithoutIds(headline);
+        JsonObject captionJson = SerializeWithoutIds(caption);
+        JsonObject wideBlockJson = SerializeWithoutIds(wideBlock);
+        JsonObject tallBlockJson = SerializeWithoutIds(tallBlock);
+        JsonObject labelJson = SerializeWithoutIds(label);
 
         JsonObject panelObject = GetFirstObjectJson(panelJson);
         AddFloatAnimation(panelObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7, 100, typeof(CubicEaseOut)), (8, 100, typeof(SineEaseInOut)));
@@ -818,7 +817,7 @@ public sealed partial class SchemaGenerator
             {
                 ["Duration"] = TimeSpan.FromSeconds(8).ToString("c"),
                 ["Elements"] = new JsonArray(
-                    SerializeExampleElement(background),
+                    SerializeWithoutIds(background),
                     panelJson,
                     headlineJson,
                     captionJson,
@@ -863,8 +862,8 @@ public sealed partial class SchemaGenerator
                     [nameof(Element.Objects)] = new JsonArray(new JsonObject
                     {
                         [nameof(CoreObject.Id)] = "<drawable-id>",
-                        [nameof(Shape.Fill)] = SerializeExampleObject(brush),
-                        [nameof(Drawable.FilterEffect)] = SerializeExampleObject(effects)
+                        [nameof(Shape.Fill)] = SerializeWithoutIds(brush),
+                        [nameof(Drawable.FilterEffect)] = SerializeWithoutIds(effects)
                     })
                 })
             });

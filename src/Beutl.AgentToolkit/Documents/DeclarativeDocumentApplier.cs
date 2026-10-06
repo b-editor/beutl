@@ -1,11 +1,9 @@
-﻿using System.Collections;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Engine;
@@ -338,22 +336,9 @@ internal sealed partial class DeclarativeDocumentApplier
         element.Uri = new Uri(path);
     }
 
-    private static bool IsIdentityArray(JsonArray array)
-    {
-        return array.OfType<JsonObject>().Any(item => item.ContainsKey(nameof(CoreObject.Id)));
-    }
-
-    private static bool TryGetId(JsonObject obj, out Guid id)
-    {
-        id = default;
-        return obj.TryGetPropertyValue(nameof(CoreObject.Id), out JsonNode? idNode)
-               && idNode?.GetValue<string>() is { } idText
-               && Guid.TryParse(idText, out id);
-    }
-
     private static bool IdentityMatches(CoreObject current, JsonObject desired)
     {
-        return !TryGetId(desired, out Guid id) || current.Id == id;
+        return !CollectionReconciler.TryGetId(desired, out Guid id) || current.Id == id;
     }
 
     private static bool TypeMatches(CoreObject current, JsonObject desired)

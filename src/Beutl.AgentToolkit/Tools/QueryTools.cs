@@ -1,21 +1,12 @@
-﻿using System.Collections;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
-using Beutl.Composition;
-using Beutl.Engine;
-using Beutl.Graphics;
-using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -295,6 +286,19 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
         IEditingSession? session = sessions.CurrentSession;
         return session?.ReadOnSession(() => session.Root is Scene scene ? scene.Start : TimeSpan.Zero)
                ?? TimeSpan.Zero;
+    }
+
+    private static Scene RequireSceneRoot(IEditingSession session)
+    {
+        if (session.Root is not Scene scene)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
+                session.Root.Id.ToString()));
+        }
+
+        return scene;
     }
 
     private static void RequireCompositionName(string? name)

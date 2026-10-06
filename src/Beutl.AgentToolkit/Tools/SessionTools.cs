@@ -110,64 +110,88 @@ public sealed class SessionTools(
                     .OfType<IFallback>()
                     .ToArray();
 
-                string elementFile = element.Uri is { IsFile: true } uri
-                    && scene.Uri is { IsFile: true } sceneUri
-                    ? Path.GetRelativePath(
-                        Path.GetDirectoryName(sceneUri.LocalPath)!,
-                        uri.LocalPath).Replace('\\', '/')
-                    : element.Name;
-                foreach (IFallback fallback in fallbacks)
-                {
-                    fallback.TryGetTypeName(out string? typeName);
-                    if (string.Equals(
-                            typeName,
-                            IdentityHelper.WriteDiscriminator(fallback.GetType()),
-                            StringComparison.Ordinal))
-                    {
-                        typeName = null;
-                    }
-
-                    incidents.Add(new RecoveryIncident(
-                        scene.Id.ToString(),
-                        scene.Name,
-                        elementFile,
-                        fallback.Reason.ToString(),
-                        typeName,
-                        fallback.ErrorMessage));
-                    string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
-                        ? fallback.Reason.ToString()
-                        : fallback.ErrorMessage;
-                    warnings.Add(
-                        $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
-                }
-
-                if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true } source)
-                {
-                    SuppressedRecoveryIncident[] recoveryIncidents
-                        = source.RecoveryIncidents is { Length: > 0 } details
-                            ? details
-                            : [new SuppressedRecoveryIncident(
-                                nameof(FallbackReason.DeserializationFailed),
-                                null,
-                                "A value was replaced during load, and the original element file is preserved.")];
-                    foreach (SuppressedRecoveryIncident recoveryIncident in recoveryIncidents)
-                    {
-                        incidents.Add(new RecoveryIncident(
-                            scene.Id.ToString(),
-                            scene.Name,
-                            elementFile,
-                            recoveryIncident.Reason,
-                            recoveryIncident.TypeName,
-                            recoveryIncident.Message));
-                        string message = recoveryIncident.Message ?? recoveryIncident.Reason;
-                        warnings.Add(
-                            $"Element file '{elementFile}' had a value replaced during load: {message}");
-                    }
-                }
+                string elementFile = DescribeElementFile(scene, element);
+                AddFallbackIncidents(scene, elementFile, fallbacks, warnings, incidents);
+                AddSuppressedRecoveryIncidents(scene, elementFile, element, warnings, incidents);
             }
         }
 
         return new DeserializationWarningCollection(warnings, incidents);
+    }
+
+    private static string DescribeElementFile(Scene scene, Element element)
+    {
+        return element.Uri is { IsFile: true } uri
+            && scene.Uri is { IsFile: true } sceneUri
+            ? Path.GetRelativePath(
+                Path.GetDirectoryName(sceneUri.LocalPath)!,
+                uri.LocalPath).Replace('\\', '/')
+            : element.Name;
+    }
+
+    private static void AddFallbackIncidents(
+        Scene scene,
+        string elementFile,
+        IFallback[] fallbacks,
+        List<string> warnings,
+        List<RecoveryIncident> incidents)
+    {
+        foreach (IFallback fallback in fallbacks)
+        {
+            fallback.TryGetTypeName(out string? typeName);
+            if (string.Equals(
+                    typeName,
+                    IdentityHelper.WriteDiscriminator(fallback.GetType()),
+                    StringComparison.Ordinal))
+            {
+                typeName = null;
+            }
+
+            incidents.Add(new RecoveryIncident(
+                scene.Id.ToString(),
+                scene.Name,
+                elementFile,
+                fallback.Reason.ToString(),
+                typeName,
+                fallback.ErrorMessage));
+            string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
+                ? fallback.Reason.ToString()
+                : fallback.ErrorMessage;
+            warnings.Add(
+                $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
+        }
+    }
+
+    private static void AddSuppressedRecoveryIncidents(
+        Scene scene,
+        string elementFile,
+        Element element,
+        List<string> warnings,
+        List<RecoveryIncident> incidents)
+    {
+        if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true } source)
+        {
+            SuppressedRecoveryIncident[] recoveryIncidents
+                = source.RecoveryIncidents is { Length: > 0 } details
+                    ? details
+                    : [new SuppressedRecoveryIncident(
+                        nameof(FallbackReason.DeserializationFailed),
+                        null,
+                        "A value was replaced during load, and the original element file is preserved.")];
+            foreach (SuppressedRecoveryIncident recoveryIncident in recoveryIncidents)
+            {
+                incidents.Add(new RecoveryIncident(
+                    scene.Id.ToString(),
+                    scene.Name,
+                    elementFile,
+                    recoveryIncident.Reason,
+                    recoveryIncident.TypeName,
+                    recoveryIncident.Message));
+                string message = recoveryIncident.Message ?? recoveryIncident.Reason;
+                warnings.Add(
+                    $"Element file '{elementFile}' had a value replaced during load: {message}");
+            }
+        }
     }
 
     private sealed record DeserializationWarningCollection(

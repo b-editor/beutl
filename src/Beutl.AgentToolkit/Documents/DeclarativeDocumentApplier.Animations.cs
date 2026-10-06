@@ -76,25 +76,7 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (animations is not null)
         {
-            foreach (string name in animations.Select(pair => pair.Key))
-            {
-                IProperty? property = target.Properties.FirstOrDefault(item => item.Name == name);
-                if (property is null)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Animation target property '{name}' does not exist on '{target.GetType().FullName}'.",
-                        target.Id.ToString()));
-                }
-
-                if (!property.IsAnimatable)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Property '{name}' is not animatable.",
-                        target.Id.ToString()));
-                }
-            }
+            RequireTargetProperties(target, animations, "Animation", static property => property.IsAnimatable, "is not animatable");
         }
 
         foreach (IProperty property in target.Properties.Where(property => property.IsAnimatable))
@@ -258,25 +240,7 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (expressions is not null)
         {
-            foreach (string name in expressions.Select(pair => pair.Key))
-            {
-                IProperty? property = target.Properties.FirstOrDefault(item => item.Name == name);
-                if (property is null)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Expression target property '{name}' does not exist on '{target.GetType().FullName}'.",
-                        target.Id.ToString()));
-                }
-
-                if (!property.SupportsExpression)
-                {
-                    throw new ReconcileException(new ToolError(
-                        ErrorCode.ValidationRejected,
-                        $"Property '{name}' does not support expressions.",
-                        target.Id.ToString()));
-                }
-            }
+            RequireTargetProperties(target, expressions, "Expression", static property => property.SupportsExpression, "does not support expressions");
         }
 
         foreach (IProperty property in target.Properties.Where(property => property.SupportsExpression))
@@ -288,6 +252,36 @@ internal sealed partial class DeclarativeDocumentApplier
             else
             {
                 property.Expression = null;
+            }
+        }
+    }
+
+    // Animations and Expressions are both keyed by property name; every key must name an existing
+    // property that supports the member kind before any property is reset.
+    private static void RequireTargetProperties(
+        EngineObject target,
+        JsonObject members,
+        string memberKind,
+        Func<IProperty, bool> isSupported,
+        string unsupportedReason)
+    {
+        foreach (string name in members.Select(pair => pair.Key))
+        {
+            IProperty? property = target.Properties.FirstOrDefault(item => item.Name == name);
+            if (property is null)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"{memberKind} target property '{name}' does not exist on '{target.GetType().FullName}'.",
+                    target.Id.ToString()));
+            }
+
+            if (!isSupported(property))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Property '{name}' {unsupportedReason}.",
+                    target.Id.ToString()));
             }
         }
     }
@@ -309,7 +303,7 @@ internal sealed partial class DeclarativeDocumentApplier
             }
 
             CoreObject item;
-            if (TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
+            if (CollectionReconciler.TryGetId(itemJson, out Guid id) && FindById(list, id) is { } existing)
             {
                 item = existing;
                 ApplyCoreObject(existing, itemJson);

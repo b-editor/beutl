@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Engine;
@@ -42,7 +43,7 @@ public sealed partial class EditTools
             {
                 (JsonObject element, JsonArray objects, JsonObject source) = FindObjectInElements(desired, objectId, elementId);
                 var clone = (JsonObject)source.DeepClone();
-                RemoveIds(clone);
+                CollectionReconciler.RemoveIds(clone);
                 clone[nameof(CoreObject.Id)] = newId.ToString();
                 objects.Add(clone);
                 elementId2 = ReadId(element) ?? string.Empty;
@@ -70,43 +71,9 @@ public sealed partial class EditTools
                 objectId));
         }
 
-        if (!Guid.TryParse(objectId, out Guid sourceId))
-        {
-            throw StaleObject(objectId);
-        }
-
-        Guid? scopedElementId = null;
-        if (!string.IsNullOrWhiteSpace(elementId))
-        {
-            if (!Guid.TryParse(elementId, out Guid parsedElementId))
-            {
-                throw StaleObject(objectId);
-            }
-
-            scopedElementId = parsedElementId;
-        }
-
+        (Guid sourceId, Guid? scopedElementId) = ParseDuplicateTarget(objectId, elementId);
         DuplicateObjectLocation location = FindObjectLocation(scene, sourceId, scopedElementId, objectId);
-        if (location.Source is not Drawable source)
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.ValidationRejected,
-                $"Object '{objectId}' is not a Drawable and cannot be wrapped in a DrawableGroup.",
-                objectId,
-                "Use wrapInGroup only for drawable objects such as TextBlock, RectShape, SourceImage, or SourceVideo."));
-        }
-
-        if (location.ParentGroup is null && source is IFlowOperator)
-        {
-            // A flow operator placed directly on its element is preceded by its own paired portal.
-            // Wrapping it moves the operator into a new group but leaves that portal behind, orphaned;
-            // wrap one of its child drawables (or move it to another element) instead.
-            throw new ReconcileException(new ToolError(
-                ErrorCode.ValidationRejected,
-                $"Object '{objectId}' is a flow operator on its element, so wrapping it in a new group would orphan its existing portal.",
-                objectId,
-                "Duplicate one of its child drawables with wrapInGroup, or move it into another element without wrapping."));
-        }
+        Drawable source = RequireWrappableDrawable(location, objectId);
 
         JsonObject sourceJson = FindObjectJsonInElements(session.Documents.Read(session.Root), objectId, elementId);
         var newId = Guid.NewGuid();
@@ -146,6 +113,70 @@ public sealed partial class EditTools
         group = null!;
         ExecuteInSessionTransaction(session, Mutate, "Agent duplicate object");
 
+        List<AppliedEntityId> createdIds = CreateWrapCreatedIds(location, portal, group, clone);
+        return new DuplicateObjectResponse(
+            true,
+            location.Element.Id.ToString(),
+            clone.Id.ToString(),
+            createdIds,
+            group.Id.ToString());
+    }
+
+    private static (Guid SourceId, Guid? ScopedElementId) ParseDuplicateTarget(string objectId, string? elementId)
+    {
+        if (!Guid.TryParse(objectId, out Guid sourceId))
+        {
+            throw StaleObject(objectId);
+        }
+
+        Guid? scopedElementId = null;
+        if (!string.IsNullOrWhiteSpace(elementId))
+        {
+            if (!Guid.TryParse(elementId, out Guid parsedElementId))
+            {
+                throw StaleObject(objectId);
+            }
+
+            scopedElementId = parsedElementId;
+        }
+
+        return (sourceId, scopedElementId);
+    }
+
+    private static Drawable RequireWrappableDrawable(DuplicateObjectLocation location, string objectId)
+    {
+        if (location.Source is not Drawable source)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Object '{objectId}' is not a Drawable and cannot be wrapped in a DrawableGroup.",
+                objectId,
+                "Use wrapInGroup only for drawable objects such as TextBlock, RectShape, SourceImage, or SourceVideo."));
+        }
+
+        if (location.ParentGroup is null && source is IFlowOperator)
+        {
+            // A flow operator placed directly on its element is preceded by its own paired portal.
+            // Wrapping it moves the operator into a new group but leaves that portal behind, orphaned;
+            // wrap one of its child drawables (or move it to another element) instead.
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Object '{objectId}' is a flow operator on its element, so wrapping it in a new group would orphan its existing portal.",
+                objectId,
+                "Duplicate one of its child drawables with wrapInGroup, or move it into another element without wrapping."));
+        }
+
+        return source;
+    }
+
+    // The portal and group exist only when the source sat directly on its element; a source already
+    // inside a group only gains the clone.
+    private static List<AppliedEntityId> CreateWrapCreatedIds(
+        DuplicateObjectLocation location,
+        PortalObject? portal,
+        DrawableGroup group,
+        Drawable clone)
+    {
         var createdIds = new List<AppliedEntityId>();
         if (portal is not null)
         {
@@ -164,48 +195,28 @@ public sealed partial class EditTools
         createdIds.Add(CreateAppliedEntityId(
             clone,
             $"$/Elements[Id={location.Element.Id}]/Objects[Id={group.Id}]/Children[Id={clone.Id}]"));
-
-        return new DuplicateObjectResponse(
-            true,
-            location.Element.Id.ToString(),
-            clone.Id.ToString(),
-            createdIds,
-            group.Id.ToString());
+        return createdIds;
     }
 
     private static void ExecuteInSessionTransaction(IEditingSession session, Action mutate, string name)
     {
         void Execute() => session.History.ExecuteInTransaction(mutate, name);
 
-        if (session is IEditingSessionDispatcher dispatcher)
-        {
-            dispatcher.Invoke(Execute);
-        }
-        else
-        {
-            Execute();
-        }
+        session.InvokeOnSession(Execute);
 
-        if (session is FileEditingSession fileSession)
-        {
-            fileSession.MarkDirty();
-        }
+        session.MarkDirtyIfFileSession();
     }
 
     private static Drawable CloneDrawable(JsonObject sourceJson, Guid newId, CoreObject root)
     {
         var cloneJson = (JsonObject)sourceJson.DeepClone();
-        RemoveIds(cloneJson);
+        CollectionReconciler.RemoveIds(cloneJson);
         cloneJson[nameof(CoreObject.Id)] = newId.ToString();
 
         return (Drawable)CoreSerializer.DeserializeFromJsonObject(
             cloneJson,
             typeof(Drawable),
-            new CoreSerializerOptions
-            {
-                BaseUri = root.Uri,
-                Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
-            });
+            DeclarativeDocumentApplier.CreateOptions(root.Uri));
     }
 
     private static AppliedEntityId CreateAppliedEntityId(CoreObject obj, string path)
@@ -278,16 +289,9 @@ public sealed partial class EditTools
         string objectId,
         string? elementId)
     {
-        if (document["Elements"] is not JsonArray elements)
+        foreach (JsonNode? elementNode in RequireElementsArray(document))
         {
-            throw new InvalidOperationException("The current scene document does not contain an Elements array.");
-        }
-
-        foreach (JsonNode? elementNode in elements)
-        {
-            if (elementNode is not JsonObject element
-                || (elementId is not null && ReadId(element) != elementId)
-                || element["Objects"] is not JsonArray objects)
+            if (!TryGetScopedObjects(elementNode, elementId, out _, out JsonArray? objects))
             {
                 continue;
             }
@@ -337,16 +341,9 @@ public sealed partial class EditTools
         string objectId,
         string? elementId)
     {
-        if (document["Elements"] is not JsonArray elements)
+        foreach (JsonNode? elementNode in RequireElementsArray(document))
         {
-            throw new InvalidOperationException("The current scene document does not contain an Elements array.");
-        }
-
-        foreach (JsonNode? elementNode in elements)
-        {
-            if (elementNode is not JsonObject element
-                || (elementId is not null && ReadId(element) != elementId)
-                || element["Objects"] is not JsonArray objects)
+            if (!TryGetScopedObjects(elementNode, elementId, out JsonObject? element, out JsonArray? objects))
             {
                 continue;
             }
@@ -360,10 +357,39 @@ public sealed partial class EditTools
             }
         }
 
-        throw new ReconcileException(new ToolError(
-            ErrorCode.StaleHandle,
-            $"No object with Id '{objectId}' exists in a timeline element.",
-            objectId));
+        throw StaleObject(objectId);
+    }
+
+    private static JsonArray RequireElementsArray(JsonObject document)
+    {
+        if (document["Elements"] is not JsonArray elements)
+        {
+            throw new InvalidOperationException("The current scene document does not contain an Elements array.");
+        }
+
+        return elements;
+    }
+
+    // Both JSON finders skip non-object entries, elements outside the requested scope, and
+    // elements without an Objects array.
+    private static bool TryGetScopedObjects(
+        JsonNode? elementNode,
+        string? elementId,
+        [NotNullWhen(true)] out JsonObject? element,
+        [NotNullWhen(true)] out JsonArray? objects)
+    {
+        if (elementNode is not JsonObject elementObject
+            || (elementId is not null && ReadId(elementObject) != elementId)
+            || elementObject["Objects"] is not JsonArray elementObjects)
+        {
+            element = null;
+            objects = null;
+            return false;
+        }
+
+        element = elementObject;
+        objects = elementObjects;
+        return true;
     }
 
     private static ReconcileException StaleObject(string objectId)

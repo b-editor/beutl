@@ -36,4 +36,12 @@ public static class EditingSessionExtensions
             action();
         }
     }
+
+    internal static void MarkDirtyIfFileSession(this IEditingSession session)
+    {
+        if (session is FileEditingSession fileSession)
+        {
+            fileSession.MarkDirty();
+        }
+    }
 }

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.ProjectSystem;
@@ -42,20 +43,7 @@ public sealed partial class RenderTools
             // every snapshot must be an isolated clone.
             JsonObject snapshot = session.Documents.Read(scene);
             snapshot.Remove(SchemaVersion.PropertyName);
-            if (scene.Uri is { } sceneUri)
-            {
-                snapshot["Uri"] = sceneUri.ToString();
-            }
-
-            var clone = (Scene)CoreSerializer.DeserializeFromJsonObject(
-                snapshot,
-                typeof(Scene),
-                new CoreSerializerOptions
-                {
-                    BaseUri = scene.Uri,
-                    Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
-                });
-            clone.Uri ??= scene.Uri;
+            var clone = (Scene)DocumentAdapter.DeserializeDetached(snapshot, typeof(Scene), scene.Uri);
             IReadOnlyList<CoreObject> referenceClones = CloneReferencedObjectsInto(scene, clone);
             AttachSnapshotRoot(scene, clone, referenceClones);
             return clone;
@@ -167,19 +155,6 @@ public sealed partial class RenderTools
             BaseUri = source.Uri,
             Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
         });
-        if (source.Uri is { } sourceUri)
-        {
-            // Scene.Children_CollectionChanged dereferences the scene's own Uri while elements
-            // deserialize, so the clone must carry it from the start, not get it assigned after.
-            json["Uri"] = sourceUri.ToString();
-        }
-
-        var clone = (CoreObject)CoreSerializer.DeserializeFromJsonObject(json, source.GetType(), new CoreSerializerOptions
-        {
-            BaseUri = source.Uri,
-            Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects,
-        });
-        clone.Uri ??= source.Uri;
-        return clone;
+        return DocumentAdapter.DeserializeDetached(json, source.GetType(), source.Uri);
     }
 }

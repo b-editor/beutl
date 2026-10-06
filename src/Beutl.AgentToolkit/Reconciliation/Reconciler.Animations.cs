@@ -251,89 +251,7 @@ public sealed partial class Reconciler
             JsonObject? currentObject = currentNode as JsonObject;
             if (CollectionReconciler.TryGetId(desiredObject, out Guid id))
             {
-                JsonObject? currentAnimations = currentObject?["Animations"] as JsonObject;
-                JsonObject? desiredAnimations = desiredObject["Animations"] as JsonObject;
-                if (ambiguousIds.Contains(id))
-                {
-                    if (!JsonEquals(currentAnimations, desiredAnimations))
-                    {
-                        validation.Add(ValidationOutcome.Rejected(
-                            null,
-                            $"Animation changes cannot target owner Id '{id}' because it occurs more than once in the current document.",
-                            options: null,
-                            "Assign a unique Id to each duplicated object first, then retry the animation edit using the repaired object's unique Id."));
-                    }
-                }
-                else if (desiredAnimations is not null
-                         && IdentityHelper.FindById(sandboxRoot, id) is EngineObject engineObject)
-                {
-                    foreach ((string propertyName, JsonNode? animationNode) in desiredAnimations)
-                    {
-                        JsonNode? currentAnimationNode = null;
-                        currentAnimations?.TryGetPropertyValue(propertyName, out currentAnimationNode);
-                        if (JsonEquals(currentAnimationNode, animationNode)
-                            || animationNode is not JsonObject animationJson
-                            || engineObject.Properties.FirstOrDefault(property => property.Name == propertyName) is not { } property)
-                        {
-                            continue;
-                        }
-
-                        JsonObject normalizedAnimation = KeyFrameShorthand.IsShorthand(animationJson)
-                            ? KeyFrameShorthand.Expand(animationJson, property.ValueType)
-                            : animationJson;
-                        if (normalizedAnimation[nameof(KeyFrameAnimation.KeyFrames)] is not JsonArray keyFrames)
-                        {
-                            continue;
-                        }
-
-                        HashSet<Guid>? changedValueIds = KeyFrameValueChangeDetector.CollectChangedValueIds(
-                            currentAnimationNode as JsonObject,
-                            normalizedAnimation);
-                        CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
-                            DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandboxRoot.Uri);
-                        foreach (JsonObject keyFrame in keyFrames.OfType<JsonObject>())
-                        {
-                            if (changedValueIds is not null
-                                && CollectionReconciler.TryGetId(keyFrame, out Guid keyFrameId)
-                                && !changedValueIds.Contains(keyFrameId))
-                            {
-                                continue;
-                            }
-
-                            if (!keyFrame.TryGetPropertyValue(nameof(KeyFrame<float>.Value), out JsonNode? valueNode))
-                            {
-                                continue;
-                            }
-
-                            try
-                            {
-                                object? value = valueNode is null
-                                    ? null
-                                    : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
-                                ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
-                                    property,
-                                    value,
-                                    options);
-                                validation.Add(outcome);
-                                if (outcome.Status == ValidationStatus.Coerced)
-                                {
-                                    // CompareObject and the live applier must consume the same accepted
-                                    // value. Otherwise the response reports the caller's pre-coercion input
-                                    // while the owning property silently installs the coerced value.
-                                    keyFrame[nameof(KeyFrame<float>.Value)] = outcome.CoercedValue?.DeepClone();
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                validation.Add(ValidationOutcome.Rejected(
-                                    valueNode,
-                                    $"Animation value for property '{property.Name}' is invalid: {ex.Message}",
-                                    options,
-                                    ValidationEvaluator.CreateValueHint(property.ValueType)));
-                            }
-                        }
-                    }
-                }
+                ValidateOwnerAnimations(sandboxRoot, currentObject, desiredObject, id, ambiguousIds, validation);
             }
 
             foreach ((string propertyName, JsonNode? desiredChild) in desiredObject)
@@ -350,57 +268,202 @@ public sealed partial class Reconciler
         }
         else if (desiredNode is JsonArray desiredArray)
         {
-            JsonArray? currentArray = currentNode as JsonArray;
-            if (currentArray is not null
-                && (CollectionReconciler.IsIdentityArray(currentArray)
-                    || CollectionReconciler.IsIdentityArray(desiredArray)))
+            ValidateChangedAnimationValuesInArray(
+                sandboxRoot,
+                currentNode as JsonArray,
+                desiredArray,
+                ambiguousIds,
+                validation);
+        }
+    }
+
+    private static void ValidateOwnerAnimations(
+        CoreObject sandboxRoot,
+        JsonObject? currentObject,
+        JsonObject desiredObject,
+        Guid id,
+        IReadOnlySet<Guid> ambiguousIds,
+        List<ValidationOutcome> validation)
+    {
+        JsonObject? currentAnimations = currentObject?["Animations"] as JsonObject;
+        JsonObject? desiredAnimations = desiredObject["Animations"] as JsonObject;
+        if (ambiguousIds.Contains(id))
+        {
+            if (!JsonEquals(currentAnimations, desiredAnimations))
             {
-                var currentById = new Dictionary<Guid, List<JsonObject>>();
-                foreach (JsonObject currentObject in currentArray.OfType<JsonObject>())
-                {
-                    if (CollectionReconciler.TryGetId(currentObject, out Guid id))
-                    {
-                        if (!currentById.TryGetValue(id, out List<JsonObject>? occurrences))
-                        {
-                            occurrences = [];
-                            currentById.Add(id, occurrences);
-                        }
-
-                        occurrences.Add(currentObject);
-                    }
-                }
-
-                foreach (JsonNode? desiredChild in desiredArray)
-                {
-                    JsonNode? currentChild = null;
-                    if (desiredChild is JsonObject desiredItem
-                        && CollectionReconciler.TryGetId(desiredItem, out Guid desiredId)
-                        && currentById.TryGetValue(desiredId, out List<JsonObject>? occurrences))
-                    {
-                        currentChild = TakeMatchingOccurrence(occurrences, desiredItem);
-                    }
-
-                    ValidateChangedAnimationValuesInNode(
-                        sandboxRoot,
-                        currentChild,
-                        desiredChild,
-                        ambiguousIds,
-                        validation);
-                }
+                validation.Add(ValidationOutcome.Rejected(
+                    null,
+                    $"Animation changes cannot target owner Id '{id}' because it occurs more than once in the current document.",
+                    options: null,
+                    "Assign a unique Id to each duplicated object first, then retry the animation edit using the repaired object's unique Id."));
             }
-            else
+
+            return;
+        }
+
+        if (desiredAnimations is null
+            || IdentityHelper.FindById(sandboxRoot, id) is not EngineObject engineObject)
+        {
+            return;
+        }
+
+        foreach ((string propertyName, JsonNode? animationNode) in desiredAnimations)
+        {
+            JsonNode? currentAnimationNode = null;
+            currentAnimations?.TryGetPropertyValue(propertyName, out currentAnimationNode);
+            if (JsonEquals(currentAnimationNode, animationNode)
+                || animationNode is not JsonObject animationJson
+                || engineObject.Properties.FirstOrDefault(property => property.Name == propertyName) is not { } property)
             {
-                for (int i = 0; i < desiredArray.Count; i++)
-                {
-                    ValidateChangedAnimationValuesInNode(
-                        sandboxRoot,
-                        currentArray is not null && i < currentArray.Count ? currentArray[i] : null,
-                        desiredArray[i],
-                        ambiguousIds,
-                        validation);
-                }
+                continue;
+            }
+
+            ValidateAnimationKeyFrameValues(
+                sandboxRoot,
+                engineObject,
+                property,
+                currentAnimationNode,
+                animationJson,
+                validation);
+        }
+    }
+
+    private static void ValidateAnimationKeyFrameValues(
+        CoreObject sandboxRoot,
+        EngineObject engineObject,
+        IProperty property,
+        JsonNode? currentAnimationNode,
+        JsonObject animationJson,
+        List<ValidationOutcome> validation)
+    {
+        JsonObject normalizedAnimation = KeyFrameShorthand.IsShorthand(animationJson)
+            ? KeyFrameShorthand.Expand(animationJson, property.ValueType)
+            : animationJson;
+        if (normalizedAnimation[nameof(KeyFrameAnimation.KeyFrames)] is not JsonArray keyFrames)
+        {
+            return;
+        }
+
+        HashSet<Guid>? changedValueIds = KeyFrameValueChangeDetector.CollectChangedValueIds(
+            currentAnimationNode as JsonObject,
+            normalizedAnimation);
+        CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
+            DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandboxRoot.Uri);
+        foreach (JsonObject keyFrame in keyFrames.OfType<JsonObject>())
+        {
+            if (changedValueIds is not null
+                && CollectionReconciler.TryGetId(keyFrame, out Guid keyFrameId)
+                && !changedValueIds.Contains(keyFrameId))
+            {
+                continue;
+            }
+
+            if (!keyFrame.TryGetPropertyValue(nameof(KeyFrame<float>.Value), out JsonNode? valueNode))
+            {
+                continue;
+            }
+
+            ValidateKeyFrameValue(property, keyFrame, valueNode, options, validation);
+        }
+    }
+
+    private static void ValidateKeyFrameValue(
+        IProperty property,
+        JsonObject keyFrame,
+        JsonNode? valueNode,
+        CoreSerializerOptions options,
+        List<ValidationOutcome> validation)
+    {
+        try
+        {
+            object? value = valueNode is null
+                ? null
+                : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
+            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+                property,
+                value,
+                options);
+            validation.Add(outcome);
+            if (outcome.Status == ValidationStatus.Coerced)
+            {
+                // CompareObject and the live applier must consume the same accepted
+                // value. Otherwise the response reports the caller's pre-coercion input
+                // while the owning property silently installs the coerced value.
+                keyFrame[nameof(KeyFrame<float>.Value)] = outcome.CoercedValue?.DeepClone();
             }
         }
+        catch (Exception ex)
+        {
+            validation.Add(ValidationOutcome.Rejected(
+                valueNode,
+                $"Animation value for property '{property.Name}' is invalid: {ex.Message}",
+                options,
+                ValidationEvaluator.CreateValueHint(property.ValueType)));
+        }
+    }
+
+    private static void ValidateChangedAnimationValuesInArray(
+        CoreObject sandboxRoot,
+        JsonArray? currentArray,
+        JsonArray desiredArray,
+        IReadOnlySet<Guid> ambiguousIds,
+        List<ValidationOutcome> validation)
+    {
+        if (currentArray is not null
+            && (CollectionReconciler.IsIdentityArray(currentArray)
+                || CollectionReconciler.IsIdentityArray(desiredArray)))
+        {
+            Dictionary<Guid, List<JsonObject>> currentById = GroupOccurrencesById(currentArray);
+            foreach (JsonNode? desiredChild in desiredArray)
+            {
+                JsonNode? currentChild = null;
+                if (desiredChild is JsonObject desiredItem
+                    && CollectionReconciler.TryGetId(desiredItem, out Guid desiredId)
+                    && currentById.TryGetValue(desiredId, out List<JsonObject>? occurrences))
+                {
+                    currentChild = TakeMatchingOccurrence(occurrences, desiredItem);
+                }
+
+                ValidateChangedAnimationValuesInNode(
+                    sandboxRoot,
+                    currentChild,
+                    desiredChild,
+                    ambiguousIds,
+                    validation);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < desiredArray.Count; i++)
+            {
+                ValidateChangedAnimationValuesInNode(
+                    sandboxRoot,
+                    currentArray is not null && i < currentArray.Count ? currentArray[i] : null,
+                    desiredArray[i],
+                    ambiguousIds,
+                    validation);
+            }
+        }
+    }
+
+    private static Dictionary<Guid, List<JsonObject>> GroupOccurrencesById(JsonArray currentArray)
+    {
+        var currentById = new Dictionary<Guid, List<JsonObject>>();
+        foreach (JsonObject currentObject in currentArray.OfType<JsonObject>())
+        {
+            if (CollectionReconciler.TryGetId(currentObject, out Guid id))
+            {
+                if (!currentById.TryGetValue(id, out List<JsonObject>? occurrences))
+                {
+                    occurrences = [];
+                    currentById.Add(id, occurrences);
+                }
+
+                occurrences.Add(currentObject);
+            }
+        }
+
+        return currentById;
     }
 
     private static JsonObject? TakeMatchingOccurrence(

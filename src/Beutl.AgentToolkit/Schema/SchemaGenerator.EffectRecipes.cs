@@ -11,6 +11,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using static Beutl.AgentToolkit.Schema.SamplePatchBuilder;
 
 namespace Beutl.AgentToolkit.Schema;
 
@@ -244,18 +245,7 @@ public sealed partial class SchemaGenerator
         IReadOnlyList<string> tags,
         FilterEffectGroup effects)
     {
-        string[] effectNames = effects.Children
-            .Select(effect => effect.GetType().Name)
-            .ToArray();
-        bool containsPrebuiltSkslScript = ContainsPrebuiltSkslScript(effects);
-        string[] notes = effectNames
-            .SelectMany(name => GetEffectMetadataByName(name).Notes)
-            .Where(note => !containsPrebuiltSkslScript || !IsShaderSourceRequirementNote(note))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        return new EffectRecipeSpec(
-            new EffectRecipeSummary(name, description, tags.ToArray(), effectNames, notes),
-            CreateEffectPatch(effects));
+        return CreateEffectRecipe(name, description, tags, effects, blendMode: null, opacity: null);
     }
 
     private static EffectRecipeSpec CreateEffectRecipe(
@@ -644,7 +634,7 @@ public sealed partial class SchemaGenerator
         var drawable = new JsonObject
         {
             [nameof(CoreObject.Id)] = "<drawable-id>",
-            [nameof(Drawable.FilterEffect)] = SerializeExampleObject(effects)
+            [nameof(Drawable.FilterEffect)] = SerializeWithoutIds(effects)
         };
 
         if (blendMode is { } mode)

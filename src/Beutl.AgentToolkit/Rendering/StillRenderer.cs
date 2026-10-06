@@ -92,12 +92,7 @@ public sealed partial class StillRenderer
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        if (ContainsGpuOnlyContent(scene, time)
-            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new RenderingUnavailableException(
-                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
-        }
+        await ThrowIfGpuContextUnavailableAsync(scene, time, cancellationToken).ConfigureAwait(false);
 
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
@@ -200,6 +195,21 @@ public sealed partial class StillRenderer
         }
 
         return false;
+    }
+
+    // relativeTime has the same meaning as in ContainsGpuOnlyContent: a still checks its sample, an
+    // export passes null to check the whole visible window.
+    internal static async ValueTask ThrowIfGpuContextUnavailableAsync(
+        Scene scene,
+        TimeSpan? relativeTime,
+        CancellationToken cancellationToken)
+    {
+        if (ContainsGpuOnlyContent(scene, relativeTime)
+            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new RenderingUnavailableException(
+                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
+        }
     }
 
     internal static async ValueTask<bool> Has3DGraphicsContextAsync(CancellationToken cancellationToken)

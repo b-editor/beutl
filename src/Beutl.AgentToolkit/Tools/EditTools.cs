@@ -1,6 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -12,7 +10,6 @@ using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using ModelContextProtocol.Server;
 using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
@@ -248,24 +245,5 @@ public sealed partial class EditTools(AgentSessionManager sessions) : ToolBase
                && node.GetValueKind() == JsonValueKind.String
             ? node.GetValue<string>()
             : null;
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
     }
 }

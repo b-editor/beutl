@@ -9,6 +9,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using static Beutl.AgentToolkit.Schema.SamplePatchBuilder;
 
 namespace Beutl.AgentToolkit.Schema;
 
@@ -66,6 +67,21 @@ public sealed partial class SchemaGenerator
         string keyFrameType = IdentityHelper.WriteDiscriminator(typeof(KeyFrame<float>));
         string linearEasingType = IdentityHelper.WriteDiscriminator(typeof(LinearEasing));
         string sineEaseOutType = IdentityHelper.WriteDiscriminator(typeof(SineEaseOut));
+        string[] cameraRigCategories = ExampleCategories(
+            KnownLibraryItemFormats.Drawable,
+            KnownLibraryItemFormats.EngineObject,
+            KnownLibraryItemFormats.Transform,
+            KnownLibraryItemFormats.Easing);
+        string[] cameraRigTypes = ExampleTypes(
+            typeof(Element),
+            typeof(DrawableGroup),
+            typeof(PortalObject),
+            typeof(TransformGroup),
+            typeof(TranslateTransform),
+            typeof(ScaleTransform),
+            typeof(KeyFrameAnimation<float>),
+            typeof(KeyFrame<float>),
+            typeof(SineEaseInOut));
 
         List<ExampleSpec> specs =
         [
@@ -205,39 +221,13 @@ public sealed partial class SchemaGenerator
                 ExampleTags("targeted", "keyframes", "animation", "new-object", "minimal")),
             new ExampleSpec(
                 CreateCameraRigPushInExample(),
-                ExampleCategories(
-                    KnownLibraryItemFormats.Drawable,
-                    KnownLibraryItemFormats.EngineObject,
-                    KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Easing),
-                ExampleTypes(
-                    typeof(Element),
-                    typeof(DrawableGroup),
-                    typeof(PortalObject),
-                    typeof(TransformGroup),
-                    typeof(TranslateTransform),
-                    typeof(ScaleTransform),
-                    typeof(KeyFrameAnimation<float>),
-                    typeof(KeyFrame<float>),
-                    typeof(SineEaseInOut)),
+                cameraRigCategories,
+                cameraRigTypes,
                 ExampleTags("targeted", "camera", "camera-rig", "push-in", "keyframes", "animation", "group")),
             new ExampleSpec(
                 CreateCameraRigPortalExample(),
-                ExampleCategories(
-                    KnownLibraryItemFormats.Drawable,
-                    KnownLibraryItemFormats.EngineObject,
-                    KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Easing),
-                ExampleTypes(
-                    typeof(Element),
-                    typeof(DrawableGroup),
-                    typeof(PortalObject),
-                    typeof(TransformGroup),
-                    typeof(TranslateTransform),
-                    typeof(ScaleTransform),
-                    typeof(KeyFrameAnimation<float>),
-                    typeof(KeyFrame<float>),
-                    typeof(SineEaseInOut)),
+                cameraRigCategories,
+                cameraRigTypes,
                 ExampleTags("targeted", "camera", "camera-rig", "portal", "flow", "timeline", "keyframes", "animation", "group")),
             new ExampleSpec(
                 CreateBrushAndEffectExample(),

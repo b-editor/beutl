@@ -8,6 +8,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using static Beutl.AgentToolkit.Schema.SamplePatchBuilder;
 
 namespace Beutl.AgentToolkit.Schema;
 
@@ -78,11 +79,11 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject ribbonJson = SerializeElement(ribbon);
-            JsonObject ribbonObject = GetFirstObjectJson(ribbonJson);
-            AddFloatAnimation(ribbonObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7 + (i * 0.12), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 80, typeof(SineEaseInOut)));
-            AddFloatAnimation(GetTransformChildJson(ribbonObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, startX, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(ribbonJson));
+            elements.Add(WithFirstObjectAnimations(ribbon, ribbonObject =>
+            {
+                AddFloatAnimation(ribbonObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7 + (i * 0.12), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 80, typeof(SineEaseInOut)));
+                AddFloatAnimation(GetTransformChildJson(ribbonObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, startX, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
+            }));
         }
 
         Element titleElement = CreateElement(
@@ -117,11 +118,11 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 }
             });
-        JsonObject titleJson = SerializeElement(titleElement);
-        JsonObject titleObject = GetFirstObjectJson(titleJson);
-        AddFloatAnimation(titleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.9, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.6, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
-        AddFloatAnimation(titleObject, nameof(TextBlock.Spacing), (0, 22, typeof(CubicEaseOut)), (1.4, 8, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 14, typeof(SineEaseInOut)));
-        elements.Add(DeserializeElement(titleJson));
+        elements.Add(WithFirstObjectAnimations(titleElement, titleObject =>
+        {
+            AddFloatAnimation(titleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.9, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.6, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
+            AddFloatAnimation(titleObject, nameof(TextBlock.Spacing), (0, 22, typeof(CubicEaseOut)), (1.4, 8, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 14, typeof(SineEaseInOut)));
+        }));
 
         elements.Add(CreateTextElement("Kinetic ribbon subtitle", "Seeded subtitle", subtitle, 31, 32, 5, 0, 82, palette.Foreground, fullLength));
         AddNoiseDots(elements, context, palette, fullLength, zStart: 16, count: Math.Clamp((int)MathF.Round(12 * density), 6, 24));
@@ -153,7 +154,22 @@ public sealed partial class CompositionTemplateCatalog
                 })
         ];
 
-        int layoutVariant = context.Random.NextInt(3);
+        OrbitalLayout layout = ResolveOrbitalLayout(context.Random.NextInt(3));
+        float centerX = layout.CenterBaseX + context.Random.Range(-140, 80);
+        float centerY = layout.CenterBaseY + context.Random.Range(-70, 60);
+        AddOrbitalRings(elements, context, palette, layout, centerX, centerY, intensity, fullLength);
+        elements.Add(CreateOrbitalSweep(context, palette, layout, centerX, centerY, intensity, fullLength));
+        AddOrbitalSignalNodes(elements, context, palette, layout, centerX, centerY, intensity, density, fullLength);
+
+        float titleX = Math.Clamp(layout.TitleBaseX + context.Random.Range(-20, 80), -560, 560);
+        elements.Add(CreateTextElement("Orbital title", "Technical title", title, 30, 88, 10, titleX, layout.TitleBaseY, palette.Foreground, fullLength));
+        elements.Add(CreateTextElement("Orbital subtitle", "Technical subtitle", subtitle, 31, 32, 5, titleX, layout.TitleBaseY + 92, palette.Foreground, fullLength));
+
+        return CreateRender(context, elements);
+    }
+
+    private static OrbitalLayout ResolveOrbitalLayout(int layoutVariant)
+    {
         float centerBaseX = layoutVariant switch
         {
             1 => 250,
@@ -175,11 +191,51 @@ public sealed partial class CompositionTemplateCatalog
         int ringCount = layoutVariant == 2 ? 4 : 3;
         float ringBaseSize = layoutVariant == 2 ? 300 : 360;
         float ringGap = layoutVariant == 2 ? 150 : 190;
-        float centerX = centerBaseX + context.Random.Range(-140, 80);
-        float centerY = centerBaseY + context.Random.Range(-70, 60);
-        for (int i = 0; i < ringCount; i++)
+        float sweepWidth = layoutVariant switch
         {
-            float size = ringBaseSize + (i * ringGap) + context.Random.Range(-34, 44);
+            1 => 760,
+            2 => 1120,
+            _ => 820
+        };
+        float sweepStartRotation = layoutVariant switch
+        {
+            1 => 150,
+            2 => -70,
+            _ => -20
+        };
+        float sweepEndRotation = sweepStartRotation + (layoutVariant == 1 ? -260 : 260);
+        int nodeBaseCount = layoutVariant == 2 ? 5 : 4;
+        float nodeSpreadX = layoutVariant == 2 ? 520 : 420;
+        float nodeSpreadY = layoutVariant == 2 ? 250 : 300;
+        return new OrbitalLayout(
+            centerBaseX,
+            centerBaseY,
+            titleBaseX,
+            titleBaseY,
+            ringCount,
+            ringBaseSize,
+            ringGap,
+            sweepWidth,
+            sweepStartRotation,
+            sweepEndRotation,
+            nodeBaseCount,
+            nodeSpreadX,
+            nodeSpreadY);
+    }
+
+    private static void AddOrbitalRings(
+        List<Element> elements,
+        CompositionContext context,
+        Palette palette,
+        OrbitalLayout layout,
+        float centerX,
+        float centerY,
+        float intensity,
+        TimeSpan fullLength)
+    {
+        for (int i = 0; i < layout.RingCount; i++)
+        {
+            float size = layout.RingBaseSize + (i * layout.RingGap) + context.Random.Range(-34, 44);
             Element ring = CreateElement(
                 $"Orbital radar ring {i + 1}",
                 4 + i,
@@ -215,26 +271,23 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject ringJson = SerializeElement(ring);
-            JsonObject ringObject = GetFirstObjectJson(ringJson);
-            AddFloatAnimation(ringObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.5 + (i * 0.18), 92 - (i * 12), typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 45 + (i * 8), typeof(SineEaseInOut)));
-            AddFloatAnimation(GetTransformChildJson(ringObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, i * 16, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, (i % 2 == 0 ? 360 : -260), typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(ringJson));
+            elements.Add(WithFirstObjectAnimations(ring, ringObject =>
+            {
+                AddFloatAnimation(ringObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.5 + (i * 0.18), 92 - (i * 12), typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 45 + (i * 8), typeof(SineEaseInOut)));
+                AddFloatAnimation(GetTransformChildJson(ringObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, i * 16, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, (i % 2 == 0 ? 360 : -260), typeof(SineEaseInOut)));
+            }));
         }
+    }
 
-        float sweepWidth = layoutVariant switch
-        {
-            1 => 760,
-            2 => 1120,
-            _ => 820
-        };
-        float sweepStartRotation = layoutVariant switch
-        {
-            1 => 150,
-            2 => -70,
-            _ => -20
-        };
-        float sweepEndRotation = sweepStartRotation + (layoutVariant == 1 ? -260 : 260);
+    private static Element CreateOrbitalSweep(
+        CompositionContext context,
+        Palette palette,
+        OrbitalLayout layout,
+        float centerX,
+        float centerY,
+        float intensity,
+        TimeSpan fullLength)
+    {
         Element sweep = CreateElement(
             "Orbital radar sweep",
             10,
@@ -242,7 +295,7 @@ public sealed partial class CompositionTemplateCatalog
             new RectShape
             {
                 Name = "Seeded scan sweep",
-                Width = { CurrentValue = sweepWidth },
+                Width = { CurrentValue = layout.SweepWidth },
                 Height = { CurrentValue = 9 },
                 Fill = { CurrentValue = CreateLinearGradient("#0036f0ff", palette.Accent) },
                 Transform =
@@ -252,7 +305,7 @@ public sealed partial class CompositionTemplateCatalog
                         Children =
                         {
                             new TranslateTransform(centerX, centerY),
-                            new RotationTransform(sweepStartRotation)
+                            new RotationTransform(layout.SweepStartRotation)
                         }
                     }
                 },
@@ -267,18 +320,29 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 }
             });
-        JsonObject sweepJson = SerializeElement(sweep);
-        AddFloatAnimation(GetFirstObjectJson(sweepJson), nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8, 78, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
-        AddFloatAnimation(GetTransformChildJson(GetFirstObjectJson(sweepJson), typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, sweepStartRotation, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, sweepEndRotation, typeof(SineEaseInOut)));
-        elements.Add(DeserializeElement(sweepJson));
+        return WithFirstObjectAnimations(sweep, sweepObject =>
+        {
+            AddFloatAnimation(sweepObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8, 78, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
+            AddFloatAnimation(GetTransformChildJson(sweepObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, layout.SweepStartRotation, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, layout.SweepEndRotation, typeof(SineEaseInOut)));
+        });
+    }
 
-        int nodeCount = Math.Clamp((int)MathF.Round((layoutVariant == 2 ? 5 : 4) * density), 2, 9);
-        float nodeSpreadX = layoutVariant == 2 ? 520 : 420;
-        float nodeSpreadY = layoutVariant == 2 ? 250 : 300;
+    private static void AddOrbitalSignalNodes(
+        List<Element> elements,
+        CompositionContext context,
+        Palette palette,
+        OrbitalLayout layout,
+        float centerX,
+        float centerY,
+        float intensity,
+        float density,
+        TimeSpan fullLength)
+    {
+        int nodeCount = Math.Clamp((int)MathF.Round(layout.NodeBaseCount * density), 2, 9);
         for (int i = 0; i < nodeCount; i++)
         {
-            float x = centerX + context.Random.Range(-nodeSpreadX, nodeSpreadX);
-            float y = centerY + context.Random.Range(-nodeSpreadY, nodeSpreadY);
+            float x = centerX + context.Random.Range(-layout.NodeSpreadX, layout.NodeSpreadX);
+            float y = centerY + context.Random.Range(-layout.NodeSpreadY, layout.NodeSpreadY);
             Element node = CreateElement(
                 $"Orbital signal node {i + 1}",
                 14 + i,
@@ -312,20 +376,14 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject nodeJson = SerializeElement(node);
-            JsonObject nodeObject = GetFirstObjectJson(nodeJson);
-            AddFloatAnimation(nodeObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.6 + (i * 0.2), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.3, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
-            JsonObject translate = GetTransformChildJson(nodeObject, typeof(TranslateTransform));
-            AddFloatAnimation(translate, nameof(TranslateTransform.X), (0, x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, x + context.Random.Range(-120, 120), typeof(SineEaseInOut)));
-            AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, y + context.Random.Range(-120, 120), typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(nodeJson));
+            elements.Add(WithFirstObjectAnimations(node, nodeObject =>
+            {
+                AddFloatAnimation(nodeObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.6 + (i * 0.2), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.3, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
+                JsonObject translate = GetTransformChildJson(nodeObject, typeof(TranslateTransform));
+                AddFloatAnimation(translate, nameof(TranslateTransform.X), (0, x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, x + context.Random.Range(-120, 120), typeof(SineEaseInOut)));
+                AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, y + context.Random.Range(-120, 120), typeof(SineEaseInOut)));
+            }));
         }
-
-        float titleX = Math.Clamp(titleBaseX + context.Random.Range(-20, 80), -560, 560);
-        elements.Add(CreateTextElement("Orbital title", "Technical title", title, 30, 88, 10, titleX, titleBaseY, palette.Foreground, fullLength));
-        elements.Add(CreateTextElement("Orbital subtitle", "Technical subtitle", subtitle, 31, 32, 5, titleX, titleBaseY + 92, palette.Foreground, fullLength));
-
-        return CreateRender(context, elements);
     }
 
     private static CompositionRender RenderSplitScreen(CompositionContext context)
@@ -396,11 +454,11 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 }
             });
-        JsonObject panelJson = SerializeElement(panel);
-        JsonObject panelObject = GetFirstObjectJson(panelJson);
-        AddFloatAnimation(panelObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 100, typeof(SineEaseInOut)));
-        AddFloatAnimation(GetTransformChildJson(panelObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, panelX - 260, typeof(CubicEaseOut)), (1.1, panelX, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, panelX + 38, typeof(SineEaseInOut)));
-        elements.Add(DeserializeElement(panelJson));
+        elements.Add(WithFirstObjectAnimations(panel, panelObject =>
+        {
+            AddFloatAnimation(panelObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.7, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 100, typeof(SineEaseInOut)));
+            AddFloatAnimation(GetTransformChildJson(panelObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, panelX - 260, typeof(CubicEaseOut)), (1.1, panelX, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, panelX + 38, typeof(SineEaseInOut)));
+        }));
 
         elements.Add(CreateTextElement("Split screen headline", "Stacked headline", title, 16, 92 + context.Random.Range(-12, 10), 4, panelX, -72, "#ff081225", fullLength));
         elements.Add(CreateTextElement("Split screen caption", "Panel caption", subtitle, 17, 28, 3, panelX, 48, "#ff10223c", fullLength));
@@ -442,11 +500,11 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject blockJson = SerializeElement(block);
-            JsonObject blockObject = GetFirstObjectJson(blockJson);
-            AddFloatAnimation(blockObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8 + (i * 0.16), 96, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 78, typeof(SineEaseInOut)));
-            AddFloatAnimation(GetTransformChildJson(blockObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, x + 320, typeof(CubicEaseOut)), (1.2 + (i * 0.18), x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, x - 80, typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(blockJson));
+            elements.Add(WithFirstObjectAnimations(block, blockObject =>
+            {
+                AddFloatAnimation(blockObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8 + (i * 0.16), 96, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 78, typeof(SineEaseInOut)));
+                AddFloatAnimation(GetTransformChildJson(blockObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, x + 320, typeof(CubicEaseOut)), (1.2 + (i * 0.18), x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, x - 80, typeof(SineEaseInOut)));
+            }));
         }
 
         elements.Add(CreateTextElement("Split screen variant label", "Variant label", $"Variant {(int)(StableHash(context.Seed) % 97):00}", 30, 50, 10, 520, 96, palette.Foreground, fullLength));
@@ -531,14 +589,14 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject blobJson = SerializeElement(blob);
-            JsonObject blobObject = GetFirstObjectJson(blobJson);
-            AddFloatAnimation(blobObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.5 + (i * 0.1), 84, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 54, typeof(SineEaseInOut)));
-            JsonObject translate = GetTransformChildJson(blobObject, typeof(TranslateTransform));
-            AddFloatAnimation(translate, nameof(TranslateTransform.X), (0, x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
-            AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endY, typeof(SineEaseInOut)));
-            AddFloatAnimation(GetTransformChildJson(blobObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, context.Random.Range(-18, 18), typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, context.Random.Range(90, 220), typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(blobJson));
+            elements.Add(WithFirstObjectAnimations(blob, blobObject =>
+            {
+                AddFloatAnimation(blobObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.5 + (i * 0.1), 84, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 54, typeof(SineEaseInOut)));
+                JsonObject translate = GetTransformChildJson(blobObject, typeof(TranslateTransform));
+                AddFloatAnimation(translate, nameof(TranslateTransform.X), (0, x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
+                AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endY, typeof(SineEaseInOut)));
+                AddFloatAnimation(GetTransformChildJson(blobObject, typeof(RotationTransform)), nameof(RotationTransform.Rotation), (0, context.Random.Range(-18, 18), typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, context.Random.Range(90, 220), typeof(SineEaseInOut)));
+            }));
         }
 
         elements.Add(CreateTextElement("Liquid title", "Floating title", title, 30, 84, 7, -620 + context.Random.Range(-60, 90), 245 + context.Random.Range(-40, 30), palette.Foreground, fullLength));
@@ -650,13 +708,13 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject barJson = SerializeElement(bar);
-            JsonObject barObject = GetFirstObjectJson(barJson);
-            AddFloatAnimation(barObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.35 + (i * 0.05), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 82, typeof(SineEaseInOut)));
-            AddFloatAnimation(barObject, nameof(RectShape.Height), (0, 20, typeof(CubicEaseOut)), (0.65 + (i * 0.04), targetHeight, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, targetHeight + context.Random.Range(-80, 80), typeof(SineEaseInOut)));
-            JsonObject translate = GetTransformChildJson(barObject, typeof(TranslateTransform));
-            AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y + (targetHeight / 2), typeof(CubicEaseOut)), (0.65 + (i * 0.04), y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, y + context.Random.Range(-30, 30), typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(barJson));
+            elements.Add(WithFirstObjectAnimations(bar, barObject =>
+            {
+                AddFloatAnimation(barObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.35 + (i * 0.05), 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 82, typeof(SineEaseInOut)));
+                AddFloatAnimation(barObject, nameof(RectShape.Height), (0, 20, typeof(CubicEaseOut)), (0.65 + (i * 0.04), targetHeight, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, targetHeight + context.Random.Range(-80, 80), typeof(SineEaseInOut)));
+                JsonObject translate = GetTransformChildJson(barObject, typeof(TranslateTransform));
+                AddFloatAnimation(translate, nameof(TranslateTransform.Y), (0, y + (targetHeight / 2), typeof(CubicEaseOut)), (0.65 + (i * 0.04), y, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, y + context.Random.Range(-30, 30), typeof(SineEaseInOut)));
+            }));
         }
 
         elements.Add(CreateTextElement("Dashboard title", "Metric title", title, 30, 76, 6, -710, -360, palette.Foreground, fullLength));
@@ -744,11 +802,11 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject sliceJson = SerializeElement(slice);
-            JsonObject sliceObject = GetFirstObjectJson(sliceJson);
-            AddFloatAnimation(sliceObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.2 + (i * 0.06), 88, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 52 + (i % 4 * 8), typeof(SineEaseInOut)));
-            AddFloatAnimation(GetTransformChildJson(sliceObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, x + context.Random.Range(-420, 420), typeof(CubicEaseOut)), (0.55 + (i * 0.05), x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(sliceJson));
+            elements.Add(WithFirstObjectAnimations(slice, sliceObject =>
+            {
+                AddFloatAnimation(sliceObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.2 + (i * 0.06), 88, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 52 + (i % 4 * 8), typeof(SineEaseInOut)));
+                AddFloatAnimation(GetTransformChildJson(sliceObject, typeof(TranslateTransform)), nameof(TranslateTransform.X), (0, x + context.Random.Range(-420, 420), typeof(CubicEaseOut)), (0.55 + (i * 0.05), x, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, endX, typeof(SineEaseInOut)));
+            }));
         }
 
         Element titleElement = CreateElement(
@@ -784,11 +842,11 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 }
             });
-        JsonObject titleJson = SerializeElement(titleElement);
-        JsonObject titleObject = GetFirstObjectJson(titleJson);
-        AddFloatAnimation(titleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.45, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.25, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
-        AddFloatAnimation(titleObject, nameof(TextBlock.Spacing), (0, 18, typeof(CubicEaseOut)), (0.9, 2, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 8, typeof(SineEaseInOut)));
-        elements.Add(DeserializeElement(titleJson));
+        elements.Add(WithFirstObjectAnimations(titleElement, titleObject =>
+        {
+            AddFloatAnimation(titleObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.45, 100, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds - 0.25, 100, typeof(SineEaseInOut)), (context.Metadata.DurationSeconds, 0, typeof(SineEaseInOut)));
+            AddFloatAnimation(titleObject, nameof(TextBlock.Spacing), (0, 18, typeof(CubicEaseOut)), (0.9, 2, typeof(CubicEaseOut)), (context.Metadata.DurationSeconds, 8, typeof(SineEaseInOut)));
+        }));
         elements.Add(CreateTextElement("Glitch subtitle", "Hard cut subtitle", subtitle, 31, 30, 6, -600, 238, palette.Foreground, fullLength));
 
         return CreateRender(context, elements);
@@ -834,10 +892,10 @@ public sealed partial class CompositionTemplateCatalog
                     }
                 });
 
-            JsonObject dotJson = SerializeElement(dot);
-            JsonObject dotObject = GetFirstObjectJson(dotJson);
-            AddFloatAnimation(dotObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8 + (i * 0.05), 78, typeof(CubicEaseOut)), (length.TotalSeconds, 0, typeof(SineEaseInOut)));
-            elements.Add(DeserializeElement(dotJson));
+            elements.Add(WithFirstObjectAnimations(dot, dotObject =>
+            {
+                AddFloatAnimation(dotObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.8 + (i * 0.05), 78, typeof(CubicEaseOut)), (length.TotalSeconds, 0, typeof(SineEaseInOut)));
+            }));
         }
     }
 
@@ -855,7 +913,7 @@ public sealed partial class CompositionTemplateCatalog
             {
                 ["Duration"] = context.Metadata.Duration,
                 ["Elements"] = new JsonArray(elements
-                    .Select(SerializeElement)
+                    .Select(SerializeWithoutIds)
                     .ToArray<JsonNode?>())
             });
     }
@@ -918,10 +976,10 @@ public sealed partial class CompositionTemplateCatalog
                 }
             });
 
-        JsonObject elementJson = SerializeElement(element);
-        JsonObject textObject = GetFirstObjectJson(elementJson);
-        AddFloatAnimation(textObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.9, 100, typeof(CubicEaseOut)), (length.TotalSeconds - 0.3, 100, typeof(SineEaseInOut)), (length.TotalSeconds, 0, typeof(SineEaseInOut)));
-        return DeserializeElement(elementJson);
+        return WithFirstObjectAnimations(element, textObject =>
+        {
+            AddFloatAnimation(textObject, nameof(Drawable.Opacity), (0, 0, typeof(CubicEaseOut)), (0.9, 100, typeof(CubicEaseOut)), (length.TotalSeconds - 0.3, 100, typeof(SineEaseInOut)), (length.TotalSeconds, 0, typeof(SineEaseInOut)));
+        });
     }
 
     private static RadialGradientBrush CreateRadialGradient(string innerColor, string outerColor)
@@ -949,8 +1007,32 @@ public sealed partial class CompositionTemplateCatalog
         return colorShift;
     }
 
+    // Keyframes are authored on the serialized form (AddFloatAnimation works on JSON), so the element
+    // is serialized, its first object animated, and the element rebuilt from that JSON.
+    private static Element WithFirstObjectAnimations(Element element, Action<JsonObject> animate)
+    {
+        JsonObject elementJson = SerializeWithoutIds(element);
+        animate(GetFirstObjectJson(elementJson));
+        return DeserializeElement(elementJson);
+    }
+
     private static Element DeserializeElement(JsonObject json)
     {
         return (Element)CoreSerializer.DeserializeFromJsonObject(CloneObject(json), typeof(Element))!;
     }
+
+    private readonly record struct OrbitalLayout(
+        float CenterBaseX,
+        float CenterBaseY,
+        float TitleBaseX,
+        float TitleBaseY,
+        int RingCount,
+        float RingBaseSize,
+        float RingGap,
+        float SweepWidth,
+        float SweepStartRotation,
+        float SweepEndRotation,
+        int NodeBaseCount,
+        float NodeSpreadX,
+        float NodeSpreadY);
 }

@@ -7,7 +7,7 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public static class CollectionReconciler
 {
-    private const string StaleHandleHint =
+    internal const string StaleHandleHint =
         "Omit Id to create a new object. When adding Objects to an existing Element, keep the parent Element Id and omit Id on each new Object. To update an existing object, call read_document, then retry apply_edit with an existing Id.";
 
     public static bool IsIdentityArray(JsonArray array)
@@ -310,9 +310,22 @@ public static class CollectionReconciler
                && Guid.TryParse(idText, out id);
     }
 
-    private static Guid ReadId(JsonObject obj)
+    internal static void RemoveIds(JsonNode? node)
     {
-        TryGetId(obj, out Guid id);
-        return id;
+        if (node is JsonObject obj)
+        {
+            obj.Remove(nameof(CoreObject.Id));
+            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array.ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
     }
 }

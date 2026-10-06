@@ -1,22 +1,16 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Reflection;
-using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Engine;
-using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 
 namespace Beutl.AgentToolkit.Schema;
@@ -71,6 +65,16 @@ public sealed partial class SchemaGenerator
     private static readonly Lazy<ExampleSpec[]> s_exampleSpecs = new(CreateExampleSpecs);
     private static readonly Lazy<EffectRecipeSpec[]> s_effectRecipeSpecs = new(CreateEffectRecipeSpecs);
     private static readonly Dictionary<Type, EffectMetadata> s_effectMetadata = CreateEffectMetadata();
+
+    private static readonly (string[] Keywords, string[] Tags)[] s_inferredEffectTagRules =
+    [
+        (["blur", "shadow", "stroke"], ["glow", "depth", "outline"]),
+        (["color", "hue", "saturate", "brightness", "contrast", "gamma", "threshold", "invert", "curve", "luma"], ["color", "grade"]),
+        (["mosaic", "pixel", "shift", "shake", "split"], ["glitch", "stylize"]),
+        (["key"], ["keying", "transparent"]),
+        (["transform", "displacement", "path", "delay", "layer", "blend"], ["motion", "composite"]),
+        (["script", "nodegraph"], ["advanced", "programmable"])
+    ];
 
     public CapabilitySchema Generate(
         string? typeFilter = null,
@@ -193,167 +197,6 @@ public sealed partial class SchemaGenerator
         return engineObject.Properties.Select(property => CreateProperty(type, property)).ToArray();
     }
 
-    private static string[] SearchTokens(string? query)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            return [];
-        }
-
-        return query
-            .Split([' ', '-', '_', '/', ',', ';', ':', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(token => token.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static LinearGradientBrush CreateLinearGradient(string startColor, string endColor)
-    {
-        return new LinearGradientBrush
-        {
-            StartPoint = { CurrentValue = new RelativePoint(0, 0.5f, RelativeUnit.Relative) },
-            EndPoint = { CurrentValue = new RelativePoint(1, 0.5f, RelativeUnit.Relative) },
-            GradientStops =
-            {
-                new GradientStop(Color.Parse(startColor), 0),
-                new GradientStop(Color.Parse(endColor), 1)
-            }
-        };
-    }
-
-    private static Blur CreateBlur(float sigma)
-    {
-        var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(sigma, sigma);
-        return blur;
-    }
-
-    private static Brightness CreateBrightness(float amount)
-    {
-        var brightness = new Brightness();
-        brightness.Amount.CurrentValue = amount;
-        return brightness;
-    }
-
-    private static Pen CreatePen(string color, float thickness)
-    {
-        return new Pen
-        {
-            Brush = { CurrentValue = new SolidColorBrush(Color.Parse(color)) },
-            Thickness = { CurrentValue = thickness }
-        };
-    }
-
-    private static DropShadow CreateDropShadow(float x, float y, float sigma, string color)
-    {
-        var dropShadow = new DropShadow();
-        dropShadow.Position.CurrentValue = new Point(x, y);
-        dropShadow.Sigma.CurrentValue = new Size(sigma, sigma);
-        dropShadow.Color.CurrentValue = Color.Parse(color);
-        return dropShadow;
-    }
-
-    private static Saturate CreateSaturate(float amount)
-    {
-        var saturate = new Saturate();
-        saturate.Amount.CurrentValue = amount;
-        return saturate;
-    }
-
-    private static HueRotate CreateHueRotate(float angle)
-    {
-        var hueRotate = new HueRotate();
-        hueRotate.Angle.CurrentValue = angle;
-        return hueRotate;
-    }
-
-    private static HighContrast CreateHighContrast(float contrast)
-    {
-        var highContrast = new HighContrast();
-        highContrast.Contrast.CurrentValue = contrast;
-        return highContrast;
-    }
-
-    private static MosaicEffect CreateMosaic(float tileSize)
-    {
-        var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(tileSize, tileSize);
-        return mosaic;
-    }
-
-    private static JsonObject SerializeExampleElement(Element element)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(element);
-        RemoveIds(json);
-        return json;
-    }
-
-    private static JsonObject GetFirstObjectJson(JsonObject element)
-    {
-        return (JsonObject)((JsonArray)element[nameof(Element.Objects)]!)[0]!;
-    }
-
-    private static JsonObject GetTransformChildJson(JsonObject drawable, Type transformType)
-    {
-        string discriminator = IdentityHelper.WriteDiscriminator(transformType);
-        JsonArray children = (JsonArray)drawable[nameof(Drawable.Transform)]![nameof(TransformGroup.Children)]!;
-        return children
-            .OfType<JsonObject>()
-            .Single(child => string.Equals(child["$type"]?.GetValue<string>(), discriminator, StringComparison.Ordinal));
-    }
-
-    private static void AddFloatAnimation(JsonObject target, string property, params (double Seconds, float Value, Type Easing)[] keyframes)
-    {
-        JsonObject animations = target["Animations"] as JsonObject ?? [];
-        animations[property] = CreateFloatAnimation(keyframes);
-        target["Animations"] = animations;
-    }
-
-    private static JsonObject CreateFloatAnimation(params (double Seconds, float Value, Type Easing)[] keyframes)
-    {
-        string animationType = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>));
-        string keyFrameType = IdentityHelper.WriteDiscriminator(typeof(KeyFrame<float>));
-        return new JsonObject
-        {
-            ["$type"] = animationType,
-            [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(keyframes
-                .Select(keyframe => new JsonObject
-                {
-                    ["$type"] = keyFrameType,
-                    [nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(keyframe.Seconds).ToString("c"),
-                    [nameof(KeyFrame<float>.Value)] = keyframe.Value,
-                    [nameof(KeyFrame.Easing)] = IdentityHelper.WriteDiscriminator(keyframe.Easing)
-                })
-                .ToArray<JsonNode?>())
-        };
-    }
-
-    private static JsonObject SerializeExampleObject(ICoreSerializable value)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(value);
-        RemoveIds(json);
-        return json;
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-    }
-
     private static PropertyDescriptor CreateProperty(Type ownerType, IProperty property)
     {
         Attribute[] attributes = property.GetAttributes() ?? [];
@@ -403,7 +246,7 @@ public sealed partial class SchemaGenerator
         }
         else if (type == typeof(Pen))
         {
-            hints.Add("Pen is a typed EngineObject value. Use the Pen shape returned by get_schema/read_document, including its '$type' discriminator and PascalCase properties such as Brush and Thickness, or omit Pen when no stroke is needed.");
+            hints.Add(ValidationEvaluator.PenValueHint);
         }
         else if (typeof(Geometry).IsAssignableFrom(type))
         {
@@ -411,7 +254,7 @@ public sealed partial class SchemaGenerator
         }
         else if (!isReference && typeof(EngineObject).IsAssignableFrom(type))
         {
-            hints.Add("Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.");
+            hints.Add(ValidationEvaluator.EngineObjectValueHint);
         }
 
         if (animatable)

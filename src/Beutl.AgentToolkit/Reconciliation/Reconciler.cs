@@ -2,9 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
-using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -50,15 +48,7 @@ public sealed partial class Reconciler
     private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
-        if (ValidateNewTypedObjectDiscriminators(desiredDocument, "$") is { } discriminatorError)
-        {
-            throw new ReconcileException(discriminatorError);
-        }
-
-        if (ValidateEngineObjectProperties(desiredDocument, "$") is { } propertyError)
-        {
-            throw new ReconcileException(propertyError);
-        }
+        ThrowIfMalformedTypedObjects(desiredDocument);
 
         HashSet<Guid> newIds = CollectionReconciler.MintMissingIds(
             desiredDocument,
@@ -68,19 +58,7 @@ public sealed partial class Reconciler
             newIds.UnionWith(knownNewIds);
         }
 
-        // Ids already duplicated in the current document are tolerated so a
-        // previously corrupted project stays editable and repairable.
-        if (CollectionReconciler.ValidateNoDuplicateIdsInIdentityArrays(
-                desiredDocument,
-                CollectionReconciler.CollectDuplicatedIds(currentDocument)) is { } duplicateError)
-        {
-            throw new ReconcileException(duplicateError);
-        }
-
-        if (CollectionReconciler.ValidateIdentityReferences(currentDocument, desiredDocument, newIds) is { } error)
-        {
-            throw new ReconcileException(error);
-        }
+        ThrowIfIdentityConflicts(currentDocument, desiredDocument, newIds);
 
         var validation = new List<ValidationOutcome>();
         CoreObject sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
@@ -89,30 +67,8 @@ public sealed partial class Reconciler
             newIds.UnionWith(CollectionReconciler.MintMissingIds(
                 desiredDocument,
                 CollectionReconciler.CollectIds(currentDocument)));
-            if (ValidateNewTypedObjectDiscriminators(desiredDocument, "$") is { } expandedDiscriminatorError)
-            {
-                throw new ReconcileException(expandedDiscriminatorError);
-            }
-
-            if (ValidateEngineObjectProperties(desiredDocument, "$") is { } expandedPropertyError)
-            {
-                throw new ReconcileException(expandedPropertyError);
-            }
-
-            if (CollectionReconciler.ValidateNoDuplicateIdsInIdentityArrays(
-                    desiredDocument,
-                    CollectionReconciler.CollectDuplicatedIds(currentDocument)) is { } expandedDuplicateError)
-            {
-                throw new ReconcileException(expandedDuplicateError);
-            }
-
-            if (CollectionReconciler.ValidateIdentityReferences(
-                    currentDocument,
-                    desiredDocument,
-                    newIds) is { } expandedReferenceError)
-            {
-                throw new ReconcileException(expandedReferenceError);
-            }
+            ThrowIfMalformedTypedObjects(desiredDocument);
+            ThrowIfIdentityConflicts(currentDocument, desiredDocument, newIds);
 
             // Use the same expanded, Id-complete document for validation, change reporting, and
             // eventual live application so plan/apply parity does not depend on synthetic $kf nodes.
@@ -138,6 +94,36 @@ public sealed partial class Reconciler
         }
 
         return new ReconcilePlan(changes, validation);
+    }
+
+    private static void ThrowIfMalformedTypedObjects(JsonObject desiredDocument)
+    {
+        if (ValidateNewTypedObjectDiscriminators(desiredDocument, "$") is { } discriminatorError)
+        {
+            throw new ReconcileException(discriminatorError);
+        }
+
+        if (ValidateEngineObjectProperties(desiredDocument, "$") is { } propertyError)
+        {
+            throw new ReconcileException(propertyError);
+        }
+    }
+
+    private static void ThrowIfIdentityConflicts(JsonObject currentDocument, JsonObject desiredDocument, HashSet<Guid> newIds)
+    {
+        // Ids already duplicated in the current document are tolerated so a
+        // previously corrupted project stays editable and repairable.
+        if (CollectionReconciler.ValidateNoDuplicateIdsInIdentityArrays(
+                desiredDocument,
+                CollectionReconciler.CollectDuplicatedIds(currentDocument)) is { } duplicateError)
+        {
+            throw new ReconcileException(duplicateError);
+        }
+
+        if (CollectionReconciler.ValidateIdentityReferences(currentDocument, desiredDocument, newIds) is { } referenceError)
+        {
+            throw new ReconcileException(referenceError);
+        }
     }
 
     public ReconcileResult Apply(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
@@ -211,10 +197,7 @@ public sealed partial class Reconciler
             },
             "Agent edit");
 
-        if (session is FileEditingSession fileSession)
-        {
-            fileSession.MarkDirty();
-        }
+        session.MarkDirtyIfFileSession();
 
         return new ReconcileResult(plan, session.Documents.Read(session.Root));
     }

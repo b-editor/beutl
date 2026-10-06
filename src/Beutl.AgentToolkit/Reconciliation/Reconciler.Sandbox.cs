@@ -116,21 +116,7 @@ public sealed partial class Reconciler
     {
         JsonObject snapshot = (JsonObject)currentDocument.DeepClone();
         snapshot.Remove(SchemaVersion.PropertyName);
-        if (session.Root.Uri is { } rootUri)
-        {
-            snapshot["Uri"] = rootUri.ToString();
-        }
-
-        var clone = (CoreObject)CoreSerializer.DeserializeFromJsonObject(
-            snapshot,
-            session.Root.GetType(),
-            new CoreSerializerOptions
-            {
-                BaseUri = session.Root.Uri,
-                Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
-            });
-        clone.Uri ??= session.Root.Uri;
-        return clone;
+        return DocumentAdapter.DeserializeDetached(snapshot, session.Root.GetType(), session.Root.Uri);
     }
 
     private static Dictionary<FallbackIdentity, int> CollectFallbackIdentities(CoreObject root)

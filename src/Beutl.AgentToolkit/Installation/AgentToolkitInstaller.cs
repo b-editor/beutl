@@ -93,30 +93,7 @@ public static class AgentToolkitInstaller
 
         if (options.InstallLiveMcp)
         {
-            if (options.LiveMcpUri is null)
-            {
-                throw new InvalidOperationException("Live MCP installation requires a live MCP URI.");
-            }
-
-            var liveServer = new JsonObject();
-            if (options.LiveMcpTypeValue is not null)
-            {
-                liveServer["type"] = options.LiveMcpTypeValue;
-            }
-
-            liveServer[options.LiveMcpUrlPropertyName] = options.LiveMcpUri.ToString();
-            if (options.LiveMcpHeaders.Count > 0)
-            {
-                var headers = new JsonObject();
-                foreach (KeyValuePair<string, string> pair in options.LiveMcpHeaders)
-                {
-                    headers[pair.Key] = pair.Value;
-                }
-
-                liveServer["headers"] = headers;
-            }
-
-            servers[options.LiveMcpServerName] = liveServer;
+            servers[options.LiveMcpServerName] = CreateLiveServer(options);
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -163,6 +140,34 @@ public static class AgentToolkitInstaller
         }
 
         return server;
+    }
+
+    private static JsonObject CreateLiveServer(AgentToolkitInstallOptions options)
+    {
+        if (options.LiveMcpUri is null)
+        {
+            throw new InvalidOperationException("Live MCP installation requires a live MCP URI.");
+        }
+
+        var liveServer = new JsonObject();
+        if (options.LiveMcpTypeValue is not null)
+        {
+            liveServer["type"] = options.LiveMcpTypeValue;
+        }
+
+        liveServer[options.LiveMcpUrlPropertyName] = options.LiveMcpUri.ToString();
+        if (options.LiveMcpHeaders.Count > 0)
+        {
+            var headers = new JsonObject();
+            foreach (KeyValuePair<string, string> pair in options.LiveMcpHeaders)
+            {
+                headers[pair.Key] = pair.Value;
+            }
+
+            liveServer["headers"] = headers;
+        }
+
+        return liveServer;
     }
 
     private static async Task<JsonObject> ReadConfigRootAsync(string path, CancellationToken cancellationToken)

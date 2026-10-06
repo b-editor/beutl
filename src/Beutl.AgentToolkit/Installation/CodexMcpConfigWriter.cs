@@ -27,6 +27,54 @@ internal static class CodexMcpConfigWriter
             throw new InvalidDataException("Codex MCP servers must be a TOML table.");
         }
 
+        TomlTable servers = CreateServers(options);
+        string updated = CodexMcpConfigEditor.Update(text, root, options.McpServersPropertyName, servers);
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await using FileStream? existingStream = File.Exists(path)
+            ? new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None)
+            : null;
+        // Restrict existing files before writing a token, including no-op
+        // reinstalls of configurations created by an earlier version.
+        if (existingStream is not null && !OperatingSystem.IsWindows())
+            File.SetUnixFileMode(existingStream.SafeFileHandle, OwnerReadWrite);
+        if (updated == text)
+            return;
+
+        string temporaryPath = Path.Combine(Path.GetDirectoryName(path)!, $".beutl-mcp-{Guid.NewGuid():N}.tmp");
+        var streamOptions = new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            Options = FileOptions.Asynchronous,
+        };
+        if (!OperatingSystem.IsWindows())
+            streamOptions.UnixCreateMode = OwnerReadWrite;
+
+        try
+        {
+            await using (var temporary = new FileStream(temporaryPath, streamOptions))
+            {
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(temporary.SafeFileHandle, OwnerReadWrite);
+                await (writeContents ?? WriteContentsAsync)(temporary, updated, cancellationToken).ConfigureAwait(false);
+                temporary.Flush(flushToDisk: true);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (existingStream is not null)
+                await existingStream.DisposeAsync().ConfigureAwait(false);
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
+    }
+
+    private static TomlTable CreateServers(AgentToolkitInstallOptions options)
+    {
         var servers = new TomlTable();
         if (options.InstallStdioMcp)
         {
@@ -73,49 +121,7 @@ internal static class CodexMcpConfigWriter
             servers[options.LiveMcpServerName] = server;
         }
 
-        string updated = CodexMcpConfigEditor.Update(text, root, options.McpServersPropertyName, servers);
-        cancellationToken.ThrowIfCancellationRequested();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await using FileStream? existingStream = File.Exists(path)
-            ? new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None)
-            : null;
-        // Restrict existing files before writing a token, including no-op
-        // reinstalls of configurations created by an earlier version.
-        if (existingStream is not null && !OperatingSystem.IsWindows())
-            File.SetUnixFileMode(existingStream.SafeFileHandle, OwnerReadWrite);
-        if (updated == text)
-            return;
-
-        string temporaryPath = Path.Combine(Path.GetDirectoryName(path)!, $".beutl-mcp-{Guid.NewGuid():N}.tmp");
-        var streamOptions = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            Options = FileOptions.Asynchronous,
-        };
-        if (!OperatingSystem.IsWindows())
-            streamOptions.UnixCreateMode = OwnerReadWrite;
-
-        try
-        {
-            await using (var temporary = new FileStream(temporaryPath, streamOptions))
-            {
-                if (!OperatingSystem.IsWindows())
-                    File.SetUnixFileMode(temporary.SafeFileHandle, OwnerReadWrite);
-                await (writeContents ?? WriteContentsAsync)(temporary, updated, cancellationToken).ConfigureAwait(false);
-                temporary.Flush(flushToDisk: true);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            if (existingStream is not null)
-                await existingStream.DisposeAsync().ConfigureAwait(false);
-            File.Move(temporaryPath, path, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temporaryPath);
-        }
+        return servers;
     }
 
     private static async Task WriteContentsAsync(Stream stream, string text, CancellationToken cancellationToken)
