@@ -135,13 +135,19 @@ public abstract partial class Mesh : EngineObject
             }
         }
 
-        partial void PostDispose(bool disposing)
+        /// <summary>Disposes the uploaded vertex and index buffers and forgets them.</summary>
+        internal void ReleaseUploadedBuffers()
         {
             VertexBuffer?.Dispose();
             VertexBuffer = null;
             IndexBuffer?.Dispose();
             IndexBuffer = null;
             UploadedIndexCount = 0;
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            ReleaseUploadedBuffers();
             _cachedVertices = null;
             _cachedIndices = null;
         }

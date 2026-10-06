@@ -79,8 +79,7 @@ internal sealed unsafe partial class VulkanContext
 
     public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
     {
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
 
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
@@ -92,7 +91,7 @@ internal sealed unsafe partial class VulkanContext
         RecordCopyToArrayLayer(
             vulkanSource.ImageHandle,
             vulkanDest.ImageHandle,
-            source.Format.IsDepthFormat() ? ImageAspectFlags.DepthBit : ImageAspectFlags.ColorBit,
+            GetCopyAspectMask(source.Format),
             (uint)faceIndex,
             (uint)source.Width,
             (uint)source.Height);
@@ -112,9 +111,7 @@ internal sealed unsafe partial class VulkanContext
         var vulkanDest = RequireOwned<VulkanTextureArray>(destination, nameof(destination));
 
         // Determine aspect mask based on format
-        var aspectMask = source.Format.IsDepthFormat()
-            ? ImageAspectFlags.DepthBit
-            : ImageAspectFlags.ColorBit;
+        var aspectMask = GetCopyAspectMask(source.Format);
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -138,16 +135,13 @@ internal sealed unsafe partial class VulkanContext
     {
         if (arrayIndex < 0 || arrayIndex >= (int)destination.ArraySize)
             throw new ArgumentOutOfRangeException(nameof(arrayIndex), $"Array index must be 0-{destination.ArraySize - 1}");
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
 
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCubeArray>(destination, nameof(destination));
 
         // Determine aspect mask based on format
-        var aspectMask = source.Format.IsDepthFormat()
-            ? ImageAspectFlags.DepthBit
-            : ImageAspectFlags.ColorBit;
+        var aspectMask = GetCopyAspectMask(source.Format);
 
         // Calculate the layer index in the cube array (arrayIndex * 6 + faceIndex)
         uint layerIndex = (uint)(arrayIndex * 6 + faceIndex);
@@ -168,6 +162,15 @@ internal sealed unsafe partial class VulkanContext
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    /// <summary>
+    /// The aspect a copy from a texture of <paramref name="format"/> transfers. A depth format copies its depth
+    /// aspect alone, even where <see cref="TextureFormatExtensions.GetAspectMask"/> adds stencil.
+    /// </summary>
+    private static ImageAspectFlags GetCopyAspectMask(TextureFormat format)
+    {
+        return format.IsDepthFormat() ? ImageAspectFlags.DepthBit : ImageAspectFlags.ColorBit;
     }
 
     /// <summary>

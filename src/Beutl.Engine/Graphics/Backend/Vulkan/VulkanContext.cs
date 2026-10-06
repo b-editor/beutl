@@ -13,7 +13,7 @@ using Image = Silk.NET.Vulkan.Image;
 internal sealed unsafe partial class VulkanContext : IGraphicsContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanContext>();
-    private static readonly AsyncLocal<TextureAllocationObservationScope?> s_textureAllocationObserver = new();
+    private static readonly ScopedObservers<TextureFormat> s_textureAllocationObservers = new();
     private readonly VulkanInstance _vulkanInstance;
     private readonly VulkanDevice _vulkanDevice;
     private readonly VulkanCommandPool _vulkanCommandPool;
@@ -180,52 +180,10 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     public int MaxCubeFaceDimension => _vulkanDevice.MaxCubeFaceDimension;
 
     internal static IDisposable ObserveTextureAllocations(Action<TextureFormat> observer)
-    {
-        ArgumentNullException.ThrowIfNull(observer);
-        var scope = new TextureAllocationObservationScope(observer, s_textureAllocationObserver.Value);
-        s_textureAllocationObserver.Value = scope;
-        return scope;
-    }
+        => s_textureAllocationObservers.Observe(observer);
 
     internal static void RecordTextureAllocation(TextureFormat format)
-    {
-        for (TextureAllocationObservationScope? scope = s_textureAllocationObserver.Value;
-             scope is not null;
-             scope = scope.Parent)
-        {
-            try
-            {
-                scope.Observer(format);
-            }
-            catch
-            {
-                // Diagnostics must never affect texture allocation.
-            }
-        }
-    }
-
-    private sealed class TextureAllocationObservationScope(
-        Action<TextureFormat> observer,
-        TextureAllocationObservationScope? parent) : IDisposable
-    {
-        private bool _disposed;
-
-        public Action<TextureFormat> Observer { get; } = observer;
-
-        public TextureAllocationObservationScope? Parent { get; } = parent;
-
-        public void Dispose()
-        {
-            if (_disposed)
-                return;
-
-            _disposed = true;
-            if (ReferenceEquals(s_textureAllocationObserver.Value, this))
-            {
-                s_textureAllocationObserver.Value = Parent;
-            }
-        }
-    }
+        => s_textureAllocationObservers.Record(format);
 
     public void WaitIdle()
     {

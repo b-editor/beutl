@@ -46,50 +46,21 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         var device = context.Device;
 
         // Create texture array image
-        var imageInfo = new ImageCreateInfo
-        {
-            SType = StructureType.ImageCreateInfo,
-            ImageType = ImageType.Type2D,
-            Format = format.ToVulkanFormat(),
-            Extent = new Extent3D((uint)width, (uint)height, 1),
-            MipLevels = 1,
-            ArrayLayers = arraySize,
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined
-        };
-
-        Silk.NET.Vulkan.Image image;
-        var result = vk.CreateImage(device, &imageInfo, null, &image);
-        if (result != Result.Success)
-        {
-            throw new InvalidOperationException($"Failed to create Vulkan texture array image: {result}");
-        }
-        _image = image;
+        _image = context.CreateTextureImage(
+            format,
+            width,
+            height,
+            arraySize,
+            usage,
+            flags: 0,
+            pNext: null,
+            "texture array image");
 
         _memory = context.AllocateAndBindImageMemory(_image, "texture array image", out _);
 
         // Create array image view (for sampling all layers at once as sampler2DArray)
-        var arrayViewInfo = new ImageViewCreateInfo
-        {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = _image,
-            ViewType = ImageViewType.Type2DArray,
-            Format = format.ToVulkanFormat(),
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = format.GetAspectMask(),
-                BaseMipLevel = 0,
-                LevelCount = 1,
-                BaseArrayLayer = 0,
-                LayerCount = arraySize
-            }
-        };
-
-        ImageView arrayView;
-        result = vk.CreateImageView(device, &arrayViewInfo, null, &arrayView);
+        Result result = context.TryCreateImageView(
+            _image, format, ImageViewType.Type2DArray, baseArrayLayer: 0, layerCount: arraySize, out ImageView arrayView);
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
@@ -105,13 +76,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
             if (result != Result.Success)
             {
                 // Clean up previously created views
-                for (uint j = 0; j < i; j++)
-                {
-                    vk.DestroyImageView(device, _layerViews[j], null);
-                }
-                vk.DestroyImageView(device, _imageView, null);
-                vk.DestroyImage(device, _image, null);
-                vk.FreeMemory(device, _memory, null);
+                ReleaseConstructedHandles(vk, device, createdLayerViews: i);
                 throw new InvalidOperationException($"Failed to create Vulkan texture array layer image view {i}: {result}");
             }
             _layerViews[i] = layerView;
@@ -132,16 +97,23 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         }
         catch
         {
-            for (uint i = 0; i < _arraySize; i++)
-                vk.DestroyImageView(device, _layerViews[i], null);
-            vk.DestroyImageView(device, _imageView, null);
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
+            ReleaseConstructedHandles(vk, device, createdLayerViews: _arraySize);
             throw;
         }
 
         for (uint i = 0; i < _arraySize; i++)
             _layerLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
+    }
+
+    // Releases what the constructor created before a later step failed: the first createdLayerViews layer views,
+    // then the array view, the image and, last, its memory.
+    private void ReleaseConstructedHandles(Vk vk, Device device, uint createdLayerViews)
+    {
+        for (uint j = 0; j < createdLayerViews; j++)
+            vk.DestroyImageView(device, _layerViews[j], null);
+        vk.DestroyImageView(device, _imageView, null);
+        vk.DestroyImage(device, _image, null);
+        vk.FreeMemory(device, _memory, null);
     }
 
     public int Width => _width;
@@ -162,8 +134,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        ValidateLayer(layerIndex);
 
         var targetLayout = _format.IsDepthFormat()
             ? ImageLayout.DepthStencilAttachmentOptimal
@@ -176,8 +147,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        ValidateLayer(layerIndex);
 
         TransitionLayer(layerIndex, ImageLayout.ShaderReadOnlyOptimal);
     }
@@ -185,8 +155,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
     internal void TransitionLayerToTransferDestination(uint layerIndex)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        ValidateLayer(layerIndex);
 
         TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
     }
@@ -205,8 +174,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        ValidateLayer(layerIndex);
 
         // Transition layer to transfer destination
         TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
@@ -247,30 +215,24 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
     internal ImageLayout GetLayerLayout(uint layerIndex)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        ValidateLayer(layerIndex);
 
         return _layerLayouts[layerIndex];
+    }
+
+    private void ValidateLayer(uint layerIndex)
+    {
+        if (layerIndex >= _arraySize)
+            throw new ArgumentOutOfRangeException(nameof(layerIndex));
     }
 
     public IntPtr GetLayerView(uint layerIndex)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        ValidateLayer(layerIndex);
 
         return (IntPtr)_layerViews[layerIndex].Handle;
-    }
-
-    public ImageView GetLayerViewHandle(uint layerIndex)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
-
-        return _layerViews[layerIndex];
     }
 
     public void Dispose()

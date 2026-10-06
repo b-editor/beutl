@@ -14,8 +14,6 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
     private readonly Framebuffer _framebuffer;
     private readonly List<VulkanTexture2D> _colorTextures;
     private readonly VulkanTexture2D? _depthTexture;
-    private readonly bool _ownsColorTextures;
-    private readonly bool _ownsDepthTexture;
     private readonly int _width;
     private readonly int _height;
     private bool _disposed;
@@ -29,64 +27,16 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
         VulkanContext context,
         VulkanRenderPass3D renderPass,
         IReadOnlyList<VulkanTexture2D> colorTextures,
-        VulkanTexture2D? depthTexture,
-        bool ownsColorTextures = false,
-        bool ownsDepthTexture = false)
+        VulkanTexture2D? depthTexture)
     {
-        if (colorTextures.Count == 0)
-        {
-            throw new ArgumentException("At least one color texture is required", nameof(colorTextures));
-        }
-
-        if (colorTextures.Count != renderPass.ColorAttachmentCount)
-        {
-            throw new ArgumentException(
-                "The framebuffer color attachment count must match the render pass.",
-                nameof(colorTextures));
-        }
-
-        if (renderPass.HasDepthAttachment != (depthTexture is not null))
-        {
-            throw new ArgumentException(
-                "The framebuffer depth attachment must match the render pass.",
-                nameof(depthTexture));
-        }
-
-        for (int i = 0; i < colorTextures.Count; i++)
-        {
-            if (colorTextures[i].Format.ToVulkanFormat() != renderPass.ColorFormats[i])
-            {
-                throw new ArgumentException(
-                    $"Color attachment {i} format must match the render pass.",
-                    nameof(colorTextures));
-            }
-        }
-
-        if (depthTexture is not null && depthTexture.Format.ToVulkanFormat() != renderPass.DepthFormat)
-        {
-            throw new ArgumentException(
-                "The depth attachment format must match the render pass.",
-                nameof(depthTexture));
-        }
+        ValidateAttachments(renderPass, colorTextures, depthTexture);
 
         _context = context;
         _renderPass = renderPass;
         _colorTextures = new List<VulkanTexture2D>(colorTextures);
         _depthTexture = depthTexture;
-        _ownsColorTextures = ownsColorTextures;
-        _ownsDepthTexture = ownsDepthTexture;
         _width = colorTextures[0].Width;
         _height = colorTextures[0].Height;
-
-        foreach (VulkanTexture2D colorTexture in colorTextures)
-        {
-            ValidateDimensions(colorTexture, _width, _height, nameof(colorTextures));
-        }
-
-        if (depthTexture is not null)
-        {
-            ValidateDimensions(depthTexture, _width, _height, nameof(depthTexture));
-        }
 
         var vk = context.Vk;
         var device = context.Device;
@@ -168,18 +118,64 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
         Framebuffer framebuffer = _framebuffer;
         _context.DeferRelease(() =>
             _context.Vk.DestroyFramebuffer(_context.Device, framebuffer, null));
+    }
 
-        if (_ownsColorTextures)
+    /// <summary>
+    /// Checks that the attachments match <paramref name="renderPass"/> and all have the size of the first color
+    /// attachment.
+    /// </summary>
+    private static void ValidateAttachments(
+        VulkanRenderPass3D renderPass,
+        IReadOnlyList<VulkanTexture2D> colorTextures,
+        VulkanTexture2D? depthTexture)
+    {
+        if (colorTextures.Count == 0)
         {
-            foreach (var texture in _colorTextures)
+            throw new ArgumentException("At least one color texture is required", nameof(colorTextures));
+        }
+
+        if (colorTextures.Count != renderPass.ColorAttachmentCount)
+        {
+            throw new ArgumentException(
+                "The framebuffer color attachment count must match the render pass.",
+                nameof(colorTextures));
+        }
+
+        if (renderPass.HasDepthAttachment != (depthTexture is not null))
+        {
+            throw new ArgumentException(
+                "The framebuffer depth attachment must match the render pass.",
+                nameof(depthTexture));
+        }
+
+        for (int i = 0; i < colorTextures.Count; i++)
+        {
+            if (colorTextures[i].Format.ToVulkanFormat() != renderPass.ColorFormats[i])
             {
-                texture.Dispose();
+                throw new ArgumentException(
+                    $"Color attachment {i} format must match the render pass.",
+                    nameof(colorTextures));
             }
         }
 
-        if (_ownsDepthTexture && _depthTexture is not null)
+        if (depthTexture is not null && depthTexture.Format.ToVulkanFormat() != renderPass.DepthFormat)
         {
-            _depthTexture.Dispose();
+            throw new ArgumentException(
+                "The depth attachment format must match the render pass.",
+                nameof(depthTexture));
+        }
+
+        int width = colorTextures[0].Width;
+        int height = colorTextures[0].Height;
+
+        foreach (VulkanTexture2D colorTexture in colorTextures)
+        {
+            ValidateDimensions(colorTexture, width, height, nameof(colorTextures));
+        }
+
+        if (depthTexture is not null)
+        {
+            ValidateDimensions(depthTexture, width, height, nameof(depthTexture));
         }
     }
 

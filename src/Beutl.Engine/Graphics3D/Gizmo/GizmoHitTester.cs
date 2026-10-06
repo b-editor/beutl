@@ -10,23 +10,16 @@ namespace Beutl.Graphics3D.Gizmo;
 /// </summary>
 public static class GizmoHitTester
 {
-    // Gizmo dimensions (must match GizmoMesh)
-    private const float ArrowLength = 1.0f;
-
     // The gizmo's unit-sized geometry spans this share of the view height wherever the target is.
     private const float ViewHeightFraction = 0.17f;
     private const float ArrowRadius = 0.08f; // Larger than visual for easier clicking
-    private const float RotateRingRadius = 0.8f;
     private const float RotateRingThickness = 0.08f; // Larger than visual for easier clicking
-    private const float ScaleLineLength = 0.8f;
     private const float ScaleCubeSize = 0.12f; // Larger than visual for easier clicking
 
-    // Plane dimensions for translate mode (must match GizmoMesh)
-    private const float PlaneOffset = 0.0f;
-    private const float PlaneSize = 0.2f;
+    // Plane dimensions for translate mode
     private const float PlaneHitPadding = 0.05f; // Extra padding for easier clicking
 
-    // Center cube for uniform scale (must match GizmoMesh)
+    // Center cube for uniform scale
     private const float CenterCubeSize = 0.15f; // Slightly larger for easier clicking
 
     /// <summary>
@@ -89,27 +82,7 @@ public static class GizmoHitTester
 
         // Hit tests run in the gizmo's unit-sized geometry, so scale the ray origin into it.
         float scale = GetWorldScale(camera, gizmoPosition, (float)width / height);
-
-        // Transform ray to gizmo local space
-        Ray3D localRay;
-        if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
-        {
-            // For Rotate and Scale modes, apply inverse rotation to transform ray into object's local space
-            var rotationMatrix = Matrix4x4.CreateFromQuaternion(gizmoOrientation);
-
-            // Invert the rotation matrix
-            Matrix4x4.Invert(rotationMatrix, out var inverseRotation);
-
-            // Transform ray origin and direction by inverse rotation
-            var localOrigin = Vector3.Transform(ray.Origin - gizmoPosition, inverseRotation) / scale;
-            var localDirection = Vector3.TransformNormal(ray.Direction, inverseRotation);
-            localRay = new Ray3D(localOrigin, Vector3.Normalize(localDirection));
-        }
-        else
-        {
-            // For Translate mode, gizmo is world-aligned
-            localRay = new Ray3D((ray.Origin - gizmoPosition) / scale, ray.Direction);
-        }
+        Ray3D localRay = ToGizmoSpace(ray, gizmoPosition, gizmoOrientation, gizmoMode, scale);
 
         GizmoAxis closestAxis = GizmoAxis.None;
         float closestDistance = float.MaxValue;
@@ -123,67 +96,77 @@ public static class GizmoHitTester
             float distance = float.MaxValue;
             bool hit = gizmoMode switch
             {
-                GizmoMode.Translate => RayIntersectsCylinder(localRay, Vector3.Zero, axisDirections[i], ArrowLength, ArrowRadius, out distance),
-                GizmoMode.Rotate => RayIntersectsRing(localRay, axisDirections[i], RotateRingRadius, RotateRingThickness, out distance),
-                GizmoMode.Scale => RayIntersectsScaleAxis(localRay, axisDirections[i], ScaleLineLength, ScaleCubeSize, out distance),
+                GizmoMode.Translate => RayIntersectsCylinder(localRay, Vector3.Zero, axisDirections[i], GizmoDimensions.ArrowLength, ArrowRadius, out distance),
+                GizmoMode.Rotate => RayIntersectsRing(localRay, axisDirections[i], GizmoDimensions.RotateRingRadius, RotateRingThickness, out distance),
+                GizmoMode.Scale => RayIntersectsScaleAxis(localRay, axisDirections[i], GizmoDimensions.ScaleLineLength, ScaleCubeSize, out distance),
                 _ => false
             };
 
-            if (hit && distance < closestDistance)
-            {
-                closestDistance = distance;
-                closestAxis = axes[i];
-            }
+            KeepCloser(hit, distance, axes[i], ref closestDistance, ref closestAxis);
         }
 
         // Test plane indicators for translate mode
         if (gizmoMode == GizmoMode.Translate)
         {
-            // XY plane
-            if (RayIntersectsPlaneQuad(localRay, Vector3.UnitX, Vector3.UnitY, out float xyDistance))
-            {
-                if (xyDistance < closestDistance)
-                {
-                    closestDistance = xyDistance;
-                    closestAxis = GizmoAxis.XY;
-                }
-            }
+            bool xyHit = RayIntersectsPlaneQuad(localRay, Vector3.UnitX, Vector3.UnitY, out float xyDistance);
+            KeepCloser(xyHit, xyDistance, GizmoAxis.XY, ref closestDistance, ref closestAxis);
 
-            // YZ plane
-            if (RayIntersectsPlaneQuad(localRay, Vector3.UnitY, Vector3.UnitZ, out float yzDistance))
-            {
-                if (yzDistance < closestDistance)
-                {
-                    closestDistance = yzDistance;
-                    closestAxis = GizmoAxis.YZ;
-                }
-            }
+            bool yzHit = RayIntersectsPlaneQuad(localRay, Vector3.UnitY, Vector3.UnitZ, out float yzDistance);
+            KeepCloser(yzHit, yzDistance, GizmoAxis.YZ, ref closestDistance, ref closestAxis);
 
-            // ZX plane
-            if (RayIntersectsPlaneQuad(localRay, Vector3.UnitZ, Vector3.UnitX, out float zxDistance))
-            {
-                if (zxDistance < closestDistance)
-                {
-                    closestDistance = zxDistance;
-                    closestAxis = GizmoAxis.ZX;
-                }
-            }
+            bool zxHit = RayIntersectsPlaneQuad(localRay, Vector3.UnitZ, Vector3.UnitX, out float zxDistance);
+            KeepCloser(zxHit, zxDistance, GizmoAxis.ZX, ref closestDistance, ref closestAxis);
         }
 
         // Test center cube for uniform scale mode
         if (gizmoMode == GizmoMode.Scale)
         {
-            if (RayIntersectsBox(localRay, Vector3.Zero, CenterCubeSize, out float centerDistance))
-            {
-                if (centerDistance < closestDistance)
-                {
-                    closestDistance = centerDistance;
-                    closestAxis = GizmoAxis.All;
-                }
-            }
+            bool centerHit = RayIntersectsBox(localRay, Vector3.Zero, CenterCubeSize, out float centerDistance);
+            KeepCloser(centerHit, centerDistance, GizmoAxis.All, ref closestDistance, ref closestAxis);
         }
 
         return closestAxis;
+    }
+
+    /// <summary>Transforms a world-space ray into the gizmo's unit-sized local space.</summary>
+    private static Ray3D ToGizmoSpace(
+        Ray3D ray,
+        Vector3 gizmoPosition,
+        Quaternion gizmoOrientation,
+        GizmoMode gizmoMode,
+        float scale)
+    {
+        if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
+        {
+            // For Rotate and Scale modes, apply inverse rotation to transform ray into object's local space
+            var rotationMatrix = Matrix4x4.CreateFromQuaternion(gizmoOrientation);
+
+            // Invert the rotation matrix
+            Matrix4x4.Invert(rotationMatrix, out var inverseRotation);
+
+            // Transform ray origin and direction by inverse rotation
+            var localOrigin = Vector3.Transform(ray.Origin - gizmoPosition, inverseRotation) / scale;
+            var localDirection = Vector3.TransformNormal(ray.Direction, inverseRotation);
+            return new Ray3D(localOrigin, Vector3.Normalize(localDirection));
+        }
+
+        // For Translate mode, gizmo is world-aligned
+        return new Ray3D((ray.Origin - gizmoPosition) / scale, ray.Direction);
+    }
+
+    /// <summary>Makes <paramref name="axis"/> the closest hit when it was hit nearer than the closest so far.</summary>
+    private static void KeepCloser(
+        bool hit,
+        float distance,
+        GizmoAxis axis,
+        ref float closestDistance,
+        ref GizmoAxis closestAxis)
+    {
+        if (hit && distance < closestDistance)
+        {
+            closestDistance = distance;
+            closestAxis = axis;
+        }
     }
 
     /// <summary>
@@ -399,7 +382,8 @@ public static class GizmoHitTester
             return false; // Ray is parallel to plane
 
         // The plane passes through the center of the quad
-        var quadCenter = axis1 * (PlaneOffset + PlaneSize * 0.5f) + axis2 * (PlaneOffset + PlaneSize * 0.5f);
+        var quadCenter = axis1 * (GizmoDimensions.PlaneOffset + GizmoDimensions.PlaneSize * 0.5f)
+            + axis2 * (GizmoDimensions.PlaneOffset + GizmoDimensions.PlaneSize * 0.5f);
         float t = Vector3.Dot(quadCenter - ray.Origin, normal) / denom;
 
         if (t < 0)
@@ -411,8 +395,8 @@ public static class GizmoHitTester
         float proj1 = Vector3.Dot(hitPoint, axis1);
         float proj2 = Vector3.Dot(hitPoint, axis2);
 
-        float minBound = PlaneOffset - PlaneHitPadding;
-        float maxBound = PlaneOffset + PlaneSize + PlaneHitPadding;
+        float minBound = GizmoDimensions.PlaneOffset - PlaneHitPadding;
+        float maxBound = GizmoDimensions.PlaneOffset + GizmoDimensions.PlaneSize + PlaneHitPadding;
 
         if (proj1 >= minBound && proj1 <= maxBound &&
             proj2 >= minBound && proj2 <= maxBound)

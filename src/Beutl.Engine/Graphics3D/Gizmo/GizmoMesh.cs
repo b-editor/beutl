@@ -72,23 +72,16 @@ internal static class GizmoMesh
     public static readonly Vector3 ZXPlaneColor = YAxisColor;
     public static readonly Vector3 CenterColor = new(0.9f, 0.9f, 0.9f); // White/Gray for center
 
-    // Gizmo dimensions
-    private const float ArrowLength = 1.0f;
+    // Gizmo dimensions (the lengths shared with GizmoHitTester are in GizmoDimensions)
     private const float ArrowShaftRadius = 0.02f;
     private const float ArrowHeadRadius = 0.06f;
     private const float ArrowHeadLength = 0.15f;
     private const int CircleSegments = 16;
 
-    private const float RotateRingRadius = 0.8f;
     private const float RotateRingThickness = 0.02f;
     private const int RotateRingSegments = 48;
 
-    private const float ScaleLineLength = 0.8f;
     private const float ScaleCubeSize = 0.08f;
-
-    // Plane dimensions for translate mode
-    private const float PlaneOffset = 0.0f; // Distance from center
-    private const float PlaneSize = 0.2f; // Size of plane indicator
 
     // Center cube for uniform scale
     private const float CenterCubeSize = 0.12f;
@@ -173,11 +166,9 @@ internal static class GizmoMesh
         uint baseIndex = (uint)vertices.Count;
 
         // Calculate perpendicular vectors for cylinder/cone
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
-        var right = Vector3.Normalize(Vector3.Cross(direction, up));
-        up = Vector3.Normalize(Vector3.Cross(right, direction));
+        GetPerpendicularBasis(direction, out var right, out var up);
 
-        float shaftLength = ArrowLength - ArrowHeadLength;
+        float shaftLength = GizmoDimensions.ArrowLength - ArrowHeadLength;
 
         // Create shaft (cylinder)
         for (int i = 0; i < CircleSegments; i++)
@@ -195,25 +186,12 @@ internal static class GizmoMesh
         }
 
         // Shaft indices (cylinder sides)
-        for (int i = 0; i < CircleSegments; i++)
-        {
-            uint i0 = baseIndex + (uint)(i * 2);
-            uint i1 = baseIndex + (uint)(i * 2 + 1);
-            uint i2 = baseIndex + (uint)(((i + 1) % CircleSegments) * 2);
-            uint i3 = baseIndex + (uint)(((i + 1) % CircleSegments) * 2 + 1);
-
-            indices.Add(i0);
-            indices.Add(i2);
-            indices.Add(i1);
-            indices.Add(i1);
-            indices.Add(i2);
-            indices.Add(i3);
-        }
+        AddCylinderSideIndices(indices, baseIndex);
 
         // Create cone (arrow head)
         uint coneBaseIndex = (uint)vertices.Count;
         var coneBase = origin + direction * shaftLength;
-        var coneTip = origin + direction * ArrowLength;
+        var coneTip = origin + direction * GizmoDimensions.ArrowLength;
 
         // Cone base vertices
         for (int i = 0; i < CircleSegments; i++)
@@ -274,7 +252,8 @@ internal static class GizmoMesh
             float majorCos = MathF.Cos(majorAngle);
             float majorSin = MathF.Sin(majorAngle);
 
-            var ringCenter = tangent1 * majorCos * RotateRingRadius + tangent2 * majorSin * RotateRingRadius;
+            var ringCenter = tangent1 * majorCos * GizmoDimensions.RotateRingRadius
+                + tangent2 * majorSin * GizmoDimensions.RotateRingRadius;
             var ringDir = Vector3.Normalize(ringCenter);
 
             // Create small circle around the ring center (tube cross-section)
@@ -314,9 +293,7 @@ internal static class GizmoMesh
         uint baseIndex = (uint)vertices.Count;
 
         // Calculate perpendicular vectors
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
-        var right = Vector3.Normalize(Vector3.Cross(direction, up));
-        up = Vector3.Normalize(Vector3.Cross(right, direction));
+        GetPerpendicularBasis(direction, out var right, out var up);
 
         // Create line (thin cylinder)
         for (int i = 0; i < CircleSegments; i++)
@@ -328,10 +305,33 @@ internal static class GizmoMesh
             var offset = right * cos * ArrowShaftRadius + up * sin * ArrowShaftRadius;
 
             vertices.Add(new GizmoVertex(offset, color));
-            vertices.Add(new GizmoVertex(direction * ScaleLineLength + offset, color));
+            vertices.Add(new GizmoVertex(direction * GizmoDimensions.ScaleLineLength + offset, color));
         }
 
         // Line indices
+        AddCylinderSideIndices(indices, baseIndex);
+
+        // Create cube at the end
+        CreateCube(direction * GizmoDimensions.ScaleLineLength, ScaleCubeSize, color, vertices, indices);
+    }
+
+    /// <summary>
+    /// Gets two unit vectors perpendicular to <paramref name="direction"/> and to each other, crossing with X instead
+    /// of Y when the direction is (nearly) along Y.
+    /// </summary>
+    private static void GetPerpendicularBasis(Vector3 direction, out Vector3 right, out Vector3 up)
+    {
+        up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
+        right = Vector3.Normalize(Vector3.Cross(direction, up));
+        up = Vector3.Normalize(Vector3.Cross(right, direction));
+    }
+
+    /// <summary>
+    /// Adds the side triangles of a cylinder whose <see cref="CircleSegments"/> bottom and top vertices alternate from
+    /// <paramref name="baseIndex"/>.
+    /// </summary>
+    private static void AddCylinderSideIndices(List<uint> indices, uint baseIndex)
+    {
         for (int i = 0; i < CircleSegments; i++)
         {
             uint i0 = baseIndex + (uint)(i * 2);
@@ -346,9 +346,6 @@ internal static class GizmoMesh
             indices.Add(i2);
             indices.Add(i3);
         }
-
-        // Create cube at the end
-        CreateCube(direction * ScaleLineLength, ScaleCubeSize, color, vertices, indices);
     }
 
     private static void CreateCube(Vector3 center, float size, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
@@ -401,11 +398,11 @@ internal static class GizmoMesh
 
         // Create a small quad in the plane defined by axis1 and axis2
         // Positioned at offset from center
-        var corner = axis1 * PlaneOffset + axis2 * PlaneOffset;
+        var corner = axis1 * GizmoDimensions.PlaneOffset + axis2 * GizmoDimensions.PlaneOffset;
         var v0 = corner;
-        var v1 = corner + axis1 * PlaneSize;
-        var v2 = corner + axis1 * PlaneSize + axis2 * PlaneSize;
-        var v3 = corner + axis2 * PlaneSize;
+        var v1 = corner + axis1 * GizmoDimensions.PlaneSize;
+        var v2 = corner + axis1 * GizmoDimensions.PlaneSize + axis2 * GizmoDimensions.PlaneSize;
+        var v3 = corner + axis2 * GizmoDimensions.PlaneSize;
 
         vertices.Add(new GizmoVertex(v0, color));
         vertices.Add(new GizmoVertex(v1, color));

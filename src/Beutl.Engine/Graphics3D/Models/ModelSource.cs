@@ -243,25 +243,11 @@ public class ModelSource : EngineObject, IFileSource
         }
 
         // Get texture paths
-        string? albedoMapPath = GetTexturePath(assimp, scene, material, TextureType.Diffuse);
-        if (albedoMapPath == null)
-            albedoMapPath = GetTexturePath(assimp, scene, material, TextureType.BaseColor);
-
-        string? normalMapPath = GetTexturePath(assimp, scene, material, TextureType.Normals);
-        if (normalMapPath == null)
-            normalMapPath = GetTexturePath(assimp, scene, material, TextureType.Height);
-
-        string? metallicRoughnessMapPath = GetTexturePath(assimp, scene, material, TextureType.Unknown);
-        if (metallicRoughnessMapPath == null)
-            metallicRoughnessMapPath = GetTexturePath(assimp, scene, material, TextureType.Metalness);
-
-        string? emissiveMapPath = GetTexturePath(assimp, scene, material, TextureType.Emissive);
-        if (emissiveMapPath == null)
-            emissiveMapPath = GetTexturePath(assimp, scene, material, TextureType.EmissionColor);
-
-        string? aoMapPath = GetTexturePath(assimp, scene, material, TextureType.AmbientOcclusion);
-        if (aoMapPath == null)
-            aoMapPath = GetTexturePath(assimp, scene, material, TextureType.Lightmap);
+        string? albedoMapPath = GetTexturePath(assimp, scene, material, TextureType.Diffuse, TextureType.BaseColor);
+        string? normalMapPath = GetTexturePath(assimp, scene, material, TextureType.Normals, TextureType.Height);
+        string? metallicRoughnessMapPath = GetTexturePath(assimp, scene, material, TextureType.Unknown, TextureType.Metalness);
+        string? emissiveMapPath = GetTexturePath(assimp, scene, material, TextureType.Emissive, TextureType.EmissionColor);
+        string? aoMapPath = GetTexturePath(assimp, scene, material, TextureType.AmbientOcclusion, TextureType.Lightmap);
 
         _materialDataList.Add(new MaterialData(
             Color.FromArgb(
@@ -283,6 +269,16 @@ public class ModelSource : EngineObject, IFileSource
             emissiveMapPath,
             aoMapPath,
             name));
+    }
+
+    /// <summary>
+    /// Gets the texture path for <paramref name="type"/>, or for <paramref name="fallback"/> when the material has
+    /// none of the first type.
+    /// </summary>
+    private unsafe string? GetTexturePath(
+        Assimp assimp, Scene* scene, Material* material, TextureType type, TextureType fallback)
+    {
+        return GetTexturePath(assimp, scene, material, type) ?? GetTexturePath(assimp, scene, material, fallback);
     }
 
     private unsafe string? GetTexturePath(Assimp assimp, Scene* scene, Material* material, TextureType type)
@@ -390,47 +386,7 @@ public class ModelSource : EngineObject, IFileSource
         // Extract vertex data
         for (uint i = 0; i < mesh->MNumVertices; i++)
         {
-            var position = new Vector3(
-                mesh->MVertices[i].X,
-                mesh->MVertices[i].Y,
-                mesh->MVertices[i].Z);
-
-            var normal = mesh->MNormals != null
-                ? new Vector3(mesh->MNormals[i].X, mesh->MNormals[i].Y, mesh->MNormals[i].Z)
-                : Vector3.UnitY;
-
-            var texCoord = Vector2.Zero;
-            if (mesh->MTextureCoords[0] != null)
-            {
-                texCoord = new Vector2(
-                    mesh->MTextureCoords[0][i].X,
-                    mesh->MTextureCoords[0][i].Y);
-            }
-
-            var tangent = new Vector4(1, 0, 0, 1);
-            if (mesh->MTangents != null && mesh->MBitangents != null)
-            {
-                var t = new Vector3(
-                    mesh->MTangents[i].X,
-                    mesh->MTangents[i].Y,
-                    mesh->MTangents[i].Z);
-                var b = new Vector3(
-                    mesh->MBitangents[i].X,
-                    mesh->MBitangents[i].Y,
-                    mesh->MBitangents[i].Z);
-
-                // Calculate handedness
-                float handedness = Vector3.Dot(Vector3.Cross(normal, t), b) < 0 ? -1f : 1f;
-                tangent = new Vector4(t, handedness);
-            }
-
-            // Assimp keeps the file's own up axis; turn it to Y-up, then into Beutl's Y-down space.
-            Vector3 tangentDirection = Vector3.TransformNormal(new Vector3(tangent.X, tangent.Y, tangent.Z), _toYUp);
-            vertices.Add(CoordinateSystem3D.FromYUp(new Vertex3D(
-                Vector3.Transform(position, _toYUp),
-                Vector3.TransformNormal(normal, _toYUp),
-                texCoord,
-                new Vector4(tangentDirection, tangent.W))));
+            vertices.Add(ReadVertex(mesh, i));
         }
 
         // Extract index data from faces
@@ -453,5 +409,51 @@ public class ModelSource : EngineObject, IFileSource
             [.. indices],
             (int)mesh->MMaterialIndex,
             meshName));
+    }
+
+    /// <summary>Reads vertex <paramref name="index"/> of <paramref name="mesh"/> into Beutl's Y-down space.</summary>
+    private unsafe Vertex3D ReadVertex(Silk.NET.Assimp.Mesh* mesh, uint index)
+    {
+        var position = new Vector3(
+            mesh->MVertices[index].X,
+            mesh->MVertices[index].Y,
+            mesh->MVertices[index].Z);
+
+        var normal = mesh->MNormals != null
+            ? new Vector3(mesh->MNormals[index].X, mesh->MNormals[index].Y, mesh->MNormals[index].Z)
+            : Vector3.UnitY;
+
+        var texCoord = Vector2.Zero;
+        if (mesh->MTextureCoords[0] != null)
+        {
+            texCoord = new Vector2(
+                mesh->MTextureCoords[0][index].X,
+                mesh->MTextureCoords[0][index].Y);
+        }
+
+        var tangent = new Vector4(1, 0, 0, 1);
+        if (mesh->MTangents != null && mesh->MBitangents != null)
+        {
+            var t = new Vector3(
+                mesh->MTangents[index].X,
+                mesh->MTangents[index].Y,
+                mesh->MTangents[index].Z);
+            var b = new Vector3(
+                mesh->MBitangents[index].X,
+                mesh->MBitangents[index].Y,
+                mesh->MBitangents[index].Z);
+
+            // Calculate handedness
+            float handedness = Vector3.Dot(Vector3.Cross(normal, t), b) < 0 ? -1f : 1f;
+            tangent = new Vector4(t, handedness);
+        }
+
+        // Assimp keeps the file's own up axis; turn it to Y-up, then into Beutl's Y-down space.
+        Vector3 tangentDirection = Vector3.TransformNormal(new Vector3(tangent.X, tangent.Y, tangent.Z), _toYUp);
+        return CoordinateSystem3D.FromYUp(new Vertex3D(
+            Vector3.Transform(position, _toYUp),
+            Vector3.TransformNormal(normal, _toYUp),
+            texCoord,
+            new Vector4(tangentDirection, tangent.W)));
     }
 }

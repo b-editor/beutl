@@ -49,31 +49,14 @@ public sealed partial class Cube3D : Object3D
             _mesh.Height.CurrentValue = Math.Max(Height, 0.001f);
             _mesh.Depth.CurrentValue = Math.Max(Depth, 0.001f);
 
-            if (_meshResource is null)
-            {
-                _meshResource = _mesh.ToResource(context);
+            bool changed = false;
+            ResourceReconciler.ReconcileResource(
+                context: context,
+                value: _mesh,
+                field: ref _meshResource,
+                changed: ref changed);
+            if (changed)
                 Version++;
-            }
-            else
-            {
-                if (_meshResource.GetOriginal() != _mesh)
-                {
-                    var oldMesh = _meshResource;
-                    _meshResource = _mesh.ToResource(context);
-                    oldMesh.Dispose();
-                    Version++;
-                }
-                else
-                {
-                    var oldVersion = _meshResource.Version;
-                    var _ = false;
-                    _meshResource.Update(_mesh, context, ref _);
-                    if (oldVersion != _meshResource.Version)
-                    {
-                        Version++;
-                    }
-                }
-            }
         }
 
         partial void PostDispose(bool disposing)

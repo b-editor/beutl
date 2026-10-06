@@ -33,17 +33,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         ImmutableArray<SpecializationConstant> specializationConstants,
         int colorAttachmentCount,
         bool hasDepthAttachment,
-        bool depthTestEnabled = true,
-        bool depthWriteEnabled = true,
-        CullModeFlags cullMode = CullModeFlags.BackBit,
-        Silk.NET.Vulkan.FrontFace frontFace = Silk.NET.Vulkan.FrontFace.CounterClockwise,
-        bool blendEnabled = false,
-        Silk.NET.Vulkan.BlendFactor srcColorBlendFactor = Silk.NET.Vulkan.BlendFactor.One,
-        Silk.NET.Vulkan.BlendFactor dstColorBlendFactor = Silk.NET.Vulkan.BlendFactor.Zero,
-        Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor = Silk.NET.Vulkan.BlendFactor.One,
-        Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor = Silk.NET.Vulkan.BlendFactor.Zero,
-        Silk.NET.Vulkan.BlendOp colorBlendOp = Silk.NET.Vulkan.BlendOp.Add,
-        Silk.NET.Vulkan.BlendOp alphaBlendOp = Silk.NET.Vulkan.BlendOp.Add)
+        in VulkanPipelineFixedFunctionState fixedFunctionState)
     {
         _context = context;
         _compatibleRenderPass = renderPass;
@@ -108,10 +98,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
 
             _pipeline = CreateGraphicsPipeline(
                 vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
-                hasDepthAttachment, depthTestEnabled, depthWriteEnabled, cullMode, frontFace,
-                blendEnabled, srcColorBlendFactor, dstColorBlendFactor,
-                srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, alphaBlendOp,
-                specializationConstants);
+                hasDepthAttachment, in fixedFunctionState, specializationConstants);
         }
         catch
         {
@@ -160,12 +147,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
 
     private Pipeline CreateGraphicsPipeline(
         Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput,
-        int colorAttachmentCount, bool hasDepthAttachment, bool depthTestEnabled, bool depthWriteEnabled,
-        CullModeFlags cullMode, Silk.NET.Vulkan.FrontFace frontFace,
-        bool blendEnabled, Silk.NET.Vulkan.BlendFactor srcColorBlendFactor,
-        Silk.NET.Vulkan.BlendFactor dstColorBlendFactor, Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor,
-        Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor, Silk.NET.Vulkan.BlendOp colorBlendOp,
-        Silk.NET.Vulkan.BlendOp alphaBlendOp,
+        int colorAttachmentCount, bool hasDepthAttachment, in VulkanPipelineFixedFunctionState state,
         ImmutableArray<SpecializationConstant> specializationConstants)
     {
         VulkanSpecializationData vertexSpecialization = CreateSpecializationData(
@@ -181,41 +163,20 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         fixed (SpecializationMapEntry* fragmentEntriesPtr = fragmentSpecialization.MapEntries)
         fixed (byte* fragmentDataPtr = fragmentSpecialization.Data)
         {
-            var vertexSpecializationInfo = new SpecializationInfo
-            {
-                MapEntryCount = (uint)vertexSpecialization.MapEntries.Length,
-                PMapEntries = vertexEntriesPtr,
-                DataSize = (nuint)vertexSpecialization.Data.Length,
-                PData = vertexDataPtr,
-            };
-            var fragmentSpecializationInfo = new SpecializationInfo
-            {
-                MapEntryCount = (uint)fragmentSpecialization.MapEntries.Length,
-                PMapEntries = fragmentEntriesPtr,
-                DataSize = (nuint)fragmentSpecialization.Data.Length,
-                PData = fragmentDataPtr,
-            };
+            var vertexSpecializationInfo = DescribeSpecialization(vertexSpecialization, vertexEntriesPtr, vertexDataPtr);
+            var fragmentSpecializationInfo = DescribeSpecialization(
+                fragmentSpecialization, fragmentEntriesPtr, fragmentDataPtr);
             var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
-            shaderStages[0] = new PipelineShaderStageCreateInfo
-            {
-                SType = StructureType.PipelineShaderStageCreateInfo,
-                Stage = ShaderStageFlags.VertexBit,
-                Module = _vertexShader,
-                PName = mainPtr,
-                PSpecializationInfo = vertexSpecialization.MapEntries.Length == 0
-                    ? null
-                    : &vertexSpecializationInfo,
-            };
-            shaderStages[1] = new PipelineShaderStageCreateInfo
-            {
-                SType = StructureType.PipelineShaderStageCreateInfo,
-                Stage = ShaderStageFlags.FragmentBit,
-                Module = _fragmentShader,
-                PName = mainPtr,
-                PSpecializationInfo = fragmentSpecialization.MapEntries.Length == 0
-                    ? null
-                    : &fragmentSpecializationInfo,
-            };
+            shaderStages[0] = DescribeShaderStage(
+                ShaderStageFlags.VertexBit,
+                _vertexShader,
+                mainPtr,
+                vertexSpecialization.MapEntries.Length == 0 ? null : &vertexSpecializationInfo);
+            shaderStages[1] = DescribeShaderStage(
+                ShaderStageFlags.FragmentBit,
+                _fragmentShader,
+                mainPtr,
+                fragmentSpecialization.MapEntries.Length == 0 ? null : &fragmentSpecializationInfo);
 
             // Vertex input state
             fixed (VertexInputBindingDescription* bindingsPtr = vertexInput.Bindings)
@@ -244,17 +205,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                     ScissorCount = 1
                 };
 
-                var rasterizer = new PipelineRasterizationStateCreateInfo
-                {
-                    SType = StructureType.PipelineRasterizationStateCreateInfo,
-                    DepthClampEnable = Vk.False,
-                    RasterizerDiscardEnable = Vk.False,
-                    PolygonMode = PolygonMode.Fill,
-                    LineWidth = 1.0f,
-                    CullMode = cullMode,
-                    FrontFace = frontFace,
-                    DepthBiasEnable = Vk.False
-                };
+                var rasterizer = DescribeRasterization(in state);
 
                 var multisampling = new PipelineMultisampleStateCreateInfo
                 {
@@ -263,32 +214,13 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                     RasterizationSamples = SampleCountFlags.Count1Bit
                 };
 
-                var depthStencil = new PipelineDepthStencilStateCreateInfo
-                {
-                    SType = StructureType.PipelineDepthStencilStateCreateInfo,
-                    DepthTestEnable = depthTestEnabled ? Vk.True : Vk.False,
-                    DepthWriteEnable = depthWriteEnabled ? Vk.True : Vk.False,
-                    DepthCompareOp = CompareOp.Less,
-                    DepthBoundsTestEnable = Vk.False,
-                    StencilTestEnable = Vk.False
-                };
+                var depthStencil = DescribeDepthStencil(in state);
 
                 // Create color blend attachments for each color attachment
                 var colorBlendAttachments = stackalloc PipelineColorBlendAttachmentState[colorAttachmentCount];
                 for (int i = 0; i < colorAttachmentCount; i++)
                 {
-                    colorBlendAttachments[i] = new PipelineColorBlendAttachmentState
-                    {
-                        ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-                                         ColorComponentFlags.BBit | ColorComponentFlags.ABit,
-                        BlendEnable = blendEnabled ? Vk.True : Vk.False,
-                        SrcColorBlendFactor = srcColorBlendFactor,
-                        DstColorBlendFactor = dstColorBlendFactor,
-                        ColorBlendOp = colorBlendOp,
-                        SrcAlphaBlendFactor = srcAlphaBlendFactor,
-                        DstAlphaBlendFactor = dstAlphaBlendFactor,
-                        AlphaBlendOp = alphaBlendOp
-                    };
+                    colorBlendAttachments[i] = DescribeColorBlendAttachment(in state);
                 }
 
                 var colorBlending = new PipelineColorBlendStateCreateInfo
@@ -336,6 +268,74 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         }
     }
 
+    // The Describe* builders only assemble structs; every pointer they store arrives as an argument that the
+    // caller keeps pinned until vkCreateGraphicsPipelines returns.
+    private static SpecializationInfo DescribeSpecialization(
+        VulkanSpecializationData data,
+        SpecializationMapEntry* entries,
+        byte* bytes)
+        => new()
+        {
+            MapEntryCount = (uint)data.MapEntries.Length,
+            PMapEntries = entries,
+            DataSize = (nuint)data.Data.Length,
+            PData = bytes,
+        };
+
+    private static PipelineShaderStageCreateInfo DescribeShaderStage(
+        ShaderStageFlags stage,
+        ShaderModule module,
+        byte* entryPoint,
+        SpecializationInfo* specialization)
+        => new()
+        {
+            SType = StructureType.PipelineShaderStageCreateInfo,
+            Stage = stage,
+            Module = module,
+            PName = entryPoint,
+            PSpecializationInfo = specialization,
+        };
+
+    private static PipelineRasterizationStateCreateInfo DescribeRasterization(
+        in VulkanPipelineFixedFunctionState state)
+        => new()
+        {
+            SType = StructureType.PipelineRasterizationStateCreateInfo,
+            DepthClampEnable = Vk.False,
+            RasterizerDiscardEnable = Vk.False,
+            PolygonMode = PolygonMode.Fill,
+            LineWidth = 1.0f,
+            CullMode = state.CullMode,
+            FrontFace = state.FrontFace,
+            DepthBiasEnable = Vk.False
+        };
+
+    private static PipelineDepthStencilStateCreateInfo DescribeDepthStencil(in VulkanPipelineFixedFunctionState state)
+        => new()
+        {
+            SType = StructureType.PipelineDepthStencilStateCreateInfo,
+            DepthTestEnable = state.DepthTestEnabled ? Vk.True : Vk.False,
+            DepthWriteEnable = state.DepthWriteEnabled ? Vk.True : Vk.False,
+            DepthCompareOp = CompareOp.Less,
+            DepthBoundsTestEnable = Vk.False,
+            StencilTestEnable = Vk.False
+        };
+
+    private static PipelineColorBlendAttachmentState DescribeColorBlendAttachment(
+        in VulkanPipelineFixedFunctionState state)
+        => new()
+        {
+            ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
+                             ColorComponentFlags.BBit | ColorComponentFlags.ABit,
+            BlendEnable = state.BlendEnabled ? Vk.True : Vk.False,
+            SrcColorBlendFactor = state.SrcColorBlendFactor,
+            DstColorBlendFactor = state.DstColorBlendFactor,
+            ColorBlendOp = state.ColorBlendOp,
+            SrcAlphaBlendFactor = state.SrcAlphaBlendFactor,
+            DstAlphaBlendFactor = state.DstAlphaBlendFactor,
+            AlphaBlendOp = state.AlphaBlendOp
+        };
+
     private static VulkanSpecializationData CreateSpecializationData(
         ImmutableArray<SpecializationConstant> constants,
         ShaderStage stage)
@@ -368,7 +368,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         SpecializationMapEntry[] MapEntries,
         byte[] Data);
 
-    private static ShaderModule CreateShaderModule(Vk vk, Device device, byte[] spirv)
+    internal static ShaderModule CreateShaderModule(Vk vk, Device device, byte[] spirv)
     {
         fixed (byte* codePtr = spirv)
         {

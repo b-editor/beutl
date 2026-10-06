@@ -258,11 +258,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             SType = StructureType.RenderPassBeginInfo,
             RenderPass = _renderPass,
             Framebuffer = vulkanFramebuffer.Handle,
-            RenderArea = new Rect2D
-            {
-                Offset = new Offset2D(0, 0),
-                Extent = new Extent2D((uint)vulkanFramebuffer.Width, (uint)vulkanFramebuffer.Height)
-            },
+            RenderArea = FullFramebufferArea(vulkanFramebuffer),
             ClearValueCount = (uint)totalClearValues,
             PClearValues = clearValues
         };
@@ -289,13 +285,16 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         };
         _context.Vk.CmdSetViewport(_currentCommandBuffer, 0, 1, &viewport);
 
-        var scissor = new Rect2D
+        var scissor = FullFramebufferArea(framebuffer);
+        _context.Vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
+    }
+
+    private static Rect2D FullFramebufferArea(VulkanFramebuffer3D framebuffer)
+        => new()
         {
             Offset = new Offset2D(0, 0),
             Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
         };
-        _context.Vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
-    }
 
     /// <remarks>
     /// Vulkan forbids a transfer or a barrier inside a render pass instance, and appending one to the batch
@@ -330,11 +329,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             SType = StructureType.RenderPassBeginInfo,
             RenderPass = GetOrCreateResumeRenderPass(),
             Framebuffer = framebuffer.Handle,
-            RenderArea = new Rect2D
-            {
-                Offset = new Offset2D(0, 0),
-                Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
-            },
+            RenderArea = FullFramebufferArea(framebuffer),
             ClearValueCount = 0,
             PClearValues = null
         };
@@ -422,39 +417,37 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _pushConstantSize = 0;
     }
 
-    public void End()
+    /// <summary>Gives back the batch Begin claimed and forgets the instance, once its end has been recorded.</summary>
+    private void ReleaseRenderPassScope()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
-
-        _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
         _context.EndRenderPassScope(this);
-
         _inRenderPass = false;
         _suspended = false;
         _currentFramebuffer = null;
         ForgetRecordedState();
     }
 
-    public CommandBuffer GetCurrentCommandBuffer()
+    private void ThrowIfNotInRenderPass()
     {
         if (!_inRenderPass)
         {
             throw new InvalidOperationException("Render pass not begun");
         }
-        return _currentCommandBuffer;
+    }
+
+    public void End()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        ThrowIfNotInRenderPass();
+
+        _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
+        ReleaseRenderPassScope();
     }
 
     public void BindPipeline(IPipeline3D pipeline)
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
         if (!vulkanPipeline.IsCompatibleWith(this))
@@ -468,10 +461,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
     public void BindVertexBuffer(IBuffer buffer)
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         var bufferHandle = vulkanBuffer.Handle;
@@ -482,10 +472,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
     public void BindIndexBuffer(IBuffer buffer)
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         _boundIndexBuffer = vulkanBuffer.Handle;
@@ -509,10 +496,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     /// </exception>
     public void BindDescriptorSet(IPipeline3D pipeline, IDescriptorSet descriptorSet)
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
         var vulkanDescriptorSet = _context.RequireOwned<VulkanDescriptorSet>(descriptorSet, nameof(descriptorSet));
@@ -573,10 +557,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
     public void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         ValidateDrawState();
 
@@ -585,10 +566,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
     public void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0)
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         ValidateDrawState();
 
@@ -597,10 +575,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
     public void SetPushConstants<T>(T data) where T : unmanaged
     {
-        if (!_inRenderPass)
-        {
-            throw new InvalidOperationException("Render pass not begun");
-        }
+        ThrowIfNotInRenderPass();
 
         if (_currentPipeline == null)
         {
@@ -644,11 +619,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             if (!_suspended)
                 _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
 
-            _context.EndRenderPassScope(this);
-            _inRenderPass = false;
-            _suspended = false;
-            _currentFramebuffer = null;
-            ForgetRecordedState();
+            ReleaseRenderPassScope();
         }
 
         RenderPass renderPass = _renderPass;

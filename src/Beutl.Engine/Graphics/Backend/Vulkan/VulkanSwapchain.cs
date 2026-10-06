@@ -60,12 +60,8 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     public bool IsHdr => _isHdr;
     public bool SrgbFormat { get; private set; }
     public Format Format => _format;
-    public ColorSpaceKHR ColorSpace => _colorSpace;
     public Extent2D Extent => _extent;
-    public int ImageCount => _images.Length;
-    public Image[] Images => _images;
     public ImageView[] ImageViews => _imageViews;
-    public SwapchainKHR Handle => _swapchain;
 
     public void Recreate(uint width, uint height)
     {
@@ -105,6 +101,14 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether the present shader has to encode sRGB itself: these 8-bit UNORM formats store its output unconverted.
+    /// </summary>
+    private static bool RequiresShaderSrgbEncoding(Format format)
+    {
+        return format is Format.B8G8R8A8Unorm or Format.R8G8B8A8Unorm or Format.R8G8B8Unorm;
+    }
+
     private void Create(uint width, uint height, SwapchainKHR oldSwapchain)
     {
         // Query surface capabilities
@@ -113,7 +117,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         // Select format (prefer HDR)
         SelectFormat(out _format, out _colorSpace, out _isHdr);
-        SrgbFormat = _format != Format.B8G8R8A8Unorm && _format != Format.R8G8B8A8Unorm && _format != Format.B8G8R8A8Unorm && _format != Format.R8G8B8Unorm;
+        SrgbFormat = !RequiresShaderSrgbEncoding(_format);
 
         // Select extent
         _extent = SelectExtent(capabilities, width, height);

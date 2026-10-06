@@ -47,10 +47,7 @@ public sealed partial class DrawableTextureSource : TextureSource
         /// </remarks>
         internal float ResolveDensity(float density)
         {
-            float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(density);
-            return BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScale(
-                TextureDomain,
-                sanitizedDensity);
+            return RecordedTextureDensity.Resolve(TextureDomain, density);
         }
 
         Rect IRecordedTextureSource.TextureDomain => TextureDomain;
@@ -99,6 +96,24 @@ public sealed partial class DrawableTextureSource : TextureSource
             int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
             int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 
+            RenderTarget? renderTarget = EnsureRenderTarget(deviceWidth, deviceHeight);
+            if (renderTarget == null) return null;
+
+            // Re-render on content change or density change.
+            if (_renderTargetVersion != Version || _lastDensity != density)
+            {
+                RenderContent(renderTarget, density, textureWidth, textureHeight);
+            }
+
+            return _renderTarget?.Texture;
+        }
+
+        /// <summary>
+        /// Returns a render target of the given device size, replacing the current one when its size differs, or
+        /// <see langword="null"/> when none can be created.
+        /// </summary>
+        private RenderTarget? EnsureRenderTarget(int deviceWidth, int deviceHeight)
+        {
             if (_lastWidth != deviceWidth || _lastHeight != deviceHeight || _renderTarget == null)
             {
                 DisposeRenderTarget();
@@ -111,35 +126,35 @@ public sealed partial class DrawableTextureSource : TextureSource
                 _renderTargetVersion = -1; // force a re-render into the resized target
             }
 
-            // Re-render on content change or density change.
-            if (_renderTargetVersion != Version || _lastDensity != density)
-            {
-                _lastDensity = density;
-                DrawableRenderNode drawableNode = RecordDrawable(density)
-                    ?? throw new InvalidOperationException("The drawable texture source became empty while rendering.");
+            return _renderTarget;
+        }
 
-                using var renderer = new RenderNodeRenderer(
-                    drawableNode,
-                    new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
-                        OutputScale = density,
-                        MaxWorkingScale = density,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    });
-                using (var canvas = new ImmediateCanvas(_renderTarget, RenderIntent.Preview, density, density))
+        /// <summary>Records the drawable at <paramref name="density"/> and renders it into <paramref name="renderTarget"/>.</summary>
+        private void RenderContent(RenderTarget renderTarget, float density, int textureWidth, int textureHeight)
+        {
+            _lastDensity = density;
+            DrawableRenderNode drawableNode = RecordDrawable(density)
+                ?? throw new InvalidOperationException("The drawable texture source became empty while rendering.");
+
+            using var renderer = new RenderNodeRenderer(
+                drawableNode,
+                new RenderNodeRenderRequest
                 {
-                    canvas.Clear();
-                    renderer.Render(canvas);
-                }
-
-                // Prepare for sampling (flush the surface)
-                _renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-                _renderTargetVersion = Version;
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
+                    OutputScale = density,
+                    MaxWorkingScale = density,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+                });
+            using (var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview, density, density))
+            {
+                canvas.Clear();
+                renderer.Render(canvas);
             }
 
-            return _renderTarget?.Texture;
+            // Prepare for sampling (flush the surface)
+            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+            _renderTargetVersion = Version;
         }
 
         private void DisposeRenderTarget()

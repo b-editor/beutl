@@ -76,8 +76,6 @@ internal sealed class MetalContext : IDisposable
         }
     }
 
-    public GraphicsBackend Backend => GraphicsBackend.Metal;
-
     public GRContext SkiaContext => _grContext;
 
     /// <summary>Holds every command buffer Skia commits after this call until <paramref name="sharedEvent"/> reaches <paramref name="value"/>.</summary>

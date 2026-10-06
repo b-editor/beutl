@@ -144,9 +144,6 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
     public RenderPass RenderPassHandle => _renderPass;
     public PipelineLayout PipelineLayoutHandle => _pipelineLayout;
     public Pipeline PipelineHandle => _pipeline;
-    public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
-    public DescriptorPool DescriptorPoolHandle => _descriptorPool;
-    public Silk.NET.Vulkan.Sampler SamplerHandle => _sampler;
     public Framebuffer[] Framebuffers => _framebuffers;
 
     public DescriptorSet AllocateDescriptorSet()
@@ -326,8 +323,8 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         nint entryPoint = 0;
         try
         {
-            vertModule = CreateShaderModule(vertSpirv);
-            fragModule = CreateShaderModule(fragSpirv);
+            vertModule = VulkanPipeline3D.CreateShaderModule(_vk, _device, vertSpirv);
+            fragModule = VulkanPipeline3D.CreateShaderModule(_vk, _device, fragSpirv);
             entryPoint = Marshal.StringToHGlobalAnsi("main");
 
             var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
@@ -460,26 +457,6 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         }
 
         s_logger.LogDebug("Created present pipeline with tone mapping shaders");
-    }
-
-    private ShaderModule CreateShaderModule(byte[] spirv)
-    {
-        fixed (byte* pCode = spirv)
-        {
-            var createInfo = new ShaderModuleCreateInfo
-            {
-                SType = StructureType.ShaderModuleCreateInfo,
-                CodeSize = (nuint)spirv.Length,
-                PCode = (uint*)pCode
-            };
-
-            ShaderModule module;
-            var result = _vk.CreateShaderModule(_device, &createInfo, null, &module);
-            if (result != Result.Success)
-                throw new InvalidOperationException($"Failed to create shader module: {result}");
-
-            return module;
-        }
     }
 
     private void CreateSampler()

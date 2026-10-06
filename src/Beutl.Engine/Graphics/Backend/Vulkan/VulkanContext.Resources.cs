@@ -22,8 +22,7 @@ internal sealed unsafe partial class VulkanContext
         }
         else
         {
-            usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+            usage = VulkanTexture2D.ColorTextureUsage;
         }
         var texture = new VulkanTexture2D(this, width, height, format, usage);
         RecordTextureAllocation(format);
@@ -34,9 +33,7 @@ internal sealed unsafe partial class VulkanContext
     {
         ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
 
-        var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+        var usage = GetLayeredTextureUsage(format);
         return new VulkanTextureCube(this, size, format, usage);
     }
 
@@ -44,9 +41,7 @@ internal sealed unsafe partial class VulkanContext
     {
         ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
-        var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+        var usage = GetLayeredTextureUsage(format);
         return new VulkanTextureArray(this, width, height, arraySize, format, usage);
     }
 
@@ -54,10 +49,19 @@ internal sealed unsafe partial class VulkanContext
     {
         ThrowIfCannotMakeAttachableImage(MaxCubeFaceDimension, size, size);
 
-        var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+        var usage = GetLayeredTextureUsage(format);
         return new VulkanTextureCubeArray(this, size, arraySize, format, usage);
+    }
+
+    /// <summary>
+    /// The usage of a cube, array or cube-array texture. A layered depth texture, unlike a 2D one, is not a copy
+    /// source.
+    /// </summary>
+    private static ImageUsageFlags GetLayeredTextureUsage(TextureFormat format)
+    {
+        return format.IsDepthFormat()
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
+            : VulkanTexture2D.ColorTextureUsage;
     }
 
     public IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty)
@@ -190,17 +194,7 @@ internal sealed unsafe partial class VulkanContext
             specializationConstants,
             vulkanRenderPass.ColorAttachmentCount,
             vulkanRenderPass.HasDepthAttachment,
-            pipelineOptions.DepthTestEnabled,
-            pipelineOptions.DepthWriteEnabled,
-            VulkanFlagConverter.ToVulkan(pipelineOptions.CullMode),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.FrontFace),
-            pipelineOptions.BlendEnabled,
-            VulkanFlagConverter.ToVulkan(pipelineOptions.SrcColorBlendFactor),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.DstColorBlendFactor),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.SrcAlphaBlendFactor),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.DstAlphaBlendFactor),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.ColorBlendOp),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.AlphaBlendOp));
+            VulkanPipelineFixedFunctionState.From(pipelineOptions));
     }
 
     internal static ImmutableArray<SpecializationConstant> ValidateSpecializationConstants(
@@ -303,21 +297,51 @@ internal sealed unsafe partial class VulkanContext
     /// <summary>
     /// Finds a suitable memory type for the given requirements.
     /// </summary>
-    public unsafe uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
-    {
-        PhysicalDeviceMemoryProperties memProps;
-        Vk.GetPhysicalDeviceMemoryProperties(PhysicalDevice, &memProps);
+    public uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
+        => VulkanPhysicalDeviceQueries.FindMemoryType(Vk, PhysicalDevice, typeFilter, properties);
 
-        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
+    /// <summary>
+    /// Creates the image behind a texture: 2D, one mip level, optimal tiling and exclusive sharing, starting
+    /// in <see cref="ImageLayout.Undefined"/>.
+    /// </summary>
+    /// <param name="resourceName">
+    /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
+    /// </param>
+    internal unsafe Image CreateTextureImage(
+        TextureFormat format,
+        int width,
+        int height,
+        uint arrayLayers,
+        ImageUsageFlags usage,
+        ImageCreateFlags flags,
+        void* pNext,
+        string resourceName)
+    {
+        var imageInfo = new ImageCreateInfo
         {
-            if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
-            {
-                return i;
-            }
+            SType = StructureType.ImageCreateInfo,
+            PNext = pNext,
+            Flags = flags,
+            ImageType = ImageType.Type2D,
+            Format = format.ToVulkanFormat(),
+            Extent = new Extent3D((uint)width, (uint)height, 1),
+            MipLevels = 1,
+            ArrayLayers = arrayLayers,
+            Samples = SampleCountFlags.Count1Bit,
+            Tiling = ImageTiling.Optimal,
+            Usage = usage,
+            SharingMode = SharingMode.Exclusive,
+            InitialLayout = ImageLayout.Undefined
+        };
+
+        Image image;
+        Result result = Vk.CreateImage(Device, &imageInfo, null, &image);
+        if (result != Result.Success)
+        {
+            throw new InvalidOperationException($"Failed to create Vulkan {resourceName}: {result}");
         }
 
-        throw new InvalidOperationException("Failed to find suitable memory type");
+        return image;
     }
 
     /// <summary>
@@ -369,29 +393,42 @@ internal sealed unsafe partial class VulkanContext
     /// Creates a view of exactly one array layer as a plain 2D image - the whole of a single-layer
     /// texture, and the shape a framebuffer attachment needs onto an array slice or a cube face.
     /// </summary>
+    internal Result TryCreateSingleLayerView(
+        Image image,
+        TextureFormat format,
+        uint arrayLayer,
+        out ImageView view)
+        => TryCreateImageView(image, format, ImageViewType.Type2D, arrayLayer, 1, out view);
+
+    /// <summary>
+    /// Creates a view of <paramref name="layerCount"/> array layers of <paramref name="image"/>, starting at
+    /// <paramref name="baseArrayLayer"/>.
+    /// </summary>
     /// <remarks>
     /// Returns the result instead of throwing because every caller has its own partially built views to
     /// release before it can report the failure.
     /// </remarks>
-    internal unsafe Result TryCreateSingleLayerView(
+    internal unsafe Result TryCreateImageView(
         Image image,
         TextureFormat format,
-        uint arrayLayer,
+        ImageViewType viewType,
+        uint baseArrayLayer,
+        uint layerCount,
         out ImageView view)
     {
         var viewInfo = new ImageViewCreateInfo
         {
             SType = StructureType.ImageViewCreateInfo,
             Image = image,
-            ViewType = ImageViewType.Type2D,
+            ViewType = viewType,
             Format = format.ToVulkanFormat(),
             SubresourceRange = new ImageSubresourceRange
             {
                 AspectMask = format.GetAspectMask(),
                 BaseMipLevel = 0,
                 LevelCount = 1,
-                BaseArrayLayer = arrayLayer,
-                LayerCount = 1
+                BaseArrayLayer = baseArrayLayer,
+                LayerCount = layerCount
             }
         };
 

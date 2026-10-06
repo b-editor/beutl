@@ -14,6 +14,23 @@ internal static class MaterialGpuResources
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
     }
 
+    /// <summary>
+    /// The descriptor layout every built-in material declares: its uniform buffer at binding 0, read by both
+    /// stages, then <paramref name="textureCount"/> fragment samplers at bindings 1 to n.
+    /// </summary>
+    /// <remarks><see cref="CreateDrawBindings{TUbo}"/> sizes its descriptor pool for exactly this layout.</remarks>
+    public static DescriptorBinding[] CreateDescriptorBindings(uint textureCount)
+    {
+        var bindings = new DescriptorBinding[textureCount + 1];
+        bindings[0] = new DescriptorBinding(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment);
+        for (uint binding = 1; binding <= textureCount; binding++)
+        {
+            bindings[binding] = new DescriptorBinding(binding, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment);
+        }
+
+        return bindings;
+    }
+
     public static MaterialDrawBindings CreateDrawBindings<TUbo>(
         IGraphicsContext context, IPipeline3D pipeline, uint textureCount)
         where TUbo : struct

@@ -191,19 +191,14 @@ void main() {
     /// </summary>
     public void SetupForDirectionalLight(DirectionalLight3D.Resource light, Vector3 sceneCenter, float sceneRadius)
     {
-        var direction = light.Direction;
-        if (direction == Vector3.Zero)
-            direction = Vector3.UnitY;
-        direction = Vector3.Normalize(direction);
+        var direction = NormalizeLightDirection(light.Direction);
 
         // Position the light "camera" behind the scene, looking at the center
         var shadowDistance = light.ShadowDistance;
         var lightPosition = sceneCenter - direction * shadowDistance * 0.5f;
 
         // Create view matrix looking at scene center
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f
-            ? Vector3.UnitZ
-            : Vector3.UnitY;
+        var up = ChooseUp(direction);
         LightViewMatrix = Matrix4x4.CreateLookAt(lightPosition, sceneCenter, up);
 
         // Orthographic projection for directional light
@@ -217,15 +212,10 @@ void main() {
     public void SetupForSpotLight(SpotLight3D.Resource light)
     {
         var position = light.Position;
-        var direction = light.Direction;
-        if (direction == Vector3.Zero)
-            direction = Vector3.UnitY;
-        direction = Vector3.Normalize(direction);
+        var direction = NormalizeLightDirection(light.Direction);
 
         // Create view matrix from light position looking in light direction
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f
-            ? Vector3.UnitZ
-            : Vector3.UnitY;
+        var up = ChooseUp(direction);
         var target = position + direction;
         LightViewMatrix = Matrix4x4.CreateLookAt(position, target, up);
 
@@ -239,6 +229,25 @@ void main() {
             1.0f,  // Square shadow map
             nearPlane,
             MathF.Max(light.Range, nearPlane * 2));
+    }
+
+    /// <summary>Normalizes a light direction, using <see cref="Vector3.UnitY"/> for a zero direction.</summary>
+    private static Vector3 NormalizeLightDirection(Vector3 direction)
+    {
+        if (direction == Vector3.Zero)
+            direction = Vector3.UnitY;
+        return Vector3.Normalize(direction);
+    }
+
+    /// <summary>
+    /// The up vector for a light view along <paramref name="direction"/>. A look-at view needs an up vector that is
+    /// not parallel to the view direction, so a light looking (nearly) along Y uses Z.
+    /// </summary>
+    private static Vector3 ChooseUp(Vector3 direction)
+    {
+        return Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f
+            ? Vector3.UnitZ
+            : Vector3.UnitY;
     }
 
     /// <summary>

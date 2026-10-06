@@ -13,27 +13,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
     private void CreateDedicatedDevice()
     {
         // Find graphics queue family
-        uint queueFamilyCount = 0;
-        _vk.GetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &queueFamilyCount, null);
-
-        var queueFamilies = new QueueFamilyProperties[queueFamilyCount];
-        fixed (QueueFamilyProperties* pQueueFamilies = queueFamilies)
-        {
-            _vk.GetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &queueFamilyCount, pQueueFamilies);
-        }
-
-        _queueFamilyIndex = uint.MaxValue;
-        for (uint i = 0; i < queueFamilyCount; i++)
-        {
-            if ((queueFamilies[i].QueueFlags & QueueFlags.GraphicsBit) != 0)
-            {
-                _queueFamilyIndex = i;
-                break;
-            }
-        }
-
-        if (_queueFamilyIndex == uint.MaxValue)
-            throw new InvalidOperationException("No graphics queue family found");
+        _queueFamilyIndex = VulkanPhysicalDeviceQueries.FindGraphicsQueueFamily(_vk, _physicalDevice);
 
         // Create device
         float queuePriority = 1.0f;
@@ -50,22 +30,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         if (OperatingSystem.IsMacOS())
         {
             // Check for portability subset
-            uint extCount = 0;
-            _vk.EnumerateDeviceExtensionProperties(_physicalDevice, (byte*)null, &extCount, null);
-            var availableExtensions = new ExtensionProperties[extCount];
-            fixed (ExtensionProperties* pExtensions = availableExtensions)
+            if (VulkanPhysicalDeviceQueries.GetDeviceExtensionNames(_vk, _physicalDevice)
+                .Contains("VK_KHR_portability_subset"))
             {
-                _vk.EnumerateDeviceExtensionProperties(_physicalDevice, (byte*)null, &extCount, pExtensions);
-            }
-
-            foreach (var ext in availableExtensions)
-            {
-                var name = Marshal.PtrToStringAnsi((IntPtr)ext.ExtensionName);
-                if (name == "VK_KHR_portability_subset")
-                {
-                    extensions.Add("VK_KHR_portability_subset");
-                    break;
-                }
+                extensions.Add("VK_KHR_portability_subset");
             }
         }
 
@@ -304,21 +272,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
     }
 
     private uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
-    {
-        PhysicalDeviceMemoryProperties memProps;
-        _vk.GetPhysicalDeviceMemoryProperties(_physicalDevice, &memProps);
-
-        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
-        {
-            if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
-            {
-                return i;
-            }
-        }
-
-        throw new InvalidOperationException("Failed to find suitable memory type");
-    }
+        => VulkanPhysicalDeviceQueries.FindMemoryType(_vk, _physicalDevice, typeFilter, properties);
 
     private CommandBuffer AllocateCommandBuffer()
     {

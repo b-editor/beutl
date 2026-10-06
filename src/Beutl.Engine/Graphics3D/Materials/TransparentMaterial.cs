@@ -97,12 +97,8 @@ public sealed partial class TransparentMaterial : Material3D
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
             var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
 
-            // Create descriptor bindings (UBO + 1 texture sampler)
-            var descriptorBindings = new DescriptorBinding[]
-            {
-                new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment),
-                new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // colorMap
-            };
+            // Create descriptor bindings (UBO + 1 texture sampler: colorMap)
+            var descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 1);
 
             // Create pipeline with transparent blend options
             _pipeline = graphicsContext.CreatePipeline3D(
@@ -158,12 +154,8 @@ public sealed partial class TransparentMaterial : Material3D
                 HasTexture = hasTexture
             };
 
-            bindings.Buffer.Upload(new ReadOnlySpan<TransparentMaterialUBO>(ref ubo));
-
-            // Bind pipeline and descriptor set
-            renderPass.BindPipeline(_pipeline);
-            renderPass.BindDescriptorSet(_pipeline, bindings.Descriptors);
-            _drawBindings.MarkBound(bindings);
+            // Upload the uniforms, then bind pipeline and descriptor set
+            _drawBindings.UploadAndBind(bindings, in ubo, renderPass, _pipeline);
         }
 
         partial void PostDispose(bool disposing)

@@ -53,35 +53,12 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         var device = context.Device;
 
         // Create image
-        var imageInfo = new ImageCreateInfo
-        {
-            SType = StructureType.ImageCreateInfo,
-            PNext = pNext,
-            ImageType = ImageType.Type2D,
-            Format = format.ToVulkanFormat(),
-            Extent = new Extent3D((uint)width, (uint)height, 1),
-            MipLevels = 1,
-            ArrayLayers = 1,
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined
-        };
-
-        Silk.NET.Vulkan.Image image;
-        var result = vk.CreateImage(device, &imageInfo, null, &image);
-        if (result != Result.Success)
-        {
-            throw new InvalidOperationException($"Failed to create Vulkan image: {result}");
-        }
-
-        _image = image;
+        _image = context.CreateTextureImage(format, width, height, arrayLayers: 1, usage, flags: 0, pNext, "image");
 
         _memory = context.AllocateAndBindImageMemory(_image, "image", out ulong allocationSize);
         _allocationSize = allocationSize;
 
-        result = context.TryCreateSingleLayerView(_image, format, arrayLayer: 0, out ImageView imageView);
+        Result result = context.TryCreateSingleLayerView(_image, format, arrayLayer: 0, out ImageView imageView);
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
@@ -191,6 +168,13 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     }
 
     /// <summary>
+    /// The usage every color texture of this backend is created with, and the usage Skia is told when it wraps one.
+    /// </summary>
+    internal const ImageUsageFlags ColorTextureUsage =
+        ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+        ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+
+    /// <summary>
     /// The layout established before handing backend writes to Skia for drawing.
     /// </summary>
     internal const ImageLayout SkiaInteropLayout = ImageLayout.ColorAttachmentOptimal;
@@ -210,8 +194,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         ImageTiling = (uint)ImageTiling.Optimal,
         ImageLayout = (uint)_currentLayout,
         Format = (uint)_format.ToVulkanFormat(),
-        ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                                 ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
+        ImageUsageFlags = (uint)ColorTextureUsage,
         SampleCount = 1,
         LevelCount = 1,
         CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,

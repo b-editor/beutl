@@ -56,7 +56,7 @@ public abstract partial class Camera3D : EngineObject
     /// </summary>
     public Matrix4x4 GetViewMatrix(Resource resource)
     {
-        return Matrix4x4.CreateLookAt(resource.Position, resource.Target, resource.Up);
+        return resource.GetViewMatrix();
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
 
@@ -282,10 +283,7 @@ void main() {
     private void CreateLightDataBuffer()
     {
         _lightDataBuffer?.Dispose();
-        _lightDataBuffer = Context.CreateBuffer(
-            (ulong)Marshal.SizeOf<LightDataUBO>(),
-            BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        _lightDataBuffer = MaterialGpuResources.CreateUniformBuffer<LightDataUBO>(Context);
 
         // Bind to descriptor set
         _descriptorSet?.UpdateBuffer(0, _lightDataBuffer);
