@@ -371,53 +371,32 @@ public static class HitTester3D
         float tMin = float.NegativeInfinity;
         float tMax = float.PositiveInfinity;
 
-        // X axis
-        if (Math.Abs(ray.Direction.X) > float.Epsilon)
-        {
-            float t1 = (bbox.Min.X - ray.Origin.X) / ray.Direction.X;
-            float t2 = (bbox.Max.X - ray.Origin.X) / ray.Direction.X;
-            if (t1 > t2) (t1, t2) = (t2, t1);
-            tMin = Math.Max(tMin, t1);
-            tMax = Math.Min(tMax, t2);
-            if (tMin > tMax) return false;
-        }
-        else if (ray.Origin.X < bbox.Min.X || ray.Origin.X > bbox.Max.X)
-        {
-            return false;
-        }
-
-        // Y axis
-        if (Math.Abs(ray.Direction.Y) > float.Epsilon)
-        {
-            float t1 = (bbox.Min.Y - ray.Origin.Y) / ray.Direction.Y;
-            float t2 = (bbox.Max.Y - ray.Origin.Y) / ray.Direction.Y;
-            if (t1 > t2) (t1, t2) = (t2, t1);
-            tMin = Math.Max(tMin, t1);
-            tMax = Math.Min(tMax, t2);
-            if (tMin > tMax) return false;
-        }
-        else if (ray.Origin.Y < bbox.Min.Y || ray.Origin.Y > bbox.Max.Y)
-        {
-            return false;
-        }
-
-        // Z axis
-        if (Math.Abs(ray.Direction.Z) > float.Epsilon)
-        {
-            float t1 = (bbox.Min.Z - ray.Origin.Z) / ray.Direction.Z;
-            float t2 = (bbox.Max.Z - ray.Origin.Z) / ray.Direction.Z;
-            if (t1 > t2) (t1, t2) = (t2, t1);
-            tMin = Math.Max(tMin, t1);
-            tMax = Math.Min(tMax, t2);
-            if (tMin > tMax) return false;
-        }
-        else if (ray.Origin.Z < bbox.Min.Z || ray.Origin.Z > bbox.Max.Z)
+        if (!IntersectSlab(ray.Origin.X, ray.Direction.X, bbox.Min.X, bbox.Max.X, ref tMin, ref tMax)
+            || !IntersectSlab(ray.Origin.Y, ray.Direction.Y, bbox.Min.Y, bbox.Max.Y, ref tMin, ref tMax)
+            || !IntersectSlab(ray.Origin.Z, ray.Direction.Z, bbox.Min.Z, bbox.Max.Z, ref tMin, ref tMax))
         {
             return false;
         }
 
         distance = tMin >= 0 ? tMin : tMax;
         return distance >= 0;
+    }
+
+    // One axis of the slab test: narrows [tMin, tMax] to where the ray lies between the box's two planes on this
+    // axis, and reports a miss once the interval is empty or a ray parallel to the planes starts outside them.
+    private static bool IntersectSlab(float origin, float direction, float min, float max, ref float tMin, ref float tMax)
+    {
+        if (Math.Abs(direction) > float.Epsilon)
+        {
+            float t1 = (min - origin) / direction;
+            float t2 = (max - origin) / direction;
+            if (t1 > t2) (t1, t2) = (t2, t1);
+            tMin = Math.Max(tMin, t1);
+            tMax = Math.Min(tMax, t2);
+            return !(tMin > tMax);
+        }
+
+        return !(origin < min || origin > max);
     }
 
     /// <summary>

@@ -54,52 +54,27 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         // Total layers = arraySize * 6 faces
         uint totalLayers = arraySize * 6;
 
-        // Create cube map array image
-        var imageInfo = new ImageCreateInfo
-        {
-            SType = StructureType.ImageCreateInfo,
-            Flags = ImageCreateFlags.CreateCubeCompatibleBit,  // Enable cube map compatibility
-            ImageType = ImageType.Type2D,
-            Format = format.ToVulkanFormat(),
-            Extent = new Extent3D((uint)size, (uint)size, 1),
-            MipLevels = 1,
-            ArrayLayers = totalLayers,  // 6 faces per cube * arraySize
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined
-        };
-
-        Silk.NET.Vulkan.Image image;
-        var result = vk.CreateImage(device, &imageInfo, null, &image);
-        if (result != Result.Success)
-        {
-            throw new InvalidOperationException($"Failed to create Vulkan cube map array image: {result}");
-        }
-        _image = image;
+        // Create cube map array image (cube-compatible)
+        _image = context.CreateTextureImage(
+            format,
+            size,
+            size,
+            totalLayers,
+            usage,
+            ImageCreateFlags.CreateCubeCompatibleBit,
+            pNext: null,
+            "cube map array image");
 
         _memory = context.AllocateAndBindImageMemory(_image, "cube map array image", out _);
 
         // Create cube map array image view (for sampling all cubes at once as samplerCubeArray)
-        var cubeArrayViewInfo = new ImageViewCreateInfo
-        {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = _image,
-            ViewType = ImageViewType.TypeCubeArray,
-            Format = format.ToVulkanFormat(),
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = format.GetAspectMask(),
-                BaseMipLevel = 0,
-                LevelCount = 1,
-                BaseArrayLayer = 0,
-                LayerCount = totalLayers
-            }
-        };
-
-        ImageView cubeArrayView;
-        result = vk.CreateImageView(device, &cubeArrayViewInfo, null, &cubeArrayView);
+        Result result = context.TryCreateImageView(
+            _image,
+            format,
+            ImageViewType.TypeCubeArray,
+            baseArrayLayer: 0,
+            layerCount: totalLayers,
+            out ImageView cubeArrayView);
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
@@ -120,10 +95,7 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
                 if (result != Result.Success)
                 {
                     // Clean up previously created views
-                    CleanupFaceViews(arrIdx, faceIdx, vk, device);
-                    vk.DestroyImageView(device, _imageView, null);
-                    vk.DestroyImage(device, _image, null);
-                    vk.FreeMemory(device, _memory, null);
+                    ReleaseConstructedHandles(vk, device, arrIdx, faceIdx);
                     throw new InvalidOperationException($"Failed to create Vulkan cube array face image view [{arrIdx},{faceIdx}]: {result}");
                 }
                 _faceViews[arrIdx, faceIdx] = faceView;
@@ -145,10 +117,7 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         }
         catch
         {
-            CleanupFaceViews(arraySize - 1, 6, vk, device);
-            vk.DestroyImageView(device, _imageView, null);
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
+            ReleaseConstructedHandles(vk, device, arraySize - 1, 6);
             throw;
         }
 
@@ -157,6 +126,16 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
             for (int faceIdx = 0; faceIdx < 6; faceIdx++)
                 _faceLayouts[arrIdx, faceIdx] = ImageLayout.ShaderReadOnlyOptimal;
         }
+    }
+
+    // Releases what the constructor created before a later step failed: the face views up to the given position,
+    // then the cube-array view, the image and, last, its memory.
+    private void ReleaseConstructedHandles(Vk vk, Device device, uint currentArrayIdx, int currentFaceIdx)
+    {
+        CleanupFaceViews(currentArrayIdx, currentFaceIdx, vk, device);
+        vk.DestroyImageView(device, _imageView, null);
+        vk.DestroyImage(device, _image, null);
+        vk.FreeMemory(device, _memory, null);
     }
 
     private void CleanupFaceViews(uint currentArrayIdx, int currentFaceIdx, Vk vk, Device device)
@@ -197,46 +176,6 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
                 TransitionFace(arrayIndex, faceIndex, ImageLayout.ShaderReadOnlyOptimal);
             }
         }
-    }
-
-    /// <summary>
-    /// Transitions a specific cube map in the array to attachment layout for rendering.
-    /// </summary>
-    /// <param name="arrayIndex">The array index of the cube map.</param>
-    public void TransitionCubeToAttachment(uint arrayIndex)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (arrayIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-
-        var targetLayout = _format.IsDepthFormat()
-            ? ImageLayout.DepthStencilAttachmentOptimal
-            : ImageLayout.ColorAttachmentOptimal;
-
-        for (int faceIndex = 0; faceIndex < 6; faceIndex++)
-        {
-            TransitionFace(arrayIndex, faceIndex, targetLayout);
-        }
-    }
-
-    /// <summary>
-    /// Transitions a specific face of a cube map in the array.
-    /// </summary>
-    public void TransitionFaceToAttachment(uint arrayIndex, int faceIndex)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (arrayIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex));
-
-        var targetLayout = _format.IsDepthFormat()
-            ? ImageLayout.DepthStencilAttachmentOptimal
-            : ImageLayout.ColorAttachmentOptimal;
-
-        TransitionFace(arrayIndex, faceIndex, targetLayout);
     }
 
     internal void TransitionFaceToTransferDestination(uint arrayIndex, int faceIndex)
@@ -292,22 +231,9 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
 
         if (arrayIndex >= _arraySize)
             throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
 
         return (IntPtr)_faceViews[arrayIndex, faceIndex].Handle;
-    }
-
-    public ImageView GetFaceViewHandle(uint arrayIndex, int faceIndex)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (arrayIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
-
-        return _faceViews[arrayIndex, faceIndex];
     }
 
     public void Dispose()

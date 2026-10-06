@@ -57,31 +57,14 @@ public sealed partial class Plane3D : Object3D
             _mesh.WidthSegments.CurrentValue = Math.Max(WidthSegments, 1);
             _mesh.HeightSegments.CurrentValue = Math.Max(HeightSegments, 1);
 
-            if (_meshResource is null)
-            {
-                _meshResource = _mesh.ToResource(context);
+            bool changed = false;
+            ResourceReconciler.ReconcileResource(
+                context: context,
+                value: _mesh,
+                field: ref _meshResource,
+                changed: ref changed);
+            if (changed)
                 Version++;
-            }
-            else
-            {
-                if (_meshResource.GetOriginal() != _mesh)
-                {
-                    var oldMesh = _meshResource;
-                    _meshResource = _mesh.ToResource(context);
-                    oldMesh.Dispose();
-                    Version++;
-                }
-                else
-                {
-                    var oldVersion = _meshResource.Version;
-                    var _ = false;
-                    _meshResource.Update(_mesh, context, ref _);
-                    if (oldVersion != _meshResource.Version)
-                    {
-                        Version++;
-                    }
-                }
-            }
         }
 
         partial void PostDispose(bool disposing)

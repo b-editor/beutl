@@ -27,8 +27,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         int width,
         int height,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                               ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit)
+        ImageUsageFlags usage = VulkanTexture2D.ColorTextureUsage)
         : base(vulkanContext, width, height, format, usage, CreateExportInfo())
     {
         // Free the export info that was allocated in CreateExportInfo

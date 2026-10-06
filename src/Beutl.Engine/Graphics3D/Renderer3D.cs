@@ -272,29 +272,7 @@ internal sealed class Renderer3D : IRenderer3D
 
         // Convert light resources to shader-compatible LightData
         using var lightDataList = new PooledList<LightData>();
-        int lightIndex = 0;
-        foreach (var light in lights)
-        {
-            if (!light.IsEnabled)
-            {
-                lightIndex++;
-                continue;
-            }
-
-            var lightData = LightData.FromLight(light);
-
-            // Set shadow index if this light casts shadows
-            if (lightToShadowIndex.TryGetValue(lightIndex, out int shadowIdx))
-            {
-                lightData.ShadowIndex = shadowIdx;
-            }
-
-            lightDataList.Add(lightData);
-            lightIndex++;
-
-            if (lightDataList.Count >= RenderContext3D.MaxLights)
-                break;
-        }
+        CollectLightData(lights, lightToShadowIndex, lightDataList);
 
         // === GEOMETRY PASS (opaque objects only) ===
         _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
@@ -340,6 +318,41 @@ internal sealed class Renderer3D : IRenderer3D
 
         // Copy result to output texture for Skia integration
         CopyToOutputTexture();
+    }
+
+    /// <summary>
+    /// Converts the enabled lights to shader-compatible <see cref="LightData"/>, at most
+    /// <see cref="RenderContext3D.MaxLights"/>, giving each light that casts a shadow its shadow index.
+    /// </summary>
+    /// <remarks>The light index counts disabled lights too, because the shadow manager keys its map by list index.</remarks>
+    private static void CollectLightData(
+        IReadOnlyList<Light3D.Resource> lights,
+        Dictionary<int, int> lightToShadowIndex,
+        PooledList<LightData> lightDataList)
+    {
+        int lightIndex = 0;
+        foreach (var light in lights)
+        {
+            if (!light.IsEnabled)
+            {
+                lightIndex++;
+                continue;
+            }
+
+            var lightData = LightData.FromLight(light);
+
+            // Set shadow index if this light casts shadows
+            if (lightToShadowIndex.TryGetValue(lightIndex, out int shadowIdx))
+            {
+                lightData.ShadowIndex = shadowIdx;
+            }
+
+            lightDataList.Add(lightData);
+            lightIndex++;
+
+            if (lightDataList.Count >= RenderContext3D.MaxLights)
+                break;
+        }
     }
 
     /// <summary>

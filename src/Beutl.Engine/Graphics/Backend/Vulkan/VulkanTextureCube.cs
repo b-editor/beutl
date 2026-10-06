@@ -35,52 +35,22 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         var vk = context.Vk;
         var device = context.Device;
 
-        // Create cube map image
-        var imageInfo = new ImageCreateInfo
-        {
-            SType = StructureType.ImageCreateInfo,
-            Flags = ImageCreateFlags.CreateCubeCompatibleBit,  // Enable cube map compatibility
-            ImageType = ImageType.Type2D,
-            Format = format.ToVulkanFormat(),
-            Extent = new Extent3D((uint)size, (uint)size, 1),
-            MipLevels = 1,
-            ArrayLayers = 6,  // 6 faces for cube map
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined
-        };
-
-        Silk.NET.Vulkan.Image image;
-        var result = vk.CreateImage(device, &imageInfo, null, &image);
-        if (result != Result.Success)
-        {
-            throw new InvalidOperationException($"Failed to create Vulkan cube map image: {result}");
-        }
-        _image = image;
+        // Create cube map image (six faces, cube-compatible)
+        _image = context.CreateTextureImage(
+            format,
+            size,
+            size,
+            arrayLayers: 6,
+            usage,
+            ImageCreateFlags.CreateCubeCompatibleBit,
+            pNext: null,
+            "cube map image");
 
         _memory = context.AllocateAndBindImageMemory(_image, "cube map image", out _);
 
         // Create cube map image view (for sampling all 6 faces at once)
-        var cubeViewInfo = new ImageViewCreateInfo
-        {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = _image,
-            ViewType = ImageViewType.TypeCube,
-            Format = format.ToVulkanFormat(),
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = format.GetAspectMask(),
-                BaseMipLevel = 0,
-                LevelCount = 1,
-                BaseArrayLayer = 0,
-                LayerCount = 6
-            }
-        };
-
-        ImageView cubeView;
-        result = vk.CreateImageView(device, &cubeViewInfo, null, &cubeView);
+        Result result = context.TryCreateImageView(
+            _image, format, ImageViewType.TypeCube, baseArrayLayer: 0, layerCount: 6, out ImageView cubeView);
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
@@ -96,13 +66,7 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
             if (result != Result.Success)
             {
                 // Clean up previously created views
-                for (int j = 0; j < i; j++)
-                {
-                    vk.DestroyImageView(device, _faceViews[j], null);
-                }
-                vk.DestroyImageView(device, _imageView, null);
-                vk.DestroyImage(device, _image, null);
-                vk.FreeMemory(device, _memory, null);
+                ReleaseConstructedHandles(vk, device, createdFaceViews: i);
                 throw new InvalidOperationException($"Failed to create Vulkan cube face image view {i}: {result}");
             }
             _faceViews[i] = faceView;
@@ -122,16 +86,23 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         }
         catch
         {
-            for (int i = 0; i < _faceViews.Length; i++)
-                vk.DestroyImageView(device, _faceViews[i], null);
-            vk.DestroyImageView(device, _imageView, null);
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
+            ReleaseConstructedHandles(vk, device, createdFaceViews: _faceViews.Length);
             throw;
         }
 
         for (int i = 0; i < _faceLayouts.Length; i++)
             _faceLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
+    }
+
+    // Releases what the constructor created before a later step failed: the first createdFaceViews face views,
+    // then the cube view, the image and, last, its memory.
+    private void ReleaseConstructedHandles(Vk vk, Device device, int createdFaceViews)
+    {
+        for (int j = 0; j < createdFaceViews; j++)
+            vk.DestroyImageView(device, _faceViews[j], null);
+        vk.DestroyImageView(device, _imageView, null);
+        vk.DestroyImage(device, _image, null);
+        vk.FreeMemory(device, _memory, null);
     }
 
     public int Size => _size;
@@ -208,8 +179,7 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+        ThrowIfFaceOutOfRange(faceIndex);
 
         // Transition face to transfer destination
         TransitionFace(faceIndex, ImageLayout.TransferDstOptimal);
@@ -230,20 +200,16 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (faceIndex < 0 || faceIndex >= 6)
-            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+        ThrowIfFaceOutOfRange(faceIndex);
 
         return (IntPtr)_faceViews[faceIndex].Handle;
     }
 
-    public ImageView GetFaceViewHandle(int faceIndex)
+    /// <summary>Throws unless <paramref name="faceIndex"/> names one of a cube's six faces.</summary>
+    internal static void ThrowIfFaceOutOfRange(int faceIndex)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
         if (faceIndex < 0 || faceIndex >= 6)
             throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
-
-        return _faceViews[faceIndex];
     }
 
     public void Dispose()

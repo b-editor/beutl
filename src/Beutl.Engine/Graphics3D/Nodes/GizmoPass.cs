@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Gizmo;
+using Beutl.Graphics3D.Materials;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D.Nodes;
@@ -100,10 +101,7 @@ public sealed class GizmoPass : GraphicsNode3D
         // Framebuffer will be created when SetColorTexture is called
 
         // Create uniform buffer
-        _uniformBuffer = Context.CreateBuffer(
-            (ulong)Marshal.SizeOf<GizmoUBO>(),
-            BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        _uniformBuffer = MaterialGpuResources.CreateUniformBuffer<GizmoUBO>(Context);
 
         // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(GizmoVertexShader, ShaderStage.Vertex);

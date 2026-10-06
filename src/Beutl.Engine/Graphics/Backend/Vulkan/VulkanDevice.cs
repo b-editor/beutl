@@ -25,7 +25,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
         _instance = instance;
         _physicalDevice = physicalDevice;
 
-        _graphicsQueueFamilyIndex = FindGraphicsQueueFamily();
+        _graphicsQueueFamilyIndex = VulkanPhysicalDeviceQueries.FindGraphicsQueueFamily(_vk, _physicalDevice);
         _enabledExtensions = GetRequiredDeviceExtensions();
         _device = CreateDevice(_enabledExtensions, out _enabledFeatures, out _timelineSemaphores);
 
@@ -123,48 +123,11 @@ internal sealed unsafe class VulkanDevice : IDisposable
     public bool SupportsImageCubeArray => _enabledFeatures.ImageCubeArray;
 
 
-    private uint FindGraphicsQueueFamily()
-    {
-        uint queueFamilyCount = 0;
-        _vk.GetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &queueFamilyCount, null);
-
-        var queueFamilies = new QueueFamilyProperties[queueFamilyCount];
-        fixed (QueueFamilyProperties* pQueueFamilies = queueFamilies)
-        {
-            _vk.GetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &queueFamilyCount, pQueueFamilies);
-        }
-
-        for (uint i = 0; i < queueFamilyCount; i++)
-        {
-            if ((queueFamilies[i].QueueFlags & QueueFlags.GraphicsBit) != 0)
-            {
-                return i;
-            }
-        }
-
-        throw new InvalidOperationException("No graphics queue family found");
-    }
-
     private string[] GetRequiredDeviceExtensions()
     {
         var extensions = new List<string>();
 
-        uint extensionCount = 0;
-        _vk.EnumerateDeviceExtensionProperties(_physicalDevice, (byte*)null, &extensionCount, null);
-
-        var availableExtensions = new ExtensionProperties[extensionCount];
-        fixed (ExtensionProperties* pExtensions = availableExtensions)
-        {
-            _vk.EnumerateDeviceExtensionProperties(_physicalDevice, (byte*)null, &extensionCount, pExtensions);
-        }
-
-        var availableNames = new HashSet<string>();
-        foreach (var ext in availableExtensions)
-        {
-            var extName = Marshal.PtrToStringAnsi((IntPtr)ext.ExtensionName);
-            if (!string.IsNullOrEmpty(extName))
-                availableNames.Add(extName);
-        }
+        HashSet<string> availableNames = VulkanPhysicalDeviceQueries.GetDeviceExtensionNames(_vk, _physicalDevice);
 
         if (availableNames.Contains("VK_KHR_swapchain"))
             extensions.Add("VK_KHR_swapchain");

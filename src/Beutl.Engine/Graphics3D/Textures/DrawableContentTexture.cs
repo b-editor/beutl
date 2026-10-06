@@ -78,10 +78,7 @@ internal sealed class DrawableContentTexture : TextureSource.Resource, IRecorded
 
     public float ResolveDensity(float density)
     {
-        float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(density);
-        return BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation).ClampWorkingScale(
-            TextureDomain,
-            sanitizedDensity);
+        return RecordedTextureDensity.Resolve(TextureDomain, density);
     }
 
     public RenderNode? RecordContent(float density)

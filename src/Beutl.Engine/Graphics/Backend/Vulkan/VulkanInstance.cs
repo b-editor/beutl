@@ -305,15 +305,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
             _vk.EnumerateInstanceExtensionProperties((byte*)null, &count, pExtensions);
         }
 
-        var result = new HashSet<string>();
-        foreach (var ext in extensions)
-        {
-            var name = Marshal.PtrToStringAnsi((IntPtr)ext.ExtensionName);
-            if (!string.IsNullOrEmpty(name))
-                result.Add(name);
-        }
-
-        return result;
+        return VulkanPhysicalDeviceQueries.ToNameSet(extensions);
     }
 
     private bool CheckValidationLayerSupport(string[] validationLayers)

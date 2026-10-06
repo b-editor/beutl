@@ -12,24 +12,18 @@ internal static class VulkanSetup
 
     private static (PutenvDelegate Delegate, IntPtr Library) GetPutenvDelegate()
     {
+        string libraryName;
         if (OperatingSystem.IsMacOS())
-        {
-            var library = NativeLibrary.Load("libc.dylib");
-            NativeLibrary.TryGetExport(library, "putenv", out IntPtr putenvPtr);
-            var putenv = Marshal.GetDelegateForFunctionPointer<PutenvDelegate>(putenvPtr);
-            return (putenv, library);
-        }
+            libraryName = "libc.dylib";
         else if (OperatingSystem.IsLinux())
-        {
-            var library = NativeLibrary.Load("libc.so.6");
-            NativeLibrary.TryGetExport(library, "putenv", out IntPtr putenvPtr);
-            var putenv = Marshal.GetDelegateForFunctionPointer<PutenvDelegate>(putenvPtr);
-            return (putenv, library);
-        }
+            libraryName = "libc.so.6";
         else
-        {
             throw new PlatformNotSupportedException("putenv is only supported on macOS and Linux.");
-        }
+
+        var library = NativeLibrary.Load(libraryName);
+        NativeLibrary.TryGetExport(library, "putenv", out IntPtr putenvPtr);
+        var putenv = Marshal.GetDelegateForFunctionPointer<PutenvDelegate>(putenvPtr);
+        return (putenv, library);
     }
 
     private static string? FindFile(string fileName)

@@ -18,11 +18,7 @@ internal static class MeshBufferUploadHelper
         {
             // Leaving the previous topology's buffers in place would let a later draw bind them for a mesh
             // that no longer has them.
-            meshResource.VertexBuffer?.Dispose();
-            meshResource.VertexBuffer = null;
-            meshResource.IndexBuffer?.Dispose();
-            meshResource.IndexBuffer = null;
-            meshResource.UploadedIndexCount = 0;
+            meshResource.ReleaseUploadedBuffers();
             meshResource.BuffersDirty = false;
             return;
         }

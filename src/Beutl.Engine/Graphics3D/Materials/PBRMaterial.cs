@@ -147,16 +147,9 @@ public sealed partial class PBRMaterial : Material3D
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
             var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
 
-            // Create descriptor bindings (UBO + 5 texture samplers)
-            var descriptorBindings = new DescriptorBinding[]
-            {
-                new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment),
-                new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // albedoMap
-                new(2, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // normalMap
-                new(3, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // metallicRoughnessMap
-                new(4, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // emissiveMap
-                new(5, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // aoMap
-            };
+            // Create descriptor bindings (UBO + 5 texture samplers: albedoMap, normalMap, metallicRoughnessMap,
+            // emissiveMap, aoMap)
+            var descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 5);
 
             // Create pipeline with vertex input for Vertex3D
             _pipeline = graphicsContext.CreatePipeline3D(
@@ -229,12 +222,8 @@ public sealed partial class PBRMaterial : Material3D
                 TextureFlags = textureFlags | (obj.ReceiveShadows ? 0 : 32)
             };
 
-            bindings.Buffer.Upload(new ReadOnlySpan<PBRMaterialUBO>(ref ubo));
-
-            // Bind pipeline and descriptor set
-            renderPass.BindPipeline(_pipeline);
-            renderPass.BindDescriptorSet(_pipeline, bindings.Descriptors);
-            _drawBindings.MarkBound(bindings);
+            // Upload the uniforms, then bind pipeline and descriptor set
+            _drawBindings.UploadAndBind(bindings, in ubo, renderPass, _pipeline);
         }
 
         partial void PostDispose(bool disposing)

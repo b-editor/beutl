@@ -102,11 +102,7 @@ public sealed partial class UnlitMaterial : Material3D
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
             var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
 
-            var descriptorBindings = new DescriptorBinding[]
-            {
-                new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment),
-                new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
-            };
+            var descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 1);
 
             for (int variant = 0; variant < _pipelines.Length; variant++)
             {
@@ -151,11 +147,7 @@ public sealed partial class UnlitMaterial : Material3D
                 BaseColor = Color.ToLinearPremultiplied() * Math.Clamp(Opacity, 0f, 1f),
             };
 
-            bindings.Buffer.Upload(new ReadOnlySpan<UnlitMaterialUBO>(ref ubo));
-
-            context.RenderPass.BindPipeline(pipeline);
-            context.RenderPass.BindDescriptorSet(pipeline, bindings.Descriptors);
-            drawBindings.MarkBound(bindings);
+            drawBindings.UploadAndBind(bindings, in ubo, context.RenderPass, pipeline);
         }
 
         partial void PostDispose(bool disposing)

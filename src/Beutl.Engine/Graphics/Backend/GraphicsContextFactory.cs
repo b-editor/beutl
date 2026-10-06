@@ -80,25 +80,13 @@ public class GraphicsContextFactory
     /// <returns>An array of available graphics devices.</returns>
     public static GraphicsDeviceInfo[] GetAvailableDevices()
     {
-        EnsureVulkanInstance();
-        var gpus = s_vulkanInstance?.GetAvailableGpus() ?? [];
-        return gpus.Select(g => g.ToGraphicsDeviceInfo()).ToArray();
+        return GetAvailableGpus().Select(g => g.ToGraphicsDeviceInfo()).ToArray();
     }
 
     internal static VulkanPhysicalDeviceInfo[] GetAvailableGpus()
     {
         EnsureVulkanInstance();
         return s_vulkanInstance?.GetAvailableGpus() ?? [];
-    }
-
-    internal static void SelectGpu(VulkanPhysicalDeviceInfo physicalDevice)
-    {
-        if (SharedContext != null)
-        {
-            throw new InvalidOperationException("Cannot change GPU after the graphics context has been created.");
-        }
-
-        s_selectedPhysicalDevice = physicalDevice;
     }
 
     /// <summary>
@@ -111,9 +99,7 @@ public class GraphicsContextFactory
         if (string.IsNullOrEmpty(gpuName))
             return false;
 
-        EnsureVulkanInstance();
-
-        var availableGpus = s_vulkanInstance?.GetAvailableGpus() ?? [];
+        var availableGpus = GetAvailableGpus();
         var matchingGpu = availableGpus.FirstOrDefault(g => g.Name == gpuName);
 
         if (matchingGpu != null)
@@ -232,16 +218,7 @@ public class GraphicsContextFactory
     /// <returns>The selected graphics device info, or null if no Vulkan instance exists.</returns>
     public static GraphicsDeviceInfo? GetSelectedDevice()
     {
-        if (s_vulkanInstance == null)
-            return null;
-
-        VulkanPhysicalDeviceInfo? selectedPhysicalDevice = s_selectedPhysicalDevice ?? default;
-        if (selectedPhysicalDevice == null || selectedPhysicalDevice.Device.Handle == IntPtr.Zero)
-        {
-            selectedPhysicalDevice = s_vulkanInstance.SelectBestPhysicalDevice();
-        }
-
-        return selectedPhysicalDevice?.ToGraphicsDeviceInfo();
+        return GetSelectedGpuDetails()?.ToGraphicsDeviceInfo();
     }
 
     internal static VulkanPhysicalDeviceInfo? GetSelectedGpuDetails()

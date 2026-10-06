@@ -7,7 +7,7 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 internal sealed unsafe class VulkanCommandPool : IDisposable
 {
-    private static readonly AsyncLocal<ObservationScope?> s_observer = new();
+    private static readonly ScopedObservers<VulkanCommandPoolEvent> s_observers = new();
     private readonly VulkanDevice _vulkanDevice;
     private readonly Vk _vk;
     private readonly Device _device;
@@ -37,12 +37,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     }
 
     internal static IDisposable Observe(Action<VulkanCommandPoolEvent> observer)
-    {
-        ArgumentNullException.ThrowIfNull(observer);
-        var scope = new ObservationScope(observer, s_observer.Value);
-        s_observer.Value = scope;
-        return scope;
-    }
+        => s_observers.Observe(observer);
 
     private CommandPool CreateCommandPool()
     {
@@ -831,19 +826,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     }
 
     private static void RecordEvent(VulkanCommandPoolEvent eventType)
-    {
-        for (ObservationScope? scope = s_observer.Value; scope is not null; scope = scope.Parent)
-        {
-            try
-            {
-                scope.Observer(eventType);
-            }
-            catch
-            {
-                // Diagnostics must never affect rendering or cleanup.
-            }
-        }
-    }
+        => s_observers.Record(eventType);
 
     private readonly record struct TimelineSignal(Semaphore Semaphore, ulong Value);
 
@@ -856,28 +839,5 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         public List<Semaphore> WaitSemaphores { get; } = [];
 
         public List<Action> Releases { get; } = [];
-    }
-
-    private sealed class ObservationScope(
-        Action<VulkanCommandPoolEvent> observer,
-        ObservationScope? parent) : IDisposable
-    {
-        private bool _disposed;
-
-        public Action<VulkanCommandPoolEvent> Observer { get; } = observer;
-
-        public ObservationScope? Parent { get; } = parent;
-
-        public void Dispose()
-        {
-            if (_disposed)
-                return;
-
-            _disposed = true;
-            if (ReferenceEquals(s_observer.Value, this))
-            {
-                s_observer.Value = Parent;
-            }
-        }
     }
 }

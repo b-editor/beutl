@@ -118,6 +118,23 @@ internal sealed class MaterialDrawBindingPool : IDisposable
             Retire(replaced);
     }
 
+    /// <summary>
+    /// Uploads <paramref name="ubo"/> into <paramref name="bindings"/>, binds <paramref name="pipeline"/> and the
+    /// bindings' descriptor set, then marks the bindings bound - only once bound may they replace the previous ones.
+    /// </summary>
+    public void UploadAndBind<TUbo>(
+        MaterialDrawBindings bindings,
+        in TUbo ubo,
+        IRenderPass3D renderPass,
+        IPipeline3D pipeline)
+        where TUbo : unmanaged
+    {
+        bindings.Buffer.Upload(new ReadOnlySpan<TUbo>(in ubo));
+        renderPass.BindPipeline(pipeline);
+        renderPass.BindDescriptorSet(pipeline, bindings.Descriptors);
+        MarkBound(bindings);
+    }
+
     public void Dispose()
     {
         if (_disposed)

@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Materials;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D.Nodes;
@@ -111,20 +112,14 @@ public sealed class LightingPass : GraphicsNode3D
         _dummyShadowCubeArray = Context.CreateTextureCubeArray(1, ShadowManager.MaxShadowMapsCube, TextureFormat.Depth32Float);
 
         // Create uniform buffers
-        _cameraUniformBuffer = Context.CreateBuffer(
-            (ulong)Marshal.SizeOf<LightingPassUBO>(),
-            BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        _cameraUniformBuffer = MaterialGpuResources.CreateUniformBuffer<LightingPassUBO>(Context);
 
         _lightsBuffer = Context.CreateBuffer(
             (ulong)(Marshal.SizeOf<LightData>() * RenderContext3D.MaxLights + 16),
             BufferUsage.UniformBuffer,
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
-        _shadowBuffer = Context.CreateBuffer(
-            (ulong)Marshal.SizeOf<ShadowUBO>(),
-            BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        _shadowBuffer = MaterialGpuResources.CreateUniformBuffer<ShadowUBO>(Context);
 
         // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(LightingVertexShader, ShaderStage.Vertex);

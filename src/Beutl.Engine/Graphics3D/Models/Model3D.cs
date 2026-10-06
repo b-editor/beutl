@@ -99,47 +99,28 @@ public sealed partial class Model3D : Group3D
         material.Metallic.CurrentValue = materialData.Metallic;
         material.Roughness.CurrentValue = materialData.Roughness;
 
-        // Set albedo map
-        if (materialData.AlbedoMapPath != null)
-        {
-            var textureSource = CreateTextureSource(materialData.AlbedoMapPath);
-            if (textureSource != null)
-                material.AlbedoMap.CurrentValue = textureSource;
-        }
-
-        // Set normal map
-        if (materialData.NormalMapPath != null)
-        {
-            var textureSource = CreateTextureSource(materialData.NormalMapPath);
-            if (textureSource != null)
-                material.NormalMap.CurrentValue = textureSource;
-        }
-
-        // Set metallic/roughness map
-        if (materialData.MetallicRoughnessMapPath != null)
-        {
-            var textureSource = CreateTextureSource(materialData.MetallicRoughnessMapPath);
-            if (textureSource != null)
-                material.MetallicRoughnessMap.CurrentValue = textureSource;
-        }
-
-        // Set emissive map
-        if (materialData.EmissiveMapPath != null)
-        {
-            var textureSource = CreateTextureSource(materialData.EmissiveMapPath);
-            if (textureSource != null)
-                material.EmissiveMap.CurrentValue = textureSource;
-        }
-
-        // Set AO map
-        if (materialData.AOMapPath != null)
-        {
-            var textureSource = CreateTextureSource(materialData.AOMapPath);
-            if (textureSource != null)
-                material.AOMap.CurrentValue = textureSource;
-        }
+        // Set texture maps
+        TrySetTextureMap(material.AlbedoMap, materialData.AlbedoMapPath);
+        TrySetTextureMap(material.NormalMap, materialData.NormalMapPath);
+        TrySetTextureMap(material.MetallicRoughnessMap, materialData.MetallicRoughnessMapPath);
+        TrySetTextureMap(material.EmissiveMap, materialData.EmissiveMapPath);
+        TrySetTextureMap(material.AOMap, materialData.AOMapPath);
 
         return material;
+    }
+
+    /// <summary>
+    /// Sets <paramref name="map"/> to the image at <paramref name="path"/>, leaving it unset when there is no path or
+    /// the image cannot be loaded.
+    /// </summary>
+    private static void TrySetTextureMap(IProperty<TextureSource?> map, string? path)
+    {
+        if (path != null)
+        {
+            var textureSource = CreateTextureSource(path);
+            if (textureSource != null)
+                map.CurrentValue = textureSource;
+        }
     }
 
     private static ImageTextureSource? CreateTextureSource(string path)

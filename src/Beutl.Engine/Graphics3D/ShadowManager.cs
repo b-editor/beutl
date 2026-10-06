@@ -191,13 +191,7 @@ internal sealed class ShadowManager : IDisposable
     {
         var shadowPass = _shadowPasses2D[_activeShadowCount2D];
         shadowPass.SetupForDirectionalLight(light, sceneCenter, sceneRadius);
-        shadowPass.Execute(objects);
-
-        // Copy shadow map to array
-        if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
-        {
-            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
-        }
+        ExecuteAndCopyToArray(shadowPass, objects);
 
         return new ShadowInfo
         {
@@ -213,13 +207,7 @@ internal sealed class ShadowManager : IDisposable
     {
         var shadowPass = _shadowPasses2D[_activeShadowCount2D];
         shadowPass.SetupForSpotLight(light);
-        shadowPass.Execute(objects);
-
-        // Copy shadow map to array
-        if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
-        {
-            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
-        }
+        ExecuteAndCopyToArray(shadowPass, objects);
 
         return new ShadowInfo
         {
@@ -227,6 +215,18 @@ internal sealed class ShadowManager : IDisposable
             LightPosition = light.Position,
             FarPlane = light.Range
         };
+    }
+
+    /// <summary>Renders <paramref name="shadowPass"/> and copies its depth into the current 2D shadow map layer.</summary>
+    private void ExecuteAndCopyToArray(ShadowPass shadowPass, IReadOnlyList<Object3D.Resource> objects)
+    {
+        shadowPass.Execute(objects);
+
+        // Copy shadow map to array
+        if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
+        {
+            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
+        }
     }
 
     private ShadowInfo RenderPointLightShadow(
@@ -276,25 +276,6 @@ internal sealed class ShadowManager : IDisposable
         }
 
         return ubo;
-    }
-
-    /// <summary>
-    /// Gets the shadow info array for use in shaders.
-    /// </summary>
-    public ReadOnlySpan<ShadowInfo> GetShadowInfos()
-    {
-        return _shadowInfos.AsSpan(0, Math.Min(_activeShadowCount2D + _activeShadowCountCube, ShadowInfoArray.MaxShadows));
-    }
-
-    /// <summary>
-    /// Gets the 2D shadow map for the specified index.
-    /// </summary>
-    public ITexture2D? GetShadowMap2D(int index)
-    {
-        if (index < 0 || index >= _activeShadowCount2D)
-            return null;
-
-        return _shadowPasses2D[index].ShadowDepthTexture;
     }
 
     /// <summary>
