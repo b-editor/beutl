@@ -92,45 +92,20 @@ public sealed class CurveVisualizationRenderer
             EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
         }.ToImmutable();
 
-        s_masterBackBrush = new LinearGradientBrush
-        {
-            GradientStops =
-            [
-                new GradientStop(Color.FromArgb(40, 128, 128, 128), 0),
-                new GradientStop(Color.FromArgb(20, 128, 128, 128), 1)
-            ],
-            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-        }.ToImmutable();
+        s_masterBackBrush = CreateVerticalFade(128, 128, 128);
+        s_redBackBrush = CreateVerticalFade(139, 0, 0);
+        s_greenBackBrush = CreateVerticalFade(0, 100, 0);
+        s_blueBackBrush = CreateVerticalFade(0, 0, 139);
+    }
 
-        s_redBackBrush = new LinearGradientBrush
+    private static IBrush CreateVerticalFade(byte r, byte g, byte b)
+    {
+        return new LinearGradientBrush
         {
             GradientStops =
             [
-                new GradientStop(Color.FromArgb(40, 139, 0, 0), 0),
-                new GradientStop(Color.FromArgb(20, 139, 0, 0), 1)
-            ],
-            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-        }.ToImmutable();
-
-        s_greenBackBrush = new LinearGradientBrush
-        {
-            GradientStops =
-            [
-                new GradientStop(Color.FromArgb(40, 0, 100, 0), 0),
-                new GradientStop(Color.FromArgb(20, 0, 100, 0), 1)
-            ],
-            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-            EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
-        }.ToImmutable();
-
-        s_blueBackBrush = new LinearGradientBrush
-        {
-            GradientStops =
-            [
-                new GradientStop(Color.FromArgb(40, 0, 0, 139), 0),
-                new GradientStop(Color.FromArgb(20, 0, 0, 139), 1)
+                new GradientStop(Color.FromArgb(40, r, g, b), 0),
+                new GradientStop(Color.FromArgb(20, r, g, b), 1)
             ],
             StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
             EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
@@ -150,32 +125,7 @@ public sealed class CurveVisualizationRenderer
         bool needSat = categories.HasFlag(HistogramCategory.Saturation);
         bool needHsl = needHue || needLuma || needSat;
 
-        if (needRgb)
-        {
-            Array.Clear(_rHist);
-            Array.Clear(_gHist);
-            Array.Clear(_bHist);
-            Array.Clear(_combinedHist);
-            _histMax = 0;
-        }
-
-        if (needHue)
-        {
-            Array.Clear(_hueHist);
-            _hueHistMax = 0;
-        }
-
-        if (needLuma)
-        {
-            Array.Clear(_lumaHist);
-            _lumaHistMax = 0;
-        }
-
-        if (needSat)
-        {
-            Array.Clear(_satHist);
-            _satHistMax = 0;
-        }
+        ResetHistograms(needRgb, needHue, needLuma, needSat);
 
         var cloned = sourceBitmapRef?.TryClone();
         if (cloned is not { Value: var bitmap })
@@ -248,6 +198,43 @@ public sealed class CurveVisualizationRenderer
             cloned.Dispose();
         }
 
+        UpdateMaxima(needRgb, needHue, needLuma, needSat);
+
+        Updated?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ResetHistograms(bool needRgb, bool needHue, bool needLuma, bool needSat)
+    {
+        if (needRgb)
+        {
+            Array.Clear(_rHist);
+            Array.Clear(_gHist);
+            Array.Clear(_bHist);
+            Array.Clear(_combinedHist);
+            _histMax = 0;
+        }
+
+        if (needHue)
+        {
+            Array.Clear(_hueHist);
+            _hueHistMax = 0;
+        }
+
+        if (needLuma)
+        {
+            Array.Clear(_lumaHist);
+            _lumaHistMax = 0;
+        }
+
+        if (needSat)
+        {
+            Array.Clear(_satHist);
+            _satHistMax = 0;
+        }
+    }
+
+    private void UpdateMaxima(bool needRgb, bool needHue, bool needLuma, bool needSat)
+    {
         if (needRgb)
         {
             _histMax = Math.Max(1,
@@ -268,8 +255,6 @@ public sealed class CurveVisualizationRenderer
         {
             _satHistMax = Math.Max(1, _satHist.Max());
         }
-
-        Updated?.Invoke(this, EventArgs.Empty);
     }
 
     private static void RgbToHsl(byte r, byte g, byte b, out int hue, out int saturation, out int luminance)
@@ -341,15 +326,15 @@ public sealed class CurveVisualizationRenderer
             case CurveVisualization.HueVsHue:
             case CurveVisualization.HueVsSaturation:
             case CurveVisualization.HueVsLuminance:
-                DrawHueGradient(context, bounds);
+                DrawGradientHistogram(context, bounds, s_hueGradientBrush, _hueHist, _hueHistMax);
                 break;
 
             case CurveVisualization.LuminanceVsSaturation:
-                DrawLuminanceGradient(context, bounds);
+                DrawGradientHistogram(context, bounds, s_luminanceGradientBrush, _lumaHist, _lumaHistMax);
                 break;
 
             case CurveVisualization.SaturationVsSaturation:
-                DrawSaturationGradient(context, bounds);
+                DrawGradientHistogram(context, bounds, s_luminanceGradientBrush, _satHist, _satHistMax);
                 break;
         }
     }
@@ -370,54 +355,20 @@ public sealed class CurveVisualizationRenderer
         }
     }
 
-    private void DrawHueGradient(DrawingContext context, Rect bounds)
+    // The hue histogram has 360 bins, the luminance and saturation ones 256.
+    private static void DrawGradientHistogram(
+        DrawingContext context, Rect bounds, IBrush gradientBrush, int[] histogram, int histogramMax)
     {
-        context.DrawRectangle(s_hueGradientBrush, null, bounds);
+        context.DrawRectangle(gradientBrush, null, bounds);
         context.DrawRectangle(s_blackOverlayBrush, null, bounds);
 
-        if (_hueHistMax > 0)
+        if (histogramMax > 0)
         {
-            double barWidth = bounds.Width / 360.0;
+            double barWidth = bounds.Width / histogram.Length;
 
-            for (int i = 0; i < 360; i++)
+            for (int i = 0; i < histogram.Length; i++)
             {
-                double height = bounds.Height * _hueHist[i] / _hueHistMax;
-                var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
-                context.DrawRectangle(s_whiteBarBrush, null, rect);
-            }
-        }
-    }
-
-    private void DrawLuminanceGradient(DrawingContext context, Rect bounds)
-    {
-        context.DrawRectangle(s_luminanceGradientBrush, null, bounds);
-        context.DrawRectangle(s_blackOverlayBrush, null, bounds);
-
-        if (_lumaHistMax > 0)
-        {
-            double barWidth = bounds.Width / 256.0;
-
-            for (int i = 0; i < 256; i++)
-            {
-                double height = bounds.Height * _lumaHist[i] / _lumaHistMax;
-                var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
-                context.DrawRectangle(s_whiteBarBrush, null, rect);
-            }
-        }
-    }
-
-    private void DrawSaturationGradient(DrawingContext context, Rect bounds)
-    {
-        context.DrawRectangle(s_luminanceGradientBrush, null, bounds);
-        context.DrawRectangle(s_blackOverlayBrush, null, bounds);
-
-        if (_satHistMax > 0)
-        {
-            double barWidth = bounds.Width / 256.0;
-
-            for (int i = 0; i < 256; i++)
-            {
-                double height = bounds.Height * _satHist[i] / _satHistMax;
+                double height = bounds.Height * histogram[i] / histogramMax;
                 var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
                 context.DrawRectangle(s_whiteBarBrush, null, rect);
             }

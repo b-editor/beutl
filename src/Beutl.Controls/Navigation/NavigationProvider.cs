@@ -78,7 +78,7 @@ public class NavigationProvider : INavigationProvider
                 Locate(HasFlags(_transitionMode, Orientation_SameOrder), Math.Sign(depth2 - depth1) * signWhenSameOrder,
                     ref horizontal, ref vertical);
             }
-            else if (order1 != order2)
+            else
             {
                 Locate(HasFlags(_transitionMode, Orientation_DifferenceOrder), Math.Sign(order2 - order1) * signWhenDiffOrder,
                     ref horizontal, ref vertical);
@@ -86,7 +86,6 @@ public class NavigationProvider : INavigationProvider
 
             entrance.FromHorizontalOffset = horizontal;
             entrance.FromVerticalOffset = Math.Abs(vertical);
-            //entrance.FromVerticalOffset = vertical;
         }
     }
 

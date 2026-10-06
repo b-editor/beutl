@@ -119,36 +119,7 @@ public class GradientStopsSlider : TemplatedControl
             _unorderedStops.Clear();
             if (change.NewValue is GradientStops stops)
             {
-                var d = new CompositeDisposable();
-                stops.ForEachItem(
-                    _backgroundStops.Insert,
-                    (i, o) => _backgroundStops.RemoveAt(i),
-                    _backgroundStops.Clear)
-                    .DisposeWith(d);
-
-                _unorderedStops.AddRange(stops);
-
-                stops.ObserveAddChangedItems<GradientStop>()
-                    .Subscribe(_unorderedStops.AddRange)
-                    .DisposeWith(d);
-
-                stops.ObserveRemoveChangedItems<GradientStop>()
-                    .Subscribe(_unorderedStops.RemoveAll)
-                    .DisposeWith(d);
-
-                stops.ObserveReplaceChangedItems<GradientStop>()
-                    .Subscribe(p =>
-                    {
-                        _unorderedStops.RemoveAll(p.OldItem);
-                        _unorderedStops.AddRange(p.NewItem);
-                    })
-                    .DisposeWith(d);
-
-                stops.ObserveResetChanged<GradientStop>()
-                    .Subscribe(_ => _unorderedStops.Clear())
-                    .DisposeWith(d);
-
-                _stopsSubscription = d;
+                _stopsSubscription = SubscribeStops(stops);
             }
         }
         else if (change.Property == SelectedStopProperty)
@@ -163,6 +134,40 @@ public class GradientStopsSlider : TemplatedControl
                 GetThumbFromGradientStop(newValue)?.Classes?.Set("selected", true);
             }
         }
+    }
+
+    private CompositeDisposable SubscribeStops(GradientStops stops)
+    {
+        var d = new CompositeDisposable();
+        stops.ForEachItem(
+            _backgroundStops.Insert,
+            (i, o) => _backgroundStops.RemoveAt(i),
+            _backgroundStops.Clear)
+            .DisposeWith(d);
+
+        _unorderedStops.AddRange(stops);
+
+        stops.ObserveAddChangedItems<GradientStop>()
+            .Subscribe(_unorderedStops.AddRange)
+            .DisposeWith(d);
+
+        stops.ObserveRemoveChangedItems<GradientStop>()
+            .Subscribe(_unorderedStops.RemoveAll)
+            .DisposeWith(d);
+
+        stops.ObserveReplaceChangedItems<GradientStop>()
+            .Subscribe(p =>
+            {
+                _unorderedStops.RemoveAll(p.OldItem);
+                _unorderedStops.AddRange(p.NewItem);
+            })
+            .DisposeWith(d);
+
+        stops.ObserveResetChanged<GradientStop>()
+            .Subscribe(_ => _unorderedStops.Clear())
+            .DisposeWith(d);
+
+        return d;
     }
 
     private void OnItemsControlContainerClearing(object? sender, ContainerClearingEventArgs e)
@@ -416,56 +421,6 @@ public class GradientStopsSlider : TemplatedControl
 
     private void OnItemsControlPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        //https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Animation/Animators/ColorAnimator.cs
-        static double OECF_sRGB(double linear)
-        {
-            return linear <= 0.0031308d ? linear * 12.92d : (double)(Math.Pow(linear, 1.0d / 2.4d) * 1.055d - 0.055d);
-        }
-        static double EOCF_sRGB(double srgb)
-        {
-            return srgb <= 0.04045d ? srgb / 12.92d : (double)Math.Pow((srgb + 0.055d) / 1.055d, 2.4d);
-        }
-        static Color InterpolateCore(double progress, Color oldValue, Color newValue)
-        {
-            double oldA = oldValue.A / 255d;
-            double oldR = oldValue.R / 255d;
-            double oldG = oldValue.G / 255d;
-            double oldB = oldValue.B / 255d;
-
-            double newA = newValue.A / 255d;
-            double newR = newValue.R / 255d;
-            double newG = newValue.G / 255d;
-            double newB = newValue.B / 255d;
-
-            // convert from sRGB to linear
-            oldR = EOCF_sRGB(oldR);
-            oldG = EOCF_sRGB(oldG);
-            oldB = EOCF_sRGB(oldB);
-
-            newR = EOCF_sRGB(newR);
-            newG = EOCF_sRGB(newG);
-            newB = EOCF_sRGB(newB);
-
-            // compute the interpolated color in linear space
-            double a = oldA + progress * (newA - oldA);
-            double r = oldR + progress * (newR - oldR);
-            double g = oldG + progress * (newG - oldG);
-            double b = oldB + progress * (newB - oldB);
-
-            // convert back to sRGB in the [0..255] range
-            a *= 255d;
-            r = OECF_sRGB(r) * 255d;
-            g = OECF_sRGB(g) * 255d;
-            b = OECF_sRGB(b) * 255d;
-
-            return new Color((byte)Math.Round(a), (byte)Math.Round(r), (byte)Math.Round(g), (byte)Math.Round(b));
-        }
-        static Color Interpolate(GradientStop prev, GradientStop next, double offset)
-        {
-            double progress = (offset - prev.Offset) / next.Offset - prev.Offset;
-            return InterpolateCore(progress, prev.Color, next.Color);
-        }
-
         PointerPoint point = e.GetCurrentPoint(_itemsControl);
         if (point.Properties.IsLeftButtonPressed
             && _itemsControl != null && Stops != null)
@@ -473,46 +428,106 @@ public class GradientStopsSlider : TemplatedControl
             double width = DragWidth;
             double x = point.Position.X;
             double offset = x / width;
-            Color? color = null;
+            (Color color, int index) = ResolveInsertedStop(Stops, offset);
 
-            GradientStop? next = null;
-            int index = 0;
-
-            for (int i = 0; i < Stops.Count; i++)
-            {
-                GradientStop cur = Stops[i];
-                if (MathUtilities.LessThanOrClose(cur.Offset, offset))
-                {
-                    color = cur.Color;
-                    index = i + 1;
-                    if (i < Stops.Count - 1)
-                    {
-                        next = Stops[i + 1];
-                        if (MathUtilities.LessThanOrClose(offset, next.Offset))
-                        {
-                            color = Interpolate(cur, next, offset);
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    color = cur.Color;
-                    index = i;
-                    break;
-                }
-            }
-
-            if (!color.HasValue)
-            {
-                color = next?.Color ?? Colors.White;
-            }
-
-            var stop = new GradientStop(color.Value, offset);
+            var stop = new GradientStop(color, offset);
             Added?.Invoke(this, (index, stop));
 
             SelectedStop = Stops[index];
         }
+    }
+
+    private static (Color Color, int Index) ResolveInsertedStop(GradientStops stops, double offset)
+    {
+        Color? color = null;
+
+        GradientStop? next = null;
+        int index = 0;
+
+        for (int i = 0; i < stops.Count; i++)
+        {
+            GradientStop cur = stops[i];
+            if (MathUtilities.LessThanOrClose(cur.Offset, offset))
+            {
+                color = cur.Color;
+                index = i + 1;
+                if (i < stops.Count - 1)
+                {
+                    next = stops[i + 1];
+                    if (MathUtilities.LessThanOrClose(offset, next.Offset))
+                    {
+                        color = Interpolate(cur, next, offset);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                color = cur.Color;
+                index = i;
+                break;
+            }
+        }
+
+        if (!color.HasValue)
+        {
+            color = next?.Color ?? Colors.White;
+        }
+
+        return (color.Value, index);
+    }
+
+    //https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Animation/Animators/ColorAnimator.cs
+    private static double OECF_sRGB(double linear)
+    {
+        return linear <= 0.0031308d ? linear * 12.92d : (double)(Math.Pow(linear, 1.0d / 2.4d) * 1.055d - 0.055d);
+    }
+
+    private static double EOCF_sRGB(double srgb)
+    {
+        return srgb <= 0.04045d ? srgb / 12.92d : (double)Math.Pow((srgb + 0.055d) / 1.055d, 2.4d);
+    }
+
+    private static Color InterpolateCore(double progress, Color oldValue, Color newValue)
+    {
+        double oldA = oldValue.A / 255d;
+        double oldR = oldValue.R / 255d;
+        double oldG = oldValue.G / 255d;
+        double oldB = oldValue.B / 255d;
+
+        double newA = newValue.A / 255d;
+        double newR = newValue.R / 255d;
+        double newG = newValue.G / 255d;
+        double newB = newValue.B / 255d;
+
+        // convert from sRGB to linear
+        oldR = EOCF_sRGB(oldR);
+        oldG = EOCF_sRGB(oldG);
+        oldB = EOCF_sRGB(oldB);
+
+        newR = EOCF_sRGB(newR);
+        newG = EOCF_sRGB(newG);
+        newB = EOCF_sRGB(newB);
+
+        // compute the interpolated color in linear space
+        double a = oldA + progress * (newA - oldA);
+        double r = oldR + progress * (newR - oldR);
+        double g = oldG + progress * (newG - oldG);
+        double b = oldB + progress * (newB - oldB);
+
+        // convert back to sRGB in the [0..255] range
+        a *= 255d;
+        r = OECF_sRGB(r) * 255d;
+        g = OECF_sRGB(g) * 255d;
+        b = OECF_sRGB(b) * 255d;
+
+        return new Color((byte)Math.Round(a), (byte)Math.Round(r), (byte)Math.Round(g), (byte)Math.Round(b));
+    }
+
+    private static Color Interpolate(GradientStop prev, GradientStop next, double offset)
+    {
+        double progress = (offset - prev.Offset) / next.Offset - prev.Offset;
+        return InterpolateCore(progress, prev.Color, next.Color);
     }
 
     private void OnItemsControlSizeChanged(object? sender, SizeChangedEventArgs e)

@@ -22,9 +22,7 @@ public class RationalEditor : StringEditor
     private Rational _value;
     private Rational _oldValue;
     private readonly CompositeDisposable _disposables = [];
-    private bool _headerPressed;
-    private Point _headerDragStart;
-    private double _scrubAccumulator;
+    private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
 
     public RationalEditor()
@@ -53,30 +51,19 @@ public class RationalEditor : StringEditor
             .DisposeWith(_disposables);
 
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
-        if (_headerText != null)
-        {
-            _headerText.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
-                .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
-                .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
-                .DisposeWith(_disposables);
-            _headerText.Cursor = PointerLockHelper.SizeWestEast;
-        }
+        new ScrubHeaderHandlers(
+                OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
+                RoutingStrategies.Direct | RoutingStrategies.Bubble)
+            .Subscribe(_headerText, _disposables);
     }
 
     private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
         if (InnerTextBox == null) return;
         if (_headerText is not { } headerText) return;
-        if (!InnerTextBox.IsKeyboardFocusWithin && _headerPressed)
+        if (!InnerTextBox.IsKeyboardFocusWithin && _scrub.IsActive)
         {
-            Point point = e.GetPosition(headerText);
-
-            // ポインタロック + デルタ取得
-            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
-            double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            int truncated = NumberEditorHelper.ConsumeScrubAccumulator<int>(ref _scrubAccumulator, scaledX);
+            int truncated = _scrub.NextDelta<int>(headerText, e);
             var delta = new Rational(truncated, 1);
             Rational oldValue = Value;
             Rational newValue = Value + delta;
@@ -94,16 +81,14 @@ public class RationalEditor : StringEditor
 
     private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_headerPressed)
+        if (_scrub.IsActive)
         {
             if (Value != _oldValue)
             {
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
             }
 
-            PointerLockHelper.Released();
-
-            _headerPressed = false;
+            _scrub.End();
             e.Handled = true;
         }
     }
@@ -117,10 +102,7 @@ public class RationalEditor : StringEditor
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
-            _headerDragStart = pointerPoint.Position;
-            _scrubAccumulator = 0;
-            PointerLockHelper.Pressed(headerText, _headerDragStart);
-            _headerPressed = true;
+            _scrub.Begin(headerText, pointerPoint.Position);
             e.Handled = true;
         }
     }
@@ -147,19 +129,10 @@ public class RationalEditor : StringEditor
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && Rational.TryParse(newValue, CultureInfo.CurrentCulture, out Rational newValue2))
+            && NumberEditorHelper.TryParseEdit(newValue, oldValue, out Rational newValue2, out Rational oldValue2))
         {
-            bool invalidOldValue = !Rational.TryParse(oldValue, CultureInfo.CurrentCulture, out Rational oldValue2);
-            if (invalidOldValue)
-            {
-                oldValue2 = newValue2;
-            }
-
-            if (invalidOldValue || newValue2 != oldValue2)
-            {
-                Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue2, oldValue2, ValueChangedEvent));
-            }
+            Value = newValue2;
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue2, oldValue2, ValueChangedEvent));
         }
 
         UpdateErrors();
@@ -168,14 +141,7 @@ public class RationalEditor : StringEditor
     private void UpdateErrors()
     {
         if (InnerTextBox == null) return;
-        if (Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
-        {
-            DataValidationErrors.ClearErrors(InnerTextBox);
-        }
-        else
-        {
-            DataValidationErrors.SetErrors(InnerTextBox, DataValidationMessages.InvalidString);
-        }
+        DataValidationMessages.UpdateInvalidString(InnerTextBox, Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _));
     }
 
     private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)

@@ -65,22 +65,7 @@ public class StringEditor : PropertyEditor
     protected override Size MeasureOverride(Size availableSize)
     {
         Size measured = base.MeasureOverride(availableSize);
-        if (!double.IsInfinity(availableSize.Width))
-        {
-            if (availableSize.Width <= 224)
-            {
-                if (!PseudoClasses.Contains(":compact"))
-                {
-                    PseudoClasses.Add(":compact");
-                }
-            }
-            else
-            {
-                if (EditorStyle != PropertyEditorStyle.Compact)
-                    PseudoClasses.Remove(":compact");
-            }
-        }
-
+        UpdateAutoCompact(availableSize);
         return measured;
     }
 

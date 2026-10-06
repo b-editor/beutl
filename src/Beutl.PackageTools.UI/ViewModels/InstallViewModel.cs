@@ -12,7 +12,6 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
     : ActionViewModel(changesModel, model)
 {
     private readonly ILogger _logger = Log.CreateLogger<InstallViewModel>();
-    private readonly ChangesModel _changesModel = changesModel;
 
     public ReactiveProperty<DownloadTaskModel> Download { get; } = new();
 

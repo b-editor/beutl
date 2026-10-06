@@ -69,6 +69,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueConfirmedEvent =
         RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueConfirmed), RoutingStrategies.Bubble);
 
+    private const double AutoCompactMaxWidth = 224;
     private readonly CompositeDisposable _eventRevokers = new(3);
     private string? _headerTooltip;
 
@@ -175,6 +176,25 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
             case PropertyEditorStyle.Settings:
                 PseudoClasses.Add(":settings");
                 break;
+        }
+    }
+
+    private protected void UpdateAutoCompact(Size availableSize)
+    {
+        if (!double.IsInfinity(availableSize.Width))
+        {
+            if (availableSize.Width <= AutoCompactMaxWidth)
+            {
+                if (!PseudoClasses.Contains(":compact"))
+                {
+                    PseudoClasses.Add(":compact");
+                }
+            }
+            else
+            {
+                if (EditorStyle != PropertyEditorStyle.Compact)
+                    PseudoClasses.Remove(":compact");
+            }
         }
     }
 

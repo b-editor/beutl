@@ -40,9 +40,7 @@ public class NumberEditor<TValue> : StringEditor
     private TValue _value = TValue.Zero;
     private TValue _oldValue = TValue.Zero;
     private readonly CompositeDisposable _disposables = [];
-    private bool _headerPressed;
-    private Point _headerDragStart;
-    private double _scrubAccumulator;
+    private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
 
     public NumberEditor()
@@ -57,7 +55,7 @@ public class NumberEditor<TValue> : StringEditor
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                Text = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentCulture);
+                Text = NumberEditorHelper.Format(value, NumberFormat);
             }
         }
     }
@@ -89,30 +87,19 @@ public class NumberEditor<TValue> : StringEditor
             .DisposeWith(_disposables);
 
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
-        if (_headerText != null)
-        {
-            _headerText.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
-                .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
-                .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
-                .DisposeWith(_disposables);
-            _headerText.Cursor = PointerLockHelper.SizeWestEast;
-        }
+        new ScrubHeaderHandlers(
+                OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
+                RoutingStrategies.Direct | RoutingStrategies.Bubble)
+            .Subscribe(_headerText, _disposables);
     }
 
     private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
         if (InnerTextBox == null) return;
         if (_headerText is not { } headerText) return;
-        if (!InnerTextBox.IsKeyboardFocusWithin && _headerPressed)
+        if (!InnerTextBox.IsKeyboardFocusWithin && _scrub.IsActive)
         {
-            Point point = e.GetPosition(headerText);
-
-            // ポインタロック + デルタ取得
-            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
-            double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            TValue delta = NumberEditorHelper.ConsumeScrubAccumulator<TValue>(ref _scrubAccumulator, scaledX) * SmallChange;
+            TValue delta = _scrub.NextDelta<TValue>(headerText, e) * SmallChange;
             TValue oldValue = Value;
             TValue newValue = NumberEditorHelper.AddPreservingScale(oldValue, delta);
             if (newValue != oldValue)
@@ -129,16 +116,14 @@ public class NumberEditor<TValue> : StringEditor
 
     private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_headerPressed)
+        if (_scrub.IsActive)
         {
             if (Value != _oldValue)
             {
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
             }
 
-            PointerLockHelper.Released();
-
-            _headerPressed = false;
+            _scrub.End();
             e.Handled = true;
         }
     }
@@ -152,10 +137,7 @@ public class NumberEditor<TValue> : StringEditor
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
-            _headerDragStart = pointerPoint.Position;
-            _scrubAccumulator = 0;
-            PointerLockHelper.Pressed(headerText, _headerDragStart);
-            _headerPressed = true;
+            _scrub.Begin(headerText, pointerPoint.Position);
             e.Handled = true;
         }
     }
@@ -182,22 +164,10 @@ public class NumberEditor<TValue> : StringEditor
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && TValue.TryParse(newValue, CultureInfo.CurrentCulture, out TValue? newValue2)
-            && newValue2 is not null)
+            && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TValue? newValue2, out TValue? oldValue2))
         {
-            bool invalidOldValue = !TValue.TryParse(oldValue, CultureInfo.CurrentCulture, out TValue? oldValue2)
-                || oldValue2 is null;
-            if (invalidOldValue)
-            {
-                oldValue2 = newValue2;
-            }
-            oldValue2 ??= newValue2;
-
-            if (invalidOldValue || newValue2 != oldValue2)
-            {
-                Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
-            }
+            Value = newValue2;
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
         }
 
         UpdateErrors();
@@ -206,14 +176,7 @@ public class NumberEditor<TValue> : StringEditor
     private void UpdateErrors()
     {
         if (InnerTextBox == null) return;
-        if (TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
-        {
-            DataValidationErrors.ClearErrors(InnerTextBox);
-        }
-        else
-        {
-            DataValidationErrors.SetErrors(InnerTextBox, DataValidationMessages.InvalidString);
-        }
+        DataValidationMessages.UpdateInvalidString(InnerTextBox, TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _));
     }
 
     private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -224,20 +187,7 @@ public class NumberEditor<TValue> : StringEditor
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue? value)
             && value is not null)
         {
-            TValue delta = LargeChange;
-            double wheelDelta = e.Delta.Y;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                delta = SmallChange;
-                wheelDelta = -e.Delta.X;
-            }
-
-            value = wheelDelta switch
-            {
-                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
-                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
-                _ => value
-            };
+            value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
 
             Value = value;
 

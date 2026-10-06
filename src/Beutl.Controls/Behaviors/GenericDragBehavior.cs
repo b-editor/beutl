@@ -148,7 +148,7 @@ public class GenericDragBehavior : Behavior<Control>
                 SetDraggingPseudoClasses(_draggedContainer, true);
             }
 
-            AddTransforms(_itemsControl);
+            ResetTransforms(_itemsControl);
 
             e.Pointer.Capture(DragControl);
             _activePointer = e.Pointer;
@@ -183,15 +183,9 @@ public class GenericDragBehavior : Behavior<Control>
             return;
         }
 
-        RemoveTransforms(_itemsControl);
+        ResetTransforms(_itemsControl);
 
-        if (_itemsControl is { })
-        {
-            foreach (Control container in _itemsControl.GetRealizedContainers())
-            {
-                SetDraggingPseudoClasses(container, true);
-            }
-        }
+        SetRealizedContainersDragging(_itemsControl, true);
 
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
@@ -199,13 +193,7 @@ public class GenericDragBehavior : Behavior<Control>
             OnFinishedDragging();
         }
 
-        if (_itemsControl is { })
-        {
-            foreach (Control container in _itemsControl.GetRealizedContainers())
-            {
-                SetDraggingPseudoClasses(container, false);
-            }
-        }
+        SetRealizedContainersDragging(_itemsControl, false);
 
         if (_draggedContainer is { })
         {
@@ -222,28 +210,7 @@ public class GenericDragBehavior : Behavior<Control>
         _activePointer = null;
     }
 
-    private static void AddTransforms(ItemsControl? itemsControl)
-    {
-        if (itemsControl?.ItemsSource is null)
-        {
-            return;
-        }
-
-        int i = 0;
-
-        foreach (object? _ in itemsControl.ItemsSource)
-        {
-            Control? container = itemsControl.ContainerFromIndex(i);
-            if (container is not null)
-            {
-                SetTranslateTransform(container, 0, 0);
-            }
-
-            i++;
-        }
-    }
-
-    private static void RemoveTransforms(ItemsControl? itemsControl)
+    private static void ResetTransforms(ItemsControl? itemsControl)
     {
         if (itemsControl?.ItemsSource is null)
         {
@@ -363,57 +330,77 @@ public class GenericDragBehavior : Behavior<Control>
                     continue;
                 }
 
-                Rect targetBounds = targetContainer.Bounds;
-
-                double targetStart = orientation == Orientation.Horizontal ? targetBounds.X : targetBounds.Y;
-
-                double targetMid = orientation == Orientation.Horizontal
-                    ? targetBounds.X + targetBounds.Width / 2
-                    : targetBounds.Y + targetBounds.Height / 2;
-
-                int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
-
-                if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
-                {
-                    if (orientation == Orientation.Horizontal)
-                    {
-                        SetTranslateTransform(targetContainer, -draggedBounds.Width, 0);
-                    }
-                    else
-                    {
-                        SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
-                    }
-
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex > _targetIndex ? targetIndex : _targetIndex;
-                }
-                else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
-                {
-                    if (orientation == Orientation.Horizontal)
-                    {
-                        SetTranslateTransform(targetContainer, draggedBounds.Width, 0);
-                    }
-                    else
-                    {
-                        SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
-                    }
-
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex < _targetIndex ? targetIndex : _targetIndex;
-                }
-                else
-                {
-                    if (orientation == Orientation.Horizontal)
-                    {
-                        SetTranslateTransform(targetContainer, 0, 0);
-                    }
-                    else
-                    {
-                        SetTranslateTransform(targetContainer, 0, 0);
-                    }
-                }
+                ShiftTarget(
+                    _itemsControl, targetContainer, orientation, draggedBounds,
+                    draggedStart, draggedDeltaStart, draggedDeltaEnd);
 
                 i++;
+            }
+        }
+    }
+
+    private void ShiftTarget(
+        ItemsControl itemsControl, Control targetContainer, Orientation orientation, Rect draggedBounds,
+        double draggedStart, double draggedDeltaStart, double draggedDeltaEnd)
+    {
+        Rect targetBounds = targetContainer.Bounds;
+
+        double targetStart = orientation == Orientation.Horizontal ? targetBounds.X : targetBounds.Y;
+
+        double targetMid = orientation == Orientation.Horizontal
+            ? targetBounds.X + targetBounds.Width / 2
+            : targetBounds.Y + targetBounds.Height / 2;
+
+        int targetIndex = itemsControl.IndexFromContainer(targetContainer);
+
+        if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
+        {
+            if (orientation == Orientation.Horizontal)
+            {
+                SetTranslateTransform(targetContainer, -draggedBounds.Width, 0);
+            }
+            else
+            {
+                SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
+            }
+
+            _targetIndex = _targetIndex == -1 ? targetIndex :
+                targetIndex > _targetIndex ? targetIndex : _targetIndex;
+        }
+        else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
+        {
+            if (orientation == Orientation.Horizontal)
+            {
+                SetTranslateTransform(targetContainer, draggedBounds.Width, 0);
+            }
+            else
+            {
+                SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
+            }
+
+            _targetIndex = _targetIndex == -1 ? targetIndex :
+                targetIndex < _targetIndex ? targetIndex : _targetIndex;
+        }
+        else
+        {
+            if (orientation == Orientation.Horizontal)
+            {
+                SetTranslateTransform(targetContainer, 0, 0);
+            }
+            else
+            {
+                SetTranslateTransform(targetContainer, 0, 0);
+            }
+        }
+    }
+
+    private static void SetRealizedContainersDragging(ItemsControl? itemsControl, bool isDragging)
+    {
+        if (itemsControl is { })
+        {
+            foreach (Control container in itemsControl.GetRealizedContainers())
+            {
+                SetDraggingPseudoClasses(container, isDragging);
             }
         }
     }

@@ -94,14 +94,7 @@ public class TimeSpanEditor : StringEditor
     private void UpdateErrors()
     {
         if (InnerTextBox == null) return;
-        if (TimeSpan.TryParse(InnerTextBox.Text, out _))
-        {
-            DataValidationErrors.ClearErrors(InnerTextBox);
-        }
-        else
-        {
-            DataValidationErrors.SetErrors(InnerTextBox, DataValidationMessages.InvalidString);
-        }
+        DataValidationMessages.UpdateInvalidString(InnerTextBox, TimeSpan.TryParse(InnerTextBox.Text, out _));
     }
 
     private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)

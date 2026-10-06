@@ -17,71 +17,53 @@ public class ChangesModel
         string[] updateItems,
         CancellationToken cancellationToken)
     {
-        var installViewModels = new List<PackageChangeModel>();
         var hash = new HashSet<string>();
-        foreach (string item in installItems)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
-                apiApp,
-                item,
-                PackageChangeAction.Install,
-                cancellationToken);
-
-            if (itemViewModel != null && hash.Add(itemViewModel.Id))
-            {
-                installViewModels.Add(itemViewModel);
-            }
-        }
-
-        var updateViewModels = new List<PackageChangeModel>();
-        hash.Clear();
-        foreach (string item in updateItems)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
-                apiApp,
-                item,
-                PackageChangeAction.Update,
-                cancellationToken);
-
-            if (itemViewModel != null && hash.Add(itemViewModel.Id))
-            {
-                updateViewModels.Add(itemViewModel);
-            }
-        }
-
-        var uninstallViewModels = new List<PackageChangeModel>();
-        hash.Clear();
-        foreach (string item in uninstallItems)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
-                apiApp,
-                item,
-                PackageChangeAction.Uninstall,
-                cancellationToken);
-
-            if (itemViewModel != null && hash.Add(itemViewModel.Id))
-            {
-                uninstallViewModels.Add(itemViewModel);
-            }
-        }
+        List<PackageChangeModel> installViewModels = await ParseUniqueAsync(
+            apiApp, installItems, PackageChangeAction.Install, hash, cancellationToken);
+        List<PackageChangeModel> updateViewModels = await ParseUniqueAsync(
+            apiApp, updateItems, PackageChangeAction.Update, hash, cancellationToken);
+        List<PackageChangeModel> uninstallViewModels = await ParseUniqueAsync(
+            apiApp, uninstallItems, PackageChangeAction.Uninstall, hash, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
-        foreach (PackageChangeModel item in installViewModels)
+        AddAll(InstallItems, installViewModels);
+        AddAll(UpdateItems, updateViewModels);
+        AddAll(UninstallItems, uninstallViewModels);
+    }
+
+    // Ids are deduplicated within one action only, so the shared set is cleared first.
+    private static async Task<List<PackageChangeModel>> ParseUniqueAsync(
+        BeutlApiApplication apiApp,
+        string[] items,
+        PackageChangeAction action,
+        HashSet<string> ids,
+        CancellationToken cancellationToken)
+    {
+        var viewModels = new List<PackageChangeModel>();
+        ids.Clear();
+        foreach (string item in items)
         {
-            InstallItems.Add(item);
+            cancellationToken.ThrowIfCancellationRequested();
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                action,
+                cancellationToken);
+
+            if (itemViewModel != null && ids.Add(itemViewModel.Id))
+            {
+                viewModels.Add(itemViewModel);
+            }
         }
 
-        foreach (PackageChangeModel item in updateViewModels)
-        {
-            UpdateItems.Add(item);
-        }
+        return viewModels;
+    }
 
-        foreach (PackageChangeModel item in uninstallViewModels)
+    private static void AddAll(ReactiveCollection<PackageChangeModel> target, List<PackageChangeModel> items)
+    {
+        foreach (PackageChangeModel item in items)
         {
-            UninstallItems.Add(item);
+            target.Add(item);
         }
     }
 }

@@ -235,8 +235,7 @@ public class CurveEditor : Control
 
             // 左ハンドル
             var leftHandlePos = Denormalize(selectedPoint.AbsoluteLeftHandle);
-            if (Math.Abs(leftHandlePos.X - screenPos.X) <= handleRadius &&
-                Math.Abs(leftHandlePos.Y - screenPos.Y) <= handleRadius &&
+            if (IsWithin(leftHandlePos, screenPos, handleRadius) &&
                 _selectedIndex != 0)
             {
                 return (_selectedIndex, DragTarget.LeftHandle);
@@ -244,8 +243,7 @@ public class CurveEditor : Control
 
             // 右ハンドル
             var rightHandlePos = Denormalize(selectedPoint.AbsoluteRightHandle);
-            if (Math.Abs(rightHandlePos.X - screenPos.X) <= handleRadius &&
-                Math.Abs(rightHandlePos.Y - screenPos.Y) <= handleRadius &&
+            if (IsWithin(rightHandlePos, screenPos, handleRadius) &&
                 _selectedIndex != Points.Count - 1)
             {
                 return (_selectedIndex, DragTarget.RightHandle);
@@ -256,13 +254,18 @@ public class CurveEditor : Control
         for (int i = 0; i < Points.Count; i++)
         {
             var pos = Denormalize(Points[i].Point);
-            if (Math.Abs(pos.X - screenPos.X) <= pointRadius && Math.Abs(pos.Y - screenPos.Y) <= pointRadius)
+            if (IsWithin(pos, screenPos, pointRadius))
             {
                 return (i, DragTarget.Point);
             }
         }
 
         return (-1, DragTarget.None);
+    }
+
+    private static bool IsWithin(AvaPoint point, AvaPoint center, double radius)
+    {
+        return Math.Abs(point.X - center.X) <= radius && Math.Abs(point.Y - center.Y) <= radius;
     }
 
     private int InsertPoint(BtlPoint norm)
@@ -347,7 +350,18 @@ public class CurveEditor : Control
 
         VisualizationRenderer?.Draw(context, bounds, Visualization);
 
-        // Draw grid
+        DrawGrid(context, bounds);
+
+        if (Points is { Count: > 0 })
+        {
+            DrawCurve(context, Points);
+            DrawSelectedHandles(context, Points);
+            DrawPoints(context, Points);
+        }
+    }
+
+    private static void DrawGrid(DrawingContext context, AvaRect bounds)
+    {
         for (int i = 1; i < 4; i++)
         {
             double x = bounds.Width / 4 * i;
@@ -355,68 +369,71 @@ public class CurveEditor : Control
             context.DrawLine(s_axisPen, new AvaPoint(x, 0), new AvaPoint(x, bounds.Height));
             context.DrawLine(s_axisPen, new AvaPoint(0, y), new AvaPoint(bounds.Width, y));
         }
+    }
 
-        if (Points is { Count: > 0 })
+    private void DrawCurve(DrawingContext context, IList<CurveControlPoint> points)
+    {
+        if (points.Count > 1)
         {
-            // Draw curve
-            if (Points.Count > 1)
+            var geometry = new StreamGeometry();
+            using (var gctx = geometry.Open())
             {
-                var geometry = new StreamGeometry();
-                using (var gctx = geometry.Open())
+                var firstPoint = Denormalize(points[0].Point);
+                gctx.BeginFigure(firstPoint, false);
+
+                for (int i = 1; i < points.Count; i++)
                 {
-                    var firstPoint = Denormalize(Points[0].Point);
-                    gctx.BeginFigure(firstPoint, false);
+                    var prev = points[i - 1];
+                    var curr = points[i];
 
-                    for (int i = 1; i < Points.Count; i++)
+                    if (prev.HasHandles || curr.HasHandles)
                     {
-                        var prev = Points[i - 1];
-                        var curr = Points[i];
-
-                        if (prev.HasHandles || curr.HasHandles)
-                        {
-                            // Draw cubic Bezier
-                            var cp1 = Denormalize(prev.AbsoluteRightHandle);
-                            var cp2 = Denormalize(curr.AbsoluteLeftHandle);
-                            var endPoint = Denormalize(curr.Point);
-                            gctx.CubicBezierTo(cp1, cp2, endPoint);
-                        }
-                        else
-                        {
-                            // Draw line
-                            gctx.LineTo(Denormalize(curr.Point));
-                        }
+                        // Draw cubic Bezier
+                        var cp1 = Denormalize(prev.AbsoluteRightHandle);
+                        var cp2 = Denormalize(curr.AbsoluteLeftHandle);
+                        var endPoint = Denormalize(curr.Point);
+                        gctx.CubicBezierTo(cp1, cp2, endPoint);
                     }
-
-                    gctx.EndFigure(false);
+                    else
+                    {
+                        // Draw line
+                        gctx.LineTo(Denormalize(curr.Point));
+                    }
                 }
 
-                context.DrawGeometry(null, s_curvePen, geometry);
+                gctx.EndFigure(false);
             }
 
-            // Draw handles for selected point
-            if (_selectedIndex >= 0 && _selectedIndex < Points.Count)
-            {
-                var selectedPoint = Points[_selectedIndex];
-                var mainPos = Denormalize(selectedPoint.Point);
+            context.DrawGeometry(null, s_curvePen, geometry);
+        }
+    }
 
-                // Draw left handle
-                var leftHandlePos = Denormalize(selectedPoint.AbsoluteLeftHandle);
-                context.DrawLine(s_handleLinePen, mainPos, leftHandlePos);
-                context.DrawEllipse(s_handleBrush, s_handleLinePen, leftHandlePos, 4, 4);
+    private void DrawSelectedHandles(DrawingContext context, IList<CurveControlPoint> points)
+    {
+        if (_selectedIndex >= 0 && _selectedIndex < points.Count)
+        {
+            var selectedPoint = points[_selectedIndex];
+            var mainPos = Denormalize(selectedPoint.Point);
 
-                // Draw right handle
-                var rightHandlePos = Denormalize(selectedPoint.AbsoluteRightHandle);
-                context.DrawLine(s_handleLinePen, mainPos, rightHandlePos);
-                context.DrawEllipse(s_handleBrush, s_handleLinePen, rightHandlePos, 4, 4);
-            }
+            // Draw left handle
+            var leftHandlePos = Denormalize(selectedPoint.AbsoluteLeftHandle);
+            context.DrawLine(s_handleLinePen, mainPos, leftHandlePos);
+            context.DrawEllipse(s_handleBrush, s_handleLinePen, leftHandlePos, 4, 4);
 
-            // Draw main points
-            for (int i = 0; i < Points.Count; i++)
-            {
-                var pt = Denormalize(Points[i].Point);
-                var brush = i == _selectedIndex ? Brushes.Yellow : Brushes.White;
-                context.DrawEllipse(brush, s_curvePen, pt, 4, 4);
-            }
+            // Draw right handle
+            var rightHandlePos = Denormalize(selectedPoint.AbsoluteRightHandle);
+            context.DrawLine(s_handleLinePen, mainPos, rightHandlePos);
+            context.DrawEllipse(s_handleBrush, s_handleLinePen, rightHandlePos, 4, 4);
+        }
+    }
+
+    private void DrawPoints(DrawingContext context, IList<CurveControlPoint> points)
+    {
+        for (int i = 0; i < points.Count; i++)
+        {
+            var pt = Denormalize(points[i].Point);
+            var brush = i == _selectedIndex ? Brushes.Yellow : Brushes.White;
+            context.DrawEllipse(brush, s_curvePen, pt, 4, 4);
         }
     }
 
