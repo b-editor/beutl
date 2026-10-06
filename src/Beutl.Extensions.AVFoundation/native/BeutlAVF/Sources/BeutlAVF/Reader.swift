@@ -92,7 +92,7 @@ final class Reader {
             do {
                 return try outcome.get()
             } catch {
-                throw BeutlAVFError.readerFailed("loadTracks failed: \(error.localizedDescription)")
+                throw BeutlAVFError.readerFailed("loadTracks failed: \(describeNativeError(error))")
             }
         }
         return asset.tracks(withMediaType: mediaType)

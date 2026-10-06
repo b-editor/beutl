@@ -50,6 +50,15 @@ enum BeutlAVFError: Error {
     }
 }
 
+func describeNativeError(_ error: Error) -> String {
+    let nativeError = error as NSError
+    var message = "\(nativeError.localizedDescription) (domain=\(nativeError.domain), code=\(nativeError.code))"
+    if let underlyingError = nativeError.userInfo[NSUnderlyingErrorKey] as? NSError {
+        message += "; underlying: \(describeNativeError(underlyingError))"
+    }
+    return message
+}
+
 // Thread-local storage for the last error message.
 private final class LastErrorBox {
     var message: String = ""
