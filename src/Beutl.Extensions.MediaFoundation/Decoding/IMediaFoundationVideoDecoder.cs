@@ -6,6 +6,8 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 internal interface IMediaFoundationVideoDecoder : IDisposable
 {
+    long FirstVideoTimestamp { get; }
+
     MFMediaInfo GetMediaInfo();
 
     int ReadFrame(int frame, nint buf);

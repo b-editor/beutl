@@ -41,9 +41,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension, ILogger? logger = null)
     {
         _logger = logger ?? Log.CreateLogger<MFDecoder>();
-        SharpGen.Runtime.Configuration.EnableObjectTracking = true;
-        SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
-        SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
         _thresholdFrameCount = extension.Settings.ThresholdFrameCount;
         _sampleCache = new MFSampleCache(new(extension.Settings.MaxVideoBufferSize));
 
@@ -181,6 +178,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         return 0;
     }
+
+    public long FirstVideoTimestamp => _firstGapTimeStamp;
 
     public MFMediaInfo GetMediaInfo() => _mediaInfo;
 
