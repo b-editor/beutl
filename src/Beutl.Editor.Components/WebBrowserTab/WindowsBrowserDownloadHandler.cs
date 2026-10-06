@@ -4,6 +4,7 @@ using System.Runtime.InteropServices.Marshalling;
 
 using Avalonia.Platform;
 using Avalonia.Threading;
+using static Beutl.Editor.Components.WebBrowserTab.WebView2Vtable;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -119,16 +120,6 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         foreach (NativeDownload download in _downloads.ToArray()) download.Dispose();
         Marshal.Release(_webView);
         _webView = 0;
-    }
-
-    private static unsafe nint Method(nint instance, int slot) => (*(nint**)instance)[slot];
-
-    private static unsafe nint GetObject(nint instance, int slot)
-    {
-        nint result;
-        Marshal.ThrowExceptionForHR(
-            ((delegate* unmanaged[Stdcall]<nint, nint*, int>)Method(instance, slot))(instance, &result));
-        return result;
     }
 
     private static string? GetString(nint instance, int slot)

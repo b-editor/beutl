@@ -35,13 +35,19 @@ public static class EngineObjectHelper
     public static IObservable<T> SubscribeEngineProperty<T>(
         this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
     {
+        return ObserveEdits(obj, time)
+            .Select(t => property.GetValue(new CompositionContext(t.Second)));
+    }
+
+    // Publishes on subscription and on every edit, each time with the latest time.
+    private static IObservable<(Unit First, TimeSpan Second)> ObserveEdits(EngineObject obj, IObservable<TimeSpan> time)
+    {
         return Observable.FromEventPattern(
                 h => obj.Edited += h,
                 h => obj.Edited -= h)
             .Select(_ => Unit.Default)
             .Publish(Unit.Default).RefCount()
-            .CombineLatest(time)
-            .Select(t => property.GetValue(new CompositionContext(t.Second)));
+            .CombineLatest(time);
     }
 
     /// <summary>
@@ -91,96 +97,13 @@ public static class EngineObjectHelper
                 bool releaseRequested = false;
                 var release = new DispatcherCleanup(renderDispatcher, ReleaseResource);
 
-                IDisposable trigger = Observable.FromEventPattern(
-                        h => obj.Edited += h,
-                        h => obj.Edited -= h)
-                    .Select(_ => Unit.Default)
-                    .Publish(Unit.Default).RefCount()
-                    .CombineLatest(time)
+                IDisposable trigger = ObserveEdits(obj, time)
                     .Subscribe(onNext: t =>
                     {
                         if (token.IsCancellationRequested)
                             return;
 
-                        renderDispatcher.Dispatch(
-                            () =>
-                            {
-                                lock (gate)
-                                {
-                                    runningUpdates++;
-                                }
-
-                                try
-                                {
-                                    if (token.IsCancellationRequested)
-                                        return;
-
-                                    EngineResourceHandle<TResource> handle;
-                                    lock (resourceGate.SyncRoot)
-                                    {
-                                        if (resourceGate.IsReleased)
-                                            return;
-
-                                        renderContext.Time = t.Second;
-                                        if (resource is null)
-                                        {
-                                            resource = createResource(obj, renderContext);
-                                        }
-                                        else
-                                        {
-                                            bool updateOnly = false;
-                                            resource.Update(obj, renderContext, ref updateOnly);
-                                        }
-
-                                        handle = new EngineResourceHandle<TResource>(
-                                            resourceGate, resource, resource.Version);
-                                    }
-
-                                    // The subscriber chain runs inline from here, and a reader reached through
-                                    // it takes the same gate; publishing while still holding it would turn one
-                                    // reader's read into a hold for the length of the whole chain.
-                                    observer.OnNext(handle);
-                                }
-                                catch (Exception ex)
-                                {
-                                    // An escaping exception unwinds the shared render-thread loop, which
-                                    // installs no unhandled-exception handler.
-                                    CancelPendingWork();
-                                    try
-                                    {
-                                        resourceGate.Release();
-                                    }
-                                    catch (Exception disposeFailure)
-                                    {
-                                        ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
-                                    }
-
-                                    try
-                                    {
-                                        observer.OnError(ex);
-                                    }
-                                    catch (Exception reportFailure)
-                                    {
-                                        // The report runs inline, and a subscriber that passes no onError
-                                        // gets Rx's default handler, which rethrows the failure straight
-                                        // back into this catch - the one place left that could contain it.
-                                        s_logger.LogError(
-                                            reportFailure,
-                                            "Nothing handled the versioned-resource failure for '{Object}'.",
-                                            obj);
-                                    }
-                                }
-                                finally
-                                {
-                                    lock (gate)
-                                    {
-                                        runningUpdates--;
-                                    }
-
-                                    ReleaseWhenSettled();
-                                }
-                            },
-                            DispatchPriority.Low);
+                        renderDispatcher.Dispatch(() => UpdateAndPublish(t.Second), DispatchPriority.Low);
                     },
                     // Without an explicit handler Rx throws the trigger's failure on the source thread,
                     // leaving this subscription uninformed and still holding its resource.
@@ -196,6 +119,90 @@ public static class EngineObjectHelper
                     trigger.Dispose();
                     RequestRelease();
                 });
+
+                // Runs on the render dispatcher, which owns the resource.
+                void UpdateAndPublish(TimeSpan currentTime)
+                {
+                    lock (gate)
+                    {
+                        runningUpdates++;
+                    }
+
+                    try
+                    {
+                        if (token.IsCancellationRequested)
+                            return;
+
+                        EngineResourceHandle<TResource> handle;
+                        lock (resourceGate.SyncRoot)
+                        {
+                            if (resourceGate.IsReleased)
+                                return;
+
+                            renderContext.Time = currentTime;
+                            if (resource is null)
+                            {
+                                resource = createResource(obj, renderContext);
+                            }
+                            else
+                            {
+                                bool updateOnly = false;
+                                resource.Update(obj, renderContext, ref updateOnly);
+                            }
+
+                            handle = new EngineResourceHandle<TResource>(
+                                resourceGate, resource, resource.Version);
+                        }
+
+                        // The subscriber chain runs inline from here, and a reader reached through
+                        // it takes the same gate; publishing while still holding it would turn one
+                        // reader's read into a hold for the length of the whole chain.
+                        observer.OnNext(handle);
+                    }
+                    catch (Exception ex)
+                    {
+                        // An escaping exception unwinds the shared render-thread loop, which
+                        // installs no unhandled-exception handler.
+                        ReportUpdateFailure(ex);
+                    }
+                    finally
+                    {
+                        lock (gate)
+                        {
+                            runningUpdates--;
+                        }
+
+                        ReleaseWhenSettled();
+                    }
+                }
+
+                void ReportUpdateFailure(Exception ex)
+                {
+                    CancelPendingWork();
+                    try
+                    {
+                        resourceGate.Release();
+                    }
+                    catch (Exception disposeFailure)
+                    {
+                        ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
+                    }
+
+                    try
+                    {
+                        observer.OnError(ex);
+                    }
+                    catch (Exception reportFailure)
+                    {
+                        // The report runs inline, and a subscriber that passes no onError
+                        // gets Rx's default handler, which rethrows the failure straight
+                        // back into this catch - the one place left that could contain it.
+                        s_logger.LogError(
+                            reportFailure,
+                            "Nothing handled the versioned-resource failure for '{Object}'.",
+                            obj);
+                    }
+                }
 
                 // The release disposes the token source, and a Cancel reaching a disposed source throws.
                 // Latching the cancellation under the same gate that admits the release orders the two: a

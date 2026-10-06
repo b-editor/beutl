@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Media;
 using Beutl.Audio.Graph;
+using Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
@@ -69,10 +70,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
 
         Span<float> real = _real.AsSpan(0, n);
         Span<float> imag = _imag.AsSpan(0, n);
-        for (int i = 0; i < n; i++)
-        {
-            real[i] = 0.5f * (_samplesL[i] + _samplesR[i]);
-        }
+        SpectrumBands.MixToMono(_samplesL, _samplesR, real);
         imag.Clear();
 
         Fft.ApplyHann(real);
@@ -144,11 +142,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     {
         for (int b = 0; b < bands; b++)
         {
-            double lo = Math.Pow(bins, b / (double)bands);
-            double hi = Math.Pow(bins, (b + 1) / (double)bands);
-            int start = Math.Max(1, (int)Math.Floor(lo));
-            int end = Math.Min(bins, (int)Math.Ceiling(hi));
-            if (end <= start) end = Math.Min(bins, start + 1);
+            SpectrumBands.GetBinRange(bins, b, bands, out int start, out int end);
 
             float peak = 0f;
             for (int k = start; k < end; k++)

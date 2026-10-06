@@ -2,11 +2,9 @@
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using BtlBitmap = Beutl.Media.Bitmap;
-using PixelSize = Avalonia.PixelSize;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -57,51 +55,18 @@ public sealed class ZebraControl : ImageOverlayScopeBase
         if (sourceWidth <= 0 || sourceHeight <= 0)
             return existing;
 
-        WriteableBitmap result =
-            existing?.PixelSize.Width == sourceWidth && existing.PixelSize.Height == sourceHeight
-                ? existing
-                : new WriteableBitmap(
-                    new PixelSize(sourceWidth, sourceHeight),
-                    new Vector(96, 96),
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
+        WriteableBitmap result = ScopeBitmaps.ReuseOrCreate(existing, sourceWidth, sourceHeight);
 
-        bool linear = ColorSpace == ScopeColorSpace.Linear;
         // Source for luma calculation (linear or gamma).
-        BitmapColorSpace lumaColorSpace = linear ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb;
+        BitmapColorSpace lumaColorSpace = ScopeBitmaps.ToBitmapColorSpace(ColorSpace);
         // Source for display output (always sRGB display).
         BitmapColorSpace displayColorSpace = BitmapColorSpace.Srgb;
         float invHdr = 1f / MathF.Max(HdrRange, 1e-6f);
         float high = _highThreshold;
         float low = _lowThreshold;
 
-        BtlBitmap lumaBitmap;
-        bool disposeLuma = false;
-        if (source.ColorType == BitmapColorType.RgbaF16 && source.ColorSpace == lumaColorSpace)
-        {
-            lumaBitmap = source;
-        }
-        else
-        {
-            lumaBitmap = source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, lumaColorSpace);
-            disposeLuma = true;
-        }
-
-        BtlBitmap displayBitmap;
-        bool disposeDisplay = false;
-        if (source.ColorType == BitmapColorType.RgbaF16 && source.ColorSpace == displayColorSpace)
-        {
-            displayBitmap = source;
-        }
-        else if (lumaBitmap.ColorSpace == displayColorSpace && lumaBitmap.ColorType == BitmapColorType.RgbaF16)
-        {
-            displayBitmap = lumaBitmap;
-        }
-        else
-        {
-            displayBitmap = source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, displayColorSpace);
-            disposeDisplay = true;
-        }
+        BtlBitmap lumaBitmap = ScopeBitmaps.ToRgbaF16(source, lumaColorSpace, BitmapAlphaType.Unpremul, out bool disposeLuma);
+        BtlBitmap displayBitmap = ResolveDisplayBitmap(source, lumaBitmap, displayColorSpace, out bool disposeDisplay);
 
         try
         {
@@ -125,33 +90,11 @@ public sealed class ZebraControl : ImageOverlayScopeBase
 
                 for (int x = 0; x < sourceWidth; x++)
                 {
-                    RgbaF16 lumaPixel = lumaRow[x];
-                    float lr = (float)lumaPixel.R;
-                    float lg = (float)lumaPixel.G;
-                    float lb = (float)lumaPixel.B;
-                    float la = (float)lumaPixel.A;
-                    if (lumaPremul && la > 0f && la < 1f)
-                    {
-                        float invA = 1f / la;
-                        lr *= invA;
-                        lg *= invA;
-                        lb *= invA;
-                    }
-                    float luma = 0.2126f * lr + 0.7152f * lg + 0.0722f * lb;
+                    ScopeBitmaps.ReadUnpremultiplied(in lumaRow[x], lumaPremul, out float lr, out float lg, out float lb);
+                    float luma = ScopeBitmaps.Luma(lr, lg, lb);
                     float yNorm = Math.Clamp(luma * invHdr, 0f, 1f);
 
-                    RgbaF16 dispPixel = dispRow[x];
-                    float dr = (float)dispPixel.R;
-                    float dg = (float)dispPixel.G;
-                    float db = (float)dispPixel.B;
-                    float da = (float)dispPixel.A;
-                    if (displayPremul && da > 0f && da < 1f)
-                    {
-                        float invA = 1f / da;
-                        dr *= invA;
-                        dg *= invA;
-                        db *= invA;
-                    }
+                    ScopeBitmaps.ReadUnpremultiplied(in dispRow[x], displayPremul, out float dr, out float dg, out float db);
 
                     bool over = yNorm >= high;
                     bool under = yNorm <= low;
@@ -175,11 +118,7 @@ public sealed class ZebraControl : ImageOverlayScopeBase
                         }
                     }
 
-                    int idx = x * 4;
-                    destRow[idx + 0] = (byte)(Math.Clamp(db, 0f, 1f) * 255f);
-                    destRow[idx + 1] = (byte)(Math.Clamp(dg, 0f, 1f) * 255f);
-                    destRow[idx + 2] = (byte)(Math.Clamp(dr, 0f, 1f) * 255f);
-                    destRow[idx + 3] = 255;
+                    ScopeBitmaps.WriteBgra(destRow + x * 4, dr, dg, db);
                 }
             });
         }
@@ -192,5 +131,21 @@ public sealed class ZebraControl : ImageOverlayScopeBase
         }
 
         return result;
+    }
+
+    // The luma bitmap doubles as the display bitmap when the scope measures in sRGB.
+    private static BtlBitmap ResolveDisplayBitmap(
+        BtlBitmap source, BtlBitmap lumaBitmap, BitmapColorSpace displayColorSpace, out bool converted)
+    {
+        converted = false;
+        if (source.ColorType == BitmapColorType.RgbaF16 && source.ColorSpace == displayColorSpace)
+            return source;
+
+        if (lumaBitmap.ColorSpace == displayColorSpace && lumaBitmap.ColorType == BitmapColorType.RgbaF16)
+            return lumaBitmap;
+
+        BtlBitmap displayBitmap = source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, displayColorSpace);
+        converted = true;
+        return displayBitmap;
     }
 }

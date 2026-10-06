@@ -6,7 +6,7 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
 internal partial class WebBrowserTabView
 {
-    private int _zoomPercent = 100;
+    private int _zoomPercent = BrowserPageTools.DefaultZoomPercent;
     private int _zoomRevision;
     private int _pageRevision;
     private int _findRevision;
@@ -93,13 +93,13 @@ internal partial class WebBrowserTabView
         else if (e.Key == Key.Escape) { e.Handled = true; await CloseFindAsync(); }
     }
 
-    private async void OnZoomInClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(_zoomPercent + 10);
-    private async void OnZoomOutClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(_zoomPercent - 10);
-    private async void OnZoomResetClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(100);
+    private async void OnZoomInClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent);
+    private async void OnZoomOutClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent);
+    private async void OnZoomResetClick(object? sender, RoutedEventArgs e) => await SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent);
 
     internal async Task SetPageZoomAsync(int percent)
     {
-        percent = Math.Clamp(percent, 50, 200);
+        percent = Math.Clamp(percent, BrowserPageTools.MinZoomPercent, BrowserPageTools.MaxZoomPercent);
         _zoomPercent = percent;
         int revision = _pageRevision;
         int request = ++_zoomRevision;
@@ -124,8 +124,8 @@ internal partial class WebBrowserTabView
         KeyModifiers modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         if (!e.KeyModifiers.HasFlag(modifier)) return;
         if (e.Key == Key.F) { e.Handled = true; OnFindPageClick(this, e); }
-        else if (e.Key is Key.Add or Key.OemPlus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent + 10); }
-        else if (e.Key is Key.Subtract or Key.OemMinus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent - 10); }
-        else if (e.Key is Key.D0 or Key.NumPad0) { e.Handled = true; await SetPageZoomAsync(100); }
+        else if (e.Key is Key.Add or Key.OemPlus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent + BrowserPageTools.ZoomStepPercent); }
+        else if (e.Key is Key.Subtract or Key.OemMinus) { e.Handled = true; await SetPageZoomAsync(_zoomPercent - BrowserPageTools.ZoomStepPercent); }
+        else if (e.Key is Key.D0 or Key.NumPad0) { e.Handled = true; await SetPageZoomAsync(BrowserPageTools.DefaultZoomPercent); }
     }
 }

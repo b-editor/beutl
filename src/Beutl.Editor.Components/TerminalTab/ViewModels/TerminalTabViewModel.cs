@@ -1,8 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.ProjectSystem;
-
-using Microsoft.Extensions.DependencyInjection;
+using Beutl.Editor.Components.Helpers;
 
 using Reactive.Bindings;
 
@@ -104,23 +102,7 @@ public sealed class TerminalTabViewModel : IToolContext
     }
 
     internal static string? ResolveWorkingDirectory(IEditorContext editorContext)
-    {
-        Scene? scene = editorContext.GetService<Scene>();
-        Project? project = scene?.FindHierarchicalParent<Project>();
-        if (project?.Uri is { } projectUri
-            && Path.GetDirectoryName(projectUri.LocalPath) is { Length: > 0 } projectDirectory)
-        {
-            return projectDirectory;
-        }
-
-        if (scene?.Uri is { } sceneUri
-            && Path.GetDirectoryName(sceneUri.LocalPath) is { Length: > 0 } sceneDirectory)
-        {
-            return sceneDirectory;
-        }
-
-        return null;
-    }
+        => EditorContextDirectories.GetProjectOrSceneDirectory(editorContext);
 
     public void Dispose()
     {

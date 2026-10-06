@@ -361,86 +361,20 @@ public sealed class TimelineScale : Control
         _startingBarPen ??= new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
         _endingBarPen ??= new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
 
-        const int top = 16;
-
         double width = Bounds.Width;
         double height = Bounds.Height;
         var viewport = new Rect(new Point(Offset.X, 0), new Size(width, height));
 
-        double recentPix = 0d;
         double inc = FrameNumberHelper.SecondWidth;
-        // 分割数: 30
-        double wf = FrameNumberHelper.SecondWidth / 30;
         double l = viewport.Width + viewport.X;
 
         double originX = Math.Floor(viewport.X / inc) * inc;
         using (context.PushTransform(Matrix.CreateTranslation(-viewport.X, 0)))
         {
             context.FillRectangle(Brushes.Transparent, viewport);
-            for (double x = originX; x < l; x += inc)
-            {
-                var time = x.PixelToTimeSpan(Scale);
+            DrawTimeTicks(context, _pen, viewport, height, originX, l);
+            DrawBufferAndCacheBlocks(context, originX, l);
 
-                if (viewport.Contains(new Point(x, height)))
-                {
-                    context.DrawLine(_pen, new(x, 5), new(x, height));
-                }
-
-                using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
-                var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
-
-                if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
-                {
-                    recentPix = textbounds.Right;
-                    text.Draw(context, new(x + 8, 0));
-                }
-
-                double ll = x + inc;
-                for (double xx = x + wf; xx < ll; xx += wf)
-                {
-                    if (!viewport.Contains(new Point(xx, height))) continue;
-
-                    if (viewport.Right < xx) return;
-
-                    context.DrawLine(_pen, new(xx, top), new(xx, height));
-                }
-            }
-
-            if (BufferEnd != BufferStart)
-            {
-                context.DrawRectangle(
-                    BufferBrush, null,
-                    new RoundedRect(new Rect(BufferStart, Height - 4, BufferEnd - BufferStart, 4)));
-            }
-
-            if (CacheBlocks != null)
-            {
-                TimeSpan left = originX.PixelToTimeSpan(Scale);
-                TimeSpan right = l.PixelToTimeSpan(Scale);
-
-                foreach (CacheBlock item in CacheBlocks)
-                {
-                    TimeSpan end = item.Start + item.Length;
-                    if (end < left || item.Start > right)
-                    {
-                        continue;
-                    }
-
-                    context.DrawRectangle(
-                        item.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
-                        new RoundedRect(new Rect(item.Start.TimeToPixel(Scale), Height - 4, item.Length.TimeToPixel(Scale),
-                            4)));
-                }
-            }
-
-            if (HoveredCacheBlock is { } hover)
-            {
-                context.DrawRectangle(
-                    hover.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
-                    new RoundedRect(new Rect(hover.Start.TimeToPixel(Scale), Height - 6, hover.Length.TimeToPixel(Scale), 6)));
-            }
-
-            var size = new Size(1.25, height);
             var seekbar = new Point(_seekBarMargin.Left, 0);
             var startingbar = new Point(_startingBarMargin.Left, 0);
             var endingbar = new Point(_endingBarMargin.Left, 0);
@@ -452,37 +386,102 @@ public sealed class TimelineScale : Control
 
             context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
 
-            // EndingBarのドラッグ可能マーカーを描画
-            if (EndingBarBrush?.ToImmutable() is { } brush)
-            {
-                const int markerHeight = 16;
-                const int markerWidth = 4;
-                double left = _endingBarMargin.Left - markerWidth / 2.0;
-                double markerTop = height - markerHeight;
-                // context.FillRectangle(brush, new Rect(left, markerTop, markerWidth, markerHeight));
-                // context.DrawRectangle(brush, null, new Rect(left, markerTop, markerWidth, markerHeight));
-                using (context.PushTransform(Matrix.CreateTranslation(_endingBarMargin.Left, 0)))
-                using (context.PushTransform(Matrix.CreateScale(-1, 1)))
-                {
-                    context.DrawGeometry(brush, null, _rangeMarker);
-                }
-            }
-
-            if (StartingBarBrush?.ToImmutable() is { } brush2)
-            {
-                const int markerHeight = 16;
-                const int markerWidth = 4;
-                double left = _startingBarMargin.Left - markerWidth / 2.0;
-                double markerTop = height - markerHeight;
-                // context.FillRectangle(brush2, new Rect(left, markerTop, markerWidth, markerHeight));
-                // context.DrawRectangle(brush2, null, new Rect(left, markerTop, markerWidth, markerHeight));
-                using (context.PushTransform(Matrix.CreateTranslation(_startingBarMargin.Left, 0)))
-                {
-                    context.DrawGeometry(brush2, null, _rangeMarker);
-                }
-            }
-
+            DrawRangeMarkers(context);
             DrawMarkers(context, viewport);
+        }
+    }
+
+    private void DrawTimeTicks(DrawingContext context, IPen pen, Rect viewport, double height, double originX, double viewportRight)
+    {
+        const int top = 16;
+
+        double recentPix = 0d;
+        double inc = FrameNumberHelper.SecondWidth;
+        // 分割数: 30
+        double wf = FrameNumberHelper.SecondWidth / 30;
+        for (double x = originX; x < viewportRight; x += inc)
+        {
+            var time = x.PixelToTimeSpan(Scale);
+
+            if (viewport.Contains(new Point(x, height)))
+            {
+                context.DrawLine(pen, new(x, 5), new(x, height));
+            }
+
+            using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
+            var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
+
+            if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
+            {
+                recentPix = textbounds.Right;
+                text.Draw(context, new(x + 8, 0));
+            }
+
+            double ll = x + inc;
+            for (double xx = x + wf; xx < ll; xx += wf)
+            {
+                if (!viewport.Contains(new Point(xx, height))) continue;
+
+                context.DrawLine(pen, new(xx, top), new(xx, height));
+            }
+        }
+    }
+
+    private void DrawBufferAndCacheBlocks(DrawingContext context, double originX, double viewportRight)
+    {
+        if (BufferEnd != BufferStart)
+        {
+            context.DrawRectangle(
+                BufferBrush, null,
+                new RoundedRect(new Rect(BufferStart, Height - 4, BufferEnd - BufferStart, 4)));
+        }
+
+        if (CacheBlocks != null)
+        {
+            TimeSpan left = originX.PixelToTimeSpan(Scale);
+            TimeSpan right = viewportRight.PixelToTimeSpan(Scale);
+
+            foreach (CacheBlock item in CacheBlocks)
+            {
+                TimeSpan end = item.Start + item.Length;
+                if (end < left || item.Start > right)
+                {
+                    continue;
+                }
+
+                context.DrawRectangle(
+                    item.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
+                    new RoundedRect(new Rect(item.Start.TimeToPixel(Scale), Height - 4, item.Length.TimeToPixel(Scale),
+                        4)));
+            }
+        }
+
+        if (HoveredCacheBlock is { } hover)
+        {
+            context.DrawRectangle(
+                hover.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
+                new RoundedRect(new Rect(hover.Start.TimeToPixel(Scale), Height - 6, hover.Length.TimeToPixel(Scale), 6)));
+        }
+    }
+
+    private void DrawRangeMarkers(DrawingContext context)
+    {
+        // EndingBarのドラッグ可能マーカーを描画
+        if (EndingBarBrush?.ToImmutable() is { } brush)
+        {
+            using (context.PushTransform(Matrix.CreateTranslation(_endingBarMargin.Left, 0)))
+            using (context.PushTransform(Matrix.CreateScale(-1, 1)))
+            {
+                context.DrawGeometry(brush, null, _rangeMarker);
+            }
+        }
+
+        if (StartingBarBrush?.ToImmutable() is { } brush2)
+        {
+            using (context.PushTransform(Matrix.CreateTranslation(_startingBarMargin.Left, 0)))
+            {
+                context.DrawGeometry(brush2, null, _rangeMarker);
+            }
         }
     }
 

@@ -154,27 +154,27 @@ public sealed class BpmGridOverlay : Control
             {
                 double beatX = offsetPixels + i * beatIntervalPixels - viewLeft;
 
-                if (beatX >= -1 && beatX <= _viewport.Width + 1)
-                {
-                    var top = new Point(beatX, 0);
-                    var bottom = new Point(beatX, height);
-                    context.DrawLine(_beatPen, top, bottom);
-                }
+                DrawLineIfVisible(context, _beatPen, beatX, height);
 
                 if (drawSubdivisions)
                 {
                     for (int s = 1; s < subdivisions; s++)
                     {
                         double subX = beatX + s * subdivisionIntervalPixels;
-                        if (subX >= -1 && subX <= _viewport.Width + 1)
-                        {
-                            var top = new Point(subX, 0);
-                            var bottom = new Point(subX, height);
-                            context.DrawLine(_subdivisionPen!, top, bottom);
-                        }
+                        DrawLineIfVisible(context, _subdivisionPen!, subX, height);
                     }
                 }
             }
+        }
+    }
+
+    private void DrawLineIfVisible(DrawingContext context, IPen pen, double x, double height)
+    {
+        if (x >= -1 && x <= _viewport.Width + 1)
+        {
+            var top = new Point(x, 0);
+            var bottom = new Point(x, height);
+            context.DrawLine(pen, top, bottom);
         }
     }
 }

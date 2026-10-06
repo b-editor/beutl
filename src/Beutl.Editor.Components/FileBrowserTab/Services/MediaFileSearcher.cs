@@ -36,7 +36,7 @@ internal sealed class MediaFileSearcher : IDisposable
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
 
-        DisposeAndClearItems();
+        FileSystemEnumerator.DisposeAndClear(MediaFileItems);
         IsLoadingMediaFiles.Value = true;
         HasNoMediaFiles.Value = false;
 
@@ -129,15 +129,6 @@ internal sealed class MediaFileSearcher : IDisposable
         }
     }
 
-    private void DisposeAndClearItems()
-    {
-        foreach (var item in MediaFileItems)
-        {
-            item.Dispose();
-        }
-        MediaFileItems.Clear();
-    }
-
     public void Dispose()
     {
         if (_disposed)
@@ -147,6 +138,6 @@ internal sealed class MediaFileSearcher : IDisposable
         _searchCts?.Cancel();
         _searchCts?.Dispose();
         _searchCts = null;
-        DisposeAndClearItems();
+        FileSystemEnumerator.DisposeAndClear(MediaFileItems);
     }
 }

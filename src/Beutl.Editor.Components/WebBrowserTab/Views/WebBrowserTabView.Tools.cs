@@ -100,17 +100,21 @@ internal partial class WebBrowserTabView
         if (!ViewModels.WebBrowserTabViewModel.TryNormalizeAddress(BookmarkUrlInput.Text, out Uri uri)
             || !BrowserProfile.IsAllowedUrl(uri.AbsoluteUri))
         {
-            BookmarkEditorError.Text = Strings.InvalidWebAddress;
-            BookmarkEditorError.IsVisible = true;
+            ShowBookmarkError(Strings.InvalidWebAddress);
             return;
         }
         if (!vm.Profile.AddBookmark(uri, BookmarkNameInput.Text?.Trim() ?? string.Empty))
         {
-            BookmarkEditorError.Text = string.Format(Strings.BrowserStorageError, vm.Profile.Error);
-            BookmarkEditorError.IsVisible = true;
+            ShowBookmarkError(string.Format(Strings.BrowserStorageError, vm.Profile.Error));
             return;
         }
         OnCancelBookmarkEditorClick(sender, e);
+    }
+
+    private void ShowBookmarkError(string message)
+    {
+        BookmarkEditorError.Text = message;
+        BookmarkEditorError.IsVisible = true;
     }
 
     private void OnOpenBookmarkClick(object? sender, RoutedEventArgs e)
@@ -188,11 +192,17 @@ internal partial class WebBrowserTabView
         try { action(record); }
         catch (Exception ex)
         {
-            if (_historyFeedback != null)
-            {
-                _historyFeedback.Text = ex.Message;
-                _historyFeedback.IsVisible = true;
-            }
+            ShowHistoryFeedback(ex.Message);
+        }
+    }
+
+    // The feedback line exists only while the downloads panel is open; otherwise the message is dropped.
+    private void ShowHistoryFeedback(string message)
+    {
+        if (_historyFeedback != null)
+        {
+            _historyFeedback.Text = message;
+            _historyFeedback.IsVisible = true;
         }
     }
 
@@ -224,10 +234,9 @@ internal partial class WebBrowserTabView
         }
         catch (Exception ex)
         {
-            if (!_disposed && ReferenceEquals(_viewModel, vm) && _historyFeedback != null)
+            if (!_disposed && ReferenceEquals(_viewModel, vm))
             {
-                _historyFeedback.Text = ex.Message;
-                _historyFeedback.IsVisible = true;
+                ShowHistoryFeedback(ex.Message);
             }
         }
     }

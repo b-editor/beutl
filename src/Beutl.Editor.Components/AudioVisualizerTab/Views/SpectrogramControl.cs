@@ -3,6 +3,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
+using Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
@@ -71,10 +72,7 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         if (got < fftSize) return;
 
         Span<float> mono = _mono.AsSpan(0, totalSamples);
-        for (int i = 0; i < totalSamples; i++)
-        {
-            mono[i] = 0.5f * (_samplesL[i] + _samplesR[i]);
-        }
+        SpectrumBands.MixToMono(_samplesL, _samplesR, mono);
 
         Span<float> real = _real.AsSpan(0, fftSize);
         Span<float> imag = _imag.AsSpan(0, fftSize);
@@ -114,9 +112,7 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
             for (int b = 0; b < VerticalBands; b++)
             {
                 // Logarithmic frequency axis: row b covers bin range [bins^(b/B), bins^((b+1)/B)]
-                int binLow = Math.Max(1, (int)Math.Floor(Math.Pow(bins, (double)b / VerticalBands)));
-                int binHigh = Math.Min(bins, (int)Math.Ceiling(Math.Pow(bins, (b + 1.0) / VerticalBands)));
-                if (binHigh <= binLow) binHigh = Math.Min(bins, binLow + 1);
+                SpectrumBands.GetBinRange(bins, b, VerticalBands, out int binLow, out int binHigh);
 
                 float maxMag = 0f;
                 for (int k = binLow; k < binHigh; k++)

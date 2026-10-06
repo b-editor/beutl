@@ -153,14 +153,7 @@ public partial class TerminalTabView : UserControl, IDisposable
             _launched = false;
             if (_disposed)
             {
-                try
-                {
-                    Terminal.Shutdown();
-                }
-                catch
-                {
-                    // Best-effort teardown; the fire-and-forget catch must not rethrow.
-                }
+                ShutdownQuietly();
             }
             else
             {
@@ -193,16 +186,22 @@ public partial class TerminalTabView : UserControl, IDisposable
         // Shutdown (not just Kill) so the connection and read-cancellation source are disposed even
         // when no later detach runs the cleanup — an inactive tab is already detached when closed.
         Terminal.EndReparent();
+        ShutdownQuietly();
+
+        _viewModel = null;
+        _launchedViewModel = null;
+    }
+
+    private void ShutdownQuietly()
+    {
         try
         {
             Terminal.Shutdown();
         }
         catch
         {
-            // The PTY may already be gone; tearing down the tab must not throw.
+            // Best-effort teardown: the PTY may already be gone, and neither the fire-and-forget launch
+            // catch nor Dispose may throw.
         }
-
-        _viewModel = null;
-        _launchedViewModel = null;
     }
 }

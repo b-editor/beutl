@@ -53,22 +53,33 @@ internal sealed class BrowserAdBlockRules
         int cosmetic = line.IndexOf("#@#", StringComparison.Ordinal);
         bool cosmeticException = cosmetic >= 0;
         if (!cosmeticException) cosmetic = line.IndexOf("##", StringComparison.Ordinal);
-        if (cosmetic >= 0)
-        {
-            string selector = line[(cosmetic + (cosmeticException ? 3 : 2))..];
-            if (selector.Length == 0 || selector.Contains('{') || selector.Contains('}')
-                || selector.Contains(":-abp-", StringComparison.Ordinal) || selector.Contains(":style(", StringComparison.Ordinal)
-                || selector.Contains(":remove(", StringComparison.Ordinal) || selector.Contains("+js(", StringComparison.Ordinal)
-                || selector.Contains(":has-text(", StringComparison.Ordinal) || selector.Contains(":matches-", StringComparison.Ordinal)) return false;
-            if (!TryDomains(line[..cosmetic], ',', out string[] include, out string[] exclude)) return false;
-            // Negated cosmetic exceptions require a complement of domain sets, which WebKit
-            // cannot represent as a single trigger. Keep the unsupported rule visible in the count.
-            if (cosmeticException && exclude.Length != 0) return false;
-            _cosmetic.Add(new(selector, include, exclude, cosmeticException));
-            return true;
-        }
+        if (cosmetic >= 0) return TryAddCosmetic(line, cosmetic, cosmeticException);
         if (line.Contains('#')) return false;
 
+        return TryAddNetwork(line);
+    }
+
+    private bool TryAddCosmetic(string line, int separator, bool exception)
+    {
+        string selector = line[(separator + (exception ? 3 : 2))..];
+        if (IsUnsupportedSelector(selector)) return false;
+        if (!TryDomains(line[..separator], ',', out string[] include, out string[] exclude)) return false;
+        // Negated cosmetic exceptions require a complement of domain sets, which WebKit
+        // cannot represent as a single trigger. Keep the unsupported rule visible in the count.
+        if (exception && exclude.Length != 0) return false;
+        _cosmetic.Add(new(selector, include, exclude, exception));
+        return true;
+    }
+
+    // Style-changing, scriptlet and procedural selectors have no content-blocker equivalent.
+    private static bool IsUnsupportedSelector(string selector) =>
+        selector.Length == 0 || selector.Contains('{') || selector.Contains('}')
+        || selector.Contains(":-abp-", StringComparison.Ordinal) || selector.Contains(":style(", StringComparison.Ordinal)
+        || selector.Contains(":remove(", StringComparison.Ordinal) || selector.Contains("+js(", StringComparison.Ordinal)
+        || selector.Contains(":has-text(", StringComparison.Ordinal) || selector.Contains(":matches-", StringComparison.Ordinal);
+
+    private bool TryAddNetwork(string line)
+    {
         bool exception = line.StartsWith("@@", StringComparison.Ordinal);
         string pattern = exception ? line[2..] : line;
         var types = new HashSet<string>(StringComparer.Ordinal);
@@ -92,17 +103,7 @@ internal sealed class BrowserAdBlockRules
                 }
                 else
                 {
-                    string? type = name switch
-                    {
-                        "image" => "image",
-                        "stylesheet" => "style-sheet",
-                        "script" => "script",
-                        "font" => "font",
-                        "media" => "media",
-                        "xmlhttprequest" => "raw",
-                        "subdocument" => "document",
-                        _ => null
-                    };
+                    string? type = MapResourceType(name);
                     if (type == null || (name == "subdocument" && negated)) return false;
                     (negated ? excludedTypes : types).Add(type);
                     childFrame |= name == "subdocument";
@@ -120,8 +121,26 @@ internal sealed class BrowserAdBlockRules
         string regex = ToRegex(pattern);
         var rule = new NetworkRule(regex, types.ToArray(), includedDomains, excludedDomains, thirdParty, matchCase, childFrame, exception);
         _network.Add(rule);
-        // Index on a literal substring; unlike splitting a request into words, this also finds
-        // filters embedded in a path or hostname. The remaining regex work is bounded per bucket.
+        AddToIndex(rule, pattern);
+        return true;
+    }
+
+    private static string? MapResourceType(string option) => option switch
+    {
+        "image" => "image",
+        "stylesheet" => "style-sheet",
+        "script" => "script",
+        "font" => "font",
+        "media" => "media",
+        "xmlhttprequest" => "raw",
+        "subdocument" => "document",
+        _ => null
+    };
+
+    // Index on a literal substring; unlike splitting a request into words, this also finds
+    // filters embedded in a path or hostname. The remaining regex work is bounded per bucket.
+    private void AddToIndex(NetworkRule rule, string pattern)
+    {
         string? key = Regex.Matches(pattern.ToLowerInvariant(), "[a-z0-9%]{5,}")
             .Select(m => m.Value).MaxBy(s => s.Length)?[..5];
         if (key == null) _unindexed.Add(rule);
@@ -130,7 +149,6 @@ internal sealed class BrowserAdBlockRules
             if (!_index.TryGetValue(key, out var bucket)) _index.Add(key, bucket = []);
             bucket.Add(rule);
         }
-        return true;
     }
 
     private static bool TryDomains(string text, char separator, out string[] include, out string[] exclude)

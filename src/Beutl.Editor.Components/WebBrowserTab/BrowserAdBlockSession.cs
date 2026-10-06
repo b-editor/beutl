@@ -109,9 +109,9 @@ internal sealed class BrowserAdBlockSession : IDisposable
                 try
                 {
                     BrowserAdBlockRules rules = await load;
-                    if (_disposed || revision != _revision) return;
+                    if (!IsCurrent(revision)) return;
                     candidate = await _createBackend(_handle, rules);
-                    if (_disposed || revision != _revision) return;
+                    if (!IsCurrent(revision)) return;
                     if (_profile.AdBlockFilters.IsSuperseded(load))
                     {
                         candidate.Dispose();
@@ -119,7 +119,7 @@ internal sealed class BrowserAdBlockSession : IDisposable
                         continue;
                     }
                     await candidate.EnableAsync();
-                    if (_disposed || revision != _revision) return;
+                    if (!IsCurrent(revision)) return;
                     if (_profile.AdBlockFilters.IsSuperseded(load))
                     {
                         candidate.Dispose();
@@ -132,7 +132,7 @@ internal sealed class BrowserAdBlockSession : IDisposable
                     candidate = null;
                     break;
                 }
-                catch (Exception) when (!_disposed && revision == _revision && _profile.AdBlockFilters.IsSuperseded(load))
+                catch (Exception) when (IsCurrent(revision) && _profile.AdBlockFilters.IsSuperseded(load))
                 {
                     // A newer subscription replaced this load. Keep initial navigation
                     // deferred and join the latest request instead of applying old rules.
@@ -143,13 +143,13 @@ internal sealed class BrowserAdBlockSession : IDisposable
         }
         catch (Exception ex)
         {
-            if (!_disposed && revision == _revision)
+            if (IsCurrent(revision))
                 _reportError(string.Format(Strings.BrowserAdBlockFailed, ex.Message));
         }
         finally
         {
             candidate?.Dispose();
-            if (!_disposed && revision == _revision)
+            if (IsCurrent(revision))
             {
                 IsPreparing = false;
                 ResumeNavigation();
@@ -160,8 +160,11 @@ internal sealed class BrowserAdBlockSession : IDisposable
                 }
             }
         }
-        if (!_disposed && revision == _revision) await ApplyCosmeticsAsync();
+        if (IsCurrent(revision)) await ApplyCosmeticsAsync();
     }
+
+    // Disposal, a lost adapter and every newer refresh bump the revision, so a stale refresh stops applying results.
+    private bool IsCurrent(int revision) => !_disposed && revision == _revision;
 
     internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {

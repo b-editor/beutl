@@ -72,17 +72,7 @@ public partial class SearchView : UserControl
 
         if (item.HasValue)
         {
-            (DataFormat<string>, Type)[] arr = item.Value.Value.TryDragDrop().ToArray();
-            if (arr.Length > 0)
-            {
-                var data = new DataTransfer();
-                foreach ((DataFormat<string> format, Type type) in arr)
-                {
-                    data.Add(DataTransferItem.Create(format, TypeFormat.ToString(type)));
-                }
-
-                await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
-            }
+            await LibraryTreeDragHelper.StartDragAsync(e, item.Value.Value);
         }
     }
 }

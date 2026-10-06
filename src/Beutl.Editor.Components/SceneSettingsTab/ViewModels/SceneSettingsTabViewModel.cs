@@ -67,53 +67,57 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .DisposeWith(_disposable);
 
         Apply = new AsyncReactiveCommand(CanApply)
-            .WithSubscribe(async () =>
-            {
-                if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
-                {
-                    // Pause playback before rebuilding the renderer to avoid UI freeze.
-                    if ((frameSize != _scene.FrameSize
-                            || start != _scene.Start
-                            || duration != _scene.Duration)
-                        && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
-                    {
-                        await player.Pause();
-
-                        if (!TryReadSceneSettings(out frameSize, out start, out duration))
-                        {
-                            // Pausing yielded to the UI thread, so the user may have invalidated an
-                            // input meanwhile. Warn instead of returning silently.
-                            NotificationService.ShowWarning(
-                                Strings.SceneSettings,
-                                MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);
-                            return;
-                        }
-                    }
-
-                    _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
-                        _scene,
-                        frameSize,
-                        start,
-                        duration);
-
-                    _optionsProvider.Options.Value = _optionsProvider.Options.Value with
-                    {
-                        MaxLayerCount = LayerCount.Value
-                    };
-                }
-            })
+            .WithSubscribe(ApplyAsync)
             .DisposeWith(_disposable);
 
         Revert = new ReactiveCommand()
-            .WithSubscribe(() =>
-            {
-                Width.Value = _scene.FrameSize.Width;
-                Height.Value = _scene.FrameSize.Height;
-                StartInput.Value = _scene.Start.ToString();
-                DurationInput.Value = _scene.Duration.ToString();
-                LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
-            })
+            .WithSubscribe(RevertInputs)
             .DisposeWith(_disposable);
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
+        {
+            // Pause playback before rebuilding the renderer to avoid UI freeze.
+            if ((frameSize != _scene.FrameSize
+                    || start != _scene.Start
+                    || duration != _scene.Duration)
+                && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+            {
+                await player.Pause();
+
+                if (!TryReadSceneSettings(out frameSize, out start, out duration))
+                {
+                    // Pausing yielded to the UI thread, so the user may have invalidated an
+                    // input meanwhile. Warn instead of returning silently.
+                    NotificationService.ShowWarning(
+                        Strings.SceneSettings,
+                        MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);
+                    return;
+                }
+            }
+
+            _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
+                _scene,
+                frameSize,
+                start,
+                duration);
+
+            _optionsProvider.Options.Value = _optionsProvider.Options.Value with
+            {
+                MaxLayerCount = LayerCount.Value
+            };
+        }
+    }
+
+    private void RevertInputs()
+    {
+        Width.Value = _scene.FrameSize.Width;
+        Height.Value = _scene.FrameSize.Height;
+        StartInput.Value = _scene.Start.ToString();
+        DurationInput.Value = _scene.Duration.ToString();
+        LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
     }
 
     private static string? DurationValidator(string str)

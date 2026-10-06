@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Text.Json;
 
 using Avalonia.Controls;
@@ -12,6 +13,7 @@ namespace Beutl.Editor.Components.WebBrowserTab.Views;
 internal partial class WebBrowserTabView
 {
     private const int MaxDeferredNativeDownloads = 32;
+    private const int MaxNativeDownloadFailures = 32;
     private CancellationTokenSource? _downloadCancellation;
     private PageDownloadRequest? _pendingPageDownloadRequest;
     private int _pageDownloadDocumentId;
@@ -66,7 +68,7 @@ internal partial class WebBrowserTabView
             // Redirects also raise NavigationStarting, so the final download URI must match
             // the active main-frame request. An iframe download cannot borrow another URI's marker.
             _nativeDownloadFailures.Add((_latestNavigationRequest, uri));
-            if (_nativeDownloadFailures.Count > 32) _nativeDownloadFailures.RemoveAt(0);
+            if (_nativeDownloadFailures.Count > MaxNativeDownloadFailures) _nativeDownloadFailures.RemoveAt(0);
         }
         _latestNavigationRequest = null;
         if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
@@ -80,11 +82,13 @@ internal partial class WebBrowserTabView
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
 
+    // One offer at a time, and none while a page loads, a download runs or the user dismissed this page's offers.
+    private bool IsPageDownloadOfferBlocked => _disposed || _viewModel == null || _pageDownloadRequestsSuppressed
+        || _pageDownloadNavigationPending || _pendingPageDownloadRequest != null || _downloadCancellation != null;
+
     private void OfferNextDeferredNativeDownload()
     {
-        if (_deferredNativeDownloads.Count == 0 || _disposed || _viewModel == null
-            || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
-            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
+        if (_deferredNativeDownloads.Count == 0 || IsPageDownloadOfferBlocked) return;
         var deferred = _deferredNativeDownloads.First!.Value;
         _deferredNativeDownloads.RemoveFirst();
         QueuePageDownloadRequest(deferred.Uri, deferred.SuggestedName, BrowserReferrerPolicy.NoReferrer, deferred.Source);
@@ -175,33 +179,14 @@ internal partial class WebBrowserTabView
 
     internal void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
-        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
-            || _pendingPageDownloadRequest != null || _downloadCancellation != null) return;
+        if (IsPageDownloadOfferBlocked) return;
         if (e.Body is not { Length: > 0 and < 16384 } body) return;
         try
         {
             using JsonDocument document = JsonDocument.Parse(body);
             JsonElement root = document.RootElement;
-            if (root.ValueKind == JsonValueKind.Object
-                && root.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String
-                && kind.GetString() == "beutl-download"
-                && root.TryGetProperty("url", out var url) && url.ValueKind == JsonValueKind.String
-                && Uri.TryCreate(url.GetString(), UriKind.Absolute, out Uri? uri) && BrowserMediaDownload.IsHttpUri(uri))
-            {
-                string? name = root.TryGetProperty("name", out var fileName) && fileName.ValueKind == JsonValueKind.String
-                    ? fileName.GetString() : null;
-                BrowserReferrerPolicy policy = BrowserReferrerPolicy.Origin;
-                if (root.TryGetProperty("referrerPolicy", out var policyNode))
-                {
-                    policy = policyNode.ValueKind == JsonValueKind.String ? policyNode.GetString() switch
-                    {
-                        "origin" => BrowserReferrerPolicy.Origin,
-                        "same-origin" => BrowserReferrerPolicy.SameOrigin,
-                        _ => BrowserReferrerPolicy.NoReferrer
-                    } : BrowserReferrerPolicy.NoReferrer;
-                }
-                QueuePageDownloadRequest(uri, name, policy);
-            }
+            if (TryReadDownloadMessage(root, out Uri? uri, out string? name))
+                QueuePageDownloadRequest(uri, name, ReadReferrerPolicy(root));
         }
         catch (JsonException)
         {
@@ -209,11 +194,45 @@ internal partial class WebBrowserTabView
         }
     }
 
+    // The message DownloadLinkScript posts for a captured link.
+    private static bool TryReadDownloadMessage(JsonElement root, [NotNullWhen(true)] out Uri? uri, out string? name)
+    {
+        uri = null;
+        name = null;
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String
+            && kind.GetString() == "beutl-download"
+            && root.TryGetProperty("url", out var url) && url.ValueKind == JsonValueKind.String
+            && Uri.TryCreate(url.GetString(), UriKind.Absolute, out uri) && BrowserMediaDownload.IsHttpUri(uri))
+        {
+            name = root.TryGetProperty("name", out var fileName) && fileName.ValueKind == JsonValueKind.String
+                ? fileName.GetString() : null;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static BrowserReferrerPolicy ReadReferrerPolicy(JsonElement root)
+    {
+        BrowserReferrerPolicy policy = BrowserReferrerPolicy.Origin;
+        if (root.TryGetProperty("referrerPolicy", out var policyNode))
+        {
+            policy = policyNode.ValueKind == JsonValueKind.String ? policyNode.GetString() switch
+            {
+                "origin" => BrowserReferrerPolicy.Origin,
+                "same-origin" => BrowserReferrerPolicy.SameOrigin,
+                _ => BrowserReferrerPolicy.NoReferrer
+            } : BrowserReferrerPolicy.NoReferrer;
+        }
+
+        return policy;
+    }
+
     private void QueuePageDownloadRequest(Uri uri, string? suggestedName, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
         IBrowserDownloadSource? downloadSource = null)
     {
-        if (_disposed || _viewModel == null || _pageDownloadRequestsSuppressed || _pageDownloadNavigationPending
-            || _pendingPageDownloadRequest != null || _downloadCancellation != null)
+        if (IsPageDownloadOfferBlocked)
         {
             downloadSource?.Dispose();
             return;
@@ -357,6 +376,30 @@ internal partial class WebBrowserTabView
         }
     }
 
+    private void ShowDownloadRunning(Uri uri)
+    {
+        DownloadStatusPanel.IsVisible = true;
+        SetDownloadRunning(true);
+        ToolTip.SetTip(DownloadStatusText, uri.AbsoluteUri);
+        DownloadStatusText.Text = Strings.WebDownloadMedia;
+    }
+
+    // Reports only while this download is still the current one.
+    private Progress<(long Received, long? Total)> CreateDownloadProgress(CancellationTokenSource cancellation)
+    {
+        return new Progress<(long Received, long? Total)>(value =>
+        {
+            if (!_disposed && ReferenceEquals(_downloadCancellation, cancellation) && !cancellation.IsCancellationRequested)
+            {
+                DownloadProgressBar.IsIndeterminate = value.Total is not > 0;
+                DownloadProgressBar.Value = value.Total is > 0 ? Math.Clamp(value.Received * 100.0 / value.Total.Value, 0, 100) : 0;
+                DownloadProgressText.Text = value.Total is > 0
+                    ? $"{DownloadProgressBar.Value:0}%"
+                    : $"{value.Received / 1024:N0} KB";
+            }
+        });
+    }
+
     internal async Task DownloadMediaAsync(Uri uri, string? suggestedName, Uri? referrer = null,
         BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin, IBrowserDownloadSource? source = null)
     {
@@ -375,21 +418,8 @@ internal partial class WebBrowserTabView
                 ? await selector(uri, cancellation.Token)
                 : await ChooseDownloadOptionsAsync(uri, cancellation.Token, suggestedName);
             if (options == null || cancellation.IsCancellationRequested) return;
-            DownloadStatusPanel.IsVisible = true;
-            SetDownloadRunning(true);
-            ToolTip.SetTip(DownloadStatusText, uri.AbsoluteUri);
-            DownloadStatusText.Text = Strings.WebDownloadMedia;
-            var progress = new Progress<(long Received, long? Total)>(value =>
-            {
-                if (!_disposed && ReferenceEquals(_downloadCancellation, cancellation) && !cancellation.IsCancellationRequested)
-                {
-                    DownloadProgressBar.IsIndeterminate = value.Total is not > 0;
-                    DownloadProgressBar.Value = value.Total is > 0 ? Math.Clamp(value.Received * 100.0 / value.Total.Value, 0, 100) : 0;
-                    DownloadProgressText.Text = value.Total is > 0
-                        ? $"{DownloadProgressBar.Value:0}%"
-                        : $"{value.Received / 1024:N0} KB";
-                }
-            });
+            ShowDownloadRunning(uri);
+            Progress<(long Received, long? Total)> progress = CreateDownloadProgress(cancellation);
             string file;
             if (source != null)
             {

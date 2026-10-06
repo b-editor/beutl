@@ -193,32 +193,32 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("mode", out var modeNode) && modeNode is JsonValue modeValue
-            && modeValue.TryGetValue(out int mode) && Enum.IsDefined(typeof(AudioVisualizerMode), mode))
+        if (json.TryGetPropertyValueAsJsonValue("mode", out int mode)
+            && Enum.IsDefined(typeof(AudioVisualizerMode), mode))
         {
             SelectedMode.Value = (AudioVisualizerMode)mode;
         }
 
-        if (json.TryGetPropertyValue("fftSize", out var fftNode) && fftNode is JsonValue fftValue
-            && fftValue.TryGetValue(out int fft) && IsPowerOfTwo(fft) && fft >= 256 && fft <= 8192)
+        if (json.TryGetPropertyValueAsJsonValue("fftSize", out int fft)
+            && IsPowerOfTwo(fft) && fft >= 256 && fft <= 8192)
         {
             FftSize.Value = fft;
         }
 
-        if (json.TryGetPropertyValue("minDecibels", out var minDbNode) && minDbNode is JsonValue minDbValue
-            && minDbValue.TryGetValue(out float minDb) && minDb < 0f && minDb >= -120f)
+        if (json.TryGetPropertyValueAsJsonValue("minDecibels", out float minDb)
+            && minDb < 0f && minDb >= -120f)
         {
             MinDecibels.Value = minDb;
         }
 
-        if (json.TryGetPropertyValue("smoothing", out var smoothingNode) && smoothingNode is JsonValue smoothingValue
-            && smoothingValue.TryGetValue(out float smoothing) && smoothing >= 0f && smoothing <= 95f)
+        if (json.TryGetPropertyValueAsJsonValue("smoothing", out float smoothing)
+            && smoothing >= 0f && smoothing <= 95f)
         {
             Smoothing.Value = smoothing;
         }
 
-        if (json.TryGetPropertyValue("spectrumShape", out var shapeNode) && shapeNode is JsonValue shapeValue
-            && shapeValue.TryGetValue(out int shape) && Enum.IsDefined(typeof(SpectrumDisplayShape), shape))
+        if (json.TryGetPropertyValueAsJsonValue("spectrumShape", out int shape)
+            && Enum.IsDefined(typeof(SpectrumDisplayShape), shape))
         {
             SpectrumShape.Value = (SpectrumDisplayShape)shape;
         }

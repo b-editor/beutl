@@ -26,6 +26,9 @@ internal sealed record BrowserDownloadRecord(string Url, string FilePath, DateTi
 
 internal sealed class BrowserProfile
 {
+    // Cap on the stored bookmarks and on the stored download history, each.
+    private const int MaxEntries = 200;
+
     private static readonly Lazy<BrowserProfile> s_default = new(() =>
         new BrowserProfile(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "profile.json")));
     internal static BrowserProfile Default => s_default.Value;
@@ -45,15 +48,8 @@ internal sealed class BrowserProfile
         {
             var data = JsonSerializer.Deserialize<ProfileData>(File.ReadAllText(fileName));
             if (data == null || data.Version != 1) throw new JsonException("Unsupported browser profile.");
-            BrowserBookmark[] bookmarks = (data.Bookmarks ?? []).Where(x => x != null && IsAllowedUrl(x.Url))
-                .DistinctBy(x => x.Url).Take(200).ToArray();
-            BrowserDownloadRecord[] downloads = (data.Downloads ?? []).Where(x => x != null && IsAllowedUrl(x.Url)
-                && !string.IsNullOrWhiteSpace(x.FilePath) && Path.IsPathFullyQualified(x.FilePath)).Take(200)
-                .Select(item =>
-                {
-                    Uri.TryCreate(item.Referrer, UriKind.Absolute, out Uri? referrer);
-                    return item with { Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, new Uri(item.Url))?.AbsoluteUri };
-                }).ToArray();
+            BrowserBookmark[] bookmarks = SanitizeBookmarks(data);
+            BrowserDownloadRecord[] downloads = SanitizeDownloads(data);
             BrowserSearchEngine engine = Enum.IsDefined(data.Engine) ? data.Engine : BrowserSearchEngine.Google;
             if (engine != data.Engine || !bookmarks.SequenceEqual(data.Bookmarks ?? []) || !downloads.SequenceEqual(data.Downloads ?? []))
                 Save(data with { Engine = engine, Bookmarks = bookmarks, Downloads = downloads });
@@ -74,6 +70,23 @@ internal sealed class BrowserProfile
             Error = ex.Message;
             _corrupt = true;
         }
+    }
+
+    private static BrowserBookmark[] SanitizeBookmarks(ProfileData data)
+    {
+        return (data.Bookmarks ?? []).Where(x => x != null && IsAllowedUrl(x.Url))
+            .DistinctBy(x => x.Url).Take(MaxEntries).ToArray();
+    }
+
+    private static BrowserDownloadRecord[] SanitizeDownloads(ProfileData data)
+    {
+        return (data.Downloads ?? []).Where(x => x != null && IsAllowedUrl(x.Url)
+            && !string.IsNullOrWhiteSpace(x.FilePath) && Path.IsPathFullyQualified(x.FilePath)).Take(MaxEntries)
+            .Select(item =>
+            {
+                Uri.TryCreate(item.Referrer, UriKind.Absolute, out Uri? referrer);
+                return item with { Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, new Uri(item.Url))?.AbsoluteUri };
+            }).ToArray();
     }
 
     internal ObservableCollection<BrowserBookmark> Bookmarks { get; } = [];
@@ -106,11 +119,11 @@ internal sealed class BrowserProfile
         if (!IsAllowedUrl(uri.AbsoluteUri)) return false;
         var item = new BrowserBookmark(uri.AbsoluteUri, string.IsNullOrWhiteSpace(title) ? uri.Host : title);
         BrowserBookmark[] previous = Bookmarks.Where(x => x.Url == uri.AbsoluteUri).ToArray();
-        BrowserBookmark[] candidate = Bookmarks.Except(previous).Prepend(item).Take(200).ToArray();
+        BrowserBookmark[] candidate = Bookmarks.Except(previous).Prepend(item).Take(MaxEntries).ToArray();
         if (!Save(Snapshot() with { Bookmarks = candidate })) return false;
         foreach (BrowserBookmark duplicate in previous) Bookmarks.Remove(duplicate);
         Bookmarks.Insert(0, item);
-        if (Bookmarks.Count > 200) Bookmarks.RemoveAt(200);
+        if (Bookmarks.Count > MaxEntries) Bookmarks.RemoveAt(MaxEntries);
         return true;
     }
 
@@ -140,9 +153,9 @@ internal sealed class BrowserProfile
             Referrer = BrowserMediaDownload.NormalizeReferrer(referrer, uri)?.AbsoluteUri,
             ReferrerPolicy = referrerPolicy
         };
-        if (!Save(Snapshot() with { Downloads = Downloads.Prepend(item).Take(200).ToArray() })) return false;
+        if (!Save(Snapshot() with { Downloads = Downloads.Prepend(item).Take(MaxEntries).ToArray() })) return false;
         Downloads.Insert(0, item);
-        if (Downloads.Count > 200) Downloads.RemoveAt(200);
+        if (Downloads.Count > MaxEntries) Downloads.RemoveAt(MaxEntries);
         return true;
     }
 

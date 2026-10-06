@@ -124,9 +124,7 @@ public sealed class BpmGridFlyout : FAPickerFlyoutBase
     protected override void OnOpening(CancelEventArgs args)
     {
         base.OnOpening(args);
-        _initialOptions = new BpmGridOptions(
-            (double)Bpm, Subdivisions,
-            TimeSpan.FromSeconds((double)OffsetSeconds), IsEnabledChecked);
+        _initialOptions = CurrentOptions();
 
         if (_enabledToggle != null)
             _enabledToggle.IsChecked = IsEnabledChecked;
@@ -176,11 +174,16 @@ public sealed class BpmGridFlyout : FAPickerFlyoutBase
     private void RaiseOptionsChanged()
     {
         SyncPropertiesFromControls();
-        var options = new BpmGridOptions(
+        var options = CurrentOptions();
+        OptionsChanged?.Invoke(this, options);
+    }
+
+    private BpmGridOptions CurrentOptions()
+    {
+        return new BpmGridOptions(
             (double)Bpm,
             Subdivisions,
             TimeSpan.FromSeconds((double)OffsetSeconds),
             IsEnabledChecked);
-        OptionsChanged?.Invoke(this, options);
     }
 }
