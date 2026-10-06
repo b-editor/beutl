@@ -118,6 +118,9 @@ public sealed class FFmpegMissingLibrariesTests
     [TestCase(true)]
     public void CodecChoices_WhenLibrariesMissing_ReturnDefaultWithoutLogging(bool audio)
     {
+        if (FFmpegWorkerProcess.DecodingInstance.IsRunning)
+            Assert.Ignore("A shared decoder is already running; the missing-library path cannot be exercised.");
+
         FFmpegInstallNotifier.MarkMissing();
 
         IReadOnlyList<object> codecs = audio
@@ -132,6 +135,9 @@ public sealed class FFmpegMissingLibrariesTests
     [Test]
     public void DecoderLoad_WhenLibrariesMissing_OffersInstallationWithoutLogging()
     {
+        if (FFmpegWorkerProcess.DecodingInstance.IsRunning)
+            Assert.Ignore("A shared decoder is already running; the missing-library path cannot be exercised.");
+
         var notifications = new Mock<INotificationServiceHandler>();
         Notification? shown = null;
         notifications.Setup(handler => handler.Show(It.IsAny<Notification>()))
