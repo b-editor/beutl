@@ -46,20 +46,14 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
 
             return new FFmpegReaderProxy(connection, response.ReaderId, response);
         }
-        catch (FFmpegLibrariesNotFoundException ex)
+        catch (FFmpegLibrariesNotFoundException)
         {
             // Record the missing-libraries condition (proxy generation reads it to translate a
             // fallback-less open failure into "unavailable") but still return null, so a regular open
             // can fall through to another decoder — e.g. MediaFoundation can open an MP4 without FFmpeg.
             // Observe-only (no cooldown re-arm): a real worker-start failure arms it; re-arming on a
-            // short-circuited decode would keep the re-probe window from ever elapsing. Only the
-            // first discovery is an error; later attempts are expected short-circuits that would
-            // otherwise spam the log on every frame/thumbnail request.
-            bool wasKnownMissing = FFmpegInstallNotifier.RecordMissingObserved();
-            if (wasKnownMissing)
-                _logger.LogDebug(ex, "FFmpeg libraries missing; skipping open of '{File}'", file);
-            else
-                _logger.LogError(ex, "Failed to open media file '{File}'", file);
+            // short-circuited decode would keep the re-probe window from ever elapsing.
+            FFmpegInstallNotifier.RecordMissingObserved();
             return null;
         }
         catch (Exception ex)

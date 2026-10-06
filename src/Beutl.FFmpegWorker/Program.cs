@@ -55,9 +55,9 @@ internal static class Program
         {
             FFmpegLoaderWorker.Initialize();
         }
-        catch (FFmpegLibrariesNotFoundException ex)
+        catch (FFmpegLibrariesNotFoundException)
         {
-            WorkerLog.Error($"FFmpeg libraries not found: {ex.Message}", ex);
+            // Exit code 2 tells the host to offer installation for this expected state.
             return 2;
         }
         catch (Exception ex)

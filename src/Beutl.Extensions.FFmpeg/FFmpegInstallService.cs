@@ -6,6 +6,7 @@ using System.Runtime.Versioning;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Beutl.Extensions.FFmpeg.Properties;
+using Beutl.FFmpegIpc;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -686,7 +687,8 @@ public class FFmpegInstallService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "FFmpeg verification failed");
+            if (ex is not FFmpegLibrariesNotFoundException)
+                _logger.LogError(ex, "FFmpeg verification failed");
         }
 
         IndeterminateChanged?.Invoke(false);

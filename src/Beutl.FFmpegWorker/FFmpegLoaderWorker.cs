@@ -95,8 +95,7 @@ internal static class FFmpegLoaderWorker
                 return path;
         }
 
-        // Surface the searched paths so a missing-FFmpeg failure is diagnosable: the worker's
-        // "FFmpeg libraries not found" error (relayed to the host log) shows exactly where it looked.
+        // Keep the searched paths available to callers that need diagnostic details.
         throw new FFmpegLibrariesNotFoundException(
             $"FFmpeg libraries not found. Searched: {string.Join(", ", paths.Select(RedactPath))}");
     }

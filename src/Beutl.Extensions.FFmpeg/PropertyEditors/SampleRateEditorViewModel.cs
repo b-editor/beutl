@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.Logging;
@@ -126,7 +127,8 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             // A superseded query is no longer the latest request, so it neither logs nor applies.
             if (LatestRefreshTracker.IsCurrent(ct))
             {
-                s_logger.LogWarning(ex, "Failed to refresh sample rates from FFmpeg worker");
+                if (ex is not FFmpegLibrariesNotFoundException)
+                    s_logger.LogWarning(ex, "Failed to refresh sample rates from FFmpeg worker");
                 await ApplyOnUiThreadAsync(ct, () => ApplySuggestions([])).ConfigureAwait(false);
             }
 
