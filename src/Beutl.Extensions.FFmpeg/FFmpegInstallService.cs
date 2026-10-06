@@ -316,6 +316,13 @@ public class FFmpegInstallService
         int total = archive.Entries.Count;
         int current = 0;
 
+        // Compare against the destination plus a separator: a bare prefix would also accept a sibling such as
+        // "ffmpeg-evil" next to "ffmpeg".
+        string destinationRoot = Path.GetFullPath(destinationPath);
+        string destinationPrefix = Path.EndsInDirectorySeparator(destinationRoot)
+            ? destinationRoot
+            : destinationRoot + Path.DirectorySeparatorChar;
+
         IndeterminateChanged?.Invoke(false);
         ProgressChanged?.Invoke(0, total);
 
@@ -325,8 +332,8 @@ public class FFmpegInstallService
 
             if (entry.Length != 0)
             {
-                string entryPath = Path.GetFullPath(Path.Combine(destinationPath, entry.FullName));
-                if (!entryPath.StartsWith(destinationPath, StringComparison.Ordinal))
+                string entryPath = Path.GetFullPath(Path.Combine(destinationRoot, entry.FullName));
+                if (!entryPath.StartsWith(destinationPrefix, StringComparison.Ordinal))
                 {
                     throw new InvalidOperationException("Entry is outside of the target directory.");
                 }
