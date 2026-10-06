@@ -204,18 +204,7 @@ internal static class RenderMaterializationDemandResolver
                 EnqueueInputs(fragment, rawScopeInputDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.TargetScope:
-                TargetScopeDescription targetScope =
-                    ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                // Only a scope that says its transform is in the input's own coordinates. One defined
-                // against the ambient target transform - TransformOperator.Append - has that scale carried
-                // by the destination already, so pre-scaling the input would rasterize it twice as large
-                // and then draw it scaled again.
-                float inputDemand = targetScope.TransformSpace == RenderScopeTransformSpace.InputLogical
-                    ? ResolveMappedInputDemand(
-                        targetScope.Scale,
-                        targetDemand,
-                        maxWorkingScale)
-                    : targetDemand;
+                float inputDemand = ResolveTargetScopeInputDemand(fragment, targetDemand, maxWorkingScale);
                 EnqueueInputs(fragment, inputDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.OpacityMask:
@@ -291,15 +280,7 @@ internal static class RenderMaterializationDemandResolver
                 EnqueueInputs(fragment, valueDemand, DemandUse.ReplayTarget, pending);
                 return;
             case RenderFragmentKind.TargetScope:
-                TargetScopeDescription targetScope =
-                    ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-                float targetScopeInputDemand =
-                    targetScope.TransformSpace == RenderScopeTransformSpace.InputLogical
-                        ? ResolveMappedInputDemand(
-                            targetScope.Scale,
-                            valueDemand,
-                            maxWorkingScale)
-                        : valueDemand;
+                float targetScopeInputDemand = ResolveTargetScopeInputDemand(fragment, valueDemand, maxWorkingScale);
                 EnqueueInputs(
                     fragment,
                     targetScopeInputDemand,
@@ -391,6 +372,25 @@ internal static class RenderMaterializationDemandResolver
                 UseSupplyFallback: false,
                 IsEffectClassConsumer: isEffectClassConsumer));
         }
+    }
+
+    private static float ResolveTargetScopeInputDemand(
+        RenderFragmentReference fragment,
+        float demand,
+        float maxWorkingScale)
+    {
+        TargetScopeDescription targetScope =
+            ((TargetScopeRenderFragmentPayload)fragment.Payload!).Description;
+        // Only a scope that says its transform is in the input's own coordinates. One defined
+        // against the ambient target transform - TransformOperator.Append - has that scale carried
+        // by the destination already, so pre-scaling the input would rasterize it twice as large
+        // and then draw it scaled again.
+        return targetScope.TransformSpace == RenderScopeTransformSpace.InputLogical
+            ? ResolveMappedInputDemand(
+                targetScope.Scale,
+                demand,
+                maxWorkingScale)
+            : demand;
     }
 
     private static float ResolveMappedInputDemand(

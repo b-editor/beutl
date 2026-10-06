@@ -212,6 +212,12 @@ public sealed class GraphicsContext2D(
         }
     }
 
+    private static void ThrowIfDisposed(Brush.Resource? fill, Pen.Resource? pen)
+    {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+    }
+
     private static void ReportCleanupFailure(Exception exception, string operation)
     {
         try
@@ -288,8 +294,7 @@ public sealed class GraphicsContext2D(
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
@@ -311,8 +316,7 @@ public sealed class GraphicsContext2D(
     public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
@@ -325,8 +329,7 @@ public sealed class GraphicsContext2D(
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
@@ -348,8 +351,7 @@ public sealed class GraphicsContext2D(
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
 
         EllipseRenderNode? next = Next<EllipseRenderNode>();
 
@@ -369,8 +371,7 @@ public sealed class GraphicsContext2D(
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
         ArgumentNullException.ThrowIfNull(geometry);
         ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
 
@@ -392,8 +393,7 @@ public sealed class GraphicsContext2D(
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
 
         RectangleRenderNode? next = Next<RectangleRenderNode>();
 
@@ -413,8 +413,7 @@ public sealed class GraphicsContext2D(
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool wasFaulted = BeginRecordingOperation();
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ThrowIfDisposed(fill, pen);
         ArgumentNullException.ThrowIfNull(text);
 
         TextRenderNode? next = Next<TextRenderNode>();

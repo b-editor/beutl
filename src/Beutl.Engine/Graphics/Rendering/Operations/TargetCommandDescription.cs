@@ -144,7 +144,7 @@ public sealed class TargetCommandDescription
         }
 
         ArgumentNullException.ThrowIfNull(definitionFingerprint);
-        RenderInputReadback[] readbacks = CopyInputReadbacks(inputReadbacks);
+        RenderInputReadback[] readbacks = RenderDescriptionValidation.CopyInputReadbacks(inputReadbacks);
 
         return new TargetCommandDescription(
             execution,
@@ -161,30 +161,9 @@ public sealed class TargetCommandDescription
     internal IReadOnlyList<RenderInputReadback> ResolveInputReadbacks(
         int inputCount,
         string parameterName)
-    {
-        if (InputReadbacks.Count == 0)
-            return Enumerable.Repeat(RenderInputReadback.None, inputCount).ToArray();
-        if (InputReadbacks.Count != inputCount)
-        {
-            throw new ArgumentException(
-                "The target-command input readback count must match the authored input count.",
-                parameterName);
-        }
-        return InputReadbacks;
-    }
-
-    private static RenderInputReadback[] CopyInputReadbacks(
-        IEnumerable<RenderInputReadback>? inputReadbacks)
-    {
-        if (inputReadbacks is null)
-            return [];
-
-        RenderInputReadback[] result = inputReadbacks.ToArray();
-        foreach (RenderInputReadback inputReadback in result)
-        {
-            inputReadback.ThrowIfUninitialized(nameof(inputReadbacks));
-        }
-
-        return result;
-    }
+        => RenderDescriptionValidation.ResolveInputReadbacks(
+            InputReadbacks,
+            inputCount,
+            parameterName,
+            "The target-command input readback count must match the authored input count.");
 }

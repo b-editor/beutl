@@ -218,10 +218,7 @@ public sealed class RenderCallbackCanvas
             density);
         if (!DeviceBoundsValidation.MatchesExtent(rasterBounds.Width, density, deviceBounds.Width)
             || !DeviceBoundsValidation.MatchesExtent(rasterBounds.Height, density, deviceBounds.Height)
-            || deviceBounds.X > semanticDeviceBounds.X
-            || deviceBounds.Y > semanticDeviceBounds.Y
-            || deviceBounds.Right < semanticDeviceBounds.Right
-            || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
+            || !DeviceBoundsValidation.Covers(deviceBounds, semanticDeviceBounds))
         {
             throw new ArgumentException(
                 "Callback canvas raster bounds must match the backing size and contain its logical bounds.",

@@ -33,7 +33,7 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         if (_state != NestedRenderTargetBindingState.Empty)
             throw new InvalidOperationException("A nested render target can be staged only once.");
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(logicalBounds, nameof(logicalBounds));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(logicalBounds, nameof(logicalBounds));
         if (!float.IsFinite(density) || density <= 0)
             throw new ArgumentOutOfRangeException(nameof(density));
 
@@ -75,7 +75,7 @@ internal sealed class NestedRenderTargetBinding : IDisposable
     public ITexture2D? GetTexture(Rect expectedLogicalBounds, float expectedDensity)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(expectedLogicalBounds, nameof(expectedLogicalBounds));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(expectedLogicalBounds, nameof(expectedLogicalBounds));
         if (!float.IsFinite(expectedDensity) || expectedDensity <= 0f)
             throw new ArgumentOutOfRangeException(nameof(expectedDensity));
         if (_state is NestedRenderTargetBindingState.Empty or NestedRenderTargetBindingState.Rejected)

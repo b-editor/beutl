@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Reflection;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -244,7 +243,7 @@ public sealed class OpaqueRenderDescription
             inputDemand,
             deviceGridSensitivity,
             definitionFingerprint,
-            Array.AsReadOnly(CopyInputReadbacks(inputReadbacks)),
+            Array.AsReadOnly(RenderDescriptionValidation.CopyInputReadbacks(inputReadbacks)),
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             RenderBackendBoundary.None,
             directReplay: null,
@@ -390,56 +389,12 @@ public sealed class OpaqueRenderDescription
     internal IReadOnlyList<RenderInputReadback> ResolveInputReadbacks(
         int inputCount,
         string parameterName)
-    {
-        if (InputReadbacks.Count == 0)
-            return Enumerable.Repeat(RenderInputReadback.None, inputCount).ToArray();
-        if (InputReadbacks.Count != inputCount)
-        {
-            throw new ArgumentException(
-                "The opaque-render input readback count must match the authored input count.",
-                parameterName);
-        }
-        return InputReadbacks;
-    }
-
-    private static RenderInputReadback[] CopyInputReadbacks(
-        IEnumerable<RenderInputReadback>? inputReadbacks)
-    {
-        if (inputReadbacks is null)
-            return [];
-
-        RenderInputReadback[] result = inputReadbacks.ToArray();
-        foreach (RenderInputReadback inputReadback in result)
-            inputReadback.ThrowIfUninitialized(nameof(inputReadbacks));
-        return result;
-    }
+        => RenderDescriptionValidation.ResolveInputReadbacks(
+            InputReadbacks,
+            inputCount,
+            parameterName,
+            "The opaque-render input readback count must match the authored input count.");
 }
-
-internal enum RenderScaleContractKind : byte
-{
-    Uninitialized,
-    Vector,
-    PreserveInputSupply,
-    MapInputSupply,
-    MaterializeAtWorkingScale,
-    Custom,
-}
-
-internal enum OpaqueRenderOutputState : byte
-{
-    Active,
-    Published,
-    Discarded,
-    Disposed,
-}
-
-internal readonly record struct RenderScaleContractStructuralIdentity(
-    RenderScaleContractKind Kind,
-    object CallbackIdentity);
-
-internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
-    MethodInfo SupplyMap,
-    MethodInfo DemandMap);
 
 internal sealed record EngineOpaqueDefinition(
     RenderBackendBoundary BackendBoundary,

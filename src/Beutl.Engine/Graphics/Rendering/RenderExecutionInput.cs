@@ -24,7 +24,7 @@ public sealed class RenderExecutionInput
         Func<Bitmap>? createSnapshot)
     {
         ArgumentNullException.ThrowIfNull(token);
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds, nameof(bounds));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(bounds, nameof(bounds));
         if (effectiveScale.IsUnbounded)
         {
             throw new ArgumentException(

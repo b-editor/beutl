@@ -53,15 +53,7 @@ public class Renderer : IRenderer
         }
 
         public Rect GetBounds()
-        {
-            if (!HasValidBounds)
-            {
-                _bounds = Renderer.Measure().QueryBounds;
-                HasValidBounds = true;
-            }
-
-            return _bounds;
-        }
+            => HasValidBounds ? _bounds : RecalculateBounds();
 
         public Rect RecalculateBounds()
         {
@@ -810,21 +802,7 @@ public class Renderer : IRenderer
         var entries = _nodeCache?.ToArray() ?? [];
         _nodeCache?.Clear();
         _allCurrentEntries?.Clear();
-        Exception? primary = null;
-        foreach (var item in entries)
-        {
-            try
-            {
-                DisposeEntryCore(item.Value, clearCache: true);
-            }
-            catch (Exception ex)
-            {
-                primary ??= ex;
-            }
-        }
-
-        if (primary is not null)
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+        DisposeEntries(entries, clearCache: true);
     }
 
     private void DisposeAllEntriesCore()
@@ -832,13 +810,18 @@ public class Renderer : IRenderer
         VerifyCleanupAccess(_dispatcher);
         var entries = _nodeCache?.ToArray() ?? [];
         _nodeCache?.Clear();
+        // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
+        DisposeEntries(entries, clearCache: false);
+    }
+
+    private void DisposeEntries(KeyValuePair<Drawable, Entry>[] entries, bool clearCache)
+    {
         Exception? primary = null;
         foreach (var item in entries)
         {
-            // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
             try
             {
-                DisposeEntryCore(item.Value, clearCache: false);
+                DisposeEntryCore(item.Value, clearCache);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Reflection;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -381,3 +382,21 @@ public readonly struct RenderScaleContract
         }
     }
 }
+
+internal enum RenderScaleContractKind : byte
+{
+    Uninitialized,
+    Vector,
+    PreserveInputSupply,
+    MapInputSupply,
+    MaterializeAtWorkingScale,
+    Custom,
+}
+
+internal readonly record struct RenderScaleContractStructuralIdentity(
+    RenderScaleContractKind Kind,
+    object CallbackIdentity);
+
+internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
+    MethodInfo SupplyMap,
+    MethodInfo DemandMap);

@@ -45,6 +45,55 @@ internal sealed class ExecutionIslandPlanner
         ArgumentNullException.ThrowIfNull(budget);
 
         RenderFragmentReference[] references = GetOrderedReferences(graph, roots, cacheResolution);
+        ThrowIfRootNotReferenced(references, roots);
+
+        Dictionary<RenderFragmentReference, int> consumerCounts = CountConsumers(
+            references,
+            roots,
+            cacheResolution);
+        ClassifyStageCandidates(
+            references,
+            cacheResolution,
+            fusionMode,
+            out Dictionary<RenderFragmentReference, StageCandidate> stageCandidates,
+            out Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications);
+
+        Dictionary<RenderFragmentReference, RenderFragmentReference> successors = BuildMergeableSuccessors(
+            references,
+            stageCandidates,
+            consumerCounts,
+            cacheResolution);
+        var stages = new StageGraph(stageCandidates, successors, InvertSuccessors(successors), consumerCounts);
+
+        var drafts = new List<IslandDraft>();
+        var boundaries = new List<ExecutionIslandBoundary>();
+        AddSelectedCacheBoundaries(
+            references,
+            cacheResolution,
+            boundaries);
+        HashSet<RenderFragmentReference> compiledFragments = AddShaderRunDrafts(
+            references,
+            stages,
+            rejectedStageClassifications,
+            cacheResolution,
+            fusionMode,
+            budget,
+            drafts,
+            boundaries);
+        AddStandaloneIslandDrafts(
+            references,
+            compiledFragments,
+            rejectedStageClassifications,
+            cacheResolution,
+            drafts,
+            boundaries);
+        return AssemblePlan(graph, drafts, boundaries);
+    }
+
+    private static void ThrowIfRootNotReferenced(
+        RenderFragmentReference[] references,
+        ImmutableArray<RenderFragmentReference> roots)
+    {
         var referenceSet = new HashSet<RenderFragmentReference>(
             references,
             ReferenceEqualityComparer.Instance);
@@ -53,14 +102,18 @@ internal sealed class ExecutionIslandPlanner
             if (!referenceSet.Contains(root))
                 throw new ArgumentException("A publication root is not part of the recorded graph.", nameof(roots));
         }
+    }
 
-        Dictionary<RenderFragmentReference, int> consumerCounts = CountConsumers(
-            references,
-            roots,
-            cacheResolution);
-        var stageCandidates = new Dictionary<RenderFragmentReference, StageCandidate>(
+    private static void ClassifyStageCandidates(
+        RenderFragmentReference[] references,
+        RenderCacheResolution cacheResolution,
+        FusionMode fusionMode,
+        out Dictionary<RenderFragmentReference, StageCandidate> stageCandidates,
+        out Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications)
+    {
+        stageCandidates = new Dictionary<RenderFragmentReference, StageCandidate>(
             ReferenceEqualityComparer.Instance);
-        var rejectedStageClassifications = new Dictionary<RenderFragmentReference, ExecutionIslandClassification>(
+        rejectedStageClassifications = new Dictionary<RenderFragmentReference, ExecutionIslandClassification>(
             ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference reference in references)
         {
@@ -89,30 +142,35 @@ internal sealed class ExecutionIslandPlanner
                     new ExecutionIslandClassification(reason, []));
             }
         }
+    }
 
-        Dictionary<RenderFragmentReference, RenderFragmentReference> successors = BuildMergeableSuccessors(
-            references,
-            stageCandidates,
-            consumerCounts,
-            cacheResolution);
+    private static Dictionary<RenderFragmentReference, RenderFragmentReference> InvertSuccessors(
+        Dictionary<RenderFragmentReference, RenderFragmentReference> successors)
+    {
         var predecessors = new Dictionary<RenderFragmentReference, RenderFragmentReference>(
             ReferenceEqualityComparer.Instance);
         foreach ((RenderFragmentReference predecessor, RenderFragmentReference successor) in successors)
             predecessors.Add(successor, predecessor);
+        return predecessors;
+    }
 
-        var drafts = new List<IslandDraft>();
-        var boundaries = new List<ExecutionIslandBoundary>();
-        AddSelectedCacheBoundaries(
-            references,
-            cacheResolution,
-            boundaries);
+    private static HashSet<RenderFragmentReference> AddShaderRunDrafts(
+        RenderFragmentReference[] references,
+        StageGraph stages,
+        Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications,
+        RenderCacheResolution cacheResolution,
+        FusionMode fusionMode,
+        SkslBackendBudget budget,
+        List<IslandDraft> drafts,
+        List<ExecutionIslandBoundary> boundaries)
+    {
         var compiledFragments = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
         var visitedStages = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
 
         foreach (RenderFragmentReference reference in references)
         {
-            if (!stageCandidates.ContainsKey(reference)
-                || predecessors.ContainsKey(reference)
+            if (!stages.Candidates.ContainsKey(reference)
+                || stages.Predecessors.ContainsKey(reference)
                 || visitedStages.Contains(reference))
             {
                 continue;
@@ -120,8 +178,8 @@ internal sealed class ExecutionIslandPlanner
 
             List<StageCandidate> chain = BuildChain(
                 reference,
-                stageCandidates,
-                successors,
+                stages.Candidates,
+                stages.Successors,
                 visitedStages);
             if (!chain.Any(static item => item.Fragment.Kind == RenderFragmentKind.Shader))
                 continue;
@@ -147,8 +205,8 @@ internal sealed class ExecutionIslandPlanner
                 {
                     AddRunEntryBoundary(
                         chain[0],
-                        stageCandidates,
-                        consumerCounts,
+                        stages.Candidates,
+                        stages.ConsumerCounts,
                         cacheResolution,
                         boundaries);
                 }
@@ -185,6 +243,17 @@ internal sealed class ExecutionIslandPlanner
             }
         }
 
+        return compiledFragments;
+    }
+
+    private static void AddStandaloneIslandDrafts(
+        RenderFragmentReference[] references,
+        HashSet<RenderFragmentReference> compiledFragments,
+        Dictionary<RenderFragmentReference, ExecutionIslandClassification> rejectedStageClassifications,
+        RenderCacheResolution cacheResolution,
+        List<IslandDraft> drafts,
+        List<ExecutionIslandBoundary> boundaries)
+    {
         foreach (RenderFragmentReference reference in references)
         {
             if (compiledFragments.Contains(reference)
@@ -205,29 +274,40 @@ internal sealed class ExecutionIslandPlanner
                 GetId(reference).Value,
                 [GetFragmentIndex(reference)],
                 Program: null));
-            boundaries.Add(new ExecutionIslandBoundary(
-                reference.Inputs.IsDefaultOrEmpty ? null : GetFragmentIndex(reference.Inputs[0]),
-                GetFragmentIndex(reference),
-                item.Reason,
-                item.BackendLimits));
+            boundaries.Add(CreateInputEdgeBoundary(reference, item.Reason, item.BackendLimits));
             if (requiresReadback && item.Reason != ExecutionIslandBoundaryReason.Readback)
             {
-                boundaries.Add(new ExecutionIslandBoundary(
-                    reference.Inputs.IsDefaultOrEmpty ? null : GetFragmentIndex(reference.Inputs[0]),
-                    GetFragmentIndex(reference),
+                boundaries.Add(CreateInputEdgeBoundary(
+                    reference,
                     ExecutionIslandBoundaryReason.Readback,
                     []));
             }
             if (item.Reason == ExecutionIslandBoundaryReason.ThreeD)
             {
-                boundaries.Add(new ExecutionIslandBoundary(
-                    reference.Inputs.IsDefaultOrEmpty ? null : GetFragmentIndex(reference.Inputs[0]),
-                    GetFragmentIndex(reference),
+                boundaries.Add(CreateInputEdgeBoundary(
+                    reference,
                     ExecutionIslandBoundaryReason.BackendTransition,
                     []));
             }
         }
+    }
 
+    // Boundary between the fragment's first input (null when it has none) and the fragment itself.
+    private static ExecutionIslandBoundary CreateInputEdgeBoundary(
+        RenderFragmentReference reference,
+        ExecutionIslandBoundaryReason reason,
+        ImmutableArray<SkslBackendLimit> backendLimits)
+        => new(
+            reference.Inputs.IsDefaultOrEmpty ? null : GetFragmentIndex(reference.Inputs[0]),
+            GetFragmentIndex(reference),
+            reason,
+            backendLimits);
+
+    private static ExecutionIslandPlan AssemblePlan(
+        RecordedRenderGraph graph,
+        List<IslandDraft> drafts,
+        List<ExecutionIslandBoundary> boundaries)
+    {
         IslandDraft[] orderedDrafts = [.. drafts.OrderBy(static item => item.AuthoredOrder)];
         var islands = ImmutableArray.CreateBuilder<ExecutionIsland>(orderedDrafts.Length);
         for (int index = 0; index < orderedDrafts.Length; index++)
@@ -660,6 +740,13 @@ internal sealed class ExecutionIslandPlanner
     {
         public bool IsWholeSourceHeadOnly => Description.Kind == ShaderDescriptionKind.WholeSource;
     }
+
+    // The read-only stage maps the shader-run pass walks; the dictionaries are passed through, not copied.
+    private readonly record struct StageGraph(
+        Dictionary<RenderFragmentReference, StageCandidate> Candidates,
+        Dictionary<RenderFragmentReference, RenderFragmentReference> Successors,
+        Dictionary<RenderFragmentReference, RenderFragmentReference> Predecessors,
+        Dictionary<RenderFragmentReference, int> ConsumerCounts);
 
     private readonly record struct ProgramGroup(
         IReadOnlyList<StageCandidate> Stages,

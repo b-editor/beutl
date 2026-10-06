@@ -43,7 +43,7 @@ public sealed class TargetCaptureDescription
         if (sourceRegion.Kind == TargetRegionKind.Empty)
             throw new ArgumentException("A target capture source region cannot be empty.", nameof(sourceRegion));
 
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds, nameof(bounds));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(bounds, nameof(bounds));
         if (sourceRegion.Kind == TargetRegionKind.Region
             && !sourceRegion.Value.Contains(bounds))
         {
@@ -84,7 +84,7 @@ public sealed class TargetCaptureDescription
     /// </remarks>
     internal void ValidateResolvedBounds(Rect resolvedSourceRegion, Rect targetDomain)
     {
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(resolvedSourceRegion, nameof(resolvedSourceRegion));
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(targetDomain, nameof(targetDomain));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(resolvedSourceRegion, nameof(resolvedSourceRegion));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(targetDomain, nameof(targetDomain));
     }
 }

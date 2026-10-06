@@ -169,6 +169,24 @@ internal sealed class RenderFragmentReference
 
     public bool HitTest(Point point) => _hitTest.Evaluate(Bounds, Inputs, point);
 
+    // Target scopes and raw target scopes carry the bounds contract that maps their content onto the enclosing
+    // target; no other payload does.
+    internal bool TryGetScopeBoundsContract(out RenderBoundsContract bounds)
+    {
+        switch (Payload)
+        {
+            case TargetScopeRenderFragmentPayload scope:
+                bounds = scope.Description.Bounds;
+                return true;
+            case RawTargetScopeRenderFragmentPayload scope:
+                bounds = scope.Description.Bounds;
+                return true;
+            default:
+                bounds = default;
+                return false;
+        }
+    }
+
     /// <summary>Replaces the payload this fragment was recorded with by the one resolution derived for it.</summary>
     /// <remarks>
     /// A fragment reference belongs to one request, so rewriting it here leaves the description the recording

@@ -93,59 +93,9 @@ internal sealed partial class RenderRequestExecutor
                 primaryFailure = ExceptionDispatchInfo.Capture(ex);
             }
 
-            if (finalizeExternalResources is not null)
-            {
-                try
-                {
-                    finalizeExternalResources();
-                }
-                catch (Exception ex)
-                {
-                    EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
-                    IEnumerable<Exception> externalCleanupFailures = ex is AggregateException aggregate
-                        ? aggregate.Flatten().InnerExceptions
-                        : [ex];
-                    Exception? firstExternalCleanupFailure = null;
-                    foreach (Exception failure in externalCleanupFailures)
-                    {
-                        firstExternalCleanupFailure ??= failure;
-                        bool alreadyRecorded = cleanupFailures.Any(
-                            existing => ReferenceEquals(existing, failure));
-                        AddCleanupFailure(cleanupFailures, failure);
-                        if (!alreadyRecorded)
-                            owner.RecordCleanupFailure(failure);
-                    }
-
-                    if (primaryFailure is null && firstExternalCleanupFailure is not null)
-                    {
-                        primaryFailure = ExceptionDispatchInfo.Capture(firstExternalCleanupFailure);
-                    }
-                }
-            }
-
-            if (localProgramCache is not null)
-            {
-                try
-                {
-                    localProgramCache.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    AppendCleanupFailures(cleanupFailures, ex);
-                }
-            }
-
-            if (localSpirvProgramCache is not null)
-            {
-                try
-                {
-                    localSpirvProgramCache.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    AppendCleanupFailures(cleanupFailures, ex);
-                }
-            }
+            RunExternalFinalizer(finalizeExternalResources, owner, cleanupFailures, ref primaryFailure);
+            DisposeLocalProgramCache(localProgramCache, cleanupFailures);
+            DisposeLocalProgramCache(localSpirvProgramCache, cleanupFailures);
 
             if (primaryFailure is null && cleanupFailures.Count != 0)
             {
@@ -155,19 +105,7 @@ internal sealed partial class RenderRequestExecutor
             if (primaryFailure is not null)
                 RejectNestedBindings(request);
 
-            EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
-            int ownerCleanupStart = owner.CleanupFailures.Length;
-            owner.Cleanup();
-            ImmutableArray<Exception> ownerCleanupFailures = owner.CleanupFailures;
-            for (int index = ownerCleanupStart; index < ownerCleanupFailures.Length; index++)
-            {
-                Exception failure = ownerCleanupFailures[index];
-                cleanupFailures.Add(failure);
-                if (primaryFailure is null)
-                {
-                    primaryFailure = ExceptionDispatchInfo.Capture(failure);
-                }
-            }
+            DrainOwnerCleanup(owner, cleanupFailures, ref primaryFailure);
 
             try
             {
@@ -178,58 +116,8 @@ internal sealed partial class RenderRequestExecutor
                 RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
             }
 
-            if (primaryFailure is null)
-            {
-                try
-                {
-                    foreach (RenderRequestExecutionState state in frames)
-                        state.PublishBuiltInBackdropCaptures();
-                }
-                catch (Exception ex)
-                {
-                    primaryFailure = ExceptionDispatchInfo.Capture(ex);
-                }
-            }
-
-            if (primaryFailure is null)
-            {
-                try
-                {
-                    IReadOnlyList<Exception> publicationCleanupFailures =
-                        PublishCacheCapturesAtomically(frames);
-                    foreach (Exception failure in publicationCleanupFailures)
-                    {
-                        cleanupFailures.Add(failure);
-                    }
-                    if (publicationCleanupFailures.Count != 0)
-                    {
-                        primaryFailure = ExceptionDispatchInfo.Capture(publicationCleanupFailures[0]);
-                    }
-                }
-                catch (FamilyCachePublicationException ex)
-                {
-                    foreach (Exception cleanupFailure in ex.CleanupFailures)
-                        AppendCleanupFailures(cleanupFailures, cleanupFailure);
-                    primaryFailure = ex.Failure;
-                }
-                catch (Exception ex)
-                {
-                    primaryFailure = ExceptionDispatchInfo.Capture(ex);
-                }
-            }
-
-            foreach (RenderRequestExecutionState state in frames)
-            {
-                try
-                {
-                    state.RejectCacheCaptures();
-                    state.RejectBuiltInBackdropCaptures();
-                }
-                catch (Exception ex)
-                {
-                    RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
-                }
-            }
+            PublishFamilyOutputs(frames, cleanupFailures, ref primaryFailure);
+            RejectUnpublishedCaptures(frames, cleanupFailures, ref primaryFailure);
 
             Statistics = AggregateStatistics(frames, nestedRootAcquisitions);
         }
@@ -259,6 +147,146 @@ internal sealed partial class RenderRequestExecutor
         }
 
         CompleteFamily(request);
+    }
+
+    private static void RunExternalFinalizer(
+        Action? finalizeExternalResources,
+        RenderRequestOwner owner,
+        List<Exception> cleanupFailures,
+        ref ExceptionDispatchInfo? primaryFailure)
+    {
+        if (finalizeExternalResources is not null)
+        {
+            try
+            {
+                finalizeExternalResources();
+            }
+            catch (Exception ex)
+            {
+                EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
+                IEnumerable<Exception> externalCleanupFailures = ex is AggregateException aggregate
+                    ? aggregate.Flatten().InnerExceptions
+                    : [ex];
+                Exception? firstExternalCleanupFailure = null;
+                foreach (Exception failure in externalCleanupFailures)
+                {
+                    firstExternalCleanupFailure ??= failure;
+                    bool alreadyRecorded = cleanupFailures.Any(
+                        existing => ReferenceEquals(existing, failure));
+                    AddCleanupFailure(cleanupFailures, failure);
+                    if (!alreadyRecorded)
+                        owner.RecordCleanupFailure(failure);
+                }
+
+                if (primaryFailure is null && firstExternalCleanupFailure is not null)
+                {
+                    primaryFailure = ExceptionDispatchInfo.Capture(firstExternalCleanupFailure);
+                }
+            }
+        }
+    }
+
+    private static void DisposeLocalProgramCache<TProgram>(
+        ProgramCache<TProgram>? localProgramCache,
+        List<Exception> cleanupFailures)
+        where TProgram : class, IDisposable
+    {
+        if (localProgramCache is not null)
+        {
+            try
+            {
+                localProgramCache.Dispose();
+            }
+            catch (Exception ex)
+            {
+                AppendCleanupFailures(cleanupFailures, ex);
+            }
+        }
+    }
+
+    private static void DrainOwnerCleanup(
+        RenderRequestOwner owner,
+        List<Exception> cleanupFailures,
+        ref ExceptionDispatchInfo? primaryFailure)
+    {
+        EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
+        int ownerCleanupStart = owner.CleanupFailures.Length;
+        owner.Cleanup();
+        ImmutableArray<Exception> ownerCleanupFailures = owner.CleanupFailures;
+        for (int index = ownerCleanupStart; index < ownerCleanupFailures.Length; index++)
+        {
+            Exception failure = ownerCleanupFailures[index];
+            cleanupFailures.Add(failure);
+            if (primaryFailure is null)
+            {
+                primaryFailure = ExceptionDispatchInfo.Capture(failure);
+            }
+        }
+    }
+
+    private static void PublishFamilyOutputs(
+        List<RenderRequestExecutionState> frames,
+        List<Exception> cleanupFailures,
+        ref ExceptionDispatchInfo? primaryFailure)
+    {
+        if (primaryFailure is null)
+        {
+            try
+            {
+                foreach (RenderRequestExecutionState state in frames)
+                    state.PublishBuiltInBackdropCaptures();
+            }
+            catch (Exception ex)
+            {
+                primaryFailure = ExceptionDispatchInfo.Capture(ex);
+            }
+        }
+
+        if (primaryFailure is null)
+        {
+            try
+            {
+                IReadOnlyList<Exception> publicationCleanupFailures =
+                    PublishCacheCapturesAtomically(frames);
+                foreach (Exception failure in publicationCleanupFailures)
+                {
+                    cleanupFailures.Add(failure);
+                }
+                if (publicationCleanupFailures.Count != 0)
+                {
+                    primaryFailure = ExceptionDispatchInfo.Capture(publicationCleanupFailures[0]);
+                }
+            }
+            catch (FamilyCachePublicationException ex)
+            {
+                foreach (Exception cleanupFailure in ex.CleanupFailures)
+                    AppendCleanupFailures(cleanupFailures, cleanupFailure);
+                primaryFailure = ex.Failure;
+            }
+            catch (Exception ex)
+            {
+                primaryFailure = ExceptionDispatchInfo.Capture(ex);
+            }
+        }
+    }
+
+    private static void RejectUnpublishedCaptures(
+        List<RenderRequestExecutionState> frames,
+        List<Exception> cleanupFailures,
+        ref ExceptionDispatchInfo? primaryFailure)
+    {
+        foreach (RenderRequestExecutionState state in frames)
+        {
+            try
+            {
+                state.RejectCacheCaptures();
+                state.RejectBuiltInBackdropCaptures();
+            }
+            catch (Exception ex)
+            {
+                RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
+            }
+        }
     }
 
     /// <summary>
@@ -901,10 +929,7 @@ internal sealed partial class RenderRequestExecutor
             PixelRect semanticDeviceBounds = PixelRect.FromRect(
                 bounds.Translate(deviceGridOffset),
                 effectiveScale.Value);
-            if (deviceBounds.X > semanticDeviceBounds.X
-                || deviceBounds.Y > semanticDeviceBounds.Y
-                || deviceBounds.Right < semanticDeviceBounds.Right
-                || deviceBounds.Bottom < semanticDeviceBounds.Bottom)
+            if (!DeviceBoundsValidation.Covers(deviceBounds, semanticDeviceBounds))
             {
                 throw new ArgumentException(
                     "A materialized value's device bounds must contain its semantic bounds.",

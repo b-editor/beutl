@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
-using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
@@ -12,11 +10,6 @@ internal sealed partial class RenderRequestExecutor
 {
     private sealed partial class RenderRequestExecutionState
     {
-        private void RecordSynchronization()
-        {
-            _synchronizations = checked(_synchronizations + 1);
-        }
-
         private bool TryReplayEngineSourceDirect(
             RenderFragmentReference fragment,
             ImmediateCanvas destination,
@@ -25,11 +18,7 @@ internal sealed partial class RenderRequestExecutor
             OpaqueRenderDescription description =
                 ((OpaqueRenderFragmentPayload)fragment.Payload!).Description;
             if (description.DirectReplay is not { } replay
-                || !fragment.ContributesValuesToTarget
-                || _values.ContainsKey(fragment)
-                || fragment.Id is { } id
-                    && _cacheResolution.HasSelectedProducer(id)
-                || _resourceUses.GetRemainingUseCount(fragment) != 1)
+                || !IsSingleUseLiveContribution(fragment))
             {
                 return false;
             }
@@ -125,11 +114,7 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference inputFragment = run.GetInput(_graph);
             if (!ReferenceEquals(output, fragment)
                 || _replayDepth != 1
-                || !fragment.ContributesValuesToTarget
-                || _values.ContainsKey(fragment)
-                || fragment.Id is { } id
-                    && _cacheResolution.HasSelectedProducer(id)
-                || _resourceUses.GetRemainingUseCount(fragment) != 1)
+                || !IsSingleUseLiveContribution(fragment))
             {
                 return false;
             }
@@ -310,12 +295,8 @@ internal sealed partial class RenderRequestExecutor
             out FilterEffectSegmentRenderFragmentPayload payload)
         {
             payload = null!;
-            if (!fragment.ContributesValuesToTarget
-                || fragment.Inputs.Length != 1
-                || _values.ContainsKey(fragment)
-                || fragment.Id is { } id
-                    && _cacheResolution.HasSelectedProducer(id)
-                || _resourceUses.GetRemainingUseCount(fragment) != 1
+            if (fragment.Inputs.Length != 1
+                || !IsSingleUseLiveContribution(fragment)
                 || !fragment.EffectiveScale.IsUnbounded
                     && fragment.EffectiveScale.Value != destination.Density
                 || fragment.Payload is not FilterEffectSegmentRenderFragmentPayload directPayload
@@ -327,6 +308,14 @@ internal sealed partial class RenderRequestExecutor
             payload = directPayload;
             return true;
         }
+
+        // A value contribution can be replayed straight into the destination only while nothing else reads it:
+        // it is not materialized yet, no selected cache producer keeps it, and this is its one remaining use.
+        private bool IsSingleUseLiveContribution(RenderFragmentReference fragment)
+            => fragment.ContributesValuesToTarget
+               && !_values.ContainsKey(fragment)
+               && !(fragment.Id is { } id && _cacheResolution.HasSelectedProducer(id))
+               && _resourceUses.GetRemainingUseCount(fragment) == 1;
 
         /// <summary>
         /// Reports whether a buffer covering <paramref name="bounds"/> lands on whole device pixels of
@@ -360,284 +349,5 @@ internal sealed partial class RenderRequestExecutor
             _executionLedger.Complete(island);
         }
 
-        public void DisposeNonCacheValues()
-        {
-            try
-            {
-                DisposeValues(static (_, isCapture) => !isCapture);
-            }
-            finally
-            {
-                _values.Clear();
-                _valueReferences.Clear();
-                _backdropCaptures = null;
-            }
-        }
-
-        public void RejectCacheCaptures()
-        {
-            try
-            {
-                DisposeValues(static (_, isCapture) => isCapture);
-            }
-            finally
-            {
-                Array.Clear(_cacheCaptures);
-                ClearCacheCaptureValues();
-            }
-        }
-
-        public bool ValidateCacheCaptures(ref HashSet<RenderNodeCache>? seenCaches)
-        {
-            if (PreviewAllocationDropObserved)
-                return false;
-            if (_cacheResolution.MissCaptureCount == 0)
-                return false;
-
-            bool found = false;
-            for (int decisionIndex = 0; decisionIndex < _cacheResolution.Decisions.Length; decisionIndex++)
-            {
-                RenderCacheDecision decision = _cacheResolution.Decisions[decisionIndex];
-                if (decision.Kind != RenderCacheResolutionKind.MissCapture)
-                    continue;
-                IReadOnlyList<MaterializedRenderValue> capture = _cacheCaptures[decisionIndex]
-                    ?? throw new InvalidOperationException("A selected render-cache miss was not staged.");
-                if (ReferenceEquals(capture, s_suppressedCacheCapture))
-                    continue;
-                RenderNodeCache cache = decision.Candidate.Cache
-                    ?? throw new InvalidOperationException("A production cache capture has no node-cache owner.");
-                ObjectDisposedException.ThrowIf(cache.IsDisposed, cache);
-                if (!(seenCaches ??= new(ReferenceEqualityComparer.Instance)).Add(cache))
-                {
-                    throw new InvalidOperationException(
-                        "One request family cannot atomically publish two independent outputs to the same node cache.");
-                }
-                found = true;
-            }
-            return found;
-        }
-
-        public void AppendCachePublications(
-            ICollection<RenderNodeCachePublication> publications,
-            ICollection<RenderTarget> transferredTargets)
-        {
-            ArgumentNullException.ThrowIfNull(publications);
-            ArgumentNullException.ThrowIfNull(transferredTargets);
-            if (PreviewAllocationDropObserved)
-                return;
-            if (_cacheResolution.MissCaptureCount == 0)
-                return;
-
-            for (int decisionIndex = 0; decisionIndex < _cacheResolution.Decisions.Length; decisionIndex++)
-            {
-                RenderCacheDecision decision = _cacheResolution.Decisions[decisionIndex];
-                if (decision.Kind != RenderCacheResolutionKind.MissCapture)
-                    continue;
-                IReadOnlyList<MaterializedRenderValue> values = _cacheCaptures[decisionIndex]
-                    ?? throw new InvalidOperationException("A selected render-cache miss was not staged.");
-                if (ReferenceEquals(values, s_suppressedCacheCapture))
-                    continue;
-                RenderNodeCache cache = decision.Candidate.Cache!;
-                var cachedValues = new List<RenderNodeCachedValue>(values.Count);
-                foreach (MaterializedRenderValue value in values)
-                {
-                    RenderTarget target = value.TransferToAcceptedCache();
-                    transferredTargets.Add(target);
-                    cachedValues.Add(new RenderNodeCachedValue(
-                        target,
-                        value.Bounds,
-                        value.EffectiveScale,
-                        value.DeviceBounds,
-                        value.DeviceGridOffset)
-                    {
-                        CompleteBounds = value.CompleteBounds,
-                    });
-                    _ownedValues.Remove(value);
-                    RemoveCacheCaptureValue(value);
-                }
-
-                publications.Add(new RenderNodeCachePublication(
-                    cache,
-                    decision.Identity!,
-                    cachedValues));
-            }
-        }
-
-        public void AcceptCacheCaptures()
-        {
-            if (PreviewAllocationDropObserved)
-            {
-                RejectCacheCaptures();
-                return;
-            }
-
-            Array.Clear(_cacheCaptures);
-        }
-
-        public void Dispose()
-        {
-            List<Exception>? failures = null;
-            try
-            {
-                DisposeValues(static (_, _) => true);
-            }
-            catch (AggregateException aggregate)
-            {
-                (failures ??= []).AddRange(aggregate.Flatten().InnerExceptions);
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-            finally
-            {
-                Array.Clear(_cacheCaptures);
-                ClearCacheCaptureValues();
-            }
-
-            try
-            {
-                RejectBuiltInBackdropCaptures();
-            }
-            catch (AggregateException aggregate)
-            {
-                (failures ??= []).AddRange(aggregate.Flatten().InnerExceptions);
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-
-            if (failures is null)
-                return;
-            if (failures.Count == 1)
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            if (failures.Count > 1)
-                throw new AggregateException("One or more execution-state resources failed to dispose.", failures);
-        }
-
-        private void DisposeValues(Func<MaterializedRenderValue, bool, bool> predicate)
-        {
-            List<Exception>? failures = null;
-            // The loop removes from _ownedValues, so it needs a snapshot; Reverse() already buffers the set
-            // into an array that ToArray() then copies a second time, and a set has no order to preserve.
-            var snapshot = new MaterializedRenderValue[_ownedValues.Count];
-            _ownedValues.CopyTo(snapshot);
-            foreach (MaterializedRenderValue value in snapshot)
-            {
-                bool isCapture = IsCacheCaptureValue(value);
-                if (!predicate(value, isCapture))
-                    continue;
-
-                _ownedValues.Remove(value);
-                RemoveCacheCaptureValue(value);
-                try
-                {
-                    DisposeOwnedValue(value);
-                }
-                catch (Exception ex)
-                {
-                    (failures ??= []).Add(ex);
-                }
-            }
-
-            if (failures is null)
-                return;
-            if (failures.Count == 1)
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            throw new AggregateException("One or more render values failed to dispose.", failures);
-        }
-
-        public RenderExecutionStatistics CreateStatistics()
-            => new(
-                _shaderRunExecutions,
-                _shaderStageExecutions,
-                _fusedShaderRunExecutions,
-                _spirvShaderRunExecutions,
-                _intermediateTargetAcquisitions,
-                _programCacheHits,
-                _synchronizations);
-
-        public void ValidateExecutionCompleted(bool allowSkippedIslands)
-            => _executionLedger.ValidateCompleted(
-                allowSkippedIslands || PreviewAllocationDropObserved,
-                _regions);
-
-    }
-}
-
-internal readonly record struct DirectRenderTargetGeometry(float Density, Matrix Transform)
-{
-    public static DirectRenderTargetGeometry FromCanvas(ImmediateCanvas canvas)
-    {
-        ArgumentNullException.ThrowIfNull(canvas);
-        return new DirectRenderTargetGeometry(canvas.Density, canvas.Transform);
-    }
-
-    public bool CanDrawPixelAligned(Rect destination, float sourceDensity, PixelSize sourceSize)
-        => ImmediateCanvas.CanDrawPixelAligned(
-            destination,
-            sourceDensity,
-            sourceSize,
-            Density,
-            Transform);
-}
-
-internal readonly record struct DirectShaderRunPlan(
-    Rect OutputBounds,
-    Rect RequiredRegion,
-    PixelRect OutputDeviceBounds,
-    Rect RasterBounds,
-    float Density);
-
-internal static class DirectShaderRunPlanner
-{
-    public static bool TryResolve(
-        RenderFragmentReference fragment,
-        CompiledShaderRun run,
-        RecordedRenderGraph graph,
-        RegionAnalysis regions,
-        DirectRenderTargetGeometry destination,
-        out DirectShaderRunPlan plan)
-    {
-        plan = default;
-        RenderFragmentReference output = run.GetOutput(graph);
-        if (!ReferenceEquals(output, fragment))
-            return false;
-
-        Rect outputBounds = output.Bounds;
-        RenderFragmentReference requirementFragment = run.GetWholeSourceHead(graph) is null
-            ? output
-            : run.GetStage(graph, 0);
-        Rect requiredRegion = regions.GetFragmentRequirement(requirementFragment).Resolve(outputBounds);
-        if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
-            return false;
-
-        float requestedDensity = fragment.EffectiveScale.IsUnbounded
-            ? destination.Density
-            : fragment.EffectiveScale.Value;
-        float density = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(
-            outputBounds,
-            requestedDensity);
-        if (density != destination.Density)
-            return false;
-
-        PixelRect outputDeviceBounds = PixelRect.FromRect(requiredRegion, density);
-        Rect rasterBounds = outputDeviceBounds.ToRect(density);
-        if (!destination.CanDrawPixelAligned(
-                rasterBounds,
-                density,
-                outputDeviceBounds.Size))
-        {
-            return false;
-        }
-
-        plan = new DirectShaderRunPlan(
-            outputBounds,
-            requiredRegion,
-            outputDeviceBounds,
-            rasterBounds,
-            density);
-        return true;
     }
 }

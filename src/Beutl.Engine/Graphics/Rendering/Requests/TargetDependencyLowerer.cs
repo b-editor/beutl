@@ -188,28 +188,7 @@ internal static class TargetDependencyLowerer
             if (!_scheduledEffects.Add(reference))
                 return;
 
-            Rect? authoredDomain = MapDomainIntoScope(reference, GetDomain(scopeId));
-            TargetScopeId authoredScope = CreateScope(
-                scopeId,
-                reference,
-                authoredDomain,
-                inheritParentToken: true);
-            bool childHasEffects = false;
-            foreach (RenderFragmentReference input in reference.Inputs)
-            {
-                if (input.HasTargetEffects)
-                {
-                    childHasEffects = true;
-                    LowerRoot(input, authoredScope, compositeOutput);
-                }
-            }
-
-            if (compositeOutput && reference.ContributesValuesToTarget && !childHasEffects)
-            {
-                AddStep(reference, authoredScope, TargetDependencyKind.Composite);
-            }
-
-            _currentTokens[scopeId] = _currentTokens[authoredScope];
+            LowerIntoAuthoredScope(reference, scopeId, compositeOutput, reference.Inputs.AsSpan());
         }
 
         private void LowerOpacityMask(
@@ -227,6 +206,20 @@ internal static class TargetDependencyLowerer
                     LowerRoot(dependency, scopeId, compositeOutput: false);
             }
 
+            // Only the primary input is lowered inside the authored scope; the others went to the enclosing one above.
+            LowerIntoAuthoredScope(
+                reference,
+                scopeId,
+                compositeOutput,
+                reference.Inputs.IsDefaultOrEmpty ? [] : reference.Inputs.AsSpan(0, 1));
+        }
+
+        private void LowerIntoAuthoredScope(
+            RenderFragmentReference reference,
+            TargetScopeId scopeId,
+            bool compositeOutput,
+            ReadOnlySpan<RenderFragmentReference> scopedInputs)
+        {
             Rect? authoredDomain = MapDomainIntoScope(reference, GetDomain(scopeId));
             TargetScopeId authoredScope = CreateScope(
                 scopeId,
@@ -234,13 +227,12 @@ internal static class TargetDependencyLowerer
                 authoredDomain,
                 inheritParentToken: true);
             bool childHasEffects = false;
-            if (!reference.Inputs.IsDefaultOrEmpty)
+            foreach (RenderFragmentReference input in scopedInputs)
             {
-                RenderFragmentReference primary = reference.Inputs[0];
-                if (primary.HasTargetEffects)
+                if (input.HasTargetEffects)
                 {
                     childHasEffects = true;
-                    LowerRoot(primary, authoredScope, compositeOutput);
+                    LowerRoot(input, authoredScope, compositeOutput);
                 }
             }
 
@@ -355,14 +347,9 @@ internal static class TargetDependencyLowerer
             if (parentDomain is not { } domain)
                 return null;
 
-            return reference.Payload switch
-            {
-                TargetScopeRenderFragmentPayload scope
-                    => scope.Description.Bounds.GetRequiredInputBounds(domain),
-                RawTargetScopeRenderFragmentPayload scope
-                    => scope.Description.Bounds.GetRequiredInputBounds(domain),
-                _ => domain,
-            };
+            return reference.TryGetScopeBoundsContract(out RenderBoundsContract bounds)
+                ? bounds.GetRequiredInputBounds(domain)
+                : domain;
         }
 
         private static Rect ResolveRegion(

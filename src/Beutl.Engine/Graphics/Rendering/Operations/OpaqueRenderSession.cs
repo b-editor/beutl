@@ -133,7 +133,7 @@ public sealed class OpaqueRenderSession
     public OpaqueRenderOutput CreateOutput(Rect logicalBounds, float? density = null)
     {
         _token.ThrowIfInactive();
-        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(logicalBounds, nameof(logicalBounds));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(logicalBounds, nameof(logicalBounds));
         if (density is { } value && (!float.IsFinite(value) || value <= 0))
         {
             throw new ArgumentOutOfRangeException(
