@@ -229,6 +229,15 @@ public class MFReader : MediaReader
         if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
             return false;
 
+        // Media Foundation can reject a seek past EOF instead of returning an empty read.
+        // Length is decoded PCM bytes; zero can also mean that the duration is unknown.
+        long bytePosition = (long)start * _waveFormat.BlockAlign;
+        if (length <= 0 || (_audioReader.Length > 0 && bytePosition >= _audioReader.Length))
+        {
+            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, 0));
+            return true;
+        }
+
         _audioReader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
         sound = SampleProviderReader.ReadStereo(_provider, _waveFormat.SampleRate, length);
         return true;
