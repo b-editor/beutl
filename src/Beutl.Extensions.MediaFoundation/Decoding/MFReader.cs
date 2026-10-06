@@ -230,7 +230,8 @@ public class MFReader : MediaReader
             return false;
 
         // Media Foundation can reject a seek past EOF instead of returning an empty read.
-        // Length is decoded PCM bytes; zero can also mean that the duration is unknown.
+        // _audioReader.Length is decoded PCM bytes; zero can also mean an unknown duration.
+        // Like SampleProviderReader.ReadStereo, length <= 0 (a frame count) produces empty PCM.
         long bytePosition = (long)start * _waveFormat.BlockAlign;
         if (length <= 0 || (_audioReader.Length > 0 && bytePosition >= _audioReader.Length))
         {

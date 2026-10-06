@@ -160,6 +160,7 @@ public class MFReaderIntegrationTests
         }
     }
 
+    [NonParallelizable]
     [TestCase(3d, 0d, 100f)]
     [TestCase(2d, 0.5d, 100f)]
     [TestCase(2d, 0d, 200f)]
