@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Embedding.MediaFoundation.Decoding;
 using SharpGen.Runtime;
