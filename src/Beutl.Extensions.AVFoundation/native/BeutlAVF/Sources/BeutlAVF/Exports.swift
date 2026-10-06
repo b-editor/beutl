@@ -2,7 +2,7 @@ import CBeutlAVFTypes
 import Foundation
 
 // Increment on any breaking ABI change (struct layout, function signature).
-private let abiVersion: Int32 = 1
+private let abiVersion: Int32 = 2
 
 @_cdecl("beutl_avf_version")
 public func beutl_avf_version() -> Int32 {
@@ -151,9 +151,15 @@ public func beutl_avf_reader_read_audio(
     _ startSample: Int64,
     _ lengthSamples: Int32,
     _ outBuffer: UnsafeMutableRawPointer?,
-    _ capacityBytes: Int32
+    _ capacityBytes: Int32,
+    _ outDecodedSamples: UnsafeMutablePointer<Int32>?
 ) -> Int32 {
     return withErrorHandling {
+        guard let outDecodedSamples = outDecodedSamples else {
+            throw BeutlAVFError.invalidArgument("outDecodedSamples is null")
+        }
+        outDecodedSamples.pointee = 0
+
         guard let reader: Reader = HandleRegistry.borrow(handle) else {
             throw BeutlAVFError.invalidHandle
         }
@@ -163,11 +169,12 @@ public func beutl_avf_reader_read_audio(
         guard let outBuffer = outBuffer else {
             throw BeutlAVFError.invalidArgument("outBuffer is null")
         }
-        try audioContext.readSamples(
+        let decoded = try audioContext.readSamples(
             startSample: Int(startSample),
             length: Int(lengthSamples),
             outBuffer: outBuffer,
             capacityBytes: Int(capacityBytes))
+        outDecodedSamples.pointee = Int32(decoded)
     }
 }
 

@@ -20,6 +20,8 @@ public sealed class AVFReader : MediaReader
 
     public AVFReader(string file, MediaOptions options, AVFDecodingExtension extension)
     {
+        BeutlAVFNative.EnsureCompatibleVersion();
+
         var opts = new BeutlReaderOptions
         {
             MaxVideoBufferSize = extension.Settings?.MaxVideoBufferSize ?? 4,
@@ -148,17 +150,13 @@ public sealed class AVFReader : MediaReader
             return true;
         }
 
-        // The native reader always writes exactly `length` frames, zero-filling any range past
-        // end-of-stream with silence, and reports no per-read decoded count. This is the zero-filled
-        // EOF shape permitted by the ReadAudio contract: NumSamples is always == length here, so callers
-        // must detect EOF by cross-checking `start + length` against the stream duration rather than by
-        // a short read.
+        // Provide the requested capacity for native writes, then trim any uncovered tail at EOF.
         var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
         {
             int capacityBytes = length * (int)buffer.SampleSize;
             int result = BeutlAVFNative.beutl_avf_reader_read_audio(
-                _handle, start, length, buffer.Data, capacityBytes);
+                _handle, start, length, buffer.Data, capacityBytes, out int decoded);
             if (result != 0)
             {
                 _logger.LogWarning(
@@ -166,6 +164,21 @@ public sealed class AVFReader : MediaReader
                     result, BeutlAVFNative.GetLastErrorMessage());
                 buffer.Dispose();
                 return false;
+            }
+
+            if ((uint)decoded > (uint)length)
+            {
+                throw new InvalidOperationException($"BeutlAVF returned an invalid decoded sample count: {decoded}.");
+            }
+
+            if (decoded < length)
+            {
+                var scratch = buffer;
+                buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, decoded);
+                using (scratch)
+                {
+                    scratch.DataSpan[..decoded].CopyTo(buffer.DataSpan);
+                }
             }
 
             sound = Ref<IPcm>.Create(buffer);

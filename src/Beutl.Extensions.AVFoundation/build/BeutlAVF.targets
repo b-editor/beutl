@@ -51,10 +51,13 @@
     <Exec Command="swift build -c $(SwiftBuildConfig) --arch arm64 --arch x86_64"
           WorkingDirectory="$(SwiftPackageRoot)" />
 
-    <PropertyGroup>
-      <SwiftBuildOutputDir>$(SwiftPackageRoot)/.build/apple/Products/Release</SwiftBuildOutputDir>
-      <SwiftBuildOutputDir Condition="'$(SwiftBuildConfig)' == 'debug'">$(SwiftPackageRoot)/.build/apple/Products/Debug</SwiftBuildOutputDir>
-    </PropertyGroup>
+    <!-- SwiftPM build systems use different output layouts; query the one used above. -->
+    <Exec Command="swift build -c $(SwiftBuildConfig) --arch arm64 --arch x86_64 --show-bin-path"
+          WorkingDirectory="$(SwiftPackageRoot)"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="SwiftBuildOutputDir" />
+    </Exec>
 
     <Copy SourceFiles="$(SwiftBuildOutputDir)/$(SwiftDylibName)"
           DestinationFolder="$(SwiftRuntimesRoot)/osx-arm64/native"
