@@ -30,9 +30,8 @@ public class FFmpegDecodingExtension : DecodingExtension
         {
             FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
         }
-        catch (FFmpegLibrariesNotFoundException ex)
+        catch (FFmpegLibrariesNotFoundException)
         {
-            _logger.LogWarning(ex, "FFmpeg libraries not found; prompting install.");
             FFmpegInstallNotifier.NotifyMissing();
         }
         Settings.PropertyChanged += OnSettingsPropertyChanged;
@@ -71,6 +70,10 @@ public class FFmpegDecodingExtension : DecodingExtension
 
                     await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));
                 }
+            }
+            catch (FFmpegLibrariesNotFoundException)
+            {
+                FFmpegInstallNotifier.NotifyMissing();
             }
             catch (Exception ex)
             {

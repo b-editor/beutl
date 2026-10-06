@@ -128,7 +128,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             // A superseded query is no longer the latest request, so it neither logs nor applies.
             if (LatestRefreshTracker.IsCurrent(ct))
             {
-                s_logger.LogWarning(ex, "Failed to refresh pixel formats from FFmpeg worker");
+                if (ex is not FFmpegLibrariesNotFoundException)
+                    s_logger.LogWarning(ex, "Failed to refresh pixel formats from FFmpeg worker");
                 await ApplyOnUiThreadAsync(ct, ApplyFallback).ConfigureAwait(false);
             }
 

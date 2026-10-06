@@ -421,7 +421,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
                     ffmpegErrorCode);
             }
-            else
+            else if (ex is not FFmpegLibrariesNotFoundException)
             {
                 _logger.LogError(ex, "An exception occurred during the encoding process.");
             }
