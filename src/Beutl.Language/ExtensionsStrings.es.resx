@@ -160,4 +160,7 @@ Para forzar la instalación, usa la herramienta CLI.</value>
   <data name="PackageKind_Templates" xml:space="preserve">
     <value>Plantillas</value>
   </data>
+  <data name="RequestedVersionUnavailable" xml:space="preserve">
+    <value>La versión {0} ya no está disponible. Selecciona una versión disponible para continuar.</value>
+  </data>
 </root>

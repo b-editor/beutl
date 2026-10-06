@@ -626,4 +626,100 @@
   <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
     <value>安装 Codex MCP 前，请将 CODEX_HOME 设置为绝对路径。</value>
   </data>
+  <data name="VersionControl_EnableForNewProjects" xml:space="preserve">
+    <value>默认跟踪新项目的历史记录</value>
+  </data>
+  <data name="VersionControl_EnableForNewProjects_Description" xml:space="preserve">
+    <value>在新建项目对话框中显示 Git 的可用状态后，预先选中 Git 历史记录跟踪</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave" xml:space="preserve">
+    <value>保存时记录版本</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave_Description" xml:space="preserve">
+    <value>手动保存项目后自动创建 Git 快照</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose" xml:space="preserve">
+    <value>关闭时记录版本</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose_Description" xml:space="preserve">
+    <value>关闭已启用跟踪的项目时自动创建最后一次 Git 快照</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath" xml:space="preserve">
+    <value>Git 可执行文件</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Description" xml:space="preserve">
+    <value>指定要使用的 Git 可执行文件，留空则自动检测 Git</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Automatic" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable" xml:space="preserve">
+    <value>可用时使用 Git LFS</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable_Description" xml:space="preserve">
+    <value>安装 Git LFS 后，为受支持的媒体文件模式配置 Git LFS</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb" xml:space="preserve">
+    <value>大型媒体文件警告阈值（MB）</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb_Description" xml:space="preserve">
+    <value>不使用 Git LFS 提交达到或超过此大小的媒体文件前发出警告</value>
+  </data>
+  <data name="AiPlan" xml:space="preserve">
+    <value>AI 套餐</value>
+  </data>
+  <data name="AiPlan_Plan" xml:space="preserve">
+    <value>套餐</value>
+  </data>
+  <data name="AiPlan_Pro" xml:space="preserve">
+    <value>Pro</value>
+  </data>
+  <data name="AiPlan_Free" xml:space="preserve">
+    <value>免费</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus" xml:space="preserve">
+    <value>订阅状态</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Active" xml:space="preserve">
+    <value>有效</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Canceled" xml:space="preserve">
+    <value>已取消</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_CancelScheduled" xml:space="preserve">
+    <value>将在当前周期结束时取消</value>
+  </data>
+  <data name="AiPlan_CancelScheduledNotice" xml:space="preserve">
+    <value>已安排取消订阅。Pro 功能可继续使用至 {0}。</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_ActionRequired" xml:space="preserve">
+    <value>需要处理付款</value>
+  </data>
+  <data name="AiPlan_MonthlyUsage" xml:space="preserve">
+    <value>本月用量</value>
+  </data>
+  <data name="AiPlan_MonthlyRemaining" xml:space="preserve">
+    <value>本月剩余额度</value>
+  </data>
+  <data name="AiPlan_AdditionalCredits" xml:space="preserve">
+    <value>额外积分</value>
+  </data>
+  <data name="AiPlan_AdditionalCreditDebt" xml:space="preserve">
+    <value>待结算的已用积分</value>
+  </data>
+  <data name="AiPlan_ManageAndTopUp" xml:space="preserve">
+    <value>管理 / 充值</value>
+  </data>
+  <data name="AiPlan_JoinPro" xml:space="preserve">
+    <value>订阅 Pro</value>
+  </data>
+  <data name="AiPlan_Manage_Description" xml:space="preserve">
+    <value>查看本月 AI 用量并管理套餐或额外积分。</value>
+  </data>
+  <data name="AiPlan_LoadFailed" xml:space="preserve">
+    <value>无法加载 AI 套餐信息。</value>
+  </data>
+  <data name="AiPlan_Loading" xml:space="preserve">
+    <value>正在加载 AI 套餐…</value>
+  </data>
 </root>

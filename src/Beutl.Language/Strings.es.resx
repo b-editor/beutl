@@ -1804,4 +1804,1545 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ModelFile" xml:space="preserve">
     <value>Archivo de modelo 3D</value>
   </data>
+  <data name="Output_WorkspaceBusy" xml:space="preserve">
+    <value>Hay otra operación del espacio de trabajo en curso. Espera a que termine e inténtalo de nuevo.</value>
+  </data>
+  <data name="Output_ProfileRunning" xml:space="preserve">
+    <value>Este perfil de salida sigue en ejecución. Espera a que termine o cancélalo antes de eliminarlo.</value>
+  </data>
+  <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
+    <value>Los archivos del proyecto están ocupados con otra operación. Espera a que termine e inténtalo de nuevo.</value>
+  </data>
+  <data name="PathEditor_ShowStroke" xml:space="preserve">
+    <value>Mostrar contorno</value>
+  </data>
+  <data name="PathEditor_ShowFill" xml:space="preserve">
+    <value>Mostrar relleno</value>
+  </data>
+  <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
+    <value>Guarda el proyecto antes de añadir clips.</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>Buscar o introducir una URL</value>
+  </data>
+  <data name="Forward" xml:space="preserve">
+    <value>Adelante</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>Detener</value>
+  </data>
+  <data name="Menu" xml:space="preserve">
+    <value>Menú</value>
+  </data>
+  <data name="NewTab" xml:space="preserve">
+    <value>Nueva pestaña</value>
+  </data>
+  <data name="OpenInDefaultBrowser" xml:space="preserve">
+    <value>Abrir en el navegador predeterminado</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Imprimir</value>
+  </data>
+  <data name="WebBrowserActionFailed" xml:space="preserve">
+    <value>No se pudo completar la acción del navegador.</value>
+  </data>
+  <data name="InvalidWebAddress" xml:space="preserve">
+    <value>Introduce una dirección HTTP o HTTPS válida.</value>
+  </data>
+  <data name="WebPageLoadFailed" xml:space="preserve">
+    <value>No se pudo cargar la página web.</value>
+  </data>
+  <data name="WebViewUnavailable" xml:space="preserve">
+    <value>No hay ningún entorno de ejecución de WebView compatible disponible.</value>
+  </data>
+  <data name="WebViewWindowsRuntimeHint" xml:space="preserve">
+    <value>Instala Microsoft Edge WebView2 Runtime.</value>
+  </data>
+  <data name="WebViewLinuxRuntimeHint" xml:space="preserve">
+    <value>Instala WebKitGTK 4.1 o WPE WebKit.</value>
+  </data>
+  <data name="OpenLinuxWebViewSetupGuide" xml:space="preserve">
+    <value>Abrir la guía de configuración de WebView</value>
+  </data>
+  <data name="ProxyClipCountSingular" xml:space="preserve">
+    <value>1 clip</value>
+  </data>
+  <data name="ProxyClipCountPlural" xml:space="preserve">
+    <value>{0} clips</value>
+  </data>
+  <data name="ProxyMoreActions" xml:space="preserve">
+    <value>Más acciones</value>
+  </data>
+  <data name="ProxyDetails" xml:space="preserve">
+    <value>Detalles</value>
+  </data>
+  <data name="ProxyEmptyTitle" xml:space="preserve">
+    <value>No hay vídeos para crear proxies</value>
+  </data>
+  <data name="ProxyEmptyDescription" xml:space="preserve">
+    <value>Añade vídeos al proyecto para crear aquí archivos más ligeros para la reproducción de vista previa.</value>
+  </data>
+  <data name="Ai" xml:space="preserve">
+    <value>IA</value>
+  </data>
+  <data name="AiGenerateImage" xml:space="preserve">
+    <value>Generar imagen</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>Generación de imágenes con IA</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="AiPrompt_Placeholder" xml:space="preserve">
+    <value>Describe la imagen que quieres generar...</value>
+  </data>
+  <data name="AiAspectRatio" xml:space="preserve">
+    <value>Relación de aspecto</value>
+  </data>
+  <data name="AiBackground" xml:space="preserve">
+    <value>Fondo</value>
+  </data>
+  <data name="AiBackgroundAuto" xml:space="preserve">
+    <value>Dejar que el modelo decida</value>
+  </data>
+  <data name="AiBackgroundOpaque" xml:space="preserve">
+    <value>Opaco</value>
+  </data>
+  <data name="AiBackgroundTransparent" xml:space="preserve">
+    <value>Transparente</value>
+  </data>
+  <data name="AiGenerateAudio" xml:space="preserve">
+    <value>Generar audio</value>
+  </data>
+  <data name="AiGenerate" xml:space="preserve">
+    <value>Generar</value>
+  </data>
+  <data name="AiGenerating" xml:space="preserve">
+    <value>Generando...</value>
+  </data>
+  <data name="AiAddToScene" xml:space="preserve">
+    <value>Añadir a la escena</value>
+  </data>
+  <data name="AiSaveToFile" xml:space="preserve">
+    <value>Guardar en un archivo</value>
+  </data>
+  <data name="AiMonthlyUsage" xml:space="preserve">
+    <value>Uso mensual: {0}%</value>
+  </data>
+  <data name="AiMonthlyUsageRemaining" xml:space="preserve">
+    <value>Queda el {0}% de la cuota de este mes</value>
+  </data>
+  <data name="AiAdditionalCredits" xml:space="preserve">
+    <value>Créditos comprados: {0}</value>
+  </data>
+  <data name="AiAdditionalCreditDebt" xml:space="preserve">
+    <value>Un reembolso o una disputa revirtió créditos que ya habías gastado. Tu próxima compra de créditos cubrirá primero ese importe.</value>
+  </data>
+  <data name="AiProRequired" xml:space="preserve">
+    <value>Se necesita un plan Pro activo para usar las funciones de IA.</value>
+  </data>
+  <data name="AiJoinPro" xml:space="preserve">
+    <value>Suscribirse a Pro</value>
+  </data>
+  <data name="AiUsageLimitExceeded" xml:space="preserve">
+    <value>Esta solicitud supera tu cuota mensual restante y tus créditos adicionales. Compra créditos adicionales para continuar.</value>
+  </data>
+  <data name="AiFileTooLarge" xml:space="preserve">
+    <value>El archivo seleccionado es demasiado grande. Elige uno más pequeño o transcribe un intervalo más corto de la escena.</value>
+  </data>
+  <data name="AiProviderError" xml:space="preserve">
+    <value>El proveedor de IA no pudo completar la solicitud. Se ha restituido el uso reservado; puedes volver a intentarlo sin riesgo.</value>
+  </data>
+  <data name="AiAuthenticationRequired" xml:space="preserve">
+    <value>Inicia sesión para usar las funciones de IA.</value>
+  </data>
+  <data name="AiRequestInProgress" xml:space="preserve">
+    <value>La misma solicitud sigue en curso en el servidor. Espera un momento y ejecútala de nuevo: se usará el resultado que produzca sin cobrarlo dos veces.</value>
+  </data>
+  <data name="AiRequestChanged" xml:space="preserve">
+    <value>El nombre con el que se envió esta solicitud pertenece a otra solicitud. Restablece el contenido original para recuperar el resultado ya pagado o vuelve a enviarla tal como está para iniciar una nueva.</value>
+  </data>
+  <data name="AiRequestWasDeleted" xml:space="preserve">
+    <value>Esta solicitud se eliminó y su resultado ya no se puede recuperar. Descarta el resultado parcial y ejecútala de nuevo.</value>
+  </data>
+  <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
+    <value>El modelo elegido no admite esta solicitud. Cambia el modelo o las opciones e inténtalo de nuevo.</value>
+  </data>
+  <data name="AiResultUnavailable" xml:space="preserve">
+    <value>No se pudo leer el resultado en este momento. Ejecuta la solicitud de nuevo: se consultará la misma solicitud y no se cobrará dos veces lo ya pagado.</value>
+  </data>
+  <data name="AiResultDownloadFailed" xml:space="preserve">
+    <value>El resultado se generó y ya se ha cobrado, pero no se pudo descargar. Abre el historial de tareas para obtenerlo.</value>
+  </data>
+  <data name="AiUnexpectedError" xml:space="preserve">
+    <value>Algo interrumpió la solicitud. Comprueba si hay un resultado completado en las tareas de IA antes de volver a intentarlo.</value>
+  </data>
+  <data name="AiImageSaved" xml:space="preserve">
+    <value>Se ha guardado la imagen.</value>
+  </data>
+  <data name="AiImageAddedToScene" xml:space="preserve">
+    <value>Se ha añadido la imagen a la escena.</value>
+  </data>
+  <data name="AiGenerateSubtitles" xml:space="preserve">
+    <value>Generar subtítulos</value>
+  </data>
+  <data name="AiSubtitle" xml:space="preserve">
+    <value>Subtítulos con IA</value>
+  </data>
+  <data name="AiSubtitle_AudioSource" xml:space="preserve">
+    <value>Fuente de audio</value>
+  </data>
+  <data name="AiSubtitle_Template" xml:space="preserve">
+    <value>Plantilla de texto</value>
+  </data>
+  <data name="AiSubtitle_DefaultTemplate" xml:space="preserve">
+    <value>Predeterminada</value>
+  </data>
+  <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
+    <value>Aquí aparecen las plantillas de TextBlock guardadas. Su formato, efectos, animación y posición se aplican a todos los subtítulos.</value>
+  </data>
+  <data name="AiSubtitle_Transcribe" xml:space="preserve">
+    <value>Transcribir</value>
+  </data>
+  <data name="AiSubtitle_Transcribing" xml:space="preserve">
+    <value>Transcribiendo…</value>
+  </data>
+  <data name="AiSubtitle_AddToScene" xml:space="preserve">
+    <value>Añadir subtítulos a la escena</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwritePrompt" xml:space="preserve">
+    <value>¿Reemplazar los subtítulos de esta pestaña por el resultado seleccionado del historial? Los subtítulos actuales aún no se han guardado.</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwriteApply" xml:space="preserve">
+    <value>Reemplazar subtítulos</value>
+  </data>
+  <data name="AiSubtitleAddedToScene" xml:space="preserve">
+    <value>Se han añadido los subtítulos a la escena.</value>
+  </data>
+  <data name="AiEditImage" xml:space="preserve">
+    <value>Editar imagen</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>Edición de imágenes con IA</value>
+  </data>
+  <data name="AiEditTask" xml:space="preserve">
+    <value>Tarea</value>
+  </data>
+  <data name="AiEditRemoveBackground" xml:space="preserve">
+    <value>Eliminar fondo</value>
+  </data>
+  <data name="AiEditUpscale" xml:space="preserve">
+    <value>Aumentar resolución</value>
+  </data>
+  <data name="AiEditBrowse" xml:space="preserve">
+    <value>Examinar...</value>
+  </data>
+  <data name="AiEditRun" xml:space="preserve">
+    <value>Ejecutar</value>
+  </data>
+  <data name="AiEditSelectSource" xml:space="preserve">
+    <value>Selecciona primero un archivo de imagen.</value>
+  </data>
+  <data name="AiGenerateVideo" xml:space="preserve">
+    <value>Generar vídeo</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>Generación de vídeos con IA</value>
+  </data>
+  <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
+    <value>Describe el vídeo que quieres generar...</value>
+  </data>
+  <data name="AiVideoDuration" xml:space="preserve">
+    <value>Duración</value>
+  </data>
+  <data name="AiVideoExtensionDuration" xml:space="preserve">
+    <value>Duración de la extensión</value>
+  </data>
+  <data name="AiVideoResolution" xml:space="preserve">
+    <value>Resolución</value>
+  </data>
+  <data name="AiVideoSeconds" xml:space="preserve">
+    <value>segundos</value>
+  </data>
+  <data name="AiVideoSubmitting" xml:space="preserve">
+    <value>Enviando la tarea de generación de vídeo...</value>
+  </data>
+  <data name="AiVideoIdle" xml:space="preserve">
+    <value>Describe el vídeo y haz clic en Generar.</value>
+  </data>
+  <data name="AiVideoProcessing" xml:space="preserve">
+    <value>Generando el vídeo... Esto puede tardar unos minutos.</value>
+  </data>
+  <data name="AiVideoCompleted" xml:space="preserve">
+    <value>Se ha generado el vídeo.</value>
+  </data>
+  <data name="AiVideoFailed" xml:space="preserve">
+    <value>La generación del vídeo ha fallado.</value>
+  </data>
+  <data name="AiVideoJobLimitReached" xml:space="preserve">
+    <value>Ya hay una tarea de generación de vídeo en curso. Espera a que termine.</value>
+  </data>
+  <data name="AiVideoAddedToScene" xml:space="preserve">
+    <value>Se ha añadido el vídeo a la escena.</value>
+  </data>
+  <data name="AiVideoSaved" xml:space="preserve">
+    <value>Se ha guardado el vídeo.</value>
+  </data>
+  <data name="AiClearFrame" xml:space="preserve">
+    <value>Quitar fotograma</value>
+  </data>
+  <data name="AiJobCenter" xml:space="preserve">
+    <value>Tareas de IA</value>
+  </data>
+  <data name="AiJobCenter_Description" xml:space="preserve">
+    <value>Consulta el progreso, reutiliza los resultados generados y añádelos a la escena sin interrumpir la edición.</value>
+  </data>
+  <data name="AiJobCenter_Empty" xml:space="preserve">
+    <value>Aún no hay tareas de IA. Las imágenes, los subtítulos y los vídeos generados aparecerán aquí.</value>
+  </data>
+  <data name="AiJobCenter_LoadFailed" xml:space="preserve">
+    <value>No se pudo cargar el historial de tareas de IA.</value>
+  </data>
+  <data name="AiJobCenter_LoadMore" xml:space="preserve">
+    <value>Cargar más</value>
+  </data>
+  <data name="AiJobCenter_StatusQueued" xml:space="preserve">
+    <value>En cola</value>
+  </data>
+  <data name="AiJobCenter_StatusRunning" xml:space="preserve">
+    <value>Procesando</value>
+  </data>
+  <data name="AiJobCenter_StatusSucceeded" xml:space="preserve">
+    <value>Completada</value>
+  </data>
+  <data name="AiJobCenter_StatusFailed" xml:space="preserve">
+    <value>Fallida · uso restituido</value>
+  </data>
+  <data name="AiJobCenter_StatusCanceled" xml:space="preserve">
+    <value>Cancelada</value>
+  </data>
+  <data name="AiJobCenter_NoDescription" xml:space="preserve">
+    <value>Sin descripción</value>
+  </data>
+  <data name="AiJobCenter_TranslationSummary" xml:space="preserve">
+    <value>Traducción de subtítulos a {0}</value>
+  </data>
+  <data name="AiJobCenter_UsageFormat" xml:space="preserve">
+    <value>Uso {0}</value>
+  </data>
+  <data name="AiJobCenter_Retry" xml:space="preserve">
+    <value>Volver a ejecutar</value>
+  </data>
+  <data name="AiJobCenter_RetryTitle" xml:space="preserve">
+    <value>¿Volver a ejecutar la tarea de IA?</value>
+  </data>
+  <data name="AiJobCenter_CheckingRetryCost" xml:space="preserve">
+    <value>Comprobando la estimación de uso actual…</value>
+  </data>
+  <data name="AiJobCenter_RetryConfirmation" xml:space="preserve">
+    <value>Esto crea una nueva tarea y vuelve a consumir tu cuota. El resultado original se conserva.</value>
+  </data>
+  <data name="AiJobCenter_RetryFailed" xml:space="preserve">
+    <value>No se pudo volver a ejecutar la tarea de IA. Su configuración original sigue disponible.</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitle" xml:space="preserve">
+    <value>¿Eliminar este elemento del historial de IA?</value>
+  </data>
+  <data name="AiJobCenter_DeleteConfirmation" xml:space="preserve">
+    <value>Se eliminarán la copia del servidor, el prompt y el resultado generado. Se conservarán los elementos ya añadidos al proyecto.</value>
+  </data>
+  <data name="AiJobCenter_DeleteFailed" xml:space="preserve">
+    <value>No se pudo eliminar el elemento del historial de IA.</value>
+  </data>
+  <data name="AiJobCenter_AddFailed" xml:space="preserve">
+    <value>No se pudo añadir el resultado generado a la escena.</value>
+  </data>
+  <data name="AiJobCenter_AddedToScene" xml:space="preserve">
+    <value>Se ha añadido el resultado generado a la escena.</value>
+  </data>
+  <data name="AiJobCenter_CompletedNotification" xml:space="preserve">
+    <value>{0} está listo. Abre las tareas de IA para revisar o añadir el resultado.</value>
+  </data>
+  <data name="AiJobCenter_FailedNotification" xml:space="preserve">
+    <value>{0} ha fallado. Se ha restituido el uso reservado; puedes volver a ejecutarlo desde las tareas de IA.</value>
+  </data>
+  <data name="AiJobCenter_CanceledNotification" xml:space="preserve">
+    <value>{0} se ha cancelado. No se ha creado ningún resultado.</value>
+  </data>
+  <data name="AiEstimatedUsage" xml:space="preserve">
+    <value>Consume tu cuota mensual</value>
+  </data>
+  <data name="AiModel" xml:space="preserve">
+    <value>Modelo</value>
+  </data>
+  <data name="AiModelUnavailable" xml:space="preserve">
+    <value>El modelo usado en esta solicitud ya no está disponible. Inicia una nueva solicitud para elegir otro.</value>
+  </data>
+  <data name="AiModelCostLow" xml:space="preserve">
+    <value>Consume menos cuota</value>
+  </data>
+  <data name="AiModelCostMedium" xml:space="preserve">
+    <value>Consumo de cuota habitual</value>
+  </data>
+  <data name="AiModelCostHigh" xml:space="preserve">
+    <value>Consume más cuota</value>
+  </data>
+  <data name="AiModelUnaffordable" xml:space="preserve">
+    <value>Saldo restante insuficiente</value>
+  </data>
+  <data name="AiPricingUnavailable" xml:space="preserve">
+    <value>La información oficial de precios no está disponible. Vuelve a conectarte antes de iniciar esta operación de pago.</value>
+  </data>
+  <data name="AiEstimatedUsageMonthly" xml:space="preserve">
+    <value>Cubierto por tu cuota mensual.</value>
+  </data>
+  <data name="AiEstimatedUsageTopUp" xml:space="preserve">
+    <value>Tu cuota mensual se ha agotado, por lo que se usarán los créditos comprados.</value>
+  </data>
+  <data name="AiEstimatedUsageInsufficient" xml:space="preserve">
+    <value>No queda suficiente cuota ni créditos. Añade créditos antes de empezar.</value>
+  </data>
+  <data name="AiSubtitle_SceneMix" xml:space="preserve">
+    <value>Mezcla de la escena (intervalo seleccionado)</value>
+  </data>
+  <data name="AiSubtitle_Range" xml:space="preserve">
+    <value>Intervalo de la escena</value>
+  </data>
+  <data name="AiSubtitle_SourceLanguage" xml:space="preserve">
+    <value>Idioma del audio</value>
+  </data>
+  <data name="AiSubtitle_TargetLanguage" xml:space="preserve">
+    <value>Traducir a</value>
+  </data>
+  <data name="AiLanguageAuto" xml:space="preserve">
+    <value>Detectar automáticamente</value>
+  </data>
+  <data name="AiSubtitle_DetectedLanguage" xml:space="preserve">
+    <value>Idioma detectado: {0}</value>
+  </data>
+  <data name="AiSubtitle_RunCannotBeRecorded" xml:space="preserve">
+    <value>No se puede registrar esta ejecución, por lo que no puede iniciarse: si la sesión terminara tras el cobro, no se podría volver a recuperar la solicitud. Cierra la otra pestaña de subtítulos de esta escena e inténtalo de nuevo.</value>
+  </data>
+  <data name="AiSubtitle_NoAudioInRange" xml:space="preserve">
+    <value>No se encontró audio en el intervalo seleccionado de la escena.</value>
+  </data>
+  <data name="AiSubtitle_InvalidRange" xml:space="preserve">
+    <value>Introduce un intervalo válido de la escena en el que el final sea posterior al inicio.</value>
+  </data>
+  <data name="AiSubtitle_Import" xml:space="preserve">
+    <value>Importar subtítulos</value>
+  </data>
+  <data name="AiSubtitle_Export" xml:space="preserve">
+    <value>Exportar subtítulos</value>
+  </data>
+  <data name="AiSubtitle_LossySrtExportTitle" xml:space="preserve">
+    <value>¿Exportar SRT sin los metadatos de los subtítulos?</value>
+  </data>
+  <data name="AiSubtitle_LossySrtExportMessage" xml:space="preserve">
+    <value>SRT no puede almacenar hablantes, idiomas ni metadatos estructurados de los subtítulos. Solo se conservarán los tiempos y el texto al exportar. ¿Continuar?</value>
+  </data>
+  <data name="AiSubtitle_ImportFailed" xml:space="preserve">
+    <value>No se pudo importar el archivo de subtítulos.</value>
+  </data>
+  <data name="AiSubtitle_ExportFailed" xml:space="preserve">
+    <value>No se pudo exportar el archivo de subtítulos.</value>
+  </data>
+  <data name="AiSubtitle_Exported" xml:space="preserve">
+    <value>Se ha exportado el archivo de subtítulos.</value>
+  </data>
+  <data name="AiSubtitle_CaptionFiles" xml:space="preserve">
+    <value>Archivos de subtítulos (SRT, WebVTT, ASS)</value>
+  </data>
+  <data name="AiSubtitle_AddCue" xml:space="preserve">
+    <value>Añadir subtítulo</value>
+  </data>
+  <data name="AiSubtitle_DeleteCue" xml:space="preserve">
+    <value>Eliminar subtítulo</value>
+  </data>
+  <data name="AiSubtitle_SplitCue" xml:space="preserve">
+    <value>Dividir en la posición de reproducción</value>
+  </data>
+  <data name="AiSubtitle_MergeCue" xml:space="preserve">
+    <value>Combinar con el siguiente</value>
+  </data>
+  <data name="AiSubtitle_WrapCues" xml:space="preserve">
+    <value>Ajustar líneas</value>
+  </data>
+  <data name="AiSubtitle_MaxLineLength" xml:space="preserve">
+    <value>Caracteres por línea</value>
+  </data>
+  <data name="AiSubtitle_MaxLineCount" xml:space="preserve">
+    <value>Líneas por subtítulo</value>
+  </data>
+  <data name="AiSubtitle_CueStart" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="AiSubtitle_CueEnd" xml:space="preserve">
+    <value>Fin</value>
+  </data>
+  <data name="AiSubtitle_Speaker" xml:space="preserve">
+    <value>Hablante</value>
+  </data>
+  <data name="AiSubtitle_Language" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="AiSubtitle_Text" xml:space="preserve">
+    <value>Texto del subtítulo</value>
+  </data>
+  <data name="AiSubtitle_InvalidTiming" xml:space="preserve">
+    <value>Uno o más subtítulos tienen tiempos de inicio o fin inválidos.</value>
+  </data>
+  <data name="AiSubtitle_ValidationIssues" xml:space="preserve">
+    <value>Hay {0} problemas en los subtítulos que requieren atención. Revisa los tiempos, el orden y los límites de líneas.</value>
+  </data>
+  <data name="AiSubtitle_OverlapWarning" xml:space="preserve">
+    <value>Algunos subtítulos se solapan. Se pueden añadir, pero podrían aparecer al mismo tiempo.</value>
+  </data>
+  <data name="AiSubtitle_Translate" xml:space="preserve">
+    <value>Traducir subtítulos</value>
+  </data>
+  <data name="AiSubtitle_TemplatePreview" xml:space="preserve">
+    <value>Vista previa de la plantilla (aproximada)</value>
+  </data>
+  <data name="AiSubtitle_PreviewSample" xml:space="preserve">
+    <value>Vista previa de tus subtítulos</value>
+  </data>
+  <data name="AiPreviewMode" xml:space="preserve">
+    <value>Vista previa</value>
+  </data>
+  <data name="AiPreviewResult" xml:space="preserve">
+    <value>Resultado</value>
+  </data>
+  <data name="AiPreviewOriginal" xml:space="preserve">
+    <value>Original</value>
+  </data>
+  <data name="AiPreviewSideBySide" xml:space="preserve">
+    <value>Comparar lado a lado</value>
+  </data>
+  <data name="AiEditSourcePreviewFailed" xml:space="preserve">
+    <value>No se pudo previsualizar la imagen seleccionada. Elige otra imagen compatible.</value>
+  </data>
+  <data name="AiPromptDetails" xml:space="preserve">
+    <value>Detalles del prompt</value>
+  </data>
+  <data name="AiPromptStyle" xml:space="preserve">
+    <value>Estilo</value>
+  </data>
+  <data name="AiPromptStylePlaceholder" xml:space="preserve">
+    <value>p. ej., cinematográfico, acuarela, fotorrealista</value>
+  </data>
+  <data name="AiPromptComposition" xml:space="preserve">
+    <value>Composición y cámara</value>
+  </data>
+  <data name="AiPromptCompositionPlaceholder" xml:space="preserve">
+    <value>p. ej., primer plano, gran angular, contraluz suave</value>
+  </data>
+  <data name="AiPromptMotion" xml:space="preserve">
+    <value>Movimiento</value>
+  </data>
+  <data name="AiPromptMotionPlaceholder" xml:space="preserve">
+    <value>p. ej., acercamiento lento de cámara, movimiento natural del sujeto</value>
+  </data>
+  <data name="AiPromptAvoid" xml:space="preserve">
+    <value>Elementos que evitar</value>
+  </data>
+  <data name="AiPromptAvoidPlaceholder" xml:space="preserve">
+    <value>p. ej., texto, logotipos, parpadeos, temblores de cámara</value>
+  </data>
+  <data name="AiVideoFrameGuidance" xml:space="preserve">
+    <value>Guía de fotogramas</value>
+  </data>
+  <data name="AiVideoFrameGuidanceDescription" xml:space="preserve">
+    <value>Usa un primer fotograma para animar una composición existente o añade un último fotograma para generar una transición. Las imágenes solo se suben al generar.</value>
+  </data>
+  <data name="AiVideoUseCurrentFrame" xml:space="preserve">
+    <value>Usar el fotograma actual de la escena</value>
+  </data>
+  <data name="AiVideoFirstFrame" xml:space="preserve">
+    <value>Primer fotograma</value>
+  </data>
+  <data name="AiVideoLastFrame" xml:space="preserve">
+    <value>Último fotograma</value>
+  </data>
+  <data name="AiVideoBrowseFirstFrame" xml:space="preserve">
+    <value>Seleccionar el primer fotograma</value>
+  </data>
+  <data name="AiVideoClearFirstFrame" xml:space="preserve">
+    <value>Quitar el primer fotograma</value>
+  </data>
+  <data name="AiVideoBrowseLastFrame" xml:space="preserve">
+    <value>Seleccionar el último fotograma</value>
+  </data>
+  <data name="AiVideoClearLastFrame" xml:space="preserve">
+    <value>Quitar el último fotograma</value>
+  </data>
+  <data name="AiVideoFrameCaptureFailed" xml:space="preserve">
+    <value>No se pudo capturar el fotograma actual de la escena. Corrige los errores de la vista previa o elige un archivo de imagen.</value>
+  </data>
+  <data name="AiVideoOpenPreview" xml:space="preserve">
+    <value>Abrir vista previa</value>
+  </data>
+  <data name="AiVideoPreviewOpenFailed" xml:space="preserve">
+    <value>No se pudo abrir el vídeo generado en el reproductor multimedia predeterminado.</value>
+  </data>
+  <data name="AiPromptLibraryPrivacy" xml:space="preserve">
+    <value>Los prompts recientes se mantienen en memoria solo durante esta sesión. Solo se guardan localmente las plantillas con nombre y los prompts fijados.</value>
+  </data>
+  <data name="AiOptional" xml:space="preserve">
+    <value>Opcional</value>
+  </data>
+  <data name="AiPromptHistory" xml:space="preserve">
+    <value>Historial de prompts</value>
+  </data>
+  <data name="AiPromptHistoryEmpty" xml:space="preserve">
+    <value>Aún no se ha ejecutado ningún prompt.</value>
+  </data>
+  <data name="AiPromptTemplates" xml:space="preserve">
+    <value>Plantillas de prompts</value>
+  </data>
+  <data name="AiPromptTemplatesEmpty" xml:space="preserve">
+    <value>Aún no hay plantillas guardadas.</value>
+  </data>
+  <data name="AiPromptSeed" xml:space="preserve">
+    <value>Semilla</value>
+  </data>
+  <data name="AiPromptSeedPlaceholder" xml:space="preserve">
+    <value>Aleatoria cada vez</value>
+  </data>
+  <data name="AiReferenceImage" xml:space="preserve">
+    <value>Imágenes de referencia</value>
+  </data>
+  <data name="AiReferenceImageDescription" xml:space="preserve">
+    <value>Guía la generación con imágenes existentes. Solo se suben al generar.</value>
+  </data>
+  <data name="AiClearReferenceImage" xml:space="preserve">
+    <value>Quitar todas las referencias</value>
+  </data>
+  <data name="AiReferenceImageCount" xml:space="preserve">
+    <value>{0} de {1} usadas</value>
+  </data>
+  <data name="AiRemoveReferenceImage" xml:space="preserve">
+    <value>Quitar</value>
+  </data>
+  <data name="AiPromptApply" xml:space="preserve">
+    <value>Aplicar</value>
+  </data>
+  <data name="AiPromptPin" xml:space="preserve">
+    <value>Fijar / desfijar</value>
+  </data>
+  <data name="AiPromptTemplateName" xml:space="preserve">
+    <value>Nombre de la plantilla</value>
+  </data>
+  <data name="AiPromptSaveTemplate" xml:space="preserve">
+    <value>Guardar plantilla</value>
+  </data>
+  <data name="AiPromptClearRecent" xml:space="preserve">
+    <value>Borrar prompts recientes</value>
+  </data>
+  <data name="AiPromptTemplateInvalid" xml:space="preserve">
+    <value>Introduce un nombre de plantilla y un prompt antes de guardar.</value>
+  </data>
+  <data name="AiVideoWaitStopped" xml:space="preserve">
+    <value>Se ha detenido la espera local. La tarea del servidor sigue disponible en el historial de tareas de IA.</value>
+  </data>
+  <data name="AiEditRestyle" xml:space="preserve">
+    <value>Cambiar el estilo con una referencia</value>
+  </data>
+  <data name="AiEditRemoveObject" xml:space="preserve">
+    <value>Eliminar un objeto</value>
+  </data>
+  <data name="AiEditOutpaint" xml:space="preserve">
+    <value>Ampliar el lienzo (outpainting)</value>
+  </data>
+  <data name="AiEditRestylePrompt" xml:space="preserve">
+    <value>Describe el estilo deseado e indica los detalles que deben conservarse.</value>
+  </data>
+  <data name="AiEditRemoveObjectPrompt" xml:space="preserve">
+    <value>Describe el objeto que quieres eliminar y cómo debe quedar el área despejada.</value>
+  </data>
+  <data name="AiEditOutpaintPrompt" xml:space="preserve">
+    <value>Describe qué debe continuar más allá de la imagen original.</value>
+  </data>
+  <data name="AiEditOutpaintExpansion" xml:space="preserve">
+    <value>Ampliación en cada borde</value>
+  </data>
+  <data name="AiSubtitle_PartialTranslationAvailable" xml:space="preserve">
+    <value>Se han traducido {0} de {1} lotes. Puedes usar ahora el resultado parcial ya pagado o ejecutar Traducir de nuevo para continuar sin volver a procesar los lotes completados.</value>
+  </data>
+  <data name="AiSubtitle_PartialTranscriptionAvailable" xml:space="preserve">
+    <value>Se han transcrito {0} de {1} fragmentos de audio. Puedes usar ahora el resultado parcial ya pagado o ejecutar Transcribir de nuevo para continuar sin volver a procesar los fragmentos completados.</value>
+  </data>
+  <data name="AiSubtitle_UsePartialResult" xml:space="preserve">
+    <value>Usar resultado parcial</value>
+  </data>
+  <data name="AiSubtitle_DiscardPartialResult" xml:space="preserve">
+    <value>Descartar resultado parcial</value>
+  </data>
+  <data name="AiSubtitle_CompletedResultAvailable" xml:space="preserve">
+    <value>El resultado de IA ya pagado está listo, pero la fuente o los subtítulos cambiaron durante el procesamiento. Revisa y aplica el resultado recuperable cuando estés listo.</value>
+  </data>
+  <data name="VersionControl" xml:space="preserve">
+    <value>Control de versiones</value>
+  </data>
+  <data name="VersionControl_Enable" xml:space="preserve">
+    <value>Activar el control de versiones…</value>
+  </data>
+  <data name="VersionControl_Enabling" xml:space="preserve">
+    <value>Activando el control de versiones…</value>
+  </data>
+  <data name="VersionControl_EnablingHint" xml:space="preserve">
+    <value>Guardando el proyecto y registrando la primera versión. Esto puede tardar si el proyecto es grande.</value>
+  </data>
+  <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
+    <value>Gestiona este proyecto con Git para registrar versiones automáticamente al guardar.</value>
+  </data>
+  <data name="VersionControl_DownloadGit" xml:space="preserve">
+    <value>Descargar Git</value>
+  </data>
+  <data name="VersionControl_TrackHistory" xml:space="preserve">
+    <value>Registrar el historial con Git</value>
+  </data>
+  <data name="VersionControl_Commit" xml:space="preserve">
+    <value>Confirmar versión…</value>
+  </data>
+  <data name="VersionControl_Push" xml:space="preserve">
+    <value>Enviar</value>
+  </data>
+  <data name="VersionControl_Pull" xml:space="preserve">
+    <value>Obtener</value>
+  </data>
+  <data name="VersionControl_Restore" xml:space="preserve">
+    <value>Restaurar</value>
+  </data>
+  <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
+    <value>Restaurar en una nueva rama…</value>
+  </data>
+  <data name="VersionControl_NewBranch" xml:space="preserve">
+    <value>Nueva rama…</value>
+  </data>
+  <data name="VersionControl_Switch" xml:space="preserve">
+    <value>Cambiar</value>
+  </data>
+  <data name="VersionControl_History" xml:space="preserve">
+    <value>Historial de versiones</value>
+  </data>
+  <data name="VersionControl_ChangedFiles" xml:space="preserve">
+    <value>Archivos modificados</value>
+  </data>
+  <data name="VersionControl_CommitMessage" xml:space="preserve">
+    <value>Mensaje del commit</value>
+  </data>
+  <data name="VersionControl_SnapshotManual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="VersionControl_SnapshotSave" xml:space="preserve">
+    <value>Guardado</value>
+  </data>
+  <data name="VersionControl_SnapshotClose" xml:space="preserve">
+    <value>Cerrado</value>
+  </data>
+  <data name="VersionControl_SnapshotSafety" xml:space="preserve">
+    <value>Instantánea de seguridad</value>
+  </data>
+  <data name="VersionControl_SnapshotRestore" xml:space="preserve">
+    <value>Restaurado</value>
+  </data>
+  <data name="VersionControl_SnapshotRecovery" xml:space="preserve">
+    <value>Recuperado</value>
+  </data>
+  <data name="VersionControl_SnapshotInit" xml:space="preserve">
+    <value>Inicializado</value>
+  </data>
+  <data name="VersionControl_NothingToCommit" xml:space="preserve">
+    <value>No hay cambios nuevos que registrar.</value>
+  </data>
+  <data name="VersionControl_CommitNow" xml:space="preserve">
+    <value>Confirmar</value>
+  </data>
+  <data name="VersionControl_CommitCreated" xml:space="preserve">
+    <value>Se ha registrado la versión.</value>
+  </data>
+  <data name="VersionControl_GitNotInstalled" xml:space="preserve">
+    <value>Se necesita Git para registrar el historial del proyecto.</value>
+  </data>
+  <data name="VersionControl_GitTooOldFormat" xml:space="preserve">
+    <value>Se necesita Git 2.36 o posterior. La versión instalada es {0}.</value>
+  </data>
+  <data name="VersionControl_InstallGitWindows" xml:space="preserve">
+    <value>Instala Git for Windows y reinicia Beutl.</value>
+  </data>
+  <data name="VersionControl_InstallGitMacOS" xml:space="preserve">
+    <value>Instala las herramientas de línea de comandos de Xcode o Git mediante Homebrew y reinicia Beutl.</value>
+  </data>
+  <data name="VersionControl_InstallGitLinux" xml:space="preserve">
+    <value>Instala Git con el gestor de paquetes de tu distribución y reinicia Beutl.</value>
+  </data>
+  <data name="VersionControl_ErrorTitle" xml:space="preserve">
+    <value>Error de control de versiones</value>
+  </data>
+  <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
+    <value>Se guardaron los archivos del proyecto, pero no se pudo registrar la instantánea automática del historial. Comprueba el repositorio de Git y vuelve a guardar.</value>
+  </data>
+  <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
+    <value>La restauración falló, pero se recuperó el proyecto original. Se conservó la rama '{0}' por seguridad. Tras confirmar que ningún otro árbol de trabajo de Git la usa, elimínala manualmente con una herramienta externa de Git.</value>
+  </data>
+  <data name="VersionControl_ConflictGuidance" xml:space="preserve">
+    <value>Este repositorio tiene conflictos sin resolver. Resuélvelos con una herramienta externa de Git antes de continuar.</value>
+  </data>
+  <data name="VersionControl_DetachedHeadGuidance" xml:space="preserve">
+    <value>Este repositorio no está en una rama (HEAD separado). Cambia a una rama con una herramienta externa de Git antes de continuar.</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshot" xml:space="preserve">
+    <value>Cerrar sin registrar una instantánea</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshotConfirmation" xml:space="preserve">
+    <value>No se pudo guardar el proyecto. ¿Cerrarlo sin registrar una instantánea? Se perderán los cambios no guardados.</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
+    <value>Se detectaron marcadores de conflicto</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarning" xml:space="preserve">
+    <value>El proyecto contiene marcadores de conflicto sin resolver en:
+
+{0}
+
+Resuelve los conflictos con una herramienta externa de Git antes de editar. Es posible que el proyecto no se abra correctamente.</value>
+  </data>
+  <data name="VersionControl_IdentityTitle" xml:space="preserve">
+    <value>Configurar la identidad del autor del commit</value>
+  </data>
+  <data name="VersionControl_IdentityName" xml:space="preserve">
+    <value>Nombre</value>
+  </data>
+  <data name="VersionControl_IdentityEmail" xml:space="preserve">
+    <value>Correo electrónico</value>
+  </data>
+  <data name="VersionControl_MissingIdentityNotice" xml:space="preserve">
+    <value>Las instantáneas automáticas del control de versiones están pausadas porque este repositorio no tiene una identidad de autor configurada. Crea una versión manual para establecer un nombre y un correo electrónico locales al repositorio y vuelve a guardar.</value>
+  </data>
+  <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
+    <value>El proyecto se cerrará y volverá a abrirse, y se borrará el historial de deshacer actual. Los cambios no guardados se guardarán primero y se registrarán en una instantánea de seguridad. ¿Continuar?</value>
+  </data>
+  <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
+    <value>La revisión {0} no contiene el archivo del proyecto actual, por lo que no se puede restaurar.</value>
+  </data>
+  <data name="VersionControl_UntrackReservedPathsConfirmation" xml:space="preserve">
+    <value>Este repositorio ya registra los archivos de estado local de Beutl. Mientras sigan bajo seguimiento, cada pull indicará que el repositorio tiene cambios sin confirmar. ¿Dejar de registrarlos? Los archivos permanecerán en el disco.</value>
+  </data>
+  <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
+    <value>Esta operación de control de versiones no está disponible mientras una exportación o un guardado escribe en el proyecto.</value>
+  </data>
+  <data name="VersionControl_RecoveryFailed" xml:space="preserve">
+    <value>La operación falló y no se pudo recuperar el estado original del proyecto. Error de operación: {0} Error de recuperación: {1}</value>
+  </data>
+  <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
+    <value>Git no pudo inspeccionar la carpeta de este proyecto, por lo que se abrió sin control de versiones. {0}</value>
+  </data>
+  <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
+    <value>No se abrió el proyecto porque Beutl no pudo comprobar si un pull protegido aún necesita recuperación. {0}</value>
+  </data>
+  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
+    <value>La transición protegida del repositorio perdió la propiedad o no pudo verificar la recuperación. Usa Recuperar proyecto en Control de versiones o vuelve a abrir el proyecto desde Proyectos recientes para recuperarlo antes de cargarlo. Si Beutl no puede cambiar el árbol de trabajo de forma segura, conserva el punto de control en una referencia persistente de Git.</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
+    <value>Un pull protegido para {0} no finalizó correctamente el {1:g}. ¿Recuperar el estado guardado antes de cargar el proyecto? Cualquier estado del proyecto reemplazado se recargará, borrando su historial de deshacer, y se descartarán los cambios que nunca se guardaron.</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
+    <value>Un pull protegido no finalizó correctamente. Hay un estado guardado del proyecto disponible para recuperarlo.</value>
+  </data>
+  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
+    <value>Recuperar proyecto</value>
+  </data>
+  <data name="VersionControl_PullRecovered" xml:space="preserve">
+    <value>No se pudo completar el pull, pero se recuperó el estado guardado del proyecto.</value>
+  </data>
+  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
+    <value>Se restauró el estado guardado del proyecto como cambios locales. Se conserva una copia persistente en la rama '{0}'.</value>
+  </data>
+  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
+    <value>Beutl no pudo cambiar el árbol de trabajo actual de forma segura. El estado guardado del proyecto se conserva en la referencia de Git '{0}'. Inspecciona esa referencia con Git.</value>
+  </data>
+  <data name="VersionControl_BranchFormat" xml:space="preserve">
+    <value>Rama: {0}</value>
+  </data>
+  <data name="VersionControl_CurrentBranch" xml:space="preserve">
+    <value>Rama actual</value>
+  </data>
+  <data name="VersionControl_Branches" xml:space="preserve">
+    <value>Ramas</value>
+  </data>
+  <data name="VersionControl_RemoteBranch" xml:space="preserve">
+    <value>Solo en remoto</value>
+  </data>
+  <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
+    <value>{0} por delante, {1} por detrás</value>
+  </data>
+  <data name="VersionControl_DirtySummaryFormat" xml:space="preserve">
+    <value>{0} archivo(s) modificado(s)</value>
+  </data>
+  <data name="VersionControl_WorktreeClean" xml:space="preserve">
+    <value>Árbol de trabajo limpio</value>
+  </data>
+  <data name="VersionControl_LoadMore" xml:space="preserve">
+    <value>Cargar más</value>
+  </data>
+  <data name="VersionControl_Diff" xml:space="preserve">
+    <value>Diferencias</value>
+  </data>
+  <data name="VersionControl_NoRepository" xml:space="preserve">
+    <value>Este proyecto no está gestionado con Git.</value>
+  </data>
+  <data name="VersionControl_NoHistory" xml:space="preserve">
+    <value>Aún no se ha registrado ninguna versión.</value>
+  </data>
+  <data name="VersionControl_HistoryEmptyHint" xml:space="preserve">
+    <value>Aún no hay versiones: al guardar el proyecto se registra una automáticamente</value>
+  </data>
+  <data name="VersionControl_ChangedFilesEmptyHint" xml:space="preserve">
+    <value>Selecciona una versión para ver sus cambios</value>
+  </data>
+  <data name="VersionControl_DiffEmptyHint" xml:space="preserve">
+    <value>Selecciona un archivo para ver sus diferencias</value>
+  </data>
+  <data name="VersionControl_TimeJustNow" xml:space="preserve">
+    <value>Ahora mismo</value>
+  </data>
+  <data name="VersionControl_TimeMinuteAgo" xml:space="preserve">
+    <value>Hace 1 minuto</value>
+  </data>
+  <data name="VersionControl_TimeMinutesAgoFormat" xml:space="preserve">
+    <value>Hace {0} minutos</value>
+  </data>
+  <data name="VersionControl_TimeHourAgo" xml:space="preserve">
+    <value>Hace 1 hora</value>
+  </data>
+  <data name="VersionControl_TimeHoursAgoFormat" xml:space="preserve">
+    <value>Hace {0} horas</value>
+  </data>
+  <data name="VersionControl_TimeDayAgo" xml:space="preserve">
+    <value>Hace 1 día</value>
+  </data>
+  <data name="VersionControl_TimeDaysAgoFormat" xml:space="preserve">
+    <value>Hace {0} días</value>
+  </data>
+  <data name="VersionControl_BranchName" xml:space="preserve">
+    <value>Nombre de la rama</value>
+  </data>
+  <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
+    <value>Restaurar en una nueva rama</value>
+  </data>
+  <data name="VersionControl_CreateBranch" xml:space="preserve">
+    <value>Crear rama</value>
+  </data>
+  <data name="VersionControl_SwitchBranch" xml:space="preserve">
+    <value>Cambiar de rama</value>
+  </data>
+  <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
+    <value>El proyecto se cerrará y volverá a abrirse en la rama "{0}", y se borrará el historial de deshacer actual. Los cambios no guardados se guardarán primero y se registrarán en una instantánea de seguridad. ¿Continuar?</value>
+  </data>
+  <data name="VersionControl_SwitchBranchEnclosingRepositoryNotice" xml:space="preserve">
+    <value>Este proyecto comparte un repositorio con otros archivos. Al cambiar de rama se actualiza todo el repositorio, por lo que también cambian los archivos fuera del proyecto.</value>
+  </data>
+  <data name="VersionControl_PullConfirmation" xml:space="preserve">
+    <value>El proyecto se cerrará y volverá a abrirse tras obtener las actualizaciones de avance rápido, y se borrará el historial de deshacer actual. Los cambios no guardados se guardarán primero y se registrarán en una instantánea de seguridad. ¿Continuar?</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
+    <value>Las operaciones de ramas y remotos se aplican al repositorio que contiene el proyecto: {0}</value>
+  </data>
+  <data name="VersionControl_RemoteUrl" xml:space="preserve">
+    <value>URL del remoto</value>
+  </data>
+  <data name="VersionControl_SetRemote" xml:space="preserve">
+    <value>Configurar remoto…</value>
+  </data>
+  <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
+    <value>Configurar remoto</value>
+  </data>
+  <data name="VersionControl_UpToDate" xml:space="preserve">
+    <value>Actualizado</value>
+  </data>
+  <data name="VersionControl_PublishBranch" xml:space="preserve">
+    <value>Publicar rama…</value>
+  </data>
+  <data name="VersionControl_PullCountFormat" xml:space="preserve">
+    <value>Obtener ↓{0}</value>
+  </data>
+  <data name="VersionControl_PushCountFormat" xml:space="preserve">
+    <value>Enviar ↑{0}</value>
+  </data>
+  <data name="VersionControl_RemoteConnected" xml:space="preserve">
+    <value>Se ha conectado el remoto.</value>
+  </data>
+  <data name="VersionControl_Pushing" xml:space="preserve">
+    <value>Enviando versiones…</value>
+  </data>
+  <data name="VersionControl_Pulling" xml:space="preserve">
+    <value>Obteniendo versiones…</value>
+  </data>
+  <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
+    <value>Se ha completado la operación remota.</value>
+  </data>
+  <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
+    <value>Se ha cancelado la operación remota.</value>
+  </data>
+  <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
+    <value>Los archivos multimedia grandes se almacenan con Git LFS. El alojamiento remoto puede aplicar cuotas al almacenamiento y al ancho de banda de LFS.</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
+    <value>{0} es un archivo grande y Git LFS no está activo. Confirmarlo puede aumentar permanentemente el tamaño del historial del repositorio. El commit continuará.</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
+    <value>Este proyecto está dentro de un repositorio de Git existente.</value>
+  </data>
+  <data name="VersionControl_AdoptExistingRepository" xml:space="preserve">
+    <value>La carpeta de este proyecto ya es un repositorio de Git que Beutl no gestiona. ¿Gestionar el proyecto con él? Beutl añadirá sus reglas de exclusión y atributos, y registrará una versión al guardar o cerrar.</value>
+  </data>
+  <data name="VersionControl_AdoptRepositoryAction" xml:space="preserve">
+    <value>Gestionar en este repositorio</value>
+  </data>
+  <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
+    <value>Usar el repositorio que contiene el proyecto</value>
+  </data>
+  <data name="VersionControl_LeaveUnmanaged" xml:space="preserve">
+    <value>Dejar sin gestionar</value>
+  </data>
+  <data name="VersionControl_AuthenticationFailed" xml:space="preserve">
+    <value>La autenticación ha fallado. Comprueba el gestor de credenciales de Git o el agente SSH.</value>
+  </data>
+  <data name="VersionControl_Diverged" xml:space="preserve">
+    <value>Los historiales local y remoto han divergido. Resuélvelo con una herramienta externa de Git.</value>
+  </data>
+  <data name="VersionControl_PullUpstreamOnAnotherRemote" xml:space="preserve">
+    <value>Esta rama sigue un remoto distinto de origin. Obtén sus cambios con una herramienta externa de Git o configura origin como su upstream.</value>
+  </data>
+  <data name="VersionControl_LfsInstallFailedNotice" xml:space="preserve">
+    <value>No se pudo configurar Git LFS para este repositorio, por lo que los archivos multimedia se almacenan como archivos normales de Git. Comprueba los hooks del repositorio y vuelve a abrir el proyecto para reintentarlo.</value>
+  </data>
+  <data name="VersionControl_RepositoryDirty" xml:space="preserve">
+    <value>Para hacer pull, todo el repositorio debe estar limpio. Confirma o guarda en stash los cambios fuera del proyecto e inténtalo de nuevo.</value>
+  </data>
+  <data name="VersionControl_Offline" xml:space="preserve">
+    <value>No se pudo conectar con el remoto. Comprueba tu conexión de red e inténtalo de nuevo.</value>
+  </data>
+  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
+    <value>Un bloqueo obsoleto del repositorio de Git impide las operaciones de control de versiones.</value>
+  </data>
+  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
+    <value>Eliminar bloqueo obsoleto</value>
+  </data>
+  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
+    <value>Git dejó un bloqueo del repositorio hace más de 10 minutos y Beutl no tiene ningún proceso de Git activo. ¿Eliminar el bloqueo obsoleto?</value>
+  </data>
+  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
+    <value>Se ha eliminado el bloqueo obsoleto del repositorio de Git. Vuelve a intentar la operación de control de versiones.</value>
+  </data>
+  <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
+    <value>Beutl no puede eliminar este bloqueo de Git de forma segura en el sistema de archivos actual. Cierra las herramientas externas de Git, comprueba que no haya procesos de Git en ejecución y elimina {0} manualmente antes de reintentar.</value>
+  </data>
+  <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
+    <value>El control de versiones está actualizando los archivos del proyecto. Espera a que termine la operación e inténtalo de nuevo.</value>
+  </data>
+  <data name="AiPendingRequest" xml:space="preserve">
+    <value>Solicitud de IA pendiente</value>
+  </data>
+  <data name="AiRecoverRequest" xml:space="preserve">
+    <value>Recuperar</value>
+  </data>
+  <data name="AiAbandonRequest" xml:space="preserve">
+    <value>Descartar</value>
+  </data>
+  <data name="AiSubtitle_Edit" xml:space="preserve">
+    <value>Editar subtítulos</value>
+  </data>
+  <data name="AiSubtitle_TranscribeDescription" xml:space="preserve">
+    <value>Elige una fuente de audio y crea subtítulos con marcas de tiempo.</value>
+  </data>
+  <data name="AiSubtitle_EditDescription" xml:space="preserve">
+    <value>Revisa los tiempos y el texto, elige una apariencia y añade los subtítulos a la escena.</value>
+  </data>
+  <data name="AiSubtitle_TranslateDescription" xml:space="preserve">
+    <value>Traduce los subtítulos actuales a otro idioma.</value>
+  </data>
+  <data name="WebDownloadMedia" xml:space="preserve">
+    <value>Descargar archivos multimedia</value>
+  </data>
+  <data name="WebDownloadProject" xml:space="preserve">
+    <value>Directorio del proyecto</value>
+  </data>
+  <data name="WebDownloadMaterials" xml:space="preserve">
+    <value>Carpeta de recursos compartidos</value>
+  </data>
+  <data name="WebDownloadAddToTimeline" xml:space="preserve">
+    <value>Añadir a la línea de tiempo después de descargar</value>
+  </data>
+  <data name="WebDownloadProjectUnavailable" xml:space="preserve">
+    <value>Guarda primero el proyecto para usar su directorio.</value>
+  </data>
+  <data name="WebDownloadUnsupported" xml:space="preserve">
+    <value>Solo se admiten descargas directas HTTP(S) de imágenes, audio o vídeo.</value>
+  </data>
+  <data name="WebDownloadHtmlResponse" xml:space="preserve">
+    <value>Esta URL devolvió una página web en lugar de un archivo multimedia. Usa el enlace de descarga del archivo.</value>
+  </data>
+  <data name="WebDownloadIncomplete" xml:space="preserve">
+    <value>La descarga está vacía o incompleta.</value>
+  </data>
+  <data name="WebDownloadComplete" xml:space="preserve">
+    <value>Guardado: {0}</value>
+  </data>
+  <data name="WebDownloadFailed" xml:space="preserve">
+    <value>La descarga ha fallado: {0}</value>
+  </data>
+  <data name="WebDownloadCanceled" xml:space="preserve">
+    <value>Descarga cancelada.</value>
+  </data>
+  <data name="WebDownloadImportFailed" xml:space="preserve">
+    <value>Se ha guardado en {0}, pero la importación a la línea de tiempo ha fallado: {1}</value>
+  </data>
+  <data name="BrowserDownloads" xml:space="preserve">
+    <value>Historial de descargas</value>
+  </data>
+  <data name="BrowserBookmarks" xml:space="preserve">
+    <value>Marcadores</value>
+  </data>
+  <data name="BrowserAddBookmark" xml:space="preserve">
+    <value>Añadir marcador</value>
+  </data>
+  <data name="BrowserSettings" xml:space="preserve">
+    <value>Búsqueda y privacidad</value>
+  </data>
+  <data name="BrowserRetry" xml:space="preserve">
+    <value>Descargar de nuevo</value>
+  </data>
+  <data name="BrowserFileMissing" xml:space="preserve">
+    <value>El archivo o la carpeta guardados ya no existen.</value>
+  </data>
+  <data name="BrowserStorageError" xml:space="preserve">
+    <value>No se pudieron guardar los datos del navegador: {0}</value>
+  </data>
+  <data name="BrowserSearchEngine" xml:space="preserve">
+    <value>Motor de búsqueda</value>
+  </data>
+  <data name="BrowserRemoteSuggestions" xml:space="preserve">
+    <value>Enviar los términos de búsqueda escritos para obtener sugerencias</value>
+  </data>
+  <data name="BrowserRecordDownloads" xml:space="preserve">
+    <value>Guardar el historial de descargas</value>
+  </data>
+  <data name="BrowserClearHistory" xml:space="preserve">
+    <value>Borrar historial local</value>
+  </data>
+  <data name="BrowserHistoryDescription" xml:space="preserve">
+    <value>Borra las sugerencias de direcciones y los registros de descargas de todas las pestañas. Se conservan los archivos y los marcadores.</value>
+  </data>
+  <data name="BrowserHistoryCleared" xml:space="preserve">
+    <value>Se ha borrado el historial local.</value>
+  </data>
+  <data name="BrowserClearCookies" xml:space="preserve">
+    <value>Eliminar las cookies del navegador</value>
+  </data>
+  <data name="BrowserCookieWarning" xml:space="preserve">
+    <value>Entiendo que al eliminar las cookies puedo cerrar mi sesión en sitios web.</value>
+  </data>
+  <data name="BrowserCookiesCleared" xml:space="preserve">
+    <value>Se ha solicitado la eliminación de cookies. No se han borrado la caché ni el almacenamiento de los sitios.</value>
+  </data>
+  <data name="BrowserCookiesUnsupported" xml:space="preserve">
+    <value>Este motor de navegador no permite eliminar las cookies.</value>
+  </data>
+  <data name="BrowserFind" xml:space="preserve">
+    <value>Buscar en la página</value>
+  </data>
+  <data name="BrowserFindNext" xml:space="preserve">
+    <value>Siguiente coincidencia</value>
+  </data>
+  <data name="BrowserFindPrevious" xml:space="preserve">
+    <value>Coincidencia anterior</value>
+  </data>
+  <data name="BrowserFindCount" xml:space="preserve">
+    <value>{0} de {1}</value>
+  </data>
+  <data name="BrowserPageToolsUnavailable" xml:space="preserve">
+    <value>Las herramientas de página no están disponibles en esta página.</value>
+  </data>
+  <data name="BrowserZoomIn" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="BrowserZoomOut" xml:space="preserve">
+    <value>Alejar</value>
+  </data>
+  <data name="BrowserZoomReset" xml:space="preserve">
+    <value>Restablecer zoom</value>
+  </data>
+  <data name="BrowserCookieSessionRequired" xml:space="preserve">
+    <value>Abre una pestaña del navegador para gestionar las cookies. Algunos motores no permiten eliminarlas.</value>
+  </data>
+  <data name="BrowserStartDescription" xml:space="preserve">
+    <value>Busca referencias y archivos multimedia mientras editas. Descarga archivos multimedia y añádelos a la línea de tiempo.</value>
+  </data>
+  <data name="BrowserStartSearch" xml:space="preserve">
+    <value>Empezar a navegar</value>
+  </data>
+  <data name="BrowserBookmarksEmpty" xml:space="preserve">
+    <value>Tus páginas favoritas, en un solo lugar</value>
+  </data>
+  <data name="BrowserBookmarksHint" xml:space="preserve">
+    <value>Añade un marcador para abrir rápidamente páginas de referencia y sitios de recursos.</value>
+  </data>
+  <data name="BrowserSearchSection" xml:space="preserve">
+    <value>Búsqueda</value>
+  </data>
+  <data name="BrowserSearchEngineDescription" xml:space="preserve">
+    <value>Se usa para las búsquedas y sugerencias de la barra de direcciones.</value>
+  </data>
+  <data name="BrowserSuggestionsTitle" xml:space="preserve">
+    <value>Sugerencias de búsqueda</value>
+  </data>
+  <data name="BrowserPrivacySection" xml:space="preserve">
+    <value>Historial y privacidad</value>
+  </data>
+  <data name="BrowserRecordDownloadsDescription" xml:space="preserve">
+    <value>Conserva las descargas completadas para poder abrirlas o importarlas más tarde.</value>
+  </data>
+  <data name="BrowserCookiesDescription" xml:space="preserve">
+    <value>Elimina las cookies que mantienen las sesiones y preferencias de los sitios web.</value>
+  </data>
+  <data name="BrowserHistoryIntro" xml:space="preserve">
+    <value>Tus archivos multimedia guardados, listos para usar.</value>
+  </data>
+  <data name="BrowserHistoryEmpty" xml:space="preserve">
+    <value>Aún no hay descargas</value>
+  </data>
+  <data name="BrowserHistoryEmptyHint" xml:space="preserve">
+    <value>Los archivos multimedia descargados aparecen aquí
+cuando el registro del historial está activado.</value>
+  </data>
+  <data name="BrowserAddToTimeline" xml:space="preserve">
+    <value>Añadir a la línea de tiempo</value>
+  </data>
+  <data name="BrowserRemoveHistoryItem" xml:space="preserve">
+    <value>Eliminar del historial</value>
+  </data>
+  <data name="BrowserDownloadDestination" xml:space="preserve">
+    <value>Guardar en</value>
+  </data>
+  <data name="BrowserDownloadAfter" xml:space="preserve">
+    <value>Después de descargar</value>
+  </data>
+  <data name="BrowserDownloadStart" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
+  <data name="BrowserFindNoResults" xml:space="preserve">
+    <value>No se encontraron coincidencias.</value>
+  </data>
+  <data name="BrowserFindUnavailable" xml:space="preserve">
+    <value>La búsqueda no está disponible en esta página.</value>
+  </data>
+  <data name="BrowserPageDownloadRequest" xml:space="preserve">
+    <value>Descarga solicitada por esta página</value>
+  </data>
+  <data name="BrowserIgnorePageDownloads" xml:space="preserve">
+    <value>Ignorar las solicitudes de descarga hasta que se recargue esta página</value>
+  </data>
+  <data name="CloudStorage" xml:space="preserve">
+    <value>Almacenamiento de Beutl</value>
+  </data>
+  <data name="CloudStorageSignIn" xml:space="preserve">
+    <value>Inicia sesión para ver los archivos y las carpetas de tu almacenamiento de Beutl.</value>
+  </data>
+  <data name="CloudStorageAccountSettings" xml:space="preserve">
+    <value>Abrir la configuración de la cuenta</value>
+  </data>
+  <data name="CloudStorageUp" xml:space="preserve">
+    <value>Carpeta superior</value>
+  </data>
+  <data name="CloudStorageFolder" xml:space="preserve">
+    <value>Carpeta</value>
+  </data>
+  <data name="CloudStoragePublic" xml:space="preserve">
+    <value>Público</value>
+  </data>
+  <data name="CloudStoragePrivate" xml:space="preserve">
+    <value>Privado</value>
+  </data>
+  <data name="CloudStorageDedicated" xml:space="preserve">
+    <value>En uso</value>
+  </data>
+  <data name="CloudStorageFree" xml:space="preserve">
+    <value>Gratis</value>
+  </data>
+  <data name="CloudStorageUsage" xml:space="preserve">
+    <value>{0} / {1} · {2:N0} / {3:N0} archivos · {4}</value>
+  </data>
+  <data name="CloudStorageEmpty" xml:space="preserve">
+    <value>No hay archivos ni carpetas que mostrar.</value>
+  </data>
+  <data name="CloudStorageLoadFailed" xml:space="preserve">
+    <value>No se pudo cargar el almacenamiento de Beutl. Comprueba la conexión e intenta actualizar.</value>
+  </data>
+  <data name="CloudStorageUnavailable" xml:space="preserve">
+    <value>La exploración del almacenamiento de Beutl aún no está disponible en este servidor.</value>
+  </data>
+  <data name="LocalFiles" xml:space="preserve">
+    <value>Este dispositivo</value>
+  </data>
+  <data name="StorageLocations" xml:space="preserve">
+    <value>Ubicaciones de almacenamiento</value>
+  </data>
+  <data name="StorageProviderOpenFailed" xml:space="preserve">
+    <value>No se pudo abrir este servicio de almacenamiento. Inténtalo de nuevo.</value>
+  </data>
+  <data name="CloudStorageLoadingMore" xml:space="preserve">
+    <value>Cargando más archivos…</value>
+  </data>
+  <data name="CloudStorageLoadMoreFailed" xml:space="preserve">
+    <value>No se pudieron cargar más archivos.</value>
+  </data>
+  <data name="CloudStorageRetryLoadMore" xml:space="preserve">
+    <value>Reintentar</value>
+  </data>
+  <data name="CloudStorageDownload" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
+  <data name="CloudStorageCopyLink" xml:space="preserve">
+    <value>Copiar enlace</value>
+  </data>
+  <data name="CloudStorageSetPublic" xml:space="preserve">
+    <value>Hacer público</value>
+  </data>
+  <data name="CloudStorageSetPrivate" xml:space="preserve">
+    <value>Hacer privado</value>
+  </data>
+  <data name="CloudStorageDedicatedHint" xml:space="preserve">
+    <value>Este archivo está gestionado por otra función. Aquí puedes verlo, descargarlo o moverlo.</value>
+  </data>
+  <data name="CloudStorageFileInUse" xml:space="preserve">
+    <value>Este archivo está en uso y no se puede modificar.</value>
+  </data>
+  <data name="CloudStorageFolderInUse" xml:space="preserve">
+    <value>Esta carpeta contiene archivos en uso y no se puede eliminar.</value>
+  </data>
+  <data name="CloudStorageInvalidMove" xml:space="preserve">
+    <value>No se puede mover una carpeta a sí misma ni a una de sus subcarpetas.</value>
+  </data>
+  <data name="CloudStorageItemNotFound" xml:space="preserve">
+    <value>El archivo o la carpeta ya no existen o no están disponibles.</value>
+  </data>
+  <data name="CloudStorageInvalidRequest" xml:space="preserve">
+    <value>Comprueba el nombre o el destino e inténtalo de nuevo.</value>
+  </data>
+  <data name="CloudStorageActionFailed" xml:space="preserve">
+    <value>No se pudo completar la operación de almacenamiento. Actualiza para comprobar el estado actual antes de reintentar.</value>
+  </data>
+  <data name="CloudStorageInvalidName" xml:space="preserve">
+    <value>Introduce un nombre de entre 1 y 255 caracteres sin caracteres de control.</value>
+  </data>
+  <data name="CloudStorageDeleteFiles" xml:space="preserve">
+    <value>¿Eliminar los {0:N0} archivos seleccionados? Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="CloudStorageDeleteFolder" xml:space="preserve">
+    <value>¿Eliminar “{0}” y su contenido ({1:N0} carpetas y {2:N0} archivos)? Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="CloudStorageDeleteSkipped" xml:space="preserve">
+    <value>Se conservarán {0:N0} archivos en uso.</value>
+  </data>
+  <data name="CloudStorageMoveHere" xml:space="preserve">
+    <value>Mover aquí</value>
+  </data>
+  <data name="CloudStorageMoveDescription" xml:space="preserve">
+    <value>Elige una carpeta de destino.</value>
+  </data>
+  <data name="CloudStorageSelectionLimit" xml:space="preserve">
+    <value>Selecciona como máximo 200 archivos por operación.</value>
+  </data>
+  <data name="CloudStorageDownloading" xml:space="preserve">
+    <value>Descargando…</value>
+  </data>
+  <data name="CloudStorageUploading" xml:space="preserve">
+    <value>Subiendo {0}…</value>
+  </data>
+  <data name="CloudStorageEmptyUpload" xml:space="preserve">
+    <value>No se pueden subir archivos vacíos a este servicio de almacenamiento.</value>
+  </data>
+  <data name="CloudStorageQuotaExceeded" xml:space="preserve">
+    <value>Se ha alcanzado el límite de capacidad de almacenamiento o de cantidad de archivos.</value>
+  </data>
+  <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
+    <value>Se ha subido {0}, pero no se pudo mover a la carpeta de destino. Está disponible en la raíz del almacenamiento.</value>
+  </data>
+  <data name="CloudStorageRollingBackUpload" xml:space="preserve">
+    <value>Eliminando los elementos creados por la subida interrumpida…</value>
+  </data>
+  <data name="CloudStorageUploadRollbackIncomplete" xml:space="preserve">
+    <value>Puede que queden algunos elementos subidos porque no se pudo completar la limpieza. Revisa el almacenamiento en la cuenta original.</value>
+  </data>
+  <data name="CloudStoragePreparingDrag" xml:space="preserve">
+    <value>Preparando {0} para arrastrarlo…</value>
+  </data>
+  <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
+    <value>Esta ubicación no permite reemplazar archivos de forma segura. Elige una carpeta local para esta descarga.</value>
+  </data>
+  <data name="CloudStorageMimeType" xml:space="preserve">
+    <value>Tipo MIME</value>
+  </data>
+  <data name="CloudStorageCreatedAt" xml:space="preserve">
+    <value>Fecha de creación</value>
+  </data>
+  <data name="AiVideoEditing" xml:space="preserve">
+    <value>Edición de vídeo</value>
+  </data>
+  <data name="AiVideoExtend" xml:space="preserve">
+    <value>Extender vídeo</value>
+  </data>
+  <data name="AiVideoMotion" xml:space="preserve">
+    <value>Control de movimiento</value>
+  </data>
+  <data name="AiSourceVideo" xml:space="preserve">
+    <value>Vídeo de origen</value>
+  </data>
+  <data name="AiCharacterImage" xml:space="preserve">
+    <value>Imagen de persona o personaje</value>
+  </data>
+  <data name="AiMotionStandard" xml:space="preserve">
+    <value>Estándar</value>
+  </data>
+  <data name="AiMotionPro" xml:space="preserve">
+    <value>Alta calidad</value>
+  </data>
+  <data name="AiVideoInput" xml:space="preserve">
+    <value>Recursos de entrada del vídeo</value>
+  </data>
+  <data name="AiReferenceImages" xml:space="preserve">
+    <value>Imágenes de referencia</value>
+  </data>
+  <data name="AiReferenceVideos" xml:space="preserve">
+    <value>Vídeos de referencia</value>
+  </data>
+  <data name="AiReferenceAudio" xml:space="preserve">
+    <value>Audio de referencia</value>
+  </data>
+  <data name="AiVideoReferenceLimit" xml:space="preserve">
+    <value>{0} / {1} archivos · Hasta {2:0.#} MiB cada uno</value>
+  </data>
+  <data name="AiVideoReferenceTotal" xml:space="preserve">
+    <value>Hasta 32 MiB en total, con un máximo de 20 MiB de imágenes.</value>
+  </data>
+  <data name="AiVideoRemoveReference" xml:space="preserve">
+    <value>Quitar {0}</value>
+  </data>
+  <data name="AiVideoReferencePaused" xml:space="preserve">
+    <value>Las referencias se conservan, pero no se envían mientras haya un primer fotograma seleccionado.</value>
+  </data>
+  <data name="AiChooseCharacterImage" xml:space="preserve">
+    <value>Elige una imagen de persona o personaje.</value>
+  </data>
+  <data name="AiChooseVideoInput" xml:space="preserve">
+    <value>Este modelo necesita un primer fotograma o recursos de referencia.</value>
+  </data>
+  <data name="AiVideoInputUnavailable" xml:space="preserve">
+    <value>No se puede leer este recurso. Elige un archivo compatible.</value>
+  </data>
+  <data name="AiSourceVideoHelp" xml:space="preserve">
+    <value>MP4 / WebM, hasta 32 MiB. La edición usa la duración del original; la extensión permite especificar la duración añadida.</value>
+  </data>
+  <data name="AiMotionOrientation" xml:space="preserve">
+    <value>Ajustar la orientación a</value>
+  </data>
+  <data name="AiMotionQuality" xml:space="preserve">
+    <value>Calidad</value>
+  </data>
+  <data name="AiVideoNoSourceSelected" xml:space="preserve">
+    <value>No hay ningún vídeo seleccionado</value>
+  </data>
+  <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
+    <value>Describe los cambios que quieres hacer en el vídeo...</value>
+  </data>
+  <data name="AiVideoEditingIdle" xml:space="preserve">
+    <value>Elige un vídeo y una tarea, y haz clic en Ejecutar.</value>
+  </data>
+  <data name="BrowserBlockAds" xml:space="preserve">
+    <value>Bloquear anuncios</value>
+  </data>
+  <data name="BrowserBlockAdsDescription" xml:space="preserve">
+    <value>Recarga las páginas después de cambiar esta opción.</value>
+  </data>
+  <data name="BrowserAdBlockLists" xml:space="preserve">
+    <value>URL de filtros (HTTPS, una por línea)</value>
+  </data>
+  <data name="BrowserAdBlockCompatibility" xml:space="preserve">
+    <value>Compatible con EasyList con algunas limitaciones de reglas. Las actualizaciones son manuales.</value>
+  </data>
+  <data name="BrowserAdBlockUpdate" xml:space="preserve">
+    <value>Actualizar filtros</value>
+  </data>
+  <data name="BrowserAdBlockFilterStatus" xml:space="preserve">
+    <value>{0:N0} reglas · {1:N0} no compatibles · Actualizado {2}</value>
+  </data>
+  <data name="BrowserAdBlockNotDownloaded" xml:space="preserve">
+    <value>Filtros sin descargar</value>
+  </data>
+  <data name="BrowserAdBlockUpdated" xml:space="preserve">
+    <value>Filtros actualizados.</value>
+  </data>
+  <data name="BrowserAdBlockFailed" xml:space="preserve">
+    <value>No se pudo aplicar el bloqueo de anuncios: {0}</value>
+  </data>
+  <data name="BrowserAdBlockUpdateFailed" xml:space="preserve">
+    <value>No se pudieron actualizar los filtros: {0}</value>
+  </data>
+  <data name="BrowserAdBlockInvalidUrls" xml:space="preserve">
+    <value>Introduce de 1 a 8 URL HTTPS, una por línea, sin credenciales ni fragmentos.</value>
+  </data>
+  <data name="BrowserAdBlockListTooLarge" xml:space="preserve">
+    <value>Las listas de filtros superan el límite de descarga de 16 MiB.</value>
+  </data>
+  <data name="BrowserAdBlockInvalidList" xml:space="preserve">
+    <value>La respuesta no es una lista de filtros Adblock compatible.</value>
+  </data>
+  <data name="BrowserAdBlockUnsupported" xml:space="preserve">
+    <value>Este WebView no permite bloquear solicitudes.</value>
+  </data>
+  <data name="BrowserAdBlockLoading" xml:space="preserve">
+    <value>Cargando filtros...</value>
+  </data>
+  <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
+    <value>Introduce un valor…</value>
+  </data>
+  <data name="CommandPalette_ChoicePlaceholder" xml:space="preserve">
+    <value>Escribe para filtrar las opciones…</value>
+  </data>
+  <data name="CommandPalette_NoChoices" xml:space="preserve">
+    <value>No hay opciones coincidentes</value>
+  </data>
+  <data name="VersionControl_RemoteCredentialsSaveFailed" xml:space="preserve">
+    <value>No se pudieron guardar las credenciales proporcionadas. Configura un gestor de credenciales de Git que funcione e inténtalo de nuevo.</value>
+  </data>
+  <data name="TabSwitcher_Title" xml:space="preserve">
+    <value>Cambiar de pestaña</value>
+  </data>
+  <data name="TabSwitcher_Documents" xml:space="preserve">
+    <value>Archivos</value>
+  </data>
+  <data name="TabSwitcher_Tools" xml:space="preserve">
+    <value>Pestañas de herramientas</value>
+  </data>
+  <data name="TabSwitcher_Create" xml:space="preserve">
+    <value>Crear pestaña de herramienta</value>
+  </data>
+  <data name="TabSwitcher_NewTab" xml:space="preserve">
+    <value>Nueva pestaña</value>
+  </data>
+  <data name="TabSwitcher_Next" xml:space="preserve">
+    <value>Cambiar a la siguiente pestaña</value>
+  </data>
+  <data name="TabSwitcher_Previous" xml:space="preserve">
+    <value>Cambiar a la pestaña anterior</value>
+  </data>
+  <data name="TabSwitcher_NextTool" xml:space="preserve">
+    <value>Cambiar a la siguiente pestaña de herramienta</value>
+  </data>
+  <data name="TabSwitcher_PreviousTool" xml:space="preserve">
+    <value>Cambiar a la pestaña de herramienta anterior</value>
+  </data>
 </root>
