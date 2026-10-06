@@ -33,7 +33,7 @@ public interface IProxyStore
     /// <summary>Touch LastUsedUtc; called by IProxyResolver every time a proxy is handed out.</summary>
     void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc);
 
-    /// <summary>Total bytes consumed across all entries (excludes Generating / Partial).</summary>
+    /// <summary>Total bytes consumed across entries and retained old generations (excludes Generating / Partial).</summary>
     long GetTotalBytes();
 
     /// <summary>Project-scoped totals, optionally filtered to a set of source paths.</summary>
@@ -78,6 +78,7 @@ public enum ProxyStoreChangeKind { Registered, StateChanged, Deleted, Touched }
 6. **`Touch` is hot-path-friendly**: it must complete in <100 µs without I/O. Implementations debounce disk persistence.
 7. **`ReconcileAsync` is best-effort**: failures log a warning but never throw to the caller. The store remains usable even if reconciliation finds inconsistencies (preview falls back to original for any source whose proxy was dropped).
 8. **No exceptions for "not found"**: `TryGet` / `TryTransition` / `Delete` return `null` / `false`, not exceptions.
+9. **Immutable generations**: newly generated proxies use `<preset>.<generation-guid>.mp4`. Registering a replacement changes the recorded path without moving or overwriting the previous file. Legacy `<preset>.mp4` entries remain readable. Retired files count toward cache totals and are reclaimed only after their reader pins are released and the replacement index has been persisted. Reconciliation recognizes both naming schemes and reclaims aged unindexed generations after restart.
 
 ## Test obligations (NUnit)
 

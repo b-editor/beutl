@@ -4,12 +4,13 @@ namespace Beutl.Media.Proxy;
 
 internal static class ProxyPathUtilities
 {
-    public static string BuildRelativePath(ProxyFingerprint fingerprint, ProxyPreset preset)
+    public static string BuildRelativePath(ProxyFingerprint fingerprint, ProxyPreset preset, Guid? generation = null)
     {
         string key = $"{fingerprint.AbsolutePath}|{fingerprint.FileSizeBytes}|{fingerprint.MtimeUtc:O}";
         byte[] hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
         string dir = Convert.ToHexString(hash).ToLowerInvariant();
-        return $"{dir}/{preset.ToString().ToLowerInvariant()}.mp4";
+        string name = preset.ToString().ToLowerInvariant();
+        return generation is { } id ? $"{dir}/{name}.{id:N}.mp4" : $"{dir}/{name}.mp4";
     }
 
     public static string ResolveRelativePath(string storeRootPath, string relativePath)
@@ -48,10 +49,8 @@ internal static class ProxyPathUtilities
     public static bool IsGeneratedProxyTempPath(string storeRootPath, string path)
         => IsGeneratedProxyTaggedPath(storeRootPath, path, "tmp");
 
-    // A regenerate moves the existing <preset>.mp4 aside to <preset>.<guid>.bak.mp4 before publishing the
-    // replacement, then best-effort deletes it. A crash or a failed delete in that window strands the
-    // backup; it matches neither the temp nor the final naming scheme, so reconcile must recognize it to
-    // reclaim it.
+    // Older regenerations could leave <preset>.<guid>.bak.mp4 after an interrupted file swap.
+    // Keep recognizing those legacy backups so reconciliation can reclaim them.
     public static bool IsGeneratedProxyBackupPath(string storeRootPath, string path)
         => IsGeneratedProxyTaggedPath(storeRootPath, path, "bak");
 
@@ -60,10 +59,13 @@ internal static class ProxyPathUtilities
         if (!TryGetProxyFileParts(storeRootPath, path, out string[] parts))
             return false;
 
-        if (parts.Length != 3 || !parts[2].Equals(tag, StringComparison.OrdinalIgnoreCase))
+        if (parts.Length is not (3 or 4) || !parts[^1].Equals(tag, StringComparison.OrdinalIgnoreCase))
             return false;
 
         if (!Guid.TryParseExact(parts[1], "N", out _))
+            return false;
+
+        if (parts.Length == 4 && !Guid.TryParseExact(parts[2], "N", out _))
             return false;
 
         return Enum.GetNames<ProxyPreset>()
@@ -75,7 +77,7 @@ internal static class ProxyPathUtilities
         if (!TryGetProxyFileParts(storeRootPath, path, out string[] parts))
             return false;
 
-        if (parts.Length != 1)
+        if (parts.Length != 1 && (parts.Length != 2 || !Guid.TryParseExact(parts[1], "N", out _)))
             return false;
 
         return Enum.GetNames<ProxyPreset>()

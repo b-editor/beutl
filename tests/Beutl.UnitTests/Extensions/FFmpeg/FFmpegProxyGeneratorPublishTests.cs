@@ -319,76 +319,91 @@ public sealed class FFmpegProxyGeneratorPublishTests
     }
 
     [Test]
-    public async Task MoveExistingFileToBackupWithRetryAsync_StampsBackupWithRecentWriteTime()
-    {
-        string root = CreateRoot();
-        string proxy = Path.Combine(root, "quarter.mp4");
-        File.WriteAllBytes(proxy, [1, 2, 3]);
-        // The proxy was generated long ago; a plain move preserves that old mtime, which reconcile's
-        // age-based orphan cleanup would then treat as immediately reclaimable while a regenerate still
-        // needs the backup for rollback.
-        File.SetLastWriteTimeUtc(proxy, DateTime.UtcNow.AddHours(-48));
-
-        string? backup = await FFmpegProxyGenerator.MoveExistingFileToBackupWithRetryAsync(proxy, CancellationToken.None);
-
-        Assert.That(backup, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(File.Exists(backup!), Is.True);
-            Assert.That(
-                File.GetLastWriteTimeUtc(backup!),
-                Is.GreaterThan(DateTime.UtcNow.AddHours(-1)),
-                "the backup must be stamped to now so reconcile does not reclaim a live rollback backup");
-        });
-    }
-
-    [Test]
-    public async Task PublishAsync_RetriesTransientBackupMoveFailureThenRegisters()
+    public async Task PublishAsync_ExistingDestination_DoesNotOverwriteOrRegister()
     {
         string root = CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
-        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
-        string tempPath = Path.Combine(root, "tmp.mov");
-        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
-        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
-        // A previous proxy exists, so the pre-move backup step runs; simulate a preview reader
-        // holding it open with a transient sharing violation on the first backup attempt.
+        var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+        string finalPath = Path.Combine(root, "quarter.mp4");
+        string tempPath = Path.Combine(root, "new.tmp.mp4");
         File.WriteAllBytes(finalPath, [7, 7, 7]);
         File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
-        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
-        int backupAttempts = 0;
 
-        await Assert.DoesNotThrowAsync(async () =>
-            await generator.PublishAsync(
-                tempPath,
-                finalPath,
-                job,
-                "hash/quarter.mp4",
-                new PixelSize(64, 48),
-                new PixelSize(32, 24),
-                CancellationToken.None,
-                backupMoveAttempt: (s, d) =>
-                {
-                    backupAttempts++;
-                    if (backupAttempts < 2)
-                        return false;
-                    File.Move(s, d, overwrite: false);
-                    return true;
-                }));
-
+        await Assert.ThrowsAsync<IOException>(() => generator.PublishAsync(tempPath, finalPath, job,
+            "quarter.mp4", new PixelSize(64, 48), new PixelSize(32, 24), CancellationToken.None));
         Assert.Multiple(() =>
         {
-            Assert.That(backupAttempts, Is.EqualTo(2), "the transient backup-move failure must be retried");
-            Assert.That(File.Exists(finalPath), Is.True);
-            Assert.That(store.RegisterAttempts, Is.EqualTo(1));
+            Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(new byte[] { 7, 7, 7 }));
+            Assert.That(File.Exists(tempPath), Is.True);
+            Assert.That(store.RegisterAttempts, Is.Zero);
         });
     }
 
     [Test]
-    public async Task PublishAsync_WhenRollbackMetadataRestoreFails_PreservesPrimaryExceptionAndRestoresFinal()
+    public async Task PublishAsync_PinnedProxy_PublishesNewGenerationWithoutMovingOldFile(
+        [Values] bool legacyPath, [Values] bool stale)
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var generator = new FFmpegProxyGenerator(store);
+        var resolver = new ProxyResolver(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string oldRelative = ProxyPathUtilities.BuildRelativePath(fingerprint, ProxyPreset.Quarter,
+            legacyPath ? null : Guid.NewGuid());
+        string oldPath = ProxyPathUtilities.ResolveRelativePath(root, oldRelative);
+        Directory.CreateDirectory(Path.GetDirectoryName(oldPath)!);
+        File.WriteAllBytes(oldPath, [7, 7, 7]);
+        var now = DateTime.UtcNow;
+        var oldEntry = new ProxyEntry(fingerprint, ProxyPreset.Quarter, ProxyState.Ready, oldRelative,
+            3, new PixelSize(64, 48), new PixelSize(32, 24), now, now, null);
+        store.Register(oldEntry);
+        ProxyResolution oldResolution = resolver.Resolve(new Uri(source), ProxyPreset.Quarter)!;
+        using IDisposable pin = resolver.Pin(oldResolution);
+        using var reader = new FileStream(oldPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (stale)
+            store.TryTransition(fingerprint, ProxyPreset.Quarter, ProxyState.Stale);
+        long oldVersion = resolver.GetSourceVersion(fingerprint.AbsolutePath);
+
+        string relative = ProxyPathUtilities.BuildRelativePath(fingerprint, ProxyPreset.Quarter, Guid.NewGuid());
+        string finalPath = ProxyPathUtilities.ResolveRelativePath(root, relative);
+        string tempPath = FFmpegProxyGenerator.CreateTempPathForOutput(finalPath);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+
+        await generator.PublishAsync(tempPath, finalPath, job, relative, oldEntry.OriginalLogicalFrameSize,
+            oldEntry.ProxyDecodedFrameSize, CancellationToken.None);
+        // Reconcile must spare even an aged, unindexed generation while its reader is pinned.
+        File.SetLastWriteTimeUtc(oldPath, DateTime.UtcNow.AddDays(-3));
+        await store.ReconcileAsync(CancellationToken.None);
+        ProxyResolution replacement = resolver.Resolve(new Uri(source), ProxyPreset.Quarter)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ReadByte(), Is.EqualTo(7), "the existing reader must keep its original bytes");
+            Assert.That(File.Exists(oldPath), Is.True);
+            Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(new byte[] { 9, 9, 9, 9, 9 }));
+            Assert.That(replacement.AbsoluteProxyFilePath, Is.EqualTo(finalPath));
+            Assert.That(resolver.GetSourceVersion(fingerprint.AbsolutePath), Is.GreaterThan(oldVersion));
+            Assert.That(store.GetTotalBytes(), Is.EqualTo(8), "pinned old generations still occupy the cache");
+            Assert.That(() => resolver.Pin(oldResolution), Throws.InvalidOperationException,
+                "a stale resolution cannot race reclamation by acquiring a new pin");
+        });
+
+        reader.Dispose();
+        pin.Dispose();
+        Assert.That(() => File.Exists(oldPath), Is.False.After(2000, 10));
+        Assert.That(() => store.GetTotalBytes(), Is.EqualTo(5).After(2000, 10));
+        var reloaded = new ProxyStore(root);
+        Assert.That(reloaded.TryGet(fingerprint, ProxyPreset.Quarter)!.ProxyFileRelative, Is.EqualTo(relative));
+    }
+
+    [Test]
+    public async Task PublishAsync_WhenRollbackMetadataRestoreFails_PreservesPrimaryExceptionAndOldProxy()
     {
         string root = CreateRoot();
         // Register always throws, so FinalizeAsync fails after the move and rollback runs.
@@ -398,10 +413,11 @@ public sealed class FFmpegProxyGeneratorPublishTests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
         string tempPath = Path.Combine(root, "tmp.mov");
-        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        string oldPath = Path.Combine(root, "hash", "quarter.mp4");
+        string finalPath = Path.Combine(root, "hash", $"quarter.{Guid.NewGuid():N}.mp4");
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
         byte[] previousProxy = [7, 7, 7];
-        File.WriteAllBytes(finalPath, previousProxy);
+        File.WriteAllBytes(oldPath, previousProxy);
         File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
 
@@ -410,7 +426,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
                 tempPath,
                 finalPath,
                 job,
-                "hash/quarter.mp4",
+                $"hash/{Path.GetFileName(finalPath)}",
                 new PixelSize(64, 48),
                 new PixelSize(32, 24),
                 CancellationToken.None,
@@ -426,9 +442,32 @@ public sealed class FFmpegProxyGeneratorPublishTests
         Assert.Multiple(() =>
         {
             Assert.That(thrown, Is.InstanceOf<InvalidOperationException>(), "the primary Register failure must survive a rollback-restore fault");
-            Assert.That(File.Exists(finalPath), Is.True, "the previous proxy must be restored from backup");
-            Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(previousProxy));
+            Assert.That(File.ReadAllBytes(oldPath), Is.EqualTo(previousProxy), "the old generation must remain untouched");
+            Assert.That(File.Exists(finalPath), Is.True, "the valid new artifact remains recoverable after registration failure");
         });
+    }
+
+    [Test]
+    public async Task PublishAsync_FirstRegistrationFails_SidecarRemainsRecoverable()
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string relative = ProxyPathUtilities.BuildRelativePath(fingerprint, ProxyPreset.Quarter, Guid.NewGuid());
+        string finalPath = ProxyPathUtilities.ResolveRelativePath(root, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        string tempPath = FFmpegProxyGenerator.CreateTempPathForOutput(finalPath);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => generator.PublishAsync(tempPath, finalPath, job,
+            relative, new PixelSize(64, 48), new PixelSize(32, 24), CancellationToken.None));
+        var recovered = new ProxyStore(root);
+        await recovered.ReconcileAsync(CancellationToken.None);
+        Assert.That(recovered.TryGet(fingerprint, ProxyPreset.Quarter)!.ProxyFileRelative, Is.EqualTo(relative));
     }
 
     [Test]

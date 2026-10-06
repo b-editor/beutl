@@ -1046,6 +1046,93 @@ public sealed class ProxyStoreTests
         }
     }
 
+    [Test]
+    public async Task Register_NewGeneration_KeepsOldFileUntilReplacementPersists()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        ProxyEntry old = CreateEntry(root, "hash/quarter.mp4");
+        store.Register(old);
+        string relative = $"hash/quarter.{Guid.NewGuid():N}.mp4";
+        string newPath = Path.Combine(root, relative);
+        File.WriteAllBytes(newPath, [9, 9, 9, 9, 9]);
+        ProxyEntry replacement = old with { ProxyFileRelative = relative, ProxyFileSizeBytes = 5 };
+
+        using (new FileStream(Path.Combine(root, "index.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            store.Register(replacement);
+            Assert.Multiple(() =>
+            {
+                Assert.That(store.IsPersistenceDegraded, Is.True);
+                Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.True,
+                    "index.json still references the old generation while persistence is degraded");
+                Assert.That(store.GetTotalBytes(), Is.EqualTo(8));
+                Assert.That(new ProxyStore(root, lockAcquireMaxAttempts: 0).TryGet(old.Source, old.Preset), Is.EqualTo(old));
+            });
+        }
+
+        await store.FlushAsync(CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.False);
+            Assert.That(File.Exists(newPath), Is.True);
+            Assert.That(new ProxyStore(root).TryGet(old.Source, old.Preset), Is.EqualTo(replacement));
+            Assert.That(store.GetTotalBytes(), Is.EqualTo(5));
+        });
+    }
+
+    [Test]
+    public async Task ReconcileAsync_AfterRestart_ReclaimsOldUnindexedGenerations()
+    {
+        string root = CreateRoot();
+        string hash = new('a', 64);
+        ProxyEntry current = CreateEntry(root, $"{hash}/quarter.{Guid.NewGuid():N}.mp4");
+        var store = new ProxyStore(root);
+        store.Register(current);
+        string orphan = Path.Combine(root, hash, $"quarter.{Guid.NewGuid():N}.mp4");
+        File.WriteAllBytes(orphan, [1, 2, 3]);
+        File.SetLastWriteTimeUtc(orphan, DateTime.UtcNow.AddDays(-3));
+        string recent = Path.Combine(root, hash, $"quarter.{Guid.NewGuid():N}.mp4");
+        File.WriteAllBytes(recent, [4, 5, 6]);
+        string interruptedTemp = Path.Combine(root, hash, $"quarter.{Guid.NewGuid():N}.{Guid.NewGuid():N}.tmp.mp4");
+        File.WriteAllBytes(interruptedTemp, [7, 8, 9]);
+        File.SetLastWriteTimeUtc(interruptedTemp, DateTime.UtcNow.AddDays(-3));
+
+        var restarted = new ProxyStore(root);
+        await restarted.ReconcileAsync(CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(orphan), Is.False);
+            Assert.That(File.Exists(interruptedTemp), Is.False);
+            Assert.That(File.Exists(recent), Is.True, "a fresh file may be waiting for registration");
+            Assert.That(File.Exists(Path.Combine(root, current.ProxyFileRelative)), Is.True);
+            Assert.That(restarted.TryGet(current.Source, current.Preset), Is.EqualTo(current));
+        });
+    }
+
+    [Test]
+    public async Task Register_NewGeneration_HonorsPinsFromEveryResolverUsingTheStore()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry old = CreateEntry(root, "hash/quarter.mp4");
+        store.Register(old);
+        var firstResolver = new ProxyResolver(store);
+        var secondResolver = new ProxyResolver(store);
+        ProxyResolution resolution = firstResolver.Resolve(new Uri(old.Source.SourcePath), old.Preset)!;
+        using IDisposable first = firstResolver.Pin(resolution);
+        using IDisposable second = secondResolver.Pin(resolution);
+        string relative = $"hash/quarter.{Guid.NewGuid():N}.mp4";
+        File.WriteAllBytes(Path.Combine(root, relative), [9, 9, 9]);
+        store.Register(old with { ProxyFileRelative = relative });
+        first.Dispose();
+        await store.FlushAsync(CancellationToken.None);
+        Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.True);
+        Assert.That(firstResolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.True);
+        second.Dispose();
+        Assert.That(() => File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.False.After(2000, 10));
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

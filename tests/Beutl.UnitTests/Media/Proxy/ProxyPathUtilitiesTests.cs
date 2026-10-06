@@ -99,6 +99,30 @@ public class ProxyPathUtilitiesTests
         Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root, absolute), Is.True);
     }
 
+    [Test]
+    public void BuildRelativePath_GenerationsAndTheirTempFilesAreRecognized([Values] ProxyPreset preset)
+    {
+        string root = CreateRoot();
+        string source = Path.Combine(root, "source.mov");
+        File.WriteAllBytes(source, [1, 2, 3]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string first = ProxyPathUtilities.BuildRelativePath(fingerprint, preset, Guid.NewGuid());
+        string second = ProxyPathUtilities.BuildRelativePath(fingerprint, preset, Guid.NewGuid());
+        string finalPath = ProxyPathUtilities.ResolveRelativePath(root, first);
+        string tempPath = Beutl.Extensions.FFmpeg.Proxy.FFmpegProxyGenerator.CreateTempPathForOutput(finalPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.Not.EqualTo(second));
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root, finalPath), Is.True);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyTempPath(root, finalPath), Is.False);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyTempPath(root, tempPath), Is.True);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root, tempPath), Is.False);
+            Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root,
+                Path.Combine(root, new string('a', 64), "quarter.user-video.mp4")), Is.False);
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

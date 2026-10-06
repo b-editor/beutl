@@ -391,13 +391,14 @@ public sealed class ProxyGenerationE2ETests
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
         string tempPath = Path.Combine(root, "tmp.mov");
-        string finalPath = Path.Combine(root, "hash", "quarter.mp4");
+        string oldPath = Path.Combine(root, "hash", "quarter.mp4");
+        string finalPath = Path.Combine(root, "hash", $"quarter.{Guid.NewGuid():N}.mp4");
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
         byte[] oldBytes = [1, 2, 3];
-        File.WriteAllBytes(finalPath, oldBytes);
+        File.WriteAllBytes(oldPath, oldBytes);
         File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
         ProxyEntry oldEntry = CreateEntry(fingerprint, ProxyPreset.Quarter, "hash/quarter.mp4");
-        FFmpegProxyGenerator.WriteMetadata(finalPath, oldEntry);
+        FFmpegProxyGenerator.WriteMetadata(oldPath, oldEntry);
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
         using var cts = new CancellationTokenSource();
         store.RegisterAttempted = _ => cts.Cancel();
@@ -407,7 +408,7 @@ public sealed class ProxyGenerationE2ETests
                 tempPath,
                 finalPath,
                 job,
-                "hash/quarter.mp4",
+                $"hash/{Path.GetFileName(finalPath)}",
                 new PixelSize(64, 48),
                 new PixelSize(32, 24),
                 cts.Token,
@@ -423,7 +424,8 @@ public sealed class ProxyGenerationE2ETests
 
         Assert.Multiple(() =>
         {
-            Assert.That(File.ReadAllBytes(finalPath), Is.EqualTo(oldBytes), "a canceled regeneration must restore the previous ready proxy file");
+            Assert.That(File.ReadAllBytes(oldPath), Is.EqualTo(oldBytes), "a canceled regeneration must keep the previous ready proxy file");
+            Assert.That(File.Exists(finalPath), Is.False, "a canceled generation must remove only its new file");
             Assert.That(metadata, Is.Not.Null);
             Assert.That(metadata!.Entries.Single(), Is.EqualTo(oldEntry), "the sidecar must keep the previous ready entry");
             Assert.That(store.RegisterAttempts, Is.EqualTo(1));

@@ -79,7 +79,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
             throw new ProxyGenerationSkippedException("Source video has no frame size.");
 
         PixelSize proxySize = CalculateProxySize(originalSize, job.Preset);
-        string relative = ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset);
+        string relative = ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset, Guid.NewGuid());
         string finalPath = Path.Combine(store.StoreRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
         string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
@@ -162,18 +162,20 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         PixelSize proxySize,
         CancellationToken ct,
         Func<string, string, bool>? moveAttempt = null,
-        Func<string, string?>? metadataBackupAttempt = null,
-        Func<string, string, bool>? backupMoveAttempt = null)
+        Func<string, string?>? metadataBackupAttempt = null)
     {
         ct.ThrowIfCancellationRequested();
 
-        string? replacedFinalBackupPath = null;
+        // Every generation owns a new path. Never rename or overwrite a file that an existing
+        // preview/filmstrip reader may still have open, including legacy <preset>.mp4 proxies.
+        if (File.Exists(finalPath))
+            throw new IOException("A proxy generation must publish to a new file path.");
+
+        ProxyEntry? previous = store.TryGet(job.Source, job.Preset);
         string? metadataBackupPath = null;
         ProxyEntry? entry = null;
-        bool committed = false;
         try
         {
-            replacedFinalBackupPath = await MoveExistingFileToBackupWithRetryAsync(finalPath, ct, backupMoveAttempt);
             await MoveWithRetryAsync(tempPath, finalPath, ct, moveAttempt);
             ct.ThrowIfCancellationRequested();
 
@@ -198,29 +200,23 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
 
             metadataBackupPath = TryCopyExistingFileToBackup(GetMetadataPath(finalPath), metadataBackupAttempt);
             await FinalizeAsync(finalPath, entry, ct);
-            committed = true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            RestoreOrDeleteCanceledFinal(finalPath, replacedFinalBackupPath);
-            RestoreMetadata(finalPath, entry, metadataBackupPath);
-            replacedFinalBackupPath = null;
+            TryDelete(finalPath);
+            RestoreMetadata(finalPath, entry, metadataBackupPath, previous);
             throw;
         }
-        catch when (replacedFinalBackupPath != null)
+        catch
         {
-            RestoreFinalPath(finalPath, replacedFinalBackupPath);
-            RestoreMetadata(finalPath, entry, metadataBackupPath);
-            replacedFinalBackupPath = null;
+            // Preserve recoverable sidecars for a first generation whose registration failed. A
+            // failed replacement instead keeps the metadata for the still-usable previous entry.
+            if (metadataBackupPath != null || previous != null)
+                RestoreMetadata(finalPath, entry, metadataBackupPath, previous);
             throw;
         }
         finally
         {
-            if (committed && replacedFinalBackupPath != null)
-            {
-                TryDelete(replacedFinalBackupPath);
-            }
-
             if (metadataBackupPath != null)
                 TryDelete(metadataBackupPath);
         }
@@ -399,42 +395,6 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         return Path.Combine(directory, fileName);
     }
 
-    // Backing up the existing proxy hits the same Windows sharing violation the temp->final move
-    // does when preview playback still holds the old proxy open, so it goes through the same bounded
-    // retry (the backup path is a fresh GUID, so the move never overwrites).
-    internal static async Task<string?> MoveExistingFileToBackupWithRetryAsync(
-        string path,
-        CancellationToken ct,
-        Func<string, string, bool>? moveAttempt = null)
-    {
-        if (!File.Exists(path))
-            return null;
-
-        string backupPath = CreateBackupPathForOutput(path);
-        await MoveWithRetryAsync(path, backupPath, ct, moveAttempt);
-        StampBackupWriteTime(backupPath);
-        return backupPath;
-    }
-
-    // The backup is made by moving the existing proxy, which keeps its (possibly old) mtime. Reconcile's
-    // orphan cleanup ages backups by mtime, so an unstamped fresh backup could immediately look old enough
-    // to reclaim and be deleted while a regenerate still needs it for rollback. Stamp it to now so it ages
-    // from creation, exactly like an in-flight temp file.
-    private static void StampBackupWriteTime(string backupPath)
-    {
-        try
-        {
-            if (File.Exists(backupPath))
-                File.SetLastWriteTimeUtc(backupPath, DateTime.UtcNow);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Stamping is best-effort, but its failure is why a later reconcile might reclaim this backup
-            // and break rollback — so log it rather than swallowing silently, to make that diagnosable.
-            s_logger.LogWarning(ex, "Failed to stamp the proxy rollback backup {Path}; reconcile may reclaim it prematurely.", backupPath);
-        }
-    }
-
     private static string? CopyExistingFileToBackup(string path)
     {
         if (!File.Exists(path))
@@ -461,41 +421,17 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     private static string GetMetadataPath(string finalPath)
         => Path.Combine(Path.GetDirectoryName(finalPath)!, "meta.json");
 
-    private static void RestoreOrDeleteCanceledFinal(string finalPath, string? backupPath)
-    {
-        if (backupPath != null)
-        {
-            RestoreFinalPath(finalPath, backupPath);
-        }
-        else
-        {
-            TryDelete(finalPath);
-        }
-    }
-
-    private static void RestoreFinalPath(string finalPath, string backupPath)
-    {
-        // Best-effort: a rollback I/O fault must not replace the primary exception. The ProxyStore
-        // index is authoritative and ReconcileAsync recovers a stranded backup on next run.
-        try
-        {
-            TryDelete(finalPath);
-            if (File.Exists(backupPath))
-                File.Move(backupPath, finalPath, overwrite: true);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogWarning(ex, "Failed to restore previous proxy at {Path} during rollback.", finalPath);
-        }
-    }
-
-    private static void RestoreMetadata(string finalPath, ProxyEntry? entry, string? backupPath)
+    private static void RestoreMetadata(string finalPath, ProxyEntry? entry, string? backupPath, ProxyEntry? previous)
     {
         try
         {
             if (backupPath != null)
             {
                 File.Copy(backupPath, GetMetadataPath(finalPath), overwrite: true);
+            }
+            else if (previous is { State: ProxyState.Ready or ProxyState.Stale })
+            {
+                WriteMetadata(finalPath, previous);
             }
             else if (entry != null)
             {
@@ -532,7 +468,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
                 return;
 
             ProxyEntry[] entries = ReadMetadataEntries(metadataPath, entry.Source)
-                .Where(existing => existing.Preset != entry.Preset)
+                .Where(existing => existing.Preset != entry.Preset || existing.ProxyFileRelative != entry.ProxyFileRelative)
                 .ToArray();
             if (entries.Length == 0)
             {
@@ -593,11 +529,8 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         }
     }
 
-    // Bounded retry for File.Move: on Windows, a preview reader holding dest open causes a transient
-    // sharing violation (IOException); on Unix the replace is atomic so the retry is a no-op. A
-    // genuinely-held-long file still fails after maxAttempts — the job fails and the old proxy is kept,
-    // the same end state as the un-retried move. The moveAttempt seam lets tests inject failures; the
-    // default does File.Move(overwrite: true) and returns false on IOException so the helper retries.
+    // Retry transient filesystem failures when publishing a fresh generation. Never overwrite an
+    // existing generation; readers keep their immutable file until they release its pin.
     internal static async Task MoveWithRetryAsync(
         string source,
         string dest,
@@ -642,7 +575,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
     {
         try
         {
-            File.Move(source, dest, overwrite: true);
+            File.Move(source, dest, overwrite: false);
             return true;
         }
         catch (IOException)
