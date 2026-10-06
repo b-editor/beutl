@@ -6,6 +6,8 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Audio;
+using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
@@ -13,9 +15,12 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
@@ -297,6 +302,119 @@ public class LockedClipPropertyTests
         Assert.That(property.CanEdit.Value, Is.True);
         Assert.That(property.SetCurrentValueAndGetCoerced(123), Is.EqualTo(123));
         Assert.That(shape.Width.CurrentValue, Is.EqualTo(123));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EmbeddedGraphRename_RejectsConfirmationAfterLocking(bool lockLayer)
+    {
+        (EditViewModel editor, Element element, _) = await OpenClip();
+        var drawable = new NodeGraphDrawable();
+        var node = new LayerInputNode { Name = "original" };
+        drawable.Model.CurrentValue!.Nodes.Add(node);
+        ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, drawable);
+        Select(editor, element);
+        using var tab = new ElementPropertyTabViewModel(editor);
+        var graph = Editors(tab.Items.Single(item => item.Model == drawable).Properties)
+            .OfType<GraphModelEditorViewModel>().Single();
+        GraphModelNodeMemberViewModel member = graph.NodeMembers.Single();
+        member.UpdateName("unlocked rename");
+        Assert.That(node.Name, Is.EqualTo("unlocked rename"));
+
+        // The flyout confirmation keeps this callback even if the clip is locked later.
+        Action<string?> confirmRename = member.UpdateName;
+        var layer = new TimelineLayer { ZIndex = element.ZIndex };
+        editor.Scene.Layers.Add(layer);
+        if (lockLayer) layer.IsLocked = true;
+        else element.IsLocked = true;
+        int before = editor.HistoryManager.UndoCount;
+        confirmRename("locked rename");
+        Assert.That(node.Name, Is.EqualTo("unlocked rename"));
+        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
+
+        layer.IsLocked = false;
+        element.IsLocked = false;
+        confirmRename("rename after unlock");
+        Assert.That(node.Name, Is.EqualTo("rename after unlock"));
+        Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task NestedAudioEffectToggle_DisablesWhileLocked(bool lockLayer)
+    {
+        (EditViewModel editor, Element element, _) = await OpenClip();
+        var effect = new DelayEffect();
+        var group = new AudioEffectGroup();
+        group.Children.Add(effect);
+        var sound = new SourceSound();
+        sound.Effect.CurrentValue = group;
+        ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, sound);
+        Select(editor, element);
+        using var tab = new ElementPropertyTabViewModel(editor);
+        var parent = Editors(tab.Items.Single(item => item.Model == sound).Properties)
+            .OfType<AudioEffectEditorViewModel>().Single();
+        parent.IsExpanded.Value = true;
+        var child = (AudioEffectEditorViewModel)parent.Group.Value!.Items[0].Context!;
+        var view = new AudioEffectListItemEditor { DataContext = child };
+        AssertEffectToggleLock(editor, element, effect, view, lockLayer);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task NestedFilterEffectToggle_DisablesBothPresenterBranches(bool presenter, bool lockLayer)
+    {
+        (EditViewModel editor, Element element, RectShape shape) = await OpenClip();
+        FilterEffect effect = presenter ? new FilterEffectPresenter() : new Blur();
+        var group = new FilterEffectGroup();
+        group.Children.Add(effect);
+        shape.FilterEffect.CurrentValue = group;
+        Select(editor, element);
+        using var tab = new ElementPropertyTabViewModel(editor);
+        var parent = Editors(tab.Items[0].Properties).OfType<FilterEffectEditorViewModel>().Single();
+        parent.IsExpanded.Value = true;
+        var child = (FilterEffectEditorViewModel)parent.Group.Value!.Items[0].Context!;
+        Assert.That(child.IsPresenter.Value, Is.EqualTo(presenter));
+        var view = new FilterEffectListItemEditor { DataContext = child };
+        AssertEffectToggleLock(editor, element, effect, view, lockLayer);
+    }
+
+    private static void AssertEffectToggleLock(EditViewModel editor, Element element, EngineObject effect, Control view, bool lockLayer)
+    {
+        var layer = new TimelineLayer { ZIndex = element.ZIndex };
+        editor.Scene.Layers.Add(layer);
+        editor.HistoryManager.Commit("test setup");
+        var window = new Window { Content = view, Width = 640, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            ToggleButton toggle = view.GetVisualDescendants().OfType<ToggleButton>()
+                .Single(button => button.Classes.Contains("size-24x24") && button.IsEffectivelyVisible);
+            Assert.That(toggle.IsEffectivelyEnabled, Is.True);
+            if (lockLayer) layer.IsLocked = true;
+            else element.IsLocked = true;
+            HeadlessTestHelpers.Settle();
+            int before = editor.HistoryManager.UndoCount;
+            Assert.That(toggle.IsEffectivelyEnabled, Is.False);
+            Click(window, toggle);
+            Assert.That(effect.IsEnabled, Is.True);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
+
+            layer.IsLocked = false;
+            element.IsLocked = false;
+            HeadlessTestHelpers.Settle();
+            Assert.That(toggle.IsEffectivelyEnabled, Is.True);
+            Click(window, toggle);
+            Assert.That(effect.IsEnabled, Is.False);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+        }
+        finally { window.Close(); }
     }
 
     private static async Task<(EditViewModel Editor, Element Element, RectShape Shape)> OpenClip()

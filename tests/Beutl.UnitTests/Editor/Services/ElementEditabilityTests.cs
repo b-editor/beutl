@@ -63,6 +63,28 @@ public class ElementEditabilityTests
     }
 
     [Test]
+    public void Observe_ManyLayersInitializeAndRebindToCurrentLocks()
+    {
+        var scene = new Scene();
+        var element = new Element { ZIndex = 2999 };
+        for (int i = 0; i < 3000; i++)
+            scene.Layers.Add(new TimelineLayer { ZIndex = i });
+        var values = new List<bool>();
+        using var subscription = ElementEditability.Observe(element, scene).Subscribe(values.Add);
+        Assert.That(values, Is.EqualTo(new[] { true }));
+
+        TimelineLayer locked = scene.Layers[^1];
+        locked.IsLocked = true;
+        scene.Layers.Add(new TimelineLayer { ZIndex = 3000 });
+        Assert.That(values, Is.EqualTo(new[] { true, false }));
+        scene.Layers.Remove(locked);
+        Assert.That(values[^1], Is.True);
+        scene.Layers[^1].ZIndex = element.ZIndex;
+        scene.Layers[^1].IsLocked = true;
+        Assert.That(values[^1], Is.False);
+    }
+
+    [Test]
     public void Observe_WithoutElementAllowsNonClipEditors()
     {
         bool? editable = null;

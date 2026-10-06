@@ -87,6 +87,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     public void UpdateName(string? name)
     {
+        if (!_parent.IsElementEditable) return;
         GraphNode.Name = name!;
         _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
     }

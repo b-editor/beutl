@@ -32,17 +32,20 @@ internal static class ElementEditability
                 handler => owner.Layers.CollectionChanged -= handler)
             .Select(_ => Unit.Default)
             .StartWith(Unit.Default)
-            .Select(_ => owner.Layers
-                .Select(layer => layer.GetObservable(TimelineLayer.IsLockedProperty).Select(_ => Unit.Default)
-                    .Merge(layer.GetObservable(TimelineLayer.ZIndexProperty).Select(_ => Unit.Default)))
-                .Merge()
-                .StartWith(Unit.Default))
+            // Combine the initial layer values before checking the lock, instead of
+            // scanning every layer for each of the initial property notifications.
+            .Select(_ => owner.Layers.Count == 0
+                ? Observable.Return(Unit.Default)
+                : owner.Layers
+                    .Select(layer => layer.GetObservable(TimelineLayer.IsLockedProperty)
+                        .CombineLatest(layer.GetObservable(TimelineLayer.ZIndexProperty), (_, _) => Unit.Default))
+                    .CombineLatest()
+                    .Select(_ => Unit.Default))
             .Switch();
 
         return elementChanges
             .Merge(element.GetObservable(Element.ZIndexProperty).Select(_ => Unit.Default))
-            .Merge(layerChanges)
-            .Select(_ => IsEditable(element, owner))
+            .CombineLatest(layerChanges, (_, _) => IsEditable(element, owner))
             .DistinctUntilChanged();
     }
 }
