@@ -367,11 +367,17 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }
     }
 
-    private static OutputFormat GuessOutputFormat(string outputFile)
+    private static unsafe OutputFormat GuessOutputFormat(string outputFile)
     {
-        return OutputFormat.GuessFormat(null, outputFile, null)
-            ?? throw new InvalidOperationException(
+        OutputFormat outputFormat = OutputFormat.GuessFormat(null, outputFile, null);
+        // GuessFormat returns a wrapper even when the native format pointer is null.
+        if ((AVOutputFormat*)outputFormat == null)
+        {
+            throw new InvalidOperationException(
                 $"Could not determine FFmpeg output format from the file extension: {outputFile}");
+        }
+
+        return outputFormat;
     }
 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
