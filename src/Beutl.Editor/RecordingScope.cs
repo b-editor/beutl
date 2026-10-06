@@ -35,22 +35,14 @@ public sealed class RecordingScope<TState> : IDisposable
 
         _completed = true;
         var afterState = _captureState();
-        var operation = CreateStateOperation(_beforeState, afterState);
+        var operation = CustomOperation.CreateStateTransition(
+            _applyState, _beforeState, afterState, _sequenceGenerator, _description);
         _historyManager.Record(operation);
     }
 
     public void Cancel()
     {
         _disposed = true;
-    }
-
-    private CustomOperation CreateStateOperation(TState fromState, TState toState)
-    {
-        return new CustomOperation(
-            _ => _applyState(toState),
-            _ => _applyState(fromState),
-            _description)
-        { SequenceNumber = _sequenceGenerator.GetNext() };
     }
 
     public void Dispose()

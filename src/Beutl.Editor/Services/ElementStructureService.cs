@@ -50,8 +50,7 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || scene.Uri is null) return SplitOutcome.Empty;
 
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan minDuration = SceneTimeRangeService.GetFrameDuration(scene);
         if (!targets.Any(target => !scene.IsElementLocked(target)
             && at - target.Start >= minDuration
             && target.Start + target.Length - at >= minDuration))
@@ -89,16 +88,7 @@ public sealed class ElementStructureService : IElementStructureService
                     newElements.Add(backward);
 
                     // Track group membership so back-clips stay in their source's group.
-                    int groupIndex = -1;
-                    for (int i = 0; i < scene.Groups.Count; i++)
-                    {
-                        if (scene.Groups[i].Contains(target.Id))
-                        {
-                            groupIndex = i;
-                            break;
-                        }
-                    }
-
+                    int groupIndex = FindGroupIndex(scene, target.Id);
                     if (groupIndex >= 0)
                     {
                         if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
@@ -113,34 +103,61 @@ public sealed class ElementStructureService : IElementStructureService
 
                 if (newElements.Count == 0) return;
 
-                foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
-                {
-                    ImmutableHashSet<Guid> newGroup = [.. value];
-                    if (newGroup.Count >= 2)
-                    {
-                        scene.Groups.Insert(index + 1, newGroup);
-                    }
-                }
+                InsertSplitGroups(scene, groupUpdates);
             }, CommandNames.SplitElement);
         }
         catch (Exception failure)
         {
-            List<Exception> failures = [failure];
-            foreach (string path in storedFiles)
-            {
-                try
-                {
-                    if (scene.Children.Any(child => child.Uri is { IsFile: true } uri
-                        && FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath)))
-                        continue;
-                    File.Delete(path);
-                }
-                catch (Exception cleanup) { failures.Add(cleanup); }
-            }
+            List<Exception> failures = DeleteUnreferencedSidecars(scene, storedFiles, failure);
             if (failures.Count > 1) throw new AggregateException("Split failed and new sidecars could not all be removed.", failures);
             throw;
         }
         return newElements.Count == 0 ? SplitOutcome.Empty : new SplitOutcome(newElements);
+    }
+
+    private static int FindGroupIndex(Scene scene, Guid id)
+    {
+        for (int i = 0; i < scene.Groups.Count; i++)
+        {
+            if (scene.Groups[i].Contains(id))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // Inserting from the highest index down keeps the indices of the groups still to be processed valid.
+    private static void InsertSplitGroups(Scene scene, Dictionary<int, List<Guid>> groupUpdates)
+    {
+        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
+        {
+            ImmutableHashSet<Guid> newGroup = [.. value];
+            if (newGroup.Count >= 2)
+            {
+                scene.Groups.Insert(index + 1, newGroup);
+            }
+        }
+    }
+
+    // Returns the split failure followed by every cleanup failure, so the caller can rethrow the
+    // original exception unchanged when cleanup succeeded.
+    private static List<Exception> DeleteUnreferencedSidecars(Scene scene, List<string> storedFiles, Exception failure)
+    {
+        List<Exception> failures = [failure];
+        foreach (string path in storedFiles)
+        {
+            try
+            {
+                if (scene.Children.Any(child => child.Uri is { IsFile: true } uri
+                    && FilePathComparison.AreSameCanonicalPath(path, uri.LocalPath)))
+                    continue;
+                File.Delete(path);
+            }
+            catch (Exception cleanup) { failures.Add(cleanup); }
+        }
+        return failures;
     }
 
     public GroupOutcome Group(Scene scene, IReadOnlyCollection<Guid> ids)
@@ -199,12 +216,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         if (ids.Count == 0) return ids;
 
-        HashSet<Guid>? lockedIds = null;
-        foreach (Element child in scene.Children)
-        {
-            if (scene.IsElementLocked(child)) (lockedIds ??= []).Add(child.Id);
-        }
-
+        HashSet<Guid>? lockedIds = CollectLockedIds(scene);
         if (lockedIds is null) return ids;
 
         var idSet = new HashSet<Guid>(ids);
@@ -238,17 +250,21 @@ public sealed class ElementStructureService : IElementStructureService
     {
         if (ids.Count == 0) return ids;
 
-        HashSet<Guid>? locked = null;
-        foreach (Element child in scene.Children)
-        {
-            if (scene.IsElementLocked(child))
-            {
-                (locked ??= []).Add(child.Id);
-            }
-        }
-
+        HashSet<Guid>? locked = CollectLockedIds(scene);
         if (locked is null) return ids;
         return ids.Where(id => !locked.Contains(id)).ToArray();
+    }
+
+    // Null when nothing is locked, so callers can skip filtering without allocating a set.
+    private static HashSet<Guid>? CollectLockedIds(Scene scene)
+    {
+        HashSet<Guid>? lockedIds = null;
+        foreach (Element child in scene.Children)
+        {
+            if (scene.IsElementLocked(child)) (lockedIds ??= []).Add(child.Id);
+        }
+
+        return lockedIds;
     }
 
     private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)

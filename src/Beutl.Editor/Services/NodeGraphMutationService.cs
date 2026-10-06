@@ -201,10 +201,7 @@ public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationSe
                 mate = port1;
             }
 
-            if (mate is IInputPort nestedInput
-                && (nestedInput is not IListInputPort && !nestedInput.Connection.IsNull
-                    || nestedInput.FindHierarchicalParent<GraphNode>() is { } owner
-                    && !owner.CanConnectInput(nestedInput)))
+            if (mate is IInputPort nestedInput && !CanAcceptConnection(nestedInput))
             {
                 return NodeConnectOutcome.None;
             }
@@ -221,15 +218,20 @@ public sealed class NodeGraphMutationService : INodeGraphConnectedNodeMutationSe
         if (port1 is not null && port2 is not null
             && SortPortDirection(port1, port2, out IInputPort? input, out IOutputPort? output))
         {
-            if (input is not IListInputPort && !input.Connection.IsNull)
-                return NodeConnectOutcome.None;
-            if (input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input))
+            if (!CanAcceptConnection(input))
                 return NodeConnectOutcome.None;
             graph.Connect(input, output);
             return NodeConnectOutcome.Connected;
         }
 
         return NodeConnectOutcome.None;
+    }
+
+    private static bool CanAcceptConnection(IInputPort input)
+    {
+        if (input is not IListInputPort && !input.Connection.IsNull)
+            return false;
+        return input.FindHierarchicalParent<GraphNode>() is not { } owner || owner.CanConnectInput(input);
     }
 
     public bool TryDisconnect(GraphModel graph, INodePort port1, INodePort port2, Connection? hint = null)

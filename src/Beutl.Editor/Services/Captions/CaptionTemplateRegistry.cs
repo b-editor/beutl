@@ -226,18 +226,10 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
                 _descriptorEntries.Any(entry =>
                     entry.Registration.Descriptor.Id == registration.Descriptor.Id),
                 "descriptor");
-            var entry = new DescriptorEntry(registration);
-            _descriptorEntries.Add(entry);
-            try
-            {
-                SwapState(CreateDirectState());
-                return new DescriptorHandle(this, entry);
-            }
-            catch
-            {
-                _descriptorEntries.Remove(entry);
-                throw;
-            }
+            return AddEntry(
+                _descriptorEntries,
+                new DescriptorEntry(registration),
+                entry => new DescriptorHandle(this, entry));
         }
     }
 
@@ -253,18 +245,10 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
                 _factoryEntries.Any(entry =>
                     entry.Registration.TemplateId == registration.TemplateId),
                 "element factory");
-            var entry = new FactoryEntry(registration);
-            _factoryEntries.Add(entry);
-            try
-            {
-                SwapState(CreateDirectState());
-                return new FactoryHandle(this, entry);
-            }
-            catch
-            {
-                _factoryEntries.Remove(entry);
-                throw;
-            }
+            return AddEntry(
+                _factoryEntries,
+                new FactoryEntry(registration),
+                entry => new FactoryHandle(this, entry));
         }
     }
 
@@ -281,18 +265,10 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
                 _placementEntries.Any(entry =>
                     entry.Registration.TemplateId == registration.TemplateId),
                 "placement policy");
-            var entry = new PlacementEntry(registration);
-            _placementEntries.Add(entry);
-            try
-            {
-                SwapState(CreateDirectState());
-                return new PlacementHandle(this, entry);
-            }
-            catch
-            {
-                _placementEntries.Remove(entry);
-                throw;
-            }
+            return AddEntry(
+                _placementEntries,
+                new PlacementEntry(registration),
+                entry => new PlacementHandle(this, entry));
         }
     }
 
@@ -450,33 +426,33 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
             _retiredStates.Remove(state);
     }
 
-    private Task RemoveAsync(DescriptorEntry entry)
+    private THandle AddEntry<TEntry, THandle>(List<TEntry> entries, TEntry entry, Func<TEntry, THandle> createHandle)
     {
-        lock (_mutationGate)
+        entries.Add(entry);
+        try
         {
-            if (!_descriptorEntries.Remove(entry))
-                return _disposeTask ?? Task.CompletedTask;
-            CaptionRegistryDrain<object> retired = SwapState(CreateDirectState());
-            return DrainOwnerAcrossRetiredStates(entry, retired);
+            SwapState(CreateDirectState());
+            return createHandle(entry);
+        }
+        catch
+        {
+            entries.Remove(entry);
+            throw;
         }
     }
 
-    private Task RemoveAsync(FactoryEntry entry)
-    {
-        lock (_mutationGate)
-        {
-            if (!_factoryEntries.Remove(entry))
-                return _disposeTask ?? Task.CompletedTask;
-            CaptionRegistryDrain<object> retired = SwapState(CreateDirectState());
-            return DrainOwnerAcrossRetiredStates(entry, retired);
-        }
-    }
+    private Task RemoveAsync(DescriptorEntry entry) => RemoveEntryAsync(_descriptorEntries, entry);
 
-    private Task RemoveAsync(PlacementEntry entry)
+    private Task RemoveAsync(FactoryEntry entry) => RemoveEntryAsync(_factoryEntries, entry);
+
+    private Task RemoveAsync(PlacementEntry entry) => RemoveEntryAsync(_placementEntries, entry);
+
+    private Task RemoveEntryAsync<TEntry>(List<TEntry> entries, TEntry entry)
+        where TEntry : class
     {
         lock (_mutationGate)
         {
-            if (!_placementEntries.Remove(entry))
+            if (!entries.Remove(entry))
                 return _disposeTask ?? Task.CompletedTask;
             CaptionRegistryDrain<object> retired = SwapState(CreateDirectState());
             return DrainOwnerAcrossRetiredStates(entry, retired);
@@ -636,17 +612,7 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
             Dictionary<CaptionTemplateId, TCapability> capabilities,
             string capabilityName)
         {
-            bool exists = capabilities.ContainsKey(id);
-            if (mode == CaptionTemplateRegistrationMode.Add && exists)
-            {
-                throw new ArgumentException(
-                    $"Caption template '{id}' already has a {capabilityName}. Use Replace explicitly.");
-            }
-            if (mode == CaptionTemplateRegistrationMode.Replace && !exists)
-            {
-                throw new ArgumentException(
-                    $"Caption template '{id}' has no {capabilityName} to replace.");
-            }
+            ValidateRegistrationMode(id, mode, capabilities.ContainsKey(id), capabilityName);
             capabilities[id] = capability;
         }
     }

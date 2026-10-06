@@ -179,12 +179,10 @@ public sealed class CaptionCatalog : IAsyncDisposable
         CaptionTemplateRegistrationSet[] objectTemplateRegistrations =
             CreateObjectTemplateRegistrations(objectTemplates);
         BuiltInCaptionCodecRegistrations codecs = CreateDefaultCodecRegistrations();
-        CaptionTemplateDescriptorRegistration[] descriptors =
-            [defaultTemplate.DescriptorRegistration, .. objectTemplateRegistrations.Select(item => item.DescriptorRegistration)];
-        CaptionElementFactoryRegistration[] factories =
-            [defaultTemplate.ElementFactoryRegistration, .. objectTemplateRegistrations.Select(item => item.ElementFactoryRegistration)];
-        CaptionPlacementPolicyRegistration[] placements =
-            [defaultTemplate.PlacementPolicyRegistration, .. objectTemplateRegistrations.Select(item => item.PlacementPolicyRegistration)];
+        (CaptionTemplateDescriptorRegistration[] descriptors,
+            CaptionElementFactoryRegistration[] factories,
+            CaptionPlacementPolicyRegistration[] placements) =
+            PrependDefaultTemplate(defaultTemplate, objectTemplateRegistrations);
         return new CaptionCatalog(
             extensionProvider,
             codecs.Descriptors,
@@ -219,12 +217,8 @@ public sealed class CaptionCatalog : IAsyncDisposable
                         "Only a dynamically composed caption catalog can refresh object templates.");
                 }
 
-                _hostTemplateDescriptors =
-                    [_defaultTemplateRegistrations.DescriptorRegistration, .. registrations.Select(item => item.DescriptorRegistration)];
-                _hostTemplateFactories =
-                    [_defaultTemplateRegistrations.ElementFactoryRegistration, .. registrations.Select(item => item.ElementFactoryRegistration)];
-                _hostTemplatePlacements =
-                    [_defaultTemplateRegistrations.PlacementPolicyRegistration, .. registrations.Select(item => item.PlacementPolicyRegistration)];
+                (_hostTemplateDescriptors, _hostTemplateFactories, _hostTemplatePlacements) =
+                    PrependDefaultTemplate(_defaultTemplateRegistrations, registrations);
                 RebuildCore();
             }
         });
@@ -252,12 +246,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
 
     private Task DisposeCoreAsync()
     {
-        CaptionCodecDescriptorExtension[] codecDescriptorExtensions;
-        CaptionDecoderExtension[] decoderExtensions;
-        CaptionEncoderExtension[] encoderExtensions;
-        CaptionTemplateDescriptorExtension[] descriptorExtensions;
-        CaptionElementFactoryExtension[] factoryExtensions;
-        CaptionPlacementPolicyExtension[] placementExtensions;
         ValueTask codecDrain;
         ValueTask templateDrain;
         lock (_gate)
@@ -270,18 +258,9 @@ public sealed class CaptionCatalog : IAsyncDisposable
             {
                 _extensionProvider.AllExtensions.CollectionChanged -= OnExtensionsChanged;
                 _extensionProvider.ExtensionsChanged -= OnExtensionsCommitted;
-                codecDescriptorExtensions = _activeCodecDescriptorExtensions.ToArray();
-                decoderExtensions = _activeDecoderExtensions.ToArray();
-                encoderExtensions = _activeEncoderExtensions.ToArray();
-                descriptorExtensions = _activeDescriptorExtensions.ToArray();
-                factoryExtensions = _activeFactoryExtensions.ToArray();
-                placementExtensions = _activePlacementExtensions.ToArray();
-                _activeCodecDescriptorExtensions.Clear();
-                _activeDecoderExtensions.Clear();
-                _activeEncoderExtensions.Clear();
-                _activeDescriptorExtensions.Clear();
-                _activeFactoryExtensions.Clear();
-                _activePlacementExtensions.Clear();
+                Extension[] codecExtensions = SnapshotCodecExtensions();
+                Extension[] templateExtensions = SnapshotTemplateExtensions();
+                ClearActiveExtensions();
                 CaptionRegistryDrain<Extension> retiredCodecs = _codecs.ReplaceOwned(
                     _hostCodecDescriptors,
                     _hostCodecDecoders,
@@ -298,33 +277,11 @@ public sealed class CaptionCatalog : IAsyncDisposable
                     new Dictionary<CaptionTemplateId, Extension>());
                 codecDrain = Combine(retiredCodecs.All, _codecs.DisposeAsync());
                 templateDrain = Combine(retiredTemplates.All, _templates.DisposeAsync());
-                foreach (Extension extension in codecDescriptorExtensions
-                             .Cast<Extension>()
-                             .Concat(decoderExtensions)
-                             .Concat(encoderExtensions))
-                {
-                    ExtensionRegistrationLifetimes.Retire(
-                        extension,
-                        () => new ValueTask(retiredCodecs.DrainOwnerAsync(extension)));
-                }
-                foreach (Extension extension in descriptorExtensions
-                             .Cast<Extension>()
-                             .Concat(factoryExtensions)
-                             .Concat(placementExtensions))
-                {
-                    ExtensionRegistrationLifetimes.Retire(
-                        extension,
-                        () => new ValueTask(retiredTemplates.DrainOwnerAsync(extension)));
-                }
+                RetireExtensions(codecExtensions, retiredCodecs);
+                RetireExtensions(templateExtensions, retiredTemplates);
             }
             else
             {
-                codecDescriptorExtensions = [];
-                decoderExtensions = [];
-                encoderExtensions = [];
-                descriptorExtensions = [];
-                factoryExtensions = [];
-                placementExtensions = [];
                 codecDrain = _ownsRegistries ? _codecs.DisposeAsync() : ValueTask.CompletedTask;
                 templateDrain = _ownsRegistries ? _templates.DisposeAsync() : ValueTask.CompletedTask;
             }
@@ -356,16 +313,8 @@ public sealed class CaptionCatalog : IAsyncDisposable
     {
         IExtensionRegistry extensionProvider = _extensionProvider
             ?? throw new InvalidOperationException("The caption catalog is not dynamically composed.");
-        CaptionCodecDescriptorExtension[] previousCodecDescriptorExtensions =
-            _activeCodecDescriptorExtensions.ToArray();
-        CaptionDecoderExtension[] previousDecoderExtensions = _activeDecoderExtensions.ToArray();
-        CaptionEncoderExtension[] previousEncoderExtensions = _activeEncoderExtensions.ToArray();
-        CaptionTemplateDescriptorExtension[] previousDescriptorExtensions =
-            _activeDescriptorExtensions.ToArray();
-        CaptionElementFactoryExtension[] previousFactoryExtensions =
-            _activeFactoryExtensions.ToArray();
-        CaptionPlacementPolicyExtension[] previousPlacementExtensions =
-            _activePlacementExtensions.ToArray();
+        Extension[] previousCodecExtensions = SnapshotCodecExtensions();
+        Extension[] previousTemplateExtensions = SnapshotTemplateExtensions();
         List<CaptionCodecDescriptorRegistration> codecDescriptors =
             [.. _hostCodecDescriptors];
         List<CaptionDecoderRegistration> captionDecoders = [.. _hostCodecDecoders];
@@ -374,59 +323,12 @@ public sealed class CaptionCatalog : IAsyncDisposable
         var decoderOwners = new Dictionary<CaptionFormatId, Extension>();
         var encoderOwners = new Dictionary<CaptionFormatId, Extension>();
 
-        CaptionCodecDescriptorExtension[] codecDescriptorExtensions =
-            extensionProvider.GetExtensions<CaptionCodecDescriptorExtension>();
-        List<(CaptionCodecDescriptorExtension Extension,
-            CaptionCodecDescriptorRegistration[] Registrations)> codecDescriptorCandidates =
-            CreateCandidates(
-                codecDescriptorExtensions,
-                extension => extension.Registrations,
-                CaptionCatalogContributionKind.CodecDescriptor,
-                "codec descriptor");
-        ComposeSlotExtensions(
-            codecDescriptorCandidates,
-            codecDescriptors,
-            codecDescriptorOwners,
-            static registration => registration.Descriptor.Format,
-            static registration => registration.Mode == CaptionCodecRegistrationMode.Add,
-            CaptionCatalogContributionKind.CodecDescriptor,
-            registrations => new CaptionCodecRegistry(registrations, [], []));
-
-        CaptionDecoderExtension[] decoderExtensions =
-            extensionProvider.GetExtensions<CaptionDecoderExtension>();
-        List<(CaptionDecoderExtension Extension,
-            CaptionDecoderRegistration[] Registrations)> decoderCandidates =
-            CreateCandidates(
-                decoderExtensions,
-                extension => extension.Registrations,
-                CaptionCatalogContributionKind.Decoder,
-                "caption decoder");
-        ComposeSlotExtensions(
-            decoderCandidates,
-            captionDecoders,
-            decoderOwners,
-            static registration => registration.Format,
-            static registration => registration.Mode == CaptionCodecRegistrationMode.Add,
-            CaptionCatalogContributionKind.Decoder,
-            registrations => new CaptionCodecRegistry([], registrations, []));
-
-        CaptionEncoderExtension[] encoderExtensions =
-            extensionProvider.GetExtensions<CaptionEncoderExtension>();
-        List<(CaptionEncoderExtension Extension,
-            CaptionEncoderRegistration[] Registrations)> encoderCandidates =
-            CreateCandidates(
-                encoderExtensions,
-                extension => extension.Registrations,
-                CaptionCatalogContributionKind.Encoder,
-                "caption encoder");
-        ComposeSlotExtensions(
-            encoderCandidates,
-            captionEncoders,
-            encoderOwners,
-            static registration => registration.Format,
-            static registration => registration.Mode == CaptionCodecRegistrationMode.Add,
-            CaptionCatalogContributionKind.Encoder,
-            registrations => new CaptionCodecRegistry([], [], registrations));
+        CaptionCodecDescriptorExtension[] codecDescriptorExtensions = ComposeCategory(
+            extensionProvider, s_codecDescriptorCategory, codecDescriptors, codecDescriptorOwners);
+        CaptionDecoderExtension[] decoderExtensions = ComposeCategory(
+            extensionProvider, s_decoderCategory, captionDecoders, decoderOwners);
+        CaptionEncoderExtension[] encoderExtensions = ComposeCategory(
+            extensionProvider, s_encoderCategory, captionEncoders, encoderOwners);
 
         List<CaptionTemplateDescriptorRegistration> descriptorRegistrations =
             [.. _hostTemplateDescriptors];
@@ -438,72 +340,19 @@ public sealed class CaptionCatalog : IAsyncDisposable
         var factoryOwners = new Dictionary<CaptionTemplateId, Extension>();
         var placementOwners = new Dictionary<CaptionTemplateId, Extension>();
 
-        CaptionTemplateDescriptorExtension[] descriptorExtensions =
-            extensionProvider.GetExtensions<CaptionTemplateDescriptorExtension>();
-        List<(CaptionTemplateDescriptorExtension Extension,
-            CaptionTemplateDescriptorRegistration[] Registrations)> descriptorCandidates =
-            CreateCandidates(
-                descriptorExtensions,
-                extension => extension.Registrations,
-                CaptionCatalogContributionKind.TemplateDescriptor,
-                "descriptor");
-        ComposeSlotExtensions(
-            descriptorCandidates,
-            descriptorRegistrations,
-            descriptorOwners,
-            static registration => registration.Descriptor.Id,
-            static registration => registration.Mode == CaptionTemplateRegistrationMode.Add,
-            CaptionCatalogContributionKind.TemplateDescriptor,
-            registrations => new CaptionTemplateRegistry(registrations, [], []));
+        CaptionTemplateDescriptorExtension[] descriptorExtensions = ComposeCategory(
+            extensionProvider, s_templateDescriptorCategory, descriptorRegistrations, descriptorOwners);
+        CaptionElementFactoryExtension[] factoryExtensions = ComposeCategory(
+            extensionProvider, s_elementFactoryCategory, factoryRegistrations, factoryOwners);
+        CaptionPlacementPolicyExtension[] placementExtensions = ComposeCategory(
+            extensionProvider, s_placementCategory, placementRegistrations, placementOwners);
 
-        CaptionElementFactoryExtension[] factoryExtensions =
-            extensionProvider.GetExtensions<CaptionElementFactoryExtension>();
-        List<(CaptionElementFactoryExtension Extension,
-            CaptionElementFactoryRegistration[] Registrations)> factoryCandidates =
-            CreateCandidates(
-                factoryExtensions,
-                extension => extension.Registrations,
-                CaptionCatalogContributionKind.ElementFactory,
-                "element-factory");
-        ComposeSlotExtensions(
-            factoryCandidates,
-            factoryRegistrations,
-            factoryOwners,
-            static registration => registration.TemplateId,
-            static registration => registration.Mode == CaptionTemplateRegistrationMode.Add,
-            CaptionCatalogContributionKind.ElementFactory,
-            registrations => new CaptionTemplateRegistry([], registrations, []));
-
-        CaptionPlacementPolicyExtension[] placementExtensions =
-            extensionProvider.GetExtensions<CaptionPlacementPolicyExtension>();
-        List<(CaptionPlacementPolicyExtension Extension,
-            CaptionPlacementPolicyRegistration[] Registrations)> placementCandidates =
-            CreateCandidates(
-                placementExtensions,
-                extension => extension.Registrations,
-                CaptionCatalogContributionKind.Placement,
-                "placement");
-        ComposeSlotExtensions(
-            placementCandidates,
-            placementRegistrations,
-            placementOwners,
-            static registration => registration.TemplateId,
-            static registration => registration.Mode == CaptionTemplateRegistrationMode.Add,
-            CaptionCatalogContributionKind.Placement,
-            registrations => new CaptionTemplateRegistry([], [], registrations));
-
-        _activeCodecDescriptorExtensions.Clear();
-        _activeCodecDescriptorExtensions.UnionWith(codecDescriptorExtensions);
-        _activeDecoderExtensions.Clear();
-        _activeDecoderExtensions.UnionWith(decoderExtensions);
-        _activeEncoderExtensions.Clear();
-        _activeEncoderExtensions.UnionWith(encoderExtensions);
-        _activeDescriptorExtensions.Clear();
-        _activeDescriptorExtensions.UnionWith(descriptorExtensions);
-        _activeFactoryExtensions.Clear();
-        _activeFactoryExtensions.UnionWith(factoryExtensions);
-        _activePlacementExtensions.Clear();
-        _activePlacementExtensions.UnionWith(placementExtensions);
+        ReplaceContents(_activeCodecDescriptorExtensions, codecDescriptorExtensions);
+        ReplaceContents(_activeDecoderExtensions, decoderExtensions);
+        ReplaceContents(_activeEncoderExtensions, encoderExtensions);
+        ReplaceContents(_activeDescriptorExtensions, descriptorExtensions);
+        ReplaceContents(_activeFactoryExtensions, factoryExtensions);
+        ReplaceContents(_activePlacementExtensions, placementExtensions);
 
         // Each replacement synchronously publishes a state that excludes removed packages. The
         // returned tasks drain calls that still hold the retired package-owned state.
@@ -528,28 +377,138 @@ public sealed class CaptionCatalog : IAsyncDisposable
         // Track every replaced category state against the extensions that could be retained by
         // that state. This also covers an older state retired by a host-template refresh long
         // before its package is removed.
-        foreach (Extension extension in previousCodecDescriptorExtensions
-                     .Cast<Extension>()
-                     .Concat(previousDecoderExtensions)
-                     .Concat(previousEncoderExtensions))
-        {
-            ExtensionRegistrationLifetimes.Retire(
-                extension,
-                () => new ValueTask(retiredCodecs.DrainOwnerAsync(extension)));
-        }
-
-        foreach (Extension extension in previousDescriptorExtensions
-                     .Cast<Extension>()
-                     .Concat(previousFactoryExtensions)
-                     .Concat(previousPlacementExtensions))
-        {
-            ExtensionRegistrationLifetimes.Retire(
-                extension,
-                () => new ValueTask(retiredTemplates.DrainOwnerAsync(extension)));
-        }
+        RetireExtensions(previousCodecExtensions, retiredCodecs);
+        RetireExtensions(previousTemplateExtensions, retiredTemplates);
 
         return Combine(codecDrain, templateDrain);
     }
+
+    private static readonly ContributionCategory<
+        CaptionCodecDescriptorExtension, CaptionCodecDescriptorRegistration, CaptionFormatId> s_codecDescriptorCategory = new(
+        CaptionCatalogContributionKind.CodecDescriptor,
+        "codec descriptor",
+        extension => extension.Registrations,
+        static registration => registration.Descriptor.Format,
+        static registration => registration.Mode == CaptionCodecRegistrationMode.Add,
+        registrations => new CaptionCodecRegistry(registrations, [], []));
+
+    private static readonly ContributionCategory<
+        CaptionDecoderExtension, CaptionDecoderRegistration, CaptionFormatId> s_decoderCategory = new(
+        CaptionCatalogContributionKind.Decoder,
+        "caption decoder",
+        extension => extension.Registrations,
+        static registration => registration.Format,
+        static registration => registration.Mode == CaptionCodecRegistrationMode.Add,
+        registrations => new CaptionCodecRegistry([], registrations, []));
+
+    private static readonly ContributionCategory<
+        CaptionEncoderExtension, CaptionEncoderRegistration, CaptionFormatId> s_encoderCategory = new(
+        CaptionCatalogContributionKind.Encoder,
+        "caption encoder",
+        extension => extension.Registrations,
+        static registration => registration.Format,
+        static registration => registration.Mode == CaptionCodecRegistrationMode.Add,
+        registrations => new CaptionCodecRegistry([], [], registrations));
+
+    private static readonly ContributionCategory<
+        CaptionTemplateDescriptorExtension, CaptionTemplateDescriptorRegistration, CaptionTemplateId> s_templateDescriptorCategory = new(
+        CaptionCatalogContributionKind.TemplateDescriptor,
+        "descriptor",
+        extension => extension.Registrations,
+        static registration => registration.Descriptor.Id,
+        static registration => registration.Mode == CaptionTemplateRegistrationMode.Add,
+        registrations => new CaptionTemplateRegistry(registrations, [], []));
+
+    private static readonly ContributionCategory<
+        CaptionElementFactoryExtension, CaptionElementFactoryRegistration, CaptionTemplateId> s_elementFactoryCategory = new(
+        CaptionCatalogContributionKind.ElementFactory,
+        "element-factory",
+        extension => extension.Registrations,
+        static registration => registration.TemplateId,
+        static registration => registration.Mode == CaptionTemplateRegistrationMode.Add,
+        registrations => new CaptionTemplateRegistry([], registrations, []));
+
+    private static readonly ContributionCategory<
+        CaptionPlacementPolicyExtension, CaptionPlacementPolicyRegistration, CaptionTemplateId> s_placementCategory = new(
+        CaptionCatalogContributionKind.Placement,
+        "placement",
+        extension => extension.Registrations,
+        static registration => registration.TemplateId,
+        static registration => registration.Mode == CaptionTemplateRegistrationMode.Add,
+        registrations => new CaptionTemplateRegistry([], [], registrations));
+
+    private sealed record ContributionCategory<TExtension, TRegistration, TId>(
+        CaptionCatalogContributionKind Kind,
+        string CapabilityName,
+        Func<TExtension, IReadOnlyCollection<TRegistration>?> GetRegistrations,
+        Func<TRegistration, TId> GetId,
+        Func<TRegistration, bool> IsAdd,
+        Func<IEnumerable<TRegistration>, object> Validate)
+        where TExtension : Extension
+        where TRegistration : class
+        where TId : notnull;
+
+    private TExtension[] ComposeCategory<TExtension, TRegistration, TId>(
+        IExtensionRegistry extensionProvider,
+        ContributionCategory<TExtension, TRegistration, TId> category,
+        List<TRegistration> accepted,
+        Dictionary<TId, Extension> owners)
+        where TExtension : Extension
+        where TRegistration : class
+        where TId : notnull
+    {
+        TExtension[] extensions = extensionProvider.GetExtensions<TExtension>();
+        ComposeSlotExtensions(
+            CreateCandidates(extensions, category.GetRegistrations, category.Kind, category.CapabilityName),
+            accepted,
+            owners,
+            category.GetId,
+            category.IsAdd,
+            category.Kind,
+            category.Validate);
+        return extensions;
+    }
+
+    private Extension[] SnapshotCodecExtensions()
+        => [.. _activeCodecDescriptorExtensions, .. _activeDecoderExtensions, .. _activeEncoderExtensions];
+
+    private Extension[] SnapshotTemplateExtensions()
+        => [.. _activeDescriptorExtensions, .. _activeFactoryExtensions, .. _activePlacementExtensions];
+
+    private void ClearActiveExtensions()
+    {
+        _activeCodecDescriptorExtensions.Clear();
+        _activeDecoderExtensions.Clear();
+        _activeEncoderExtensions.Clear();
+        _activeDescriptorExtensions.Clear();
+        _activeFactoryExtensions.Clear();
+        _activePlacementExtensions.Clear();
+    }
+
+    private static void ReplaceContents<T>(HashSet<T> set, T[] items)
+    {
+        set.Clear();
+        set.UnionWith(items);
+    }
+
+    private static void RetireExtensions(IEnumerable<Extension> extensions, CaptionRegistryDrain<Extension> drain)
+    {
+        foreach (Extension extension in extensions)
+        {
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => new ValueTask(drain.DrainOwnerAsync(extension)));
+        }
+    }
+
+    private static (CaptionTemplateDescriptorRegistration[] Descriptors,
+        CaptionElementFactoryRegistration[] Factories,
+        CaptionPlacementPolicyRegistration[] Placements) PrependDefaultTemplate(
+        CaptionTemplateRegistrationSet defaultTemplate,
+        CaptionTemplateRegistrationSet[] registrations)
+        => ([defaultTemplate.DescriptorRegistration, .. registrations.Select(item => item.DescriptorRegistration)],
+            [defaultTemplate.ElementFactoryRegistration, .. registrations.Select(item => item.ElementFactoryRegistration)],
+            [defaultTemplate.PlacementPolicyRegistration, .. registrations.Select(item => item.PlacementPolicyRegistration)]);
 
     private static ValueTask Combine(ValueTask first, ValueTask second)
     {
@@ -658,9 +617,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
                     if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
                         continue;
                     TRegistration[] phase = registrations
-                        .Where(registration => phaseIndex == 0
-                            ? isAdd(registration)
-                            : !isAdd(registration))
+                        .Where(registration => IsInPhase(registration, phaseIndex, isAdd))
                         .ToArray();
                     if (phase.Length == 0)
                         continue;
@@ -694,9 +651,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
                          in candidates.Where(candidate => !failures.ContainsKey(candidate.Extension)))
                 {
                     foreach (TRegistration registration in registrations.Where(registration =>
-                                 phaseIndex == 0
-                                     ? isAdd(registration)
-                                     : !isAdd(registration)))
+                                 IsInPhase(registration, phaseIndex, isAdd)))
                     {
                         owners[getId(registration)] = extension;
                     }
@@ -709,6 +664,9 @@ public sealed class CaptionCatalog : IAsyncDisposable
         {
             ReportFailure(kind, extension, failure);
         }
+
+        static bool IsInPhase(TRegistration registration, int phaseIndex, Func<TRegistration, bool> isAdd)
+            => phaseIndex == 0 ? isAdd(registration) : !isAdd(registration);
     }
 
     private void ReportFailure(

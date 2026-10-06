@@ -1,6 +1,5 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
@@ -11,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
 
-public sealed class HistoryManager : IDisposable
+public sealed partial class HistoryManager : IDisposable
 {
     private const int MaximumPreActionPublicationTransactions = 64;
     private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
@@ -42,7 +41,7 @@ public sealed class HistoryManager : IDisposable
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
         _entries.Add(HistoryEntry.CreateInitial());
         _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
     }
@@ -280,9 +279,7 @@ public sealed class HistoryManager : IDisposable
 
     private void ThrowIfHistoryControlIsBlocked_NoLock(bool allowUncertainFailure = false)
     {
-        if (!allowUncertainFailure && (_currentTransaction.HasUncertainFailure
-            || _undoStack.Any(transaction => transaction.HasUncertainFailure)
-            || _redoStack.Any(transaction => transaction.HasUncertainFailure)))
+        if (!allowUncertainFailure && HasUncertainFailure_NoLock())
         {
             throw new InvalidOperationException("History contains an operation with uncertain partial execution. Clear history or reopen the project before replaying it.");
         }
@@ -297,6 +294,14 @@ public sealed class HistoryManager : IDisposable
                 "History control cannot run while history entry changes are being published.");
         }
     }
+
+    private bool HasUncertainFailure_NoLock()
+        => _currentTransaction.HasUncertainFailure
+           || _undoStack.Any(transaction => transaction.HasUncertainFailure)
+           || _redoStack.Any(transaction => transaction.HasUncertainFailure);
+
+    private HistoryTransaction CreateTransaction()
+        => new(Interlocked.Increment(ref _transactionIdCounter));
 
     private bool CommitCurrentTransaction_NoLock(string? name, string? expression)
     {
@@ -317,7 +322,7 @@ public sealed class HistoryManager : IDisposable
         int currentEntryIndex = _undoStack.Count;
         _undoStack.Push(transaction);
         _redoStack.Clear();
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
         TruncateEntriesAfter(currentEntryIndex);
         AddEntry(HistoryEntry.FromTransaction(transaction));
         return true;
@@ -351,13 +356,13 @@ public sealed class HistoryManager : IDisposable
             }
         }
 
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
     }
 
     private void RollbackIsolatedTransaction_NoLock()
     {
         HistoryTransaction transaction = _currentTransaction;
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = CreateTransaction();
         if (transaction.HasOperations)
         {
             _logger.LogDebug(
@@ -428,7 +433,6 @@ public sealed class HistoryManager : IDisposable
                 attemptedMutation = _currentTransaction.HasOperations;
                 Rollback();
                 Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
-                Stack<HistoryTransaction> destination = redo ? _undoStack : _redoStack;
                 if (source.Count == 0)
                     return false;
 
@@ -436,15 +440,7 @@ public sealed class HistoryManager : IDisposable
                 _logger.LogDebug("{Action} transaction: {TransactionName} (ID: {TransactionId})",
                     redo ? "Redoing" : "Undoing", transaction.Name, transaction.Id);
                 attemptedMutation = true;
-                using (SuppressRecording())
-                {
-                    if (redo)
-                        transaction.Apply(_context);
-                    else
-                        transaction.Revert(_context);
-                }
-                source.Pop();
-                destination.Push(transaction);
+                ReplayTopTransaction_NoLock(transaction, redo);
                 return true;
             }
         }
@@ -465,7 +461,7 @@ public sealed class HistoryManager : IDisposable
         {
             ThrowIfHistoryControlIsBlocked_NoLock(allowUncertainFailure: true);
             if (_currentTransaction.HasUncertainFailure)
-                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+                _currentTransaction = CreateTransaction();
             int undoCount = _undoStack.Count;
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
@@ -521,37 +517,18 @@ public sealed class HistoryManager : IDisposable
                 if (_currentTransaction.HasOperations)
                 {
                     _logger.LogDebug("Rolling back current transaction before JumpTo");
-                    // Always replace the current transaction even if Revert throws,
-                    // otherwise the same operations would re-apply on the next commit.
-                    try
-                    {
-                        using (SuppressRecording())
-                        {
-                            _currentTransaction.Revert(_context);
-                        }
-                    }
-                    finally
-                    {
-                        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
-                        stateMutated = true;
-                    }
+                    // The outer finally publishes the state even when the revert throws.
+                    stateMutated = true;
+                    DiscardPendingTransaction_NoLock();
                 }
 
                 try
                 {
-                    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
-                    // the failing transaction stays on the originating stack so it
-                    // is not lost from history altogether.
                     while (_undoStack.Count > index)
                     {
                         HistoryTransaction transaction = _undoStack.Peek();
                         _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-                        using (SuppressRecording())
-                        {
-                            transaction.Revert(_context);
-                        }
-                        _undoStack.Pop();
-                        _redoStack.Push(transaction);
+                        ReplayTopTransaction_NoLock(transaction, redo: false);
                         moved = true;
                         stateMutated = true;
                     }
@@ -560,12 +537,7 @@ public sealed class HistoryManager : IDisposable
                     {
                         HistoryTransaction transaction = _redoStack.Peek();
                         _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-                        using (SuppressRecording())
-                        {
-                            transaction.Apply(_context);
-                        }
-                        _redoStack.Pop();
-                        _undoStack.Push(transaction);
+                        ReplayTopTransaction_NoLock(transaction, redo: true);
                         moved = true;
                         stateMutated = true;
                     }
@@ -605,170 +577,40 @@ public sealed class HistoryManager : IDisposable
         return moved;
     }
 
-    private void TruncateEntriesAfter(int lastKeptIndex)
+    // Always replace the current transaction even if Revert throws,
+    // otherwise the same operations would re-apply on the next commit.
+    private void DiscardPendingTransaction_NoLock()
     {
-        for (int i = _entries.Count - 1; i > lastKeptIndex; i--)
-        {
-            RemoveEntryAt(i);
-        }
-    }
-
-    private void AddEntry(HistoryEntry entry)
-    {
-        int index = _entries.Count;
-        EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
-        _entryPublicationDepth++;
         try
         {
-            try
+            using (SuppressRecording())
             {
-                _entries.Add(entry);
+                _currentTransaction.Revert(_context);
             }
-            catch (Exception ex) when (_entries.Count == index + 1
-                && ReferenceEquals(_entries[index], entry))
-            {
-                _logger.LogError(ex, "A direct history entry observer failed while adding entry {EntryIndex}.", index);
-            }
-
-            NotifyEntrySubscribersSafely(
-                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, entry, index),
-                subscribers);
         }
         finally
         {
-            _entryPublicationDepth--;
+            _currentTransaction = CreateTransaction();
         }
     }
 
-    private void ReplaceEntry(int index, HistoryEntry entry)
+    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
+    // the failing transaction stays on the originating stack so it
+    // is not lost from history altogether.
+    private void ReplayTopTransaction_NoLock(HistoryTransaction transaction, bool redo)
     {
-        HistoryEntry previous = _entries[index];
-        EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
-        _entryPublicationDepth++;
-        try
+        using (SuppressRecording())
         {
-            try
-            {
-                _entries[index] = entry;
-            }
-            catch (Exception ex) when (ReferenceEquals(_entries[index], entry))
-            {
-                _logger.LogError(ex, "A direct history entry observer failed while replacing entry {EntryIndex}.", index);
-            }
-
-            NotifyEntrySubscribersSafely(
-                new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Replace,
-                    entry,
-                    previous,
-                    index),
-                subscribers);
-        }
-        finally
-        {
-            _entryPublicationDepth--;
-        }
-    }
-
-    private void RemoveEntryAt(int index)
-    {
-        HistoryEntry removed = _entries[index];
-        int previousCount = _entries.Count;
-        EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
-        _entryPublicationDepth++;
-        try
-        {
-            try
-            {
-                _entries.RemoveAt(index);
-            }
-            catch (Exception ex) when (_entries.Count == previousCount - 1)
-            {
-                _logger.LogError(ex, "A direct history entry observer failed while removing entry {EntryIndex}.", index);
-            }
-
-            NotifyEntrySubscribersSafely(
-                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removed, index),
-                subscribers);
-        }
-        finally
-        {
-            _entryPublicationDepth--;
-        }
-    }
-
-    private void NotifyEntrySubscribersSafely(
-        NotifyCollectionChangedEventArgs args,
-        IReadOnlyList<EntrySubscriber> subscribers)
-    {
-        foreach (EntrySubscriber subscriber in subscribers)
-        {
-            if (!_entrySubscribers.Contains(subscriber))
-                continue;
-            try
-            {
-                subscriber.Handler(_readOnlyEntries, args);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "A history entry subscriber failed while handling {Action}; continuing publication.",
-                    args.Action);
-            }
-        }
-    }
-
-    private sealed class EntrySubscriber(NotifyCollectionChangedEventHandler handler)
-    {
-        public NotifyCollectionChangedEventHandler Handler { get; } = handler;
-    }
-
-    private sealed class IsolatedEntryCollection(
-        ObservableCollection<HistoryEntry> source,
-        ILogger logger) : ReadOnlyObservableCollection<HistoryEntry>(source),
-        INotifyCollectionChanged, INotifyPropertyChanged
-    {
-        private event NotifyCollectionChangedEventHandler? CollectionHandlers;
-        private event PropertyChangedEventHandler? PropertyHandlers;
-
-        event NotifyCollectionChangedEventHandler? INotifyCollectionChanged.CollectionChanged
-        {
-            add => CollectionHandlers += value;
-            remove => CollectionHandlers -= value;
+            if (redo)
+                transaction.Apply(_context);
+            else
+                transaction.Revert(_context);
         }
 
-        event PropertyChangedEventHandler? INotifyPropertyChanged.PropertyChanged
-        {
-            add => PropertyHandlers += value;
-            remove => PropertyHandlers -= value;
-        }
-
-        protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs args)
-        {
-            try { base.OnCollectionChanged(args); }
-            catch (Exception ex) { Report(ex); }
-            foreach (NotifyCollectionChangedEventHandler handler in
-                     CollectionHandlers?.GetInvocationList() ?? [])
-            {
-                try { handler(this, args); }
-                catch (Exception ex) { Report(ex); }
-            }
-        }
-
-        protected override void OnPropertyChanged(PropertyChangedEventArgs args)
-        {
-            try { base.OnPropertyChanged(args); }
-            catch (Exception ex) { Report(ex); }
-            foreach (PropertyChangedEventHandler handler in PropertyHandlers?.GetInvocationList() ?? [])
-            {
-                try { handler(this, args); }
-                catch (Exception ex) { Report(ex); }
-            }
-        }
-
-        private void Report(Exception exception)
-            => logger.LogError(exception, "A direct history entry observer failed; continuing publication.");
+        Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
+        Stack<HistoryTransaction> destination = redo ? _undoStack : _redoStack;
+        source.Pop();
+        destination.Push(transaction);
     }
 
     public IDisposable Subscribe(IOperationObserver observer)
@@ -896,102 +738,6 @@ public sealed class HistoryManager : IDisposable
         _beforeMutation.Dispose();
         _undoStack.Clear();
         _redoStack.Clear();
-    }
-
-    private sealed class FaultIsolatedSubject<T>(Action<Exception> observerFailure) : IObservable<T>, IDisposable
-    {
-        private readonly object _gate = new();
-        private readonly List<SubscriptionEntry> _subscriptions = [];
-        private bool _isCompleted;
-        private bool _isDisposed;
-
-        public IDisposable Subscribe(IObserver<T> observer)
-        {
-            ArgumentNullException.ThrowIfNull(observer);
-            var entry = new SubscriptionEntry(observer);
-            lock (_gate)
-            {
-                ObjectDisposedException.ThrowIf(_isDisposed, this);
-                if (_isCompleted)
-                {
-                    observer.OnCompleted();
-                    return Disposable.Empty;
-                }
-
-                _subscriptions.Add(entry);
-            }
-
-            return Disposable.Create(() =>
-            {
-                lock (_gate)
-                {
-                    _subscriptions.Remove(entry);
-                }
-            });
-        }
-
-        public void OnNext(T value)
-        {
-            SubscriptionEntry[] subscriptions;
-            lock (_gate)
-            {
-                ObjectDisposedException.ThrowIf(_isDisposed, this);
-                if (_isCompleted)
-                    return;
-                subscriptions = _subscriptions.ToArray();
-            }
-
-            foreach (SubscriptionEntry subscription in subscriptions)
-            {
-                try
-                {
-                    subscription.Observer.OnNext(value);
-                }
-                catch (Exception ex)
-                {
-                    observerFailure(ex);
-                }
-            }
-        }
-
-        public void OnCompleted()
-        {
-            SubscriptionEntry[] subscriptions;
-            lock (_gate)
-            {
-                if (_isDisposed || _isCompleted)
-                    return;
-                _isCompleted = true;
-                subscriptions = _subscriptions.ToArray();
-                _subscriptions.Clear();
-            }
-
-            foreach (SubscriptionEntry subscription in subscriptions)
-            {
-                try
-                {
-                    subscription.Observer.OnCompleted();
-                }
-                catch (Exception ex)
-                {
-                    observerFailure(ex);
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            lock (_gate)
-            {
-                _isDisposed = true;
-                _subscriptions.Clear();
-            }
-        }
-
-        private sealed class SubscriptionEntry(IObserver<T> observer)
-        {
-            public IObserver<T> Observer { get; } = observer;
-        }
     }
 }
 

@@ -62,18 +62,9 @@ public sealed class AutoSaveService : IDisposable
         {
             try
             {
-                if (obj is IHierarchical { HierarchicalParent: null }
-                    && (obj is Element || detachedCollectionItems?.Contains(obj) == true))
+                if (IsDetachedFromProject(obj, detachedCollectionItems))
                 {
-                    if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
-                    {
-                        var path = uri.LocalPath;
-                        if (File.Exists(path))
-                        {
-                            File.Delete(path);
-                        }
-                    }
-
+                    DeleteStoredFile(obj);
                     continue;
                 }
 
@@ -87,6 +78,22 @@ public sealed class AutoSaveService : IDisposable
             {
                 _logger.LogError(ex, "An exception occurred while auto-saving the file.");
                 _saveError.OnNext(ex);
+            }
+        }
+    }
+
+    private static bool IsDetachedFromProject(CoreObject obj, IReadOnlySet<CoreObject>? detachedCollectionItems)
+        => obj is IHierarchical { HierarchicalParent: null }
+           && (obj is Element || detachedCollectionItems?.Contains(obj) == true);
+
+    private static void DeleteStoredFile(CoreObject obj)
+    {
+        if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
+        {
+            var path = uri.LocalPath;
+            if (File.Exists(path))
+            {
+                File.Delete(path);
             }
         }
     }

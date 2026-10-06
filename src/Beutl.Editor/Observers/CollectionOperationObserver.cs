@@ -240,28 +240,12 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
     // notification needs are there.
     private void EnqueueAdds(NotifyCollectionChangedEventArgs e)
     {
-        var operation = new InsertCollectionRangeOperation<T>
-        {
-            SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            Object = _owner,
-            PropertyPath = _propertyPath,
-            Items = e.NewItems!.Cast<T>().ToArray(),
-            Index = e.NewStartingIndex
-        };
-        _operations.OnNext(operation);
+        PublishInsert(_sequenceNumberGenerator.GetNext(), e.NewItems!.Cast<T>().ToArray(), e.NewStartingIndex);
     }
 
     private void EnqueueRemoveRange(NotifyCollectionChangedEventArgs e)
     {
-        var operation = new RemoveCollectionRangeOperation<T>
-        {
-            SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            Object = _owner,
-            PropertyPath = _propertyPath,
-            Index = e.OldStartingIndex,
-            Items = e.OldItems!.Cast<T>().ToArray()
-        };
-        _operations.OnNext(operation);
+        PublishRemove(_sequenceNumberGenerator.GetNext(), e.OldStartingIndex, e.OldItems!.Cast<T>().ToArray());
     }
 
     private void EnqueueMove(NotifyCollectionChangedEventArgs e)
@@ -280,25 +264,8 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
     private void EnqueueReplace(NotifyCollectionChangedEventArgs e)
     {
-        var removeOperation = new RemoveCollectionRangeOperation<T>
-        {
-            SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            Object = _owner,
-            PropertyPath = _propertyPath,
-            Index = e.OldStartingIndex,
-            Items = e.OldItems!.Cast<T>().ToArray()
-        };
-        _operations.OnNext(removeOperation);
-
-        var insertOperation = new InsertCollectionRangeOperation<T>
-        {
-            SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            Object = _owner,
-            PropertyPath = _propertyPath,
-            Items = e.NewItems!.Cast<T>().ToArray(),
-            Index = e.NewStartingIndex
-        };
-        _operations.OnNext(insertOperation);
+        PublishRemove(_sequenceNumberGenerator.GetNext(), e.OldStartingIndex, e.OldItems!.Cast<T>().ToArray());
+        PublishInsert(_sequenceNumberGenerator.GetNext(), e.NewItems!.Cast<T>().ToArray(), e.NewStartingIndex);
     }
 
     // A Reset, or a notification that does not describe the change, is recorded as the removal of every item
@@ -314,28 +281,40 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
         if (oldItems.Length > 0)
         {
-            var operation = new RemoveCollectionRangeOperation<T>
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                Object = _owner,
-                PropertyPath = _propertyPath,
-                Index = 0,
-                Items = oldItems
-            };
-            _operations.OnNext(operation);
+            PublishRemove(_sequenceNumberGenerator.GetNext(), 0, oldItems);
         }
 
         if (newItems.Length > 0)
         {
-            var operation = new InsertCollectionRangeOperation<T>
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                Object = _owner,
-                PropertyPath = _propertyPath,
-                Items = newItems,
-                Index = 0
-            };
-            _operations.OnNext(operation);
+            PublishInsert(_sequenceNumberGenerator.GetNext(), newItems, 0);
         }
+    }
+
+    // Callers take the sequence number before materializing the items, the order the
+    // operation initializers used, so numbering stays the same if the cast throws.
+    private void PublishInsert(long sequenceNumber, T[] items, int index)
+    {
+        var operation = new InsertCollectionRangeOperation<T>
+        {
+            SequenceNumber = sequenceNumber,
+            Object = _owner,
+            PropertyPath = _propertyPath,
+            Items = items,
+            Index = index
+        };
+        _operations.OnNext(operation);
+    }
+
+    private void PublishRemove(long sequenceNumber, int index, T[] items)
+    {
+        var operation = new RemoveCollectionRangeOperation<T>
+        {
+            SequenceNumber = sequenceNumber,
+            Object = _owner,
+            PropertyPath = _propertyPath,
+            Index = index,
+            Items = items
+        };
+        _operations.OnNext(operation);
     }
 }

@@ -90,41 +90,7 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             {
                 string payload = string.Join('\n', lines[textStart..index]);
                 ParsedWebVttText parsed = ParseText(payload);
-                if (parsed.HasMultipleVoiceSpans)
-                {
-                    errors.Add(new CaptionDiagnostic(
-                        CaptionDiagnosticKinds.UnsupportedMarkup,
-                        textStart + 1,
-                        "A WebVTT cue with multiple voice spans cannot be represented by one caption speaker."));
-                }
-                else if (parsed.HasPartialVoiceSpan)
-                {
-                    errors.Add(new CaptionDiagnostic(
-                        CaptionDiagnosticKinds.UnsupportedMarkup,
-                        textStart + 1,
-                        "A WebVTT voice span that does not cover the whole cue cannot be represented by one caption speaker."));
-                }
-                if (parsed.HasMultipleLanguageSpans)
-                {
-                    errors.Add(new CaptionDiagnostic(
-                        CaptionDiagnosticKinds.UnsupportedMarkup,
-                        textStart + 1,
-                        "A WebVTT cue with multiple language spans cannot be represented by one caption language."));
-                }
-                else if (parsed.HasPartialLanguageSpan)
-                {
-                    errors.Add(new CaptionDiagnostic(
-                        CaptionDiagnosticKinds.UnsupportedMarkup,
-                        textStart + 1,
-                        "A WebVTT language span that does not cover the whole cue cannot be represented by one caption language."));
-                }
-                if (parsed.HasUnsupportedInlineMarkup)
-                {
-                    errors.Add(new CaptionDiagnostic(
-                        CaptionDiagnosticKinds.UnsupportedMarkup,
-                        textStart + 1,
-                        "WebVTT inline formatting, ruby, and timestamp tags cannot be represented by a plain caption cue."));
-                }
+                AddUnsupportedTextDiagnostics(parsed, textStart + 1, errors);
                 CaptionMetadata metadata = parsed.Classes is null
                     ? CaptionMetadata.Empty
                     : CaptionMetadata.Empty.Set(CaptionMetadataKeys.WebVttClasses, parsed.Classes);
@@ -172,38 +138,49 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         return builder.ToString();
     }
 
+    private static void AddUnsupportedTextDiagnostics(
+        ParsedWebVttText parsed, int lineNumber, List<CaptionDiagnostic> errors)
+    {
+        if (parsed.HasMultipleVoiceSpans)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "A WebVTT cue with multiple voice spans cannot be represented by one caption speaker."));
+        }
+        else if (parsed.HasPartialVoiceSpan)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "A WebVTT voice span that does not cover the whole cue cannot be represented by one caption speaker."));
+        }
+        if (parsed.HasMultipleLanguageSpans)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "A WebVTT cue with multiple language spans cannot be represented by one caption language."));
+        }
+        else if (parsed.HasPartialLanguageSpan)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "A WebVTT language span that does not cover the whole cue cannot be represented by one caption language."));
+        }
+        if (parsed.HasUnsupportedInlineMarkup)
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "WebVTT inline formatting, ruby, and timestamp tags cannot be represented by a plain caption cue."));
+        }
+    }
+
     private static ParsedWebVttText ParseText(string payload)
     {
-        string? speaker = null;
-        string? language = null;
-        string? style = null;
-        int position = 0;
-        while (position < payload.Length && payload[position] == '<')
-        {
-            int close = payload.IndexOf('>', position + 1);
-            if (close < 0)
-                break;
-
-            string tag = TrimWebVttWhitespace(payload[(position + 1)..close]);
-            if (TryGetAnnotation(tag, "v", out string voiceAnnotation))
-            {
-                speaker ??= CanonicalizeVoiceAnnotation(WebUtility.HtmlDecode(voiceAnnotation));
-            }
-            else if (TryGetAnnotation(tag, "lang", out string languageAnnotation))
-            {
-                language ??= WebUtility.HtmlDecode(TrimWebVttWhitespace(languageAnnotation));
-            }
-            else if (tag.StartsWith("c.", StringComparison.OrdinalIgnoreCase))
-            {
-                style ??= WebUtility.HtmlDecode(tag[2..].Trim());
-            }
-            else
-            {
-                break;
-            }
-
-            position = close + 1;
-        }
+        ReadLeadingAnnotations(payload, out string? speaker, out string? language, out string? style);
 
         var plainText = new StringBuilder(payload.Length);
         int voiceSpanCount = 0;
@@ -279,6 +256,43 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             languageSpanCount > 0
                 && (string.IsNullOrEmpty(language) || hasTextOutsideLanguageSpan),
             hasUnsupportedInlineMarkup);
+    }
+
+    // Only the annotations before the first text or unknown tag are read here; the caller
+    // rescans the whole payload, so the cursor is not returned.
+    private static void ReadLeadingAnnotations(
+        string payload, out string? speaker, out string? language, out string? style)
+    {
+        speaker = null;
+        language = null;
+        style = null;
+        int position = 0;
+        while (position < payload.Length && payload[position] == '<')
+        {
+            int close = payload.IndexOf('>', position + 1);
+            if (close < 0)
+                break;
+
+            string tag = TrimWebVttWhitespace(payload[(position + 1)..close]);
+            if (TryGetAnnotation(tag, "v", out string voiceAnnotation))
+            {
+                speaker ??= CanonicalizeVoiceAnnotation(WebUtility.HtmlDecode(voiceAnnotation));
+            }
+            else if (TryGetAnnotation(tag, "lang", out string languageAnnotation))
+            {
+                language ??= WebUtility.HtmlDecode(TrimWebVttWhitespace(languageAnnotation));
+            }
+            else if (tag.StartsWith("c.", StringComparison.OrdinalIgnoreCase))
+            {
+                style ??= WebUtility.HtmlDecode(tag[2..].Trim());
+            }
+            else
+            {
+                break;
+            }
+
+            position = close + 1;
+        }
     }
 
     private static string EncodeText(CaptionCue cue)
@@ -403,17 +417,9 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
     private static bool IsRecognizedCueTag(ReadOnlySpan<char> rawTag)
     {
-        ReadOnlySpan<char> tag = rawTag.Trim();
-        if (!tag.IsEmpty && tag[0] == '/')
-            tag = tag[1..].TrimStart();
-
-        int annotation = IndexOfAnnotationSeparator(tag);
-        ReadOnlySpan<char> name = annotation >= 0 ? tag[..annotation] : tag;
-        if (name.Equals("b", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("i", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("u", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("ruby", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("rt", StringComparison.OrdinalIgnoreCase)
+        ReadOnlySpan<char> tag = StripClosingSlash(rawTag);
+        ReadOnlySpan<char> name = GetTagName(tag);
+        if (IsInlineFormattingTagName(name)
             || name.Equals("v", StringComparison.OrdinalIgnoreCase)
             || name.Equals("lang", StringComparison.OrdinalIgnoreCase)
             || name.Equals("c", StringComparison.OrdinalIgnoreCase))
@@ -426,21 +432,33 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
     private static bool IsUnsupportedInlineCueTag(ReadOnlySpan<char> rawTag)
     {
-        ReadOnlySpan<char> tag = rawTag.Trim();
-        if (!tag.IsEmpty && tag[0] == '/')
-            tag = tag[1..].TrimStart();
-
-        int annotation = IndexOfAnnotationSeparator(tag);
-        ReadOnlySpan<char> name = annotation >= 0 ? tag[..annotation] : tag;
-        return name.Equals("b", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("i", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("u", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("ruby", StringComparison.OrdinalIgnoreCase)
-            || name.Equals("rt", StringComparison.OrdinalIgnoreCase)
+        ReadOnlySpan<char> tag = StripClosingSlash(rawTag);
+        return IsInlineFormattingTagName(GetTagName(tag))
             || HasTagClasses(tag, "lang")
             || HasTagClasses(tag, "v")
             || CaptionCodecUtilities.TryParseWebVttTime(tag.ToString(), out _);
     }
+
+    private static ReadOnlySpan<char> StripClosingSlash(ReadOnlySpan<char> rawTag)
+    {
+        ReadOnlySpan<char> tag = rawTag.Trim();
+        if (!tag.IsEmpty && tag[0] == '/')
+            tag = tag[1..].TrimStart();
+        return tag;
+    }
+
+    private static ReadOnlySpan<char> GetTagName(ReadOnlySpan<char> tag)
+    {
+        int annotation = IndexOfAnnotationSeparator(tag);
+        return annotation >= 0 ? tag[..annotation] : tag;
+    }
+
+    private static bool IsInlineFormattingTagName(ReadOnlySpan<char> name)
+        => name.Equals("b", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("i", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("u", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("ruby", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("rt", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasTagClasses(ReadOnlySpan<char> tag, string name)
         => tag.Length > name.Length

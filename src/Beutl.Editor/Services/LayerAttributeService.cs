@@ -18,16 +18,7 @@ public sealed class LayerAttributeService : ILayerAttributeService
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(defaultName);
 
-        TimelineLayer? existing = null;
-        foreach (TimelineLayer layer in scene.Layers)
-        {
-            if (layer.ZIndex == zIndex)
-            {
-                existing = layer;
-                break;
-            }
-        }
-
+        TimelineLayer? existing = FindLayer(scene, zIndex);
         if (existing is null)
         {
             // No TimelineLayer for this zIndex yet — materialize one to persist

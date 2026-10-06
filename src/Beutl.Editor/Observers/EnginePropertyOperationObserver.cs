@@ -5,7 +5,6 @@ using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
-using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
 
@@ -42,10 +41,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        HashSet<string>? propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
-            .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
-            .Where(i => !string.IsNullOrEmpty(i))
-            .ToHashSet();
+        HashSet<string>? propertiesToTrack =
+            OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
 
         if (propertiesToTrack?.Contains("CurrentValue") != false)
         {
@@ -105,14 +102,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     {
         if (value is IList list)
         {
-            var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-            if (elementType == null)
-                throw new InvalidOperationException("Could not determine the element type of the list.");
-            var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
-
-            _valuePublisher = (IOperationObserver)Activator.CreateInstance(observerType,
-                _operations, list, _object,
-                _propertyPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
+            _valuePublisher = OperationObserverHelpers.CreateCollectionObserver(
+                _operations, list, _object, _propertyPath, _sequenceNumberGenerator, _propertyPathsToTrack);
         }
         else if (value is ICoreObject child)
         {

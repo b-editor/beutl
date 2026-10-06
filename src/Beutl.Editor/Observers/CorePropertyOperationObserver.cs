@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using System.Reactive.Subjects;
 using Beutl.Editor.Operations;
-using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
 
@@ -70,13 +69,8 @@ public sealed class CorePropertyOperationObserver<T> : IOperationObserver
         switch (value)
         {
             case IList list:
-                var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-                if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
-                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
-
-                _collectionPublisher = (IOperationObserver)Activator.CreateInstance(observerType,
-                    _operations, list, _object,
-                    _propertyPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
+                _collectionPublisher = OperationObserverHelpers.CreateCollectionObserver(
+                    _operations, list, _object, _propertyPath, _sequenceNumberGenerator, _propertyPathsToTrack);
                 break;
             case ICoreObject child:
                 _childPublisher = new CoreObjectOperationObserver(

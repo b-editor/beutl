@@ -41,10 +41,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        _propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
-            .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
-            .Where(i => !string.IsNullOrEmpty(i))
-            .ToHashSet();
+        _propertiesToTrack = OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
         InitializeChildPublishers();
 
         // Easingの変更を監視
@@ -84,9 +81,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     private string BuildPropertyPath(string propertyName)
     {
-        return string.IsNullOrEmpty(_propertyPath)
-            ? propertyName
-            : $"{_propertyPath}.{propertyName}";
+        return OperationObserverHelpers.AppendPath(_propertyPath, propertyName);
     }
 
     private void InitializeChildPublishers()

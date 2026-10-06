@@ -354,19 +354,7 @@ public class ResourceRelocationService
             // the matches already collected from the other font directories.
             foreach (string file in FontManager.EnumerateFontCandidates(fontDir))
             {
-                try
-                {
-                    using SKTypeface? typeface = SKTypeface.FromFile(file);
-                    if (typeface != null &&
-                        string.Equals(typeface.FamilyName, fontFamilyName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        foundFiles.Add(file);
-                    }
-                }
-                catch
-                {
-                    // Skip if the font file fails to load
-                }
+                AddIfFontOfFamily(file, fontFamilyName, foundFiles);
             }
             // Re-sharing a bundle must keep its font version, not add identically
             // named host fonts that could win the next import's family registration.
@@ -385,27 +373,12 @@ public class ResourceRelocationService
             {
                 foreach (string file in Directory.EnumerateFiles(fontDir, "*.*", SearchOption.AllDirectories))
                 {
-                    ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                    if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&
-                        !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase) &&
-                        !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+                    if (!HasFontFileExtension(file))
                     {
                         continue;
                     }
 
-                    try
-                    {
-                        using SKTypeface? typeface = SKTypeface.FromFile(file);
-                        if (typeface != null &&
-                            string.Equals(typeface.FamilyName, fontFamilyName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            foundFiles.Add(file);
-                        }
-                    }
-                    catch
-                    {
-                        // Skip if the font file fails to load
-                    }
+                    AddIfFontOfFamily(file, fontFamilyName, foundFiles);
                 }
             }
             catch
@@ -415,6 +388,33 @@ public class ResourceRelocationService
         }
 
         return foundFiles;
+    }
+
+    [ExcludeFromCodeCoverage]
+    private static void AddIfFontOfFamily(string file, string fontFamilyName, List<string> foundFiles)
+    {
+        try
+        {
+            using SKTypeface? typeface = SKTypeface.FromFile(file);
+            if (typeface != null &&
+                string.Equals(typeface.FamilyName, fontFamilyName, StringComparison.OrdinalIgnoreCase))
+            {
+                foundFiles.Add(file);
+            }
+        }
+        catch
+        {
+            // Skip if the font file fails to load
+        }
+    }
+
+    [ExcludeFromCodeCoverage]
+    private static bool HasFontFileExtension(string file)
+    {
+        ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
+        return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -484,7 +484,7 @@ public class ResourceRelocationService
     /// <summary>
     /// Copies a file asynchronously.
     /// </summary>
-    private static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
+    internal static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
     {
         await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
