@@ -19,6 +19,7 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
         yield return ".ogg";
         yield return ".wav";
         yield return ".aac";
+        yield return ".adts";
         yield return ".wma";
         yield return ".m4a";
         yield return ".webm";
@@ -67,8 +68,14 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
     {
         yield return ".avi";
         yield return ".mov";
+        yield return ".m4v";
         yield return ".wmv";
+        yield return ".asf";
         yield return ".mp4";
+        yield return ".3gp";
+        yield return ".3g2";
+        yield return ".3gp2";
+        yield return ".3gpp";
         yield return ".webm";
         yield return ".mkv";
         yield return ".flv";

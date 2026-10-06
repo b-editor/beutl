@@ -13,6 +13,29 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 [NonParallelizable]
 public sealed class FFmpegDecoderInfoTests
 {
+    [TestCase("video.m4v")]
+    [TestCase("VIDEO.M4V")]
+    [TestCase("video.asf")]
+    [TestCase("video.3gp")]
+    [TestCase("video.3g2")]
+    [TestCase("video.3gp2")]
+    [TestCase("video.3gpp")]
+    [TestCase("audio.adts")]
+    public void GuessDecoder_WindowsMediaFormats_IncludeFFmpegFallback(string file)
+    {
+        IDecoderInfo decoder = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            Assert.That(DecoderRegistry.GuessDecoder(file), Does.Contain(decoder),
+                "FFmpeg must remain a candidate when Media Foundation rejects a supported file extension.");
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
     // PackageManager.LoadExtension only instantiates [Export]-marked types, so without the attribute
     // an external FFmpeg package registers decoders/encoders but never the proxy generator.
     [Test]

@@ -24,7 +24,9 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 {
-    private readonly ILogger _logger = Log.CreateLogger<MFDecoder>();
+    private const int UnsupportedByteStreamType = unchecked((int)0xC00D36C4);
+
+    private readonly ILogger _logger;
     private readonly IMFSourceReader? _videoSourceReader;
     private readonly IMFAttributes? _attributes;
     private MFMediaInfo _mediaInfo;
@@ -36,8 +38,9 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
     private readonly int _thresholdFrameCount = 30;
 
-    public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension)
+    public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension, ILogger? logger = null)
     {
+        _logger = logger ?? Log.CreateLogger<MFDecoder>();
         SharpGen.Runtime.Configuration.EnableObjectTracking = true;
         SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
         SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
@@ -102,7 +105,14 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
+            if (ex is SharpGenException mfException && mfException.ResultCode.Code == UnsupportedByteStreamType)
+            {
+                _logger.LogDebug(ex, "Media Foundation does not support this media byte stream.");
+            }
+            else
+            {
+                _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
+            }
             DisposeAfterInitializationFailure();
             throw;
         }
