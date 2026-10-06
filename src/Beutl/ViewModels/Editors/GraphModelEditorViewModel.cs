@@ -20,47 +20,54 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         // view models — which resolve IPropertyEditorFactory through the injected EditViewModel —
         // are not constructed before Accept has wired it up.
         Value.CombineLatest(ObserveExtensionProvider())
-            .Subscribe(t =>
-            {
-                GraphModel? v = t.First;
-                DisposeNodeMembers();
-                _graphModelDisposables.Clear();
-
-                v?.Nodes.ForEachItem(
-                        (originalIdx, item) =>
-                        {
-                            if (item is LayerInputNode layerInput)
-                            {
-                                int idx = ConvertFromOriginalIndex(originalIdx);
-                                NodeMembers.Insert(idx,
-                                    new GraphModelNodeMemberViewModel(layerInput, originalIdx, v, this));
-
-                                for (int i = idx; i < NodeMembers.Count; i++)
-                                {
-                                    NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(NodeMembers[i].GraphNode);
-                                }
-                            }
-                        },
-                        (originalIdx, item) =>
-                        {
-                            if (item is LayerInputNode)
-                            {
-                                int idx = ConvertFromOriginalIndex(originalIdx);
-                                NodeMembers[idx].Dispose();
-                                NodeMembers.RemoveAt(idx);
-
-                                for (int i = idx; i < NodeMembers.Count; i++)
-                                {
-                                    NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(NodeMembers[i].GraphNode);
-                                }
-                            }
-                        },
-                        DisposeNodeMembers)
-                    .DisposeWith(_graphModelDisposables);
-
-                AcceptChild();
-            })
+            .Subscribe(t => RebuildNodeMembers(t.First))
             .DisposeWith(Disposables);
+    }
+
+    private void RebuildNodeMembers(GraphModel? v)
+    {
+        DisposeNodeMembers();
+        _graphModelDisposables.Clear();
+
+        v?.Nodes.ForEachItem(
+                (originalIdx, item) => OnNodeAdded(v, originalIdx, item),
+                (originalIdx, item) => OnNodeRemoved(v, originalIdx, item),
+                DisposeNodeMembers)
+            .DisposeWith(_graphModelDisposables);
+
+        AcceptChild();
+    }
+
+    private void OnNodeAdded(GraphModel v, int originalIdx, GraphNode item)
+    {
+        if (item is LayerInputNode layerInput)
+        {
+            int idx = ConvertFromOriginalIndex(originalIdx);
+            NodeMembers.Insert(idx,
+                new GraphModelNodeMemberViewModel(layerInput, originalIdx, v, this));
+
+            RenumberOriginalIndices(v, idx);
+        }
+    }
+
+    private void OnNodeRemoved(GraphModel v, int originalIdx, GraphNode item)
+    {
+        if (item is LayerInputNode)
+        {
+            int idx = ConvertFromOriginalIndex(originalIdx);
+            NodeMembers[idx].Dispose();
+            NodeMembers.RemoveAt(idx);
+
+            RenumberOriginalIndices(v, idx);
+        }
+    }
+
+    private void RenumberOriginalIndices(GraphModel v, int idx)
+    {
+        for (int i = idx; i < NodeMembers.Count; i++)
+        {
+            NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(NodeMembers[i].GraphNode);
+        }
     }
 
     public CoreList<GraphModelNodeMemberViewModel> NodeMembers { get; } = [];

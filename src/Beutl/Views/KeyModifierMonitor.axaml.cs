@@ -49,7 +49,6 @@ public partial class KeyModifierMonitor : FAAppWindow
             or Key.DbeDbcsChar
             or Key.DbeDetermineString
             or Key.DbeEnterDialogConversionMode
-            or Key.DbeEnterImeConfigureMode
             or Key.DbeEnterWordRegisterMode
             or Key.DbeFlushString
             or Key.DbeHiragana

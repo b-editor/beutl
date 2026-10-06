@@ -517,23 +517,8 @@ public partial class MainViewModel
         var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
         DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
 
-        if (installs.Length > 0)
-        {
-            startInfo.ArgumentList.Add("--installs");
-            foreach (PackageIdentity? item in installs)
-            {
-                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-            }
-        }
-
-        if (uninstalls.Length > 0)
-        {
-            startInfo.ArgumentList.Add("--uninstalls");
-            foreach (PackageIdentity? item in uninstalls)
-            {
-                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
-            }
-        }
+        AddPackageArguments(startInfo, "--installs", installs);
+        AddPackageArguments(startInfo, "--uninstalls", uninstalls);
 
         startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
 
@@ -541,6 +526,18 @@ public partial class MainViewModel
             startInfo.ArgumentList.Add("--launch-debugger");
 
         Process.Start(startInfo);
+    }
+
+    private static void AddPackageArguments(ProcessStartInfo startInfo, string option, PackageIdentity[] packages)
+    {
+        if (packages.Length > 0)
+        {
+            startInfo.ArgumentList.Add(option);
+            foreach (PackageIdentity? item in packages)
+            {
+                startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+            }
+        }
     }
 
     private Task DisposeApiClientsAsync()

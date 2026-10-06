@@ -27,7 +27,7 @@ public partial class PackageDetailsPage : UserControl
         {
             var navigation = e.Parameter as PackageDetailsNavigation
                 ?? new PackageDetailsNavigation((Package)e.Parameter, null);
-            DestoryDataContext();
+            DestroyDataContext();
             DataContextFactory factory = GetDataContextFactory();
             DataContext = factory.PackageDetailPage(navigation.Package, navigation.Version);
         }
@@ -35,22 +35,17 @@ public partial class PackageDetailsPage : UserControl
 
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
-        DestoryDataContext();
+        DestroyDataContext();
     }
 
-    private void DestoryDataContext()
+    private void DestroyDataContext()
     {
-        if (DataContext is PackageDetailsPageViewModel disposable)
-        {
-            disposable.Dispose();
-        }
-
-        DataContext = null;
+        DiscoverPageHelper.DestroyDataContext<PackageDetailsPageViewModel>(this);
     }
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
+        return DiscoverPageHelper.GetDataContextFactory(this);
     }
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)

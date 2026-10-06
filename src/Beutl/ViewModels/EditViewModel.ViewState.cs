@@ -103,119 +103,15 @@ public partial class EditViewModel
             return;
         }
 
-        _logger.LogInformation("Restoring state from {ViewStateFile}.", viewStateFile);
-        JsonNode? json;
-        try
-        {
-            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-            json = JsonNode.Parse(stream);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
-            QuarantineCorruptViewState(viewStateFile);
-            SafeOpenDefaultTabs();
+        JsonObject? jsonObject = ReadViewState(viewStateFile);
+        if (jsonObject is null)
             return;
-        }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-        {
-            // File existed at File.Exists() but vanished before FileStream could open it
-            // (TOCTOU — another process or a user cleanup). Nothing to protect, so treat
-            // this like the no-state-file branch and let SaveState() proceed normally.
-            _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be read; opening default tabs ({SceneId}).", viewStateFile, SceneId);
-            SafeOpenDefaultTabs();
-            return;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // IO / permission failure (file lock, antivirus, sharing violation, path-too-long,
-            // disk error, etc.). The file may still be valid — leave it in place so the next
-            // launch can retry, and suppress SaveState() this session so AutoSave does not
-            // overwrite it with the default layout before the user gets a chance to recover.
-            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
-            _viewStateSaveSuppressed = true;
-            SafeOpenDefaultTabs();
-            return;
-        }
-
-        if (json is not JsonObject jsonObject)
-        {
-            // JsonNode.Parse returns C# null for the JSON null literal; report that
-            // explicitly and fall back to GetValueKind() for the rest (more informative
-            // than the runtime type name).
-            _logger.LogWarning(
-                "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs ({SceneId}).",
-                json is null ? nameof(JsonValueKind.Null) : json.GetValueKind().ToString(),
-                viewStateFile,
-                SceneId);
-            QuarantineCorruptViewState(viewStateFile);
-            SafeOpenDefaultTabs();
-            return;
-        }
 
         try
         {
-            try
-            {
-                Guid? id = (Guid?)json["selected-object"];
-                if (id.HasValue)
-                {
-                    var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
-                    _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
-                }
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
-            {
-                // Selection is non-critical state; let the rest of restore continue.
-                // OOM / cancellation propagate so the deeper catch can quarantine.
-                _logger.LogWarning(ex, "Could not restore the selected object from {ViewStateFile}; selection cleared ({SceneId}).", viewStateFile, SceneId);
-            }
+            RestoreSelectedObject(jsonObject, viewStateFile);
 
-            var timelineOptions = new TimelineOptions();
-
-            if (jsonObject.TryGetPropertyValue("max-layer-count", out JsonNode? maxLayer)
-                && maxLayer is JsonValue maxLayerValue
-                && maxLayerValue.TryGetValue(out int maxLayerCount))
-            {
-                timelineOptions = timelineOptions with { MaxLayerCount = maxLayerCount };
-            }
-
-            if (jsonObject.TryGetPropertyValue("scale", out JsonNode? scaleNode)
-                && scaleNode is JsonValue scaleValue
-                && scaleValue.TryGetValue(out float scale))
-            {
-                timelineOptions = timelineOptions with { Scale = scale };
-            }
-
-            if (jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
-                && offsetNode is JsonObject offsetObj
-                && offsetObj.TryGetPropertyValueAsJsonValue("x", out float x)
-                && offsetObj.TryGetPropertyValueAsJsonValue("y", out float y))
-            {
-                timelineOptions = timelineOptions with { Offset = new Vector2(x, y) };
-            }
-
-            if (jsonObject.TryGetPropertyValue("bpm-grid", out JsonNode? bpmGridNode)
-                && bpmGridNode is JsonObject bpmGridObj)
-            {
-                var bpmGrid = new BpmGridOptions();
-
-                if (bpmGridObj.TryGetPropertyValueAsJsonValue("bpm", out double bpm))
-                    bpmGrid = bpmGrid with { Bpm = bpm };
-
-                if (bpmGridObj.TryGetPropertyValueAsJsonValue("subdivisions", out int subdivisions))
-                    bpmGrid = bpmGrid with { Subdivisions = subdivisions };
-
-                if (bpmGridObj.TryGetPropertyValueAsJsonValue("offset", out string? bpmOffsetStr)
-                    && TimeSpan.TryParseExact(bpmOffsetStr, "c", CultureInfo.InvariantCulture, out TimeSpan bpmOffset))
-                    bpmGrid = bpmGrid with { Offset = bpmOffset };
-
-                if (bpmGridObj.TryGetPropertyValueAsJsonValue("is-enabled", out bool isEnabled))
-                    bpmGrid = bpmGrid with { IsEnabled = isEnabled };
-
-                timelineOptions = timelineOptions with { BpmGrid = bpmGrid };
-            }
-
+            TimelineOptions timelineOptions = ReadTimelineOptions(jsonObject);
             _timelineOptionsProvider.Options.Value = timelineOptions;
 
             DockHost.ReadFromJson(jsonObject);
@@ -237,6 +133,139 @@ public partial class EditViewModel
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
         }
+    }
+
+    // Returns null when the file cannot be used; the failure has then been logged, the file quarantined or
+    // view state saving suppressed as the failure requires, and the default tabs opened.
+    private JsonObject? ReadViewState(string viewStateFile)
+    {
+        _logger.LogInformation("Restoring state from {ViewStateFile}.", viewStateFile);
+        JsonNode? json;
+        try
+        {
+            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            json = JsonNode.Parse(stream);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
+            QuarantineCorruptViewState(viewStateFile);
+            SafeOpenDefaultTabs();
+            return null;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            // File existed at File.Exists() but vanished before FileStream could open it
+            // (TOCTOU — another process or a user cleanup). Nothing to protect, so treat
+            // this like the no-state-file branch and let SaveState() proceed normally.
+            _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be read; opening default tabs ({SceneId}).", viewStateFile, SceneId);
+            SafeOpenDefaultTabs();
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // IO / permission failure (file lock, antivirus, sharing violation, path-too-long,
+            // disk error, etc.). The file may still be valid — leave it in place so the next
+            // launch can retry, and suppress SaveState() this session so AutoSave does not
+            // overwrite it with the default layout before the user gets a chance to recover.
+            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
+            _viewStateSaveSuppressed = true;
+            SafeOpenDefaultTabs();
+            return null;
+        }
+
+        if (json is not JsonObject jsonObject)
+        {
+            // JsonNode.Parse returns C# null for the JSON null literal; report that
+            // explicitly and fall back to GetValueKind() for the rest (more informative
+            // than the runtime type name).
+            _logger.LogWarning(
+                "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs ({SceneId}).",
+                json is null ? nameof(JsonValueKind.Null) : json.GetValueKind().ToString(),
+                viewStateFile,
+                SceneId);
+            QuarantineCorruptViewState(viewStateFile);
+            SafeOpenDefaultTabs();
+            return null;
+        }
+
+        return jsonObject;
+    }
+
+    private void RestoreSelectedObject(JsonNode json, string viewStateFile)
+    {
+        try
+        {
+            Guid? id = (Guid?)json["selected-object"];
+            if (id.HasValue)
+            {
+                var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
+                _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        {
+            // Selection is non-critical state; let the rest of restore continue.
+            // OOM / cancellation propagate so the deeper catch can quarantine.
+            _logger.LogWarning(ex, "Could not restore the selected object from {ViewStateFile}; selection cleared ({SceneId}).", viewStateFile, SceneId);
+        }
+    }
+
+    private static TimelineOptions ReadTimelineOptions(JsonObject jsonObject)
+    {
+        var timelineOptions = new TimelineOptions();
+
+        if (jsonObject.TryGetPropertyValue("max-layer-count", out JsonNode? maxLayer)
+            && maxLayer is JsonValue maxLayerValue
+            && maxLayerValue.TryGetValue(out int maxLayerCount))
+        {
+            timelineOptions = timelineOptions with { MaxLayerCount = maxLayerCount };
+        }
+
+        if (jsonObject.TryGetPropertyValue("scale", out JsonNode? scaleNode)
+            && scaleNode is JsonValue scaleValue
+            && scaleValue.TryGetValue(out float scale))
+        {
+            timelineOptions = timelineOptions with { Scale = scale };
+        }
+
+        if (jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
+            && offsetNode is JsonObject offsetObj
+            && offsetObj.TryGetPropertyValueAsJsonValue("x", out float x)
+            && offsetObj.TryGetPropertyValueAsJsonValue("y", out float y))
+        {
+            timelineOptions = timelineOptions with { Offset = new Vector2(x, y) };
+        }
+
+        if (jsonObject.TryGetPropertyValue("bpm-grid", out JsonNode? bpmGridNode)
+            && bpmGridNode is JsonObject bpmGridObj)
+        {
+            var bpmGrid = ReadBpmGrid(bpmGridObj);
+
+            timelineOptions = timelineOptions with { BpmGrid = bpmGrid };
+        }
+
+        return timelineOptions;
+    }
+
+    private static BpmGridOptions ReadBpmGrid(JsonObject bpmGridObj)
+    {
+        var bpmGrid = new BpmGridOptions();
+
+        if (bpmGridObj.TryGetPropertyValueAsJsonValue("bpm", out double bpm))
+            bpmGrid = bpmGrid with { Bpm = bpm };
+
+        if (bpmGridObj.TryGetPropertyValueAsJsonValue("subdivisions", out int subdivisions))
+            bpmGrid = bpmGrid with { Subdivisions = subdivisions };
+
+        if (bpmGridObj.TryGetPropertyValueAsJsonValue("offset", out string? bpmOffsetStr)
+            && TimeSpan.TryParseExact(bpmOffsetStr, "c", CultureInfo.InvariantCulture, out TimeSpan bpmOffset))
+            bpmGrid = bpmGrid with { Offset = bpmOffset };
+
+        if (bpmGridObj.TryGetPropertyValueAsJsonValue("is-enabled", out bool isEnabled))
+            bpmGrid = bpmGrid with { IsEnabled = isEnabled };
+
+        return bpmGrid;
     }
 
     private void SafeOpenDefaultTabs()

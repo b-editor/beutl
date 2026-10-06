@@ -443,10 +443,7 @@ public partial class MainView
             DefaultExtension = EditorConstants.ProjectPackageExtension,
             FileTypeChoices =
             [
-                new FilePickerFileType(Strings.ProjectPackage)
-                {
-                    Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
-                }
+                ProjectPackageFileType()
             ]
         };
 
@@ -463,26 +460,7 @@ public partial class MainView
                         // 進捗表示（将来的にはプログレスダイアログを表示）
                     }));
 
-                if (!result.Success)
-                {
-                    _logger.LogWarning(
-                        "Project export failed; partial failures collected before abort: [{Resources}]",
-                        string.Join(", ", result.FailedResources));
-                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
-                }
-                else if (result.FailedResources.Count > 0)
-                {
-                    _logger.LogWarning(
-                        "Project exported with partial failures: [{Resources}]",
-                        string.Join(", ", result.FailedResources));
-                    NotificationService.ShowWarning(
-                        Strings.ExportProject,
-                        string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
-                }
-                else
-                {
-                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
-                }
+                ReportExportResult(result);
             }
             catch (OperationCanceledException)
             {
@@ -497,6 +475,38 @@ public partial class MainView
         }
     }
 
+    private void ReportExportResult(ExportResult result)
+    {
+        if (!result.Success)
+        {
+            _logger.LogWarning(
+                "Project export failed; partial failures collected before abort: [{Resources}]",
+                string.Join(", ", result.FailedResources));
+            NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+        }
+        else if (result.FailedResources.Count > 0)
+        {
+            _logger.LogWarning(
+                "Project exported with partial failures: [{Resources}]",
+                string.Join(", ", result.FailedResources));
+            NotificationService.ShowWarning(
+                Strings.ExportProject,
+                string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
+        }
+        else
+        {
+            NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
+        }
+    }
+
+    private static FilePickerFileType ProjectPackageFileType()
+    {
+        return new FilePickerFileType(Strings.ProjectPackage)
+        {
+            Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
+        };
+    }
+
     private async Task OnImportProject()
     {
         if (TopLevel.GetTopLevel(this) is not Window window)
@@ -509,10 +519,7 @@ public partial class MainView
         {
             FileTypeFilter =
             [
-                new FilePickerFileType(Strings.ProjectPackage)
-                {
-                    Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
-                }
+                ProjectPackageFileType()
             ]
         };
 

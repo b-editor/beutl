@@ -527,7 +527,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-        bool reachedNaturalEnd = false;
+        PlaybackTicker? ticker = null;
         try
         {
             BufferedPlayer playerImpl = null!;
@@ -549,171 +549,12 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // ウォールクロックの基準点を取得する。
             await clock.StartedTask;
 
-            DateTime startDateTime = DateTime.UtcNow;
-            var tcs = new TaskCompletionSource<bool>();
-            int nextExpectedFrame = startFrame + 1;
-            int processing = 0;
-            bool renderFailureHandled = false;
+            ticker = new PlaybackTicker(
+                this, generation, playerImpl, clock, rate, tick, startFrame, endFrame, startTime, DateTime.UtcNow);
 
-            int ComputeExpectFrame()
-            {
-                TimeSpan elapsed = clock.GetTime() is { } audioTime
-                    ? audioTime - startTime
-                    : DateTime.UtcNow - startDateTime;
-                if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-                return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
-            }
+            await using var timer = new Timer(ticker.OnTick, null, tick, tick);
 
-            bool StopForRenderFailure()
-            {
-                BufferedPlayer.RenderFailure? failure = playerImpl.Failure;
-                if (failure is null)
-                    return false;
-
-                if (renderFailureHandled)
-                    return true;
-
-                renderFailureHandled = true;
-                _sessionGuard.TryApply(generation, () =>
-                {
-                    ApplyPlaybackRenderFailure(
-                        failure,
-                        rate,
-                        () => _sessionGuard.Owns(generation));
-                });
-                tcs.TrySetResult(true);
-                return true;
-            }
-
-            await using var timer = new Timer(_ =>
-            {
-                if (Interlocked.Exchange(ref processing, 1) != 0) return;
-                try
-                {
-                    // Do not let a timer callback touch state after disposal.
-                    if (_isDisposing)
-                    {
-                        tcs.TrySetResult(true);
-                        return;
-                    }
-
-                    // A Pause() timeout may have disowned this task while it is still blocked in the
-                    // WhenAll below; once a newer session has claimed, stop the loop instead of
-                    // dequeuing frames or writing shared preview state (PreviewImage / CurrentTime /
-                    // IsPlaying) over the session that replaced it. The generation guard on the
-                    // finally alone runs too late — the timer keeps firing until PlayInternal returns.
-                    if (!_sessionGuard.Owns(generation))
-                    {
-                        tcs.TrySetResult(true);
-                        return;
-                    }
-
-                    // The producer publishes its terminal render exception before ProducerStopped.
-                    // Stop before consuming any older frames still buffered ahead of the playhead,
-                    // otherwise a pre-failure frame could hide the error that ended playback.
-                    if (StopForRenderFailure())
-                    {
-                        return;
-                    }
-
-                    var expectFrame = ComputeExpectFrame();
-                    if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
-                    {
-                        _sessionGuard.TryApply(generation, () =>
-                        {
-                            // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
-                            // ただし停止要求中はループの自然終端とみなさず、再開させない。
-                            if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
-                            {
-                                reachedNaturalEnd = true;
-                                IsPlaying.Value = false;
-                            }
-                            else if (_stopRequested)
-                            {
-                                // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
-                                // audio task stops here instead of running to the scene's natural end.
-                                IsPlaying.Value = false;
-                            }
-                        });
-
-                        tcs.TrySetResult(true);
-                        return;
-                    }
-
-                    if (expectFrame < nextExpectedFrame)
-                    {
-                        return;
-                    }
-
-                    bool dequeued = false;
-                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                    {
-                        dequeued = true;
-                        using (frame.Bitmap)
-                        {
-                            Ref<Bitmap> preview = frame.Bitmap.Clone();
-                            bool applied = _sessionGuard.TryApply(generation, () =>
-                            {
-                                UpdateImage(preview);
-                                ClearPreviewRenderError(generation);
-
-                                if (Scene != null)
-                                {
-                                    _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                                    EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
-                                }
-                            });
-                            if (!applied)
-                            {
-                                preview.Dispose();
-                                tcs.TrySetResult(true);
-                                return;
-                            }
-                        }
-
-                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
-                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
-                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                        if (expectFrame <= frame.Time)
-                        {
-                            nextExpectedFrame = frame.Time + 1;
-                            break;
-                        }
-
-                        // 期待していたフレームよりも前のフレームが来た場合
-                    }
-
-                    // Close the race where the producer faults while this timer callback is
-                    // dequeuing the last successfully rendered frame.
-                    if (StopForRenderFailure())
-                    {
-                        return;
-                    }
-
-                    if (!dequeued && playerImpl.ProducerStopped)
-                    {
-                        // ProducerStopped is published after Failure. Re-read Failure only after
-                        // observing the terminal flag so a fault published in the preceding gap
-                        // cannot be mistaken for a normal producer stop.
-                        if (StopForRenderFailure())
-                        {
-                            return;
-                        }
-
-                        _sessionGuard.TryApply(generation, () => IsPlaying.Value = false);
-                        tcs.TrySetResult(true);
-                        return;
-                    }
-
-                    playerImpl.Skipped(ComputeExpectFrame() + 1);
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref processing, 0);
-                }
-            }, null, tick, tick);
-
-            await Task.WhenAll(tcs.Task, audioTask);
+            await Task.WhenAll(ticker.Completion, audioTask);
 
             // Committing the recorded cache blocks is a shared write, so gate it on ownership like the
             // finally/rewind paths below: a task disowned by a Pause() timeout that unblocks after a
@@ -735,7 +576,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
         // A task disowned by a Pause() timeout must not rewind the playhead of a stopped editor or
         // the session that replaced it, so gate the shared CurrentTime write on ownership too.
-        if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
+        if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true } && Scene != null)
         {
             return _sessionGuard.TryApply(generation, () => _editorClock.CurrentTime.Value = Scene.Start);
         }
@@ -763,11 +604,17 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             _currentFrameSubscription?.Dispose();
             _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-            if (Scene != null)
-            {
-                Scene.Edited -= OnSceneEdited;
-                Scene.Edited += OnSceneEdited;
-            }
+            ReattachSceneEdited();
+        }
+    }
+
+    // Remove-then-add so the handler stays subscribed exactly once.
+    private void ReattachSceneEdited()
+    {
+        if (Scene != null)
+        {
+            Scene.Edited -= OnSceneEdited;
+            Scene.Edited += OnSceneEdited;
         }
     }
 

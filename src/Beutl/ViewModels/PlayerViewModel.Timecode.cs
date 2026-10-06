@@ -99,15 +99,7 @@ public partial class PlayerViewModel
     public void ApplyTimecodeSeek(TimeSpan target)
     {
         // target is already frame-snapped by TryParseTimecode.
-        _editorClock.CurrentTime.Value = target;
-
-        // 再生ヘッドがビューポート外へ飛ぶ場合に追従する。EditViewModel.CommandHandler の
-        // 既存スクロール呼び出しと同形。
-        if (_editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
-        {
-            int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
-            timeline.ScrollTo.Execute(
-                (new Beutl.Media.TimeRange(target, TimeSpan.FromTicks(1)), currentZIndex));
-        }
+        // 再生ヘッドがビューポート外へ飛ぶ場合に追従する。
+        _editViewModel.SeekAndScroll(target);
     }
 }

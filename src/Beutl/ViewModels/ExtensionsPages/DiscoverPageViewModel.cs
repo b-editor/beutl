@@ -35,14 +35,8 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                     Items.Clear();
                     Items.AddRange(Enumerable.Repeat(new DummyItem(), 10));
 
-                    Package[] array = await LoadItems(0, 30, activity, _lifetimeCts.Token);
-                    Items.Clear();
-                    Items.AddRange(array);
-
-                    if (array.Length == 30)
-                    {
-                        Items.Add(new LoadMoreItem());
-                    }
+                    Package[] array = await LoadItems(0, PackagePageList.PageSize, activity, _lifetimeCts.Token);
+                    PackagePageList.ShowFirstPage(Items, array);
                 }
                 catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
                 {
@@ -68,14 +62,9 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                 try
                 {
                     IsBusy.Value = true;
-                    Items.RemoveAt(Items.Count - 1);
-                    Package[] array = await LoadItems(Items.Count, 30, activity, _lifetimeCts.Token);
-                    Items.AddRange(array);
-
-                    if (array.Length == 30)
-                    {
-                        Items.Add(new LoadMoreItem());
-                    }
+                    PackagePageList.RemoveLoadMoreItem(Items);
+                    Package[] array = await LoadItems(Items.Count, PackagePageList.PageSize, activity, _lifetimeCts.Token);
+                    PackagePageList.AppendPage(Items, array);
                 }
                 catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
                 {

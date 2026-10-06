@@ -37,10 +37,7 @@ public partial class CoreObjectEditor : UserControl
     {
         if (DataContext is not BaseEditorViewModel { IsDisposed: false } viewModel) return;
 
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && viewModel.ApplyTemplate(template))
+        if (EditorDragDropHelper.TryApplyDroppedTemplate(e, viewModel))
         {
             e.Handled = true;
         }
@@ -48,11 +45,7 @@ public partial class CoreObjectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(DataFormat.File))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        EditorDragDropHelper.HandleTemplateFileDragOver(e);
     }
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)

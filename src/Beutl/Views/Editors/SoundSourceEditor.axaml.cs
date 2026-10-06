@@ -41,11 +41,6 @@ public partial class SoundSourceEditor : UserControl
 
         vm.SetValue(SoundSource.Open(fi.FullName));
 
-        // 動画の長さに要素の長さを合わせる
-        if (vm.GetService<Element>() is not { } element) return;
-        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineTabViewModel>();
-        ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
-
-        elmViewModel?.ChangeToOriginalDuration.Execute();
+        MediaSourceEditorHelper.MatchElementToOriginalDuration(vm);
     }
 }

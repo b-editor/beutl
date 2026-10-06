@@ -26,199 +26,144 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
         _handler = new PackageOperationHandler(app, editorService, projectService);
 
-        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
-        CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
-        IObservable<bool> notBusy = IsBusy.Not();
-        IsInstallButtonVisible = installed
-            .AnyTrue(CanCancel)
-            .Not()
-            .AreTrue(notBusy)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IObservable<PackageIdentity?> installedPackage = _handler.InstalledPackageRepository.GetPackageObservable(package.Name);
-        IsUpdateButtonVisible = LatestRelease.CombineLatest(installedPackage)
-            .Select(x => PackageUpdateAvailability.IsAvailable(x.First?.Version.Value, x.Second))
-            .AreTrue(CanCancel.Not(), notBusy)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not(), notBusy)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        (CanCancel, IsInstallButtonVisible, IsUpdateButtonVisible, IsUninstallButtonVisible) = PackageButtonStates.Create(
+            _handler, package.Name, IsBusy, LatestRelease, _disposables);
 
         Install = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Install");
-
-                try
-                {
-                    IsBusy.Value = true;
-
-                    StatusText.Value = ExtensionsStrings.Installing;
-
-                    try
-                    {
-                        await _handler.DownloadAndLoadPackage(_packageIdentity, CancellationToken.None);
-                        NotificationService.ShowInformation(
-                            title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
-                                _packageIdentity.Id));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
-                        _handler.Queue.InstallQueue(_packageIdentity);
-                        NotificationService.ShowInformation(
-                            title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
-                                _packageIdentity.Id));
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    StatusText.Value = null;
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
         Update = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Update");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    if (!await _handler.EnsureProjectClosed())
-                        return;
-
-                    StatusText.Value = ExtensionsStrings.Updating;
-                    if (LatestRelease.Value != null)
-                    {
-                        var packageId = new PackageIdentity(Package.Name,
-                            new NuGetVersion(LatestRelease.Value.Version.Value));
-
-                        try
-                        {
-                            if (!await _handler.UnloadPackages(Package.Name))
-                            {
-                                throw new InvalidOperationException(
-                                    $"Package '{Package.Name}' could not be unloaded safely.");
-                            }
-                            _handler.DeleteOldVersionFiles(Package.Name);
-                            await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId, CancellationToken.None);
-                            NotificationService.ShowInformation(
-                                title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
-                            _handler.Queue.InstallQueue(packageId);
-                            NotificationService.ShowInformation(
-                                title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    StatusText.Value = null;
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
         Uninstall = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Uninstall");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    if (!await _handler.EnsureProjectClosed())
-                        return;
-
-                    StatusText.Value = ExtensionsStrings.Uninstalling;
-
-                    if (!await _handler.UnloadPackages(Package.Name))
-                    {
-                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
-                    }
-
-                    if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
-                    {
-                        NotificationService.ShowInformation(
-                            title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
-                                _packageIdentity.Id));
-                    }
-                    else
-                    {
-                        NotificationService.ShowInformation(
-                            title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled,
-                                _packageIdentity.Id));
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
-                    _handler.Queue.UninstallQueue(_packageIdentity);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsStrings.PackageInstaller,
-                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
-                            _packageIdentity.Id));
-                }
-                finally
-                {
-                    StatusText.Value = null;
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(UninstallAsync)
             .DisposeWith(_disposables);
 
         Cancel = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    IsBusy.Value = true;
-                    _handler.Cancel(_packageIdentity.Id);
-                }
-                catch (Exception e)
-                {
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
+    }
+
+    private async Task InstallAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Install");
+
+        try
+        {
+            IsBusy.Value = true;
+
+            StatusText.Value = ExtensionsStrings.Installing;
+
+            await _handler.InstallOrQueueAsync(_packageIdentity, _logger, CancellationToken.None);
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            StatusText.Value = null;
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task UpdateAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Update");
+
+        try
+        {
+            IsBusy.Value = true;
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
+            StatusText.Value = ExtensionsStrings.Updating;
+            if (LatestRelease.Value != null)
+            {
+                var packageId = new PackageIdentity(Package.Name,
+                    new NuGetVersion(LatestRelease.Value.Version.Value));
+
+                await _handler.UpdateOrQueueAsync(
+                    Package.Name,
+                    packageId,
+                    token => _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId, token),
+                    _logger,
+                    CancellationToken.None);
+            }
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            StatusText.Value = null;
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task UninstallAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Uninstall");
+
+        try
+        {
+            IsBusy.Value = true;
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
+            StatusText.Value = ExtensionsStrings.Uninstalling;
+
+            if (!await _handler.UnloadPackages(Package.Name))
+            {
+                throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+            }
+
+            if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
+            {
+                PackageNotifications.ScheduledUninstallation(_packageIdentity.Id);
+            }
+            else
+            {
+                PackageNotifications.Uninstalled(_packageIdentity.Id);
+            }
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
+            _handler.Queue.UninstallQueue(_packageIdentity);
+            PackageNotifications.ScheduledUninstallation(_packageIdentity.Id);
+        }
+        finally
+        {
+            StatusText.Value = null;
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        try
+        {
+            IsBusy.Value = true;
+            _handler.Cancel(_packageIdentity.Id);
+        }
+        catch (Exception e)
+        {
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            IsBusy.Value = false;
+        }
     }
 
     public LocalPackage Package { get; }

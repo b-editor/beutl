@@ -38,13 +38,19 @@ public partial class KeyMapSettingsPage : UserControl
 
     private void OnButtonKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key is Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LeftCtrl
-            or Key.RightCtrl or Key.LWin or Key.RWin)
+        if (IsModifierKey(e.Key))
         {
             return;
         }
 
         _keyGesture.Value = new KeyGesture(e.Key, e.KeyModifiers);
+    }
+
+    // A gesture is named by its main key; a modifier pressed on its own is still being held for one.
+    internal static bool IsModifierKey(Key key)
+    {
+        return key is Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LeftCtrl
+            or Key.RightCtrl or Key.LWin or Key.RWin;
     }
 }
 
@@ -93,8 +99,7 @@ public sealed class KeyMapFlyout : FAPickerFlyoutBase
             }
             else
             {
-                if (e.Key is Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LeftCtrl
-                    or Key.RightCtrl or Key.LWin or Key.RWin)
+                if (KeyMapSettingsPage.IsModifierKey(e.Key))
                 {
                     return;
                 }

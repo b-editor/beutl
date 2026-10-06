@@ -271,14 +271,7 @@ public partial class PlayerView
         {
             // Move-mode pointer-down is handled directly in OnFramePointerPressed; this path only
             // serves wheel events, where a no-op handler is fine.
-            return new MouseControlTransformHandles
-            {
-                View = this,
-                ViewModel = viewModel,
-                Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
-                EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
-                Kind = TransformHandlesOverlay.HandleKind.None,
-            };
+            return CreateTransformHandlesHandler(viewModel, TransformHandlesOverlay.HandleKind.None);
         }
         else if (viewModel.IsHandMode.Value)
         {
@@ -298,6 +291,19 @@ public partial class PlayerView
         {
             return new MouseControlCrop { ViewModel = viewModel, View = this };
         }
+    }
+
+    private MouseControlTransformHandles CreateTransformHandlesHandler(
+        PlayerViewModel viewModel, TransformHandlesOverlay.HandleKind kind)
+    {
+        return new MouseControlTransformHandles
+        {
+            View = this,
+            ViewModel = viewModel,
+            Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
+            EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+            Kind = kind,
+        };
     }
 
     private void OnFramePointerPressed(object? sender, PointerPressedEventArgs e)
@@ -331,14 +337,7 @@ public partial class PlayerView
                 {
                     AvaPoint imagePoint = e.GetCurrentPoint(image).Position;
                     TransformHandlesOverlay.HandleKind kind = transformHandlesOverlay.HitTest(imagePoint);
-                    var handler = new MouseControlTransformHandles
-                    {
-                        View = this,
-                        ViewModel = viewModel,
-                        Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
-                        EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
-                        Kind = kind,
-                    };
+                    var handler = CreateTransformHandlesHandler(viewModel, kind);
                     _mouseState = handler;
                     handler.OnPressed(e);
                     _lastSelected.SetTarget(handler.Drawable);

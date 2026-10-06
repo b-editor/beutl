@@ -51,20 +51,9 @@ public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.Cor
         {
             VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
-            editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
-                .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
-                .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
-                .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
-                .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
-                .DisposeWith(Disposables);
+            VectorEditorBindingHelper.BindComponents(
+                editor, Disposables, FirstValue, SecondValue, ThirdValue, FourthValue, IsUniformEditorEnabled);
+            VectorEditorBindingHelper.AttachValueHandlers(editor, Disposables, OnValueConfirmed, OnValueChanged);
         }
     }
 

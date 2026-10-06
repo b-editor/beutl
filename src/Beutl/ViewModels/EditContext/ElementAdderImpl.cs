@@ -22,7 +22,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
 
-internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
+internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ElementAdderImpl>();
     private readonly EditViewModel _context;
@@ -117,6 +117,39 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
         Scene scene = _context.Scene;
         Guid sceneId = scene.Id;
         var plans = new List<ElementCreationPlan>(descriptions.Count);
+        ElementAddResult? preflightFailure = await PreflightAsync(
+            scene, descriptions, plans, handlerLeases, preflightLeases, cancellationToken);
+        if (preflightFailure is not null)
+            return preflightFailure;
+
+        var preparedElements = new List<Element>(descriptions.Count);
+        var itemResults = new List<ElementAddItemResult>(descriptions.Count);
+        var groups = new List<ImmutableHashSet<Guid>>();
+        ElementAddResult? materializationFailure = await MaterializeAsync(
+            scene, plans, preparedElements, itemResults, groups, materializationResources, cancellationToken);
+        if (materializationFailure is not null)
+            return materializationFailure;
+
+        string[] stagedFiles = preparedElements
+            .Select(element => element.Uri!.LocalPath)
+            .ToArray();
+
+        ElementAddResult? persistenceFailure = PersistStagedElements(preparedElements, stagedFiles, cancellationToken);
+        if (persistenceFailure is not null)
+            return persistenceFailure;
+
+        return CommitBatch(scene, sceneId, plans, preparedElements, itemResults, groups, stagedFiles, cancellationToken);
+    }
+
+    // Acquires a handler and a preflight for every description; returns the failure that rejects the batch.
+    private async ValueTask<ElementAddResult?> PreflightAsync(
+        Scene scene,
+        IReadOnlyList<ElementDescription> descriptions,
+        List<ElementCreationPlan> plans,
+        ICollection<IElementSourceHandlerLease> handlerLeases,
+        ICollection<IElementSourcePreflight> preflightLeases,
+        CancellationToken cancellationToken)
+    {
         foreach (ElementDescription description in descriptions)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -185,9 +218,20 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 preflight.TargetLayers.ToImmutableHashSet()));
         }
 
-        var preparedElements = new List<Element>(descriptions.Count);
-        var itemResults = new List<ElementAddItemResult>(descriptions.Count);
-        var groups = new List<ImmutableHashSet<Guid>>();
+        return null;
+    }
+
+    // Materializes every plan into prepared elements with their staging URIs; returns the failure that rejects
+    // the batch, after deleting what was staged so far.
+    private async ValueTask<ElementAddResult?> MaterializeAsync(
+        Scene scene,
+        List<ElementCreationPlan> plans,
+        List<Element> preparedElements,
+        List<ElementAddItemResult> itemResults,
+        List<ImmutableHashSet<Guid>> groups,
+        ICollection<ElementMaterializationResource> materializationResources,
+        CancellationToken cancellationToken)
+    {
         var elementReferences = new HashSet<Element>(ReferenceEqualityComparer.Instance);
         var elementIds = _context.Scene.Children
             .Select(element => element.Id)
@@ -256,20 +300,7 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
             try
             {
-                Uri? sceneUri = scene.Uri;
-                string elementDirectory = sceneUri is not null
-                    ? Path.GetDirectoryName(sceneUri.LocalPath)!
-                    : UnsavedSceneStorage.GetElementDirectory(scene.Id);
-                Directory.CreateDirectory(elementDirectory);
-                foreach (Element element in materialization.Elements)
-                {
-                    element.Uri = sceneUri is not null
-                        ? ElementFileNaming.GetUri(sceneUri, element.Id)
-                        : RandomFileNameGenerator.GenerateUri(
-                            elementDirectory,
-                            EditorConstants.ElementFileExtension);
-                    preparedElements.Add(element);
-                }
+                AssignElementUris(scene, materialization, preparedElements);
             }
             catch (Exception ex)
             {
@@ -287,10 +318,31 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 materialization.CompanionElements));
         }
 
-        string[] stagedFiles = preparedElements
-            .Select(element => element.Uri!.LocalPath)
-            .ToArray();
+        return null;
+    }
 
+    private static void AssignElementUris(
+        Scene scene, ElementMaterialization materialization, List<Element> preparedElements)
+    {
+        Uri? sceneUri = scene.Uri;
+        string elementDirectory = sceneUri is not null
+            ? Path.GetDirectoryName(sceneUri.LocalPath)!
+            : UnsavedSceneStorage.GetElementDirectory(scene.Id);
+        Directory.CreateDirectory(elementDirectory);
+        foreach (Element element in materialization.Elements)
+        {
+            element.Uri = sceneUri is not null
+                ? ElementFileNaming.GetUri(sceneUri, element.Id)
+                : RandomFileNameGenerator.GenerateUri(
+                    elementDirectory,
+                    EditorConstants.ElementFileExtension);
+            preparedElements.Add(element);
+        }
+    }
+
+    private ElementAddResult? PersistStagedElements(
+        List<Element> preparedElements, string[] stagedFiles, CancellationToken cancellationToken)
+    {
         try
         {
             foreach (Element element in preparedElements)
@@ -311,6 +363,19 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
             return ElementAddResult.Failed(new ElementPersistenceFailure(ex));
         }
 
+        return null;
+    }
+
+    private ElementAddResult CommitBatch(
+        Scene scene,
+        Guid sceneId,
+        List<ElementCreationPlan> plans,
+        List<Element> preparedElements,
+        List<ElementAddItemResult> itemResults,
+        List<ImmutableHashSet<Guid>> groups,
+        string[] stagedFiles,
+        CancellationToken cancellationToken)
+    {
         CommitValidationFailure? commitValidation = RevalidateBeforeCommit(
             scene,
             sceneId,
@@ -318,13 +383,7 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
             itemResults);
         if (commitValidation is not null)
         {
-            CleanupStagedFiles(
-                stagedFiles,
-                commitValidation.Failure.Exception
-                ?? new InvalidOperationException(commitValidation.Failure.Message));
-            return ElementAddResult.Failed(
-                commitValidation.Failure,
-                commitValidation.Description);
+            return FailCommitValidation(stagedFiles, commitValidation);
         }
 
         CommitValidationFailure? gatedCommitValidation = null;
@@ -366,17 +425,22 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
         if (gatedCommitValidation is not null)
         {
-            CleanupStagedFiles(
-                stagedFiles,
-                gatedCommitValidation.Failure.Exception
-                ?? new InvalidOperationException(gatedCommitValidation.Failure.Message));
-            return ElementAddResult.Failed(
-                gatedCommitValidation.Failure,
-                gatedCommitValidation.Description);
+            return FailCommitValidation(stagedFiles, gatedCommitValidation);
         }
 
         _logger.LogInformation("Added {Count} elements successfully.", preparedElements.Count);
         return ElementAddResult.Succeeded(itemResults);
+    }
+
+    private ElementAddResult FailCommitValidation(string[] stagedFiles, CommitValidationFailure validation)
+    {
+        CleanupStagedFiles(
+            stagedFiles,
+            validation.Failure.Exception
+            ?? new InvalidOperationException(validation.Failure.Message));
+        return ElementAddResult.Failed(
+            validation.Failure,
+            validation.Description);
     }
 
     private CommitValidationFailure? RevalidateBeforeCommit(
@@ -538,81 +602,6 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
         }
     }
 
-    private Element CreateElement(Scene scene, ElementDescription description)
-    {
-        _logger.LogDebug(
-            "Creating an element with start {Start}, length {Length}, and layer {Layer}.",
-            description.Start,
-            description.Length,
-            description.Layer);
-        return new Element
-        {
-            Start = description.Start,
-            Length = description.Length
-                     ?? throw new InvalidOperationException("A non-template element source requires a length."),
-            ZIndex = description.Layer,
-        };
-    }
-
-    private Element CreateElementFor<TValue>(
-        Scene scene,
-        ElementDescription description,
-        string fileName,
-        out TValue value)
-        where TValue : EngineObject, new()
-    {
-        Element element = CreateElement(scene, description);
-        element.Name = string.IsNullOrWhiteSpace(description.Name)
-            ? Path.GetFileName(fileName)
-            : description.Name;
-        string typeName = typeof(TValue).FullName!;
-        element.AccentColor = ColorGenerator.GenerateColor(typeName);
-
-        value = new TValue();
-        element.AddObject(value);
-        if (value is Drawable drawable)
-        {
-            SetTransform(drawable, description);
-        }
-
-        return element;
-    }
-
-    private void SetTransform(Drawable drawable, ElementDescription description)
-    {
-        if (description.Position is not { } position)
-            return;
-
-        Transform? transform = drawable.Transform.CurrentValue;
-        AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(position));
-        drawable.Transform.CurrentValue = transform;
-    }
-
-    private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, TimeSpan> getDuration)
-    {
-        T? state = default;
-        try
-        {
-            state = initialize();
-            element.Length = getDuration(state);
-            return state;
-        }
-        catch
-        {
-            if (state is IDisposable disposable)
-                RenderThread.Dispatcher.Dispatch(disposable.Dispose, DispatchPriority.Low);
-            return default;
-        }
-    }
-
-    private static IDisposable? DisposeResourceOnRenderThread(IDisposable? resource)
-    {
-        return resource is null
-            ? null
-            : Disposable.Create(() =>
-                RenderThread.Dispatcher.Dispatch(resource.Dispose, DispatchPriority.Low));
-    }
-
     private void CleanupStagedFiles(IEnumerable<string?> paths, Exception originalException)
     {
         foreach (string path in paths
@@ -653,367 +642,6 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
         CleanupStagedFiles(
             stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
             originalException);
-    }
-
-    private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
-    {
-        string ext = Path.GetExtension(filePath);
-        return extensions
-            .Select(value =>
-            {
-                int index = value.LastIndexOf('.');
-                return index >= 0 ? value[index..] : value;
-            })
-            .Contains(ext, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchFileAudioOnly(string filePath)
-        => MatchFileExtensions(
-            filePath,
-            DecoderRegistry.EnumerateDecoder()
-                .SelectMany(decoder => decoder.AudioExtensions())
-                .Distinct());
-
-    private static bool MatchFileVideoOnly(string filePath)
-        => MatchFileExtensions(
-            filePath,
-            DecoderRegistry.EnumerateDecoder()
-                .SelectMany(decoder => decoder.VideoExtensions())
-                .Distinct());
-
-    private bool HasAudioTrack(string filePath)
-    {
-        try
-        {
-            using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.Audio));
-            return reader.HasAudio;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to open the audio stream of '{File}' for track detection; importing as video-only.",
-                filePath);
-            return false;
-        }
-    }
-
-    private static bool MatchFileImage(string filePath)
-    {
-        string[] extensions =
-        [
-            "*.bmp",
-            "*.gif",
-            "*.ico",
-            "*.jpg",
-            "*.jpeg",
-            "*.png",
-            "*.wbmp",
-            "*.webp",
-            "*.pkm",
-            "*.ktx",
-            "*.astc",
-            "*.dng",
-            "*.heif",
-            "*.avif",
-        ];
-        return MatchFileExtensions(filePath, extensions);
-    }
-
-    private sealed class EngineObjectSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
-    {
-        public Type SourceType => typeof(ElementSource.EngineObject);
-
-        public ValueTask<ElementSourcePreflightResult> PreflightAsync(
-            ElementSourcePreflightContext context,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (context.Description.Length is null)
-            {
-                return ValueTask.FromResult(ElementSourcePreflightResult.Rejected(
-                    new ElementSourcePreflightFailure(
-                        "An engine-object element source requires a requested length.")));
-            }
-
-            return ValueTask.FromResult(ElementSourcePreflightResult.Ready(
-                StatelessPreflight.Instance,
-                [context.Description.Layer]));
-        }
-
-        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
-            ElementSourceMaterializationContext context,
-            IElementSourcePreflight preflight,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var source = (ElementSource.EngineObject)context.Description.Source;
-            EngineObject engineObject;
-            try
-            {
-                engineObject = source.Factory()
-                    ?? throw new InvalidOperationException("The engine-object factory returned null.");
-            }
-            catch (Exception ex)
-            {
-                return ValueTask.FromResult(ElementSourceMaterializationResult.Rejected(
-                    new ElementMaterializationFailure("The engine-object factory failed.", ex)));
-            }
-
-            Element element = owner.CreateElement(context.Scene, context.Description);
-            Type objectType = engineObject.GetType();
-            element.Name = context.Description.ResolveName(objectType);
-            element.AccentColor = ColorGenerator.GenerateColor(objectType.FullName ?? objectType.Name);
-            element.AddObject(engineObject);
-            if (engineObject is Drawable drawable)
-            {
-                owner.SetTransform(drawable, context.Description);
-            }
-
-            return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
-                new ElementMaterialization(element)));
-        }
-    }
-
-    private sealed class ElementTemplateSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
-    {
-        public Type SourceType => typeof(ElementSource.ElementTemplate);
-
-        public ValueTask<ElementSourcePreflightResult> PreflightAsync(
-            ElementSourcePreflightContext context,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(ElementSourcePreflightResult.Ready(
-                StatelessPreflight.Instance,
-                [context.Description.Layer]));
-        }
-
-        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
-            ElementSourceMaterializationContext context,
-            IElementSourcePreflight preflight,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var source = (ElementSource.ElementTemplate)context.Description.Source;
-            Element element;
-            try
-            {
-                element = source.Factory()
-                    ?? throw new InvalidOperationException("The element-template factory returned null.");
-            }
-            catch (Exception ex)
-            {
-                return ValueTask.FromResult(ElementSourceMaterializationResult.Rejected(
-                    new ElementMaterializationFailure("The element-template factory failed.", ex)));
-            }
-
-            element.Start = context.Description.Start;
-            if (context.Description.Length is { } length)
-            {
-                element.Length = length;
-            }
-            element.ZIndex = context.Description.Layer;
-            if (!string.IsNullOrWhiteSpace(context.Description.Name))
-            {
-                element.Name = context.Description.Name;
-            }
-            if (context.Description.Position is not null)
-            {
-                foreach (Drawable drawable in element.Objects.OfType<Drawable>())
-                {
-                    owner.SetTransform(drawable, context.Description);
-                }
-            }
-
-            return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
-                new ElementMaterialization(element)));
-        }
-    }
-
-    private sealed class FileSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
-    {
-        public Type SourceType => typeof(ElementSource.File);
-
-        public async ValueTask<ElementSourcePreflightResult> PreflightAsync(
-            ElementSourcePreflightContext context,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (context.Description.Length is null)
-            {
-                return ElementSourcePreflightResult.Rejected(
-                    new ElementSourcePreflightFailure(
-                        "A file element source requires a requested length."));
-            }
-
-            string fileName = ((ElementSource.File)context.Description.Source).FileName;
-            FileSourceKind kind = MatchFileImage(fileName)
-                ? FileSourceKind.Image
-                : MatchFileVideoOnly(fileName)
-                    ? FileSourceKind.Video
-                    : MatchFileAudioOnly(fileName)
-                        ? FileSourceKind.Audio
-                        : FileSourceKind.Unsupported;
-            if (kind == FileSourceKind.Unsupported)
-            {
-                return ElementSourcePreflightResult.Rejected(
-                    new UnsupportedElementSourceFailure(
-                        typeof(ElementSource.File),
-                        $"The file '{fileName}' is not supported by a registered media decoder."));
-            }
-
-            bool hasAudio = kind == FileSourceKind.Video
-                && await Task.Run(() => owner.HasAudioTrack(fileName), cancellationToken);
-            int[] layers = hasAudio
-                ? [context.Description.Layer, context.Description.Layer + 1]
-                : [context.Description.Layer];
-            return ElementSourcePreflightResult.Ready(new FilePreflight(kind, hasAudio), layers);
-        }
-
-        public async ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
-            ElementSourceMaterializationContext context,
-            IElementSourcePreflight preflight,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (preflight is not FilePreflight filePreflight)
-            {
-                return ElementSourceMaterializationResult.Rejected(
-                    new InvalidElementMaterializationFailure(
-                        "The file source handler received preflight state from another handler."));
-            }
-
-            string fileName = ((ElementSource.File)context.Description.Source).FileName;
-            var resources = new List<ElementMaterializationResource>();
-            try
-            {
-                switch (filePreflight.Kind)
-                {
-                    case FileSourceKind.Image:
-                        Element imageElement = owner.CreateElementFor<SourceImage>(
-                            context.Scene,
-                            context.Description,
-                            fileName,
-                            out SourceImage sourceImage);
-                        sourceImage.Source.CurrentValue = ImageSource.Open(fileName);
-                        return ElementSourceMaterializationResult.Materialized(
-                            new ElementMaterialization(imageElement));
-
-                    case FileSourceKind.Video:
-                        Element videoElement = owner.CreateElementFor<SourceVideo>(
-                            context.Scene,
-                            context.Description,
-                            fileName,
-                            out SourceVideo sourceVideo);
-                        VideoSource video = VideoSource.Open(fileName);
-                        sourceVideo.Source.CurrentValue = video;
-                        VideoSource.Resource? videoResource = TrySetDuration(
-                            videoElement,
-                            () => video.ToResource(CompositionContext.Default),
-                            resource => resource.Duration);
-                        if (DisposeResourceOnRenderThread(videoResource) is { } videoDisposal)
-                        {
-                            resources.Add(ElementMaterializationResource.Temporary(videoDisposal));
-                        }
-
-                        if (!filePreflight.HasAudio)
-                        {
-                            return ElementSourceMaterializationResult.Materialized(
-                                new ElementMaterialization(videoElement, resources: resources));
-                        }
-
-                        Element soundElement = owner.CreateElementFor<SourceSound>(
-                            context.Scene,
-                            context.Description,
-                            fileName,
-                            out SourceSound sourceSound);
-                        soundElement.ZIndex++;
-                        owner.BeforeCompanionAudioMaterialization?.Invoke();
-                        SoundSource sound = SoundSource.Open(fileName);
-                        sourceSound.Source.CurrentValue = sound;
-                        SoundSource.Resource? soundResource = TrySetDuration(
-                            soundElement,
-                            () => sound.ToResource(CompositionContext.Default),
-                            resource => resource.Duration);
-                        if (DisposeResourceOnRenderThread(soundResource) is { } soundDisposal)
-                        {
-                            resources.Add(ElementMaterializationResource.Temporary(soundDisposal));
-                        }
-
-                        return ElementSourceMaterializationResult.Materialized(
-                            new ElementMaterialization(
-                                videoElement,
-                                [soundElement],
-                                [ImmutableHashSet.Create(videoElement.Id, soundElement.Id)],
-                                resources));
-
-                    case FileSourceKind.Audio:
-                        Element audioElement = owner.CreateElementFor<SourceSound>(
-                            context.Scene,
-                            context.Description,
-                            fileName,
-                            out SourceSound sourceAudio);
-                        SoundSource audio = SoundSource.Open(fileName);
-                        sourceAudio.Source.CurrentValue = audio;
-                        SoundSource.Resource? audioResource = TrySetDuration(
-                            audioElement,
-                            () => audio.ToResource(CompositionContext.Default),
-                            resource => resource.Duration);
-                        if (DisposeResourceOnRenderThread(audioResource) is { } audioDisposal)
-                        {
-                            resources.Add(ElementMaterializationResource.Temporary(audioDisposal));
-                        }
-                        return ElementSourceMaterializationResult.Materialized(
-                            new ElementMaterialization(audioElement, resources: resources));
-
-                    default:
-                        return ElementSourceMaterializationResult.Rejected(
-                            new UnsupportedElementSourceFailure(typeof(ElementSource.File)));
-                }
-            }
-            catch (Exception materializationFailure)
-            {
-                List<Exception>? cleanupFailures = null;
-                for (int i = resources.Count - 1; i >= 0; i--)
-                {
-                    try
-                    {
-                        await resources[i].DisposeAsync();
-                    }
-                    catch (Exception cleanupFailure)
-                    {
-                        (cleanupFailures ??= []).Add(cleanupFailure);
-                    }
-                }
-
-                if (cleanupFailures is null)
-                    throw;
-                throw new AggregateException([materializationFailure, .. cleanupFailures]);
-            }
-        }
-    }
-
-    private enum FileSourceKind
-    {
-        Unsupported,
-        Image,
-        Video,
-        Audio,
-    }
-
-    private sealed record StatelessPreflight : IElementSourcePreflight
-    {
-        public static StatelessPreflight Instance { get; } = new();
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-    }
-
-    private sealed record FilePreflight(
-        FileSourceKind Kind,
-        bool HasAudio) : IElementSourcePreflight
-    {
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed record ElementCreationPlan(

@@ -232,11 +232,7 @@ public partial class PlayerViewModel
                     IsPlaying.Value = false;
                     PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
                     PlaybackSpeed.Value = 1.0f;
-                    if (Scene != null)
-                    {
-                        Scene.Edited -= OnSceneEdited;
-                        Scene.Edited += OnSceneEdited;
-                    }
+                    ReattachSceneEdited();
                 });
             }
         });

@@ -230,10 +230,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
                 Options.RemoveAt(index);
         }
 
-        HasChoice.Value = Options.Count > 1;
-        OffersNothingUsable.Value =
-            (!registered.IsDefaultOrEmpty && Options.Count == 0)
-            || catalog.OffersNoModel(Operation);
+        PublishOptionState(registered, catalog, Operation);
         if (Selected.Value is { } selected
             && offeredIds.Contains(selected.Id)
             && Options.Any(option => option.Id == selected.Id))
@@ -325,11 +322,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
             return;
 
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;
-        if (!preferredSpecified
-            && preferred is null
-            && Operation == operation
-            && ReferenceEquals(_loadedCatalog, catalog)
-            && ReferenceEquals(_loadedEntitlements, entitlements))
+        if (IsUnchangedReload(operation, preferred, preferredSpecified, catalog, entitlements))
         {
             return;
         }
@@ -349,17 +342,50 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // unpickable for anything new, until that request is settled. What is on
         // offer right now may be another operation's list entirely, so a name
         // with nothing behind it is shown as itself rather than dropped.
-        AiModelPickerOption[] mustStay = (KeepOffered?.Invoke(operation) ?? [])
-            .Select(id => Options.FirstOrDefault(option => option.Id == id)
-                ?? new AiModelPickerOption(
-                    new AiModelOption(id, id.Value, null, false),
-                    IsAvailable: false))
-            .ToArray();
+        AiModelPickerOption[] mustStay = CollectRetainedOptions(operation);
         Operation = operation;
         ImageReferenceLimits = catalog.GetImageReferenceLimits(operation);
         CaptionTranslationLimits = catalog.CaptionTranslationLimits;
         _loadedCatalog = catalog;
         _loadedEntitlements = entitlements;
+        ImmutableArray<AiModelOption> registered =
+            PopulateOptions(catalog, operation, entitlements, operationIsAvailable, mustStay);
+
+        PublishOptionState(registered, catalog, operation);
+        Selected.Value = ChooseInitialSelection(keep, preferred, preferredSpecified);
+    }
+
+    private bool IsUnchangedReload(
+        AiOperationId operation,
+        AiModelId? preferred,
+        bool preferredSpecified,
+        AiModelCatalog catalog,
+        AiEntitlements? entitlements)
+    {
+        return !preferredSpecified
+            && preferred is null
+            && Operation == operation
+            && ReferenceEquals(_loadedCatalog, catalog)
+            && ReferenceEquals(_loadedEntitlements, entitlements);
+    }
+
+    private AiModelPickerOption[] CollectRetainedOptions(AiOperationId operation)
+    {
+        return (KeepOffered?.Invoke(operation) ?? [])
+            .Select(id => Options.FirstOrDefault(option => option.Id == id)
+                ?? new AiModelPickerOption(
+                    new AiModelOption(id, id.Value, null, false),
+                    IsAvailable: false))
+            .ToArray();
+    }
+
+    private ImmutableArray<AiModelOption> PopulateOptions(
+        AiModelCatalog catalog,
+        AiOperationId operation,
+        AiEntitlements? entitlements,
+        bool operationIsAvailable,
+        AiModelPickerOption[] mustStay)
+    {
         Options.Clear();
         ImmutableArray<AiModelOption> registered = catalog.ModelsFor(operation);
         foreach (AiModelOption model in registered)
@@ -381,6 +407,12 @@ internal sealed class AiModelPickerViewModel : IDisposable
                 Options.Add(held with { IsAvailable = false });
         }
 
+        return registered;
+    }
+
+    private void PublishOptionState(
+        ImmutableArray<AiModelOption> registered, AiModelCatalog catalog, AiOperationId operation)
+    {
         HasChoice.Value = Options.Count > 1;
         // Two ways an operation has nothing to run on: every model it registered
         // was ruled out here, or the server named the operation and offered no
@@ -389,9 +421,13 @@ internal sealed class AiModelPickerViewModel : IDisposable
         OffersNothingUsable.Value =
             (!registered.IsDefaultOrEmpty && Options.Count == 0)
             || catalog.OffersNoModel(operation);
-        // Start on the first model the account can actually pay for, falling
-        // back to the server's default so the picker is never empty.
-        Selected.Value = preferredSpecified && preferred is null
+    }
+
+    // Start on the first model the account can actually pay for, falling
+    // back to the server's default so the picker is never empty.
+    private AiModelPickerOption? ChooseInitialSelection(AiModelId? keep, AiModelId? preferred, bool preferredSpecified)
+    {
+        return preferredSpecified && preferred is null
             ? null
             : (keep is { } wanted
                 ? Options.FirstOrDefault(option => option.Id == wanted)

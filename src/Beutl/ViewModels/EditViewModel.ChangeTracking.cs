@@ -157,8 +157,7 @@ public partial class EditViewModel
 
         int rate = Player.GetFrameRate();
         cache.DeleteAndUpdateBlocks(affectedRanges
-            .Select(range => (Start: (int)range.Start.ToFrameNumber(rate),
-                End: (int)Math.Ceiling(range.End.ToFrameNumber(rate)))));
+            .Select(range => FrameCacheRanges.ToFrameRange(range, rate)));
 
         // While paused, the shown bitmap is cloned into PlayerViewModel and does not observe the
         // deletion above, so re-render when the playhead sits in a changed range.
@@ -214,8 +213,7 @@ public partial class EditViewModel
             {
                 int rate = Player.GetFrameRate();
                 FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRanges
-                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+                    .Select(item => FrameCacheRanges.ToFrameRange(item, rate)));
             });
         }
 

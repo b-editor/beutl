@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -139,8 +140,7 @@ public partial class EditViewModel
         if (serviceType == typeof(Beutl.NodeGraph.Generative.IGenerativePromptLibrary))
         {
             if (_generativePromptLibrary is null
-                && Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
-                && lifetime.MainWindow?.DataContext is MainViewModel main)
+                && TryGetMainViewModel(out MainViewModel? main))
             {
                 _generativePromptLibrary = main.CreateGenerativePromptLibrary();
             }
@@ -151,8 +151,7 @@ public partial class EditViewModel
         if (serviceType == typeof(Beutl.NodeGraph.Generative.IGenerativeModelCatalog))
         {
             if (_generativeModelCatalog is null
-                && Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
-                && lifetime.MainWindow?.DataContext is MainViewModel main)
+                && TryGetMainViewModel(out MainViewModel? main))
             {
                 _generativeModelCatalog = main.CreateGenerativeModelCatalog();
             }
@@ -164,8 +163,7 @@ public partial class EditViewModel
         {
             // The API clients live on the main window's view model, as for the AI tool tabs.
             if (_generativeNodeExecutor is null
-                && Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
-                && lifetime.MainWindow?.DataContext is MainViewModel main)
+                && TryGetMainViewModel(out MainViewModel? main))
             {
                 _generativeNodeExecutor = main.CreateGenerativeNodeExecutor(Scene);
             }
@@ -218,6 +216,19 @@ public partial class EditViewModel
             return ProxyMediaServices.Current?.CapInfoFacade;
 
         return null;
+    }
+
+    private static bool TryGetMainViewModel([NotNullWhen(true)] out MainViewModel? main)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime lifetime
+            && lifetime.MainWindow?.DataContext is MainViewModel found)
+        {
+            main = found;
+            return true;
+        }
+
+        main = null;
+        return false;
     }
 
     private ElementNudgeService CreateNudgeService()

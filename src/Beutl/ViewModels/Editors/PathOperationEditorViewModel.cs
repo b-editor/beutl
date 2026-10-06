@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Media;
 using Reactive.Bindings;
 
@@ -10,33 +11,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
     public PathOperationEditorViewModel(IPropertyAdapter<PathSegment?> property)
         : base(property)
     {
-        OpName = Value.Select(v =>
-            {
-                if (v != null)
-                {
-                    var name = v switch
-                    {
-                        ArcSegment => GraphicsStrings.ArcSegment,
-                        ConicSegment => GraphicsStrings.ConicSegment,
-                        CubicBezierSegment => GraphicsStrings.CubicBezierSegment,
-                        LineSegment => GraphicsStrings.LineSegment,
-                        QuadraticBezierSegment => GraphicsStrings.QuadraticBezierSegment,
-                        _ => null,
-                    };
-
-                    if (name == null)
-                    {
-                        Type type = v.GetType();
-                        name = TypeDisplayHelpers.GetLocalizedName(type);
-                    }
-
-                    return name;
-                }
-                else
-                {
-                    return "Null";
-                }
-            })
+        OpName = Value.Select(GetOpName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -63,6 +38,34 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
 
     }
 
+    private static string? GetOpName(PathSegment? v)
+    {
+        if (v != null)
+        {
+            var name = v switch
+            {
+                ArcSegment => GraphicsStrings.ArcSegment,
+                ConicSegment => GraphicsStrings.ConicSegment,
+                CubicBezierSegment => GraphicsStrings.CubicBezierSegment,
+                LineSegment => GraphicsStrings.LineSegment,
+                QuadraticBezierSegment => GraphicsStrings.QuadraticBezierSegment,
+                _ => null,
+            };
+
+            if (name == null)
+            {
+                Type type = v.GetType();
+                name = TypeDisplayHelpers.GetLocalizedName(type);
+            }
+
+            return name;
+        }
+        else
+        {
+            return "Null";
+        }
+    }
+
     public ReadOnlyReactivePropertySlim<string?> OpName { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
@@ -79,15 +82,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
 
     private void AcceptProperties()
     {
-        var visitor = new Visitor(this);
-
-        if (Properties.Value != null)
-        {
-            foreach (IPropertyEditorContext item in Properties.Value.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, Properties.Value);
     }
 
     public void ChangeType(Type type)
@@ -145,17 +140,5 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
     {
         base.Dispose(disposing);
         Properties.Value?.Dispose();
-    }
-
-    private sealed record Visitor(PathOperationEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
     }
 }

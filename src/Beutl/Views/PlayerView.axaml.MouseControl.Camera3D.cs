@@ -141,150 +141,171 @@ public partial class PlayerView
 
             if (pointerPoint.Properties.IsLeftButtonPressed)
             {
-                _leftPressed = true;
-                _selectedGizmoAxis = GizmoAxis.None;
-
-                if (_scene3D == null)
-                    return;
-
-                var sceneResource = FindScene3DResource();
-                if (sceneResource?.Renderer == null)
-                    return;
-
-                Scene scene = EditViewModel.Scene;
-                double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
-                var scaledPos = _lastPosition / scaleX;
-                var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
-
-                // まず、既存のGizmoがクリックされたかチェック
-                var currentGizmoTarget = _scene3D.GizmoTarget.CurrentValue;
-                var currentGizmoMode = _scene3D.GizmoMode.CurrentValue;
-
-                if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
-                {
-                    // 現在表示されているGizmoのターゲットオブジェクトを探す
-                    var existingTarget = RenderThread.Dispatcher.Invoke(() =>
-                    {
-                        var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
-                        return FindObjectResource(objects, currentGizmoTarget.Value);
-                    });
-
-                    if (existingTarget != null)
-                    {
-                        // GizmoのヒットテストをRenderThreadで実行
-                        var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
-                            sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode));
-
-                        if (gizmoAxis != GizmoAxis.None)
-                        {
-                            // Gizmoがクリックされた - そのオブジェクトを操作開始
-                            _selectedGizmoAxis = gizmoAxis;
-                            _selectedObject = existingTarget.GetOriginal();
-                            _currentGizmoMode = currentGizmoMode;
-
-                            if (_selectedObject != null)
-                            {
-                                _objectPositionKeyFrame = FindKeyFramePairOrNull(_selectedObject.Position);
-                                _objectRotationKeyFrame = FindKeyFramePairOrNull(_selectedObject.Rotation);
-                                _objectScaleKeyFrame = FindKeyFramePairOrNull(_selectedObject.Scale);
-                            }
-
-                            e.Handled = true;
-                            return;
-                        }
-                    }
-                }
-
-                // Gizmoがクリックされなかった場合、オブジェクトのヒットテストを行う
-                // HitTestWithPathを使用して階層パスを取得
-                var hitPath = RenderThread.Dispatcher.Invoke(() =>
-                    sceneResource.Renderer.HitTestWithPath(screenPoint));
-
-                if (hitPath.Count > 0)
-                {
-                    // 階層的選択: シングルクリックでルート、ダブルクリックで1階層下を選択
-                    Object3D.Resource? targetResource = null;
-                    bool isDoubleClick = e.ClickCount >= 2;
-
-                    // 現在の選択がパスに含まれているか確認
-                    int currentIndex = -1;
-                    if (currentGizmoTarget.HasValue)
-                    {
-                        for (int i = 0; i < hitPath.Count; i++)
-                        {
-                            if (hitPath[i].GetOriginal()?.Id == currentGizmoTarget.Value)
-                            {
-                                currentIndex = i;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (isDoubleClick && currentIndex >= 0)
-                    {
-                        // ダブルクリック: 現在の選択から1階層下を選択
-                        targetResource = currentIndex < hitPath.Count - 1
-                            ? hitPath[currentIndex + 1] // 1階層下を選択
-                            : hitPath[currentIndex]; // 最深部の場合は維持
-                    }
-                    else if (currentIndex >= 0)
-                    {
-                        // シングルクリック: 現在の選択がパスに含まれている場合は維持
-                        targetResource = hitPath[currentIndex];
-                    }
-                    else
-                    {
-                        // 現在の選択がパスに含まれていない場合はルートを選択
-                        targetResource = hitPath[0];
-                    }
-
-                    _selectedObject = targetResource?.GetOriginal();
-
-                    if (_selectedObject != null)
-                    {
-                        // GizmoTargetを設定
-                        _scene3D.GizmoTarget.CurrentValue = _selectedObject.Id;
-
-                        // ViewModelのSelectedGizmoModeを使用
-                        _currentGizmoMode = ViewModel.SelectedGizmoMode.Value;
-                        _scene3D.GizmoMode.CurrentValue = _currentGizmoMode;
-
-                        // キーフレームを探す
-                        _objectPositionKeyFrame = FindKeyFramePairOrNull(_selectedObject.Position);
-                        _objectRotationKeyFrame = FindKeyFramePairOrNull(_selectedObject.Rotation);
-                        _objectScaleKeyFrame = FindKeyFramePairOrNull(_selectedObject.Scale);
-                    }
-                }
-                else
-                {
-                    // 何もないところをクリックしたらGizmoを解除
-                    _scene3D.GizmoTarget.CurrentValue = null;
-                    _selectedObject = null;
-                }
-
-                e.Handled = true;
+                OnLeftPressed(e);
             }
             else if (pointerPoint.Properties.IsRightButtonPressed)
             {
-                _rightPressed = true;
+                OnRightPressed(e);
+            }
+        }
 
-                if (_camera != null)
+        private void OnLeftPressed(PointerPressedEventArgs e)
+        {
+            _leftPressed = true;
+            _selectedGizmoAxis = GizmoAxis.None;
+
+            if (_scene3D == null)
+                return;
+
+            var sceneResource = FindScene3DResource();
+            if (sceneResource?.Renderer == null)
+                return;
+
+            Scene scene = EditViewModel.Scene;
+            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
+            var scaledPos = _lastPosition / scaleX;
+            var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
+
+            // まず、既存のGizmoがクリックされたかチェック
+            var currentGizmoTarget = _scene3D.GizmoTarget.CurrentValue;
+            var currentGizmoMode = _scene3D.GizmoMode.CurrentValue;
+
+            if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
+            {
+                // 現在表示されているGizmoのターゲットオブジェクトを探す
+                var existingTarget = RenderThread.Dispatcher.Invoke(() =>
                 {
-                    // カメラの方向からYawとPitchを計算する（+Yが下向きなので、Pitchが増えると下を向く）
-                    var position = _camera.Position.GetValue(CompositionContext);
-                    var target = _camera.Target.GetValue(CompositionContext);
-                    var forward = Vector3.Normalize(target - position);
+                    var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
+                    return FindObjectResource(objects, currentGizmoTarget.Value);
+                });
 
-                    _yaw = MathF.Atan2(forward.X, forward.Z);
-                    _pitch = MathF.Asin(Math.Clamp(forward.Y, -1f, 1f));
+                if (existingTarget != null)
+                {
+                    // GizmoのヒットテストをRenderThreadで実行
+                    var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
+                        sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode));
+
+                    if (gizmoAxis != GizmoAxis.None)
+                    {
+                        // Gizmoがクリックされた - そのオブジェクトを操作開始
+                        _selectedGizmoAxis = gizmoAxis;
+                        _selectedObject = existingTarget.GetOriginal();
+                        _currentGizmoMode = currentGizmoMode;
+
+                        if (_selectedObject != null)
+                        {
+                            CaptureObjectKeyFrames(_selectedObject);
+                        }
+
+                        e.Handled = true;
+                        return;
+                    }
+                }
+            }
+
+            // Gizmoがクリックされなかった場合、オブジェクトのヒットテストを行う
+            // HitTestWithPathを使用して階層パスを取得
+            var hitPath = RenderThread.Dispatcher.Invoke(() =>
+                sceneResource.Renderer.HitTestWithPath(screenPoint));
+
+            if (hitPath.Count > 0)
+            {
+                // 階層的選択: シングルクリックでルート、ダブルクリックで1階層下を選択
+                bool isDoubleClick = e.ClickCount >= 2;
+                Object3D.Resource? targetResource = SelectFromHitPath(hitPath, currentGizmoTarget, isDoubleClick);
+
+                _selectedObject = targetResource?.GetOriginal();
+
+                if (_selectedObject != null)
+                {
+                    // GizmoTargetを設定
+                    _scene3D.GizmoTarget.CurrentValue = _selectedObject.Id;
+
+                    // ViewModelのSelectedGizmoModeを使用
+                    _currentGizmoMode = ViewModel.SelectedGizmoMode.Value;
+                    _scene3D.GizmoMode.CurrentValue = _currentGizmoMode;
 
                     // キーフレームを探す
-                    _positionKeyFrame = FindKeyFramePairOrNull(_camera.Position);
-                    _targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
+                    CaptureObjectKeyFrames(_selectedObject);
                 }
-
-                e.Handled = true;
             }
+            else
+            {
+                // 何もないところをクリックしたらGizmoを解除
+                _scene3D.GizmoTarget.CurrentValue = null;
+                _selectedObject = null;
+            }
+
+            e.Handled = true;
+        }
+
+        private static Object3D.Resource? SelectFromHitPath(
+            IReadOnlyList<Object3D.Resource> hitPath, Guid? currentGizmoTarget, bool isDoubleClick)
+        {
+            Object3D.Resource? targetResource = null;
+
+            // 現在の選択がパスに含まれているか確認
+            int currentIndex = -1;
+            if (currentGizmoTarget.HasValue)
+            {
+                for (int i = 0; i < hitPath.Count; i++)
+                {
+                    if (hitPath[i].GetOriginal()?.Id == currentGizmoTarget.Value)
+                    {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (isDoubleClick && currentIndex >= 0)
+            {
+                // ダブルクリック: 現在の選択から1階層下を選択
+                targetResource = currentIndex < hitPath.Count - 1
+                    ? hitPath[currentIndex + 1] // 1階層下を選択
+                    : hitPath[currentIndex]; // 最深部の場合は維持
+            }
+            else if (currentIndex >= 0)
+            {
+                // シングルクリック: 現在の選択がパスに含まれている場合は維持
+                targetResource = hitPath[currentIndex];
+            }
+            else
+            {
+                // 現在の選択がパスに含まれていない場合はルートを選択
+                targetResource = hitPath[0];
+            }
+
+            return targetResource;
+        }
+
+        private void CaptureObjectKeyFrames(Object3D selectedObject)
+        {
+            _objectPositionKeyFrame = FindKeyFramePairOrNull(selectedObject.Position);
+            _objectRotationKeyFrame = FindKeyFramePairOrNull(selectedObject.Rotation);
+            _objectScaleKeyFrame = FindKeyFramePairOrNull(selectedObject.Scale);
+        }
+
+        private void OnRightPressed(PointerPressedEventArgs e)
+        {
+            _rightPressed = true;
+
+            if (_camera != null)
+            {
+                // カメラの方向からYawとPitchを計算する（+Yが下向きなので、Pitchが増えると下を向く）
+                var position = _camera.Position.GetValue(CompositionContext);
+                var target = _camera.Target.GetValue(CompositionContext);
+                var forward = Vector3.Normalize(target - position);
+
+                _yaw = MathF.Atan2(forward.X, forward.Z);
+                _pitch = MathF.Asin(Math.Clamp(forward.Y, -1f, 1f));
+
+                // キーフレームを探す
+                _positionKeyFrame = FindKeyFramePairOrNull(_camera.Position);
+                _targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
+            }
+
+            e.Handled = true;
         }
 
         public void OnMoved(PointerEventArgs e)
@@ -305,129 +326,15 @@ public partial class PlayerView
                 switch (_currentGizmoMode)
                 {
                     case GizmoMode.Translate:
-                        {
-                            Vector3 movement;
-
-                            if (_selectedGizmoAxis != GizmoAxis.None)
-                            {
-                                // マウス移動をカメラ平面上の移動に変換
-                                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
-                                                     GetWorldUnitsPerViewPixel(_selectedObject);
-
-                                if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
-                                {
-                                    // 軸拘束移動: 選択した軸に沿って移動
-                                    var axisDirection = _selectedGizmoAxis switch
-                                    {
-                                        GizmoAxis.X => Vector3.UnitX,
-                                        GizmoAxis.Y => Vector3.UnitY,
-                                        GizmoAxis.Z => Vector3.UnitZ,
-                                        _ => Vector3.Zero
-                                    };
-
-                                    // 軸方向に投影
-                                    float projection = Vector3.Dot(screenMovement, axisDirection);
-                                    movement = axisDirection * projection;
-                                }
-                                else
-                                {
-                                    // 平面拘束移動: 選択した平面上を移動
-                                    var (axis1, axis2) = _selectedGizmoAxis switch
-                                    {
-                                        GizmoAxis.XY => (Vector3.UnitX, Vector3.UnitY),
-                                        GizmoAxis.YZ => (Vector3.UnitY, Vector3.UnitZ),
-                                        GizmoAxis.ZX => (Vector3.UnitZ, Vector3.UnitX),
-                                        _ => (Vector3.Zero, Vector3.Zero)
-                                    };
-
-                                    // 平面に投影
-                                    float proj1 = Vector3.Dot(screenMovement, axis1);
-                                    float proj2 = Vector3.Dot(screenMovement, axis2);
-                                    movement = axis1 * proj1 + axis2 * proj2;
-                                }
-                            }
-                            else
-                            {
-                                // 自由移動: カメラ平面上を移動
-                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y)
-                                           * GetWorldUnitsPerViewPixel(_selectedObject);
-                            }
-
-                            // The movement is in world space; Position is in the parent group's space.
-                            movement = ToParentSpace(_selectedObject, movement);
-                            if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
-                            {
-                                _selectedObject.Position.CurrentValue += movement;
-                            }
-                        }
+                        TranslateSelectedObject(_selectedObject, delta, right, cameraUp);
                         break;
 
                     case GizmoMode.Rotate:
-                        {
-                            Vector3 rotation;
-
-                            if (_selectedGizmoAxis != GizmoAxis.None)
-                            {
-                                // 軸拘束回転: 選択した軸周りのみ回転
-                                float rotationAmount = ((float)delta.X + (float)delta.Y) * ObjectRotateSpeed;
-                                rotation = _selectedGizmoAxis switch
-                                {
-                                    GizmoAxis.X => new Vector3(rotationAmount, 0, 0),
-                                    GizmoAxis.Y => new Vector3(0, rotationAmount, 0),
-                                    GizmoAxis.Z => new Vector3(0, 0, rotationAmount),
-                                    _ => Vector3.Zero
-                                };
-                            }
-                            else
-                            {
-                                // 自由回転: X移動→Y軸回転、Y移動→X軸回転
-                                rotation = new Vector3(
-                                    (float)delta.Y * ObjectRotateSpeed,
-                                    (float)delta.X * ObjectRotateSpeed,
-                                    0);
-                            }
-
-                            if (!SetKeyFrameValue(_objectRotationKeyFrame, rotation))
-                            {
-                                _selectedObject.Rotation.CurrentValue += rotation;
-                            }
-                        }
+                        RotateSelectedObject(_selectedObject, delta);
                         break;
 
                     case GizmoMode.Scale:
-                        {
-                            float scaleFactor = 1.0f + (float)delta.Y * ObjectScaleSpeed;
-                            var currentScale = _selectedObject.Scale.CurrentValue;
-                            Vector3 scaleDelta;
-
-                            if (_selectedGizmoAxis == GizmoAxis.All)
-                            {
-                                // 均一スケール（中央キューブ）
-                                scaleDelta = currentScale * (scaleFactor - 1.0f);
-                            }
-                            else if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
-                            {
-                                // 軸拘束スケール: 選択した軸のみスケール
-                                float axisScale = scaleFactor - 1.0f;
-                                scaleDelta = _selectedGizmoAxis switch
-                                {
-                                    GizmoAxis.X => new Vector3(currentScale.X * axisScale, 0, 0),
-                                    GizmoAxis.Y => new Vector3(0, currentScale.Y * axisScale, 0),
-                                    GizmoAxis.Z => new Vector3(0, 0, currentScale.Z * axisScale),
-                                    _ => Vector3.Zero
-                                };
-                            }
-                            else
-                            {
-                                // デフォルト: 均一スケール
-                                scaleDelta = currentScale * (scaleFactor - 1.0f);
-                            }
-
-                            if (!SetKeyFrameValue(_objectScaleKeyFrame, scaleDelta))
-                            {
-                                _selectedObject.Scale.CurrentValue = currentScale + scaleDelta;
-                            }
-                        }
+                        ScaleSelectedObject(_selectedObject, delta);
                         break;
                 }
 
@@ -436,33 +343,161 @@ public partial class PlayerView
             }
             else if (_rightPressed && _camera != null)
             {
-                // マウスの動きに応じてYawとPitchを更新（ドラッグした方向へシーンを掴んで回す）
-                _yaw -= (float)delta.X * RotationSpeed;
-                _pitch += (float)delta.Y * RotationSpeed;
-
-                _pitch = Math.Clamp(_pitch, (-MathF.PI / 2) + 0.1f, (MathF.PI / 2) - 0.1f);
-
-                // 新しいforward directionを計算する
-                var forward = new Vector3(
-                    MathF.Sin(_yaw) * MathF.Cos(_pitch),
-                    MathF.Sin(_pitch),
-                    MathF.Cos(_yaw) * MathF.Cos(_pitch)
-                );
-
-                // カメラのターゲットを、注視点までの距離を保ったまま更新する
-                var cameraPosition = _camera.Position.GetValue(CompositionContext);
-                var currentTarget = _camera.Target.GetValue(CompositionContext);
-                float targetDistance = MathF.Max(Vector3.Distance(cameraPosition, currentTarget), 1f);
-                var newTarget = cameraPosition + forward * targetDistance;
-                var targetDelta = newTarget - currentTarget;
-
-                if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
-                {
-                    _camera.Target.CurrentValue = newTarget;
-                }
+                OrbitCamera(_camera, delta);
 
                 _lastPosition = position;
                 e.Handled = true;
+            }
+        }
+
+        private void TranslateSelectedObject(Object3D selectedObject, AvaPoint delta, Vector3 right, Vector3 cameraUp)
+        {
+            Vector3 movement;
+
+            if (_selectedGizmoAxis != GizmoAxis.None)
+            {
+                // マウス移動をカメラ平面上の移動に変換
+                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
+                                     GetWorldUnitsPerViewPixel(selectedObject);
+
+                if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
+                {
+                    // 軸拘束移動: 選択した軸に沿って移動
+                    var axisDirection = _selectedGizmoAxis switch
+                    {
+                        GizmoAxis.X => Vector3.UnitX,
+                        GizmoAxis.Y => Vector3.UnitY,
+                        GizmoAxis.Z => Vector3.UnitZ,
+                        _ => Vector3.Zero
+                    };
+
+                    // 軸方向に投影
+                    float projection = Vector3.Dot(screenMovement, axisDirection);
+                    movement = axisDirection * projection;
+                }
+                else
+                {
+                    // 平面拘束移動: 選択した平面上を移動
+                    var (axis1, axis2) = _selectedGizmoAxis switch
+                    {
+                        GizmoAxis.XY => (Vector3.UnitX, Vector3.UnitY),
+                        GizmoAxis.YZ => (Vector3.UnitY, Vector3.UnitZ),
+                        GizmoAxis.ZX => (Vector3.UnitZ, Vector3.UnitX),
+                        _ => (Vector3.Zero, Vector3.Zero)
+                    };
+
+                    // 平面に投影
+                    float proj1 = Vector3.Dot(screenMovement, axis1);
+                    float proj2 = Vector3.Dot(screenMovement, axis2);
+                    movement = axis1 * proj1 + axis2 * proj2;
+                }
+            }
+            else
+            {
+                // 自由移動: カメラ平面上を移動
+                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y)
+                           * GetWorldUnitsPerViewPixel(selectedObject);
+            }
+
+            // The movement is in world space; Position is in the parent group's space.
+            movement = ToParentSpace(selectedObject, movement);
+            if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
+            {
+                selectedObject.Position.CurrentValue += movement;
+            }
+        }
+
+        private void RotateSelectedObject(Object3D selectedObject, AvaPoint delta)
+        {
+            Vector3 rotation;
+
+            if (_selectedGizmoAxis != GizmoAxis.None)
+            {
+                // 軸拘束回転: 選択した軸周りのみ回転
+                float rotationAmount = ((float)delta.X + (float)delta.Y) * ObjectRotateSpeed;
+                rotation = _selectedGizmoAxis switch
+                {
+                    GizmoAxis.X => new Vector3(rotationAmount, 0, 0),
+                    GizmoAxis.Y => new Vector3(0, rotationAmount, 0),
+                    GizmoAxis.Z => new Vector3(0, 0, rotationAmount),
+                    _ => Vector3.Zero
+                };
+            }
+            else
+            {
+                // 自由回転: X移動→Y軸回転、Y移動→X軸回転
+                rotation = new Vector3(
+                    (float)delta.Y * ObjectRotateSpeed,
+                    (float)delta.X * ObjectRotateSpeed,
+                    0);
+            }
+
+            if (!SetKeyFrameValue(_objectRotationKeyFrame, rotation))
+            {
+                selectedObject.Rotation.CurrentValue += rotation;
+            }
+        }
+
+        private void ScaleSelectedObject(Object3D selectedObject, AvaPoint delta)
+        {
+            float scaleFactor = 1.0f + (float)delta.Y * ObjectScaleSpeed;
+            var currentScale = selectedObject.Scale.CurrentValue;
+            Vector3 scaleDelta;
+
+            if (_selectedGizmoAxis == GizmoAxis.All)
+            {
+                // 均一スケール（中央キューブ）
+                scaleDelta = currentScale * (scaleFactor - 1.0f);
+            }
+            else if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
+            {
+                // 軸拘束スケール: 選択した軸のみスケール
+                float axisScale = scaleFactor - 1.0f;
+                scaleDelta = _selectedGizmoAxis switch
+                {
+                    GizmoAxis.X => new Vector3(currentScale.X * axisScale, 0, 0),
+                    GizmoAxis.Y => new Vector3(0, currentScale.Y * axisScale, 0),
+                    GizmoAxis.Z => new Vector3(0, 0, currentScale.Z * axisScale),
+                    _ => Vector3.Zero
+                };
+            }
+            else
+            {
+                // デフォルト: 均一スケール
+                scaleDelta = currentScale * (scaleFactor - 1.0f);
+            }
+
+            if (!SetKeyFrameValue(_objectScaleKeyFrame, scaleDelta))
+            {
+                selectedObject.Scale.CurrentValue = currentScale + scaleDelta;
+            }
+        }
+
+        private void OrbitCamera(Camera3D camera, AvaPoint delta)
+        {
+            // マウスの動きに応じてYawとPitchを更新（ドラッグした方向へシーンを掴んで回す）
+            _yaw -= (float)delta.X * RotationSpeed;
+            _pitch += (float)delta.Y * RotationSpeed;
+
+            _pitch = Math.Clamp(_pitch, (-MathF.PI / 2) + 0.1f, (MathF.PI / 2) - 0.1f);
+
+            // 新しいforward directionを計算する
+            var forward = new Vector3(
+                MathF.Sin(_yaw) * MathF.Cos(_pitch),
+                MathF.Sin(_pitch),
+                MathF.Cos(_yaw) * MathF.Cos(_pitch)
+            );
+
+            // カメラのターゲットを、注視点までの距離を保ったまま更新する
+            var cameraPosition = camera.Position.GetValue(CompositionContext);
+            var currentTarget = camera.Target.GetValue(CompositionContext);
+            float targetDistance = MathF.Max(Vector3.Distance(cameraPosition, currentTarget), 1f);
+            var newTarget = cameraPosition + forward * targetDistance;
+            var targetDelta = newTarget - currentTarget;
+
+            if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
+            {
+                camera.Target.CurrentValue = newTarget;
             }
         }
 

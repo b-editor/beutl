@@ -22,34 +22,29 @@ public partial class UserProfilePage : UserControl
     {
         if (e.Parameter is Profile user)
         {
-            DestoryDataContext();
+            DestroyDataContext();
             DataContext = new UserProfilePageViewModel(user);
         }
     }
 
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
-        DestoryDataContext();
+        DestroyDataContext();
     }
 
-    private void DestoryDataContext()
+    private void DestroyDataContext()
     {
-        if (DataContext is UserProfilePageViewModel disposable)
-        {
-            disposable.Dispose();
-        }
-
-        DataContext = null;
+        DiscoverPageHelper.DestroyDataContext<UserProfilePageViewModel>(this);
     }
 
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: Package package }
-            && this.FindLogicalAncestorOfType<FAFrame>() is { } frame)
+        if (DiscoverPageHelper.TryNavigateToPackage(this, sender))
         {
-            frame.Navigate(typeof(PackageDetailsPage), package);
+            return;
         }
-        else if (DataContext is UserProfilePageViewModel viewModel)
+
+        if (DataContext is UserProfilePageViewModel viewModel)
         {
             viewModel.More.Execute();
         }

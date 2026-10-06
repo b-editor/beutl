@@ -21,17 +21,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
-            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
-            .DisposeWith(Disposables);
-
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
-            .DisposeWith(Disposables);
+        (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
 
         FilterName = Value.Select(v =>
             {
@@ -103,27 +93,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             })
             .DisposeWith(Disposables);
 
-        var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<FilterEffect> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<FilterEffect>?)null, (IExpression<FilterEffect?>?)null))
-            })
-            .Switch();
-        IsPresenter = expressionObservable
-            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<FilterEffect> or null })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<FilterEffect>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<FilterEffect>(Value, Disposables);
     }
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
@@ -252,17 +222,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (!IsElementEditable) return;
         if (Value.Value is IPresenter<FilterEffect> presenter)
         {
-
-            if (target != null)
-            {
-                var expression = Expression.CreateReference<FilterEffect>(target.Id);
-                presenter.Target.Expression = expression;
-            }
-            else
-            {
-                presenter.Target.Expression = null;
-                presenter.Target.CurrentValue = null;
-            }
+            PresenterEditorHelper.AssignTarget(presenter, target);
 
             CompleteElementRepair();
             Commit();

@@ -83,27 +83,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<T> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<T>?)null, (IExpression<T?>?)null))
-            })
-            .Switch();
-        IsPresenter = expressionObservable
-            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<T> or null })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<T>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : MessageStrings.PropertyUnset)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<T>(Value, Disposables);
 
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
@@ -233,21 +213,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             presenter = p;
             PropertyAdapter.SetValue(presenter);
         }
-        else
-        {
 
-        }
-
-        if (target is T)
-        {
-            var expression = Expression.CreateReference<T>(target.Id);
-            presenter.Target.Expression = expression;
-        }
-        else
-        {
-            presenter.Target.Expression = null;
-            presenter.Target.CurrentValue = null;
-        }
+        PresenterEditorHelper.AssignTarget(presenter, target as T);
 
         CompleteElementRepair();
         Commit();

@@ -410,29 +410,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
             IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
             AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
-                new AgentToolkitInstallOptions
-                {
-                    AgentRoot = targets.Root,
-                    SkillsDirectory = targets.SkillsDirectory,
-                    SubagentsDirectory = targets.SubagentsDirectory ?? "agents",
-                    SubagentFormat = targets.SubagentFormat,
-                    InstallSkills = InstallSkills.Value,
-                    InstallSubagents = installSubagents,
-                    InstallStdioMcp = installStdioMcp,
-                    InstallLiveMcp = installLiveMcp,
-                    McpConfigFileName = targets.McpConfigFileName ?? ".mcp.json",
-                    McpConfigRoot = targets.McpConfigRoot,
-                    McpConfigFormat = targets.McpConfigFormat,
-                    McpServersPropertyName = targets.McpServersPropertyName,
-                    StdioMcpTypeValue = targets.StdioTypeValue,
-                    LiveMcpUrlPropertyName = targets.LiveUrlPropertyName ?? "url",
-                    LiveMcpTypeValue = targets.LiveTypeValue,
-                    WorkspaceRoot = WorkspaceRoot.Value,
-                    StdioMcpCommand = McpCommand.Value,
-                    StdioMcpArguments = ParseArguments(McpArguments.Value),
-                    LiveMcpUri = installLiveMcp ? liveMcpUri : null,
-                    LiveMcpHeaders = BuildLiveMcpHeaders(),
-                },
+                BuildInstallOptions(targets, installSubagents, installStdioMcp, installLiveMcp, liveMcpUri),
                 assets);
 
             foreach (string file in result.InstalledFiles)
@@ -452,15 +430,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             }
 
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
-            Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
-            if (mcpError is not null)
-                Status.Value += Environment.NewLine + mcpError;
-            if (cliErrors.Count > 0)
-            {
-                Status.Value += Environment.NewLine + string.Format(
-                    SettingsStrings.AiAgents_CliFailed,
-                    string.Join(Environment.NewLine, cliErrors));
-            }
+            PublishInstallStatus(mcpError, cliErrors);
         }
         catch (Exception ex)
         {
@@ -469,6 +439,52 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         finally
         {
             IsInstalling.Value = false;
+        }
+    }
+
+    private AgentToolkitInstallOptions BuildInstallOptions(
+        ResolvedTargets targets,
+        bool installSubagents,
+        bool installStdioMcp,
+        bool installLiveMcp,
+        Uri? liveMcpUri)
+    {
+        return new AgentToolkitInstallOptions
+        {
+            AgentRoot = targets.Root,
+            SkillsDirectory = targets.SkillsDirectory,
+            SubagentsDirectory = targets.SubagentsDirectory ?? "agents",
+            SubagentFormat = targets.SubagentFormat,
+            InstallSkills = InstallSkills.Value,
+            InstallSubagents = installSubagents,
+            InstallStdioMcp = installStdioMcp,
+            InstallLiveMcp = installLiveMcp,
+            McpConfigFileName = targets.McpConfigFileName ?? ".mcp.json",
+            McpConfigRoot = targets.McpConfigRoot,
+            McpConfigFormat = targets.McpConfigFormat,
+            McpServersPropertyName = targets.McpServersPropertyName,
+            StdioMcpTypeValue = targets.StdioTypeValue,
+            LiveMcpUrlPropertyName = targets.LiveUrlPropertyName ?? "url",
+            LiveMcpTypeValue = targets.LiveTypeValue,
+            WorkspaceRoot = WorkspaceRoot.Value,
+            StdioMcpCommand = McpCommand.Value,
+            StdioMcpArguments = ParseArguments(McpArguments.Value),
+            LiveMcpUri = installLiveMcp ? liveMcpUri : null,
+            LiveMcpHeaders = BuildLiveMcpHeaders(),
+        };
+    }
+
+    // Reports how many files the install wrote, then any MCP configuration and CLI registration problems.
+    private void PublishInstallStatus(string? mcpError, List<string> cliErrors)
+    {
+        Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
+        if (mcpError is not null)
+            Status.Value += Environment.NewLine + mcpError;
+        if (cliErrors.Count > 0)
+        {
+            Status.Value += Environment.NewLine + string.Format(
+                SettingsStrings.AiAgents_CliFailed,
+                string.Join(Environment.NewLine, cliErrors));
         }
     }
 

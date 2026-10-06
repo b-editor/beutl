@@ -286,11 +286,7 @@ public partial class PlayerView
             {
                 int zindex = drawable.ZIndex;
                 TimeSpan time = Clock.CurrentTime.Value;
-                element = scene.Children.FirstOrDefault(v =>
-                    v.IsEnabled
-                    && v.ZIndex == zindex
-                    && v.Start <= time
-                    && time < v.Range.End);
+                element = FindEnabledElementAt(scene, zindex, time);
             }
 
             if (element != null)

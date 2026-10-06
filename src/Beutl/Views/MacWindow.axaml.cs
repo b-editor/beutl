@@ -16,7 +16,7 @@ namespace Beutl.Views;
 
 public sealed partial class MacWindow : Window
 {
-    private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private readonly ToolWindowLauncher _toolWindowLauncher = new();
     private MacOSTitleBar? _titleBar;
 
     public MacWindow()
@@ -28,46 +28,14 @@ public sealed partial class MacWindow : Window
         }
 
         InitializeComponent();
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        (int X, int Y)? pos = viewConfig.WindowPosition;
-        (int Width, int Height)? size = viewConfig.WindowSize;
-
-        if (viewConfig.IsWindowMaximized == true)
-        {
-            WindowState = WindowState.Maximized;
-        }
-        else if (pos.HasValue && size.HasValue)
-        {
-            var rect = new PixelRect(pos.Value.X, pos.Value.Y, size.Value.Width, size.Value.Height);
-            SetRect(rect);
-        }
-    }
-
-    private void SetRect(PixelRect rect)
-    {
-        Position = rect.Position;
-        Width = rect.Width;
-        Height = rect.Height;
+        WindowPlacement.Restore(this);
     }
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         _titleBar ??= MacOSTitleBar.TryAttach(this);
-        Screen? screen = Screens.ScreenFromWindow(this);
-        if (screen != null && WindowState != WindowState.Maximized)
-        {
-            var rect = new PixelRect(Position, PixelSize.FromSize(ClientSize, 1));
-            if (!screen.WorkingArea.Contains(rect))
-            {
-                int width = Math.Min(screen.WorkingArea.Width, rect.Width);
-                int height = Math.Min(screen.WorkingArea.Height, rect.Height);
-                rect = rect.WithWidth(width).WithHeight(height);
-
-                rect = screen.WorkingArea.CenterRect(rect);
-                SetRect(rect);
-            }
-        }
+        WindowPlacement.FitToWorkingArea(this);
 
         mainView.Focus();
 
@@ -211,33 +179,10 @@ public sealed partial class MacWindow : Window
             menuItem.Click += async (s, e) =>
             {
                 EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
-                if (s is NativeMenuItem { CommandParameter: EditorExtension editorExtension } menuItem
+                if (s is NativeMenuItem { CommandParameter: EditorExtension editorExtension }
                     && selectedTab != null)
                 {
-                    if (selectedTab.Context.Value is ISavableEditorContext editor
-                        && !await editor.SaveAsync())
-                    {
-                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, selectedTab.FileName.Value);
-                        return;
-                    }
-
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
-                    {
-                        selectedTab.Context.Value.Dispose();
-                        selectedTab.Context.Value = context;
-                    }
-                    else
-                    {
-                        NotificationService.ShowInformation(
-                            title: MessageStrings.ContextNotCreated,
-                            message: string.Format(
-                                format: MessageStrings.FailedToOpenFileWithExtension,
-                                arg0: editorExtension.DisplayName,
-                                arg1: selectedTab.FileName.Value));
-                    }
+                    await ExtensionMenuActions.SwitchEditorAsync(viewModel, selectedTab, editorExtension);
                 }
             };
 
@@ -350,72 +295,9 @@ public sealed partial class MacWindow : Window
             Clear);
     }
 
-    private async Task OpenToolWindowAsync(ToolWindowExtension extension)
+    private Task OpenToolWindowAsync(ToolWindowExtension extension)
     {
-        try
-        {
-            if (extension.Mode == ToolWindowMode.Window
-                && !extension.CanMultiple
-                && _openToolWindows.TryGetValue(extension, out List<Window>? existingList)
-                && existingList.Count > 0)
-            {
-                existingList[0].Activate();
-                return;
-            }
-
-            if (!extension.TryCreateContext(out IToolWindowContext? context))
-                return;
-
-            if (!extension.TryCreateContent(out Window? window))
-            {
-                context.Dispose();
-                return;
-            }
-
-            window.DataContext = context;
-            if (string.IsNullOrEmpty(window.Title))
-            {
-                window.Title = context.Header;
-            }
-
-            switch (extension.Mode)
-            {
-                case ToolWindowMode.Dialog:
-                    try
-                    {
-                        await window.ShowDialog(this);
-                    }
-                    finally
-                    {
-                        context.Dispose();
-                    }
-                    break;
-
-                case ToolWindowMode.Window:
-                    if (!_openToolWindows.TryGetValue(extension, out List<Window>? list))
-                    {
-                        list = new List<Window>();
-                        _openToolWindows[extension] = list;
-                    }
-
-                    list.Add(window);
-                    window.Closed += (_, _) =>
-                    {
-                        list.Remove(window);
-                        if (list.Count == 0)
-                        {
-                            _openToolWindows.Remove(extension);
-                        }
-                        context.Dispose();
-                    };
-                    window.Show(this);
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            await ex.Handle();
-        }
+        return _toolWindowLauncher.OpenAsync(extension, () => this);
     }
 
     private bool _captureStopped;
@@ -454,10 +336,7 @@ public sealed partial class MacWindow : Window
         }
 
         base.OnClosing(e);
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
-        viewConfig.WindowPosition = (Position.X, Position.Y);
-        viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
+        WindowPlacement.Save(this);
     }
 
     private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)

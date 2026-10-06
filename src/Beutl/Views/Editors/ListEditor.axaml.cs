@@ -90,10 +90,10 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
 
             if (_draggedContainer is { })
             {
-                SetDraggingPseudoClasses(_draggedContainer, true);
+                ReorderDragHelper.SetDraggingPseudoClasses(_draggedContainer, true);
             }
 
-            AddTransforms(_itemsControl);
+            ResetTransforms(_itemsControl);
         }
     }
 
@@ -130,13 +130,13 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
             return;
         }
 
-        RemoveTransforms(_itemsControl);
+        ResetTransforms(_itemsControl);
 
         if (_itemsControl is { })
         {
             foreach (Control container in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container, true);
+                ReorderDragHelper.SetDraggingPseudoClasses(container, true);
             }
         }
 
@@ -149,13 +149,13 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
         {
             foreach (Control container in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container, false);
+                ReorderDragHelper.SetDraggingPseudoClasses(container, false);
             }
         }
 
         if (_draggedContainer is { })
         {
-            SetDraggingPseudoClasses(_draggedContainer, false);
+            ReorderDragHelper.SetDraggingPseudoClasses(_draggedContainer, false);
         }
 
         _draggedIndex = -1;
@@ -167,46 +167,14 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
         _draggedContainer = null;
     }
 
-    private static void AddTransforms(ItemsControl? itemsControl)
+    private static void ResetTransforms(ItemsControl? itemsControl)
     {
         if (itemsControl?.Items is null)
         {
             return;
         }
 
-        int i = 0;
-
-        foreach (object? _ in itemsControl.Items)
-        {
-            Control? container = itemsControl.ContainerFromIndex(i);
-            if (container is not null)
-            {
-                SetTranslateTransform(container, 0, 0);
-            }
-
-            i++;
-        }
-    }
-
-    private static void RemoveTransforms(ItemsControl? itemsControl)
-    {
-        if (itemsControl?.Items is null)
-        {
-            return;
-        }
-
-        int i = 0;
-
-        foreach (object? _ in itemsControl.Items)
-        {
-            Control? container = itemsControl.ContainerFromIndex(i);
-            if (container is not null)
-            {
-                SetTranslateTransform(container, 0, 0);
-            }
-
-            i++;
-        }
+        ReorderDragHelper.ResetTranslateTransforms(itemsControl, itemsControl.Items);
     }
 
     private static void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
@@ -246,7 +214,7 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
                 }
             }
 
-            SetTranslateTransform(_draggedContainer, 0, delta);
+            ReorderDragHelper.SetTranslateTransform(_draggedContainer, 0, delta);
 
             _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
             _targetIndex = -1;
@@ -274,38 +242,26 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
 
                 if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
                 {
-                    SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
+                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
 
                     _targetIndex = _targetIndex == -1 ? targetIndex :
                         targetIndex > _targetIndex ? targetIndex : _targetIndex;
                 }
                 else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
                 {
-                    SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
+                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
 
                     _targetIndex = _targetIndex == -1 ? targetIndex :
                         targetIndex < _targetIndex ? targetIndex : _targetIndex;
                 }
                 else
                 {
-                    SetTranslateTransform(targetContainer, 0, 0);
+                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, 0);
                 }
 
                 i++;
             }
         }
-    }
-
-    private static void SetDraggingPseudoClasses(Control control, bool isDragging)
-    {
-        ((IPseudoClasses)control.Classes).Set(":dragging", isDragging);
-    }
-
-    private static void SetTranslateTransform(Control control, double x, double y)
-    {
-        var transformBuilder = new TransformOperations.Builder(1);
-        transformBuilder.AppendTranslate(x, y);
-        control.RenderTransform = transformBuilder.Build();
     }
 }
 
@@ -399,46 +355,11 @@ public partial class ListEditor : UserControl
             {
                 progress.IsVisible = progress.IsIndeterminate = true;
 
-                var availableTypes = await Task.Run(() =>
-                {
-                    Type itemType = viewModel.ItemType;
-                    Type[]? availableTypes;
-
-                    if (itemType.IsSealed
-                        && (itemType.GetConstructor([]) != null
-                            || itemType.GetConstructors().Length == 0))
-                    {
-                        availableTypes = [itemType];
-                    }
-                    else
-                    {
-                        availableTypes = AppDomain.CurrentDomain.GetAssemblies()
-                            .SelectMany(x => x.GetTypes())
-                            .Where(x => !x.IsAbstract
-                                        && x.IsPublic
-                                        && x.IsAssignableTo(itemType)
-                                        && (itemType.GetConstructor([]) != null
-                                            || itemType.GetConstructors().Length == 0))
-                            .ToArray();
-                    }
-
-                    return availableTypes;
-                });
+                var availableTypes = await Task.Run(() => FindAddableItemTypes(viewModel.ItemType));
 
                 progress.IsVisible = progress.IsIndeterminate = false;
 
-                Type? selectedType = null;
-
-                if (availableTypes.Length == 1)
-                {
-                    selectedType = availableTypes[0];
-                }
-                else if (availableTypes.Length > 1)
-                {
-                    var result = await SelectTypeOrReference();
-                    if (result is Type t)
-                        selectedType = t;
-                }
+                Type? selectedType = await ChooseItemTypeAsync(availableTypes);
 
                 if (selectedType != null)
                 {
@@ -450,5 +371,48 @@ public partial class ListEditor : UserControl
                 }
             }
         }
+    }
+
+    private static Type[] FindAddableItemTypes(Type itemType)
+    {
+        Type[]? availableTypes;
+
+        if (itemType.IsSealed
+            && (itemType.GetConstructor([]) != null
+                || itemType.GetConstructors().Length == 0))
+        {
+            availableTypes = [itemType];
+        }
+        else
+        {
+            availableTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(x => x.GetTypes())
+                .Where(x => !x.IsAbstract
+                            && x.IsPublic
+                            && x.IsAssignableTo(itemType)
+                            && (itemType.GetConstructor([]) != null
+                                || itemType.GetConstructors().Length == 0))
+                .ToArray();
+        }
+
+        return availableTypes;
+    }
+
+    private async Task<Type?> ChooseItemTypeAsync(Type[] availableTypes)
+    {
+        Type? selectedType = null;
+
+        if (availableTypes.Length == 1)
+        {
+            selectedType = availableTypes[0];
+        }
+        else if (availableTypes.Length > 1)
+        {
+            var result = await SelectTypeOrReference();
+            if (result is Type t)
+                selectedType = t;
+        }
+
+        return selectedType;
     }
 }

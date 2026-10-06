@@ -118,6 +118,71 @@ public partial class PlayerView
             }
         }
 
+        private void ShowCropResultMenu(Rect rect)
+        {
+            var copyAsString = new FAMenuFlyoutItem()
+            {
+                Text = Strings.Copy,
+                IconSource = new FluentIconSource() { Icon = Icon.Copy }
+            };
+            var saveAsImage = new FAMenuFlyoutItem()
+            {
+                Text = Strings.SaveAsImage,
+                IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
+            };
+            copyAsString.Click += (s, e) =>
+            {
+                if (TopLevel.GetTopLevel(Player) is { Clipboard: { } clipboard })
+                {
+                    clipboard.SetTextAsync(rect.ToString());
+                }
+            };
+            saveAsImage.Click += async (s, e) =>
+            {
+                if (TopLevel.GetTopLevel(Player)?.StorageProvider is { } storage)
+                {
+                    try
+                    {
+                        Scene scene = ViewModel.Scene!;
+                        string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
+                        IStorageFile? file = await SaveImageFilePicker(addtional, storage);
+
+                        if (file != null)
+                        {
+                            using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
+                            using Bitmap croped = CropFrame(frame, rect);
+
+                            await SaveImage(file, croped);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to save image.");
+                        NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
+                    }
+                }
+            };
+
+            var list = new List<FAMenuFlyoutItem>();
+            if (OperatingSystem.IsWindows())
+            {
+                var copyAsImage = new FAMenuFlyoutItem()
+                {
+                    Text = Strings.CopyAsImage,
+                    IconSource = new FluentIconSource() { Icon = Icon.ImageCopy }
+                };
+                copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
+
+                list.Add(copyAsImage);
+            }
+
+            list.AddRange([copyAsString, saveAsImage]);
+
+            var f = new FAMenuFlyout { ItemsSource = list };
+
+            f.ShowAt(Player, true);
+        }
+
         public void OnReleased(PointerReleasedEventArgs e)
         {
             if (_pressed)
@@ -127,67 +192,7 @@ public partial class PlayerView
 
                 if (ViewModel.TcsForCrop == null)
                 {
-                    var copyAsString = new FAMenuFlyoutItem()
-                    {
-                        Text = Strings.Copy,
-                        IconSource = new FluentIconSource() { Icon = Icon.Copy }
-                    };
-                    var saveAsImage = new FAMenuFlyoutItem()
-                    {
-                        Text = Strings.SaveAsImage,
-                        IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
-                    };
-                    copyAsString.Click += (s, e) =>
-                    {
-                        if (TopLevel.GetTopLevel(Player) is { Clipboard: { } clipboard })
-                        {
-                            clipboard.SetTextAsync(rect.ToString());
-                        }
-                    };
-                    saveAsImage.Click += async (s, e) =>
-                    {
-                        if (TopLevel.GetTopLevel(Player)?.StorageProvider is { } storage)
-                        {
-                            try
-                            {
-                                Scene scene = ViewModel.Scene!;
-                                string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
-                                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
-
-                                if (file != null)
-                                {
-                                    using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
-                                    using Bitmap croped = CropFrame(frame, rect);
-
-                                    await SaveImage(file, croped);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to save image.");
-                                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
-                            }
-                        }
-                    };
-
-                    var list = new List<FAMenuFlyoutItem>();
-                    if (OperatingSystem.IsWindows())
-                    {
-                        var copyAsImage = new FAMenuFlyoutItem()
-                        {
-                            Text = Strings.CopyAsImage,
-                            IconSource = new FluentIconSource() { Icon = Icon.ImageCopy }
-                        };
-                        copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
-
-                        list.Add(copyAsImage);
-                    }
-
-                    list.AddRange([copyAsString, saveAsImage]);
-
-                    var f = new FAMenuFlyout { ItemsSource = list };
-
-                    f.ShowAt(Player, true);
+                    ShowCropResultMenu(rect);
                 }
                 else
                 {

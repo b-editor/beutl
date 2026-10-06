@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Editor.Components.Helpers;
+using Beutl.Media;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -43,14 +44,8 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
         if (this.GetService<IPropertyEditorControlHost>() != null)
         {
             NodeItems.Value ??= new ListEditorViewModel<GradientStop?>(PropertyAdapter);
-            NodeItems.Value.Accept(new NodeItemsVisitor(this));
+            NodeItems.Value.Accept(new ChildVisitor(this));
         }
-    }
-
-    private sealed record NodeItemsVisitor(GradientStopsEditorViewModel Owner) : IPropertyEditorContextVisitor, IServiceProvider
-    {
-        public object? GetService(Type serviceType) => Owner.GetService(serviceType);
-        public void Visit(IPropertyEditorContext context) { }
     }
 
     protected override void Dispose(bool disposing)

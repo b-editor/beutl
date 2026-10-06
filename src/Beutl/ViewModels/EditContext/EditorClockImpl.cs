@@ -38,20 +38,18 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
     {
         obj.PropertyChanged += OnElementPropertyChanged;
 
-        if (MaximumTime.Value < obj.Range.End)
-        {
-            MaximumTime.Value = obj.Range.End;
-        }
-        else
-        {
-            CalculateMaximumTime();
-        }
+        UpdateMaximumTimeFor(obj);
     }
 
     private void OnElementDetached(Element obj)
     {
         obj.PropertyChanged -= OnElementPropertyChanged;
 
+        UpdateMaximumTimeFor(obj);
+    }
+
+    private void UpdateMaximumTimeFor(Element obj)
+    {
         if (MaximumTime.Value < obj.Range.End)
         {
             MaximumTime.Value = obj.Range.End;
