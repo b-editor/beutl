@@ -273,32 +273,9 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
     private static void SelectStream(IMFSourceReader sourceReader, Guid selectMajorType)
     {
-        for (int streamIndex = 0; true; streamIndex++)
+        foreach ((int streamIndex, Guid majorType) in MFStreamProbe.EnumerateSelectedStreams(sourceReader))
         {
-            try
-            {
-                using IMFMediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
-
-                var selected = sourceReader.GetStreamSelection(streamIndex);
-                if (!selected)
-                {
-                    continue;
-                }
-
-                Guid majorType = currentMediaType.MajorType;
-                if (majorType == selectMajorType)
-                {
-                    sourceReader.SetStreamSelection(streamIndex, true);
-                }
-                else
-                {
-                    sourceReader.SetStreamSelection(streamIndex, false);
-                }
-            }
-            catch
-            {
-                break;
-            }
+            sourceReader.SetStreamSelection(streamIndex, majorType == selectMajorType);
         }
     }
 
@@ -324,36 +301,19 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     private unsafe void CheckMediaInfo(IMFSourceReader sourceReader)
     {
         _mediaInfo.VideoStreamIndex = -1;
-        for (int streamIndex = 0; true; ++streamIndex)
+        foreach ((int streamIndex, Guid majorType) in MFStreamProbe.EnumerateSelectedStreams(sourceReader))
         {
-            try
+            if (majorType == MediaTypeGuids.Video)
             {
-                using IMFMediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
-
-                var selected = sourceReader.GetStreamSelection(streamIndex);
-                if (!selected)
-                {
-                    continue;
-                }
-
-                Guid majorType = currentMediaType.MajorType;
-
-                if (majorType == MediaTypeGuids.Video)
-                {
-                    _mediaInfo.VideoStreamIndex = streamIndex;
-                }
-                else if (majorType == MediaTypeGuids.Audio)
-                {
-                    // Audio is decoded separately via NAudio in MFReader; ignore it here.
-                }
-                else
-                {
-                    Debug.Fail("");
-                }
+                _mediaInfo.VideoStreamIndex = streamIndex;
             }
-            catch
+            else if (majorType == MediaTypeGuids.Audio)
             {
-                break;
+                // Audio is decoded separately via NAudio in MFReader; ignore it here.
+            }
+            else
+            {
+                Debug.Fail("");
             }
         }
 
