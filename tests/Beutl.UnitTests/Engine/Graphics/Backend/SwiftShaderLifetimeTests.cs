@@ -17,17 +17,31 @@ public sealed class SwiftShaderLifetimeTests
     [TestCase("render")]
     [TestCase("restart")]
     public Task Shutdown_ExitsNormallyWithTheBundledDriver(string action)
-        => TestWorkerProgram.RunAsync(TestWorkerProgram.SwiftShaderLifetimeWorkerArgument, action);
+    {
+        string manifest = GetBundledDriverManifest();
+        return TestWorkerProgram.RunAsync(
+            start => start.Environment["VK_DRIVER_FILES"] = manifest,
+            TestWorkerProgram.SwiftShaderLifetimeWorkerArgument,
+            action);
+    }
+
+    private static string GetBundledDriverManifest()
+    {
+        string architecture = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
+        string manifest = Path.Combine(
+            AppContext.BaseDirectory, "runtimes", $"linux-{architecture}", "native", "vk_swiftshader_icd.json");
+        Assert.That(File.Exists(manifest), Is.True, "The regression must exercise the bundled SwiftShader driver.");
+        return manifest;
+    }
 
     internal static void RunWorker(string action)
     {
         BeutlHomeIsolation.Begin("beutl-swiftshader-lifetime");
         try
         {
-            string architecture = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
-            string manifest = Path.Combine(
-                AppContext.BaseDirectory, "runtimes", $"linux-{architecture}", "native", "vk_swiftshader_icd.json");
-            Assert.That(File.Exists(manifest), Is.True, "The regression must exercise the bundled SwiftShader driver.");
+            string manifest = GetBundledDriverManifest();
+            Assert.That(Environment.GetEnvironmentVariable("VK_DRIVER_FILES"), Is.EqualTo(manifest),
+                "The worker must start with the bundled ICD selected before native Vulkan discovery.");
 
             VulkanTestEnvironment.InvokeOnRenderThread(() =>
             {

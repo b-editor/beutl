@@ -51,7 +51,12 @@ internal static class TestWorkerProgram
         }
     }
 
-    internal static async Task RunAsync(params string[] arguments)
+    internal static Task RunAsync(params string[] arguments)
+        => RunAsync(null, arguments);
+
+    internal static async Task RunAsync(
+        Action<System.Diagnostics.ProcessStartInfo>? configureStartInfo,
+        params string[] arguments)
     {
         var start = new System.Diagnostics.ProcessStartInfo("dotnet")
         {
@@ -62,6 +67,7 @@ internal static class TestWorkerProgram
         start.ArgumentList.Add("exec");
         start.ArgumentList.Add(typeof(TestWorkerProgram).Assembly.Location);
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
+        configureStartInfo?.Invoke(start);
         using var process = System.Diagnostics.Process.Start(start)!;
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();
