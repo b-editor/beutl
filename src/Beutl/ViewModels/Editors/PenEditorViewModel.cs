@@ -130,6 +130,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public void SetValue(Pen? oldValue, Pen? newValue)
     {
+        if (!IsElementEditable) return;
         if (!EqualityComparer<Pen>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
@@ -144,6 +145,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
+        if (!IsElementEditable) return false;
         if (template.CreateInstance() is not Pen instance) return false;
         IsExpanded.Value = true;
 
@@ -155,6 +157,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public override bool TryPasteJson(string json)
     {
+        if (!IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;

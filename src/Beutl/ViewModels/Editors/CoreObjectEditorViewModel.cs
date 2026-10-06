@@ -182,6 +182,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
+        if (!IsElementEditable) return false;
         if (template.CreateInstance() is not T instance) return false;
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } keyFrame)
@@ -198,6 +199,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public override bool TryPasteJson(string json)
     {
+        if (!IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
@@ -220,6 +222,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public void SetTarget(CoreObject? target)
     {
+        if (!IsElementEditable) return;
 
         if (Value.Value is not IPresenter<T> presenter)
         {

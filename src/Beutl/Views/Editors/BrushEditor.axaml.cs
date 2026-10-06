@@ -281,7 +281,7 @@ public sealed partial class BrushEditor : UserControl
 
     private void OnColorChanged(object? sender, (Color2 OldValue, Color2 NewValue) e)
     {
-        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
         if (viewModel.Value.Value is not SolidColorBrush solid) return;
         if (viewModel.IsDisposed) return;
 
@@ -308,7 +308,7 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex,
             Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
         if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
         if (viewModel.IsDisposed) return;
 
@@ -325,7 +325,7 @@ public sealed partial class BrushEditor : UserControl
     private void OnGradientStopChanged(object? sender,
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (DataContext is not BrushEditorViewModel { IsElementEditable: true } viewModel) return;
         if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
         if (viewModel.IsDisposed) return;
 

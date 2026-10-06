@@ -11,6 +11,7 @@ using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
 using Beutl.Logging;
 using Beutl.Media;
@@ -32,6 +33,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
     private Element? _element;
+    private Scene? _scene;
+    private IDisposable? _elementEditabilitySubscription;
+    private readonly ReactivePropertySlim<bool> _isElementEditable = new(true);
     private EditViewModel? _editViewModel;
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
@@ -69,11 +73,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             ? expr.ObserveExpression.Select(x => x != null)
             : Observable.ReturnThenNever(false);
 
-        IObservable<bool>? isReadOnly = Observable.ReturnThenNever(property.IsReadOnly);
+        CanEditProperty = _isElementEditable
+            .Select(editable => editable && !property.IsReadOnly)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
 
         // TODO: CanEditとIsReadOnlyどちらかだけにしたい
-        CanEdit = isReadOnly
-            .Not()
+        CanEdit = CanEditProperty
             .CombineLatest(hasExpression, (canEdit, hasExpr) => canEdit && !hasExpr)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
@@ -175,6 +181,12 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
+    // Expressions prevent editing the value, but must still be editable/removable
+    // on an unlocked clip. Menus use this state rather than CanEdit.
+    public ReadOnlyReactivePropertySlim<bool> CanEditProperty { get; }
+
+    protected internal bool IsElementEditable => !IsDisposed && ElementEditability.IsEditable(_element, _scene);
+
     public ReadOnlyReactivePropertySlim<bool> IsReadOnly { get; }
 
     public ReadOnlyReactiveProperty<bool> HasAnimation { get; }
@@ -240,6 +252,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             _propertyEditorControlHost = serviceProvider.GetService<IPropertyEditorControlHost>()?.CreateChildHost(PropertyAdapter);
             _element = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
+            _scene = serviceProvider.GetService<Scene>() ?? _editViewModel?.Scene;
+            _elementEditabilitySubscription?.Dispose();
+            _elementEditabilitySubscription = ElementEditability.Observe(_element, _scene)
+                .Subscribe(editable => _isElementEditable.Value = editable);
             _clock = serviceProvider.GetService<IEditorClock>();
             _extensionProvider.Value = serviceProvider.GetService<Beutl.Api.Services.ExtensionProvider>()
                 ?? _editViewModel?.ExtensionProvider;
@@ -325,15 +341,19 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         // Stop new clock writes before completing the subject.
         _currentFrameRevoker?.Dispose();
         _currentFrameRevoker = null;
+        _elementEditabilitySubscription?.Dispose();
+        _elementEditabilitySubscription = null;
         _currentTime.OnCompleted();
 
         Disposables.Dispose();
         _canPaste.Dispose();
         _extensionProvider.Dispose();
+        _isElementEditable.Dispose();
         _editViewModel = null!;
         _parentServices = null;
         _propertyEditorControlHost = null;
         _element = null;
+        _scene = null;
         PropertyAdapter = null!;
     }
 
@@ -393,6 +413,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual async ValueTask<bool> PasteAsync()
     {
+        if (!IsElementEditable) return false;
         if (PasteFormat is not { } format) return false;
         var clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return false;
@@ -415,6 +436,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual bool AddTemplateAsListItem(ObjectTemplateItem template)
     {
+        if (!IsElementEditable) return false;
         if (PropertyAdapter is not IListItemAccessor accessor) return false;
         if (template.CreateInstance() is not { } instance) return false;
 
@@ -565,6 +587,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public sealed override void Reset()
     {
+        if (!IsElementEditable) return;
         if (GetDefaultValue() is { } defaultValue)
         {
             SetValue(PropertyAdapter.GetValue(), (T?)defaultValue);
@@ -578,6 +601,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     internal void SetValue(T? oldValue, T? newValue, string? commandName)
     {
+        if (!IsElementEditable) return;
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is { } kf)
@@ -597,6 +621,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void SetValue(T? newValue)
     {
+        if (!IsElementEditable) return;
         if (EditingKeyFrame.Value is { } kf)
         {
             kf.Value = newValue!;
@@ -613,6 +638,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public T? SetCurrentValueAndGetCoerced(T? value)
     {
+        if (IsDisposed) return default;
+        if (!IsElementEditable)
+            return EditingKeyFrame.Value is { } keyframe ? keyframe.Value : PropertyAdapter.GetValue();
         if (EditingKeyFrame.Value != null)
         {
             EditingKeyFrame.Value.Value = value!;
@@ -629,6 +657,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void InsertKeyFrame(TimeSpan keyTime)
     {
+        if (!IsElementEditable) return;
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
         var keyframe = AnimationOperations.InsertKeyFrame(
@@ -649,6 +678,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveKeyFrame(TimeSpan keyTime)
     {
+        if (!IsElementEditable) return;
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
         AnimationOperations.RemoveKeyFrame(
@@ -661,6 +691,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void PrepareToEditAnimation()
     {
+        if (!IsElementEditable) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
             && animatableProperty.Animation is not KeyFrameAnimation<T>)
         {
@@ -685,6 +716,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveAnimation()
     {
+        if (!IsElementEditable) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
             animatableProperty.Animation = null;
@@ -695,6 +727,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
+        if (!IsElementEditable)
+        {
+            error = MessageStrings.OperationFailed;
+            return false;
+        }
         if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
         {
             if (!Expression.TryParse<T>(expressionString, out var newExpression, out error))
@@ -718,6 +755,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveExpression()
     {
+        if (!IsElementEditable) return;
         if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
         {
             expressionProperty.Expression = null;

@@ -33,6 +33,7 @@
                     <ToggleButton Padding="0"
                                   Classes="size-24x24"
                                   IsChecked="{Binding IsEnabled.Value}"
+                                  IsEnabled="{Binding CanEditProperty.Value}"
                                   IsVisible="{Binding !IsGroupOrNull.Value}"
                                   Theme="{StaticResource VisibilityToggleButtonStyle}" />
 

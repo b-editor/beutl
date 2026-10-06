@@ -63,6 +63,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
 
     public void InsertGradientStop(int index, GradientStop item)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is { } list)
         {
             list.Insert(index, item);
@@ -72,6 +73,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
 
     public void RemoveGradientStop(int index)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is { } list)
         {
             list.RemoveAt(index);
@@ -83,6 +85,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
         int oldIndex, int newIndex,
         GradientStop.Resource oldObject, GradientStop obj)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is { } list)
         {
             if (oldIndex != newIndex)

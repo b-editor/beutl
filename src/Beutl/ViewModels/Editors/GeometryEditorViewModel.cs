@@ -131,6 +131,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
+        if (!IsElementEditable) return false;
         if (template.CreateInstance() is not Geometry instance) return false;
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } keyFrame)
@@ -147,6 +148,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public override bool TryPasteJson(string json)
     {
+        if (!IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
@@ -169,6 +171,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public void AddItem()
     {
+        if (!IsElementEditable) return;
         if (Value.Value is PathGeometry group)
         {
             group.Figures.Add(new PathFigure());

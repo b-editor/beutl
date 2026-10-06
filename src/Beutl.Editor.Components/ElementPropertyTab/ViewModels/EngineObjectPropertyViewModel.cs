@@ -13,17 +13,28 @@ namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IFallbackObjectViewModel
 {
     private ElementPropertyTabViewModel _parent;
+    private readonly IDisposable _enabledSubscription;
+    private bool _isDisposed;
 
     public EngineObjectPropertyViewModel(EngineObject model, ElementPropertyTabViewModel parent)
     {
         Model = model;
         _parent = parent;
+        CanEdit = parent.CanEdit;
         IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty)
             .ToReactiveProperty();
-        IsEnabled.Skip(1).Subscribe(v =>
+        _enabledSubscription = IsEnabled.Skip(1).Subscribe(v =>
         {
+            if (v == Model.IsEnabled) return;
+            if (!CanEdit.Value)
+            {
+                IsEnabled.Value = Model.IsEnabled;
+                return;
+            }
+
             IElementObjectService? service = this.GetService<IElementObjectService>();
-            service?.SetEnabled(Model, v);
+            if (service?.SetEnabled(Model, v) != true)
+                IsEnabled.Value = Model.IsEnabled;
         });
 
         Init();
@@ -43,6 +54,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
     public ReactiveProperty<bool> IsEnabled { get; }
+
+    public IReadOnlyReactiveProperty<bool> CanEdit { get; }
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
@@ -100,12 +113,15 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
         foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
         }
 
         Properties.Clear();
+        _enabledSubscription.Dispose();
         IsEnabled.Dispose();
 
         Model = null!;
@@ -144,6 +160,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
     public void SetJsonString(string? str)
     {
+        if (_isDisposed || !CanEdit.Value) return;
         if (Model.HierarchicalParent is not Element element) return;
 
         int index = element.Objects.IndexOf(Model);

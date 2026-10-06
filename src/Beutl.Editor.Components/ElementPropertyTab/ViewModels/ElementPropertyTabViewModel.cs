@@ -27,6 +27,12 @@ public sealed class ElementPropertyTabViewModel : IToolContext
             .Select(x => x as Element)
             .ToReactiveProperty();
 
+        CanEdit = Element.Select(element => element is null
+                ? Observable.Return(false)
+                : ElementEditability.Observe(element, editorContext.GetService<Scene>()))
+            .Switch()
+            .ToReadOnlyReactivePropertySlim();
+
         _disposable0 = Element.Subscribe(element =>
         {
             if (_oldElement != null)
@@ -35,11 +41,11 @@ public sealed class ElementPropertyTabViewModel : IToolContext
             }
             _oldElement = element;
 
+            _disposable1?.Dispose();
+            _disposable1 = null;
             ClearItems();
             if (element != null)
             {
-                _disposable1?.Dispose();
-
                 Items.AddRange(element.Objects.Select(x => new EngineObjectPropertyViewModel(x, this)));
                 _disposable1 = element.Objects.CollectionChangedAsObservable()
                     .Subscribe(e =>
@@ -105,6 +111,8 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
     public ReactiveProperty<Element?> Element { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
+
     [Obsolete("Use Element property instead.")]
     public ReactiveProperty<Element?> Layer => Element;
 
@@ -131,6 +139,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         _disposable0.Dispose();
         _disposable1?.Dispose();
 
+        CanEdit.Dispose();
         Element.Dispose();
         _editorContext = null!;
         RequestScroll = null;

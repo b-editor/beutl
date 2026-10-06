@@ -20,6 +20,7 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
 
     public void SetTarget(Scene? target)
     {
+        if (!IsElementEditable) return;
         if (target == null)
         {
             SetNull();
@@ -36,6 +37,7 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
 
     public void SetNull()
     {
+        if (!IsElementEditable) return;
         if (PropertyAdapter is IExpressionPropertyAdapter<Scene?> exp)
         {
             exp.Expression = null;

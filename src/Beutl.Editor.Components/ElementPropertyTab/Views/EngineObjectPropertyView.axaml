@@ -23,7 +23,8 @@
                     <ContextMenu>
                         <MenuItem usage:UsageTracking.Feature="ElementProperty.Remove"
                                   Click="Remove_Click"
-                                  Header="{x:Static lang:Strings.Remove}">
+                                  Header="{x:Static lang:Strings.Remove}"
+                                  IsEnabled="{Binding CanEdit.Value}">
                             <MenuItem.Icon>
                                 <icons:FluentIcon Icon="Delete" />
                             </MenuItem.Icon>
@@ -38,6 +39,7 @@
                     </ContextMenu>
                 </Grid.ContextMenu>
                 <Border x:Name="dragBorder"
+                        IsEnabled="{Binding CanEdit.Value}"
                         Padding="{DynamicResource ToolTabBarIconButtonPadding}"
                         VerticalAlignment="Center"
                         Background="Transparent"
@@ -55,6 +57,7 @@
 
                 <ToggleButton x:Name="VisibilityButton"
                               Grid.Column="1"
+                              IsEnabled="{Binding CanEdit.Value}"
                               IsChecked="{Binding IsEnabled.Value}"
                               Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}" />
 

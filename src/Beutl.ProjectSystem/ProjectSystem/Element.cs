@@ -106,8 +106,8 @@ public class Element : Hierarchical, INotifyEdited
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    // Editor-only; does not affect composition. The editor refuses pointer
-    // drag/trim/split/delete when this is true or its TimelineLayer.IsLocked is.
+    // Editor-only; does not affect composition. Timeline and property editors refuse
+    // edits when this is true or its TimelineLayer.IsLocked is.
     public bool IsLocked
     {
         get => _isLocked;

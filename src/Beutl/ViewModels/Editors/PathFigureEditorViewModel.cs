@@ -97,6 +97,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     public void AddItem(Type type)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is { } group
             && Activator.CreateInstance(type) is PathSegment instance)
         {

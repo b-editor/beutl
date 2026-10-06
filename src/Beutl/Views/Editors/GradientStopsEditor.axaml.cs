@@ -41,7 +41,7 @@ public sealed partial class GradientStopsEditor : UserControl
         object? sender,
         (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel) return;
+        if (DataContext is not GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel) return;
         if (viewModel.IsDisposed) return;
 
         if (e.NewIndex != e.OldIndex)
@@ -52,7 +52,7 @@ public sealed partial class GradientStopsEditor : UserControl
 
     private void OnSliderChanged(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object) e)
     {
-        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel) return;
+        if (DataContext is not GradientStopsEditorViewModel { IsElementEditable: true, Value.Value: { } list } viewModel) return;
         if (viewModel.IsDisposed) return;
 
         GradientStop obj = list[e.OldIndex];
@@ -74,7 +74,7 @@ public sealed partial class GradientStopsEditor : UserControl
 
     private void ColorPicker_FlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
     {
-        if (DataContext is GradientStopsEditorViewModel viewModel
+        if (DataContext is GradientStopsEditorViewModel { IsElementEditable: true } viewModel
             && viewModel.SelectedItem.Value is AM.GradientStop astop
             && args.NewColor.HasValue
             && args.OldColor.HasValue)

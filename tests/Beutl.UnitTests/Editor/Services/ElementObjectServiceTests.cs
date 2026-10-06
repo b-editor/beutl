@@ -499,4 +499,44 @@ public class ElementObjectServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LockedElement_ObjectMutationsAreIgnoredWithoutHistory(bool lockLayer)
+    {
+        var first = new TestEngineObject();
+        var second = new TestEngineObject();
+        _service.Add(_element, first);
+        _service.Add(_element, second);
+        var scene = new Scene();
+        scene.Children.Add(_element);
+        var layer = new TimelineLayer { ZIndex = _element.ZIndex, IsLocked = lockLayer };
+        scene.Layers.Add(layer);
+        _element.IsLocked = !lockLayer;
+        int before = _history.UndoCount;
+        string json = CoreSerializer.SerializeToJsonObject(new TestEngineObject()).ToJsonString();
+
+        _service.Add(_element, new TestEngineObject());
+        _service.InsertAt(_element, 0, new TestEngineObject());
+        bool removed = _service.Remove(_element, first);
+        bool moved = _service.Move(_element, 0, 1);
+        bool toggled = _service.SetEnabled(first, false);
+        ObjectPasteOutcome pasted = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.IsElementLocked(_element), Is.True);
+            Assert.That(_element.Objects, Is.EqualTo(new[] { first, second }));
+            Assert.That(first.IsEnabled, Is.True);
+            Assert.That(removed || moved || toggled, Is.False);
+            Assert.That(pasted, Is.EqualTo(ObjectPasteOutcome.NotEditable));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+
+        _element.IsLocked = false;
+        layer.IsLocked = false;
+        Assert.That(_service.SetEnabled(first, false), Is.True);
+        Assert.That(first.IsEnabled, Is.False);
+        Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+    }
 }

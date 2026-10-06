@@ -23,6 +23,7 @@ public sealed class CubeSourceEditorViewModel : ValueEditorViewModel<CubeSource?
 
     public void SetValueAndCommit(CubeSource? oldValue, CubeSource? newValue)
     {
+        if (!IsElementEditable) return;
         if (!EqualityComparer<CubeSource?>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is { } kf)

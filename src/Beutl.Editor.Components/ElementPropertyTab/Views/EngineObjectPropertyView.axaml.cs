@@ -58,7 +58,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is EngineObjectPropertyViewModel viewModel2)
+        if (DataContext is EngineObjectPropertyViewModel { CanEdit.Value: true } viewModel2)
         {
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();
@@ -70,7 +70,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
     {
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item2
-            && DataContext is EngineObjectPropertyViewModel viewModel2)
+            && DataContext is EngineObjectPropertyViewModel { CanEdit.Value: true } viewModel2)
         {
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();
@@ -89,7 +89,8 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject))
+        if (DataContext is EngineObjectPropertyViewModel { CanEdit.Value: true }
+            && e.DataTransfer.Contains(BeutlDataFormats.EngineObject))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
@@ -130,6 +131,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
         {
             if (itemsControl?.DataContext is ElementPropertyTabViewModel
                 {
+                    CanEdit.Value: true,
                     Element.Value: { } element
                 } viewModel)
             {

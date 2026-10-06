@@ -176,6 +176,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     private void SetValue(Brush? oldValue, Brush? newValue, string? commandName)
     {
+        if (!IsElementEditable) return;
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame)
@@ -206,6 +207,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
+        if (!IsElementEditable) return false;
         if (template.CreateInstance() is not Brush instance) return false;
         IsExpanded.Value = true;
         SetValue(GetEditingValue(), instance, CommandNames.ApplyTemplate);
@@ -214,6 +216,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public override bool TryPasteJson(string json)
     {
+        if (!IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
@@ -223,6 +226,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetColor(Color oldValue, Color newValue)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is SolidColorBrush solid)
         {
             solid.Color.CurrentValue = newValue;
@@ -232,6 +236,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void InsertGradientStop(int index, GradientStop item)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
             list.Insert(index, item);
@@ -241,6 +246,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void RemoveGradientStop(int index)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
             list.RemoveAt(index);
@@ -252,6 +258,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         int oldIndex, int newIndex,
         GradientStop.Resource oldObject, GradientStop obj)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
             if (oldIndex != newIndex)
@@ -263,6 +270,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void ChangeDrawableType(Type type)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is Media.DrawableBrush drawable)
         {
             if (Activator.CreateInstance(type) is Drawable instance)
@@ -277,6 +285,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetTarget(Brush? target)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is IPresenter<Brush> presenter)
         {
 
@@ -296,6 +305,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetDrawableTarget(Drawable? target)
     {
+        if (!IsElementEditable) return;
 
 
         if (Value.Value is not DrawableBrush drawableBrush)
