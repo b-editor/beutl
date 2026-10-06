@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 
 namespace Beutl.Editor.VersionControl;
 
@@ -73,6 +74,29 @@ internal abstract class GitProcess : IDisposable
     }
 
     public abstract void Dispose();
+
+    // The stream shapes Process gives a redirected child, so readers behave the same.
+    private protected const int StreamBufferSize = 4096;
+
+    private protected static StreamWriter CreateStandardInputWriter(Stream stream, Encoding encoding)
+    {
+        return new StreamWriter(
+            stream,
+            encoding,
+            StreamBufferSize)
+        {
+            AutoFlush = true,
+        };
+    }
+
+    private protected static StreamReader CreateStandardOutputReader(Stream stream, Encoding encoding)
+    {
+        return new StreamReader(
+            stream,
+            encoding,
+            detectEncodingFromByteOrderMarks: true,
+            StreamBufferSize);
+    }
 
     private protected static async Task PollUntilAsync(Func<bool> condition)
     {

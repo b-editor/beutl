@@ -10,9 +10,7 @@ internal static class SerializedProjectGraph
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
-        VersionControlSerializationGraph.SerializationGraph graph =
-            VersionControlSerializationGraph.DiscoverSerializationGraph(project);
+        VersionControlSerializationGraph.SerializationGraph graph = DiscoverGraph(projectFile);
         return GetRelativePaths(
             graph.Objects
                 .Select(static obj => obj.Uri)
@@ -28,12 +26,16 @@ internal static class SerializedProjectGraph
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
-        VersionControlSerializationGraph.SerializationGraph graph =
-            VersionControlSerializationGraph.DiscoverSerializationGraph(project);
+        VersionControlSerializationGraph.SerializationGraph graph = DiscoverGraph(projectFile);
         return GetRelativePaths(
             graph.UnaddressableFileSources.Concat(graph.AddressableFileSources),
             projectRoot);
+    }
+
+    private static VersionControlSerializationGraph.SerializationGraph DiscoverGraph(string projectFile)
+    {
+        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
+        return VersionControlSerializationGraph.DiscoverSerializationGraph(project);
     }
 
     private static IReadOnlySet<string> GetRelativePaths(

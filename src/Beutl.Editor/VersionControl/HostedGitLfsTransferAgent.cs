@@ -44,6 +44,17 @@ internal static partial class HostedGitLfsTransferAgent
     /// <summary>The accepted offset, whether the object is published, and the SHA-256 state at the offset if hosted Git sent it.</summary>
     private readonly record struct TusState(long Offset, bool Verified, string? HashState = null);
 
+    /// <summary>One tus upload: where its parts go, the file they are read from, and the clock its retries wait on.</summary>
+    private sealed record TusUpload(
+        HttpClient Http, Uri Url, Dictionary<string, string>? Headers, long Size, Func<Stream> OpenFile, TimeProvider Time)
+    {
+        public long PartLength(long offset) => Math.Min(PartSize, Size - offset);
+    }
+
+    /// <summary>One PATCH: whether hosted Git stored the part (with the state it answered, when read), or what the next attempt needs.</summary>
+    private readonly record struct PatchAttempt(
+        bool Stored, TusState State, TimeSpan? RetryAfter, HttpRequestException? TransportFailure);
+
     [GeneratedRegex("^[0-9a-f]{64}$")]
     private static partial Regex OidPattern();
 
@@ -158,22 +169,22 @@ internal static partial class HostedGitLfsTransferAgent
         }
 
         // Hosted Git keeps one upload per object, so creation also finds an interrupted one.
-        (Uri upload, bool parallel) = await CreateAsync(http, creation, action.Header, message.Size, time, cancellationToken);
-        TusState state = await GetStateAsync(http, upload, action.Header, message.Size, time, cancellationToken);
+        (Uri uploadUrl, bool parallel) = await CreateAsync(http, creation, action.Header, message.Size, time, cancellationToken);
+        var upload = new TusUpload(http, uploadUrl, action.Header, message.Size, () => openRead(path), time);
+        TusState state = await GetStateAsync(upload, cancellationToken);
         if (state.Offset > 0) await ProgressAsync(output, oid, state.Offset, state.Offset);
         // Parts numbered by offset need every part accepted so far to be a whole one.
         if (parallel && state.Offset % PartSize == 0 && state.Offset < message.Size)
         {
-            await UploadPartsAsync(
-                http, upload, action.Header, () => openRead(path), oid, message.Size, state, output, time, cancellationToken);
-            state = await GetStateAsync(http, upload, action.Header, message.Size, time, cancellationToken);
+            await UploadPartsAsync(upload, oid, state, output, cancellationToken);
+            state = await GetStateAsync(upload, cancellationToken);
             if (state.Offset != message.Size) throw new InvalidOperationException("Hosted Git did not accept every LFS part");
         }
 
         while (state.Offset < message.Size)
         {
             long before = state.Offset;
-            state = await PatchAsync(http, upload, action.Header, () => openRead(path), message.Size, before, time, cancellationToken);
+            state = await PatchAsync(upload, before, cancellationToken);
             await ProgressAsync(output, oid, state.Offset, state.Offset - before);
         }
 
@@ -183,7 +194,7 @@ internal static partial class HostedGitLfsTransferAgent
         {
             if (attempt == MaxAttempts) throw new InvalidOperationException("Hosted Git did not confirm the upload");
             await Task.Delay(Backoff(attempt), time, cancellationToken);
-            state = await GetStateAsync(http, upload, action.Header, message.Size, time, cancellationToken);
+            state = await GetStateAsync(upload, cancellationToken);
         }
     }
 
@@ -227,68 +238,79 @@ internal static partial class HostedGitLfsTransferAgent
         return (upload, parallel);
     }
 
-    private static async Task<TusState> GetStateAsync(
-        HttpClient http, Uri upload, Dictionary<string, string>? headers, long size,
-        TimeProvider time, CancellationToken cancellationToken)
+    private static async Task<TusState> GetStateAsync(TusUpload upload, CancellationToken cancellationToken)
     {
         using HttpResponseMessage response = await SendWithRetryAsync(
-            http, () => Request(HttpMethod.Head, upload, headers), time, cancellationToken);
+            upload.Http, () => Request(HttpMethod.Head, upload.Url, upload.Headers), upload.Time, cancellationToken);
         TusState state = ReadState(response);
-        if (ReadNumber(response, "Upload-Length") != size || state.Offset > size)
+        if (ReadNumber(response, "Upload-Length") != upload.Size || state.Offset > upload.Size)
             throw new InvalidOperationException("The tus upload length or offset changed");
         return state;
     }
 
     /// <summary>Sends the part at <paramref name="offset"/> and returns the state that follows it.</summary>
-    private static async Task<TusState> PatchAsync(
-        HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, long size, long offset,
-        TimeProvider time, CancellationToken cancellationToken)
+    private static async Task<TusState> PatchAsync(TusUpload upload, long offset, CancellationToken cancellationToken)
     {
-        long length = Math.Min(PartSize, size - offset);
+        long length = upload.PartLength(offset);
         for (int attempt = 0; ; attempt++)
         {
-            TimeSpan? retryAfter = null;
-            HttpRequestException? transportFailure = null;
-            try
+            PatchAttempt sent = await SendPartAsync(upload, offset, length, hashState: null, readStoredState: true, cancellationToken);
+            if (sent.Stored)
             {
-                using HttpRequestMessage request = Request(HttpMethod.Patch, upload, headers);
-                request.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString(CultureInfo.InvariantCulture));
-                // Each attempt reads its own stream: an early response can leave the transport
-                // still sending a previous attempt's body.
-                await using Stream file = openFile();
-                file.Position = offset;
-                request.Content = new PartContent(file, length);
-                using HttpResponseMessage response = await SendAsync(http, request, time, cancellationToken);
-                if (response.StatusCode == HttpStatusCode.NoContent)
-                {
-                    TusState state = ReadState(response);
-                    if (state.Offset != offset + length)
-                        throw new InvalidOperationException("Hosted Git accepted a different tus offset");
-                    return state;
-                }
-
-                // Another request still holds this part; the server says when to try again.
-                retryAfter = response.Headers.RetryAfter?.Delta;
-                if (response.StatusCode is not (HttpStatusCode.Conflict or HttpStatusCode.Locked)
-                    && !Retryable(response.StatusCode))
-                {
-                    throw new InvalidOperationException(await FailureAsync(response, time, cancellationToken));
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                // The server may have stored the part before its response was lost, even on the
-                // last attempt. HEAD tells.
-                transportFailure = ex;
+                if (sent.State.Offset != offset + length)
+                    throw new InvalidOperationException("Hosted Git accepted a different tus offset");
+                return sent.State;
             }
 
-            TusState current = await GetStateAsync(http, upload, headers, size, time, cancellationToken);
+            // The server may have stored the part before its response was lost, even on the
+            // last attempt. HEAD tells.
+            TusState current = await GetStateAsync(upload, cancellationToken);
             if (current.Offset > offset) return current;
             if (current.Offset < offset) throw new InvalidOperationException("The tus offset moved backwards");
             if (attempt >= MaxAttempts)
-                throw new InvalidOperationException("The tus upload did not advance", transportFailure);
-            await Task.Delay(retryAfter ?? Backoff(attempt), time, cancellationToken);
+                throw new InvalidOperationException("The tus upload did not advance", sent.TransportFailure);
+            await Task.Delay(sent.RetryAfter ?? Backoff(attempt), upload.Time, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Sends the part at <paramref name="offset"/> once, naming <paramref name="hashState"/> when the upload is
+    /// parallel. A conflict, a lock, a temporary status or a lost response asks for another attempt; any other
+    /// rejection fails the upload.
+    /// </summary>
+    private static async Task<PatchAttempt> SendPartAsync(
+        TusUpload upload, long offset, long length, string? hashState, bool readStoredState,
+        CancellationToken cancellationToken)
+    {
+        TimeSpan? retryAfter = null;
+        try
+        {
+            using HttpRequestMessage request = Request(HttpMethod.Patch, upload.Url, upload.Headers);
+            request.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString(CultureInfo.InvariantCulture));
+            if (hashState is not null) request.Headers.TryAddWithoutValidation(HashStateHeader, hashState);
+            // Each attempt reads its own stream: an early response can leave the transport
+            // still sending a previous attempt's body.
+            await using Stream file = upload.OpenFile();
+            file.Position = offset;
+            request.Content = new PartContent(file, length);
+            using HttpResponseMessage response = await SendAsync(upload.Http, request, upload.Time, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NoContent)
+                return new PatchAttempt(true, readStoredState ? ReadState(response) : default, null, null);
+
+            // Another request still holds this part; the server says when to try again.
+            retryAfter = response.Headers.RetryAfter?.Delta;
+            if (response.StatusCode is not (HttpStatusCode.Conflict or HttpStatusCode.Locked)
+                && !Retryable(response.StatusCode))
+            {
+                throw new InvalidOperationException(await FailureAsync(response, upload.Time, cancellationToken));
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            return new PatchAttempt(false, default, retryAfter, ex);
+        }
+
+        return new PatchAttempt(false, default, retryAfter, null);
     }
 
     /// <summary>
@@ -297,8 +319,7 @@ internal static partial class HostedGitLfsTransferAgent
     /// checks against the bytes before it; each upload reads its own part again.
     /// </summary>
     private static async Task UploadPartsAsync(
-        HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, string oid, long size,
-        TusState accepted, TextWriter output, TimeProvider time, CancellationToken cancellationToken)
+        TusUpload upload, string oid, TusState accepted, TextWriter output, CancellationToken cancellationToken)
     {
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         using var reporting = new SemaphoreSlim(1, 1);
@@ -306,10 +327,7 @@ internal static partial class HostedGitLfsTransferAgent
         var gate = new object();
         Exception? failure = null;
         long sent = accepted.Offset;
-        // Every part before this offset is stored; parts that finished out of order wait in `finished`.
-        long finishedBefore = accepted.Offset;
-        var finished = new SortedSet<long>();
-        var advanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stored = new StoredPartFrontier(gate, accepted.Offset, upload.Size);
 
         async Task RunAsync(Func<Task> work)
         {
@@ -332,18 +350,18 @@ internal static partial class HostedGitLfsTransferAgent
                 ? Sha256ChainingState.Resume(recorded, accepted.Offset)
                 : new Sha256ChainingState();
             byte[] buffer = new byte[HashBufferSize];
-            await using Stream file = openFile();
+            await using Stream file = upload.OpenFile();
             file.Position = hash.Length;
-            for (long offset = hash.Length; offset < size; offset += PartSize)
+            for (long offset = hash.Length; offset < upload.Size; offset += PartSize)
             {
                 string start = hash.ToString();
-                for (long position = offset, end = Math.Min(size, offset + PartSize); position < end;)
+                for (long position = offset, end = Math.Min(upload.Size, offset + PartSize); position < end;)
                 {
                     int count = (int)Math.Min(buffer.Length, end - position);
                     if (await file.ReadAtLeastAsync(buffer.AsMemory(0, count), count, throwOnEndOfStream: false, stop.Token) != count)
                         throw new IOException("The LFS file ended before its recorded size");
                     position += count;
-                    if (position < size) hash.Append(buffer.AsSpan(0, count));
+                    if (position < upload.Size) hash.Append(buffer.AsSpan(0, count));
                     // Hosted Git would refuse the object at its last part, so that part is never sent.
                     else if (hash.Finish(buffer.AsSpan(0, count)) != oid)
                         throw new InvalidOperationException("The LFS file changed during its upload");
@@ -356,35 +374,13 @@ internal static partial class HostedGitLfsTransferAgent
             parts.Writer.Complete();
         }
 
-        async Task EarlierPartsFinishedAsync(long offset)
-        {
-            while (true)
-            {
-                Task next;
-                lock (gate)
-                {
-                    if (finishedBefore >= offset) return;
-                    next = advanced.Task;
-                }
-
-                await next.WaitAsync(stop.Token);
-            }
-        }
-
         async Task SendPartsAsync()
         {
             await foreach ((long offset, string start) in parts.Reader.ReadAllAsync(stop.Token))
             {
-                long length = Math.Min(PartSize, size - offset);
-                await PatchPartAsync(
-                    http, upload, headers, openFile, size, offset, start, () => EarlierPartsFinishedAsync(offset), time, stop.Token);
-                lock (gate)
-                {
-                    finished.Add(offset);
-                    while (finished.Remove(finishedBefore)) finishedBefore = Math.Min(size, finishedBefore + PartSize);
-                    advanced.TrySetResult();
-                    advanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                }
+                long length = upload.PartLength(offset);
+                await PatchPartAsync(upload, offset, start, () => stored.WaitForEarlierPartsAsync(offset, stop.Token), stop.Token);
+                stored.MarkStored(offset);
 
                 await reporting.WaitAsync(stop.Token);
                 try
@@ -410,49 +406,27 @@ internal static partial class HostedGitLfsTransferAgent
     /// waits for <paramref name="earlierPartsFinished"/> before HEAD decides.
     /// </summary>
     private static async Task PatchPartAsync(
-        HttpClient http, Uri upload, Dictionary<string, string>? headers, Func<Stream> openFile, long size, long offset,
-        string start, Func<Task> earlierPartsFinished, TimeProvider time, CancellationToken cancellationToken)
+        TusUpload upload, long offset, string start, Func<Task> earlierPartsFinished, CancellationToken cancellationToken)
     {
-        long length = Math.Min(PartSize, size - offset);
+        long length = upload.PartLength(offset);
         for (int attempt = 0; ; attempt++)
         {
-            TimeSpan? retryAfter = null;
-            HttpRequestException? transportFailure = null;
-            try
-            {
-                using HttpRequestMessage request = Request(HttpMethod.Patch, upload, headers);
-                request.Headers.TryAddWithoutValidation("Upload-Offset", offset.ToString(CultureInfo.InvariantCulture));
-                request.Headers.TryAddWithoutValidation(HashStateHeader, start);
-                await using Stream file = openFile();
-                file.Position = offset;
-                request.Content = new PartContent(file, length);
-                using HttpResponseMessage response = await SendAsync(http, request, time, cancellationToken);
-                // The accepted offset moves past this part only once every part before it arrived.
-                if (response.StatusCode == HttpStatusCode.NoContent) return;
-                retryAfter = response.Headers.RetryAfter?.Delta;
-                if (response.StatusCode is not (HttpStatusCode.Conflict or HttpStatusCode.Locked)
-                    && !Retryable(response.StatusCode))
-                {
-                    throw new InvalidOperationException(await FailureAsync(response, time, cancellationToken));
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                // Hosted Git replaces a part sent again, so a lost response only costs a resend.
-                transportFailure = ex;
-            }
+            PatchAttempt sent = await SendPartAsync(upload, offset, length, start, readStoredState: false, cancellationToken);
+            // The accepted offset moves past this part only once every part before it arrived.
+            if (sent.Stored) return;
 
+            // Hosted Git replaces a part sent again, so a lost response only costs a resend.
             // A part the accepted offset already passed is stored.
-            if ((await GetStateAsync(http, upload, headers, size, time, cancellationToken)).Offset >= offset + length) return;
+            if ((await GetStateAsync(upload, cancellationToken)).Offset >= offset + length) return;
             if (attempt >= MaxAttempts)
             {
                 // One of the lost responses may have stored the part behind an earlier one still in flight.
                 await earlierPartsFinished();
-                if ((await GetStateAsync(http, upload, headers, size, time, cancellationToken)).Offset >= offset + length) return;
-                throw new InvalidOperationException("Hosted Git did not accept an LFS part", transportFailure);
+                if ((await GetStateAsync(upload, cancellationToken)).Offset >= offset + length) return;
+                throw new InvalidOperationException("Hosted Git did not accept an LFS part", sent.TransportFailure);
             }
 
-            await Task.Delay(retryAfter ?? Backoff(attempt), time, cancellationToken);
+            await Task.Delay(sent.RetryAfter ?? Backoff(attempt), upload.Time, cancellationToken);
         }
     }
 
@@ -604,6 +578,43 @@ internal static partial class HostedGitLfsTransferAgent
     {
         await output.WriteLineAsync(JsonSerializer.Serialize(value, s_json));
         await output.FlushAsync();
+    }
+
+    /// <summary>
+    /// The stored prefix of a parallel upload. It locks the gate the upload reports its failure under.
+    /// </summary>
+    private sealed class StoredPartFrontier(object gate, long start, long size)
+    {
+        // Every part before this offset is stored; parts that finished out of order wait in `_finished`.
+        private long _finishedBefore = start;
+        private readonly SortedSet<long> _finished = new();
+        private TaskCompletionSource _advanced = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task WaitForEarlierPartsAsync(long offset, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                Task next;
+                lock (gate)
+                {
+                    if (_finishedBefore >= offset) return;
+                    next = _advanced.Task;
+                }
+
+                await next.WaitAsync(cancellationToken);
+            }
+        }
+
+        public void MarkStored(long offset)
+        {
+            lock (gate)
+            {
+                _finished.Add(offset);
+                while (_finished.Remove(_finishedBefore)) _finishedBefore = Math.Min(size, _finishedBefore + PartSize);
+                _advanced.TrySetResult();
+                _advanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
     }
 
     /// <summary>One part of the file, streamed from its offset without disposing the file.</summary>

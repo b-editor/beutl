@@ -88,22 +88,65 @@ internal static class ProjectConflictMarkerScanner
         var scannedFiles = new HashSet<string>(StringComparer.Ordinal);
         string fullProjectFile = Path.GetFullPath(projectFile);
         string canonicalProjectFile = VersionControlPathComparison.ResolveCanonicalPath(fullProjectFile);
-        scannedFiles.Add(canonicalProjectFile);
-        if (await ContainsConflictMarkerAsync(
+        switch (await ScanOnceAsync(
+                        projectRoot,
+                        canonicalProjectFile,
+                        scannedFiles,
+                        budget,
+                        cancellationToken)
+                    .ConfigureAwait(false))
+        {
+            case FileScan.ConflictFound:
+                return fullProjectFile;
+            case FileScan.BudgetExhausted:
+                return null;
+        }
+
+        (SortedSet<string> referencedProjectFiles, SortedSet<string> referencedExtensionFiles) =
+            PartitionReferencedFiles(projectRoot, referencedRelativePaths, cancellationToken);
+
+        // Serialized project state has to win the finite budget over arbitrary extension assets.
+        (FileScan scan, string? conflict) = await ScanFilesAsync(
+                projectRoot,
+                referencedProjectFiles,
+                scannedFiles,
+                budget,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (scan != FileScan.Continue)
+        {
+            return conflict;
+        }
+
+        if (walkProjectFiles)
+        {
+            (scan, conflict) = await WalkProjectFilesAsync(
                     projectRoot,
-                    canonicalProjectFile,
+                    scannedFiles,
                     budget,
                     cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return fullProjectFile;
+                .ConfigureAwait(false);
+            if (scan != FileScan.Continue)
+            {
+                return conflict;
+            }
         }
 
-        if (budget.IsExhausted)
-        {
-            return null;
-        }
+        (_, conflict) = await ScanFilesAsync(
+                projectRoot,
+                referencedExtensionFiles,
+                scannedFiles,
+                budget,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return conflict;
+    }
 
+    private static (SortedSet<string> ProjectFiles, SortedSet<string> ExtensionFiles) PartitionReferencedFiles(
+        string projectRoot,
+        IReadOnlySet<string> referencedRelativePaths,
+        CancellationToken cancellationToken)
+    {
         var referencedProjectFiles = new SortedSet<string>(StringComparer.Ordinal);
         var referencedExtensionFiles = new SortedSet<string>(StringComparer.Ordinal);
         foreach (string relativePath in referencedRelativePaths)
@@ -125,37 +168,40 @@ internal static class ProjectConflictMarkerScanner
             destination.Add(referenced);
         }
 
-        // Serialized project state has to win the finite budget over arbitrary extension assets.
-        foreach (string referenced in referencedProjectFiles)
+        return (referencedProjectFiles, referencedExtensionFiles);
+    }
+
+    private static async Task<(FileScan Scan, string? Conflict)> ScanFilesAsync(
+        string projectRoot,
+        SortedSet<string> files,
+        HashSet<string> scannedFiles,
+        ScanBudget budget,
+        CancellationToken cancellationToken)
+    {
+        foreach (string file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!scannedFiles.Add(referenced))
+            switch (await ScanOnceAsync(projectRoot, file, scannedFiles, budget, cancellationToken)
+                        .ConfigureAwait(false))
             {
-                continue;
-            }
-
-            if (await ContainsConflictMarkerAsync(
-                        projectRoot,
-                        referenced,
-                        budget,
-                        cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                return referenced;
-            }
-
-            if (budget.IsExhausted)
-            {
-                return null;
+                case FileScan.ConflictFound:
+                    return (FileScan.ConflictFound, file);
+                case FileScan.BudgetExhausted:
+                    return (FileScan.BudgetExhausted, null);
             }
         }
 
+        return (FileScan.Continue, null);
+    }
+
+    private static async Task<(FileScan Scan, string? Conflict)> WalkProjectFilesAsync(
+        string projectRoot,
+        HashSet<string> scannedFiles,
+        ScanBudget budget,
+        CancellationToken cancellationToken)
+    {
         var pendingDirectories = new Stack<string>();
-        if (walkProjectFiles)
-        {
-            pendingDirectories.Push(projectRoot);
-        }
-
+        pendingDirectories.Push(projectRoot);
         while (pendingDirectories.TryPop(out string? directory))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -209,53 +255,44 @@ internal static class ProjectConflictMarkerScanner
                     continue;
                 }
 
-                if (!scannedFiles.Add(canonicalFile))
+                switch (await ScanOnceAsync(projectRoot, canonicalFile, scannedFiles, budget, cancellationToken)
+                            .ConfigureAwait(false))
                 {
-                    continue;
-                }
-
-                if (await ContainsConflictMarkerAsync(
-                            projectRoot,
-                            canonicalFile,
-                            budget,
-                            cancellationToken)
-                        .ConfigureAwait(false))
-                {
-                    return file;
-                }
-
-                if (budget.IsExhausted)
-                {
-                    return null;
+                    case FileScan.ConflictFound:
+                        return (FileScan.ConflictFound, file);
+                    case FileScan.BudgetExhausted:
+                        return (FileScan.BudgetExhausted, null);
                 }
             }
         }
 
-        foreach (string referenced in referencedExtensionFiles)
+        return (FileScan.Continue, null);
+    }
+
+    // A file reached both through the graph and through the walk is read once.
+    private static async Task<FileScan> ScanOnceAsync(
+        string projectRoot,
+        string file,
+        HashSet<string> scannedFiles,
+        ScanBudget budget,
+        CancellationToken cancellationToken)
+    {
+        if (!scannedFiles.Add(file))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!scannedFiles.Add(referenced))
-            {
-                continue;
-            }
-
-            if (await ContainsConflictMarkerAsync(
-                        projectRoot,
-                        referenced,
-                        budget,
-                        cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                return referenced;
-            }
-
-            if (budget.IsExhausted)
-            {
-                return null;
-            }
+            return FileScan.Continue;
         }
 
-        return null;
+        if (await ContainsConflictMarkerAsync(
+                    projectRoot,
+                    file,
+                    budget,
+                    cancellationToken)
+                .ConfigureAwait(false))
+        {
+            return FileScan.ConflictFound;
+        }
+
+        return budget.IsExhausted ? FileScan.BudgetExhausted : FileScan.Continue;
     }
 
     private static async Task<bool> ContainsConflictMarkerAsync(
@@ -580,6 +617,13 @@ internal static class ProjectConflictMarkerScanner
             _remainingBytes -= reserved;
             return reserved;
         }
+    }
+
+    private enum FileScan
+    {
+        Continue,
+        ConflictFound,
+        BudgetExhausted,
     }
 
     private enum MarkerSequenceState

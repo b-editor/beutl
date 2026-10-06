@@ -9,6 +9,14 @@ internal sealed class RepositoryWatcher : IDisposable
 {
     private static readonly string[] AncestorRuleFileNames = [".gitignore", ".gitattributes"];
 
+    // The metadata subdirectories that get their own watcher, in the order they are attached and refreshed.
+    private static readonly (string Name, bool IncludeSubdirectories)[] s_metadataSubdirectories =
+    [
+        ("refs", true),
+        ("info", false),
+        ("reftable", true),
+    ];
+
     internal static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(500);
     internal static readonly TimeSpan MaximumDebounceDelay = TimeSpan.FromSeconds(2);
 
@@ -200,42 +208,8 @@ internal sealed class RepositoryWatcher : IDisposable
         string repoRoot)
     {
         string normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(repoRoot));
-        string dotGitPath = Path.Combine(normalizedRoot, ".git");
-        string? gitDirectory;
-
-        if (Directory.Exists(dotGitPath))
-        {
-            gitDirectory = dotGitPath;
-        }
-        else if (File.Exists(dotGitPath))
-        {
-            string pointer;
-            try
-            {
-                pointer = File.ReadLines(dotGitPath).FirstOrDefault()?.Trim() ?? string.Empty;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return null;
-            }
-
-            const string Prefix = "gitdir:";
-            if (!pointer.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-
-            string gitDirectoryValue = pointer[Prefix.Length..].Trim();
-            if (string.IsNullOrEmpty(gitDirectoryValue))
-            {
-                return null;
-            }
-
-            gitDirectory = Path.IsPathFullyQualified(gitDirectoryValue)
-                ? gitDirectoryValue
-                : Path.Combine(normalizedRoot, gitDirectoryValue);
-        }
-        else
+        string? gitDirectory = TryReadGitDirectory(normalizedRoot);
+        if (gitDirectory is null)
         {
             return null;
         }
@@ -246,6 +220,62 @@ internal sealed class RepositoryWatcher : IDisposable
             return null;
         }
 
+        string? commonDirectory = TryReadCommonDirectory(gitDirectory);
+        if (commonDirectory is null)
+        {
+            return null;
+        }
+
+        commonDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(commonDirectory));
+        return Directory.Exists(commonDirectory)
+            ? (gitDirectory, commonDirectory)
+            : null;
+    }
+
+    // The .git directory, or the directory a .git file points at; null when there is neither or the file is unusable.
+    private static string? TryReadGitDirectory(string normalizedRoot)
+    {
+        string dotGitPath = Path.Combine(normalizedRoot, ".git");
+        if (Directory.Exists(dotGitPath))
+        {
+            return dotGitPath;
+        }
+
+        if (!File.Exists(dotGitPath))
+        {
+            return null;
+        }
+
+        string pointer;
+        try
+        {
+            pointer = File.ReadLines(dotGitPath).FirstOrDefault()?.Trim() ?? string.Empty;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        const string Prefix = "gitdir:";
+        if (!pointer.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string gitDirectoryValue = pointer[Prefix.Length..].Trim();
+        if (string.IsNullOrEmpty(gitDirectoryValue))
+        {
+            return null;
+        }
+
+        return Path.IsPathFullyQualified(gitDirectoryValue)
+            ? gitDirectoryValue
+            : Path.Combine(normalizedRoot, gitDirectoryValue);
+    }
+
+    // The directory a commondir file names, or the git directory itself; null when commondir cannot be read.
+    private static string? TryReadCommonDirectory(string gitDirectory)
+    {
         string commonDirectory = gitDirectory;
         string commonDirectoryFile = Path.Combine(gitDirectory, "commondir");
         if (File.Exists(commonDirectoryFile))
@@ -267,10 +297,7 @@ internal sealed class RepositoryWatcher : IDisposable
             }
         }
 
-        commonDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(commonDirectory));
-        return Directory.Exists(commonDirectory)
-            ? (gitDirectory, commonDirectory)
-            : null;
+        return commonDirectory;
     }
 
     internal void NotifyPathChanged(string path, RepositoryChangeKind kind = RepositoryChangeKind.Worktree)
@@ -440,9 +467,14 @@ internal sealed class RepositoryWatcher : IDisposable
     private void AddGitMetadataWatchers(string metadataRoot)
     {
         AddGitMetadataWatcher(metadataRoot, metadataRoot, includeSubdirectories: false);
-        RefreshGitRefsWatcher(metadataRoot);
-        RefreshGitInfoWatcher(metadataRoot);
-        RefreshGitReftableWatcher(metadataRoot);
+        foreach ((string name, bool includeSubdirectories) in s_metadataSubdirectories)
+        {
+            RefreshGitMetadataSubdirectoryWatcher(
+                metadataRoot,
+                name,
+                includeSubdirectories,
+                replaceExisting: false);
+        }
     }
 
     private void AddGitMetadataWatcher(
@@ -507,33 +539,6 @@ internal sealed class RepositoryWatcher : IDisposable
             watcher.Dispose();
             throw;
         }
-    }
-
-    private void RefreshGitRefsWatcher(string metadataRoot, bool replaceExisting = false)
-    {
-        RefreshGitMetadataSubdirectoryWatcher(
-            metadataRoot,
-            "refs",
-            includeSubdirectories: true,
-            replaceExisting: replaceExisting);
-    }
-
-    private void RefreshGitInfoWatcher(string metadataRoot, bool replaceExisting = false)
-    {
-        RefreshGitMetadataSubdirectoryWatcher(
-            metadataRoot,
-            "info",
-            includeSubdirectories: false,
-            replaceExisting: replaceExisting);
-    }
-
-    private void RefreshGitReftableWatcher(string metadataRoot, bool replaceExisting = false)
-    {
-        RefreshGitMetadataSubdirectoryWatcher(
-            metadataRoot,
-            "reftable",
-            includeSubdirectories: true,
-            replaceExisting: replaceExisting);
     }
 
     private void RefreshGitMetadataSubdirectoryWatcher(
@@ -652,31 +657,20 @@ internal sealed class RepositoryWatcher : IDisposable
     private void OnGitMetadataChangedCore(string metadataRoot, FileSystemEventArgs e)
     {
         bool metadataSubdirectoryChanged = false;
-        string refsDirectory = Path.Combine(metadataRoot, "refs");
-        if (PathsEqual(e.FullPath, refsDirectory)
-            || e is RenamedEventArgs refsRename
-            && PathsEqual(refsRename.OldFullPath, refsDirectory))
+        foreach ((string name, bool includeSubdirectories) in s_metadataSubdirectories)
         {
-            RefreshGitRefsWatcher(metadataRoot, replaceExisting: true);
-            metadataSubdirectoryChanged = true;
-        }
-
-        string infoDirectory = Path.Combine(metadataRoot, "info");
-        if (PathsEqual(e.FullPath, infoDirectory)
-            || e is RenamedEventArgs infoRename
-            && PathsEqual(infoRename.OldFullPath, infoDirectory))
-        {
-            RefreshGitInfoWatcher(metadataRoot, replaceExisting: true);
-            metadataSubdirectoryChanged = true;
-        }
-
-        string reftableDirectory = Path.Combine(metadataRoot, "reftable");
-        if (PathsEqual(e.FullPath, reftableDirectory)
-            || e is RenamedEventArgs reftableRename
-            && PathsEqual(reftableRename.OldFullPath, reftableDirectory))
-        {
-            RefreshGitReftableWatcher(metadataRoot, replaceExisting: true);
-            metadataSubdirectoryChanged = true;
+            string directory = Path.Combine(metadataRoot, name);
+            if (PathsEqual(e.FullPath, directory)
+                || e is RenamedEventArgs rename
+                && PathsEqual(rename.OldFullPath, directory))
+            {
+                RefreshGitMetadataSubdirectoryWatcher(
+                    metadataRoot,
+                    name,
+                    includeSubdirectories,
+                    replaceExisting: true);
+                metadataSubdirectoryChanged = true;
+            }
         }
 
         bool include = metadataSubdirectoryChanged

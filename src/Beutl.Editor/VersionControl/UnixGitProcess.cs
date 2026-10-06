@@ -22,7 +22,6 @@ internal sealed partial class UnixGitProcess : GitProcess
     private const int OpaqueStorageSize = 1024;
     private const int SignalSetStorageSize = 256;
     private const int SignalInformationStorageSize = 512;
-    private const int StreamBufferSize = 4096;
     private const short PosixSpawnSetProcessGroup = 0x02;
     private const short PosixSpawnSetSignalMask = 0x08;
     private const int IdTypeProcess = 1;
@@ -131,27 +130,18 @@ internal sealed partial class UnixGitProcess : GitProcess
             standardOutput.DisposeLocalCopyOfClientHandle();
             standardError.DisposeLocalCopyOfClientHandle();
 
-            // The stream shapes Process gives a redirected child, so readers behave the same.
             var process = new UnixGitProcess(
                 pid,
                 state,
-                new StreamWriter(
+                CreateStandardInputWriter(
                     standardInput,
-                    startInfo.StandardInputEncoding ?? Encoding.Default,
-                    StreamBufferSize)
-                {
-                    AutoFlush = true,
-                },
-                new StreamReader(
+                    startInfo.StandardInputEncoding ?? Encoding.Default),
+                CreateStandardOutputReader(
                     standardOutput,
-                    startInfo.StandardOutputEncoding ?? Encoding.Default,
-                    detectEncodingFromByteOrderMarks: true,
-                    StreamBufferSize),
-                new StreamReader(
+                    startInfo.StandardOutputEncoding ?? Encoding.Default),
+                CreateStandardOutputReader(
                     standardError,
-                    startInfo.StandardErrorEncoding ?? Encoding.Default,
-                    detectEncodingFromByteOrderMarks: true,
-                    StreamBufferSize));
+                    startInfo.StandardErrorEncoding ?? Encoding.Default));
             process.StartExitWatcher();
             return process;
         }
