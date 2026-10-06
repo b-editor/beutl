@@ -282,15 +282,7 @@ internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
 
     private void ResetPendingRequest()
     {
-        TaskCompletionSource<bool>? completion = _completion;
-        _completion = null;
-        _canConfirm = null;
-        _confirmOnEnter = false;
-        completion?.TrySetResult(false);
-        if (IsOpen)
-        {
-            Hide();
-        }
+        Complete(confirmed: false, hide: true);
     }
 
     private void CancelPendingRequest(
