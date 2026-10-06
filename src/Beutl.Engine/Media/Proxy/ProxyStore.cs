@@ -31,6 +31,9 @@ public sealed class ProxyStore : IProxyStore
 
     private readonly Lock _lock = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), ProxyEntry> _entries = [];
+    private readonly Dictionary<string, int> _filePins = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ProxyEntry> _retiredFiles = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _reclaimingPaths = new(StringComparer.Ordinal);
     private readonly HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> _touchDirtyKeys = [];
 
     // Changes whose durable write was skipped under lock contention; re-applied on the
@@ -102,11 +105,123 @@ public sealed class ProxyStore : IProxyStore
         lock (_lock)
         {
             var key = GetKey(entry);
+            string path = ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry));
+            if (_reclaimingPaths.Contains(path))
+                throw new IOException("The proxy file is being reclaimed.");
+
+            ProxyEntry? previous = _entries.GetValueOrDefault(key);
             _entries[key] = entry;
+            _retiredFiles.Remove(path);
+            if (previous != null)
+            {
+                string previousPath = ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(previous));
+                if (previousPath != path && !IsProxyFileReferenced(previousPath))
+                    _retiredFiles[previousPath] = previous;
+            }
+
             FlushCore(changedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { key });
         }
 
         OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
+        ReclaimRetiredProxyFiles();
+    }
+
+    // Pin acquisition, reference replacement and deletion claims share _lock. A resolution obtained
+    // before a replacement cannot acquire a new pin on a retired generation and race its deletion.
+    internal IDisposable Pin(ProxyResolution resolution)
+    {
+        string path = ProxyFingerprint.NormalizeAbsolutePath(resolution.AbsoluteProxyFilePath);
+        lock (_lock)
+        {
+            ProxyEntry? entry = _entries.GetValueOrDefault((resolution.Source, resolution.Preset));
+            if (entry is not { State: ProxyState.Ready }
+                || ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry)) != path)
+            {
+                throw new InvalidOperationException("The resolved proxy generation is no longer ready.");
+            }
+
+            _filePins[path] = checked(_filePins.GetValueOrDefault(path) + 1);
+        }
+
+        return new FilePin(this, path);
+    }
+
+    internal bool IsPinned(string path)
+    {
+        path = ProxyFingerprint.NormalizeAbsolutePath(path);
+        lock (_lock)
+            return _filePins.GetValueOrDefault(path) > 0;
+    }
+
+    private void Unpin(string path)
+    {
+        bool reclaim;
+        lock (_lock)
+        {
+            int count = _filePins[path];
+            if (count > 1)
+            {
+                _filePins[path] = count - 1;
+                return;
+            }
+
+            _filePins.Remove(path);
+            reclaim = _retiredFiles.ContainsKey(path);
+        }
+
+        // Reader disposal can run on the UI or finalizer thread; filesystem cleanup runs separately.
+        if (reclaim)
+            _ = Task.Run(ReclaimRetiredProxyFiles);
+    }
+
+    private sealed class FilePin(ProxyStore store, string path) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                store.Unpin(path);
+        }
+    }
+
+    private void ReclaimRetiredProxyFiles()
+    {
+        string[] paths;
+        lock (_lock)
+            paths = [.. _retiredFiles.Keys];
+
+        foreach (string path in paths)
+            TryReclaimProxyFile(path);
+    }
+
+    private bool TryReclaimProxyFile(string path)
+    {
+        path = ProxyFingerprint.NormalizeAbsolutePath(path);
+        lock (_lock)
+        {
+            // A degraded flush may still leave the old generation referenced by index.json. Keep it
+            // until a later successful flush, even after its last reader has released the pin.
+            if (_persistenceDegraded || _filePins.GetValueOrDefault(path) > 0
+                || _reclaimingPaths.Contains(path) || IsProxyFileReferenced(path))
+            {
+                return false;
+            }
+
+            _reclaimingPaths.Add(path);
+        }
+
+        // Do not hold _lock over unbounded filesystem I/O. Register rejects this claimed path and
+        // Pin validates the current entry, so neither can start using the file while it is deleted.
+        bool deleted = TryDeleteProxyFile(path);
+        lock (_lock)
+        {
+            _reclaimingPaths.Remove(path);
+            if (deleted)
+                _retiredFiles.Remove(path);
+        }
+
+        return deleted;
     }
 
     public bool TryTransition(
@@ -143,29 +258,30 @@ public sealed class ProxyStore : IProxyStore
     public bool Delete(ProxyFingerprint source, ProxyPreset preset)
     {
         ProxyEntry removed;
+        string proxyPath;
         lock (_lock)
         {
             if (!_entries.TryGetValue((source, preset), out ProxyEntry? existing))
                 return false;
 
             removed = existing;
+            proxyPath = GetAbsolutePath(removed);
             _entries.Remove((source, preset));
+            if (!IsProxyFileReferenced(proxyPath))
+                _retiredFiles[ProxyFingerprint.NormalizeAbsolutePath(proxyPath)] = removed;
             FlushCore(removedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
         }
 
         // Delete the proxy file outside _lock: File.Delete has no bound (a network-share store can stall
         // seconds), and preview reads (TryGet/Touch/Enumerate) contend on _lock, so holding it across the
-        // delete would stall playback. The index entry is already gone; if the file delete fails the file
-        // is a harmless orphan that reconcile's aged-orphan sweep reclaims.
-        string proxyPath = GetAbsolutePath(removed);
+        // delete would stall playback. Deferred deletion remains tracked for last-pin release or a
+        // later successful flush, and continues counting toward the cache cap.
 
-        // A regeneration Registers a replacement for the same (source, preset) reusing the deterministic
-        // proxy filename (ProxyPathUtilities.BuildRelativePath), and may have already moved its bytes to
-        // this exact path. Re-check under the lock that no surviving entry still points at the file before
-        // unlinking, or this Delete would strand the live replacement's index entry over deleted bytes.
+        // Re-check references after releasing _lock: a legacy-path re-registration or another entry
+        // may still own this file.
         if (!IsProxyFileReferenced(proxyPath))
         {
-            TryDeleteProxyFile(proxyPath);
+            TryReclaimProxyFile(proxyPath);
             RemoveMetadataEntry(removed);
         }
 
@@ -235,7 +351,7 @@ public sealed class ProxyStore : IProxyStore
     {
         lock (_lock)
         {
-            return _entries.Values
+            return _entries.Values.Concat(_retiredFiles.Values)
                 .Where(static e => e.State is ProxyState.Ready or ProxyState.Stale or ProxyState.Failed)
                 .Sum(static e => e.ProxyFileSizeBytes);
         }
@@ -248,7 +364,7 @@ public sealed class ProxyStore : IProxyStore
 
         lock (_lock)
         {
-            return _entries.Values
+            return _entries.Values.Concat(_retiredFiles.Values)
                 .Where(e => normalized.Contains(e.Source.AbsolutePath))
                 .Where(static e => e.State is ProxyState.Ready or ProxyState.Stale or ProxyState.Failed)
                 .Sum(static e => e.ProxyFileSizeBytes);
@@ -263,6 +379,7 @@ public sealed class ProxyStore : IProxyStore
             FlushCore();
         }
 
+        ReclaimRetiredProxyFiles();
         return Task.CompletedTask;
     }
 
@@ -382,6 +499,7 @@ public sealed class ProxyStore : IProxyStore
             // root and stats/deletes files, which would otherwise block UI paths (TryGet/Touch/
             // Enumerate) behind startup reconciliation. A just-generated proxy is younger than the
             // age threshold, so the snapshot going slightly stale cannot reclaim a live file.
+            ReclaimRetiredProxyFiles();
             ReclaimOrphanProxyFiles(trackedProxyPaths, cancellationToken);
 
             foreach (ProxyEntry entry in removedEntries)
@@ -573,7 +691,7 @@ public sealed class ProxyStore : IProxyStore
             if (!IsOldEnoughToCleanGeneratedTemp(file))
                 continue;
 
-            TryDelete(file);
+            TryReclaimProxyFile(file);
         }
     }
 
@@ -825,6 +943,7 @@ public sealed class ProxyStore : IProxyStore
                 FlushCore();
             }
 
+            ReclaimRetiredProxyFiles();
             Interlocked.Exchange(ref _touchFlushFaulted, 0);
         }
         catch (Exception ex)
@@ -871,7 +990,8 @@ public sealed class ProxyStore : IProxyStore
 
             ProxyEntry[] entries =
             [
-                .. metadata.Entries.Where(entry => entry.Source != removed.Source || entry.Preset != removed.Preset)
+                .. metadata.Entries.Where(entry => entry.Source != removed.Source || entry.Preset != removed.Preset
+                    || entry.ProxyFileRelative != removed.ProxyFileRelative)
             ];
 
             if (entries.Length == 0)

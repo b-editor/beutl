@@ -165,6 +165,9 @@ public sealed class ProxyResolver : IProxyResolver
     public IDisposable Pin(ProxyResolution resolution)
     {
         ArgumentNullException.ThrowIfNull(resolution);
+        if (_store is ProxyStore store)
+            return store.Pin(resolution);
+
         string path = resolution.AbsoluteProxyFilePath;
         _pins.AddOrUpdate(path, 1, static (_, count) => checked(count + 1));
         return new PinHandle(this, path);
@@ -176,6 +179,9 @@ public sealed class ProxyResolver : IProxyResolver
     /// </summary>
     public bool IsPinned(string absoluteProxyFilePath)
     {
+        if (_store is ProxyStore store)
+            return store.IsPinned(absoluteProxyFilePath);
+
         return _pins.TryGetValue(Path.GetFullPath(absoluteProxyFilePath), out int count) && count > 0;
     }
 
