@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text.Json;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -7,6 +8,8 @@ namespace Beutl.Graphics.Backend.Vulkan;
 internal static class VulkanSetup
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(VulkanSetup));
+    private static readonly object s_swiftShaderLibraryLock = new();
+    private static IntPtr s_swiftShaderLibrary;
 
     private delegate int PutenvDelegate(IntPtr name);
 
@@ -53,6 +56,25 @@ internal static class VulkanSetup
             .FirstOrDefault(f => Path.GetFileName(f).Equals(fileName, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static void RetainSwiftShaderLibrary(string manifestPath)
+    {
+        lock (s_swiftShaderLibraryLock)
+        {
+            if (s_swiftShaderLibrary != IntPtr.Zero)
+                return;
+
+            using JsonDocument manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+            string libraryPath = manifest.RootElement.GetProperty("ICD").GetProperty("library_path").GetString()
+                ?? throw new InvalidOperationException("The SwiftShader manifest does not declare a library path.");
+            string fullPath = Path.GetFullPath(libraryPath, Path.GetDirectoryName(manifestPath)!);
+
+            // The bundled Linux driver leaves C++ exit callbacks registered after dlclose. Keep one
+            // reference until process exit, including across extension queries and context shutdown,
+            // so those callbacks still point to loaded code. Devices and targets are disposed normally.
+            s_swiftShaderLibrary = NativeLibrary.Load(fullPath);
+        }
+    }
+
     private static void UpdateEnv(List<string> prepend, List<string> append, string varName)
     {
         var currentValue = Environment.GetEnvironmentVariable(varName) ?? string.Empty;
@@ -96,7 +118,12 @@ internal static class VulkanSetup
                 appendPaths.Add(moltenVkIcd);
 
             if (swiftShaderIcd != null)
+            {
+                if (OperatingSystem.IsLinux())
+                    RetainSwiftShaderLibrary(swiftShaderIcd);
+
                 prependPaths.Add(swiftShaderIcd);
+            }
 
             if (OperatingSystem.IsMacOS())
             {

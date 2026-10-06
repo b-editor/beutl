@@ -9,6 +9,7 @@ internal static class TestWorkerProgram
     public const string ProjectFontWorkerArgument = "--project-font-worker";
     public const string XAudioLifetimeWorkerArgument = "--xaudio-lifetime-worker";
     public const string FFmpegLifetimeWorkerArgument = "--ffmpeg-lifetime-worker";
+    public const string SwiftShaderLifetimeWorkerArgument = "--swiftshader-lifetime-worker";
 
     private static async Task<int> Main(string[] args)
     {
@@ -27,6 +28,9 @@ internal static class TestWorkerProgram
                     break;
                 case [XAudioLifetimeWorkerArgument, var action]:
                     Engine.Audio.XAudioLifetimeTests.RunWorker(action);
+                    break;
+                case [SwiftShaderLifetimeWorkerArgument, var action]:
+                    Engine.Graphics.Backend.SwiftShaderLifetimeTests.RunWorker(action);
                     break;
                 case [FFmpegLifetimeWorkerArgument, "--test", var testAction]:
                     await Extensions.FFmpeg.FFmpegWorkerProcessLifetimeTests.RunHostAsync(testAction);
