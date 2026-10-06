@@ -1,37 +1,10 @@
-﻿using System.Numerics;
-using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Layout;
-using Avalonia.Platform.Storage;
-using Avalonia.Styling;
-using Avalonia.Threading;
-using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Editor.Components.FileBrowserTab;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.Views;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
-using Beutl.Editor.VersionControl;
-using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Services;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
 using AvaColor = Avalonia.Media.Color;
 using BtlColor = Beutl.Media.Color;
-using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 

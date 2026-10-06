@@ -1,17 +1,12 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -19,7 +14,6 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -57,6 +51,9 @@ public sealed partial class ElementView : UserControl
     }
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
+
+    private static int FrameRateOf(ElementViewModel viewModel)
+        => viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -123,8 +120,12 @@ public sealed partial class ElementView : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation1 = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, border.Margin), new Setter(WidthProperty, border.Width), } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, args.BorderMargin), new Setter(WidthProperty, args.Width) } } } };
-                var animation2 = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, obj.Margin.Value) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, args.Margin) } } } };
+                var animation1 = TimelineSettleAnimation.Create(
+                    [new Setter(MarginProperty, border.Margin), new Setter(WidthProperty, border.Width)],
+                    [new Setter(MarginProperty, args.BorderMargin), new Setter(WidthProperty, args.Width)]);
+                var animation2 = TimelineSettleAnimation.Create(
+                    [new Setter(MarginProperty, obj.Margin.Value)],
+                    [new Setter(MarginProperty, args.Margin)]);
 
                 Task task1 = animation1.RunAsync(border, token);
                 Task task2 = animation2.RunAsync(this, token);
@@ -216,6 +217,11 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel { IsEditable.Value: true }) return;
 
+        BeginRename();
+    }
+
+    private void BeginRename()
+    {
         textBlock.IsVisible = false;
         textBox.IsVisible = true;
         textBox.SelectAll();

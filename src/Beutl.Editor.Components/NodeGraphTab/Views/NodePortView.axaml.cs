@@ -413,67 +413,78 @@ public partial class NodePortView : UserControl
         {
             case NodeMonitorContentKind.Text:
                 {
-                    var textBlock = new SelectableTextBlock
-                    {
-                        FontFamily = new Avalonia.Media.FontFamily("Cascadia Mono, Consolas, monospace"),
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
-                    };
-                    textBlock.Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
-                        .DisposeWith(_disposables);
+                    SelectableTextBlock textBlock = CreateMonitorText(monitorObj);
                     Grid.SetColumn(textBlock, 1);
                     grid.Children.Add(textBlock);
                     break;
                 }
             case NodeMonitorContentKind.Image:
                 {
-                    var bitmapView = new BitmapView
-                    {
-                        MaxHeight = 200,
-                        MaxWidth = 200,
-                        Stretch = Avalonia.Media.Stretch.Uniform,
-                        Source = monitorObj.DisplayBitmap
-                    };
-
-                    void OnImageInvalidated(object? sender, EventArgs e)
-                    {
-                        bitmapView.Source = monitorObj.DisplayBitmap;
-                        bitmapView.InvalidateVisual();
-                    }
-
-                    monitorObj.ImageInvalidated += OnImageInvalidated;
-                    Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
-                        .DisposeWith(_disposables);
-
-                    var ring = new ProgressRing
-                    {
-                        Width = 32,
-                        Height = 32,
-                        IsIndeterminate = true,
-                    };
-                    var busyText = new TextBlock
-                    {
-                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                    };
-                    var busy = new StackPanel
-                    {
-                        Margin = new Thickness(8),
-                        Spacing = 4,
-                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                        Children = { ring, busyText },
-                    };
-                    busy.Bind(IsVisibleProperty, monitorObj.IsBusy.ToBinding()).DisposeWith(_disposables);
-                    busyText.Bind(TextBlock.TextProperty, monitorObj.BusyText.ToBinding()).DisposeWith(_disposables);
-                    busyText.Bind(
-                            IsVisibleProperty,
-                            monitorObj.BusyText.Select(text => !string.IsNullOrEmpty(text)).ToBinding())
-                        .DisposeWith(_disposables);
-                    var content = new Panel { Children = { bitmapView, busy } };
+                    Panel content = CreateMonitorImage(monitorObj);
                     Grid.SetColumn(content, 1);
                     grid.Children.Add(content);
                     break;
                 }
         }
+    }
+
+    private SelectableTextBlock CreateMonitorText(NodeMonitorViewModel monitorObj)
+    {
+        var textBlock = new SelectableTextBlock
+        {
+            FontFamily = new Avalonia.Media.FontFamily("Cascadia Mono, Consolas, monospace"),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        };
+        textBlock.Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
+            .DisposeWith(_disposables);
+        return textBlock;
+    }
+
+    private Panel CreateMonitorImage(NodeMonitorViewModel monitorObj)
+    {
+        var bitmapView = new BitmapView
+        {
+            MaxHeight = 200,
+            MaxWidth = 200,
+            Stretch = Avalonia.Media.Stretch.Uniform,
+            Source = monitorObj.DisplayBitmap
+        };
+
+        void OnImageInvalidated(object? sender, EventArgs e)
+        {
+            bitmapView.Source = monitorObj.DisplayBitmap;
+            bitmapView.InvalidateVisual();
+        }
+
+        monitorObj.ImageInvalidated += OnImageInvalidated;
+        Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
+            .DisposeWith(_disposables);
+
+        var ring = new ProgressRing
+        {
+            Width = 32,
+            Height = 32,
+            IsIndeterminate = true,
+        };
+        var busyText = new TextBlock
+        {
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+        };
+        var busy = new StackPanel
+        {
+            Margin = new Thickness(8),
+            Spacing = 4,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Children = { ring, busyText },
+        };
+        busy.Bind(IsVisibleProperty, monitorObj.IsBusy.ToBinding()).DisposeWith(_disposables);
+        busyText.Bind(TextBlock.TextProperty, monitorObj.BusyText.ToBinding()).DisposeWith(_disposables);
+        busyText.Bind(
+                IsVisibleProperty,
+                monitorObj.BusyText.Select(text => !string.IsNullOrEmpty(text)).ToBinding())
+            .DisposeWith(_disposables);
+        return new Panel { Children = { bitmapView, busy } };
     }
 
     private void OnIsConnectedChanged(bool obj)

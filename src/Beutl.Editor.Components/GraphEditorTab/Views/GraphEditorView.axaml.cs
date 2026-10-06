@@ -193,21 +193,26 @@ public partial class GraphEditorView : UserControl
             }
             else
             {
-                Point posScale = e.GetPosition(scale);
-                double startingBarX = viewModel.StartingBarMargin.Value.Left;
-                double endingBarX = viewModel.EndingBarMargin.Value.Left;
-
-                // EndingBarマーカーの当たり判定チェック
-                if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX,
-                        endingBarX))
-                {
-                    scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
-                }
-                else
-                {
-                    scale.Cursor = Cursor.Default;
-                }
+                UpdateScaleCursor(viewModel, e, pointerPt);
             }
+        }
+    }
+
+    private void UpdateScaleCursor(GraphEditorViewModel viewModel, PointerEventArgs e, PointerPoint pointerPt)
+    {
+        Point posScale = e.GetPosition(scale);
+        double startingBarX = viewModel.StartingBarMargin.Value.Left;
+        double endingBarX = viewModel.EndingBarMargin.Value.Left;
+
+        // EndingBarマーカーの当たり判定チェック
+        if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX,
+                endingBarX))
+        {
+            scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+        }
+        else
+        {
+            scale.Cursor = Cursor.Default;
         }
     }
 
@@ -262,9 +267,7 @@ public partial class GraphEditorView : UserControl
                     _mouseFlag = TimelineHelper.MouseFlags.SeekBarPressed;
                     viewModel.CurrentTime.Value = pointerPt.Position.X
                         .PixelToTimeSpan(viewModel.Options.Value.Scale)
-                        .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
-                            ? proj.GetFrameRate()
-                            : 30);
+                        .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate());
                 }
 
                 e.Pointer.Capture(RulerBar);

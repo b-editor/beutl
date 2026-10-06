@@ -9,7 +9,6 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Beutl.Animation;
-using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
@@ -19,7 +18,6 @@ using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Proxy;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Utilities;
@@ -462,7 +460,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         PrepareAnimationContext context = PrepareAnimation();
 
         float scale = Timeline.Options.Value.Scale;
-        int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan roundedStart = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
         TimeSpan roundedLength = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         (TimeSpan start, TimeSpan length) = ripple || leftEdge
@@ -622,7 +620,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     {
         Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
         if (models.Length == 0) return;
-        int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan at = timeSpan.RoundToRate(rate);
 
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
@@ -635,7 +633,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         {
             PrepareAnimationContext context = PrepareAnimation();
 
-            int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
             TimeSpan duration = timeSpan.FloorToRate(rate);
 
             bool ripple = Timeline.IsRippleEnabled.Value;

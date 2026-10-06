@@ -1,37 +1,17 @@
 ﻿using System.Numerics;
 using Avalonia;
 using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
-using Avalonia.Platform.Storage;
 using Avalonia.Styling;
-using Avalonia.Threading;
 using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Components.Views;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Editor.VersionControl;
-using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.Media;
-using Beutl.ProjectSystem;
-using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
-using AvaColor = Avalonia.Media.Color;
-using BtlColor = Beutl.Media.Color;
-using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -58,7 +38,6 @@ public sealed partial class TimelineTabView
     {
         float oldScale = scale;
         Point pointerPos = e.GetCurrentPoint(TimelinePanel).Position;
-        double deltaLeft = pointerPos.X - offset.X;
 
         const float ZoomSpeed = 1.2f;
         float delta = (float)e.Delta.Y;
@@ -67,7 +46,14 @@ public sealed partial class TimelineTabView
         scale = MathF.Pow(ZoomSpeed, realDelta) * scale;
         scale = Math.Min(scale, 2);
 
-        offset.X = (float)((pointerPos.X / oldScale * scale) - deltaLeft);
+        offset.X = ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
+    }
+
+    // Keeps the content under pointerX in place while the scale changes.
+    private static float ZoomOffsetX(double pointerX, float offsetX, float oldScale, float newScale)
+    {
+        double deltaLeft = pointerX - offsetX;
+        return (float)((pointerX / oldScale * newScale) - deltaLeft);
     }
 
     // マウスホイールが動いた
@@ -139,8 +125,7 @@ public sealed partial class TimelineTabView
             float oldScale = ViewModel.Options.Value.Scale;
             var offset = ViewModel.Options.Value.Offset;
             double pointerPos = _pointerFrame.TimeToPixel(ViewModel.Options.Value.Scale);
-            double deltaLeft = pointerPos - offset.X;
-            offset.X = (float)((pointerPos / oldScale * zoom) - deltaLeft);
+            offset.X = ZoomOffsetX(pointerPos, offset.X, oldScale, zoom);
             ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
         }
     }
@@ -196,29 +181,11 @@ public sealed partial class TimelineTabView
 
             _scrollCts?.Cancel();
             _scrollCts = new CancellationTokenSource();
-            var anm = new Avalonia.Animation.Animation
-            {
-                Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                Duration = TimeSpan.FromSeconds(0.5),
-                FillMode = FillMode.None,
-                Children =
-                {
-                    new KeyFrame()
-                    {
-                        Cue = new Cue(0),
-                        Setters = { new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset), }
-                    },
-                    new KeyFrame()
-                    {
-                        Cue = new Cue(1),
-                        Setters =
-                        {
-                            new Setter(ScrollViewer.OffsetProperty,
-                                new Avalonia.Vector(newOffsetX, newOffsetY)),
-                        }
-                    }
-                }
-            };
+            var anm = TimelineSettleAnimation.Create(
+                TimeSpan.FromSeconds(0.5),
+                FillMode.None,
+                [new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset)],
+                [new Setter(ScrollViewer.OffsetProperty, new Avalonia.Vector(newOffsetX, newOffsetY))]);
             await anm.RunAsync(ContentScroll, _scrollCts.Token);
             ContentScroll.ClearValue(ScrollViewer.OffsetProperty);
             ContentScroll.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);

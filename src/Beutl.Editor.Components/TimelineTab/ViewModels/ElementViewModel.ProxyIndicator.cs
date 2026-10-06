@@ -1,32 +1,8 @@
-﻿using System.Collections.Immutable;
-using System.Reactive;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
+﻿using System.Reactive;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
-using Beutl.Animation;
-using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Editor;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Services;
-using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Beutl.Utilities;
-using FluentAvalonia.UI.Media;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -198,20 +174,6 @@ public sealed partial class ElementViewModel
         cachedKey = key;
         cachedFingerprints = fingerprints;
         return fingerprints;
-    }
-
-    private void OnProxyStateInvalidated()
-    {
-        if (_isDisposed)
-            return;
-
-        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-        {
-            Avalonia.Threading.Dispatcher.UIThread.Post(OnProxyStateInvalidated);
-            return;
-        }
-
-        RefreshProxyState();
     }
 
     private void OnProxyStateInvalidated(ProxyStoreChangedEventArgs e)

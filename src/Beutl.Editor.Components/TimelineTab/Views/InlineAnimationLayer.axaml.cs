@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Styling;
@@ -12,7 +11,6 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Language;
 using Microsoft.Extensions.DependencyInjection;
-using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -31,10 +29,10 @@ public partial class InlineAnimationLayer : UserControl
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        AddHandler(DragDrop.DropEvent, OnDrap);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
-    private void OnDrap(object? sender, DragEventArgs e)
+    private void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
@@ -75,34 +73,12 @@ public partial class InlineAnimationLayer : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation1 = new Avalonia.Animation.Animation
-                {
-                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    FillMode = FillMode.Forward,
-                    Children =
-                    {
-                        new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, Margin) } },
-                        new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, margin) } }
-                    }
-                };
-                var animation2 = new Avalonia.Animation.Animation
-                {
-                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    FillMode = FillMode.Forward,
-                    Children =
-                    {
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(0), Setters = { new Setter(MarginProperty, items.Margin) }
-                        },
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(1), Setters = { new Setter(MarginProperty, leftMargin) }
-                        }
-                    }
-                };
+                var animation1 = TimelineSettleAnimation.Create(
+                    [new Setter(MarginProperty, Margin)],
+                    [new Setter(MarginProperty, margin)]);
+                var animation2 = TimelineSettleAnimation.Create(
+                    [new Setter(MarginProperty, items.Margin)],
+                    [new Setter(MarginProperty, leftMargin)]);
 
                 Task task1 = animation1.RunAsync(this, token);
                 Task task2 = animation2.RunAsync(items, token);

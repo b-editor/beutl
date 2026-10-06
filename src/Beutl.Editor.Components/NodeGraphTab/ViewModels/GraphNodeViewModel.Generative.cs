@@ -1,23 +1,9 @@
-﻿using System.Collections;
-using System.Collections.Specialized;
-using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
-using Avalonia.Media.Immutable;
 using Beutl.Controls;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.NodeGraphTab.Views;
-using Beutl.Editor.Services;
-using Beutl.Language;
-using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
-using Beutl.NodeGraph.Nodes.Group;
-using Beutl.Serialization;
-using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.DependencyInjection;
-using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
@@ -97,32 +83,7 @@ public sealed partial class GraphNodeViewModel
         var refs = new List<Beutl.Media.Source.Ref<Beutl.Media.Bitmap>>();
         try
         {
-            var list = new ListBox
-            {
-                ItemsPanel = new FuncTemplate<Panel?>(() => new WrapPanel()),
-                MaxHeight = 480,
-            };
-            for (int i = 0; i < records.Length; i++)
-            {
-                var content = new StackPanel { Spacing = 4, Width = 200 };
-                if (thumbnails[i] is { } bitmap)
-                {
-                    var bitmapRef = Beutl.Media.Source.Ref<Beutl.Media.Bitmap>.Create(bitmap);
-                    refs.Add(bitmapRef);
-                    content.Children.Add(new BitmapView
-                    {
-                        Source = bitmapRef,
-                        Height = 150,
-                        Stretch = Stretch.Uniform,
-                    });
-                }
-
-                string caption = records[i].Seed is int seed
-                    ? $"{records[i].CreatedAt.LocalDateTime:g} · {seed}"
-                    : $"{records[i].CreatedAt.LocalDateTime:g}";
-                content.Children.Add(new TextBlock { Text = caption, TextTrimming = TextTrimming.CharacterEllipsis });
-                list.Items.Add(new ListBoxItem { Content = content });
-            }
+            ListBox list = BuildGenerationList(records, thumbnails, refs);
 
             // After the items exist: set before, the selection has nothing to land on.
             list.SelectedIndex = Array.IndexOf(records, node.ActiveGeneration);
@@ -151,6 +112,42 @@ public sealed partial class GraphNodeViewModel
             foreach (var bitmapRef in refs)
                 bitmapRef.Dispose();
         }
+    }
+
+    // Every bitmap reference handed to the list is added to refs, so the caller can release them.
+    private static ListBox BuildGenerationList(
+        GenerationRecord[] records,
+        Beutl.Media.Bitmap?[] thumbnails,
+        List<Beutl.Media.Source.Ref<Beutl.Media.Bitmap>> refs)
+    {
+        var list = new ListBox
+        {
+            ItemsPanel = new FuncTemplate<Panel?>(() => new WrapPanel()),
+            MaxHeight = 480,
+        };
+        for (int i = 0; i < records.Length; i++)
+        {
+            var content = new StackPanel { Spacing = 4, Width = 200 };
+            if (thumbnails[i] is { } bitmap)
+            {
+                var bitmapRef = Beutl.Media.Source.Ref<Beutl.Media.Bitmap>.Create(bitmap);
+                refs.Add(bitmapRef);
+                content.Children.Add(new BitmapView
+                {
+                    Source = bitmapRef,
+                    Height = 150,
+                    Stretch = Stretch.Uniform,
+                });
+            }
+
+            string caption = records[i].Seed is int seed
+                ? $"{records[i].CreatedAt.LocalDateTime:g} · {seed}"
+                : $"{records[i].CreatedAt.LocalDateTime:g}";
+            content.Children.Add(new TextBlock { Text = caption, TextTrimming = TextTrimming.CharacterEllipsis });
+            list.Items.Add(new ListBoxItem { Content = content });
+        }
+
+        return list;
     }
 
     /// <summary>Generates this node again even when its inputs are unchanged.</summary>

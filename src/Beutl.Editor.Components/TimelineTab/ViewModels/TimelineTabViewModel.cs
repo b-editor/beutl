@@ -1,21 +1,13 @@
-﻿using System.Collections.Specialized;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
+﻿using System.Reactive.Subjects;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
-using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.DependencyInjection;
@@ -190,45 +182,33 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
                 BufferStatus.ClearCache();
             });
 
-        DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
-            .ToReactiveCommandSlim()
-            .WithSubscribe(() =>
+        DeleteFrameCache = CreateCacheBlockCommand(v => v != null, block =>
+        {
+            _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
+                block.StartFrame);
+            if (block.IsLocked)
             {
-                if (HoveredCacheBlock.Value is not { } block) return;
-
-                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
-                if (block.IsLocked)
-                {
-                    BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-                }
-
-                BufferStatus.DeleteCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-            });
-
-        LockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == false)
-            .ToReactiveCommandSlim()
-            .WithSubscribe(() =>
-            {
-                if (HoveredCacheBlock.Value is not { } block) return;
-
-                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
-                BufferStatus.LockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-                BufferStatus.UpdateBlocks();
-            });
-
-        UnlockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == true)
-            .ToReactiveCommandSlim()
-            .WithSubscribe(() =>
-            {
-                if (HoveredCacheBlock.Value is not { } block) return;
-
-                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
                 BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-                BufferStatus.UpdateBlocks();
-            });
+            }
+
+            BufferStatus.DeleteCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+        });
+
+        LockFrameCache = CreateCacheBlockCommand(v => v?.IsLocked == false, block =>
+        {
+            _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
+                block.StartFrame);
+            BufferStatus.LockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+            BufferStatus.UpdateBlocks();
+        });
+
+        UnlockFrameCache = CreateCacheBlockCommand(v => v?.IsLocked == true, block =>
+        {
+            _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
+                block.StartFrame);
+            BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+            BufferStatus.UpdateBlocks();
+        });
 
         SubscribeToolMode(IsRazorMode);
         SubscribeToolMode(IsSlipMode);
@@ -268,6 +248,19 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             result.Failure?.Id);
         NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
         return result;
+    }
+
+    // The command acts on the cache block under the pointer when it runs, if there still is one.
+    private ReactiveCommandSlim CreateCacheBlockCommand(Func<CacheBlock?, bool> canExecute, Action<CacheBlock> execute)
+    {
+        return HoveredCacheBlock.Select(canExecute)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is not { } block) return;
+
+                execute(block);
+            });
     }
 
     private void RaiseCanExecuteChanged()
@@ -476,36 +469,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         catch (Exception ex)
         {
             HandleDuplicateException(ex);
-        }
-    }
-
-    /// <summary>
-    /// Returns true when a duplicate was placed and committed. Alt+drag uses the
-    /// return value to decide whether to fall back to a plain move.
-    /// </summary>
-    internal bool DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
-    {
-        if (sourceElements.Count == 0)
-        {
-            _logger.LogWarning("DuplicateElementsAt called with empty sourceElements; investigate caller.");
-            return false;
-        }
-
-        if (Scene.Uri is null)
-        {
-            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
-            return false;
-        }
-
-        try
-        {
-            return EditorContext.GetRequiredService<IElementDuplicateService>()
-                .DuplicateAtPosition(Scene, sourceElements, anchorStart, anchorZIndex);
-        }
-        catch (Exception ex)
-        {
-            HandleDuplicateException(ex);
-            return false;
         }
     }
 

@@ -1,31 +1,11 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
-using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
-using Avalonia.LogicalTree;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
-using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Configuration;
-using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.ProjectSystem;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
-using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -88,14 +68,7 @@ public sealed partial class ElementView
             {
                 if (timelineVm.IsRazorMode.Value && e.GetCurrentPoint(obj.border).Properties.IsLeftButtonPressed)
                 {
-                    if (obj.ViewModel is { } elementVm && elementVm.IsEditable.Value)
-                    {
-                        PointerPoint pt = e.GetCurrentPoint(obj.border);
-                        float scale = timelineVm.Options.Value.Scale;
-                        TimeSpan clickedTime = elementVm.Model.Start + pt.Position.X.PixelToTimeSpan(scale);
-                        elementVm.SplitAt(clickedTime);
-                    }
-
+                    SplitAtPointer(obj, timelineVm, e);
                     e.Handled = true;
                     return;
                 }
@@ -107,10 +80,7 @@ public sealed partial class ElementView
                     {
                         if (obj.ViewModel is { IsEditable.Value: true })
                         {
-                            obj.textBlock.IsVisible = false;
-                            obj.textBox.IsVisible = true;
-                            obj.textBox.SelectAll();
-                            obj.textBox.Focus();
+                            obj.BeginRename();
                         }
                     }
                     else
@@ -153,6 +123,17 @@ public sealed partial class ElementView
                         Select(obj, obj._timeline.ViewModel);
                     }
                 }
+            }
+        }
+
+        private static void SplitAtPointer(ElementView obj, TimelineTabViewModel timelineVm, PointerPressedEventArgs e)
+        {
+            if (obj.ViewModel is { } elementVm && elementVm.IsEditable.Value)
+            {
+                PointerPoint pt = e.GetCurrentPoint(obj.border);
+                float scale = timelineVm.Options.Value.Scale;
+                TimeSpan clickedTime = elementVm.Model.Start + pt.Position.X.PixelToTimeSpan(scale);
+                elementVm.SplitAt(clickedTime);
             }
         }
 

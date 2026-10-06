@@ -1,24 +1,8 @@
 ﻿using Avalonia;
-using Avalonia.Automation;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media;
-using Avalonia.VisualTree;
-using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Controls;
-using Beutl.Editor.Components.PathEditorTab.Services;
-using Beutl.Editor.Components.Views;
-using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.Media;
-using Microsoft.Extensions.DependencyInjection;
-using Brushes = Avalonia.Media.Brushes;
 using BtlPoint = Beutl.Graphics.Point;
-using BtlVector = Beutl.Graphics.Vector;
 using CubicBezierSegment = Beutl.Media.CubicBezierSegment;
 using LineSegment = Beutl.Media.LineSegment;
 using PathFigure = Beutl.Media.PathFigure;
@@ -43,44 +27,14 @@ internal sealed partial class PathEditorInteraction
     {
         if (Context?.PathFigure.Value is not { Segments.Count: > 0 } figure) return null;
         var context = Composition;
-        double best = 7 * 7;
+        double best = HitRadius * HitRadius;
         (int, float, Point)? result = null;
         for (int i = PathEditingOperations.FirstEdge(figure, context); i < PathEditingOperations.EdgeCount(figure, context); i++)
         {
             if (i < figure.Segments.Count && figure.Segments[i] is not (LineSegment or CubicBezierSegment
                 or Beutl.Media.QuadraticBezierSegment or ConicSegment or Beutl.Media.ArcSegment)) continue;
             BtlPoint start = PathEditingOperations.Start(figure, i, context);
-            if (i < figure.Segments.Count && figure.Segments[i] is not Beutl.Media.ArcSegment
-                && (figure.Segments[i] is not ConicSegment conic || conic.Weight.GetValue(context) >= 0))
-            {
-                // Non-negative rational curves and Beziers stay inside their control hull.
-                // Bound it in screen coordinates before doing any adaptive subdivision.
-                Point first = Screen(start);
-                double left = first.X, right = first.X, top = first.Y, bottom = first.Y;
-                var segment = figure.Segments[i];
-                Include(segment.GetEndPoint().GetValue(context));
-                switch (segment)
-                {
-                    case CubicBezierSegment cubic:
-                        Include(cubic.ControlPoint1.GetValue(context));
-                        Include(cubic.ControlPoint2.GetValue(context));
-                        break;
-                    case Beutl.Media.QuadraticBezierSegment quadratic:
-                        Include(quadratic.ControlPoint.GetValue(context));
-                        break;
-                    case ConicSegment rational:
-                        Include(rational.ControlPoint.GetValue(context));
-                        break;
-                }
-                if (point.X < left - 7 || point.X > right + 7 || point.Y < top - 7 || point.Y > bottom + 7) continue;
-
-                void Include(BtlPoint value)
-                {
-                    Point p = Screen(value);
-                    left = Math.Min(left, p.X); right = Math.Max(right, p.X);
-                    top = Math.Min(top, p.Y); bottom = Math.Max(bottom, p.Y);
-                }
-            }
+            if (IsOutsideControlHull(figure, i, point, start, context)) continue;
             Visit(0, Screen(start), 1, Evaluate(1), 0);
 
             Point Evaluate(float t) => Screen(PathEditingOperations.EvaluateEdge(figure, i, t, context));
@@ -117,6 +71,43 @@ internal sealed partial class PathEditorInteraction
             Point nearest = a + direction * fraction;
             return (((Vector)(p - nearest)).SquaredLength, fraction, nearest);
         }
+    }
+
+    // Cheap rejection before the adaptive subdivision in HitEdge.
+    private bool IsOutsideControlHull(PathFigure figure, int i, Point point, BtlPoint start, CompositionContext context)
+    {
+        if (i < figure.Segments.Count && figure.Segments[i] is not Beutl.Media.ArcSegment
+            && (figure.Segments[i] is not ConicSegment conic || conic.Weight.GetValue(context) >= 0))
+        {
+            // Non-negative rational curves and Beziers stay inside their control hull.
+            // Bound it in screen coordinates before doing any adaptive subdivision.
+            Point first = Screen(start);
+            double left = first.X, right = first.X, top = first.Y, bottom = first.Y;
+            var segment = figure.Segments[i];
+            Include(segment.GetEndPoint().GetValue(context));
+            switch (segment)
+            {
+                case CubicBezierSegment cubic:
+                    Include(cubic.ControlPoint1.GetValue(context));
+                    Include(cubic.ControlPoint2.GetValue(context));
+                    break;
+                case Beutl.Media.QuadraticBezierSegment quadratic:
+                    Include(quadratic.ControlPoint.GetValue(context));
+                    break;
+                case ConicSegment rational:
+                    Include(rational.ControlPoint.GetValue(context));
+                    break;
+            }
+            if (point.X < left - HitRadius || point.X > right + HitRadius || point.Y < top - HitRadius || point.Y > bottom + HitRadius) return true;
+
+            void Include(BtlPoint value)
+            {
+                Point p = Screen(value);
+                left = Math.Min(left, p.X); right = Math.Max(right, p.X);
+                top = Math.Min(top, p.Y); bottom = Math.Max(bottom, p.Y);
+            }
+        }
+        return false;
     }
 
     private void Insert(int index, float t)

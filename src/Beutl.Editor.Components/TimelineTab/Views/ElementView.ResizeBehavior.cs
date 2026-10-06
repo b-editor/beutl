@@ -1,31 +1,14 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
-using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Layout;
-using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
-using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Configuration;
-using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.ProjectSystem;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
-using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -196,93 +179,105 @@ public sealed partial class ElementView
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { ViewModel: { } viewModel } view)
+            if (AssociatedObject is not { ViewModel: { } viewModel } view) return;
+
+            Point point = e.GetPosition(view);
+            float scale = viewModel.Timeline.Options.Value.Scale;
+            TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
+
+            if (view._timeline is null || !_pressed) return;
+
+            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            int rate = FrameRateOf(viewModel);
+
+            if (_trimDrag.Kind is not TrimDragKind.None)
             {
-                Point point = e.GetPosition(view);
-                float scale = viewModel.Timeline.Options.Value.Scale;
-                TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
+                PreviewTrimDrag(view, pointerFrame, scale, alt, rate);
+                e.Handled = true;
+                return;
+            }
 
-                if (view._timeline is { } timeline && _pressed)
+            pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+            point = point.WithX(pointerFrame.TimeToPixel(scale));
+            double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
+
+            if (view.Cursor != Cursors.Arrow && view.Cursor is { })
+            {
+                foreach (ElementResizeContext ctx in _resizeContexts)
                 {
-                    bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-
-                    if (_trimDrag.Kind is not TrimDragKind.None)
+                    if (_resizeType == AlignmentX.Right)
                     {
-                        // Mirror the release commit exactly: snap both endpoints with the same
-                        // function, round to the frame rate, clamp to the bounds captured at drag
-                        // start. Snap the press point first so the snap guide (a RoundStartTime
-                        // side effect) ends up reflecting the pointer, not the press point.
-                        TimeSpan pressTime = view.RoundStartTime(
-                            _trimDrag.InitialPointerX.PixelToTimeSpan(scale), scale, alt);
-                        pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
-                        TimeSpan previewDelta = _trimDrag.ClampDelta((pointerFrame - pressTime).RoundToRate(rate));
-                        ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
-                        e.Handled = true;
-                        return;
+                        // 右
+                        PreviewRightEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
                     }
-
-                    pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
-                    point = point.WithX(pointerFrame.TimeToPixel(scale));
-                    double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
-
-                    if (view.Cursor != Cursors.Arrow && view.Cursor is { })
+                    else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                     {
-                        foreach (ElementResizeContext ctx in _resizeContexts)
-                        {
-                            double left = ctx.ViewModel.BorderMargin.Value.Left;
-
-                            if (_resizeType == AlignmentX.Right)
-                            {
-                                // 右
-                                double x = CalculateRightResizeX(
-                                    point.X,
-                                    ctx.After?.Start.TimeToPixel(scale),
-                                    left,
-                                    ctx.OriginalDuration?.TimeToPixel(scale),
-                                    viewModel.Timeline.IsRippleEnabled.Value);
-
-                                double width = Math.Max(x - left, minWidth);
-                                if (ctx.MediaConstraints is { } constraints)
-                                    width = Math.Max(constraints.ClampLength(width.PixelToTimeSpan(scale)).TimeToPixel(scale), minWidth);
-                                ctx.ViewModel.Width.Value = width;
-                            }
-                            else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
-                            {
-                                // 左
-                                double? rippleFloorX = ctx.LeftmostUpstreamStart is { } upstreamStart
-                                    ? (ctx.RecordedStartTime - upstreamStart).TimeToPixel(scale)
-                                    : null;
-                                double x = CalculateLeftResizeX(
-                                    point.X,
-                                    ctx.Before?.Range.End.TimeToPixel(scale),
-                                    rippleFloorX,
-                                    viewModel.Timeline.IsRippleEnabled.Value);
-                                if (ctx.MediaConstraints is { } constraints)
-                                {
-                                    x = constraints.ClampStart(x.PixelToTimeSpan(scale)).TimeToPixel(scale);
-                                }
-
-                                double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
-
-                                double newWidth = endPos - x;
-                                if (minWidth < newWidth)
-                                {
-                                    ctx.ViewModel.Width.Value = newWidth;
-                                    ctx.ViewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
-                                }
-                                else
-                                {
-                                    ctx.ViewModel.Width.Value = minWidth;
-                                    ctx.ViewModel.BorderMargin.Value = new Thickness(endPos - minWidth, 0, 0, 0);
-                                }
-                            }
-                        }
-                        AlignSharedResizeEdges(scale);
-
-                        e.Handled = true;
+                        // 左
+                        PreviewLeftEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
                     }
                 }
+                AlignSharedResizeEdges(scale);
+
+                e.Handled = true;
+            }
+        }
+
+        // Mirror the release commit exactly: snap both endpoints with the same
+        // function, round to the frame rate, clamp to the bounds captured at drag
+        // start. Snap the press point first so the snap guide (a RoundStartTime
+        // side effect) ends up reflecting the pointer, not the press point.
+        private void PreviewTrimDrag(ElementView view, TimeSpan pointerFrame, float scale, bool alt, int rate)
+        {
+            TimeSpan pressTime = view.RoundStartTime(
+                _trimDrag.InitialPointerX.PixelToTimeSpan(scale), scale, alt);
+            pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+            TimeSpan previewDelta = _trimDrag.ClampDelta((pointerFrame - pressTime).RoundToRate(rate));
+            ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
+        }
+
+        private static void PreviewRightEdge(ElementResizeContext ctx, double pointerX, float scale, double minWidth, bool ripple)
+        {
+            double left = ctx.ViewModel.BorderMargin.Value.Left;
+            double x = CalculateRightResizeX(
+                pointerX,
+                ctx.After?.Start.TimeToPixel(scale),
+                left,
+                ctx.OriginalDuration?.TimeToPixel(scale),
+                ripple);
+
+            double width = Math.Max(x - left, minWidth);
+            if (ctx.MediaConstraints is { } constraints)
+                width = Math.Max(constraints.ClampLength(width.PixelToTimeSpan(scale)).TimeToPixel(scale), minWidth);
+            ctx.ViewModel.Width.Value = width;
+        }
+
+        private static void PreviewLeftEdge(ElementResizeContext ctx, double pointerX, float scale, double minWidth, bool ripple)
+        {
+            double? rippleFloorX = ctx.LeftmostUpstreamStart is { } upstreamStart
+                ? (ctx.RecordedStartTime - upstreamStart).TimeToPixel(scale)
+                : null;
+            double x = CalculateLeftResizeX(
+                pointerX,
+                ctx.Before?.Range.End.TimeToPixel(scale),
+                rippleFloorX,
+                ripple);
+            if (ctx.MediaConstraints is { } constraints)
+            {
+                x = constraints.ClampStart(x.PixelToTimeSpan(scale)).TimeToPixel(scale);
+            }
+
+            double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
+
+            double newWidth = endPos - x;
+            if (minWidth < newWidth)
+            {
+                ctx.ViewModel.Width.Value = newWidth;
+                ctx.ViewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
+            }
+            else
+            {
+                ctx.ViewModel.Width.Value = minWidth;
+                ctx.ViewModel.BorderMargin.Value = new Thickness(endPos - minWidth, 0, 0, 0);
             }
         }
 
@@ -309,32 +304,54 @@ public sealed partial class ElementView
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: not null, ViewModel: { } viewModel } view)
+            if (AssociatedObject is not { _timeline: not null, ViewModel: { } viewModel } view) return;
+
+            if (viewModel.Timeline.IsRazorMode.Value)
             {
-                if (viewModel.Timeline.IsRazorMode.Value)
+                return;
+            }
+
+            if (!viewModel.IsEditable.Value)
+            {
+                return;
+            }
+
+            PointerPoint point = e.GetCurrentPoint(view.border);
+            bool leftButton = point.Properties.IsLeftButtonPressed
+                              && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt;
+
+            // Slide is a body-drag gesture (SlideTool_Description: "Drag a clip"), so it must
+            // start on the clip body where the cursor is Arrow, not only on the resize edge.
+            if (leftButton && viewModel.Timeline.IsSlideMode.Value)
+            {
+                if (TryStartSlideDrag(viewModel, e.GetPosition(view)))
+                {
+                    _pressed = true;
+                    // Re-target Avalonia's implicit capture from the hit-tested child to the
+                    // border: PointerCaptureLost routes Direct (no bubbling), so the reset
+                    // handler below only fires reliably when the border itself is captured.
+                    e.Pointer.Capture(view.border);
+                }
+
+                e.Handled = true;
+                return;
+            }
+
+            if (leftButton && view.Cursor != Cursors.Arrow && view.Cursor is not null)
+            {
+                // In Slip mode an edge press is a slip, handled by _MoveBehavior; leave the
+                // event unconsumed so a plain edge resize does not run in its place.
+                if (viewModel.Timeline.IsSlipMode.Value)
                 {
                     return;
                 }
 
-                if (!viewModel.IsEditable.Value)
+                Point timelinePosition = e.GetPosition(view);
+                if (viewModel.Timeline.IsRollMode.Value)
                 {
-                    return;
-                }
-
-                PointerPoint point = e.GetCurrentPoint(view.border);
-                bool leftButton = point.Properties.IsLeftButtonPressed
-                                  && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt;
-
-                // Slide is a body-drag gesture (SlideTool_Description: "Drag a clip"), so it must
-                // start on the clip body where the cursor is Arrow, not only on the resize edge.
-                if (leftButton && viewModel.Timeline.IsSlideMode.Value)
-                {
-                    if (TryStartSlideDrag(viewModel, e.GetPosition(view)))
+                    if (TryStartRollDrag(viewModel, timelinePosition))
                     {
                         _pressed = true;
-                        // Re-target Avalonia's implicit capture from the hit-tested child to the
-                        // border: PointerCaptureLost routes Direct (no bubbling), so the reset
-                        // handler below only fires reliably when the border itself is captured.
                         e.Pointer.Capture(view.border);
                     }
 
@@ -342,77 +359,59 @@ public sealed partial class ElementView
                     return;
                 }
 
-                if (leftButton && view.Cursor != Cursors.Arrow && view.Cursor is not null)
-                {
-                    // In Slip mode an edge press is a slip, handled by _MoveBehavior; leave the
-                    // event unconsumed so a plain edge resize does not run in its place.
-                    if (viewModel.Timeline.IsSlipMode.Value)
-                    {
-                        return;
-                    }
+                BeginEdgeResize(viewModel);
 
-                    Point timelinePosition = e.GetPosition(view);
-                    if (viewModel.Timeline.IsRollMode.Value)
-                    {
-                        if (TryStartRollDrag(viewModel, timelinePosition))
-                        {
-                            _pressed = true;
-                            e.Pointer.Capture(view.border);
-                        }
-
-                        e.Handled = true;
-                        return;
-                    }
-
-                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements()
-                        .Where(el => el.IsEditable.Value)
-                        .ToArray();
-
-                    // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
-                    IEnumerable<ElementViewModel> filteredElements;
-                    if (_resizeType == AlignmentX.Right)
-                    {
-                        // 右端リサイズ: 同じEnd時間の要素のみ
-                        TimeSpan targetEndTime = viewModel.Model.Range.End;
-                        filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
-                    }
-                    else if (_resizeType == AlignmentX.Left)
-                    {
-                        // 左端リサイズ: 同じStart時間の要素のみ
-                        TimeSpan targetStartTime = viewModel.Model.Start;
-                        filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
-                    }
-                    else
-                    {
-                        filteredElements = [viewModel];
-                    }
-
-                    bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-                    ElementViewModel[] participants = filteredElements.ToArray();
-                    var timingPeers = participants.Select(elem => elem.Model).ToHashSet();
-
-                    _resizeContexts = participants.Select(elem =>
-                    {
-                        var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model, timingPeers) : null;
-                        TimeSpan? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
-                            ? constraints.GetMaximumDuration()
-                            : null;
-
-                        return new ElementResizeContext(
-                            ViewModel: elem,
-                            Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
-                            After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
-                            RecordedStartTime: elem.Model.Start,
-                            RecordedEndTime: elem.Model.Range.End,
-                            LeftmostUpstreamStart: GetLeftmostUpstreamStart(viewModel.Scene, elem.Model),
-                            OriginalDuration: originalDuration,
-                            MediaConstraints: constraints);
-                    }).ToArray();
-
-                    _pressed = true;
-                    e.Handled = true;
-                }
+                _pressed = true;
+                e.Handled = true;
             }
+        }
+
+        private void BeginEdgeResize(ElementViewModel viewModel)
+        {
+            IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements()
+                .Where(el => el.IsEditable.Value)
+                .ToArray();
+
+            // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
+            IEnumerable<ElementViewModel> filteredElements;
+            if (_resizeType == AlignmentX.Right)
+            {
+                // 右端リサイズ: 同じEnd時間の要素のみ
+                TimeSpan targetEndTime = viewModel.Model.Range.End;
+                filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
+            }
+            else if (_resizeType == AlignmentX.Left)
+            {
+                // 左端リサイズ: 同じStart時間の要素のみ
+                TimeSpan targetStartTime = viewModel.Model.Start;
+                filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
+            }
+            else
+            {
+                filteredElements = [viewModel];
+            }
+
+            bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+            ElementViewModel[] participants = filteredElements.ToArray();
+            var timingPeers = participants.Select(elem => elem.Model).ToHashSet();
+
+            _resizeContexts = participants.Select(elem =>
+            {
+                var constraints = clampToOriginal ? SlippableMedia.CreateResizeConstraints(elem.Model, timingPeers) : null;
+                TimeSpan? originalDuration = _resizeType == AlignmentX.Right && constraints?.HasMonotonicDuration == true
+                    ? constraints.GetMaximumDuration()
+                    : null;
+
+                return new ElementResizeContext(
+                    ViewModel: elem,
+                    Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
+                    After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
+                    RecordedStartTime: elem.Model.Start,
+                    RecordedEndTime: elem.Model.Range.End,
+                    LeftmostUpstreamStart: GetLeftmostUpstreamStart(viewModel.Scene, elem.Model),
+                    OriginalDuration: originalDuration,
+                    MediaConstraints: constraints);
+            }).ToArray();
         }
 
         private void AlignSharedResizeEdges(float scale)
@@ -517,102 +516,110 @@ public sealed partial class ElementView
 
         private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (_pressed)
+            if (!_pressed) return;
+
+            _pressed = false;
+
+            if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
-                _pressed = false;
+                viewModel.Timeline.SnapBarPosition.Value = null;
+                e.Handled = true;
 
-                if (AssociatedObject is { ViewModel: { } viewModel })
+                if (_trimDrag.Kind is not TrimDragKind.None)
                 {
-                    viewModel.Timeline.SnapBarPosition.Value = null;
-                    e.Handled = true;
-
-                    if (_trimDrag.Kind is not TrimDragKind.None)
-                    {
-                        TrimDragContext ctx = _trimDrag;
-                        _trimDrag = default;
-
-                        float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                        Point released = e.GetPosition(AssociatedObject);
-                        bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-                        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
-                                ctx.InitialPointerX.PixelToTimeSpan(scale),
-                                released.X.PixelToTimeSpan(scale),
-                                t => AssociatedObject.RoundStartTime(t, scale, alt))
-                            .RoundToRate(rate);
-                        // RoundStartTime re-sets the snap guide line as a side effect; clear it.
-                        viewModel.Timeline.SnapBarPosition.Value = null;
-
-                        RestoreTrimDragVisuals(ctx);
-
-                        if (delta != TimeSpan.Zero)
-                        {
-                            IElementResizeService resizeService = viewModel.Timeline.EditorContext
-                                .GetRequiredService<IElementResizeService>();
-                            if (ctx.Kind == TrimDragKind.Roll)
-                            {
-                                resizeService.Roll(viewModel.Scene, ctx.RollPairs, delta);
-                            }
-                            else
-                            {
-                                resizeService.Slide(viewModel.Scene, ctx.SlideLanes, delta);
-                            }
-                        }
-
-                        return;
-                    }
-
-                    bool ripple = viewModel.Timeline.IsRippleEnabled.Value
-                        && _resizeType is AlignmentX.Right or AlignmentX.Left;
-                    bool leftEdge = _resizeType == AlignmentX.Left;
-
-                    if (_resizeContexts.Length == 1)
-                    {
-                        await viewModel.SubmitViewModelChanges(ripple, leftEdge);
-                    }
-                    else if (_resizeContexts.Length > 1)
-                    {
-                        var animations = _resizeContexts
-                            .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
-                            .ToArray();
-
-                        float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-
-                        TimeSpan RoundEdge(ElementResizeContext ctx)
-                        {
-                            double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
-                            return edge.PixelToTimeSpan(scale).RoundToRate(rate);
-                        }
-                        TimeSpan? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
-                            ? RoundEdge(_resizeContexts[0]) : null;
-                        var requests = new ElementResizeRequest[_resizeContexts.Length];
-                        for (int i = 0; i < _resizeContexts.Length; i++)
-                        {
-                            ElementResizeContext ctx = _resizeContexts[i];
-                            // Round the moving edge once and retain the opposite edge.
-                            // Rounding each start/length separately can split a shared
-                            // edge when the clips have different sub-frame starts.
-                            TimeSpan edge = sharedEdge ?? RoundEdge(ctx);
-                            (TimeSpan newStart, TimeSpan newLength) = leftEdge
-                                ? (edge, ctx.RecordedEndTime - edge)
-                                : (ctx.RecordedStartTime, edge - ctx.RecordedStartTime);
-                            int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
-                            requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
-                        }
-
-                        viewModel.Timeline.EditorContext
-                            .GetRequiredService<IElementResizeService>()
-                            .Resize(viewModel.Scene, requests, ripple);
-
-                        foreach (var (item, context) in animations)
-                        {
-                            _ = item.AnimationRequest(context);
-                        }
-                    }
+                    CommitTrimDrag(view, viewModel, e);
+                    return;
                 }
 
-                _resizeContexts = [];
+                bool ripple = viewModel.Timeline.IsRippleEnabled.Value
+                    && _resizeType is AlignmentX.Right or AlignmentX.Left;
+                bool leftEdge = _resizeType == AlignmentX.Left;
+
+                if (_resizeContexts.Length == 1)
+                {
+                    await viewModel.SubmitViewModelChanges(ripple, leftEdge);
+                }
+                else if (_resizeContexts.Length > 1)
+                {
+                    CommitGroupResize(viewModel, ripple, leftEdge);
+                }
+            }
+
+            _resizeContexts = [];
+        }
+
+        private void CommitTrimDrag(ElementView view, ElementViewModel viewModel, PointerReleasedEventArgs e)
+        {
+            TrimDragContext ctx = _trimDrag;
+            _trimDrag = default;
+
+            float scale = viewModel.Timeline.Options.Value.Scale;
+            int rate = FrameRateOf(viewModel);
+            Point released = e.GetPosition(view);
+            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
+                    ctx.InitialPointerX.PixelToTimeSpan(scale),
+                    released.X.PixelToTimeSpan(scale),
+                    t => view.RoundStartTime(t, scale, alt))
+                .RoundToRate(rate);
+            // RoundStartTime re-sets the snap guide line as a side effect; clear it.
+            viewModel.Timeline.SnapBarPosition.Value = null;
+
+            RestoreTrimDragVisuals(ctx);
+
+            if (delta != TimeSpan.Zero)
+            {
+                IElementResizeService resizeService = viewModel.Timeline.EditorContext
+                    .GetRequiredService<IElementResizeService>();
+                if (ctx.Kind == TrimDragKind.Roll)
+                {
+                    resizeService.Roll(viewModel.Scene, ctx.RollPairs, delta);
+                }
+                else
+                {
+                    resizeService.Slide(viewModel.Scene, ctx.SlideLanes, delta);
+                }
+            }
+        }
+
+        private void CommitGroupResize(ElementViewModel viewModel, bool ripple, bool leftEdge)
+        {
+            var animations = _resizeContexts
+                .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
+                .ToArray();
+
+            float scale = viewModel.Timeline.Options.Value.Scale;
+            int rate = FrameRateOf(viewModel);
+
+            TimeSpan RoundEdge(ElementResizeContext ctx)
+            {
+                double edge = ctx.ViewModel.BorderMargin.Value.Left + (leftEdge ? 0 : ctx.ViewModel.Width.Value);
+                return edge.PixelToTimeSpan(scale).RoundToRate(rate);
+            }
+            TimeSpan? sharedEdge = _resizeContexts.Any(ctx => ctx.MediaConstraints?.HasSharedClock == true)
+                ? RoundEdge(_resizeContexts[0]) : null;
+            var requests = new ElementResizeRequest[_resizeContexts.Length];
+            for (int i = 0; i < _resizeContexts.Length; i++)
+            {
+                ElementResizeContext ctx = _resizeContexts[i];
+                // Round the moving edge once and retain the opposite edge.
+                // Rounding each start/length separately can split a shared
+                // edge when the clips have different sub-frame starts.
+                TimeSpan edge = sharedEdge ?? RoundEdge(ctx);
+                (TimeSpan newStart, TimeSpan newLength) = leftEdge
+                    ? (edge, ctx.RecordedEndTime - edge)
+                    : (ctx.RecordedStartTime, edge - ctx.RecordedStartTime);
+                int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
+                requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
+            }
+
+            viewModel.Timeline.EditorContext
+                .GetRequiredService<IElementResizeService>()
+                .Resize(viewModel.Scene, requests, ripple);
+
+            foreach (var (item, context) in animations)
+            {
+                _ = item.AnimationRequest(context);
             }
         }
 
@@ -662,7 +669,7 @@ public sealed partial class ElementView
                 else if (!_pressed)
                 {
                     float scale = viewModel.Timeline.Options.Value.Scale;
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    int rate = FrameRateOf(viewModel);
                     double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     Point point = e.GetPosition(border);

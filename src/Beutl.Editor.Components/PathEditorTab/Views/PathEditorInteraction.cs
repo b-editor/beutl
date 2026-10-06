@@ -7,21 +7,14 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using Beutl.Animation;
 using Beutl.Composition;
-using Beutl.Controls;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Brushes = Avalonia.Media.Brushes;
 using BtlPoint = Beutl.Graphics.Point;
-using BtlVector = Beutl.Graphics.Vector;
 using CubicBezierSegment = Beutl.Media.CubicBezierSegment;
-using LineSegment = Beutl.Media.LineSegment;
-using PathFigure = Beutl.Media.PathFigure;
 using PathSegment = Beutl.Media.PathSegment;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;
@@ -64,6 +57,7 @@ internal sealed partial class PathEditorInteraction
     private BtlPoint _bendControl2;
     private float _bendParameter;
     private BtlPoint? _firstIncoming;
+    private const double HitRadius = 7;
 
     public PathEditorInteraction(IPathEditorView view, Canvas canvas,
         Action<Vector>? pan = null, Action<double, Point>? zoom = null, Action<bool>? fit = null, Panel? toolbarHost = null)
@@ -267,134 +261,12 @@ internal sealed partial class PathEditorInteraction
         }
         if (Tool == PathEditorTool.Pen)
         {
-            BtlPoint explicitStart = figure.StartPoint.GetValue(Composition);
-            if (_penEnd != null && figure.Segments.Count > 0 && !explicitStart.IsInvalid
-                && !PathPointDragBehavior.IsClosed(Context, figure)
-                && ((Vector)(point - Screen(explicitStart))).SquaredLength <= 7 * 7)
-            {
-                // Reject the whole operation before touching geometry or clearing the
-                // pen state when the closing edge cannot preserve its inputs.
-                if (!CanCloseExplicitPath(figure))
-                {
-                    e.Handled = true;
-                    return;
-                }
-                Mutate(() =>
-                {
-                    // An explicit start owns the existing first edge. A curved
-                    // closing edge must be appended, never written over segment 0.
-                    if (_outgoing is { } outgoing && PathEditingOperations.IsStatic(figure.StartPoint)
-                        && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()))
-                    {
-                        BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
-                        figure.Segments.Add(PathEditingOperations.Cubic(outgoing,
-                            PathEditingOperations.Lerp(last, explicitStart, 2f / 3), explicitStart));
-                    }
-                    figure.IsClosed.CurrentValue = true;
-                });
-                Tool = PathEditorTool.Move;
-                e.Handled = true;
-                return;
-            }
-            if (thumb?.DataContext is PathSegment endpoint && !thumb.Classes.Contains("control"))
-            {
-                if (_penEnd != null && explicitStart.IsInvalid && ReferenceEquals(endpoint, figure.Segments.FirstOrDefault())
-                    && figure.Segments.Count > 1 && !PathPointDragBehavior.IsClosed(Context, figure))
-                {
-                    if (!CanCloseImplicitPath(figure))
-                    {
-                        e.Handled = true;
-                        return;
-                    }
-                    Mutate(() =>
-                    {
-                        if (figure.Segments[0] is CubicBezierSegment closing)
-                        {
-                            // The first segment is the closing edge for implicit-start
-                            // figures. Keep its identity and any untouched handle data.
-                            if (_outgoing is { } outgoing) closing.ControlPoint1.CurrentValue = outgoing;
-                            if (_firstIncoming is { } incoming) closing.ControlPoint2.CurrentValue = incoming;
-                        }
-                        else if (figure.Segments[0] is LineSegment && (_firstIncoming != null || _outgoing != null))
-                        {
-                            BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
-                            BtlPoint first = endpoint.GetEndPoint().GetValue(Composition);
-                            figure.Segments[0] = PathEditingOperations.Cubic(
-                                _outgoing ?? PathEditingOperations.Lerp(last, first, 1f / 3),
-                                _firstIncoming ?? PathEditingOperations.Lerp(last, first, 2f / 3), first);
-                        }
-                        figure.IsClosed.CurrentValue = true;
-                    });
-                    Tool = PathEditorTool.Move;
-                }
-                else if (ReferenceEquals(endpoint, figure.Segments.LastOrDefault()) && !PathPointDragBehavior.IsClosed(Context, figure))
-                {
-                    _penEnd = endpoint;
-                    SelectOnly(endpoint);
-                }
-                e.Handled = true;
-                return;
-            }
-            if (HitEdge(point) is { } hit)
-            {
-                Insert(hit.index, hit.t);
-                e.Handled = true;
-                return;
-            }
-            if (TryLocal(point, out BtlPoint local) && !PathPointDragBehavior.IsClosed(Context, figure))
-            {
-                // New controls are static. Do not sample a driven edge start into
-                // them, whether it is the explicit start or a previous endpoint.
-                var startProperty = figure.Segments.Count == 0
-                    ? figure.StartPoint : figure.Segments[^1].GetEndPoint();
-                if (!PathEditingOperations.IsStatic(startProperty))
-                {
-                    e.Handled = true;
-                    return;
-                }
-                _penPoint = local;
-                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && figure.Segments.Count > 0)
-                    _penPoint = SnapAngle(figure.Segments[^1].GetEndPoint().GetValue(Composition), local);
-                _penSegment = null;
-                _start = point;
-                Context.EditorContext.GetRequiredService<HistoryManager>().Commit();
-                // Only an implicit start needs a move-only anchor. With an explicit
-                // start, the first point already terminates an edge that can be bent.
-                if (figure.Segments.Count == 0 && explicitStart.IsInvalid)
-                {
-                    _penEnd = new LineSegment(_penPoint);
-                    figure.Segments.Add(_penEnd);
-                }
-                else
-                {
-                    BtlPoint previous = figure.Segments.Count == 0
-                        ? explicitStart : figure.Segments[^1].GetEndPoint().GetValue(Composition);
-                    _penSegment = PathEditingOperations.Cubic(_outgoing ?? PathEditingOperations.Lerp(previous, _penPoint, 1f / 3),
-                        PathEditingOperations.Lerp(previous, _penPoint, 2f / 3), _penPoint);
-                    _penEnd = _penSegment;
-                    figure.Segments.Add(_penSegment);
-                }
-                _outgoing = null;
-                SelectOnly(_penEnd);
-                _adding = true;
-                Capture(e);
-            }
-            e.Handled = true;
+            PressPen(e, figure, thumb, point);
             return;
         }
         if (Tool == PathEditorTool.Bend && HitEdge(point) is { } bend && TryLocal(point, out _penPoint))
         {
-            // Begin one history entry for conversion plus dragging the curve.
-            Context.EditorContext.GetRequiredService<HistoryManager>().Commit();
-            _bending = PathEditingOperations.ToCubic(figure, bend.index, Composition);
-            if (_bending != null)
-            {
-                _bendControl1 = _bending.ControlPoint1.CurrentValue;
-                _bendControl2 = _bending.ControlPoint2.CurrentValue;
-                _bendParameter = bend.t;
-                SelectOnly(_bending);
-                Capture(e);
-            }
+            BeginBendDrag(e, figure, bend);
             e.Handled = true;
             return;
         }
@@ -405,6 +277,11 @@ internal sealed partial class PathEditorInteraction
             e.Handled = true;
             return;
         }
+        BeginMarquee(e, point);
+    }
+
+    private void BeginMarquee(PointerPressedEventArgs e, Point point)
+    {
         _start = point;
         _selectionBefore = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? _view.GetSelectedAnchors().ToHashSet() : [];
         foreach (Thumb item in Anchors) PathPointDragBehavior.SetIsSelected(item, _selectionBefore.Contains(item));
@@ -433,21 +310,7 @@ internal sealed partial class PathEditorInteraction
         }
         if (_pointer == null)
         {
-            var hit = Tool is PathEditorTool.Pen or PathEditorTool.Move && Ancestor<Thumb>(e.Source) == null
-                && Ancestor<Button>(e.Source) == null ? HitEdge(position) : null;
-            _insertion.IsVisible = hit is { } candidate && Context?.PathFigure.Value is { } hoveredFigure
-                && PathEditingOperations.CanSplit(hoveredFigure, candidate.index);
-            if (hit is { } h)
-            {
-                Canvas.SetLeft(_insertion, h.point.X - 4);
-                Canvas.SetTop(_insertion, h.point.Y - 4);
-            }
-            _preview.IsVisible = Tool == PathEditorTool.Pen && _penEnd != null;
-            if (_preview.IsVisible)
-            {
-                _preview.StartPoint = Screen(_penEnd!.GetEndPoint().GetValue(Composition));
-                _preview.EndPoint = position;
-            }
+            UpdateHoverOverlays(e, position);
             return;
         }
         if (_panning)
@@ -467,7 +330,7 @@ internal sealed partial class PathEditorInteraction
         {
             if (((Vector)(position - _start)).Length > 3)
             {
-                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) local = SnapAngle(_penPoint, local);
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) local = PathEditingOperations.SnapAngle(_penPoint, local);
                 _outgoing = local;
                 if (_penSegment != null)
                     _penSegment.ControlPoint2.CurrentValue = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
@@ -478,17 +341,41 @@ internal sealed partial class PathEditorInteraction
         }
         else if (_marquee.IsVisible)
         {
-            Rect rect = new Rect(_start, position).Normalize();
-            Canvas.SetLeft(_marquee, rect.X);
-            Canvas.SetTop(_marquee, rect.Y);
-            _marquee.Width = rect.Width;
-            _marquee.Height = rect.Height;
-            foreach (Thumb thumb in Anchors)
-                PathPointDragBehavior.SetIsSelected(thumb,
-                    _selectionBefore.Contains(thumb) || rect.Contains(PathEditorHelper.GetCanvasPosition(thumb)));
-            SyncSelection();
+            UpdateMarquee(position);
         }
         e.Handled = true;
+    }
+
+    private void UpdateHoverOverlays(PointerEventArgs e, Point position)
+    {
+        var hit = Tool is PathEditorTool.Pen or PathEditorTool.Move && Ancestor<Thumb>(e.Source) == null
+            && Ancestor<Button>(e.Source) == null ? HitEdge(position) : null;
+        _insertion.IsVisible = hit is { } candidate && Context?.PathFigure.Value is { } hoveredFigure
+            && PathEditingOperations.CanSplit(hoveredFigure, candidate.index);
+        if (hit is { } h)
+        {
+            Canvas.SetLeft(_insertion, h.point.X - 4);
+            Canvas.SetTop(_insertion, h.point.Y - 4);
+        }
+        _preview.IsVisible = Tool == PathEditorTool.Pen && _penEnd != null;
+        if (_preview.IsVisible)
+        {
+            _preview.StartPoint = Screen(_penEnd!.GetEndPoint().GetValue(Composition));
+            _preview.EndPoint = position;
+        }
+    }
+
+    private void UpdateMarquee(Point position)
+    {
+        Rect rect = new Rect(_start, position).Normalize();
+        Canvas.SetLeft(_marquee, rect.X);
+        Canvas.SetTop(_marquee, rect.Y);
+        _marquee.Width = rect.Width;
+        _marquee.Height = rect.Height;
+        foreach (Thumb thumb in Anchors)
+            PathPointDragBehavior.SetIsSelected(thumb,
+                _selectionBefore.Contains(thumb) || rect.Contains(PathEditorHelper.GetCanvasPosition(thumb)));
+        SyncSelection();
     }
 
     private void Released(object? sender, PointerReleasedEventArgs e)
@@ -551,13 +438,5 @@ internal sealed partial class PathEditorInteraction
         Context!.EditorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(action, CommandNames.EditPathPoint);
         Context.FigureContext.Value?.InvalidateFrameCache();
         _view.Refresh();
-    }
-
-    private static BtlPoint SnapAngle(BtlPoint anchor, BtlPoint point)
-    {
-        float x = point.X - anchor.X, y = point.Y - anchor.Y;
-        float angle = MathF.Round(MathF.Atan2(y, x) / (MathF.PI / 4)) * (MathF.PI / 4);
-        float length = MathF.Sqrt(x * x + y * y);
-        return new(anchor.X + MathF.Cos(angle) * length, anchor.Y + MathF.Sin(angle) * length);
     }
 }

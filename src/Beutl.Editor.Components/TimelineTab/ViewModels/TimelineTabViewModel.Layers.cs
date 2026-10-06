@@ -1,26 +1,8 @@
 ﻿using System.Collections.Specialized;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
-using Beutl.Animation;
-using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Models;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.PropertyAdapters;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -146,40 +128,30 @@ public sealed partial class TimelineTabViewModel
 
     public int ToLayerNumber(double pixel)
     {
-        double sum = 0;
-
-        for (int i = 0; i < LayerHeaders.Count; i++)
-        {
-            LayerHeaderViewModel cur = LayerHeaders[i];
-            if (sum <= pixel && pixel <= (sum += cur.Height.Value))
-            {
-                return i;
-            }
-        }
-
-        double delta = pixel - sum;
-        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
-        int zIndex = addCount + LayerHeaders.Count;
-        AddLayerHeaders(zIndex + 1);
-
-        return zIndex;
+        return FindLayerNumber(pixel, pixel);
     }
 
+    // A clip's margin is hit-tested at the clip's vertical centre, while rows past the last
+    // header are counted from its top.
     public int ToLayerNumber(Thickness thickness)
+    {
+        return FindLayerNumber(thickness.Top + (FrameNumberHelper.LayerHeight / 2), thickness.Top);
+    }
+
+    private int FindLayerNumber(double hitY, double overflowY)
     {
         double sum = 0;
 
         for (int i = 0; i < LayerHeaders.Count; i++)
         {
             LayerHeaderViewModel cur = LayerHeaders[i];
-            double top = thickness.Top + (FrameNumberHelper.LayerHeight / 2);
-            if (sum <= top && top <= (sum += cur.Height.Value))
+            if (sum <= hitY && hitY <= (sum += cur.Height.Value))
             {
                 return i;
             }
         }
 
-        double delta = thickness.Top - sum;
+        double delta = overflowY - sum;
         int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
         int zIndex = addCount + LayerHeaders.Count;
         AddLayerHeaders(zIndex + 1);

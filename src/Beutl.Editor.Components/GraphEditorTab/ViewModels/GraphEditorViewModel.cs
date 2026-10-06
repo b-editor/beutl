@@ -31,13 +31,7 @@ public sealed class GraphEditorViewModel<T>(
         _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
         TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
-        Project? proj = Scene.FindHierarchicalParent<Project>();
-        int rate = proj?.GetFrameRate() ?? 30;
-
-        TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
-
-        IKeyFrame? keyFrame =
-            Animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+        IKeyFrame? keyFrame = KeyFrameClipboardCommands.FindEasingDropTarget(Animation, keyTime, Scene);
         if (keyFrame != null)
         {
             _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
@@ -381,24 +375,11 @@ public abstract partial class GraphEditorViewModel : IDisposable
 
     private async Task CopyAllKeyFramesAsync()
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-
-        try
-        {
-            ObjectRegenerator.Regenerate(Animation, out string json);
-
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateText(json));
-            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrameAnimation, json));
-
-            await clipboard.SetDataAsync(data);
-        }
-        catch (Exception ex)
+        await KeyFrameClipboardCommands.CopyAsync(Animation, BeutlDataFormats.KeyFrameAnimation, ex =>
         {
             _logger.LogError(ex, "Failed to copy all keyframes");
             NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
-        }
+        });
     }
 
     internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
@@ -444,32 +425,7 @@ public abstract partial class GraphEditorViewModel : IDisposable
         IKeyFrameClipboardService service = EditorContext.GetRequiredService<IKeyFrameClipboardService>();
         KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(animation, json);
 
-        switch (outcome)
-        {
-            case KeyFrameAnimationPasteOutcome.Pasted:
-                break;
-            case KeyFrameAnimationPasteOutcome.InvalidJson:
-                _logger.LogError("Invalid JSON");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
-                break;
-            case KeyFrameAnimationPasteOutcome.MissingType:
-                _logger.LogError("Invalid JSON: missing $type");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
-                break;
-            case KeyFrameAnimationPasteOutcome.TypeIsNotKeyFrameAnimation:
-                _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
-                break;
-            case KeyFrameAnimationPasteOutcome.GenericTypeMismatch:
-                _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(
-                    Strings.GraphEditor,
-                    string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, "?"));
-                break;
-            case KeyFrameAnimationPasteOutcome.UnexpectedError:
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
-                break;
-        }
+        KeyFrameClipboardCommands.ReportAnimationPaste(outcome, animation, _logger);
     }
 
     private void PasteKeyFrame(string json, TimeSpan pointerPosition)
@@ -480,34 +436,6 @@ public abstract partial class GraphEditorViewModel : IDisposable
         IKeyFrameClipboardService service = EditorContext.GetRequiredService<IKeyFrameClipboardService>();
         KeyFramePasteResult result = service.PasteKeyFrame(animation, json, keyTime);
 
-        switch (result.Outcome)
-        {
-            case KeyFramePasteOutcome.Inserted:
-                break;
-            case KeyFramePasteOutcome.ReplacedExisting:
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
-                break;
-            case KeyFramePasteOutcome.GenericTypeMismatch when result.EasingForFallback is { } easing:
-                // Type mismatch: insert a fresh keyframe via the View's typed path,
-                // carrying over only the clipboard's easing.
-                InsertKeyFrame(easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
-                break;
-            case KeyFramePasteOutcome.InvalidJson:
-                _logger.LogError("Invalid JSON");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
-                break;
-            case KeyFramePasteOutcome.MissingType:
-                _logger.LogError("Invalid JSON: missing $type");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
-                break;
-            case KeyFramePasteOutcome.TypeIsNotKeyFrame:
-                _logger.LogError("Invalid JSON: $type is not a KeyFrame");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
-                break;
-            case KeyFramePasteOutcome.UnexpectedError:
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
-                break;
-        }
+        KeyFrameClipboardCommands.ReportKeyFramePaste(result, _logger, easing => InsertKeyFrame(easing, pointerPosition));
     }
 }

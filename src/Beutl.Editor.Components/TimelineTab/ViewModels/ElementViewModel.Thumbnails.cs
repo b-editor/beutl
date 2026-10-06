@@ -1,32 +1,9 @@
-﻿using System.Collections.Immutable;
-using System.Reactive;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
-using Beutl.Animation;
+﻿using System.Reactive;
 using Beutl.Configuration;
 using Beutl.Controls;
-using Beutl.Editor;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Services;
-using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
 using Beutl.Media.Proxy;
-using Beutl.Media.Source;
-using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Beutl.Utilities;
-using FluentAvalonia.UI.Media;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -156,29 +133,7 @@ public sealed partial class ElementViewModel
         // プロバイダーが変更された場合、イベント購読を更新
         if (_currentThumbnailsProvider != provider)
         {
-            if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
-            {
-                _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
-            }
-
-            _currentThumbnailsProvider = provider;
-            _lastThumbnailsCacheKey = provider?.GetThumbnailsCacheKey();
-
-            if (provider != null)
-            {
-                _thumbnailsInvalidatedHandler = (_, _) =>
-                {
-                    var oldKey = _lastThumbnailsCacheKey;
-                    if (oldKey != null)
-                        InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, oldKey);
-
-                    // 新しいキーをキャプチャ
-                    _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();
-
-                    _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
-                };
-                provider.ThumbnailsInvalidated += _thumbnailsInvalidatedHandler;
-            }
+            SwitchThumbnailsProvider(provider);
         }
 
         if (provider == null)
@@ -220,6 +175,33 @@ public sealed partial class ElementViewModel
                 _thumbnailsCts = null;
                 cts.Dispose();
             }
+        }
+    }
+
+    private void SwitchThumbnailsProvider(IThumbnailsProvider? provider)
+    {
+        if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
+        {
+            _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
+        }
+
+        _currentThumbnailsProvider = provider;
+        _lastThumbnailsCacheKey = provider?.GetThumbnailsCacheKey();
+
+        if (provider != null)
+        {
+            _thumbnailsInvalidatedHandler = (_, _) =>
+            {
+                var oldKey = _lastThumbnailsCacheKey;
+                if (oldKey != null)
+                    InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, oldKey);
+
+                // 新しいキーをキャプチャ
+                _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();
+
+                _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
+            };
+            provider.ThumbnailsInvalidated += _thumbnailsInvalidatedHandler;
         }
     }
 
@@ -323,32 +305,11 @@ public sealed partial class ElementViewModel
 
         try
         {
-            const int MaxThumbnailHeight = 25;
             double width = Width.Value;
             if (width <= 0)
                 return;
 
-            await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(
-                provider, (int)width, MaxThumbnailHeight, ct, start, end))
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    thumbnail.Dispose();
-                    break;
-                }
-
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    using (thumbnail)
-                    {
-                        if (!ct.IsCancellationRequested)
-                        {
-                            VideoThumbnailCount.Value = count;
-                            ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
-                        }
-                    }
-                });
-            }
+            await StreamVideoThumbnailsAsync(provider, (int)width, start, end, ct);
         }
         catch (OperationCanceledException)
         {
@@ -366,7 +327,6 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVideoThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
-        const int MaxThumbnailHeight = 25;
         double width = Width.Value;
         if (width <= 0)
             return;
@@ -382,7 +342,14 @@ public sealed partial class ElementViewModel
         int startIndex = _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
         int endIndex = _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
 
-        await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, (int)width, MaxThumbnailHeight, ct, startIndex, endIndex))
+        await StreamVideoThumbnailsAsync(provider, (int)width, startIndex, endIndex, ct);
+    }
+
+    // Each thumbnail is disposed on the UI thread after the hand-off, or here once the request is cancelled.
+    private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int start, int end, CancellationToken ct)
+    {
+        const int MaxThumbnailHeight = 25;
+        await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, MaxThumbnailHeight, ct, start, end))
         {
             if (ct.IsCancellationRequested)
             {

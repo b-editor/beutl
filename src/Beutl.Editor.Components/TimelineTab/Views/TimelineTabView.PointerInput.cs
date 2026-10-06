@@ -1,36 +1,12 @@
-﻿using System.Numerics;
-using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Layout;
-using Avalonia.Platform.Storage;
-using Avalonia.Styling;
-using Avalonia.Threading;
-using Beutl.Configuration;
-using Beutl.Controls;
-using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Components.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Editor.VersionControl;
-using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Services;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
-using AvaColor = Avalonia.Media.Color;
-using BtlColor = Beutl.Media.Color;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -88,32 +64,37 @@ public sealed partial class TimelineTabView
         }
         else
         {
-            Point posScale = e.GetPosition(Scale);
-            double startingBarX = viewModel.StartingBarMargin.Value.Left;
-            double endingBarX = viewModel.EndingBarMargin.Value.Left;
+            UpdateScaleHover(viewModel, e, pointerPt);
+        }
+    }
 
-            // EndingBarマーカーやポイントマーカーの当たり判定チェック
-            if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX)
-                || (Scale.IsPointerOver && Scale.HitTestMarker(pointerPt.Position.X, posScale.Y) != null))
-            {
-                Scale.Cursor = Cursors.SizeWestEast;
-            }
-            else
-            {
-                Scale.Cursor = Cursors.Arrow;
-            }
+    private void UpdateScaleHover(TimelineTabViewModel viewModel, PointerEventArgs e, PointerPoint pointerPt)
+    {
+        Point posScale = e.GetPosition(Scale);
+        double startingBarX = viewModel.StartingBarMargin.Value.Left;
+        double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
-            if (Scale.IsPointerOver && posScale.Y > Scale.Bounds.Height - 8)
-            {
-                CacheBlock[] cacheBlocks = viewModel.BufferStatus.CacheBlocks.Value;
+        // EndingBarマーカーやポイントマーカーの当たり判定チェック
+        if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX)
+            || (Scale.IsPointerOver && Scale.HitTestMarker(pointerPt.Position.X, posScale.Y) != null))
+        {
+            Scale.Cursor = Cursors.SizeWestEast;
+        }
+        else
+        {
+            Scale.Cursor = Cursors.Arrow;
+        }
 
-                viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks,
-                    v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
-            }
-            else
-            {
-                viewModel.HoveredCacheBlock.Value = null;
-            }
+        if (Scale.IsPointerOver && posScale.Y > Scale.Bounds.Height - 8)
+        {
+            CacheBlock[] cacheBlocks = viewModel.BufferStatus.CacheBlocks.Value;
+
+            viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks,
+                v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
+        }
+        else
+        {
+            viewModel.HoveredCacheBlock.Value = null;
         }
     }
 
@@ -144,34 +125,12 @@ public sealed partial class TimelineTabView
             }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
             {
-                if (_markerDragged)
-                {
-                    if (releasedMarker.Time != _markerInitialTime)
-                    {
-                        history.Commit(CommandNames.MoveMarker);
-                    }
-                }
-                else
-                {
-                    // 移動が閾値未満ならクリック扱いで編集フライアウトを開く
-                    ShowMarkerEditFlyout(releasedMarker);
-                }
-
-                _pressedMarker = null;
-                _markerDragged = false;
+                ReleaseMarker(releasedMarker, history);
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
             {
-                long size = ViewModel.BufferStatus.CalculateCacheByteCount(cache.StartFrame, cache.StartFrame + cache.LengthFrame);
-
-                CacheTip.Content = $"""
-                                    {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(size)}
-                                    {Strings.StartTime}: {cache.Start}
-                                    {Strings.DurationTime}: {cache.Length}
-                                    {(cache.IsLocked ? Strings.Locked : Strings.Unlocked)}
-                                    """;
-                CacheTip.IsOpen = true;
+                ShowCacheTip(ViewModel, cache);
             }
 
             _mouseFlag = MouseFlags.Free;
@@ -180,6 +139,38 @@ public sealed partial class TimelineTabView
         {
             _rightButtonPressed = false;
         }
+    }
+
+    private void ReleaseMarker(SceneMarker releasedMarker, HistoryManager history)
+    {
+        if (_markerDragged)
+        {
+            if (releasedMarker.Time != _markerInitialTime)
+            {
+                history.Commit(CommandNames.MoveMarker);
+            }
+        }
+        else
+        {
+            // 移動が閾値未満ならクリック扱いで編集フライアウトを開く
+            ShowMarkerEditFlyout(releasedMarker);
+        }
+
+        _pressedMarker = null;
+        _markerDragged = false;
+    }
+
+    private void ShowCacheTip(TimelineTabViewModel viewModel, CacheBlock cache)
+    {
+        long size = viewModel.BufferStatus.CalculateCacheByteCount(cache.StartFrame, cache.StartFrame + cache.LengthFrame);
+
+        CacheTip.Content = $"""
+                            {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(size)}
+                            {Strings.StartTime}: {cache.Start}
+                            {Strings.DurationTime}: {cache.Length}
+                            {(cache.IsLocked ? Strings.Locked : Strings.Unlocked)}
+                            """;
+        CacheTip.IsOpen = true;
     }
 
     private void UpdateRangeSelection()
@@ -212,10 +203,7 @@ public sealed partial class TimelineTabView
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        viewModel.ClickedFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
-
-        viewModel.ClickedPosition = pointerPt.Position;
+        SetClickedPosition(viewModel, pointerPt.Position);
 
         TimelinePanel.Focus();
 
@@ -237,47 +225,62 @@ public sealed partial class TimelineTabView
 
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }
-            else
+            else if (BeginScalePress(viewModel, e, pointerPt))
             {
-                double endingBarX = viewModel.EndingBarMargin.Value.Left;
-                double startingBarX = viewModel.StartingBarMargin.Value.Left;
-                Point scalePoint = e.GetPosition(Scale);
-
-                // ポイントマーカーの当たり判定（Scale 上端の三角ピン）
-                if (Scale.IsPointerOver
-                    && Scale.HitTestMarker(pointerPt.Position.X, scalePoint.Y) is { } hitMarker)
-                {
-                    _mouseFlag = MouseFlags.MarkerPressed;
-                    _pressedMarker = hitMarker;
-                    _markerInitialTime = hitMarker.Time;
-                    _markerPressPosition = pointerPt.Position;
-                    _markerDragged = false;
-                    e.Handled = true;
-                    return;
-                }
-
-                // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
-                {
-                    _mouseFlag = MouseFlags.EndingBarMarkerPressed;
-                    _initialStart = viewModel.Scene.Start;
-                    _initialDuration = viewModel.Scene.Duration;
-                }
-                else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
-                {
-                    _mouseFlag = MouseFlags.StartingBarMarkerPressed;
-                    _initialStart = viewModel.Scene.Start;
-                    _initialDuration = viewModel.Scene.Duration;
-                }
-                else
-                {
-                    _mouseFlag = MouseFlags.SeekBarPressed;
-                    viewModel.CurrentTime.Value = viewModel.ClickedFrame;
-                }
+                return;
             }
         }
 
         _rightButtonPressed = pointerPt.Properties.IsRightButtonPressed;
+    }
+
+    // Returns true when a point marker was pressed; that press is then fully handled.
+    private bool BeginScalePress(TimelineTabViewModel viewModel, PointerPressedEventArgs e, PointerPoint pointerPt)
+    {
+        double endingBarX = viewModel.EndingBarMargin.Value.Left;
+        double startingBarX = viewModel.StartingBarMargin.Value.Left;
+        Point scalePoint = e.GetPosition(Scale);
+
+        // ポイントマーカーの当たり判定（Scale 上端の三角ピン）
+        if (Scale.IsPointerOver
+            && Scale.HitTestMarker(pointerPt.Position.X, scalePoint.Y) is { } hitMarker)
+        {
+            _mouseFlag = MouseFlags.MarkerPressed;
+            _pressedMarker = hitMarker;
+            _markerInitialTime = hitMarker.Time;
+            _markerPressPosition = pointerPt.Position;
+            _markerDragged = false;
+            e.Handled = true;
+            return true;
+        }
+
+        // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
+        if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+        {
+            _mouseFlag = MouseFlags.EndingBarMarkerPressed;
+            _initialStart = viewModel.Scene.Start;
+            _initialDuration = viewModel.Scene.Duration;
+        }
+        else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
+        {
+            _mouseFlag = MouseFlags.StartingBarMarkerPressed;
+            _initialStart = viewModel.Scene.Start;
+            _initialDuration = viewModel.Scene.Duration;
+        }
+        else
+        {
+            _mouseFlag = MouseFlags.SeekBarPressed;
+            viewModel.CurrentTime.Value = viewModel.ClickedFrame;
+        }
+
+        return false;
+    }
+
+    private static void SetClickedPosition(TimelineTabViewModel viewModel, Point position)
+    {
+        viewModel.ClickedFrame = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate());
+        viewModel.ClickedPosition = position;
     }
 
     // ポインターが離れた

@@ -1,22 +1,9 @@
 ﻿using Avalonia;
-using Avalonia.Automation;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media;
-using Avalonia.VisualTree;
 using Beutl.Animation;
-using Beutl.Composition;
-using Beutl.Controls;
 using Beutl.Editor.Components.PathEditorTab.Services;
-using Beutl.Editor.Components.Views;
-using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Media;
 using Microsoft.Extensions.DependencyInjection;
-using Brushes = Avalonia.Media.Brushes;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
 using CubicBezierSegment = Beutl.Media.CubicBezierSegment;
@@ -28,6 +15,21 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 internal sealed partial class PathEditorInteraction
 {
+    private void BeginBendDrag(PointerPressedEventArgs e, PathFigure figure, (int index, float t, Point point) bend)
+    {
+        // Begin one history entry for conversion plus dragging the curve.
+        Context!.EditorContext.GetRequiredService<HistoryManager>().Commit();
+        _bending = PathEditingOperations.ToCubic(figure, bend.index, Composition);
+        if (_bending != null)
+        {
+            _bendControl1 = _bending.ControlPoint1.CurrentValue;
+            _bendControl2 = _bending.ControlPoint2.CurrentValue;
+            _bendParameter = bend.t;
+            SelectOnly(_bending);
+            Capture(e);
+        }
+    }
+
     private void Bend(PathFigure figure, PathSegment anchor)
     {
         int index = figure.Segments.IndexOf(anchor);

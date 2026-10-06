@@ -170,6 +170,18 @@ public sealed partial class GraphEditorTabViewModel
         }
     }
 
+    private static Color ChannelColor(string name) => name switch
+    {
+        "Red" => Colors.Red,
+        "Green" => Colors.Green,
+        "Blue" => Colors.Blue,
+        "Alpha" => Colors.White,
+        "Y" or "Height" => Color.Parse("#56B88B"),
+        "Z" => Color.Parse("#619FEF"),
+        "W" => Color.Parse("#BE83E8"),
+        _ => Color.Parse("#E87070")
+    };
+
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType).FirstOrDefault() : null;
@@ -188,17 +200,7 @@ public sealed partial class GraphEditorTabViewModel
                     if (channel.ChannelName != name)
                     {
                         channel.ChannelName = name;
-                        channel.ChannelBrush.Value = new SolidColorBrush(name switch
-                        {
-                            "Red" => Colors.Red,
-                            "Green" => Colors.Green,
-                            "Blue" => Colors.Blue,
-                            "Alpha" => Colors.White,
-                            "Y" or "Height" => Color.Parse("#56B88B"),
-                            "Z" => Color.Parse("#619FEF"),
-                            "W" => Color.Parse("#BE83E8"),
-                            _ => Color.Parse("#E87070")
-                        });
+                        channel.ChannelBrush.Value = new SolidColorBrush(ChannelColor(name));
                     }
                     channel.HasAnimation.Value = item.HasAnimation.Value;
                     children.Add(channel);

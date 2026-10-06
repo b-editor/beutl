@@ -138,11 +138,7 @@ public sealed class EqualizerCurveEditor : Control
 
     private void ResubscribeBandProperties()
     {
-        foreach (var unsubscribe in _bandSubscriptions)
-        {
-            unsubscribe();
-        }
-        _bandSubscriptions.Clear();
+        UnsubscribeBandProperties();
 
         if (_bandViewModels is null) return;
 
@@ -154,6 +150,15 @@ public sealed class EqualizerCurveEditor : Control
             _bandSubscriptions.Add(SubscribeEdited(band.Q));
             _bandSubscriptions.Add(SubscribeEdited(band.FilterType));
         }
+    }
+
+    private void UnsubscribeBandProperties()
+    {
+        foreach (var unsubscribe in _bandSubscriptions)
+        {
+            unsubscribe();
+        }
+        _bandSubscriptions.Clear();
     }
 
     private Action SubscribeEdited(INotifyEdited notifier)
@@ -357,11 +362,7 @@ public sealed class EqualizerCurveEditor : Control
 
         if (_bandViewModels is not null)
             _bandViewModels.CollectionChanged -= OnBandsCollectionChanged;
-        foreach (var unsubscribe in _bandSubscriptions)
-        {
-            unsubscribe();
-        }
-        _bandSubscriptions.Clear();
+        UnsubscribeBandProperties();
         _isAttached = false;
 
         base.OnDetachedFromVisualTree(e);
@@ -426,16 +427,14 @@ public sealed class EqualizerCurveEditor : Control
                 var vm = _bandViewModels[i];
                 if (!vm.Band.IsEnabled) continue;
 
-                float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
-                double x = XFromFrequency(freq);
-                double y = YFromGain(CalculateResponseDb(freq));
+                Point center = GetHandleCenter(vm);
                 bool isSelected = i == SelectedBandIndex;
                 bool isHover = i == _hoverIndex || i == _draggingIndex;
                 double radius = isSelected || isHover ? HandleRadius + 2 : HandleRadius;
 
                 var fillBrush = isSelected ? s_handleSelectedBrush : s_handleNormalBrush;
 
-                context.DrawEllipse(fillBrush, s_handleStrokePen, new Point(x, y), radius, radius);
+                context.DrawEllipse(fillBrush, s_handleStrokePen, center, radius, radius);
             }
         }
     }
@@ -448,17 +447,24 @@ public sealed class EqualizerCurveEditor : Control
             var vm = _bandViewModels[i];
             if (!vm.Band.IsEnabled) continue;
 
-            float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
-            double x = XFromFrequency(freq);
-            double y = YFromGain(CalculateResponseDb(freq));
-            double dx = point.X - x;
-            double dy = point.Y - y;
+            Point center = GetHandleCenter(vm);
+            double dx = point.X - center.X;
+            double dy = point.Y - center.Y;
             if (dx * dx + dy * dy <= HitTestRadius * HitTestRadius)
             {
                 return i;
             }
         }
         return -1;
+    }
+
+    // A band's handle sits on the combined response curve at the band's frequency.
+    private Point GetHandleCenter(EqualizerBandItemViewModel vm)
+    {
+        float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
+        double x = XFromFrequency(freq);
+        double y = YFromGain(CalculateResponseDb(freq));
+        return new Point(x, y);
     }
 
     private double XFromFrequency(float frequency)

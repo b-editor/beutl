@@ -179,27 +179,42 @@ public partial class GraphEditorView
         }
         else
         {
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                state.HorizontalConstraint ??= Math.Abs(delta.X) >= Math.Abs(delta.Y);
-                delta = state.HorizontalConstraint.Value ? delta.WithY(0) : delta.WithX(0);
-            }
-            else state.HorizontalConstraint = null;
-            double seconds = delta.X.PixelToTimeSpan(model.Options.Value.Scale).TotalSeconds;
-            double value = -delta.Y / model.ScaleY.Value;
-            if (model.Snap.Value && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
-            {
-                if (delta.X != 0) seconds = SnapTime(snapshot, seconds);
-                if (delta.Y != 0 && !model.IsSpeedGraph.Value) value = SnapValue(snapshot, value);
-            }
-            if (model.IsSpeedGraph.Value)
-            {
-                snapshot.Apply(entry => (entry.Time.TotalSeconds + seconds, entry.Number));
-                ApplyVelocityDelta(snapshot, value);
-            }
-            else snapshot.Apply(entry => (entry.Time.TotalSeconds + seconds, entry.Number + value));
+            DragKeyFrames(model, state, snapshot, ref delta, e);
         }
         state.AppliedDelta = delta;
+        AutoScrollWhileDragging(model, state, e);
+        UpdateSelectionAdorner();
+        e.Handled = true;
+    }
+
+    // Shift locks the drag to the axis it started along, so delta may come back constrained.
+    private void DragKeyFrames(
+        GraphEditorViewModel model, KeyTimeMoveState state, GraphEditorDragSnapshot snapshot, ref Point delta, PointerEventArgs e)
+    {
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            state.HorizontalConstraint ??= Math.Abs(delta.X) >= Math.Abs(delta.Y);
+            delta = state.HorizontalConstraint.Value ? delta.WithY(0) : delta.WithX(0);
+        }
+        else state.HorizontalConstraint = null;
+        double seconds = delta.X.PixelToTimeSpan(model.Options.Value.Scale).TotalSeconds;
+        double value = -delta.Y / model.ScaleY.Value;
+        if (model.Snap.Value && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+        {
+            if (delta.X != 0) seconds = SnapTime(snapshot, seconds);
+            if (delta.Y != 0 && !model.IsSpeedGraph.Value) value = SnapValue(snapshot, value);
+        }
+        if (model.IsSpeedGraph.Value)
+        {
+            snapshot.Apply(entry => (entry.Time.TotalSeconds + seconds, entry.Number));
+            ApplyVelocityDelta(snapshot, value);
+        }
+        else snapshot.Apply(entry => (entry.Time.TotalSeconds + seconds, entry.Number + value));
+    }
+
+    // Dragging past the viewport edge scrolls the graph; the scrolled distance joins the drag.
+    private void AutoScrollWhileDragging(GraphEditorViewModel model, KeyTimeMoveState state, PointerEventArgs e)
+    {
         var pointer = e.GetPosition(scroll);
         double dx = pointer.X < 0 ? pointer.X : Math.Max(0, pointer.X - scroll.Viewport.Width);
         double dy = pointer.Y < 0 ? pointer.Y : Math.Max(0, pointer.Y - scroll.Viewport.Height);
@@ -210,8 +225,6 @@ public partial class GraphEditorView
                 model.AutoZoomHeight.Value ? 0 : Math.Clamp(dy, -24, 24)));
             state.ScrollDelta += (Point)(scroll.Offset - previousOffset);
         }
-        UpdateSelectionAdorner();
-        e.Handled = true;
     }
 
     private double SnapTime(GraphEditorDragSnapshot snapshot, double delta)
@@ -381,18 +394,11 @@ public partial class GraphEditorView
             : e.KeyModifiers.HasFlag(command) ? "EaseOut" : "Ease");
         else if (e.Key is Key.Left or Key.Right && e.KeyModifiers.HasFlag(KeyModifiers.Alt))
         {
-            double frames = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
-            double delta = (e.Key == Key.Left ? -frames : frames) / (model.Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30);
-            var snapshot = new GraphEditorDragSnapshot(channel);
-            if (snapshot.Entries.Length > 0)
-                model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + delta, entry.Number)), CommandNames.MoveKeyFrame);
+            NudgeSelection(model, channel, e);
         }
         else if (e.Key is Key.J or Key.K)
         {
-            var times = channel.KeyFrames.Select(x => x.Model.KeyTime + (model.UseGlobalClock.Value ? TimeSpan.Zero : model.Element?.Start ?? TimeSpan.Zero));
-            var target = e.Key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (TimeSpan?)x).FirstOrDefault()
-                : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (TimeSpan?)x).FirstOrDefault();
-            if (target.HasValue) model.CurrentTime.Value = target.Value;
+            JumpToAdjacentKeyFrame(model, channel, e.Key);
         }
         else if (e.Key == Key.F) FitGraph(e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         else if (e.Key == Key.Z && e.KeyModifiers.HasFlag(command))
@@ -403,6 +409,24 @@ public partial class GraphEditorView
         else return;
         UpdateSelectionAdorner();
         e.Handled = true;
+    }
+
+    private static void NudgeSelection(GraphEditorViewModel model, GraphEditorViewViewModel channel, KeyEventArgs e)
+    {
+        double frames = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
+        double delta = (e.Key == Key.Left ? -frames : frames) / model.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        var snapshot = new GraphEditorDragSnapshot(channel);
+        if (snapshot.Entries.Length > 0)
+            model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + delta, entry.Number)), CommandNames.MoveKeyFrame);
+    }
+
+    // J jumps back to the previous keyframe, K forward to the next one.
+    private static void JumpToAdjacentKeyFrame(GraphEditorViewModel model, GraphEditorViewViewModel channel, Key key)
+    {
+        var times = channel.KeyFrames.Select(x => x.Model.KeyTime + (model.UseGlobalClock.Value ? TimeSpan.Zero : model.Element?.Start ?? TimeSpan.Zero));
+        var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (TimeSpan?)x).FirstOrDefault()
+            : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (TimeSpan?)x).FirstOrDefault();
+        if (target.HasValue) model.CurrentTime.Value = target.Value;
     }
 
     internal async Task CutSelectionAsync(IClipboard? clipboard = null)

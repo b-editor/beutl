@@ -1,27 +1,10 @@
-﻿using System.Collections.Specialized;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
+﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
-using Beutl.Configuration;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Models;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
@@ -129,12 +112,9 @@ public sealed partial class TimelineTabViewModel
                 return false;
             }
 
+            // Matching any IProperty that carries the animation, rather than only top-level animatable
+            // properties, also finds animations nested in other objects such as a Pen.
             var searcher = new ObjectSearcher(element, Predicate);
-
-            //このコードは例えばPenの中にあるアニメーションなどには対応できない。
-            //var searcher = new ObjectSearcher(
-            //    element,
-            //    v => v is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId);
 
             if (searcher.Search() is IProperty { Animation: KeyFrameAnimation anm } prop)
             {

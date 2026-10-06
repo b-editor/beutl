@@ -91,11 +91,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         Bands.CollectionChanged -= OnBandsCollectionChanged;
         DetachEqualizerBands();
 
-        foreach (var band in Bands)
-        {
-            band.Dispose();
-        }
-        Bands.Clear();
+        DisposeBands();
 
         BandCountEditor.Value?.Dispose();
         BandCountEditor.Value = null;
@@ -157,11 +153,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
     private void RebuildBands(EqualizerEffect equalizer, IPropertyEditorFactory factory)
     {
-        foreach (var band in Bands)
-        {
-            band.Dispose();
-        }
-        Bands.Clear();
+        DisposeBands();
 
         for (int i = 0; i < equalizer.Bands.Count; i++)
         {
@@ -178,38 +170,43 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         }
     }
 
+    private void DisposeBands()
+    {
+        foreach (var band in Bands)
+        {
+            band.Dispose();
+        }
+        Bands.Clear();
+    }
+
     private void AcceptChildren()
     {
-        var visitor = new Visitor(this);
+        var visitor = new ChildVisitor(this);
         BandCountEditor.Value?.Accept(visitor);
 
         foreach (var band in Bands)
         {
-            band.FrequencyEditor?.Accept(visitor);
-            band.GainEditor?.Accept(visitor);
-            band.QEditor?.Accept(visitor);
-            band.FilterTypeEditor?.Accept(visitor);
+            AcceptBandEditors(band, visitor);
         }
     }
 
     private void OnBandsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        var visitor = new Visitor(this);
+        var visitor = new ChildVisitor(this);
         if (e.NewItems != null)
         {
             foreach (EqualizerBandItemViewModel item in e.NewItems)
             {
-                item.FrequencyEditor?.Accept(visitor);
-                item.GainEditor?.Accept(visitor);
-                item.QEditor?.Accept(visitor);
-                item.FilterTypeEditor?.Accept(visitor);
+                AcceptBandEditors(item, visitor);
             }
         }
     }
 
-    private sealed record Visitor(EqualizerPropertiesViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private static void AcceptBandEditors(EqualizerBandItemViewModel band, IPropertyEditorContextVisitor visitor)
     {
-        public object? GetService(Type serviceType) => Obj._parentServices?.GetService(serviceType);
-        public void Visit(IPropertyEditorContext context) { }
+        band.FrequencyEditor?.Accept(visitor);
+        band.GainEditor?.Accept(visitor);
+        band.QEditor?.Accept(visitor);
+        band.FilterTypeEditor?.Accept(visitor);
     }
 }

@@ -1,27 +1,9 @@
-﻿using System.Collections.Specialized;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
-using Beutl.Animation;
-using Beutl.Configuration;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Models;
-using Beutl.Editor.Models;
+﻿using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.PropertyAdapters;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 

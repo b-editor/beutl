@@ -1,26 +1,11 @@
 ﻿using Avalonia;
-using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media;
-using Avalonia.VisualTree;
-using Beutl.Animation;
-using Beutl.Composition;
-using Beutl.Controls;
-using Beutl.Editor.Components.PathEditorTab.Services;
-using Beutl.Editor.Components.Views;
-using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Media;
 using Microsoft.Extensions.DependencyInjection;
-using Brushes = Avalonia.Media.Brushes;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
-using CubicBezierSegment = Beutl.Media.CubicBezierSegment;
-using LineSegment = Beutl.Media.LineSegment;
 using PathFigure = Beutl.Media.PathFigure;
 using PathSegment = Beutl.Media.PathSegment;
 
@@ -69,37 +54,11 @@ internal sealed partial class PathEditorInteraction
         }
         else if (e.Key is Key.Delete or Key.Back)
         {
-            if (Context?.PathFigure.Value is { } figure)
-            {
-                var selected = _view.GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToHashSet();
-                if (selected.Count > 0)
-                {
-                    Mutate(() =>
-                    {
-                        for (int i = figure.Segments.Count - 1; i >= 0; i--)
-                            if (selected.Contains(figure.Segments[i])) figure.Segments.RemoveAt(i);
-                    });
-                    SyncSelection();
-                    e.Handled = true;
-                }
-            }
+            DeleteSelectedAnchors(e);
         }
         else if (e.Key is Key.Left or Key.Up or Key.Right or Key.Down && Context?.PathFigure.Value is { } figure)
         {
-            _nudges ??= CreateSelectionDragStates(figure);
-            if (_nudges.Count == 0) return;
-            float amount = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
-            BtlVector delta = e.Key switch
-            {
-                Key.Left => new(-amount, 0),
-                Key.Right => new(amount, 0),
-                Key.Up => new(0, -amount),
-                _ => new(0, amount)
-            };
-            foreach (var state in _nudges) state.Move(delta);
-            Context.FigureContext.Value?.InvalidateFrameCache();
-            _view.Refresh();
-            e.Handled = true;
+            NudgeSelection(e, figure);
         }
         else if (_fit != null && e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key is Key.D1 or Key.D2)
         {
@@ -116,6 +75,42 @@ internal sealed partial class PathEditorInteraction
             _zoom(e.Key is Key.OemPlus or Key.Add ? 1.2 : 1 / 1.2, new Point(_canvas.Bounds.Width / 2, _canvas.Bounds.Height / 2));
             e.Handled = true;
         }
+    }
+
+    private void DeleteSelectedAnchors(KeyEventArgs e)
+    {
+        if (Context?.PathFigure.Value is { } figure)
+        {
+            var selected = _view.GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToHashSet();
+            if (selected.Count > 0)
+            {
+                Mutate(() =>
+                {
+                    for (int i = figure.Segments.Count - 1; i >= 0; i--)
+                        if (selected.Contains(figure.Segments[i])) figure.Segments.RemoveAt(i);
+                });
+                SyncSelection();
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void NudgeSelection(KeyEventArgs e, PathFigure figure)
+    {
+        _nudges ??= CreateSelectionDragStates(figure);
+        if (_nudges.Count == 0) return;
+        float amount = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
+        BtlVector delta = e.Key switch
+        {
+            Key.Left => new(-amount, 0),
+            Key.Right => new(amount, 0),
+            Key.Up => new(0, -amount),
+            _ => new(0, amount)
+        };
+        foreach (var state in _nudges) state.Move(delta);
+        Context!.FigureContext.Value?.InvalidateFrameCache();
+        _view.Refresh();
+        e.Handled = true;
     }
 
     public void PreviewSelectionPosition(BtlPoint point)

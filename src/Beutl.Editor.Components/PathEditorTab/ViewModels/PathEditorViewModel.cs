@@ -31,26 +31,12 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Context = FigureContext.Select(v => v?.GetParentContext() ?? null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        Geometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
-            .Switch()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        PathGeometry = Geometry
-            .Select(v => v as PathGeometry)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
-            .Switch()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        Element = Context.Select(v => v?.GetService<Element>())
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        var chain = PathFigureContextChain.Create(FigureContext, _disposables);
+        Context = chain.Context;
+        Geometry = chain.Geometry;
+        PathGeometry = chain.PathGeometry;
+        PathFigure = chain.PathFigure;
+        Element = chain.Element;
         Drawable = Geometry.Select(v => v?.FindHierarchicalParent<Drawable>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -185,16 +171,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public void StartEdit(IPathFigureEditorContext context)
     {
-        if (FigureContext.Value == context)
-        {
-            FigureContext.Value = null;
-            context.CollapseEditedOperations();
-        }
-        else
-        {
-            context.ExpandForEditing();
-            FigureContext.Value = context;
-        }
+        PathFigureContextChain.ToggleEditing(FigureContext, context);
     }
 
     public void Dispose()

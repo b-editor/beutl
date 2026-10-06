@@ -1,23 +1,10 @@
-﻿using System.Collections.Specialized;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using Beutl.Animation;
-using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Models;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.PropertyAdapters;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -66,9 +53,7 @@ public sealed partial class TimelineTabViewModel
 
     private void OnSetEndTimeToPointerPosition()
     {
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
-        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
+        SetSceneEndAfterFrame(ClickedFrame);
     }
 
     private void OnSetStartTimeToCurrentTime()
@@ -78,8 +63,14 @@ public sealed partial class TimelineTabViewModel
 
     private void OnSetEndTimeToCurrentTime()
     {
+        SetSceneEndAfterFrame(CurrentTime.Value);
+    }
+
+    // Ending the scene at a frame keeps that frame inside it, so the end lands one frame later.
+    private void SetSceneEndAfterFrame(TimeSpan frame)
+    {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
+        TimeSpan time = frame + TimeSpan.FromSeconds(1d / rate);
         EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
     }
 
@@ -134,11 +125,7 @@ public sealed partial class TimelineTabViewModel
                 break;
             case "Duplicate":
                 Duplicate.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
+                MarkHandled(execution);
                 break;
             case "Copy":
                 if (SelectedElements.FirstOrDefault() is { } copyTarget)
@@ -159,22 +146,6 @@ public sealed partial class TimelineTabViewModel
             case "Exclude":
                 SelectedElements.FirstOrDefault()?.Exclude.Execute();
                 break;
-            case "SetStartTime" when !IsTextInputFocused(execution.KeyEventArgs):
-                SetStartTimeToCurrentTime.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "SetEndTime" when !IsTextInputFocused(execution.KeyEventArgs):
-                SetEndTimeToCurrentTime.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
             case "ToggleGroup":
                 var first = SelectedElements.FirstOrDefault();
                 if (first?.CanUngroupSelectedElements() == true)
@@ -187,167 +158,10 @@ public sealed partial class TimelineTabViewModel
                 }
 
                 break;
-            case "ToggleRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterRazorMode();
-                if (execution.KeyEventArgs != null)
+            default:
+                if (!IsTextInputFocused(execution.KeyEventArgs) && TryExecuteShortcut(execution.CommandName))
                 {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleRippleMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                IsRippleEnabled.Value = !IsRippleEnabled.Value;
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ExitRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsRazorMode.Value)
-                {
-                    IsRazorMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "ToggleSlipMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterTrimMode(IsSlipMode);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleRollMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterTrimMode(IsRollMode);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleSlideMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterTrimMode(IsSlideMode);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ExitSlipMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsSlipMode.Value)
-                {
-                    IsSlipMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "ExitRollMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsRollMode.Value)
-                {
-                    IsRollMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "ExitSlideMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsSlideMode.Value)
-                {
-                    IsSlideMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "NudgeLeftFrame" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(-1, NudgeUnit.Frame);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeRightFrame" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(+1, NudgeUnit.Frame);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeLeftLarge" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(-1, NudgeUnit.Large);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeRightLarge" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(+1, NudgeUnit.Large);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeLeftSecond" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(-1, NudgeUnit.Second);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeRightSecond" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(+1, NudgeUnit.Second);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "CloseGap" when !IsTextInputFocused(execution.KeyEventArgs):
-                CloseGap.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "CloseAllGaps" when !IsTextInputFocused(execution.KeyEventArgs):
-                CloseAllGaps.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "GoToNextGap" when !IsTextInputFocused(execution.KeyEventArgs):
-                GoToNextGap.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "GoToPreviousGap" when !IsTextInputFocused(execution.KeyEventArgs):
-                GoToPreviousGap.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
+                    MarkHandled(execution);
                 }
 
                 break;
@@ -370,17 +184,84 @@ public sealed partial class TimelineTabViewModel
         return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
     }
 
-    private void EnterRazorMode()
+    // Returns true when the command acted and its key is consumed.
+    private bool TryExecuteShortcut(string commandName)
     {
-        bool next = !IsRazorMode.Value;
-        IsRazorMode.Value = false;
-        IsSlipMode.Value = false;
-        IsRollMode.Value = false;
-        IsSlideMode.Value = false;
-        IsRazorMode.Value = next;
+        switch (commandName)
+        {
+            case "SetStartTime":
+                SetStartTimeToCurrentTime.Execute();
+                return true;
+            case "SetEndTime":
+                SetEndTimeToCurrentTime.Execute();
+                return true;
+            case "ToggleRazorMode":
+                ToggleToolMode(IsRazorMode);
+                return true;
+            case "ToggleRippleMode":
+                IsRippleEnabled.Value = !IsRippleEnabled.Value;
+                return true;
+            case "ExitRazorMode":
+                return TryExitToolMode(IsRazorMode);
+            case "ToggleSlipMode":
+                ToggleToolMode(IsSlipMode);
+                return true;
+            case "ToggleRollMode":
+                ToggleToolMode(IsRollMode);
+                return true;
+            case "ToggleSlideMode":
+                ToggleToolMode(IsSlideMode);
+                return true;
+            case "ExitSlipMode":
+                return TryExitToolMode(IsSlipMode);
+            case "ExitRollMode":
+                return TryExitToolMode(IsRollMode);
+            case "ExitSlideMode":
+                return TryExitToolMode(IsSlideMode);
+            case "NudgeLeftFrame":
+                NudgeSelectedElements(-1, NudgeUnit.Frame);
+                return true;
+            case "NudgeRightFrame":
+                NudgeSelectedElements(+1, NudgeUnit.Frame);
+                return true;
+            case "NudgeLeftLarge":
+                NudgeSelectedElements(-1, NudgeUnit.Large);
+                return true;
+            case "NudgeRightLarge":
+                NudgeSelectedElements(+1, NudgeUnit.Large);
+                return true;
+            case "NudgeLeftSecond":
+                NudgeSelectedElements(-1, NudgeUnit.Second);
+                return true;
+            case "NudgeRightSecond":
+                NudgeSelectedElements(+1, NudgeUnit.Second);
+                return true;
+            case "CloseGap":
+                CloseGap.Execute();
+                return true;
+            case "CloseAllGaps":
+                CloseAllGaps.Execute();
+                return true;
+            case "GoToNextGap":
+                GoToNextGap.Execute();
+                return true;
+            case "GoToPreviousGap":
+                GoToPreviousGap.Execute();
+                return true;
+            default:
+                return false;
+        }
     }
 
-    private void EnterTrimMode(ReactivePropertySlim<bool> mode)
+    private static void MarkHandled(ContextCommandExecution execution)
+    {
+        if (execution.KeyEventArgs != null)
+        {
+            execution.KeyEventArgs.Handled = true;
+        }
+    }
+
+    private void ToggleToolMode(ReactivePropertySlim<bool> mode)
     {
         bool next = !mode.Value;
         IsRazorMode.Value = false;
@@ -388,6 +269,15 @@ public sealed partial class TimelineTabViewModel
         IsRollMode.Value = false;
         IsSlideMode.Value = false;
         mode.Value = next;
+    }
+
+    // An exit shortcut consumes its key only when the mode was on.
+    private static bool TryExitToolMode(ReactivePropertySlim<bool> mode)
+    {
+        if (!mode.Value) return false;
+
+        mode.Value = false;
+        return true;
     }
 
     private enum NudgeUnit { Frame, Large, Second }
@@ -407,7 +297,7 @@ public sealed partial class TimelineTabViewModel
             .ToArray();
         if (targets.Length == 0) return;
 
-        int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         int frames = unit switch
         {
             NudgeUnit.Frame => direction,

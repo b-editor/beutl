@@ -1,31 +1,17 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.LogicalTree;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
-using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Configuration;
-using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Reactive.Bindings.Extensions;
-using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -129,7 +115,7 @@ public sealed partial class ElementView
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    int rate = FrameRateOf(viewModel);
                     TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
                     TimeSpan modelStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
                     TimeSpan deltaStart = modelStart - viewModel.Model.Start;
@@ -215,7 +201,7 @@ public sealed partial class ElementView
             _slipTargets = [];
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            int rate = FrameRateOf(viewModel);
             Point released = e.GetPosition(view);
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
@@ -261,7 +247,7 @@ public sealed partial class ElementView
             var elems = relatedElements.Select(x => x.Model).ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            int rate = FrameRateOf(viewModel);
             TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
             TimeSpan deltaStart = newStart - viewModel.Model.Start;
             int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
@@ -294,6 +280,17 @@ public sealed partial class ElementView
 
             if (elems.Length == 0) return;
 
+            await CommitGroupMoveAsync(viewModel, relatedElements, elems, duplicate, deltaStart, deltaIndex);
+        }
+
+        private static async Task CommitGroupMoveAsync(
+            ElementViewModel viewModel,
+            IReadOnlyList<ElementViewModel> relatedElements,
+            Element[] elems,
+            bool duplicate,
+            TimeSpan deltaStart,
+            int deltaIndex)
+        {
             var animations = relatedElements
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray();
@@ -309,7 +306,7 @@ public sealed partial class ElementView
             }
             catch (Exception ex)
             {
-                ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                ForceRestoreVisualToModel(relatedElements);
                 s_logger.LogError(ex, "Element move/duplicate failed.");
                 NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
                 return;
@@ -318,7 +315,7 @@ public sealed partial class ElementView
             switch (outcome)
             {
                 case ElementMoveOutcome.DuplicateOverlapsSource:
-                    ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                    ForceRestoreVisualToModel(relatedElements);
                     return;
                 case ElementMoveOutcome.FellBackToMove:
                     NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
@@ -326,7 +323,7 @@ public sealed partial class ElementView
                 case ElementMoveOutcome.None:
                     // Zero net delta (sub-frame drag), but OnPointerMoved already shifted
                     // Margin/BorderMargin; snap visuals back so clips aren't left offset.
-                    ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                    ForceRestoreVisualToModel(relatedElements);
                     return;
             }
 
@@ -339,7 +336,7 @@ public sealed partial class ElementView
             catch (Exception ex)
             {
                 s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model.");
-                ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                ForceRestoreVisualToModel(relatedElements);
             }
         }
 

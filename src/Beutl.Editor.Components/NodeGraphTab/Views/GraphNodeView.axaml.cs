@@ -6,13 +6,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Language;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Nodes.Group;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
@@ -137,69 +134,87 @@ public partial class GraphNodeView : UserControl
         {
             if (viewModel.IsExpanded.Value)
             {
-                NodePortView[] portViews = this.GetVisualDescendants().OfType<NodePortView>().ToArray();
-                var realized = new HashSet<NodeMemberViewModel>(portViews.Length);
-                foreach (NodePortView portView in portViews)
-                {
-                    portView.UpdateNodePortPosition();
-                    if (portView.DataContext is NodeMemberViewModel member) realized.Add(member);
-                }
-                Dictionary<Guid, PortAnchor>? anchors = null;
-                foreach (InputPortViewModel member in viewModel.NestedItems)
-                {
-                    if (member.Connections.Count == 0 || member.Model is not INestedInputPort nested
-                        || realized.Contains(member)) continue;
-                    // Editors may defer creating their children until first expanded.
-                    anchors ??= BuildPortAnchors(portViews);
-                    if (!anchors.TryGetValue(nested.RootMember.Id, out PortAnchor? anchor)) continue;
-                    NodePortView? ancestor = anchor.View;
-                    foreach (string segment in nested.PropertyPath)
-                    {
-                        if (anchor.Children == null || !anchor.Children.TryGetValue(segment, out PortAnchor? child)) break;
-                        anchor = child;
-                        if (anchor.View != null) ancestor = anchor.View;
-                    }
-                    if (ancestor?.GetPortPosition() is { } position)
-                    {
-                        foreach (ConnectionViewModel connection in member.Connections)
-                            connection.InputPortPosition.Value = position + viewModel.Position.Value;
-                    }
-                }
-
-                _undecidedLeftNodePort?.UpdateNodePortPosition();
-                _undecidedRightNodePort?.UpdateNodePortPosition();
+                UpdateExpandedPortPositions(viewModel);
             }
             else
             {
-                Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
-                Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
-                void UpdatePosition(NodeMemberViewModel? viewModel)
-                {
-                    switch (viewModel)
-                    {
-                        case InputPortViewModel input:
-                            foreach (ConnectionViewModel connVM in input.Connections)
-                            {
-                                connVM.InputPortPosition.Value = vcenter;
-                            }
-                            break;
-                        case OutputPortViewModel output:
-                            foreach (ConnectionViewModel connVM in output.Connections)
-                            {
-                                connVM.OutputPortPosition.Value = vcenterRight;
-                            }
-                            break;
-                    }
-                }
-
-                foreach (NodeMemberViewModel item in viewModel.EnumerateMembers())
-                {
-                    UpdatePosition(item);
-                }
-
-                UpdatePosition(_undecidedLeftNodePortContext);
-                UpdatePosition(_undecidedRightNodePortContext);
+                UpdateCollapsedPortPositions(viewModel);
             }
+        }
+    }
+
+    private void UpdateExpandedPortPositions(GraphNodeViewModel viewModel)
+    {
+        NodePortView[] portViews = this.GetVisualDescendants().OfType<NodePortView>().ToArray();
+        var realized = new HashSet<NodeMemberViewModel>(portViews.Length);
+        foreach (NodePortView portView in portViews)
+        {
+            portView.UpdateNodePortPosition();
+            if (portView.DataContext is NodeMemberViewModel member) realized.Add(member);
+        }
+        PositionDeferredNestedPorts(viewModel, portViews, realized);
+
+        _undecidedLeftNodePort?.UpdateNodePortPosition();
+        _undecidedRightNodePort?.UpdateNodePortPosition();
+    }
+
+    // Connected nested ports whose own view is not realized attach to the nearest realized ancestor view.
+    private static void PositionDeferredNestedPorts(
+        GraphNodeViewModel viewModel, NodePortView[] portViews, HashSet<NodeMemberViewModel> realized)
+    {
+        Dictionary<Guid, PortAnchor>? anchors = null;
+        foreach (InputPortViewModel member in viewModel.NestedItems)
+        {
+            if (member.Connections.Count == 0 || member.Model is not INestedInputPort nested
+                || realized.Contains(member)) continue;
+            // Editors may defer creating their children until first expanded.
+            anchors ??= BuildPortAnchors(portViews);
+            if (!anchors.TryGetValue(nested.RootMember.Id, out PortAnchor? anchor)) continue;
+            NodePortView? ancestor = anchor.View;
+            foreach (string segment in nested.PropertyPath)
+            {
+                if (anchor.Children == null || !anchor.Children.TryGetValue(segment, out PortAnchor? child)) break;
+                anchor = child;
+                if (anchor.View != null) ancestor = anchor.View;
+            }
+            if (ancestor?.GetPortPosition() is { } position)
+            {
+                foreach (ConnectionViewModel connection in member.Connections)
+                    connection.InputPortPosition.Value = position + viewModel.Position.Value;
+            }
+        }
+    }
+
+    private void UpdateCollapsedPortPositions(GraphNodeViewModel viewModel)
+    {
+        Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
+        Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
+
+        foreach (NodeMemberViewModel item in viewModel.EnumerateMembers())
+        {
+            SetCollapsedEndpoints(item, vcenter, vcenterRight);
+        }
+
+        SetCollapsedEndpoints(_undecidedLeftNodePortContext, vcenter, vcenterRight);
+        SetCollapsedEndpoints(_undecidedRightNodePortContext, vcenter, vcenterRight);
+    }
+
+    private static void SetCollapsedEndpoints(NodeMemberViewModel? member, Point input, Point output)
+    {
+        switch (member)
+        {
+            case InputPortViewModel inputPort:
+                foreach (ConnectionViewModel connVM in inputPort.Connections)
+                {
+                    connVM.InputPortPosition.Value = input;
+                }
+                break;
+            case OutputPortViewModel outputPort:
+                foreach (ConnectionViewModel connVM in outputPort.Connections)
+                {
+                    connVM.OutputPortPosition.Value = output;
+                }
+                break;
         }
     }
 
