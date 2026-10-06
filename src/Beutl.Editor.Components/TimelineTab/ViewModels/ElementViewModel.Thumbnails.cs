@@ -320,8 +320,12 @@ public sealed partial class ElementViewModel
         }
         finally
         {
-            _scrollThumbnailsCts?.Dispose();
-            _scrollThumbnailsCts = null;
+            // 新しい要求に差し替えられていなければ、このCTSを解放する
+            if (_scrollThumbnailsCts is { } cts && cts.Token == ct)
+            {
+                _scrollThumbnailsCts = null;
+                cts.Dispose();
+            }
         }
     }
 
