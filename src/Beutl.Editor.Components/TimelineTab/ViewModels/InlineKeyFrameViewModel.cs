@@ -3,8 +3,8 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -64,23 +64,11 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task CopyAsync()
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-
-        try
-        {
-            var data = new DataTransfer();
-            ObjectRegenerator.Regenerate(Model, out string json);
-            data.Add(DataTransferItem.CreateText(json));
-            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrame, json));
-
-            await clipboard.SetDataAsync(data);
-        }
-        catch (Exception ex)
+        await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
             NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
-        }
+        });
     }
 
     internal async Task PasteAsync(IClipboard? clipboard = null)
@@ -94,43 +82,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
                 && JsonNode.Parse(json) is JsonObject jsonObj)
             {
-                // Re-check after the awaited clipboard read: the clip or its layer may have been
-                // locked while it was pending, and the writes below must honor that.
-                if (!Parent.IsEditable) return;
-
-                if (!jsonObj.TryGetDiscriminator(out Type? type))
-                {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
-                    return;
-                }
-
-                if (!type.IsAssignableTo(typeof(KeyFrame)))
-                {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
-                    return;
-                }
-
-                KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
-                CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-
-                if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
-                {
-                    // イージングのみ変更
-                    Model.Easing = newKeyFrame.Easing;
-                    history.Commit(CommandNames.ChangeEasing);
-                    NotificationService.ShowWarning(Strings.GraphEditor,
-                        MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
-                }
-                else
-                {
-                    newKeyFrame.KeyTime = Model.KeyTime;
-                    int index = Animation.KeyFrames.IndexOf(Model);
-                    Animation.KeyFrames.Remove(Model);
-                    Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
-                    history.Commit(CommandNames.PasteKeyFrame);
-                }
-
+                ApplyPastedKeyFrame(jsonObj);
                 return;
             }
             else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
@@ -147,6 +99,46 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         {
             _logger.LogError(ex, "Failed to paste keyframe");
             NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+        }
+    }
+
+    private void ApplyPastedKeyFrame(JsonObject jsonObj)
+    {
+        // Re-check after the awaited clipboard read: the clip or its layer may have been
+        // locked while it was pending, and the writes below must honor that.
+        if (!Parent.IsEditable) return;
+
+        if (!jsonObj.TryGetDiscriminator(out Type? type))
+        {
+            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
+            return;
+        }
+
+        if (!type.IsAssignableTo(typeof(KeyFrame)))
+        {
+            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
+            return;
+        }
+
+        KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
+        CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
+        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+
+        if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
+        {
+            // イージングのみ変更
+            Model.Easing = newKeyFrame.Easing;
+            history.Commit(CommandNames.ChangeEasing);
+            NotificationService.ShowWarning(Strings.GraphEditor,
+                MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+        }
+        else
+        {
+            newKeyFrame.KeyTime = Model.KeyTime;
+            int index = Animation.KeyFrames.IndexOf(Model);
+            Animation.KeyFrames.Remove(Model);
+            Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
+            history.Commit(CommandNames.PasteKeyFrame);
         }
     }
 

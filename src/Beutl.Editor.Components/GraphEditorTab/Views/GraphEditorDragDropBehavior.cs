@@ -14,7 +14,7 @@ public class GraphEditorDragDropBehavior : Behavior<GraphEditorView>
         if (AssociatedObject == null) return;
         DragDrop.SetAllowDrop(AssociatedObject.graphPanel, true);
         AssociatedObject.AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        AssociatedObject.AddHandler(DragDrop.DropEvent, OnDrap);
+        AssociatedObject.AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     protected override void OnDetaching()
@@ -23,10 +23,10 @@ public class GraphEditorDragDropBehavior : Behavior<GraphEditorView>
         if (AssociatedObject == null) return;
         DragDrop.SetAllowDrop(AssociatedObject.graphPanel, false);
         AssociatedObject.RemoveHandler(DragDrop.DragOverEvent, OnDragOver);
-        AssociatedObject.RemoveHandler(DragDrop.DropEvent, OnDrap);
+        AssociatedObject.RemoveHandler(DragDrop.DropEvent, OnDrop);
     }
 
-    private void OnDrap(object? sender, DragEventArgs e)
+    private void OnDrop(object? sender, DragEventArgs e)
     {
         if (AssociatedObject?.DataContext is not GraphEditorViewModel { Options.Value.Scale: var scale } viewModel)
             return;

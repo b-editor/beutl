@@ -196,11 +196,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             BtlPoint origin = snapAnchor.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
             Point initial = parent.Matrix.Invert().Transform(_startThumbPosition / parent.Scale);
             BtlPoint desired = new((float)initial.X + delta.X, (float)initial.Y + delta.Y);
-            BtlPoint direction = desired - origin;
-            float angle = MathF.Round(MathF.Atan2(direction.Y, direction.X) / (MathF.PI / 4)) * (MathF.PI / 4);
-            float length = MathF.Sqrt(direction.X * direction.X + direction.Y * direction.Y);
-            delta = new BtlVector(origin.X + MathF.Cos(angle) * length - (float)initial.X,
-                origin.Y + MathF.Sin(angle) * length - (float)initial.Y);
+            BtlPoint snapped = PathEditingOperations.SnapAngle(origin, desired);
+            delta = new BtlVector(snapped.X - (float)initial.X, snapped.Y - (float)initial.Y);
         }
         _dragState.MoveFromStart(delta);
         UpdatePosition(_dragState);
@@ -220,111 +217,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
                     && (viewModel.Symmetry.Value || viewModel.Asymmetry.Value))
                 {
-                    // ControlPointからAnchor(複数)を取得
-                    // つながっているAnchorの反対側ごとに、角度、長さを計算
-
-                    PathSegment? anchor = GetAnchor(viewModel, figure, segment, AssociatedObject.Tag);
-                    if (anchor != null)
-                    {
-                        Debug.Assert(_coordDragStates.Length == 1 || _coordDragStates.Length == 0);
-
-                        foreach (PathPointDragState c in _coordDragStates)
-                        {
-                            static float Length(BtlPoint p)
-                            {
-                                return MathF.Sqrt((p.X * p.X) + (p.Y * p.Y));
-                            }
-
-                            static BtlPoint CalculatePoint(float radians, float radius)
-                            {
-                                float x = MathF.Cos(radians) * radius;
-                                float y = MathF.Sin(radians) * radius;
-                                // Y座標は反転
-                                return new(x, -y);
-                            }
-
-                            void UpdateThumbPosition(Thumb? thumb, BtlPoint point)
-                            {
-                                if (thumb == null) return;
-
-                                Point p = parent.Matrix.Transform(point.ToAvaPoint());
-                                p *= parent.Scale;
-                                PathEditorHelper.SetCanvasPosition(thumb, p);
-                            }
-
-                            // アニメーションが有効な時は
-                            // この区間の開始、終了キーフレームでのアンカーの位置を使う
-                            if (c.Animation != null)
-                            {
-                                void Set(KeyFrame<BtlPoint>? keyframe)
-                                {
-                                    if (keyframe == null) return;
-
-                                    TimeSpan keyTime = keyframe.KeyTime;
-
-                                    if (!c.Animation.UseGlobalClock)
-                                    {
-                                        keyTime += element.Start;
-                                    }
-
-                                    var ctx = new CompositionContext(keyTime);
-                                    BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
-                                    BtlPoint point = _dragState.GetInterpolatedValue(keyTime);
-                                    BtlPoint d = anchorpoint - point;
-                                    float angle = MathF.Atan2(d.X, d.Y);
-                                    angle -= MathF.PI / 2;
-
-                                    float length;
-                                    if (viewModel.Symmetry.Value)
-                                    {
-                                        length = Length(d);
-                                    }
-                                    else
-                                    {
-                                        BtlPoint d2 = anchorpoint - keyframe.Value;
-                                        length = Length(d2);
-                                    }
-
-                                    keyframe.Value =
-                                        PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
-                                }
-
-                                Set(c.Previous);
-                                Set(c.Next);
-
-                                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                                UpdateThumbPosition(c.Thumb,
-                                    c.GetInterpolatedValue(clock.CurrentTime.Value));
-                            }
-                            else
-                            {
-                                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                                var ctx = new CompositionContext(clock.CurrentTime.Value);
-                                BtlPoint point =
-                                    _dragState.GetInterpolatedValue(clock.CurrentTime.Value);
-                                BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
-                                BtlPoint d = anchorpoint - point;
-                                float angle = MathF.Atan2(d.X, d.Y);
-                                angle -= MathF.PI / 2;
-
-                                float length;
-                                if (viewModel.Symmetry.Value)
-                                {
-                                    length = Length(d);
-                                }
-                                else
-                                {
-                                    BtlPoint d2 = anchorpoint - c.GetSampleValue(clock.CurrentTime.Value);
-                                    length = Length(d2);
-                                }
-
-                                BtlPoint newValue = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
-
-                                c.SetValue(newValue);
-                                UpdateThumbPosition(c.Thumb, newValue);
-                            }
-                        }
-                    }
+                    MirrorOppositeHandles(parent, viewModel, figure, segment, element);
                 }
             }
             else
@@ -337,6 +230,119 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             }
 
             viewModel.FigureContext.Value?.InvalidateFrameCache();
+        }
+    }
+
+    // ControlPointからAnchor(複数)を取得
+    // つながっているAnchorの反対側ごとに、角度、長さを計算
+    private void MirrorOppositeHandles(
+        IPathEditorView parent,
+        IPathEditorContext viewModel,
+        PathFigure figure,
+        PathSegment segment,
+        ProjectSystem.Element element)
+    {
+        PathSegment? anchor = GetAnchor(viewModel, figure, segment, AssociatedObject!.Tag);
+        if (anchor != null)
+        {
+            Debug.Assert(_coordDragStates!.Length == 1 || _coordDragStates.Length == 0);
+
+            foreach (PathPointDragState c in _coordDragStates)
+            {
+                static float Length(BtlPoint p)
+                {
+                    return MathF.Sqrt((p.X * p.X) + (p.Y * p.Y));
+                }
+
+                static BtlPoint CalculatePoint(float radians, float radius)
+                {
+                    float x = MathF.Cos(radians) * radius;
+                    float y = MathF.Sin(radians) * radius;
+                    // Y座標は反転
+                    return new(x, -y);
+                }
+
+                void UpdateThumbPosition(Thumb? thumb, BtlPoint point)
+                {
+                    if (thumb == null) return;
+
+                    Point p = parent.Matrix.Transform(point.ToAvaPoint());
+                    p *= parent.Scale;
+                    PathEditorHelper.SetCanvasPosition(thumb, p);
+                }
+
+                // アニメーションが有効な時は
+                // この区間の開始、終了キーフレームでのアンカーの位置を使う
+                if (c.Animation != null)
+                {
+                    void Set(KeyFrame<BtlPoint>? keyframe)
+                    {
+                        if (keyframe == null) return;
+
+                        TimeSpan keyTime = keyframe.KeyTime;
+
+                        if (!c.Animation.UseGlobalClock)
+                        {
+                            keyTime += element.Start;
+                        }
+
+                        var ctx = new CompositionContext(keyTime);
+                        BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
+                        BtlPoint point = _dragState!.GetInterpolatedValue(keyTime);
+                        BtlPoint d = anchorpoint - point;
+                        float angle = MathF.Atan2(d.X, d.Y);
+                        angle -= MathF.PI / 2;
+
+                        float length;
+                        if (viewModel.Symmetry.Value)
+                        {
+                            length = Length(d);
+                        }
+                        else
+                        {
+                            BtlPoint d2 = anchorpoint - keyframe.Value;
+                            length = Length(d2);
+                        }
+
+                        keyframe.Value =
+                            PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
+                    }
+
+                    Set(c.Previous);
+                    Set(c.Next);
+
+                    var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                    UpdateThumbPosition(c.Thumb,
+                        c.GetInterpolatedValue(clock.CurrentTime.Value));
+                }
+                else
+                {
+                    var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                    var ctx = new CompositionContext(clock.CurrentTime.Value);
+                    BtlPoint point =
+                        _dragState!.GetInterpolatedValue(clock.CurrentTime.Value);
+                    BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
+                    BtlPoint d = anchorpoint - point;
+                    float angle = MathF.Atan2(d.X, d.Y);
+                    angle -= MathF.PI / 2;
+
+                    float length;
+                    if (viewModel.Symmetry.Value)
+                    {
+                        length = Length(d);
+                    }
+                    else
+                    {
+                        BtlPoint d2 = anchorpoint - c.GetSampleValue(clock.CurrentTime.Value);
+                        length = Length(d2);
+                    }
+
+                    BtlPoint newValue = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
+
+                    c.SetValue(newValue);
+                    UpdateThumbPosition(c.Thumb, newValue);
+                }
+            }
         }
     }
 
@@ -517,7 +523,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         var scene = viewModel.EditorContext.GetRequiredService<Scene>();
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
         ProjectSystem.Element? element = viewModel.Element.Value;
-        int rate = scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan globalkeyTime = clock.CurrentTime.Value;
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
 

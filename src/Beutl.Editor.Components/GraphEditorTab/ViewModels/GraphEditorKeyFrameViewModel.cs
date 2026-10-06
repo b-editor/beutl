@@ -1,12 +1,10 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
-using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Services;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -23,7 +21,6 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<GraphEditorKeyFrameViewModel>();
     private readonly CompositeDisposable _disposables = [];
     internal readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
-    internal GraphEditorKeyFrameViewModel? _next;
 
     public GraphEditorKeyFrameViewModel(
         IKeyFrame keyframe,
@@ -122,21 +119,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             })
             .Switch();
 
-        ControlPoint1 = controlPointObservable
-            .Select(v => v.Item1)
-            .CombineLatest(Decreasing)
-            .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
-            .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        ControlPoint1 = CreateControlPoint(controlPointObservable.Select(v => v.Item1));
 
-        ControlPoint2 = controlPointObservable
-            .Select(v => v.Item2)
-            .CombineLatest(Decreasing)
-            .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
-            .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        ControlPoint2 = CreateControlPoint(controlPointObservable.Select(v => v.Item2));
 
         LeftBottom = Height
             .CombineLatest(Decreasing)
@@ -163,6 +148,17 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         RemoveCommand = new ReactiveCommand()
             .WithSubscribe(Remove)
+            .DisposeWith(_disposables);
+    }
+
+    // Maps a normalized easing control point into this segment's box, flipping it for a decreasing segment.
+    private ReadOnlyReactivePropertySlim<Point> CreateControlPoint(IObservable<Vector> controlPoint)
+    {
+        return controlPoint
+            .CombineLatest(Decreasing)
+            .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
+            .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
 
@@ -215,15 +211,10 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public void SetPrevious(GraphEditorKeyFrameViewModel? previous)
     {
         _previous.Value = previous;
-        if (previous != null)
-        {
-            previous._next = this;
-        }
     }
 
     public void SetLast()
     {
-        _next = null;
     }
 
     public void Dispose()
@@ -288,7 +279,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public void UpdateKeyTime(TimeSpan timeSpan)
     {
-        int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         Model.KeyTime = timeSpan.RoundToRate(rate);
     }
 
@@ -296,21 +287,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         GraphEditorViewModel parent2 = Parent.Parent;
         HistoryManager history = parent2.HistoryManager;
-        IKeyFrameAnimation animation = parent2.Animation;
-
-        float scale = parent2.Options.Value.Scale;
-        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.ValueType,
-                out object? obj))
-        {
-            Model.Value = obj;
-            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-        }
-        else
-        {
-            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-        }
+        WriteDraggedValueAndKeyTime(parent2);
 
         history.Commit(CommandNames.EditKeyFrame);
 
@@ -321,25 +298,33 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public void UpdateKeyTimeAndValue()
     {
         GraphEditorViewModel parent2 = Parent.Parent;
-        IKeyFrameAnimation animation = parent2.Animation;
+        if (WriteDraggedValueAndKeyTime(parent2))
+        {
+            EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
+        }
 
-        float scale = parent2.Options.Value.Scale;
-        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        Right.Value = Model.KeyTime.TimeToPixel(Parent.Parent.Options.Value.Scale);
+    }
 
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.ValueType,
+    // Writes the dragged value (when it converts to the animation's type) and the frame-rounded
+    // key time to the model; returns whether the value was written.
+    private bool WriteDraggedValueAndKeyTime(GraphEditorViewModel editor)
+    {
+        IKeyFrameAnimation animation = editor.Animation;
+
+        float scale = editor.Options.Value.Scale;
+        int rate = editor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+
+        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / editor.ScaleY.Value, animation.ValueType,
                 out object? obj))
         {
             Model.Value = obj;
             Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-
-            EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
-        }
-        else
-        {
-            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+            return true;
         }
 
-        Right.Value = Model.KeyTime.TimeToPixel(Parent.Parent.Options.Value.Scale);
+        Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
+        return false;
     }
 
     private async Task CopyAsync()
@@ -349,23 +334,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             await Parent.Parent.CopySelectionAsync();
             return;
         }
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-
-        try
-        {
-            var data = new DataTransfer();
-            ObjectRegenerator.Regenerate(Model, out string json);
-            data.Add(DataTransferItem.CreateText(json));
-            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrame, json));
-
-            await clipboard.SetDataAsync(data);
-        }
-        catch (Exception ex)
+        await KeyFrameClipboardCommands.CopyAsync(Model, BeutlDataFormats.KeyFrame, ex =>
         {
             _logger.LogError(ex, "Failed to copy keyframe");
             NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyKeyframe);
-        }
+        });
     }
 
     internal Task PasteAsync(IClipboard? clipboard = null) => Parent.Parent.PasteSelectionAsync(clipboard, Model);

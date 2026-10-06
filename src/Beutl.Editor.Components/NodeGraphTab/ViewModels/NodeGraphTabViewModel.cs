@@ -310,15 +310,4 @@ public sealed class NodeGraphTabViewModel : IToolContext
 
         return _editorContext.GetService(serviceType);
     }
-
-    internal static GraphModel? FindGraphModel(Element element)
-    {
-        foreach (var obj in element.Objects)
-        {
-            if (obj is NodeGraphDrawable drawable)
-                return drawable.Model.CurrentValue;
-        }
-
-        return null;
-    }
 }

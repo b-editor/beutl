@@ -15,6 +15,15 @@ internal static class PathEditingOperations
 
     internal static Point Lerp(Point a, Point b, float t) => new(float.Lerp(a.X, b.X, t), float.Lerp(a.Y, b.Y, t));
 
+    // Snaps the direction from anchor to point to a multiple of 45 degrees, keeping its length.
+    internal static Point SnapAngle(Point anchor, Point point)
+    {
+        float x = point.X - anchor.X, y = point.Y - anchor.Y;
+        float angle = MathF.Round(MathF.Atan2(y, x) / (MathF.PI / 4)) * (MathF.PI / 4);
+        float length = MathF.Sqrt(x * x + y * y);
+        return new(anchor.X + MathF.Cos(angle) * length, anchor.Y + MathF.Sin(angle) * length);
+    }
+
     internal static Point Start(PathFigure figure, int index, CompositionContext context)
     {
         if (index > 0) return figure.Segments[index - 1].GetEndPoint().GetValue(context);

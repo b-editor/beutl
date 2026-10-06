@@ -75,21 +75,7 @@ internal static class CompatibleNodeFinder
             }
 
             if (item is not GraphNodeRegistry.RegistryItem registry) return;
-            if (graph is not GraphGroup
-                && (typeof(GroupInput).IsAssignableFrom(registry.Type)
-                    || typeof(GroupOutput).IsAssignableFrom(registry.Type)))
-                return;
-            if (graph is GraphGroup existingGroup
-                && (typeof(GroupInput).IsAssignableFrom(registry.Type) && existingGroup.Nodes.Any(n => n is GroupInput)
-                    || typeof(GroupOutput).IsAssignableFrom(registry.Type) && existingGroup.Nodes.Any(n => n is GroupOutput)))
-                return;
-
-            // OutputNode declares object but the graph renderers consume RenderNode values only.
-            if (typeof(OutputNode).IsAssignableFrom(registry.Type)
-                && (graph is GraphGroup || source is not IOutputPort output
-                    || output.AssociatedType is not { } type
-                    || (type != typeof(object) && !typeof(RenderNode).IsAssignableFrom(type))))
-                return;
+            if (IsExcludedNodeType(graph, source, registry)) return;
 
             NodeDescriptor descriptor;
             try
@@ -110,6 +96,28 @@ internal static class CompatibleNodeFinder
                 ports = [null];
             if (ports.Length > 0) result.Add(registry, new Candidate(registry, ports));
         }
+    }
+
+    // Group ports belong only inside a group, once each; an output node only takes render output.
+    private static bool IsExcludedNodeType(GraphModel graph, INodePort source, GraphNodeRegistry.RegistryItem registry)
+    {
+        if (graph is not GraphGroup
+            && (typeof(GroupInput).IsAssignableFrom(registry.Type)
+                || typeof(GroupOutput).IsAssignableFrom(registry.Type)))
+            return true;
+        if (graph is GraphGroup existingGroup
+            && (typeof(GroupInput).IsAssignableFrom(registry.Type) && existingGroup.Nodes.Any(n => n is GroupInput)
+                || typeof(GroupOutput).IsAssignableFrom(registry.Type) && existingGroup.Nodes.Any(n => n is GroupOutput)))
+            return true;
+
+        // OutputNode declares object but the graph renderers consume RenderNode values only.
+        if (typeof(OutputNode).IsAssignableFrom(registry.Type)
+            && (graph is GraphGroup || source is not IOutputPort output
+                || output.AssociatedType is not { } type
+                || (type != typeof(object) && !typeof(RenderNode).IsAssignableFrom(type))))
+            return true;
+
+        return false;
     }
 
     private static NodeDescriptor CreateDescriptor(Type type)

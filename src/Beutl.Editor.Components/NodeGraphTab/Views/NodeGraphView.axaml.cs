@@ -16,13 +16,14 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public partial class NodeGraphView : UserControl
 {
+    // GraphNodeView's Width in GraphNodeView.axaml.
+    private const int GraphNodeWidth = 215;
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
     private Point _rightClickedPosition;
-    internal Point _leftClickedPosition;
     private bool _rangeSelectionPressed;
     private readonly List<(GraphNodeView GraphNode, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
@@ -98,7 +99,7 @@ public partial class NodeGraphView : UserControl
             && e.DataTransfer.TryGetValue(BeutlDataFormats.GraphNode) is { } typeName
             && TypeFormat.ToType(typeName) is { } item)
         {
-            Point point = e.GetPosition(canvas) - new Point(215 / 2, 0);
+            Point point = e.GetPosition(canvas) - new Point(GraphNodeWidth / 2, 0);
             viewModel.AddNodePort(item, point);
         }
     }
@@ -229,8 +230,6 @@ public partial class NodeGraphView : UserControl
         }
         else if (point.Properties.IsLeftButtonPressed)
         {
-            _leftClickedPosition = point.Position;
-
             if (e.KeyModifiers == KeyModifiers.Control
                 && e.Source is ZoomBorder)
             {
@@ -334,7 +333,7 @@ public partial class NodeGraphView : UserControl
             {
                 if (DataContext == viewModel && source.Model == sourcePort)
                     viewModel.TryAddSuggestedNode(candidate, choice, sourcePort,
-                        new Point(canvasPoint.X - 215 / 2d, canvasPoint.Y));
+                        new Point(canvasPoint.X - GraphNodeWidth / 2d, canvasPoint.Y));
             }
             finally
             {
@@ -456,16 +455,7 @@ public partial class NodeGraphView : UserControl
                         canvas.Children.Remove(control);
                     }
                 },
-                () =>
-                {
-                    for (int i = canvas.Children.Count - 1; i >= 0; i--)
-                    {
-                        if (canvas.Children[i] is GraphNodeView)
-                        {
-                            canvas.Children.RemoveAt(i);
-                        }
-                    }
-                })
+                () => RemoveCanvasChildren<GraphNodeView>())
             .DisposeWith(_disposables);
 
         obj.AllConnections.ForEachItem(
@@ -486,21 +476,24 @@ public partial class NodeGraphView : UserControl
                         }
                     }
                 },
-                () =>
-                {
-                    for (int i = canvas.Children.Count - 1; i >= 0; i--)
-                    {
-                        if (canvas.Children[i] is ConnectionLine)
-                        {
-                            canvas.Children.RemoveAt(i);
-                        }
-                    }
-                })
+                () => RemoveCanvasChildren<ConnectionLine>())
             .DisposeWith(_disposables);
 
         obj.Matrix.Where(_ => !_matrixUpdating)
             .Subscribe(m => zoomBorder.SetMatrix(m, true))
             .DisposeWith(_disposables);
+    }
+
+    private void RemoveCanvasChildren<T>()
+        where T : Control
+    {
+        for (int i = canvas.Children.Count - 1; i >= 0; i--)
+        {
+            if (canvas.Children[i] is T)
+            {
+                canvas.Children.RemoveAt(i);
+            }
+        }
     }
 
     private void OnDataContextDetached(NodeGraphViewModel obj)

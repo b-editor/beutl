@@ -132,44 +132,10 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
 
         object current = _property.GetValue() ?? (_choice.Kind == GenerativeChoiceKind.Duration ? 0 : string.Empty);
         GenerativeModelInfo? model = CurrentModel();
-        GenerativeVideoCapabilities? video = _choice.Node.Operation is GenerativeOperation.VideoGeneration or GenerativeOperation.VideoEdit
-            ? model?.Video ?? GenerativeVideoCapabilities.Unrestricted
-            : null;
-        GenerativeImageCapabilities image = model?.Image ?? new GenerativeImageCapabilities(null, null, true, int.MaxValue);
-        List<(object Value, string Label)> options = _choice.Kind switch
-        {
-            // As in the AI tab, there is no "default" entry: an input left empty shows and
-            // runs on the model the picker would start on.
-            GenerativeChoiceKind.Model => _models.Select(m => ((object)m.Id, m.Label)).ToList(),
-            GenerativeChoiceKind.AspectRatio =>
-                (video?.AspectRatioChoices ?? image.AspectRatioChoices).Select(v => ((object)v, v)).ToList(),
-            GenerativeChoiceKind.Resolution =>
-                (video ?? GenerativeVideoCapabilities.Unrestricted).ResolutionChoices.Select(v => ((object)v, v)).ToList(),
-            GenerativeChoiceKind.Duration =>
-                (video ?? GenerativeVideoCapabilities.Unrestricted).DurationChoices
-                    .Select(v => ((object)v, $"{v} {Strings.AiVideoSeconds}")).ToList(),
-            _ => image.BackgroundChoices.Select(v => ((object)v, BackgroundLabel(v))).ToList(),
-        };
+        List<(object Value, string Label)> options = BuildOptions(model);
 
-        bool offered = options.Any(option => Equals(option.Value, current));
-        if (_choice.Kind == GenerativeChoiceKind.Model)
-        {
-            if (modelChanged && _catalogLoaded && current is string { Length: > 0 } && !offered)
-            {
-                // Another task's model would be refused; fall back to this task's default.
-                _property.SetValue(string.Empty);
-                return;
-            }
-        }
-        else if (modelChanged && _catalogLoaded && options.Count > 0 && !offered)
-        {
-            // As the dialog does: a value the new model does not take would only be
-            // refused, so fall back to one it does — the nearest length, or the first shape.
-            _property.SetValue(current is int seconds
-                ? options.Select(option => (int)option.Value).MinBy(value => Math.Abs(value - seconds))
-                : options[0].Value);
+        if (TryFallBackToOffered(options, current, modelChanged))
             return;
-        }
 
         object shown = current;
         if (_choice.Kind == GenerativeChoiceKind.Model && current is string { Length: 0 })
@@ -177,7 +143,7 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
 
         // A saved value the list no longer holds is still shown, so it is never silently lost.
         if (shown is not string { Length: 0 } && !options.Any(option => Equals(option.Value, shown)))
-            options.Add((shown, shown is int s2 ? $"{s2} {Strings.AiVideoSeconds}" : shown.ToString() ?? string.Empty));
+            options.Add((shown, shown is int s2 ? DurationLabel(s2) : shown.ToString() ?? string.Empty));
 
         _values = options.Select(option => option.Value).ToArray();
         _items = options.Select(option => new EnumItem(option.Label, string.Empty, option.Value)).ToArray();
@@ -196,6 +162,56 @@ internal sealed class GenerativeChoiceEditorViewModel : IPropertyEditorContext
             _rebuilding = false;
         }
     }
+
+    private List<(object Value, string Label)> BuildOptions(GenerativeModelInfo? model)
+    {
+        GenerativeVideoCapabilities? video = _choice.Node.Operation is GenerativeOperation.VideoGeneration or GenerativeOperation.VideoEdit
+            ? model?.Video ?? GenerativeVideoCapabilities.Unrestricted
+            : null;
+        GenerativeImageCapabilities image = model?.Image ?? new GenerativeImageCapabilities(null, null, true, int.MaxValue);
+        return _choice.Kind switch
+        {
+            // As in the AI tab, there is no "default" entry: an input left empty shows and
+            // runs on the model the picker would start on.
+            GenerativeChoiceKind.Model => _models.Select(m => ((object)m.Id, m.Label)).ToList(),
+            GenerativeChoiceKind.AspectRatio =>
+                (video?.AspectRatioChoices ?? image.AspectRatioChoices).Select(v => ((object)v, v)).ToList(),
+            GenerativeChoiceKind.Resolution =>
+                (video ?? GenerativeVideoCapabilities.Unrestricted).ResolutionChoices.Select(v => ((object)v, v)).ToList(),
+            GenerativeChoiceKind.Duration =>
+                (video ?? GenerativeVideoCapabilities.Unrestricted).DurationChoices
+                    .Select(v => ((object)v, DurationLabel(v))).ToList(),
+            _ => image.BackgroundChoices.Select(v => ((object)v, BackgroundLabel(v))).ToList(),
+        };
+    }
+
+    // Returns true when the stored value was replaced; that change posts another rebuild.
+    private bool TryFallBackToOffered(List<(object Value, string Label)> options, object current, bool modelChanged)
+    {
+        bool offered = options.Any(option => Equals(option.Value, current));
+        if (_choice.Kind == GenerativeChoiceKind.Model)
+        {
+            if (modelChanged && _catalogLoaded && current is string { Length: > 0 } && !offered)
+            {
+                // Another task's model would be refused; fall back to this task's default.
+                _property.SetValue(string.Empty);
+                return true;
+            }
+        }
+        else if (modelChanged && _catalogLoaded && options.Count > 0 && !offered)
+        {
+            // As the dialog does: a value the new model does not take would only be
+            // refused, so fall back to one it does — the nearest length, or the first shape.
+            _property.SetValue(current is int seconds
+                ? options.Select(option => (int)option.Value).MinBy(value => Math.Abs(value - seconds))
+                : options[0].Value);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string DurationLabel(int seconds) => $"{seconds} {Strings.AiVideoSeconds}";
 
     private GenerativeModelInfo? CurrentModel()
     {

@@ -59,32 +59,44 @@ public class NodePortViewModel : NodeMemberViewModel
         }
     }
 
+    // Output and list ports own their connection list; input ports observe a single connection.
+    private CoreList<Reference<Connection>>? ModelConnections => Model switch
+    {
+        IOutputPort outputNodePort => outputNodePort.Connections,
+        IListPort outputNodePort => outputNodePort.Connections,
+        _ => null
+    };
+
+    // Reuses the graph's view model for the connection, or creates and registers one;
+    // null when the reference no longer resolves.
+    private ConnectionViewModel? AttachConnection(Reference<Connection> connection)
+    {
+        var graph = GraphNodeViewModel.NodeGraphViewModel;
+        // すでに存在する場合はスキップする
+        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
+        if (connVM == null)
+        {
+            if (connection.Value == null) return null;
+
+            connVM = new ConnectionViewModel(graph, connection.Value);
+            graph.AllConnections.Add(connVM);
+        }
+
+        SetViewModel(connVM);
+        return connVM;
+    }
+
     private void SubscribeModelConnections()
     {
-        var connections = Model switch
-        {
-            IOutputPort outputNodePort => outputNodePort.Connections,
-            IListPort outputNodePort => outputNodePort.Connections,
-            _ => null
-        };
+        var connections = ModelConnections;
 
         if (connections != null)
         {
             connections.ForEachItem(
                     connection =>
                     {
-                        var graph = GraphNodeViewModel.NodeGraphViewModel;
-                        // すでに存在する場合はスキップする
-                        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
-                        if (connVM == null)
-                        {
-                            if (connection.Value == null) return;
+                        if (AttachConnection(connection) is not { } connVM) return;
 
-                            connVM = new ConnectionViewModel(graph, connection.Value);
-                            graph.AllConnections.Add(connVM);
-                        }
-
-                        SetViewModel(connVM);
                         if (!Connections.Contains(connVM))
                         {
                             Connections.Insert(GetInsertionIndex(connection.Id), connVM);
@@ -111,22 +123,8 @@ public class NodePortViewModel : NodeMemberViewModel
                     {
                         Connections.Clear();
                     }
-                    else
+                    else if (AttachConnection(connection) is { } connVM)
                     {
-                        var graph = GraphNodeViewModel.NodeGraphViewModel;
-                        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
-                        if (connVM == null)
-                        {
-                            if (connection.Value == null)
-                            {
-                                return;
-                            }
-
-                            connVM = new ConnectionViewModel(graph, connection.Value);
-                            graph.AllConnections.Add(connVM);
-                        }
-
-                        SetViewModel(connVM);
                         Connections.Add(connVM);
                     }
                 })
@@ -136,12 +134,7 @@ public class NodePortViewModel : NodeMemberViewModel
 
     public int GetInsertionIndex(Guid id)
     {
-        var connections = Model switch
-        {
-            IOutputPort outputNodePort => outputNodePort.Connections,
-            IListPort outputNodePort => outputNodePort.Connections,
-            _ => null
-        };
+        var connections = ModelConnections;
         if (connections == null)
             return Connections.Count;
 

@@ -36,23 +36,15 @@ public class ConnectionViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        InputPortVM.CombineWithPrevious()
-            .Subscribe(tuple =>
-            {
-                if (tuple.OldValue != null)
-                {
-                    tuple.OldValue.Connections.Remove(this);
-                }
+        TrackPortMembership(InputPortVM);
+        TrackPortMembership(OutputPortVM);
+    }
 
-                if (tuple.NewValue != null && !tuple.NewValue.Connections.Contains(this))
-                {
-                    int index = tuple.NewValue.GetInsertionIndex(Connection.Id);
-                    tuple.NewValue.Connections.Insert(index, this);
-                }
-            })
-            .DisposeWith(_disposables);
-
-        OutputPortVM.CombineWithPrevious()
+    // Keeps this connection listed on whichever port view model it currently attaches to.
+    private void TrackPortMembership<T>(ReactiveProperty<T?> port)
+        where T : NodePortViewModel
+    {
+        port.CombineWithPrevious()
             .Subscribe(tuple =>
             {
                 if (tuple.OldValue != null)

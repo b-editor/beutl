@@ -49,7 +49,7 @@ internal sealed class GraphEditorDragSnapshot
     {
         if (Entries.Length == 0) return;
         var editor = _channel.Parent;
-        int rate = editor.Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
+        int rate = editor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         var changes = Entries.Select(entry => (Entry: entry, Result: transform(entry))).ToArray();
         if (changes.Any(change => !double.IsFinite(change.Result.Time))) return;
         // Clamp the group as a whole so its spacing is preserved at time zero.
@@ -64,6 +64,21 @@ internal sealed class GraphEditorDragSnapshot
         // Reject the whole proposal before changing values or tangents. A drag can continue
         // past the occupied frame while retaining its last valid state at a collision.
         if (times.Distinct().Count() != times.Length || times.Any(occupied.Contains)) return;
+        WriteValues(editor, changes);
+        WriteKeyTimes(changes, times);
+
+        Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> handles = ProjectHandles(selected, timeScale, valueScale);
+        if (transformHandles)
+        {
+            // Only handles inside the selected span are directly scaled. The other handle
+            // at a boundary follows the same coupling rules as a direct handle drag.
+            CoupleBoundaryHandles(handles, selected, editor);
+        }
+        RewriteSegments(handles, selected, timeScale);
+    }
+
+    private void WriteValues(GraphEditorViewModel editor, (Entry Entry, (double Time, double Value) Result)[] changes)
+    {
         foreach (var (entry, result) in changes)
         {
             double number = editor.Factory is { } factory
@@ -72,11 +87,19 @@ internal sealed class GraphEditorDragSnapshot
                 && _channel.TryConvertFromDouble(entry.Value, number, editor.Animation.ValueType, out var value))
                 entry.Model.Value = value;
         }
+    }
+
+    private static void WriteKeyTimes((Entry Entry, (double Time, double Value) Result)[] changes, TimeSpan[] times)
+    {
         foreach (var (entry, time) in changes.Select((change, index) => (change.Entry, Time: times[index])).OrderByDescending(x => x.Time))
         {
             entry.Model.KeyTime = time;
         }
+    }
 
+    private Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> ProjectHandles(
+        HashSet<IKeyFrame> selected, double timeScale, double valueScale)
+    {
         var handles = new Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)>();
         Point Scale(Point point) => new(point.X * timeScale, point.Y * valueScale);
         foreach (var (key, original) in _handles)
@@ -90,26 +113,33 @@ internal sealed class GraphEditorDragSnapshot
             Point? outgoing = timeScale < 0 ? original.Incoming : original.Outgoing;
             handles[key] = (incoming is { } left ? Scale(left) : null, outgoing is { } right ? Scale(right) : null);
         }
-        if (transformHandles)
+
+        return handles;
+    }
+
+    private void CoupleBoundaryHandles(
+        Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> handles, HashSet<IKeyFrame> selected, GraphEditorViewModel editor)
+    {
+        int firstSelected = _channel.KeyFrames.IndexOf(_channel.KeyFrames.First(key => selected.Contains(key.Model)));
+        int lastSelected = _channel.KeyFrames.IndexOf(_channel.KeyFrames.Last(key => selected.Contains(key.Model)));
+        for (int i = 0; i < _channel.KeyFrames.Count; i++)
         {
-            // Only handles inside the selected span are directly scaled. The other handle
-            // at a boundary follows the same coupling rules as a direct handle drag.
-            int firstSelected = _channel.KeyFrames.IndexOf(_channel.KeyFrames.First(key => selected.Contains(key.Model)));
-            int lastSelected = _channel.KeyFrames.IndexOf(_channel.KeyFrames.Last(key => selected.Contains(key.Model)));
-            for (int i = 0; i < _channel.KeyFrames.Count; i++)
-            {
-                var key = _channel.KeyFrames[i].Model;
-                if (!selected.Contains(key) || !_handles.TryGetValue(key, out var original)) continue;
-                bool incomingSelected = i > firstSelected;
-                bool outgoingSelected = i < lastSelected;
-                var pair = handles[key];
-                if (outgoingSelected && !incomingSelected && original.Incoming is { } before && pair.Outgoing is { } outgoing)
-                    pair.Incoming = GraphEditorTangentCoupling.Opposite(editor, outgoing, before);
-                if (incomingSelected && !outgoingSelected && original.Outgoing is { } after && pair.Incoming is { } incoming)
-                    pair.Outgoing = GraphEditorTangentCoupling.Opposite(editor, incoming, after);
-                handles[key] = pair;
-            }
+            var key = _channel.KeyFrames[i].Model;
+            if (!selected.Contains(key) || !_handles.TryGetValue(key, out var original)) continue;
+            bool incomingSelected = i > firstSelected;
+            bool outgoingSelected = i < lastSelected;
+            var pair = handles[key];
+            if (outgoingSelected && !incomingSelected && original.Incoming is { } before && pair.Outgoing is { } outgoing)
+                pair.Incoming = GraphEditorTangentCoupling.Opposite(editor, outgoing, before);
+            if (incomingSelected && !outgoingSelected && original.Outgoing is { } after && pair.Incoming is { } incoming)
+                pair.Outgoing = GraphEditorTangentCoupling.Opposite(editor, incoming, after);
+            handles[key] = pair;
         }
+    }
+
+    private void RewriteSegments(
+        Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> handles, HashSet<IKeyFrame> selected, double timeScale)
+    {
         for (int i = 1; i < _channel.KeyFrames.Count; i++)
         {
             var item = _channel.KeyFrames[i];
