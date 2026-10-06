@@ -9,7 +9,6 @@ namespace Beutl.Graphics.Shaders;
 internal static class SkRuntimeEffectProgramCache
 {
     private const long DefaultRetainedByteBudget = 16 * 1024 * 1024;
-    private const string ColorAlphaFormatContract = "linear-premultiplied-rgba16f";
     private static readonly object s_cpuDestinationContext = new();
     private static readonly object s_defaultCompileOptions = new();
     private static readonly ConditionalWeakTable<GRRecordingContext, object> s_destinationContextIdentities = new();
@@ -29,7 +28,7 @@ internal static class SkRuntimeEffectProgramCache
             context.DeviceIdentity,
             context.ContextIdentity,
             budget.CapabilityClass,
-            ColorAlphaFormatContract,
+            ProgramCacheContextKey.LinearPremultipliedRgba16FContract,
             s_defaultCompileOptions);
     }
 

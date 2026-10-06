@@ -22,22 +22,10 @@ public sealed class ShaderDescription
         RenderHitTestContract? hitTest,
         IReadOnlyList<RenderResourceBinding> hitTestResources)
     {
-        IReadOnlyList<ShaderUniformBinding> uniforms;
-        IReadOnlyList<ShaderResourceBinding> resources;
-        ShaderBindingBuilder? builder = null;
-        if (bindings is null)
-        {
-            uniforms = Array.Empty<ShaderUniformBinding>();
-            resources = Array.Empty<ShaderResourceBinding>();
-        }
-        else
-        {
-            builder = new ShaderBindingBuilder();
-            bindings(builder);
-            builder.Close();
-            uniforms = builder.Uniforms;
-            resources = builder.Resources;
-        }
+        ShaderBindingBuilder? builder = DeclareBindings(
+            bindings,
+            out IReadOnlyList<ShaderUniformBinding> uniforms,
+            out IReadOnlyList<ShaderResourceBinding> resources);
         ShaderDescriptionKind kind = parsed.Kind;
         ValidateBindings(parsed, builder, uniforms, resources, kind);
 
@@ -48,40 +36,12 @@ public sealed class ShaderDescription
         HitTestResources = hitTestResources;
         Uniforms = uniforms;
         Resources = resources;
-        // Every resource binding is produced by an execution binder; a uniform may or may not be. Indexed
-        // rather than queried: a description is built once per recording, so an enumerator here is garbage
-        // once a frame.
-        bool hasExecutionContextBinder = Resources.Count > 0;
-        for (int index = 0; !hasExecutionContextBinder && index < Uniforms.Count; index++)
-            hasExecutionContextBinder = Uniforms[index].ReadsExecutionContext;
-        HasExecutionContextBinder = hasExecutionContextBinder;
+        HasExecutionContextBinder = ComputeHasExecutionContextBinder(Uniforms, Resources);
         SourceTileMode = sourceTileMode;
         spirvLowering?.ValidateForDescription(kind, parsed, Uniforms, Resources);
         SpirvLowering = spirvLowering;
-        ShaderBindingStructuralIdentity[] uniformIdentities = Uniforms.Count == 0
-            ? Array.Empty<ShaderBindingStructuralIdentity>()
-            : new ShaderBindingStructuralIdentity[Uniforms.Count];
-        for (int index = 0; index < uniformIdentities.Length; index++)
-        {
-            ShaderUniformBinding uniform = Uniforms[index];
-            uniformIdentities[index] = new ShaderBindingStructuralIdentity(
-                uniform.Name,
-                uniform.DefinitionFingerprint);
-        }
-
-        ShaderResourceStructuralIdentity[] resourceIdentities = Resources.Count == 0
-            ? Array.Empty<ShaderResourceStructuralIdentity>()
-            : new ShaderResourceStructuralIdentity[Resources.Count];
-        for (int index = 0; index < resourceIdentities.Length; index++)
-        {
-            ShaderResourceBinding resource = Resources[index];
-            resourceIdentities[index] = new ShaderResourceStructuralIdentity(
-                resource.Name,
-                resource.CoordinateSpace,
-                resource.Resource.ValueType,
-                resource.BinderIdentity);
-        }
-
+        ShaderBindingStructuralIdentity[] uniformIdentities = CreateUniformIdentities(Uniforms);
+        ShaderResourceStructuralIdentity[] resourceIdentities = CreateResourceIdentities(Resources);
         StructuralIdentity = new ShaderDescriptionStructuralIdentity(
             kind,
             parsed.Text,
@@ -92,6 +52,74 @@ public sealed class ShaderDescription
             sourceTileMode,
             uniformIdentities,
             resourceIdentities);
+    }
+
+    /// <summary>Runs the declaration callback, if any, and returns the closed builder it filled.</summary>
+    private static ShaderBindingBuilder? DeclareBindings(
+        Action<ShaderBindingBuilder>? bindings,
+        out IReadOnlyList<ShaderUniformBinding> uniforms,
+        out IReadOnlyList<ShaderResourceBinding> resources)
+    {
+        if (bindings is null)
+        {
+            uniforms = Array.Empty<ShaderUniformBinding>();
+            resources = Array.Empty<ShaderResourceBinding>();
+            return null;
+        }
+
+        var builder = new ShaderBindingBuilder();
+        bindings(builder);
+        builder.Close();
+        uniforms = builder.Uniforms;
+        resources = builder.Resources;
+        return builder;
+    }
+
+    private static bool ComputeHasExecutionContextBinder(
+        IReadOnlyList<ShaderUniformBinding> uniforms,
+        IReadOnlyList<ShaderResourceBinding> resources)
+    {
+        // Every resource binding is produced by an execution binder; a uniform may or may not be. Indexed
+        // rather than queried: a description is built once per recording, so an enumerator here is garbage
+        // once a frame.
+        bool hasExecutionContextBinder = resources.Count > 0;
+        for (int index = 0; !hasExecutionContextBinder && index < uniforms.Count; index++)
+            hasExecutionContextBinder = uniforms[index].ReadsExecutionContext;
+        return hasExecutionContextBinder;
+    }
+
+    private static ShaderBindingStructuralIdentity[] CreateUniformIdentities(IReadOnlyList<ShaderUniformBinding> uniforms)
+    {
+        ShaderBindingStructuralIdentity[] uniformIdentities = uniforms.Count == 0
+            ? Array.Empty<ShaderBindingStructuralIdentity>()
+            : new ShaderBindingStructuralIdentity[uniforms.Count];
+        for (int index = 0; index < uniformIdentities.Length; index++)
+        {
+            ShaderUniformBinding uniform = uniforms[index];
+            uniformIdentities[index] = new ShaderBindingStructuralIdentity(
+                uniform.Name,
+                uniform.DefinitionFingerprint);
+        }
+
+        return uniformIdentities;
+    }
+
+    private static ShaderResourceStructuralIdentity[] CreateResourceIdentities(IReadOnlyList<ShaderResourceBinding> resources)
+    {
+        ShaderResourceStructuralIdentity[] resourceIdentities = resources.Count == 0
+            ? Array.Empty<ShaderResourceStructuralIdentity>()
+            : new ShaderResourceStructuralIdentity[resources.Count];
+        for (int index = 0; index < resourceIdentities.Length; index++)
+        {
+            ShaderResourceBinding resource = resources[index];
+            resourceIdentities[index] = new ShaderResourceStructuralIdentity(
+                resource.Name,
+                resource.CoordinateSpace,
+                resource.Resource.ValueType,
+                resource.BinderIdentity);
+        }
+
+        return resourceIdentities;
     }
 
     /// <summary>Gets whether the stage transforms only the current pixel or samples the complete upstream source.</summary>
@@ -212,23 +240,7 @@ public sealed class ShaderDescription
         Action<ShaderBindingBuilder>? bindings,
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
-    {
-        if (source.Kind != ShaderDescriptionKind.CurrentPixel)
-            throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
-        hitTest?.ThrowIfUninitialized(nameof(hitTest));
-
-        return new ShaderDescription(
-            source,
-            spirvLowering: null,
-            RenderBoundsContract.Identity,
-            RenderInputDemandContract.Unchanged,
-            bindings,
-            SKShaderTileMode.Decal,
-            hitTest,
-            RenderDescriptionValidation.CopyResourceBindings(
-                hitTestResources,
-                nameof(hitTestResources)));
-    }
+        => CreateCurrentPixel(source, spirvLowering: null, bindings, hitTest, hitTestResources);
 
     /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
     /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
@@ -240,21 +252,7 @@ public sealed class ShaderDescription
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         ArgumentNullException.ThrowIfNull(spirvLowering);
-        if (source.Kind != ShaderDescriptionKind.CurrentPixel)
-            throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
-        hitTest?.ThrowIfUninitialized(nameof(hitTest));
-
-        return new ShaderDescription(
-            source,
-            spirvLowering,
-            RenderBoundsContract.Identity,
-            RenderInputDemandContract.Unchanged,
-            bindings,
-            SKShaderTileMode.Decal,
-            hitTest,
-            RenderDescriptionValidation.CopyResourceBindings(
-                hitTestResources,
-                nameof(hitTestResources)));
+        return CreateCurrentPixel(source, spirvLowering, bindings, hitTest, hitTestResources);
     }
 
     /// <summary>Creates a materializing shader stage that may sample arbitrary upstream locations.</summary>
@@ -290,22 +288,15 @@ public sealed class ShaderDescription
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
-        bounds.ThrowIfUninitialized(nameof(bounds));
-        hitTest?.ThrowIfUninitialized(nameof(hitTest));
-        if (!Enum.IsDefined(sourceTileMode))
-            throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
-
-        return new ShaderDescription(
+        ThrowIfInvalidWholeSourceContract(bounds, hitTest, sourceTileMode);
+        return CreateWholeSource(
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
-            spirvLowering: null,
             bounds,
-            inputDemand,
             bindings,
             sourceTileMode,
+            inputDemand,
             hitTest,
-            RenderDescriptionValidation.CopyResourceBindings(
-                hitTestResources,
-                nameof(hitTestResources)));
+            hitTestResources);
     }
 
     /// <summary>Creates a materializing shader stage from a source that was already normalized and validated.</summary>
@@ -321,12 +312,54 @@ public sealed class ShaderDescription
     {
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
+        ThrowIfInvalidWholeSourceContract(bounds, hitTest, sourceTileMode);
+        return CreateWholeSource(source, bounds, bindings, sourceTileMode, inputDemand, hitTest, hitTestResources);
+    }
+
+    private static ShaderDescription CreateCurrentPixel(
+        SkslSource source,
+        SpirvShaderLowering? spirvLowering,
+        Action<ShaderBindingBuilder>? bindings,
+        RenderHitTestContract? hitTest,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources)
+    {
+        if (source.Kind != ShaderDescriptionKind.CurrentPixel)
+            throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
+
+        return new ShaderDescription(
+            source,
+            spirvLowering,
+            RenderBoundsContract.Identity,
+            RenderInputDemandContract.Unchanged,
+            bindings,
+            SKShaderTileMode.Decal,
+            hitTest,
+            RenderDescriptionValidation.CopyResourceBindings(
+                hitTestResources,
+                nameof(hitTestResources)));
+    }
+
+    private static void ThrowIfInvalidWholeSourceContract(
+        RenderBoundsContract bounds,
+        RenderHitTestContract? hitTest,
+        SKShaderTileMode sourceTileMode)
+    {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest?.ThrowIfUninitialized(nameof(hitTest));
         if (!Enum.IsDefined(sourceTileMode))
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
+    }
 
-        return new ShaderDescription(
+    private static ShaderDescription CreateWholeSource(
+        SkslSource source,
+        RenderBoundsContract bounds,
+        Action<ShaderBindingBuilder>? bindings,
+        SKShaderTileMode sourceTileMode,
+        RenderInputDemandContract inputDemand,
+        RenderHitTestContract? hitTest,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources)
+        => new(
             source,
             spirvLowering: null,
             bounds,
@@ -337,7 +370,6 @@ public sealed class ShaderDescription
             RenderDescriptionValidation.CopyResourceBindings(
                 hitTestResources,
                 nameof(hitTestResources)));
-    }
 
     private static void ValidateBindings(
         SkslSource source,

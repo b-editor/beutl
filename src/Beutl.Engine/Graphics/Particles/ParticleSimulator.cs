@@ -13,6 +13,9 @@ internal sealed class ParticleSimulator
     // fps frame sits ~1.7e-5 steps early) are never snapped.
     private const double TickTruncationStepTolerance = 8e-6d;
     private const double MaximumSnapTolerance = 2.5e-5d;
+    // A float timestamp's own ulp grows along the timeline, so its snap is capped at a quarter step instead:
+    // never far enough to reach past the midpoint between two steps.
+    private const double MaximumFloatSnapTolerance = 0.25d;
     private const int CheckpointIntervalSteps = 30;
     private const int MaxCheckpoints = 120;
 
@@ -76,12 +79,70 @@ internal sealed class ParticleSimulator
         }
 
         int targetStep = ResolveTargetStep(time);
+        RestoreNearestCheckpoint(targetStep, out int currentStep, out float currentTime, out int rngSkipCount);
 
-        // Find the nearest canonical fixed-step checkpoint before the requested time.
-        int currentStep = 0;
-        float currentTime = 0;
+        var rng = new CountingRandom(seed, rngSkipCount);
+
+        var emission = new EmissionSettings(
+            emitterShape,
+            emitterWidth,
+            emitterHeight,
+            maxParticles,
+            emissionRate,
+            lifetime,
+            lifetimeRandom,
+            speed,
+            speedRandom,
+            DirectionRadians: direction * MathF.PI / 180f,
+            SpreadRadians: spread * MathF.PI / 180f,
+            particleSize,
+            sizeRandom,
+            color,
+            particleOpacity,
+            initialRotation,
+            initialRotationRandom,
+            angularVelocity);
+        var motion = new MotionSettings(
+            seed,
+            gravity,
+            airResistance,
+            turbulenceStrength,
+            turbulenceScale,
+            turbulenceSpeed,
+            endSizeMultiplier,
+            endOpacityMultiplier,
+            endColor,
+            useEndColor);
+
+        while (currentStep < targetStep)
+        {
+            EmitParticles(in emission, rng, currentTime, FixedDeltaTime);
+            IntegrateParticles(in motion, currentTime, FixedDeltaTime);
+            currentStep++;
+            // Deriving the time from the step keeps birth times and turbulence phases on the
+            // canonical timeline; accumulating float deltas drifts ~102 ms over ten minutes.
+            currentTime = (float)(currentStep * (double)FixedDeltaTime);
+            if (currentStep % CheckpointIntervalSteps == 0)
+            {
+                SaveCheckpoint(currentStep, currentTime, rng.CallCount);
+            }
+        }
+
+        // Particle state is defined only at canonical fixed steps. Advancing a query-specific
+        // remainder would make equivalent frame timestamps such as 89 / 30 and 2.9667 produce
+        // different state and consume an extra random sample.
+    }
+
+    /// <summary>
+    /// Loads the nearest canonical fixed-step checkpoint at or before <paramref name="targetStep"/>, or the empty
+    /// initial state when none is retained, and drops the checkpoints a backward seek has invalidated.
+    /// </summary>
+    private void RestoreNearestCheckpoint(int targetStep, out int currentStep, out float currentTime, out int rngSkipCount)
+    {
+        currentStep = 0;
+        currentTime = 0;
         _aliveCount = 0;
-        int rngSkipCount = 0;
+        rngSkipCount = 0;
         int checkpointIndex = -1;
 
         for (int i = _checkpoints.Count - 1; i >= 0; i--)
@@ -110,142 +171,125 @@ internal sealed class ParticleSimulator
             // The requested time predates the oldest retained checkpoint.
             _checkpoints.Clear();
         }
+    }
 
-        var rng = new CountingRandom(seed, rngSkipCount);
+    /// <summary>Emits the particles born during the step that starts at <paramref name="currentTime"/>.</summary>
+    private void EmitParticles(in EmissionSettings emission, CountingRandom rng, float currentTime, float dt)
+    {
+        // Emit particles
+        float emitCount = emission.EmissionRate * dt;
+        int toEmit = (int)emitCount;
+        float frac = emitCount - toEmit;
+        if (rng.NextSingle() < frac)
+            toEmit++;
 
-        float dirRad = direction * MathF.PI / 180f;
-        float spreadRad = spread * MathF.PI / 180f;
-
-        void Advance(float dt)
+        for (int i = 0; i < toEmit; i++)
         {
-            // Emit particles
-            float emitCount = emissionRate * dt;
-            int toEmit = (int)emitCount;
-            float frac = emitCount - toEmit;
-            if (rng.NextSingle() < frac)
-                toEmit++;
+            if (_aliveCount >= emission.MaxParticles)
+                break;
 
-            for (int i = 0; i < toEmit; i++)
+            EnsureCapacity(_aliveCount + 1);
+
+            ref Particle p = ref _particles[_aliveCount];
+            p.BirthTime = currentTime;
+            p.Lifetime = emission.Lifetime + (rng.NextSingle() * 2f - 1f) * emission.LifetimeRandom;
+            if (p.Lifetime < 0.01f) p.Lifetime = 0.01f;
+
+            // Emitter shape position
+            SpawnPosition(rng, emission.Shape, emission.Width, emission.Height, out p.X, out p.Y);
+
+            // Velocity
+            float spd = emission.Speed + (rng.NextSingle() * 2f - 1f) * emission.SpeedRandom;
+            float angle = emission.DirectionRadians + (rng.NextSingle() * 2f - 1f) * emission.SpreadRadians;
+            p.VelocityX = MathF.Cos(angle) * spd;
+            p.VelocityY = MathF.Sin(angle) * spd;
+
+            // Size
+            p.BaseSize = emission.ParticleSize + (rng.NextSingle() * 2f - 1f) * emission.SizeRandom;
+            if (p.BaseSize < 0) p.BaseSize = 0;
+
+            p.BaseOpacity = emission.ParticleOpacity;
+            p.BaseColor = emission.Color;
+
+            // Rotation
+            p.Rotation = emission.InitialRotation + (rng.NextSingle() * 2f - 1f) * emission.InitialRotationRandom;
+            p.AngularVelocity = emission.AngularVelocity;
+
+            p.IsAlive = true;
+            _aliveCount++;
+        }
+    }
+
+    /// <summary>Ages, moves and restyles every live particle across the step that starts at <paramref name="currentTime"/>.</summary>
+    private void IntegrateParticles(in MotionSettings motion, float currentTime, float dt)
+    {
+        // Update particles
+        Span<Particle> span = _particles.AsSpan(0, _aliveCount);
+        for (int i = span.Length - 1; i >= 0; i--)
+        {
+            ref Particle p = ref span[i];
+            if (!p.IsAlive) continue;
+
+            float age = currentTime + dt - p.BirthTime;
+            if (age >= p.Lifetime)
             {
-                if (_aliveCount >= maxParticles)
-                    break;
-
-                EnsureCapacity(_aliveCount + 1);
-
-                ref Particle p = ref _particles[_aliveCount];
-                p.BirthTime = currentTime;
-                p.Lifetime = lifetime + (rng.NextSingle() * 2f - 1f) * lifetimeRandom;
-                if (p.Lifetime < 0.01f) p.Lifetime = 0.01f;
-
-                // Emitter shape position
-                SpawnPosition(rng, emitterShape, emitterWidth, emitterHeight, out p.X, out p.Y);
-
-                // Velocity
-                float spd = speed + (rng.NextSingle() * 2f - 1f) * speedRandom;
-                float angle = dirRad + (rng.NextSingle() * 2f - 1f) * spreadRad;
-                p.VelocityX = MathF.Cos(angle) * spd;
-                p.VelocityY = MathF.Sin(angle) * spd;
-
-                // Size
-                p.BaseSize = particleSize + (rng.NextSingle() * 2f - 1f) * sizeRandom;
-                if (p.BaseSize < 0) p.BaseSize = 0;
-
-                p.BaseOpacity = particleOpacity;
-                p.BaseColor = color;
-
-                // Rotation
-                p.Rotation = initialRotation + (rng.NextSingle() * 2f - 1f) * initialRotationRandom;
-                p.AngularVelocity = angularVelocity;
-
-                p.IsAlive = true;
-                _aliveCount++;
+                p.IsAlive = false;
+                // Swap with last alive
+                if (i < _aliveCount - 1)
+                {
+                    span[i] = span[_aliveCount - 1];
+                }
+                _aliveCount--;
+                continue;
             }
 
-            // Update particles
-            Span<Particle> span = _particles.AsSpan(0, _aliveCount);
-            for (int i = span.Length - 1; i >= 0; i--)
+            // Gravity
+            p.VelocityY += motion.Gravity * dt;
+
+            // Air resistance
+            if (motion.AirResistance > 0)
             {
-                ref Particle p = ref span[i];
-                if (!p.IsAlive) continue;
+                float factor = 1f - motion.AirResistance * dt;
+                if (factor < 0) factor = 0;
+                p.VelocityX *= factor;
+                p.VelocityY *= factor;
+            }
 
-                float age = currentTime + dt - p.BirthTime;
-                if (age >= p.Lifetime)
-                {
-                    p.IsAlive = false;
-                    // Swap with last alive
-                    if (i < _aliveCount - 1)
-                    {
-                        span[i] = span[_aliveCount - 1];
-                    }
-                    _aliveCount--;
-                    continue;
-                }
+            // Turbulence
+            if (motion.TurbulenceStrength > 0)
+            {
+                float nx = _noise.Perlin(
+                    p.X * motion.TurbulenceScale + currentTime * motion.TurbulenceSpeed,
+                    p.Y * motion.TurbulenceScale + motion.Seed);
+                float ny = _noise.Perlin(
+                    p.Y * motion.TurbulenceScale + motion.Seed,
+                    p.X * motion.TurbulenceScale + currentTime * motion.TurbulenceSpeed);
+                p.VelocityX += (nx - 0.5f) * 2f * motion.TurbulenceStrength * dt;
+                p.VelocityY += (ny - 0.5f) * 2f * motion.TurbulenceStrength * dt;
+            }
 
-                // Gravity
-                p.VelocityY += gravity * dt;
+            // Position integration
+            p.X += p.VelocityX * dt;
+            p.Y += p.VelocityY * dt;
 
-                // Air resistance
-                if (airResistance > 0)
-                {
-                    float factor = 1f - airResistance * dt;
-                    if (factor < 0) factor = 0;
-                    p.VelocityX *= factor;
-                    p.VelocityY *= factor;
-                }
+            // Rotation
+            p.Rotation += p.AngularVelocity * dt;
 
-                // Turbulence
-                if (turbulenceStrength > 0)
-                {
-                    float nx = _noise.Perlin(
-                        p.X * turbulenceScale + currentTime * turbulenceSpeed,
-                        p.Y * turbulenceScale + seed);
-                    float ny = _noise.Perlin(
-                        p.Y * turbulenceScale + seed,
-                        p.X * turbulenceScale + currentTime * turbulenceSpeed);
-                    p.VelocityX += (nx - 0.5f) * 2f * turbulenceStrength * dt;
-                    p.VelocityY += (ny - 0.5f) * 2f * turbulenceStrength * dt;
-                }
+            // Over-life interpolation
+            float t = age / p.Lifetime;
+            p.CurrentSize = p.BaseSize * (1f + (motion.EndSizeMultiplier - 1f) * t);
+            p.CurrentOpacity = p.BaseOpacity * (1f + (motion.EndOpacityMultiplier - 1f) * t);
+            if (p.CurrentOpacity < 0) p.CurrentOpacity = 0;
 
-                // Position integration
-                p.X += p.VelocityX * dt;
-                p.Y += p.VelocityY * dt;
-
-                // Rotation
-                p.Rotation += p.AngularVelocity * dt;
-
-                // Over-life interpolation
-                float t = age / p.Lifetime;
-                p.CurrentSize = p.BaseSize * (1f + (endSizeMultiplier - 1f) * t);
-                p.CurrentOpacity = p.BaseOpacity * (1f + (endOpacityMultiplier - 1f) * t);
-                if (p.CurrentOpacity < 0) p.CurrentOpacity = 0;
-
-                if (useEndColor)
-                {
-                    p.CurrentColor = LerpColor(p.BaseColor, endColor, t);
-                }
-                else
-                {
-                    p.CurrentColor = p.BaseColor;
-                }
+            if (motion.UseEndColor)
+            {
+                p.CurrentColor = LerpColor(p.BaseColor, motion.EndColor, t);
+            }
+            else
+            {
+                p.CurrentColor = p.BaseColor;
             }
         }
-
-        while (currentStep < targetStep)
-        {
-            Advance(FixedDeltaTime);
-            currentStep++;
-            // Deriving the time from the step keeps birth times and turbulence phases on the
-            // canonical timeline; accumulating float deltas drifts ~102 ms over ten minutes.
-            currentTime = (float)(currentStep * (double)FixedDeltaTime);
-            if (currentStep % CheckpointIntervalSteps == 0)
-            {
-                SaveCheckpoint(currentStep, currentTime, rng.CallCount);
-            }
-        }
-
-        // Particle state is defined only at canonical fixed steps. Advancing a query-specific
-        // remainder would make equivalent frame timestamps such as 89 / 30 and 2.9667 produce
-        // different state and consume an extra random sample.
     }
 
     public ReadOnlyMemory<Particle> GetAliveParticles()
@@ -255,38 +299,33 @@ internal sealed class ParticleSimulator
 
     internal static int ResolveTargetStep(float time)
     {
-        double stepPosition = (double)time * 60d;
-        double nearestStep = Math.Round(stepPosition);
         double timeUlp = Math.Max(
             Math.Abs((double)MathF.BitIncrement(time) - time),
             Math.Abs((double)time - MathF.BitDecrement(time)));
+        return SnapToStep((double)time * 60d, timeUlp, MaximumFloatSnapTolerance);
+    }
+
+    internal static int ResolveTargetStep(double time)
+    {
+        double timeUlp = Math.Max(
+            Math.Abs(Math.BitIncrement(time) - time),
+            Math.Abs(time - Math.BitDecrement(time)));
+        return SnapToStep(time * 60d, timeUlp, MaximumSnapTolerance);
+    }
+
+    /// <summary>
+    /// Snaps <paramref name="stepPosition"/> to the nearest whole step when it lies within the rounding error its
+    /// timestamp can carry, capped at <paramref name="maxTolerance"/>, and returns the step it falls in.
+    /// </summary>
+    private static int SnapToStep(double stepPosition, double timeUlp, double maxTolerance)
+    {
+        double nearestStep = Math.Round(stepPosition);
         double arithmeticUlp = Math.Abs(Math.BitIncrement(stepPosition) - stepPosition);
         // Frame timestamps are truncated to 100 ns ticks before they reach the simulator.
         // One tick is at most 6e-6 of a 60 Hz step; keep a fixed margin in addition to
         // the float-relative tolerance so early timestamps snap as reliably as later ones.
         double snapTolerance = Math.Min(
-            0.25d,
-            Math.Max(
-                TickTruncationStepTolerance,
-                (timeUlp * 60d) + (arithmeticUlp * 2d)));
-        if (Math.Abs(stepPosition - nearestStep) <= snapTolerance)
-        {
-            stepPosition = nearestStep;
-        }
-
-        return checked((int)Math.Floor(stepPosition));
-    }
-
-    internal static int ResolveTargetStep(double time)
-    {
-        double stepPosition = time * 60d;
-        double nearestStep = Math.Round(stepPosition);
-        double timeUlp = Math.Max(
-            Math.Abs(Math.BitIncrement(time) - time),
-            Math.Abs(time - Math.BitDecrement(time)));
-        double arithmeticUlp = Math.Abs(Math.BitIncrement(stepPosition) - stepPosition);
-        double snapTolerance = Math.Min(
-            MaximumSnapTolerance,
+            maxTolerance,
             Math.Max(
                 TickTruncationStepTolerance,
                 (timeUlp * 60d) + (arithmeticUlp * 2d)));
@@ -353,6 +392,40 @@ internal sealed class ParticleSimulator
             (byte)(a.G + (b.G - a.G) * t),
             (byte)(a.B + (b.B - a.B) * t));
     }
+
+    /// <summary>The emitter inputs one simulation call reads while spawning particles.</summary>
+    private readonly record struct EmissionSettings(
+        EmitterShape Shape,
+        float Width,
+        float Height,
+        int MaxParticles,
+        float EmissionRate,
+        float Lifetime,
+        float LifetimeRandom,
+        float Speed,
+        float SpeedRandom,
+        float DirectionRadians,
+        float SpreadRadians,
+        float ParticleSize,
+        float SizeRandom,
+        Color Color,
+        float ParticleOpacity,
+        float InitialRotation,
+        float InitialRotationRandom,
+        float AngularVelocity);
+
+    /// <summary>The forces and over-life targets one simulation call applies to live particles.</summary>
+    private readonly record struct MotionSettings(
+        int Seed,
+        float Gravity,
+        float AirResistance,
+        float TurbulenceStrength,
+        float TurbulenceScale,
+        float TurbulenceSpeed,
+        float EndSizeMultiplier,
+        float EndOpacityMultiplier,
+        Color EndColor,
+        bool UseEndColor);
 
     private sealed class CountingRandom
     {

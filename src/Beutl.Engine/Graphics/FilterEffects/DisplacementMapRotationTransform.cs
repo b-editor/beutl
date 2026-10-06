@@ -60,6 +60,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
+            float angle = MathUtilities.Deg2Rad(Rotation);
+            var center = new Vector2(CenterX, CenterY);
             if (TryApplyDrawableMap(
                     context,
                     displacementMap,
@@ -68,8 +70,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     signed,
                     DrawableMapTransformKind.Rotation,
                     vector: default,
-                    angle: MathUtilities.Deg2Rad(Rotation),
-                    center: new Vector2(CenterX, CenterY)))
+                    angle: angle,
+                    center: center))
             {
                 return;
             }
@@ -80,8 +82,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 map,
                 DrawableMapTransformKind.Rotation,
                 vector: default,
-                MathUtilities.Deg2Rad(Rotation),
-                center: new Vector2(CenterX, CenterY),
+                angle,
+                center: center,
                 spreadMethod,
                 channel,
                 signed);
@@ -91,10 +93,10 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 bindings =>
                 {
                     AddDisplacementBindings(bindings, map, channel, signed);
-                    bindings.Uniform("uAngle", MathUtilities.Deg2Rad(Rotation));
+                    bindings.Uniform("uAngle", angle);
                     bindings.Uniform(
                         "uPivot",
-                        new Vector2(CenterX, CenterY),
+                        center,
                         BindPivot);
                 },
                 spreadMethod.ToSKShaderTileMode(),

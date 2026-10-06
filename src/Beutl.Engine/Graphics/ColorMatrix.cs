@@ -333,22 +333,6 @@ public readonly struct ColorMatrix(
         span[12] = scale;
         span[18] = 1;
         span[4] = span[9] = span[14] = append;
-
-        //float contrastFactor = (1 + contrast) / (1.0001f - contrast);
-
-        //span[0] = contrastFactor;
-        //span[6] = contrastFactor;
-        //span[12] = contrastFactor;
-        //span[4] = span[9] = span[14] = (1.0f - contrastFactor) * 0.5f;
-        //span[18] = 1;
-    }
-
-    internal static void ToSkiaColorMatrix(Span<float> array)
-    {
-        array[4] *= 255;
-        array[9] *= 255;
-        array[14] *= 255;
-        array[19] *= 255;
     }
 
     internal struct Vector5(float x, float y, float z, float w, float v)

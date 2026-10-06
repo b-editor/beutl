@@ -333,85 +333,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 // source makes every pixel an anchor, so the gather pass returns the unsorted image.
                 renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
 
-                ITexture2D originalTexture = renderTarget.Texture;
-                int width = originalTexture.Width;
-                int height = originalTexture.Height;
-
-                var scratchSize = new PixelSize(width, height);
-                using NativeFilterTextureLease prepLease = ctx.TryAcquireNativeScratchTexture(
-                    gfx,
-                    width,
-                    height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
-                using NativeFilterTextureLease rankLease = ctx.TryAcquireNativeScratchTexture(
-                    gfx,
-                    width,
-                    height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
-
-                ITexture2D prepTexture = prepLease.Texture;
-                ITexture2D rankTexture = rankLease.Texture;
-
-                // Pass 1: Prepare - encode sort key into alpha
-                shaders.Prepare.ExecuteSingleTarget(
-                    originalTexture, prepTexture,
-                    new PreparePushConstants
-                    {
-                        ThresholdMin = r.ThresholdMin,
-                        ThresholdMax = r.ThresholdMax,
-                        Width = width,
-                        Height = height,
-                    });
-
-                // Pass 2: Rank - compute each pixel's rank within its segment
-                shaders.Rank.ExecuteSingleTarget(
-                    prepTexture, rankTexture,
-                    new RankPushConstants
-                    {
-                        Width = width,
-                        Height = height,
-                    });
-
-                // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateNativeTargetLike(target);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget is null)
-                {
-                    newTarget.Dispose();
-                    continue;
-                }
-
-                if (newRenderTarget.Texture is null)
-                {
-                    newTarget.Dispose();
-                    ThrowIfDeliveryAllocationFailure(ctx.Intent, i);
-                    ctx.RenderTargetLeaseSession?.MarkContentDropped();
-                    continue;
-                }
-
-                try
-                {
-                    shaders.Gather.ExecuteSingleTargetWithMask(
-                        rankTexture, originalTexture, newRenderTarget.Texture,
-                        new GatherPushConstants
-                        {
-                            Width = width,
-                            Height = height,
-                        });
-                    shaders.Gather.SubmitPendingCommands();
-
-                    target.Dispose();
-                    ctx.Targets[i] = newTarget;
-                }
-                catch (Exception ex)
-                {
-                    newTarget.Dispose();
-                    if (!TrySwallowPassFailure(ex, ctx))
-                    {
-                        throw;
-                    }
-
-                    s_logger.LogWarning(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", i);
-                }
+                SortTarget(r, ctx, in shaders, gfx, i, target, renderTarget.Texture);
             }
             catch (Exception ex)
             {
@@ -423,6 +345,115 @@ public sealed partial class PixelSortEffect : FilterEffect
                 s_logger.LogWarning(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
                 continue;
             }
+        }
+    }
+
+    /// <summary>
+    /// Sorts the target at <paramref name="index"/> through two scratch textures, which are released before
+    /// a failure reaches the caller.
+    /// </summary>
+    private static void SortTarget(
+        EffectData r,
+        CustomFilterEffectContext ctx,
+        in PixelSortPipelines<GLSLShader> shaders,
+        IGraphicsContext gfx,
+        int index,
+        EffectTarget target,
+        ITexture2D originalTexture)
+    {
+        int width = originalTexture.Width;
+        int height = originalTexture.Height;
+
+        var scratchSize = new PixelSize(width, height);
+        using NativeFilterTextureLease prepLease = ctx.TryAcquireNativeScratchTexture(
+            gfx,
+            width,
+            height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
+        using NativeFilterTextureLease rankLease = ctx.TryAcquireNativeScratchTexture(
+            gfx,
+            width,
+            height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
+
+        ITexture2D prepTexture = prepLease.Texture;
+        ITexture2D rankTexture = rankLease.Texture;
+
+        // Pass 1: Prepare - encode sort key into alpha
+        shaders.Prepare.ExecuteSingleTarget(
+            originalTexture, prepTexture,
+            new PreparePushConstants
+            {
+                ThresholdMin = r.ThresholdMin,
+                ThresholdMax = r.ThresholdMax,
+                Width = width,
+                Height = height,
+            });
+
+        // Pass 2: Rank - compute each pixel's rank within its segment
+        shaders.Rank.ExecuteSingleTarget(
+            prepTexture, rankTexture,
+            new RankPushConstants
+            {
+                Width = width,
+                Height = height,
+            });
+
+        // Pass 3: Gather + Restore - place pixels by rank, restore anchors
+        GatherIntoReplacement(ctx, shaders.Gather, index, target, rankTexture, originalTexture, scratchSize);
+    }
+
+    /// <summary>
+    /// Runs the gather pass into a new target and swaps it in at <paramref name="index"/>. A preview keeps the
+    /// source pixels when the pass or its target fails; a delivery render fails instead.
+    /// </summary>
+    private static void GatherIntoReplacement(
+        CustomFilterEffectContext ctx,
+        GLSLShader gather,
+        int index,
+        EffectTarget target,
+        ITexture2D rankTexture,
+        ITexture2D originalTexture,
+        PixelSize size)
+    {
+        EffectTarget newTarget = ctx.CreateNativeTargetLike(target);
+        RenderTarget? newRenderTarget = newTarget.RenderTarget;
+
+        if (newRenderTarget is null)
+        {
+            newTarget.Dispose();
+            return;
+        }
+
+        if (newRenderTarget.Texture is null)
+        {
+            newTarget.Dispose();
+            ThrowIfDeliveryAllocationFailure(ctx.Intent, index);
+            ctx.RenderTargetLeaseSession?.MarkContentDropped();
+            return;
+        }
+
+        try
+        {
+            gather.ExecuteSingleTargetWithMask(
+                rankTexture, originalTexture, newRenderTarget.Texture,
+                new GatherPushConstants
+                {
+                    Width = size.Width,
+                    Height = size.Height,
+                });
+            gather.SubmitPendingCommands();
+
+            target.Dispose();
+            ctx.Targets[index] = newTarget;
+        }
+        catch (Exception ex)
+        {
+            newTarget.Dispose();
+            if (!TrySwallowPassFailure(ex, ctx))
+            {
+                throw;
+            }
+
+            s_logger.LogWarning(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", index);
         }
     }
 

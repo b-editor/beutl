@@ -257,7 +257,7 @@ public class CustomFilterEffectContext
     public EffectTarget CreateTargetLike(EffectTarget source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+        if (!source.IsMaterialized)
             return new EffectTarget();
 
         EffectTarget? replacement = AllocateReplacement(source, FactoryBackedSession);
@@ -296,7 +296,7 @@ public class CustomFilterEffectContext
         ArgumentNullException.ThrowIfNull(source);
         if (_renderTargetLeaseSession is null)
             return CreateTargetLike(source);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
+        if (!source.IsMaterialized)
             return new EffectTarget();
 
         // Every consumer of this target is a full-frame shader pass: its load op either clears the
@@ -424,12 +424,7 @@ public class CustomFilterEffectContext
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(renderTarget);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-        {
-            throw new ArgumentException(
-                "The source must have a materialized target and concrete scale.",
-                nameof(source));
-        }
+        RequireMaterialized(source, nameof(source));
         if (renderTarget.Width != source.DeviceBounds.Width
             || renderTarget.Height != source.DeviceBounds.Height)
         {
@@ -455,14 +450,8 @@ public class CustomFilterEffectContext
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
         ArgumentNullException.ThrowIfNull(sourceShader);
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-            throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
-        if (destination.RenderTarget is null || destination.Scale.IsUnbounded)
-        {
-            throw new ArgumentException(
-                "The destination must have a materialized target and concrete scale.",
-                nameof(destination));
-        }
+        RequireMaterialized(source, nameof(source));
+        RequireMaterialized(destination, nameof(destination));
 
         return sourceShader.WithLocalMatrix(
             RasterShaderMapping.CreateLocalMatrix(
@@ -503,20 +492,14 @@ public class CustomFilterEffectContext
             throw new ArgumentOutOfRangeException(nameof(x), x, "The shader tile mode is invalid.");
         if (!Enum.IsDefined(y))
             throw new ArgumentOutOfRangeException(nameof(y), y, "The shader tile mode is invalid.");
-        if (source.RenderTarget is null || source.Scale.IsUnbounded)
-            throw new ArgumentException("The source must have a materialized target and concrete scale.", nameof(source));
-        if (source.RenderTarget.RawValue is null)
+        RenderTarget sourceTarget = RequireMaterialized(source, nameof(source));
+        if (sourceTarget.RawValue is null)
             throw new ArgumentException("The source target has no backing surface to sample.", nameof(source));
-        if (destination.RenderTarget is null || destination.Scale.IsUnbounded)
-        {
-            throw new ArgumentException(
-                "The destination must have a materialized target and concrete scale.",
-                nameof(destination));
-        }
+        RenderTarget destinationTarget = RequireMaterialized(destination, nameof(destination));
 
-        source.RenderTarget.PrepareForSampling(
-            RenderTargetSamplingIntent.SameContextTextureSampling(destination.RenderTarget.RawValue.Context));
-        using SKImage? image = source.RenderTarget.Value.Snapshot();
+        sourceTarget.PrepareForSampling(
+            RenderTargetSamplingIntent.SameContextTextureSampling(destinationTarget.RawValue.Context));
+        using SKImage? image = sourceTarget.Value.Snapshot();
         if (image is null)
         {
             ThrowIfDeliveryReadbackFailure(Intent, source.DeviceBounds);
@@ -531,6 +514,20 @@ public class CustomFilterEffectContext
         using SKShader mappedShader = CreateMappedInputShader(source, destination, sourceShader);
         use(state, mappedShader);
         return true;
+    }
+
+    /// <summary>Returns the backing target of <paramref name="target"/>, which must also have a concrete scale.</summary>
+    /// <exception cref="ArgumentException">The target has no backing target or an unbounded scale.</exception>
+    private static RenderTarget RequireMaterialized(EffectTarget target, string parameterName)
+    {
+        if (target.RenderTarget is not { } renderTarget || target.Scale.IsUnbounded)
+        {
+            throw new ArgumentException(
+                $"The {parameterName} must have a materialized target and concrete scale.",
+                parameterName);
+        }
+
+        return renderTarget;
     }
 
     // The intent alone decides degrade-vs-fail, independently of the working-scale ceiling:
@@ -605,29 +602,14 @@ public class CustomFilterEffectContext
 
         // Prefer the target's concrete Scale (may be clamped below WorkingScale by CreateTarget).
         float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
-        ImmediateCanvas canvas;
-        if (_useExecutorManagedCanvas)
-        {
-            canvas = ImmediateCanvas.CreateExecutorManaged(
-                target.RenderTarget,
-                density,
-                MaxWorkingScale,
-                target.Bounds.Size,
-                Intent);
-            canvas.ConfigureCustomEffectExecution();
-        }
-        else
-        {
-            canvas = new ImmediateCanvas(
-                target.RenderTarget,
-                Intent,
-                density,
-                MaxWorkingScale,
-                logicalSize: target.Bounds.Size);
-        }
-
-        canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
-        return canvas;
+        return ImmediateCanvas.CreateCustomEffectCanvas(
+            target.RenderTarget,
+            density,
+            MaxWorkingScale,
+            target.Bounds.Size,
+            Intent,
+            _useExecutorManagedCanvas,
+            _drawableBrushMaterializer);
     }
 
     /// <summary>

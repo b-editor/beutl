@@ -58,11 +58,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
                 return;
             }
 
-            _paint ??= new SKPaint();
-            VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
-
-            _builder ??= new SKPathBuilder();
-            _builder.Reset();
+            BarGeometry.BeginRoundedBars(ref _paint, ref _builder, canvas, bounds, fill);
 
             for (int i = 0; i < barCount; i++)
             {
@@ -73,8 +69,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
                 BarGeometry.AddRoundedBar(_builder, x, y, barWidth, barHeight, cr);
             }
 
-            using SKPath path = _builder.Detach();
-            canvas.Canvas.DrawPath(path, _paint);
+            BarGeometry.DrawRoundedBars(canvas, _builder, _paint);
         }
 
         partial void PostDispose(bool disposing)

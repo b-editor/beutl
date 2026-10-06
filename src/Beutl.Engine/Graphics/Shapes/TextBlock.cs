@@ -224,17 +224,6 @@ public partial class TextBlock : Drawable
         return ascent;
     }
 
-    private static float MinDescent(Span<FormattedText> items)
-    {
-        float descent = float.MaxValue;
-        foreach (FormattedText item in items)
-        {
-            descent = MathF.Min(item.Metrics.Descent, descent);
-        }
-
-        return descent;
-    }
-
     public partial class Resource
     {
         private Pen.Resource? _pen;

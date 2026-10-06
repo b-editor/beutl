@@ -32,83 +32,91 @@ public partial class SplitEffect : FilterEffect
         var r = (Resource)resource;
         context.CustomEffect(
             (r.HorizontalDivisions, r.VerticalDivisions, r.HorizontalSpacing, r.VerticalSpacing),
-            static (d, effectContext) =>
-            {
-                for (int i = 0; i < effectContext.Targets.Count; i++)
-                {
-                    EffectTarget t = effectContext.Targets[i];
-                    RenderTarget renderTarget = t.RenderTarget!;
-                    // Per-tile crop offset scales by working density.
-                    float w = effectContext.WorkingScale;
-
-                    float divWidth = t.Bounds.Width / d.HorizontalDivisions;
-                    float divHeight = t.Bounds.Height / d.VerticalDivisions;
-
-                    if ((int)divWidth <= 0 || (int)divHeight <= 0)
-                    {
-                        t.Dispose();
-                        effectContext.Targets.RemoveAt(i);
-                        i--;
-                    }
-                    else
-                    {
-                        var newBounds = new Rect(
-                            0,
-                            0,
-                            t.Bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
-                            t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1)));
-                        newBounds = t.Bounds.CenterRect(newBounds);
-
-                        var newTargets = new EffectTargets();
-                        bool allocationFailed = false;
-
-                        for (int v = 0; v < d.VerticalDivisions; v++)
-                        {
-                            for (int h = 0; h < d.HorizontalDivisions; h++)
-                            {
-                                EffectTarget newTarget = effectContext.CreateTarget(
-                                    new Rect(
-                                        newBounds.X + (divWidth + d.HorizontalSpacing) * h,
-                                        newBounds.Y + (divHeight + d.VerticalSpacing) * v,
-                                        divWidth,
-                                        divHeight));
-                                if (newTarget.IsEmpty)
-                                {
-                                    newTarget.Dispose();
-                                    allocationFailed = true;
-                                    break;
-                                }
-
-                                // Crop offset is device px; draw in device space.
-                                using (ImmediateCanvas canvas = effectContext.Open(newTarget))
-                                using (canvas.PushDeviceSpace())
-                                {
-                                    canvas.Clear();
-                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h * w, -divHeight * v * w));
-                                }
-
-                                newTargets.Add(newTarget);
-                            }
-
-                            if (allocationFailed)
-                                break;
-                        }
-
-                        if (allocationFailed)
-                        {
-                            newTargets.Dispose();
-                            continue;
-                        }
-
-                        t.Dispose();
-                        effectContext.Targets.RemoveAt(i);
-                        int inserted = newTargets.Count;
-                        effectContext.Targets.InsertRange(i, newTargets);
-                        i += inserted - 1;
-                    }
-                }
-            },
+            SplitTargets,
             TransformBounds);
+    }
+
+    /// <summary>
+    /// Replaces each target with a grid of tiles cut from it and spread apart by the spacing; a target too small
+    /// to divide is dropped.
+    /// </summary>
+    private static void SplitTargets(
+        (int HorizontalDivisions, int VerticalDivisions, float HorizontalSpacing, float VerticalSpacing) d,
+        CustomFilterEffectContext effectContext)
+    {
+        for (int i = 0; i < effectContext.Targets.Count; i++)
+        {
+            EffectTarget t = effectContext.Targets[i];
+            RenderTarget renderTarget = t.RenderTarget!;
+            // Per-tile crop offset scales by working density.
+            float w = effectContext.WorkingScale;
+
+            float divWidth = t.Bounds.Width / d.HorizontalDivisions;
+            float divHeight = t.Bounds.Height / d.VerticalDivisions;
+
+            if ((int)divWidth <= 0 || (int)divHeight <= 0)
+            {
+                t.Dispose();
+                effectContext.Targets.RemoveAt(i);
+                i--;
+            }
+            else
+            {
+                var newBounds = new Rect(
+                    0,
+                    0,
+                    t.Bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
+                    t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1)));
+                newBounds = t.Bounds.CenterRect(newBounds);
+
+                var newTargets = new EffectTargets();
+                bool allocationFailed = false;
+
+                for (int v = 0; v < d.VerticalDivisions; v++)
+                {
+                    for (int h = 0; h < d.HorizontalDivisions; h++)
+                    {
+                        EffectTarget newTarget = effectContext.CreateTarget(
+                            new Rect(
+                                newBounds.X + (divWidth + d.HorizontalSpacing) * h,
+                                newBounds.Y + (divHeight + d.VerticalSpacing) * v,
+                                divWidth,
+                                divHeight));
+                        if (newTarget.IsEmpty)
+                        {
+                            newTarget.Dispose();
+                            allocationFailed = true;
+                            break;
+                        }
+
+                        // Crop offset is device px; draw in device space.
+                        using (ImmediateCanvas canvas = effectContext.Open(newTarget))
+                        using (canvas.PushDeviceSpace())
+                        {
+                            canvas.Clear();
+                            canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h * w, -divHeight * v * w));
+                        }
+
+                        newTargets.Add(newTarget);
+                    }
+
+                    if (allocationFailed)
+                        break;
+                }
+
+                if (allocationFailed)
+                {
+                    newTargets.Dispose();
+                    continue;
+                }
+
+                t.Dispose();
+                effectContext.Targets.RemoveAt(i);
+                int inserted = newTargets.Count;
+                effectContext.Targets.InsertRange(i, newTargets);
+                i += inserted - 1;
+            }
+        }
     }
 
     private static Rect TransformBounds(

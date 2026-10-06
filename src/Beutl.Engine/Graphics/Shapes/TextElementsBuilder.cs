@@ -18,7 +18,6 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
     private readonly Stack<Brush.Resource?> _brush = [];
     private readonly Stack<Pen.Resource?> _pen = [];
     private readonly Stack<float> _spacing = [];
-    private readonly Stack<Thickness> _margin = [];
     private FontFamily _curFontFamily = initialOptions.Typeface.FontFamily;
     private FontWeight _curFontWeight = initialOptions.Typeface.Weight;
     private FontStyle _curFontStyle = initialOptions.Typeface.Style;

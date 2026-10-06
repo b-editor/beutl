@@ -5,6 +5,9 @@
 /// </summary>
 internal sealed class ProgramCacheContextKey : IEquatable<ProgramCacheContextKey>
 {
+    /// <summary>The color/alpha format every program cache of the engine compiles for: linear, premultiplied RGBA16F.</summary>
+    internal const string LinearPremultipliedRgba16FContract = "linear-premultiplied-rgba16f";
+
     public ProgramCacheContextKey(
         object deviceIdentity,
         object contextIdentity,

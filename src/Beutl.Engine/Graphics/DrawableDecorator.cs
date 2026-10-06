@@ -33,20 +33,10 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
             foreach (var child in r.Children)
             {
                 using (context.PushBlendMode(r.BlendMode))
-                using (context.PushNode(
-                           transformParams,
-                           b => new DrawableGroup.CustomTransformRenderNode(
-                               b.Transform, b.TransformOrigin, b.availableSize,
-                               Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
-                           (n, b) => n.Update(
-                               b.Transform, b.TransformOrigin, b.availableSize,
-                               Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+                using (DrawableGroup.PushCustomTransform(context, transformParams))
                 using (context.PushOpacity(resource.Opacity / 100f))
                 using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-                using (context.PushNode(
-                           boundsMemory,
-                           b => new DrawableGroup.ContentBoundsRenderNode(b),
-                           (n, b) => n.Update(b)))
+                using (DrawableGroup.PushContentBounds(context, boundsMemory))
                 {
                     context.DrawDrawable(child);
                 }

@@ -12,7 +12,6 @@ namespace Beutl.Graphics.Shaders;
 internal static class SpirvShaderProgramCache
 {
     private const long DefaultRetainedByteBudget = 16 * 1024 * 1024;
-    private const string ColorAlphaFormatContract = "linear-premultiplied-rgba16f";
     private static readonly object s_defaultCompileOptions = new();
     private static readonly ConditionalWeakTable<ProgramCache<GLSLFilterPipeline>, FailureCache> s_failures = new();
 
@@ -37,7 +36,7 @@ internal static class SpirvShaderProgramCache
             context.DeviceIdentity,
             context.ContextIdentity,
             SkslBackendBudgetResolver.SpirvVulkan.CapabilityClass,
-            ColorAlphaFormatContract,
+            ProgramCacheContextKey.LinearPremultipliedRgba16FContract,
             s_defaultCompileOptions);
     }
 

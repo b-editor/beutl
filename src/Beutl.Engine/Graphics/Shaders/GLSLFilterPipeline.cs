@@ -15,11 +15,15 @@ internal sealed class GLSLFilterPipeline : IDisposable
     internal const int PortableInputLimit = 16;
 
     internal static int GetMaximumInputCount(IGraphicsContext context)
+        => TryResolveVulkan(context) is { } vulkan ? vulkan.MaxFragmentShaderInputTextures : PortableInputLimit;
+
+    /// <summary>Gets the Vulkan context that records this pipeline's passes, directly or behind a composite.</summary>
+    private static VulkanContext? TryResolveVulkan(IGraphicsContext context)
         => context switch
         {
-            VulkanContext vulkan => vulkan.MaxFragmentShaderInputTextures,
-            CompositeContext composite => composite.Vulkan.MaxFragmentShaderInputTextures,
-            _ => PortableInputLimit,
+            VulkanContext vulkan => vulkan,
+            CompositeContext composite => composite.Vulkan,
+            _ => null,
         };
 
     internal static void ValidateInputCount(IGraphicsContext context, int inputCount)
@@ -130,14 +134,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         Exception? creationFailure = null;
         try
         {
-            byte[] vertexShaderSpirv;
-            byte[] fragmentShaderSpirv;
-            {
-                IShaderCompiler compiler = context.CreateShaderCompiler();
-                using IDisposable? compilerLifetime = compiler as IDisposable;
-                vertexShaderSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
-                fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
-            }
+            (byte[] vertexShaderSpirv, byte[] fragmentShaderSpirv) = CompileStages(context, fragmentShaderSource);
 
             renderPass = context.CreateRenderPass3D(
                 [TextureFormat.RGBA16Float],
@@ -207,6 +204,19 @@ internal sealed class GLSLFilterPipeline : IDisposable
                         : [creationFailure, .. cleanupFailures]);
         s_logger.LogError(failure, "Failed to create GLSL filter pipeline.");
         return null;
+    }
+
+    /// <summary>
+    /// Compiles the fullscreen vertex stage and <paramref name="fragmentShaderSource"/> to SPIR-V, releasing the
+    /// compiler before any GPU object is created.
+    /// </summary>
+    private static (byte[] Vertex, byte[] Fragment) CompileStages(IGraphicsContext context, string fragmentShaderSource)
+    {
+        IShaderCompiler compiler = context.CreateShaderCompiler();
+        using IDisposable? compilerLifetime = compiler as IDisposable;
+        byte[] vertexShaderSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
+        byte[] fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
+        return (vertexShaderSpirv, fragmentShaderSpirv);
     }
 
     private static void DisposeBestEffort(
@@ -306,12 +316,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
     {
         // A subsequent effect may consume this output through another backend immediately. Submit the recorded
         // clears and draws so their queue order is established before the caller releases the source target.
-        VulkanContext context = _context switch
-        {
-            VulkanContext vulkan => vulkan,
-            CompositeContext composite => composite.Vulkan,
-            _ => throw new InvalidOperationException("The GLSL pipeline requires a Vulkan recording context."),
-        };
+        VulkanContext context = TryResolveVulkan(_context)
+            ?? throw new InvalidOperationException("The GLSL pipeline requires a Vulkan recording context.");
         context.FlushCommands(waitForCompletion: false);
     }
 

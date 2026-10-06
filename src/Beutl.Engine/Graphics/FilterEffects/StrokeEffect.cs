@@ -51,27 +51,6 @@ public partial class StrokeEffect : FilterEffect
 
     private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
     {
-        static SKPath CreateBorderPath(Bitmap src)
-        {
-            using var contours = ContourTracer.FindContours(src);
-
-            using var builder = new SKPathBuilder();
-            foreach (var contour in contours)
-            {
-                for (int j = 0; j < contour.Count; j++)
-                {
-                    if (j == 0)
-                        builder.MoveTo(contour[j].X, contour[j].Y);
-                    else
-                        builder.LineTo(contour[j].X, contour[j].Y);
-                }
-
-                builder.Close();
-            }
-
-            return builder.Detach();
-        }
-
         if (data.Pen is { } pen)
         {
             for (int i = 0; i < context.Targets.Count; i++)
@@ -82,7 +61,7 @@ public partial class StrokeEffect : FilterEffect
 
                 // The contour path is device px; map to logical (/ w) for logical pen width/offset.
                 float w = context.WorkingScale;
-                using SKPath borderPath = CreateBorderPath(src);
+                using SKPath borderPath = ContourPaths.CreateOutline(src);
                 if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
 
                 Rect transformedBounds = TransformBounds(data, target.Bounds);

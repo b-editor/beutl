@@ -52,6 +52,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
         {
+            var translation = new Vector2(X, Y);
             if (TryApplyDrawableMap(
                     context,
                     displacementMap,
@@ -59,7 +60,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     channel,
                     signed,
                     DrawableMapTransformKind.Translate,
-                    new Vector2(X, Y),
+                    translation,
                     angle: 0,
                     center: default))
             {
@@ -71,7 +72,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                 displacementMap,
                 map,
                 DrawableMapTransformKind.Translate,
-                new Vector2(X, Y),
+                translation,
                 angle: 0,
                 center: default,
                 spreadMethod,
@@ -85,7 +86,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     AddDisplacementBindings(bindings, map, channel, signed);
                     bindings.Uniform(
                         "uTranslation",
-                        new Vector2(X, Y),
+                        translation,
                         BindScaledVector);
                 },
                 spreadMethod.ToSKShaderTileMode(),

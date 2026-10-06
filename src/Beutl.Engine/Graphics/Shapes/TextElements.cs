@@ -148,7 +148,7 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
             while (index < _arrayCount)
             {
                 FormattedText item = _array[index];
-                if (item.BeginOnNewLine/* || index + 1 >= _arrayCount*/)
+                if (item.BeginOnNewLine)
                 {
                     break;
                 }

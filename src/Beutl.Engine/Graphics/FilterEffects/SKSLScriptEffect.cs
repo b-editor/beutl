@@ -231,44 +231,9 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             if (string.IsNullOrWhiteSpace(script))
                 return;
 
-            string? declarativeError = null;
             bool hasCurrentPixelEntryPoint = SkslSource.HasCurrentPixelEntryPoint(script);
-            if (hasCurrentPixelEntryPoint)
-            {
-                try
-                {
-                    SkslSource source = ParseCurrentPixelSource(script);
-                    // Building one description here settles the binding contract while a failure can still
-                    // fall back to the effect-item program below, instead of during a recording that cannot.
-                    _ = CreateDescription(source, default);
-                    if (TryCompileProgram(CreateCurrentPixelProgram(source), out declarativeError))
-                    {
-                        _source = source;
-                        return;
-                    }
-                }
-                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-                {
-                    declarativeError = ex.Message;
-                }
-            }
-            else
-            {
-                try
-                {
-                    SkslSource source = ParseWholeSource(script);
-                    _ = CreateDescription(source, default);
-                    if (TryCompileProgram(source.Text, out declarativeError))
-                    {
-                        _source = source;
-                        return;
-                    }
-                }
-                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-                {
-                    declarativeError = ex.Message;
-                }
-            }
+            if (TryAdoptDeclarativeSource(script, hasCurrentPixelEntryPoint, out string? declarativeError))
+                return;
 
             if (!SKSLShader.TryCreate(script, out _shader, out string? effectItemError))
             {
@@ -278,6 +243,33 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
             // A valid effect-item program can remain here only when the stricter declarative source or binding contract
             // could not represent it.
+        }
+
+        /// <summary>
+        /// Adopts <paramref name="script"/> as a declarative current-pixel or whole-source shader when it parses,
+        /// binds and compiles as one.
+        /// </summary>
+        /// <param name="error">Why the declarative form was rejected, when it was.</param>
+        private bool TryAdoptDeclarativeSource(string script, bool currentPixel, out string? error)
+        {
+            try
+            {
+                SkslSource source = currentPixel ? ParseCurrentPixelSource(script) : ParseWholeSource(script);
+                // Building one description here settles the binding contract while a failure can still
+                // fall back to the effect-item program, instead of during a recording that cannot.
+                _ = CreateDescription(source, default);
+                if (TryCompileProgram(currentPixel ? CreateCurrentPixelProgram(source) : source.Text, out error))
+                {
+                    _source = source;
+                    return true;
+                }
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                error = ex.Message;
+            }
+
+            return false;
         }
 
         private static SkslSource ParseCurrentPixelSource(string script)
@@ -475,8 +467,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     }
 
     private static string CreateCurrentPixelProgram(SkslSource source)
-        => $"uniform shader __beutl_src;\n{source.Text}\n"
-           + "half4 main(float2 __beutl_coord) { return apply(__beutl_src.eval(__beutl_coord)); }\n";
+        => SkslSource.CreateStandaloneCurrentPixelProgram(source.Text);
 
     private enum ZeroBindingKind : byte
     {

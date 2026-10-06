@@ -60,19 +60,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     }
 
     private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
-    {
-        var anm = Speed.Animation;
-        if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return timeSpan;
-
-        if (keyFrameAnimation.KeyFrames.Count == 0)
-        {
-            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
-        }
-
-        resource._speedIntegrator.EnsureCache(anm);
-        return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
-    }
+        => SpeedAdjustedTime.Map(Speed, resource.Speed, resource._speedIntegrator, timeSpan);
 
     public TimeSpan? CalculateOriginalTime(Resource resource)
     {
@@ -208,17 +196,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             // ループ処理を追加
             if (IsLoop && Source?.IsDisposed == false && Source.Duration > TimeSpan.Zero)
             {
-                // 正の値の場合、動画の長さでモジュロ計算
-                if (RequestedPosition >= TimeSpan.Zero)
-                {
-                    RequestedPosition = TimeSpan.FromTicks(RequestedPosition.Ticks % Source.Duration.Ticks);
-                }
-                // 負の値の場合、動画の長さを足してからモジュロ計算
-                else
-                {
-                    var positiveTicks = Source.Duration.Ticks + (RequestedPosition.Ticks % Source.Duration.Ticks);
-                    RequestedPosition = TimeSpan.FromTicks(positiveTicks % Source.Duration.Ticks);
-                }
+                RequestedPosition = SpeedAdjustedTime.WrapIntoDuration(RequestedPosition, Source.Duration);
             }
             else if (RequestedPosition < TimeSpan.Zero)
             {

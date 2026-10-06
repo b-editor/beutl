@@ -49,48 +49,56 @@ public sealed partial class TransformEffect : FilterEffect
             }
             else
             {
-                context.CustomEffect((mat, originPoint), static (data, effectContext) =>
-                {
-                    for (int i = 0; i < effectContext.Targets.Count; i++)
-                    {
-                        EffectTarget target = effectContext.Targets[i];
-                        Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
-                        Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
-                        Matrix offset2 = Matrix.CreateTranslation(origin);
-                        Matrix m1 = -offset1 * data.mat * offset1;
-                        Matrix m2 = -offset2 * data.mat * offset2;
-
-                        // An empty box here is the transform's answer, not the allocation failure below:
-                        // handing the source back would show the layer untransformed.
-                        Rect newBounds = target.Bounds.TransformToDeliveredAABB(m1, effectContext.TargetDomain);
-                        if (newBounds.IsEmpty)
-                        {
-                            effectContext.Targets.RemoveAt(i);
-                            target.Dispose();
-                            i--;
-                            continue;
-                        }
-
-                        EffectTarget newTarget = effectContext.CreateTarget(newBounds);
-                        if (newTarget.IsEmpty)
-                        {
-                            newTarget.Dispose();
-                            continue;
-                        }
-
-                        using (ImmediateCanvas canvas = effectContext.Open(newTarget))
-                        using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-                        using (canvas.PushTransform(m2))
-                        {
-                            canvas.Clear();
-                            target.Draw(canvas);
-                        }
-
-                        effectContext.Targets[i] = newTarget;
-                        target.Dispose();
-                    }
-                });
+                context.CustomEffect((mat, originPoint), TransformTargets);
             }
+        }
+    }
+
+    /// <summary>
+    /// Redraws each target through the transform applied about its own origin point; a target the transform
+    /// maps to nothing is dropped.
+    /// </summary>
+    private static void TransformTargets(
+        (Matrix mat, RelativePoint originPoint) data,
+        CustomFilterEffectContext effectContext)
+    {
+        for (int i = 0; i < effectContext.Targets.Count; i++)
+        {
+            EffectTarget target = effectContext.Targets[i];
+            Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
+            Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
+            Matrix offset2 = Matrix.CreateTranslation(origin);
+            Matrix m1 = -offset1 * data.mat * offset1;
+            Matrix m2 = -offset2 * data.mat * offset2;
+
+            // An empty box here is the transform's answer, not the allocation failure below:
+            // handing the source back would show the layer untransformed.
+            Rect newBounds = target.Bounds.TransformToDeliveredAABB(m1, effectContext.TargetDomain);
+            if (newBounds.IsEmpty)
+            {
+                effectContext.Targets.RemoveAt(i);
+                target.Dispose();
+                i--;
+                continue;
+            }
+
+            EffectTarget newTarget = effectContext.CreateTarget(newBounds);
+            if (newTarget.IsEmpty)
+            {
+                newTarget.Dispose();
+                continue;
+            }
+
+            using (ImmediateCanvas canvas = effectContext.Open(newTarget))
+            using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
+            using (canvas.PushTransform(m2))
+            {
+                canvas.Clear();
+                target.Draw(canvas);
+            }
+
+            effectContext.Targets[i] = newTarget;
+            target.Dispose();
         }
     }
 }

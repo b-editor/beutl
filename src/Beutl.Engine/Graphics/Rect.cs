@@ -439,6 +439,12 @@ public readonly struct Rect
             BottomLeft.Transform(matrix)
         ];
 
+        return BoundsOf(points);
+    }
+
+    /// <summary>The smallest rectangle containing every point of <paramref name="points"/>.</summary>
+    private static Rect BoundsOf(ReadOnlySpan<Point> points)
+    {
         float left = float.MaxValue;
         float right = float.MinValue;
         float top = float.MaxValue;
@@ -546,20 +552,10 @@ public readonly struct Rect
         if (count == 0)
             return Empty;
 
-        float left = float.MaxValue;
-        float right = float.MinValue;
-        float top = float.MaxValue;
-        float bottom = float.MinValue;
         for (int i = 0; i < count; i++)
-        {
-            Point p = clipped[i].Transform(matrix);
-            if (p.X < left) left = p.X;
-            if (p.X > right) right = p.X;
-            if (p.Y < top) top = p.Y;
-            if (p.Y > bottom) bottom = p.Y;
-        }
+            clipped[i] = clipped[i].Transform(matrix);
 
-        return new Rect(new Point(left, top), new Point(right, bottom));
+        return BoundsOf(clipped[..count]);
     }
 
     /// <summary>

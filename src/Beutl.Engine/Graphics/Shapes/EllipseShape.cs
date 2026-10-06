@@ -32,31 +32,14 @@ public sealed partial class EllipseShape : Shape
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);
 
-            if (_geometryResource is null)
-            {
-                _geometryResource = _geometry.ToResource(context);
+            bool changed = false;
+            ResourceReconciler.ReconcileResource(
+                context: context,
+                value: _geometry,
+                field: ref _geometryResource,
+                changed: ref changed);
+            if (changed)
                 Version++;
-            }
-            else
-            {
-                if (_geometryResource.GetOriginal() != _geometry)
-                {
-                    var oldGeometry = _geometryResource;
-                    _geometryResource = _geometry.ToResource(context);
-                    oldGeometry.Dispose();
-                    Version++;
-                }
-                else
-                {
-                    var oldVersion = _geometryResource.Version;
-                    var _ = false;
-                    _geometryResource.Update(_geometry, context, ref _);
-                    if (oldVersion != _geometryResource.Version)
-                    {
-                        Version++;
-                    }
-                }
-            }
         }
 
         partial void PostDispose(bool disposing)

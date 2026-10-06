@@ -184,13 +184,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                     && !Equals(entry.Context.ContextIdentity, contextIdentity))
                 .ToArray();
             count = matches.Length;
-            disposable = new List<TProgram>(count);
-            foreach (Entry entry in matches)
-            {
-                RemoveEntry(entry, countEviction: true);
-                if (!entry.IsLeased)
-                    disposable.Add(entry.Program);
-            }
+            disposable = DetachEntries(matches);
         }
 
         DisposeProgramsBestEffort(disposable)?.Throw();
@@ -209,13 +203,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             _disposed = true;
             _activeContexts.Clear();
             Entry[] entries = [.. _lru];
-            disposable = new List<TProgram>(entries.Length);
-            foreach (Entry entry in entries)
-            {
-                RemoveEntry(entry, countEviction: true);
-                if (!entry.IsLeased)
-                    disposable.Add(entry.Program);
-            }
+            disposable = DetachEntries(entries);
 
             firstFailure = _deferredCleanupFailure;
             _deferredCleanupFailure = null;
@@ -335,17 +323,28 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             ObjectDisposedException.ThrowIf(_disposed, this);
             Entry[] matches = _lru.Where(entry => predicate(entry.Context)).ToArray();
             count = matches.Length;
-            disposable = new List<TProgram>(count);
-            foreach (Entry entry in matches)
-            {
-                RemoveEntry(entry, countEviction: true);
-                if (!entry.IsLeased)
-                    disposable.Add(entry.Program);
-            }
+            disposable = DetachEntries(matches);
         }
 
         DisposeProgramsBestEffort(disposable)?.Throw();
         return count;
+    }
+
+    /// <summary>
+    /// Evicts <paramref name="entries"/> and returns the programs no lease still holds, for disposal once the lock
+    /// is released; a leased program is disposed by its last lease instead.
+    /// </summary>
+    private List<TProgram> DetachEntries(Entry[] entries)
+    {
+        var disposable = new List<TProgram>(entries.Length);
+        foreach (Entry entry in entries)
+        {
+            RemoveEntry(entry, countEviction: true);
+            if (!entry.IsLeased)
+                disposable.Add(entry.Program);
+        }
+
+        return disposable;
     }
 
     private void RemoveEntry(Entry entry, bool countEviction)
