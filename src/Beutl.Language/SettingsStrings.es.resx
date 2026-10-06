@@ -626,4 +626,100 @@
   <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
     <value>Para instalar el MCP de Codex, establece CODEX_HOME como una ruta absoluta.</value>
   </data>
+  <data name="VersionControl_EnableForNewProjects" xml:space="preserve">
+    <value>Registrar el historial de los proyectos nuevos de forma predeterminada</value>
+  </data>
+  <data name="VersionControl_EnableForNewProjects_Description" xml:space="preserve">
+    <value>Preselecciona el seguimiento del historial con Git después de mostrar su disponibilidad en el diálogo de nuevo proyecto</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave" xml:space="preserve">
+    <value>Registrar versiones al guardar</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnSave_Description" xml:space="preserve">
+    <value>Crea una instantánea automática de Git después de guardar el proyecto de forma explícita</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose" xml:space="preserve">
+    <value>Registrar una versión al cerrar</value>
+  </data>
+  <data name="VersionControl_AutoCommitOnClose_Description" xml:space="preserve">
+    <value>Crea una última instantánea automática de Git al cerrar un proyecto con seguimiento</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath" xml:space="preserve">
+    <value>Ejecutable de Git</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Description" xml:space="preserve">
+    <value>Usa un ejecutable de Git específico o deja el campo vacío para detectar Git automáticamente</value>
+  </data>
+  <data name="VersionControl_GitExecutablePath_Automatic" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable" xml:space="preserve">
+    <value>Usar Git LFS cuando esté disponible</value>
+  </data>
+  <data name="VersionControl_UseLfsWhenAvailable_Description" xml:space="preserve">
+    <value>Configura los patrones de archivos multimedia compatibles para Git LFS cuando esté instalado</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb" xml:space="preserve">
+    <value>Umbral de advertencia para archivos multimedia grandes (MB)</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningThresholdMb_Description" xml:space="preserve">
+    <value>Advierte antes de confirmar archivos multimedia de este tamaño o superior sin Git LFS</value>
+  </data>
+  <data name="AiPlan" xml:space="preserve">
+    <value>Plan de IA</value>
+  </data>
+  <data name="AiPlan_Plan" xml:space="preserve">
+    <value>Plan</value>
+  </data>
+  <data name="AiPlan_Pro" xml:space="preserve">
+    <value>Pro</value>
+  </data>
+  <data name="AiPlan_Free" xml:space="preserve">
+    <value>Gratis</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus" xml:space="preserve">
+    <value>Estado de la suscripción</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Active" xml:space="preserve">
+    <value>Activa</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Canceled" xml:space="preserve">
+    <value>Cancelada</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_CancelScheduled" xml:space="preserve">
+    <value>Se cancela al finalizar el período</value>
+  </data>
+  <data name="AiPlan_CancelScheduledNotice" xml:space="preserve">
+    <value>La cancelación está programada. Las funciones Pro seguirán disponibles hasta {0}.</value>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_ActionRequired" xml:space="preserve">
+    <value>Se requiere una acción de pago</value>
+  </data>
+  <data name="AiPlan_MonthlyUsage" xml:space="preserve">
+    <value>Uso mensual</value>
+  </data>
+  <data name="AiPlan_MonthlyRemaining" xml:space="preserve">
+    <value>Disponible este mes</value>
+  </data>
+  <data name="AiPlan_AdditionalCredits" xml:space="preserve">
+    <value>Créditos adicionales</value>
+  </data>
+  <data name="AiPlan_AdditionalCreditDebt" xml:space="preserve">
+    <value>Créditos pendientes de liquidación</value>
+  </data>
+  <data name="AiPlan_ManageAndTopUp" xml:space="preserve">
+    <value>Gestionar / recargar</value>
+  </data>
+  <data name="AiPlan_JoinPro" xml:space="preserve">
+    <value>Suscribirse a Pro</value>
+  </data>
+  <data name="AiPlan_Manage_Description" xml:space="preserve">
+    <value>Consulta el uso mensual de IA y gestiona tu plan o tus créditos adicionales.</value>
+  </data>
+  <data name="AiPlan_LoadFailed" xml:space="preserve">
+    <value>No se pudo cargar la información del plan de IA.</value>
+  </data>
+  <data name="AiPlan_Loading" xml:space="preserve">
+    <value>Cargando el plan de IA…</value>
+  </data>
 </root>

@@ -160,4 +160,7 @@
   <data name="PackageKind_Templates" xml:space="preserve">
     <value>模板</value>
   </data>
+  <data name="RequestedVersionUnavailable" xml:space="preserve">
+    <value>版本 {0} 已不可用。请选择可用的版本以继续。</value>
+  </data>
 </root>

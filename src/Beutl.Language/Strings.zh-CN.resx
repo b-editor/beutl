@@ -1804,4 +1804,1545 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ModelFile" xml:space="preserve">
     <value>3D 模型文件</value>
   </data>
+  <data name="Output_WorkspaceBusy" xml:space="preserve">
+    <value>另一项工作区操作正在进行。请等待完成后重试。</value>
+  </data>
+  <data name="Output_ProfileRunning" xml:space="preserve">
+    <value>此输出配置仍在运行。请等待完成或取消后再删除配置。</value>
+  </data>
+  <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
+    <value>项目文件正被另一项操作占用。请等待完成后重试。</value>
+  </data>
+  <data name="PathEditor_ShowStroke" xml:space="preserve">
+    <value>显示轮廓</value>
+  </data>
+  <data name="PathEditor_ShowFill" xml:space="preserve">
+    <value>显示填充</value>
+  </data>
+  <data name="ElementAdder_ProjectNotSaved" xml:space="preserve">
+    <value>添加片段前请先保存项目。</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>搜索或输入 URL</value>
+  </data>
+  <data name="Forward" xml:space="preserve">
+    <value>前进</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Menu" xml:space="preserve">
+    <value>菜单</value>
+  </data>
+  <data name="NewTab" xml:space="preserve">
+    <value>新建标签页</value>
+  </data>
+  <data name="OpenInDefaultBrowser" xml:space="preserve">
+    <value>在默认浏览器中打开</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>打印</value>
+  </data>
+  <data name="WebBrowserActionFailed" xml:space="preserve">
+    <value>无法完成浏览器操作。</value>
+  </data>
+  <data name="InvalidWebAddress" xml:space="preserve">
+    <value>请输入有效的 HTTP 或 HTTPS 地址。</value>
+  </data>
+  <data name="WebPageLoadFailed" xml:space="preserve">
+    <value>无法加载网页。</value>
+  </data>
+  <data name="WebViewUnavailable" xml:space="preserve">
+    <value>没有可用的受支持 WebView 运行时。</value>
+  </data>
+  <data name="WebViewWindowsRuntimeHint" xml:space="preserve">
+    <value>请安装 Microsoft Edge WebView2 Runtime。</value>
+  </data>
+  <data name="WebViewLinuxRuntimeHint" xml:space="preserve">
+    <value>请安装 WebKitGTK 4.1 或 WPE WebKit。</value>
+  </data>
+  <data name="OpenLinuxWebViewSetupGuide" xml:space="preserve">
+    <value>打开 WebView 设置指南</value>
+  </data>
+  <data name="ProxyClipCountSingular" xml:space="preserve">
+    <value>1 个片段</value>
+  </data>
+  <data name="ProxyClipCountPlural" xml:space="preserve">
+    <value>{0} 个片段</value>
+  </data>
+  <data name="ProxyMoreActions" xml:space="preserve">
+    <value>更多操作</value>
+  </data>
+  <data name="ProxyDetails" xml:space="preserve">
+    <value>详情</value>
+  </data>
+  <data name="ProxyEmptyTitle" xml:space="preserve">
+    <value>没有可创建代理的视频</value>
+  </data>
+  <data name="ProxyEmptyDescription" xml:space="preserve">
+    <value>将视频添加到项目后，即可在此创建用于预览播放的轻量文件。</value>
+  </data>
+  <data name="Ai" xml:space="preserve">
+    <value>AI</value>
+  </data>
+  <data name="AiGenerateImage" xml:space="preserve">
+    <value>生成图像</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>AI 图像生成</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>提示词</value>
+  </data>
+  <data name="AiPrompt_Placeholder" xml:space="preserve">
+    <value>描述要生成的图像...</value>
+  </data>
+  <data name="AiAspectRatio" xml:space="preserve">
+    <value>宽高比</value>
+  </data>
+  <data name="AiBackground" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="AiBackgroundAuto" xml:space="preserve">
+    <value>由模型决定</value>
+  </data>
+  <data name="AiBackgroundOpaque" xml:space="preserve">
+    <value>不透明</value>
+  </data>
+  <data name="AiBackgroundTransparent" xml:space="preserve">
+    <value>透明</value>
+  </data>
+  <data name="AiGenerateAudio" xml:space="preserve">
+    <value>生成音频</value>
+  </data>
+  <data name="AiGenerate" xml:space="preserve">
+    <value>生成</value>
+  </data>
+  <data name="AiGenerating" xml:space="preserve">
+    <value>正在生成...</value>
+  </data>
+  <data name="AiAddToScene" xml:space="preserve">
+    <value>添加到场景</value>
+  </data>
+  <data name="AiSaveToFile" xml:space="preserve">
+    <value>保存到文件</value>
+  </data>
+  <data name="AiMonthlyUsage" xml:space="preserve">
+    <value>本月用量：{0}%</value>
+  </data>
+  <data name="AiMonthlyUsageRemaining" xml:space="preserve">
+    <value>本月剩余额度为 {0}%</value>
+  </data>
+  <data name="AiAdditionalCredits" xml:space="preserve">
+    <value>已购积分：{0}</value>
+  </data>
+  <data name="AiAdditionalCreditDebt" xml:space="preserve">
+    <value>退款或争议撤销了已使用的积分。下次购买的积分将优先用于结清这部分用量。</value>
+  </data>
+  <data name="AiProRequired" xml:space="preserve">
+    <value>使用 AI 功能需要有效的 Pro 套餐。</value>
+  </data>
+  <data name="AiJoinPro" xml:space="preserve">
+    <value>订阅 Pro</value>
+  </data>
+  <data name="AiUsageLimitExceeded" xml:space="preserve">
+    <value>此请求所需用量超过了本月剩余额度与额外积分的总和。请充值额外积分以继续。</value>
+  </data>
+  <data name="AiFileTooLarge" xml:space="preserve">
+    <value>所选文件过大。请选择较小的文件，或转写较短的场景范围。</value>
+  </data>
+  <data name="AiProviderError" xml:space="preserve">
+    <value>AI 提供方未能完成请求。预留用量已返还，可以放心重试。</value>
+  </data>
+  <data name="AiAuthenticationRequired" xml:space="preserve">
+    <value>请登录以使用 AI 功能。</value>
+  </data>
+  <data name="AiRequestInProgress" xml:space="preserve">
+    <value>同一请求仍在服务器上处理中。请稍候再执行，将使用该请求生成的结果，不会重复收费。</value>
+  </data>
+  <data name="AiRequestChanged" xml:space="preserve">
+    <value>此请求发送时使用的名称属于另一请求。恢复原始内容可取回已付费的结果，或按当前内容重新发送以发起新请求。</value>
+  </data>
+  <data name="AiRequestWasDeleted" xml:space="preserve">
+    <value>此请求已被删除，无法再取回结果。请丢弃部分结果并重新执行。</value>
+  </data>
+  <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
+    <value>所选模型不支持此请求。请更换模型或调整选项后重试。</value>
+  </data>
+  <data name="AiResultUnavailable" xml:space="preserve">
+    <value>暂时无法读取结果。请重新执行，将查询同一请求，已付费的部分不会重复收费。</value>
+  </data>
+  <data name="AiResultDownloadFailed" xml:space="preserve">
+    <value>结果已生成并已收费，但无法下载。请打开任务历史记录获取结果。</value>
+  </data>
+  <data name="AiUnexpectedError" xml:space="preserve">
+    <value>请求已中断。重试前请检查 AI 任务中是否已有完成的结果。</value>
+  </data>
+  <data name="AiImageSaved" xml:space="preserve">
+    <value>已保存图像。</value>
+  </data>
+  <data name="AiImageAddedToScene" xml:space="preserve">
+    <value>已将图像添加到场景。</value>
+  </data>
+  <data name="AiGenerateSubtitles" xml:space="preserve">
+    <value>生成字幕</value>
+  </data>
+  <data name="AiSubtitle" xml:space="preserve">
+    <value>AI 字幕</value>
+  </data>
+  <data name="AiSubtitle_AudioSource" xml:space="preserve">
+    <value>音频源</value>
+  </data>
+  <data name="AiSubtitle_Template" xml:space="preserve">
+    <value>文本模板</value>
+  </data>
+  <data name="AiSubtitle_DefaultTemplate" xml:space="preserve">
+    <value>默认</value>
+  </data>
+  <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
+    <value>此处显示已保存的 TextBlock 模板。其格式、效果、动画和位置将应用到所有字幕。</value>
+  </data>
+  <data name="AiSubtitle_Transcribe" xml:space="preserve">
+    <value>转写</value>
+  </data>
+  <data name="AiSubtitle_Transcribing" xml:space="preserve">
+    <value>正在转写…</value>
+  </data>
+  <data name="AiSubtitle_AddToScene" xml:space="preserve">
+    <value>将字幕添加到场景</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwritePrompt" xml:space="preserve">
+    <value>要将此标签页中的字幕替换为所选历史结果吗？当前字幕尚未保存。</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwriteApply" xml:space="preserve">
+    <value>替换字幕</value>
+  </data>
+  <data name="AiSubtitleAddedToScene" xml:space="preserve">
+    <value>已将字幕添加到场景。</value>
+  </data>
+  <data name="AiEditImage" xml:space="preserve">
+    <value>编辑图像</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>AI 图像编辑</value>
+  </data>
+  <data name="AiEditTask" xml:space="preserve">
+    <value>任务</value>
+  </data>
+  <data name="AiEditRemoveBackground" xml:space="preserve">
+    <value>移除背景</value>
+  </data>
+  <data name="AiEditUpscale" xml:space="preserve">
+    <value>提升分辨率</value>
+  </data>
+  <data name="AiEditBrowse" xml:space="preserve">
+    <value>浏览...</value>
+  </data>
+  <data name="AiEditRun" xml:space="preserve">
+    <value>执行</value>
+  </data>
+  <data name="AiEditSelectSource" xml:space="preserve">
+    <value>请先选择图像文件。</value>
+  </data>
+  <data name="AiGenerateVideo" xml:space="preserve">
+    <value>生成视频</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>AI 视频生成</value>
+  </data>
+  <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
+    <value>描述要生成的视频...</value>
+  </data>
+  <data name="AiVideoDuration" xml:space="preserve">
+    <value>时长</value>
+  </data>
+  <data name="AiVideoExtensionDuration" xml:space="preserve">
+    <value>延长时长</value>
+  </data>
+  <data name="AiVideoResolution" xml:space="preserve">
+    <value>分辨率</value>
+  </data>
+  <data name="AiVideoSeconds" xml:space="preserve">
+    <value>秒</value>
+  </data>
+  <data name="AiVideoSubmitting" xml:space="preserve">
+    <value>正在提交视频生成任务...</value>
+  </data>
+  <data name="AiVideoIdle" xml:space="preserve">
+    <value>输入视频描述并点击“生成”。</value>
+  </data>
+  <data name="AiVideoProcessing" xml:space="preserve">
+    <value>正在生成视频... 这可能需要几分钟。</value>
+  </data>
+  <data name="AiVideoCompleted" xml:space="preserve">
+    <value>视频已生成。</value>
+  </data>
+  <data name="AiVideoFailed" xml:space="preserve">
+    <value>视频生成失败。</value>
+  </data>
+  <data name="AiVideoJobLimitReached" xml:space="preserve">
+    <value>已有视频生成任务正在进行。请等待完成。</value>
+  </data>
+  <data name="AiVideoAddedToScene" xml:space="preserve">
+    <value>已将视频添加到场景。</value>
+  </data>
+  <data name="AiVideoSaved" xml:space="preserve">
+    <value>已保存视频。</value>
+  </data>
+  <data name="AiClearFrame" xml:space="preserve">
+    <value>清除帧</value>
+  </data>
+  <data name="AiJobCenter" xml:space="preserve">
+    <value>AI 任务</value>
+  </data>
+  <data name="AiJobCenter_Description" xml:space="preserve">
+    <value>无需中断编辑即可跟踪生成进度、复用结果并添加到场景。</value>
+  </data>
+  <data name="AiJobCenter_Empty" xml:space="preserve">
+    <value>尚无 AI 任务。生成的图像、字幕和视频将显示在此处。</value>
+  </data>
+  <data name="AiJobCenter_LoadFailed" xml:space="preserve">
+    <value>无法加载 AI 任务历史记录。</value>
+  </data>
+  <data name="AiJobCenter_LoadMore" xml:space="preserve">
+    <value>加载更多</value>
+  </data>
+  <data name="AiJobCenter_StatusQueued" xml:space="preserve">
+    <value>排队中</value>
+  </data>
+  <data name="AiJobCenter_StatusRunning" xml:space="preserve">
+    <value>处理中</value>
+  </data>
+  <data name="AiJobCenter_StatusSucceeded" xml:space="preserve">
+    <value>已完成</value>
+  </data>
+  <data name="AiJobCenter_StatusFailed" xml:space="preserve">
+    <value>失败 · 用量已返还</value>
+  </data>
+  <data name="AiJobCenter_StatusCanceled" xml:space="preserve">
+    <value>已取消</value>
+  </data>
+  <data name="AiJobCenter_NoDescription" xml:space="preserve">
+    <value>无描述</value>
+  </data>
+  <data name="AiJobCenter_TranslationSummary" xml:space="preserve">
+    <value>字幕翻译为 {0}</value>
+  </data>
+  <data name="AiJobCenter_UsageFormat" xml:space="preserve">
+    <value>用量 {0}</value>
+  </data>
+  <data name="AiJobCenter_Retry" xml:space="preserve">
+    <value>重新执行</value>
+  </data>
+  <data name="AiJobCenter_RetryTitle" xml:space="preserve">
+    <value>要重新执行 AI 任务吗？</value>
+  </data>
+  <data name="AiJobCenter_CheckingRetryCost" xml:space="preserve">
+    <value>正在检查当前预计用量…</value>
+  </data>
+  <data name="AiJobCenter_RetryConfirmation" xml:space="preserve">
+    <value>这将创建新任务并再次消耗额度。原始结果将保留。</value>
+  </data>
+  <data name="AiJobCenter_RetryFailed" xml:space="preserve">
+    <value>无法重新执行 AI 任务。原始设置仍然可用。</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitle" xml:space="preserve">
+    <value>要删除此 AI 历史记录吗？</value>
+  </data>
+  <data name="AiJobCenter_DeleteConfirmation" xml:space="preserve">
+    <value>将删除服务器副本、提示词和生成结果。已添加到项目的素材将保留。</value>
+  </data>
+  <data name="AiJobCenter_DeleteFailed" xml:space="preserve">
+    <value>无法删除 AI 历史记录。</value>
+  </data>
+  <data name="AiJobCenter_AddFailed" xml:space="preserve">
+    <value>无法将生成结果添加到场景。</value>
+  </data>
+  <data name="AiJobCenter_AddedToScene" xml:space="preserve">
+    <value>已将生成结果添加到场景。</value>
+  </data>
+  <data name="AiJobCenter_CompletedNotification" xml:space="preserve">
+    <value>{0} 已完成。请打开 AI 任务查看或添加结果。</value>
+  </data>
+  <data name="AiJobCenter_FailedNotification" xml:space="preserve">
+    <value>{0} 失败。预留用量已返还，可从 AI 任务重新执行。</value>
+  </data>
+  <data name="AiJobCenter_CanceledNotification" xml:space="preserve">
+    <value>{0} 已取消。未生成任何结果。</value>
+  </data>
+  <data name="AiEstimatedUsage" xml:space="preserve">
+    <value>消耗月度额度</value>
+  </data>
+  <data name="AiModel" xml:space="preserve">
+    <value>模型</value>
+  </data>
+  <data name="AiModelUnavailable" xml:space="preserve">
+    <value>此请求使用的模型已不再提供。请发起新请求以选择其他模型。</value>
+  </data>
+  <data name="AiModelCostLow" xml:space="preserve">
+    <value>额度消耗较少</value>
+  </data>
+  <data name="AiModelCostMedium" xml:space="preserve">
+    <value>额度消耗标准</value>
+  </data>
+  <data name="AiModelCostHigh" xml:space="preserve">
+    <value>额度消耗较多</value>
+  </data>
+  <data name="AiModelUnaffordable" xml:space="preserve">
+    <value>剩余额度不足</value>
+  </data>
+  <data name="AiPricingUnavailable" xml:space="preserve">
+    <value>无法获取官方价格信息。请重新连接后再开始此付费操作。</value>
+  </data>
+  <data name="AiEstimatedUsageMonthly" xml:space="preserve">
+    <value>在月度额度范围内。</value>
+  </data>
+  <data name="AiEstimatedUsageTopUp" xml:space="preserve">
+    <value>月度额度已用尽，将使用已购积分。</value>
+  </data>
+  <data name="AiEstimatedUsageInsufficient" xml:space="preserve">
+    <value>剩余额度和积分不足。请先充值积分。</value>
+  </data>
+  <data name="AiSubtitle_SceneMix" xml:space="preserve">
+    <value>场景混音（所选范围）</value>
+  </data>
+  <data name="AiSubtitle_Range" xml:space="preserve">
+    <value>场景范围</value>
+  </data>
+  <data name="AiSubtitle_SourceLanguage" xml:space="preserve">
+    <value>语音语言</value>
+  </data>
+  <data name="AiSubtitle_TargetLanguage" xml:space="preserve">
+    <value>翻译为</value>
+  </data>
+  <data name="AiLanguageAuto" xml:space="preserve">
+    <value>自动检测</value>
+  </data>
+  <data name="AiSubtitle_DetectedLanguage" xml:space="preserve">
+    <value>检测到的语言：{0}</value>
+  </data>
+  <data name="AiSubtitle_RunCannotBeRecorded" xml:space="preserve">
+    <value>无法记录此次执行，因此不能开始：如果收费后会话结束，将无法再次取回该请求的结果。请关闭此场景的另一个字幕标签页后重试。</value>
+  </data>
+  <data name="AiSubtitle_NoAudioInRange" xml:space="preserve">
+    <value>所选场景范围内没有音频。</value>
+  </data>
+  <data name="AiSubtitle_InvalidRange" xml:space="preserve">
+    <value>请输入有效的场景范围，结束位置应晚于开始位置。</value>
+  </data>
+  <data name="AiSubtitle_Import" xml:space="preserve">
+    <value>导入字幕</value>
+  </data>
+  <data name="AiSubtitle_Export" xml:space="preserve">
+    <value>导出字幕</value>
+  </data>
+  <data name="AiSubtitle_LossySrtExportTitle" xml:space="preserve">
+    <value>要导出不含字幕元数据的 SRT 吗？</value>
+  </data>
+  <data name="AiSubtitle_LossySrtExportMessage" xml:space="preserve">
+    <value>SRT 无法保存说话人、语言或结构化字幕元数据。导出时将仅保留时间和文本。是否继续？</value>
+  </data>
+  <data name="AiSubtitle_ImportFailed" xml:space="preserve">
+    <value>无法导入字幕文件。</value>
+  </data>
+  <data name="AiSubtitle_ExportFailed" xml:space="preserve">
+    <value>无法导出字幕文件。</value>
+  </data>
+  <data name="AiSubtitle_Exported" xml:space="preserve">
+    <value>已导出字幕文件。</value>
+  </data>
+  <data name="AiSubtitle_CaptionFiles" xml:space="preserve">
+    <value>字幕文件（SRT、WebVTT、ASS）</value>
+  </data>
+  <data name="AiSubtitle_AddCue" xml:space="preserve">
+    <value>添加字幕</value>
+  </data>
+  <data name="AiSubtitle_DeleteCue" xml:space="preserve">
+    <value>删除字幕</value>
+  </data>
+  <data name="AiSubtitle_SplitCue" xml:space="preserve">
+    <value>在播放位置拆分</value>
+  </data>
+  <data name="AiSubtitle_MergeCue" xml:space="preserve">
+    <value>与下一条合并</value>
+  </data>
+  <data name="AiSubtitle_WrapCues" xml:space="preserve">
+    <value>自动换行</value>
+  </data>
+  <data name="AiSubtitle_MaxLineLength" xml:space="preserve">
+    <value>每行字符数</value>
+  </data>
+  <data name="AiSubtitle_MaxLineCount" xml:space="preserve">
+    <value>每条字幕行数</value>
+  </data>
+  <data name="AiSubtitle_CueStart" xml:space="preserve">
+    <value>开始</value>
+  </data>
+  <data name="AiSubtitle_CueEnd" xml:space="preserve">
+    <value>结束</value>
+  </data>
+  <data name="AiSubtitle_Speaker" xml:space="preserve">
+    <value>说话人</value>
+  </data>
+  <data name="AiSubtitle_Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="AiSubtitle_Text" xml:space="preserve">
+    <value>字幕文本</value>
+  </data>
+  <data name="AiSubtitle_InvalidTiming" xml:space="preserve">
+    <value>部分字幕的开始或结束时间无效。</value>
+  </data>
+  <data name="AiSubtitle_ValidationIssues" xml:space="preserve">
+    <value>有 {0} 个字幕问题需要处理。请检查时间、顺序和行数限制。</value>
+  </data>
+  <data name="AiSubtitle_OverlapWarning" xml:space="preserve">
+    <value>部分字幕重叠。仍可添加，但可能会同时显示。</value>
+  </data>
+  <data name="AiSubtitle_Translate" xml:space="preserve">
+    <value>翻译字幕</value>
+  </data>
+  <data name="AiSubtitle_TemplatePreview" xml:space="preserve">
+    <value>模板预览（近似效果）</value>
+  </data>
+  <data name="AiSubtitle_PreviewSample" xml:space="preserve">
+    <value>字幕预览</value>
+  </data>
+  <data name="AiPreviewMode" xml:space="preserve">
+    <value>预览</value>
+  </data>
+  <data name="AiPreviewResult" xml:space="preserve">
+    <value>结果</value>
+  </data>
+  <data name="AiPreviewOriginal" xml:space="preserve">
+    <value>原图</value>
+  </data>
+  <data name="AiPreviewSideBySide" xml:space="preserve">
+    <value>并排比较</value>
+  </data>
+  <data name="AiEditSourcePreviewFailed" xml:space="preserve">
+    <value>无法预览所选图像。请选择其他受支持的图像。</value>
+  </data>
+  <data name="AiPromptDetails" xml:space="preserve">
+    <value>提示词详情</value>
+  </data>
+  <data name="AiPromptStyle" xml:space="preserve">
+    <value>风格</value>
+  </data>
+  <data name="AiPromptStylePlaceholder" xml:space="preserve">
+    <value>例如：电影风格、水彩、写实照片</value>
+  </data>
+  <data name="AiPromptComposition" xml:space="preserve">
+    <value>构图与镜头</value>
+  </data>
+  <data name="AiPromptCompositionPlaceholder" xml:space="preserve">
+    <value>例如：特写、广角、柔和逆光</value>
+  </data>
+  <data name="AiPromptMotion" xml:space="preserve">
+    <value>运动</value>
+  </data>
+  <data name="AiPromptMotionPlaceholder" xml:space="preserve">
+    <value>例如：镜头缓慢推进、主体自然运动</value>
+  </data>
+  <data name="AiPromptAvoid" xml:space="preserve">
+    <value>避免的元素</value>
+  </data>
+  <data name="AiPromptAvoidPlaceholder" xml:space="preserve">
+    <value>例如：文字、标志、闪烁、镜头抖动</value>
+  </data>
+  <data name="AiVideoFrameGuidance" xml:space="preserve">
+    <value>帧引导</value>
+  </data>
+  <data name="AiVideoFrameGuidanceDescription" xml:space="preserve">
+    <value>使用首帧让现有构图动起来，或添加尾帧来生成过渡。图像仅在执行生成时上传。</value>
+  </data>
+  <data name="AiVideoUseCurrentFrame" xml:space="preserve">
+    <value>使用当前场景帧</value>
+  </data>
+  <data name="AiVideoFirstFrame" xml:space="preserve">
+    <value>首帧</value>
+  </data>
+  <data name="AiVideoLastFrame" xml:space="preserve">
+    <value>尾帧</value>
+  </data>
+  <data name="AiVideoBrowseFirstFrame" xml:space="preserve">
+    <value>选择首帧</value>
+  </data>
+  <data name="AiVideoClearFirstFrame" xml:space="preserve">
+    <value>清除首帧</value>
+  </data>
+  <data name="AiVideoBrowseLastFrame" xml:space="preserve">
+    <value>选择尾帧</value>
+  </data>
+  <data name="AiVideoClearLastFrame" xml:space="preserve">
+    <value>清除尾帧</value>
+  </data>
+  <data name="AiVideoFrameCaptureFailed" xml:space="preserve">
+    <value>无法捕获当前场景帧。请修复预览错误或选择图像文件。</value>
+  </data>
+  <data name="AiVideoOpenPreview" xml:space="preserve">
+    <value>打开预览</value>
+  </data>
+  <data name="AiVideoPreviewOpenFailed" xml:space="preserve">
+    <value>无法在默认媒体播放器中打开生成的视频。</value>
+  </data>
+  <data name="AiPromptLibraryPrivacy" xml:space="preserve">
+    <value>最近的提示词仅在本次会话的内存中保留。只有命名模板和固定的提示词会保存在本地。</value>
+  </data>
+  <data name="AiOptional" xml:space="preserve">
+    <value>可选</value>
+  </data>
+  <data name="AiPromptHistory" xml:space="preserve">
+    <value>提示词历史记录</value>
+  </data>
+  <data name="AiPromptHistoryEmpty" xml:space="preserve">
+    <value>尚未执行任何提示词。</value>
+  </data>
+  <data name="AiPromptTemplates" xml:space="preserve">
+    <value>提示词模板</value>
+  </data>
+  <data name="AiPromptTemplatesEmpty" xml:space="preserve">
+    <value>尚无已保存的模板。</value>
+  </data>
+  <data name="AiPromptSeed" xml:space="preserve">
+    <value>种子</value>
+  </data>
+  <data name="AiPromptSeedPlaceholder" xml:space="preserve">
+    <value>每次随机</value>
+  </data>
+  <data name="AiReferenceImage" xml:space="preserve">
+    <value>参考图像</value>
+  </data>
+  <data name="AiReferenceImageDescription" xml:space="preserve">
+    <value>使用现有图像引导生成。图像仅在执行生成时上传。</value>
+  </data>
+  <data name="AiClearReferenceImage" xml:space="preserve">
+    <value>清除所有参考图像</value>
+  </data>
+  <data name="AiReferenceImageCount" xml:space="preserve">
+    <value>已使用 {0} / {1} 张</value>
+  </data>
+  <data name="AiRemoveReferenceImage" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="AiPromptApply" xml:space="preserve">
+    <value>应用</value>
+  </data>
+  <data name="AiPromptPin" xml:space="preserve">
+    <value>固定 / 取消固定</value>
+  </data>
+  <data name="AiPromptTemplateName" xml:space="preserve">
+    <value>模板名称</value>
+  </data>
+  <data name="AiPromptSaveTemplate" xml:space="preserve">
+    <value>保存模板</value>
+  </data>
+  <data name="AiPromptClearRecent" xml:space="preserve">
+    <value>清除最近的提示词</value>
+  </data>
+  <data name="AiPromptTemplateInvalid" xml:space="preserve">
+    <value>保存前请输入模板名称和提示词。</value>
+  </data>
+  <data name="AiVideoWaitStopped" xml:space="preserve">
+    <value>已停止本地等待。服务器任务仍可在 AI 任务历史记录中查看。</value>
+  </data>
+  <data name="AiEditRestyle" xml:space="preserve">
+    <value>根据参考图像更改风格</value>
+  </data>
+  <data name="AiEditRemoveObject" xml:space="preserve">
+    <value>移除对象</value>
+  </data>
+  <data name="AiEditOutpaint" xml:space="preserve">
+    <value>扩展画布（向外扩图）</value>
+  </data>
+  <data name="AiEditRestylePrompt" xml:space="preserve">
+    <value>描述目标风格以及需要保持不变的细节。</value>
+  </data>
+  <data name="AiEditRemoveObjectPrompt" xml:space="preserve">
+    <value>描述要移除的对象以及移除后区域应呈现的样子。</value>
+  </data>
+  <data name="AiEditOutpaintPrompt" xml:space="preserve">
+    <value>描述原图之外应延续的内容。</value>
+  </data>
+  <data name="AiEditOutpaintExpansion" xml:space="preserve">
+    <value>各边扩展量</value>
+  </data>
+  <data name="AiSubtitle_PartialTranslationAvailable" xml:space="preserve">
+    <value>已完成 {1} 批中的 {0} 批翻译。可立即使用已付费的部分结果，或再次执行“翻译”，无需重新处理已完成的批次即可继续。</value>
+  </data>
+  <data name="AiSubtitle_PartialTranscriptionAvailable" xml:space="preserve">
+    <value>已完成 {1} 个音频分块中的 {0} 个转写。可立即使用已付费的部分结果，或再次执行“转写”，无需重新处理已完成的分块即可继续。</value>
+  </data>
+  <data name="AiSubtitle_UsePartialResult" xml:space="preserve">
+    <value>使用部分结果</value>
+  </data>
+  <data name="AiSubtitle_DiscardPartialResult" xml:space="preserve">
+    <value>丢弃部分结果</value>
+  </data>
+  <data name="AiSubtitle_CompletedResultAvailable" xml:space="preserve">
+    <value>已付费的 AI 结果已完成，但处理期间来源或字幕发生了变化。请在准备好后查看并应用可恢复的结果。</value>
+  </data>
+  <data name="VersionControl" xml:space="preserve">
+    <value>版本控制</value>
+  </data>
+  <data name="VersionControl_Enable" xml:space="preserve">
+    <value>启用版本控制…</value>
+  </data>
+  <data name="VersionControl_Enabling" xml:space="preserve">
+    <value>正在启用版本控制…</value>
+  </data>
+  <data name="VersionControl_EnablingHint" xml:space="preserve">
+    <value>正在保存项目并记录第一个版本。大型项目可能需要一些时间。</value>
+  </data>
+  <data name="VersionControl_UntrackedExplanation" xml:space="preserve">
+    <value>使用 Git 跟踪此项目，保存时会自动记录版本。</value>
+  </data>
+  <data name="VersionControl_DownloadGit" xml:space="preserve">
+    <value>下载 Git</value>
+  </data>
+  <data name="VersionControl_TrackHistory" xml:space="preserve">
+    <value>使用 Git 跟踪历史记录</value>
+  </data>
+  <data name="VersionControl_Commit" xml:space="preserve">
+    <value>提交版本…</value>
+  </data>
+  <data name="VersionControl_Push" xml:space="preserve">
+    <value>推送</value>
+  </data>
+  <data name="VersionControl_Pull" xml:space="preserve">
+    <value>拉取</value>
+  </data>
+  <data name="VersionControl_Restore" xml:space="preserve">
+    <value>恢复</value>
+  </data>
+  <data name="VersionControl_RestoreToNewBranch" xml:space="preserve">
+    <value>恢复到新分支…</value>
+  </data>
+  <data name="VersionControl_NewBranch" xml:space="preserve">
+    <value>新建分支…</value>
+  </data>
+  <data name="VersionControl_Switch" xml:space="preserve">
+    <value>切换</value>
+  </data>
+  <data name="VersionControl_History" xml:space="preserve">
+    <value>版本历史记录</value>
+  </data>
+  <data name="VersionControl_ChangedFiles" xml:space="preserve">
+    <value>已更改的文件</value>
+  </data>
+  <data name="VersionControl_CommitMessage" xml:space="preserve">
+    <value>提交信息</value>
+  </data>
+  <data name="VersionControl_SnapshotManual" xml:space="preserve">
+    <value>手动</value>
+  </data>
+  <data name="VersionControl_SnapshotSave" xml:space="preserve">
+    <value>已保存</value>
+  </data>
+  <data name="VersionControl_SnapshotClose" xml:space="preserve">
+    <value>已关闭</value>
+  </data>
+  <data name="VersionControl_SnapshotSafety" xml:space="preserve">
+    <value>安全快照</value>
+  </data>
+  <data name="VersionControl_SnapshotRestore" xml:space="preserve">
+    <value>已还原</value>
+  </data>
+  <data name="VersionControl_SnapshotRecovery" xml:space="preserve">
+    <value>已恢复</value>
+  </data>
+  <data name="VersionControl_SnapshotInit" xml:space="preserve">
+    <value>已初始化</value>
+  </data>
+  <data name="VersionControl_NothingToCommit" xml:space="preserve">
+    <value>没有需要记录的新更改。</value>
+  </data>
+  <data name="VersionControl_CommitNow" xml:space="preserve">
+    <value>提交</value>
+  </data>
+  <data name="VersionControl_CommitCreated" xml:space="preserve">
+    <value>已记录版本。</value>
+  </data>
+  <data name="VersionControl_GitNotInstalled" xml:space="preserve">
+    <value>记录项目历史需要 Git。</value>
+  </data>
+  <data name="VersionControl_GitTooOldFormat" xml:space="preserve">
+    <value>需要 Git 2.36 或更高版本。已安装的版本为 {0}。</value>
+  </data>
+  <data name="VersionControl_InstallGitWindows" xml:space="preserve">
+    <value>请安装 Git for Windows，然后重启 Beutl。</value>
+  </data>
+  <data name="VersionControl_InstallGitMacOS" xml:space="preserve">
+    <value>请安装 Xcode 命令行工具或通过 Homebrew 安装 Git，然后重启 Beutl。</value>
+  </data>
+  <data name="VersionControl_InstallGitLinux" xml:space="preserve">
+    <value>请使用发行版的包管理器安装 Git，然后重启 Beutl。</value>
+  </data>
+  <data name="VersionControl_ErrorTitle" xml:space="preserve">
+    <value>版本控制错误</value>
+  </data>
+  <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
+    <value>项目文件已保存，但无法记录自动历史快照。请检查 Git 仓库后再次保存。</value>
+  </data>
+  <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
+    <value>还原失败，但原始项目已恢复。为安全起见，保留了分支 '{0}'。请确认没有其他 Git 工作树使用此分支后，通过外部 Git 工具手动删除。</value>
+  </data>
+  <data name="VersionControl_ConflictGuidance" xml:space="preserve">
+    <value>此仓库存在未解决的冲突。请先使用外部 Git 工具解决后再继续。</value>
+  </data>
+  <data name="VersionControl_DetachedHeadGuidance" xml:space="preserve">
+    <value>此仓库不在任何分支上（游离 HEAD）。请先使用外部 Git 工具检出分支后再继续。</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshot" xml:space="preserve">
+    <value>不记录快照并关闭</value>
+  </data>
+  <data name="VersionControl_CloseWithoutSnapshotConfirmation" xml:space="preserve">
+    <value>无法保存项目。要不记录快照并关闭吗？未保存的更改将丢失。</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarningTitle" xml:space="preserve">
+    <value>检测到冲突标记</value>
+  </data>
+  <data name="VersionControl_ConflictMarkerWarning" xml:space="preserve">
+    <value>项目中的以下文件包含未解决的冲突标记：
+
+{0}
+
+编辑前请使用外部 Git 工具解决冲突。项目可能无法正常打开。</value>
+  </data>
+  <data name="VersionControl_IdentityTitle" xml:space="preserve">
+    <value>设置提交者身份</value>
+  </data>
+  <data name="VersionControl_IdentityName" xml:space="preserve">
+    <value>姓名</value>
+  </data>
+  <data name="VersionControl_IdentityEmail" xml:space="preserve">
+    <value>电子邮箱</value>
+  </data>
+  <data name="VersionControl_MissingIdentityNotice" xml:space="preserve">
+    <value>此仓库未设置提交者身份，已暂停自动版本控制快照。请创建手动版本以设置仓库专用的姓名和邮箱，然后再次保存。</value>
+  </data>
+  <data name="VersionControl_RestoreConfirmation" xml:space="preserve">
+    <value>项目将关闭并重新打开，当前撤销历史将被清除。未保存的更改会先保存并记录到安全快照中。是否继续？</value>
+  </data>
+  <data name="VersionControl_RevisionMissingProject" xml:space="preserve">
+    <value>修订版本 {0} 不包含当前项目文件，因此无法还原。</value>
+  </data>
+  <data name="VersionControl_UntrackReservedPathsConfirmation" xml:space="preserve">
+    <value>此仓库已跟踪 Beutl 的本地状态文件。在停止跟踪前，每次拉取都会报告仓库存在未提交的更改。要停止跟踪这些文件吗？文件将保留在磁盘上。</value>
+  </data>
+  <data name="VersionControl_WorkspaceBusy" xml:space="preserve">
+    <value>导出或保存操作正在写入项目时，无法执行此版本控制操作。</value>
+  </data>
+  <data name="VersionControl_RecoveryFailed" xml:space="preserve">
+    <value>操作失败，且无法恢复原始项目状态。操作错误：{0} 恢复错误：{1}</value>
+  </data>
+  <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
+    <value>Git 无法检查此项目的文件夹，因此项目已在未启用版本控制的情况下打开。{0}</value>
+  </data>
+  <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
+    <value>Beutl 无法检查受保护的拉取是否仍需恢复，因此未打开项目。{0}</value>
+  </data>
+  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
+    <value>受保护的仓库转换失去了所有权，或无法验证恢复。请使用版本控制中的“恢复项目”，或从最近的项目重新打开，以在加载前恢复。如果 Beutl 无法安全更改工作树，会将检查点保留在持久的 Git 引用中。</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
+    <value>{0} 的受保护拉取在 {1:g} 未正常完成。要在加载项目前恢复已保存的项目状态吗？恢复所替换的项目状态将重新加载，撤销历史会被清除，从未保存的更改将被丢弃。</value>
+  </data>
+  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
+    <value>受保护的拉取未正常完成。可以从已保存的项目状态恢复。</value>
+  </data>
+  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
+    <value>恢复项目</value>
+  </data>
+  <data name="VersionControl_PullRecovered" xml:space="preserve">
+    <value>无法完成拉取，但已恢复保存的项目状态。</value>
+  </data>
+  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
+    <value>已将保存的项目状态恢复为本地更改。持久副本保留在分支 '{0}' 上。</value>
+  </data>
+  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
+    <value>Beutl 无法安全更改当前工作树。已保存的项目状态保留在 Git 引用 '{0}' 中。请使用 Git 检查此引用。</value>
+  </data>
+  <data name="VersionControl_BranchFormat" xml:space="preserve">
+    <value>分支：{0}</value>
+  </data>
+  <data name="VersionControl_CurrentBranch" xml:space="preserve">
+    <value>当前分支</value>
+  </data>
+  <data name="VersionControl_Branches" xml:space="preserve">
+    <value>分支</value>
+  </data>
+  <data name="VersionControl_RemoteBranch" xml:space="preserve">
+    <value>仅远程</value>
+  </data>
+  <data name="VersionControl_AheadBehindFormat" xml:space="preserve">
+    <value>领先 {0}，落后 {1}</value>
+  </data>
+  <data name="VersionControl_DirtySummaryFormat" xml:space="preserve">
+    <value>{0} 个已更改的文件</value>
+  </data>
+  <data name="VersionControl_WorktreeClean" xml:space="preserve">
+    <value>工作树干净</value>
+  </data>
+  <data name="VersionControl_LoadMore" xml:space="preserve">
+    <value>加载更多</value>
+  </data>
+  <data name="VersionControl_Diff" xml:space="preserve">
+    <value>差异</value>
+  </data>
+  <data name="VersionControl_NoRepository" xml:space="preserve">
+    <value>此项目未使用 Git 跟踪。</value>
+  </data>
+  <data name="VersionControl_NoHistory" xml:space="preserve">
+    <value>尚未记录任何版本。</value>
+  </data>
+  <data name="VersionControl_HistoryEmptyHint" xml:space="preserve">
+    <value>尚无版本，保存项目时会自动记录</value>
+  </data>
+  <data name="VersionControl_ChangedFilesEmptyHint" xml:space="preserve">
+    <value>选择一个版本以查看其更改</value>
+  </data>
+  <data name="VersionControl_DiffEmptyHint" xml:space="preserve">
+    <value>选择一个文件以查看其差异</value>
+  </data>
+  <data name="VersionControl_TimeJustNow" xml:space="preserve">
+    <value>刚刚</value>
+  </data>
+  <data name="VersionControl_TimeMinuteAgo" xml:space="preserve">
+    <value>1 分钟前</value>
+  </data>
+  <data name="VersionControl_TimeMinutesAgoFormat" xml:space="preserve">
+    <value>{0} 分钟前</value>
+  </data>
+  <data name="VersionControl_TimeHourAgo" xml:space="preserve">
+    <value>1 小时前</value>
+  </data>
+  <data name="VersionControl_TimeHoursAgoFormat" xml:space="preserve">
+    <value>{0} 小时前</value>
+  </data>
+  <data name="VersionControl_TimeDayAgo" xml:space="preserve">
+    <value>1 天前</value>
+  </data>
+  <data name="VersionControl_TimeDaysAgoFormat" xml:space="preserve">
+    <value>{0} 天前</value>
+  </data>
+  <data name="VersionControl_BranchName" xml:space="preserve">
+    <value>分支名称</value>
+  </data>
+  <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
+    <value>恢复到新分支</value>
+  </data>
+  <data name="VersionControl_CreateBranch" xml:space="preserve">
+    <value>创建分支</value>
+  </data>
+  <data name="VersionControl_SwitchBranch" xml:space="preserve">
+    <value>切换分支</value>
+  </data>
+  <data name="VersionControl_SwitchBranchConfirmation" xml:space="preserve">
+    <value>项目将关闭并在分支“{0}”上重新打开，当前撤销历史将被清除。未保存的更改会先保存并记录到安全快照中。是否继续？</value>
+  </data>
+  <data name="VersionControl_SwitchBranchEnclosingRepositoryNotice" xml:space="preserve">
+    <value>此项目与其他文件共享仓库。切换分支会检出整个仓库，因此项目外的文件也会更改。</value>
+  </data>
+  <data name="VersionControl_PullConfirmation" xml:space="preserve">
+    <value>拉取快进更新后，项目将关闭并重新打开，当前撤销历史将被清除。未保存的更改会先保存并记录到安全快照中。是否继续？</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
+    <value>分支和远程操作将应用于包含此项目的仓库：{0}</value>
+  </data>
+  <data name="VersionControl_RemoteUrl" xml:space="preserve">
+    <value>远程 URL</value>
+  </data>
+  <data name="VersionControl_SetRemote" xml:space="preserve">
+    <value>设置远程…</value>
+  </data>
+  <data name="VersionControl_SetRemoteTitle" xml:space="preserve">
+    <value>设置远程</value>
+  </data>
+  <data name="VersionControl_UpToDate" xml:space="preserve">
+    <value>已是最新</value>
+  </data>
+  <data name="VersionControl_PublishBranch" xml:space="preserve">
+    <value>发布分支…</value>
+  </data>
+  <data name="VersionControl_PullCountFormat" xml:space="preserve">
+    <value>拉取 ↓{0}</value>
+  </data>
+  <data name="VersionControl_PushCountFormat" xml:space="preserve">
+    <value>推送 ↑{0}</value>
+  </data>
+  <data name="VersionControl_RemoteConnected" xml:space="preserve">
+    <value>已连接远程。</value>
+  </data>
+  <data name="VersionControl_Pushing" xml:space="preserve">
+    <value>正在推送版本…</value>
+  </data>
+  <data name="VersionControl_Pulling" xml:space="preserve">
+    <value>正在拉取版本…</value>
+  </data>
+  <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
+    <value>远程操作已完成。</value>
+  </data>
+  <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
+    <value>远程操作已取消。</value>
+  </data>
+  <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
+    <value>大型媒体文件使用 Git LFS 存储。远程托管服务可能对 LFS 存储和带宽设置限额。</value>
+  </data>
+  <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
+    <value>{0} 是大型文件，但未启用 Git LFS。提交此文件可能永久增大仓库历史记录的大小。提交将继续。</value>
+  </data>
+  <data name="VersionControl_EnclosingRepositoryFound" xml:space="preserve">
+    <value>此项目位于现有 Git 仓库中。</value>
+  </data>
+  <data name="VersionControl_AdoptExistingRepository" xml:space="preserve">
+    <value>此项目文件夹已是一个不由 Beutl 管理的 Git 仓库。要使用此仓库跟踪项目吗？Beutl 将添加自己的忽略规则和属性规则，并在保存或关闭时记录版本。</value>
+  </data>
+  <data name="VersionControl_AdoptRepositoryAction" xml:space="preserve">
+    <value>在此仓库中管理</value>
+  </data>
+  <data name="VersionControl_UseEnclosingRepository" xml:space="preserve">
+    <value>使用上级仓库</value>
+  </data>
+  <data name="VersionControl_LeaveUnmanaged" xml:space="preserve">
+    <value>不进行管理</value>
+  </data>
+  <data name="VersionControl_AuthenticationFailed" xml:space="preserve">
+    <value>身份验证失败。请检查 Git 凭据助手或 SSH 代理。</value>
+  </data>
+  <data name="VersionControl_Diverged" xml:space="preserve">
+    <value>本地与远程历史记录已分叉。请使用外部 Git 工具解决。</value>
+  </data>
+  <data name="VersionControl_PullUpstreamOnAnotherRemote" xml:space="preserve">
+    <value>此分支跟踪的是 origin 以外的远程。请使用外部 Git 工具拉取，或将其上游设置为 origin。</value>
+  </data>
+  <data name="VersionControl_LfsInstallFailedNotice" xml:space="preserve">
+    <value>无法为此仓库设置 Git LFS，因此媒体文件将作为普通 Git 文件存储。请检查仓库的 Git 钩子，然后重新打开项目以重试。</value>
+  </data>
+  <data name="VersionControl_RepositoryDirty" xml:space="preserve">
+    <value>拉取要求整个仓库处于干净状态。请先提交或使用 stash 暂存项目外的更改，然后重试。</value>
+  </data>
+  <data name="VersionControl_Offline" xml:space="preserve">
+    <value>无法连接远程。请检查网络连接后重试。</value>
+  </data>
+  <data name="VersionControl_StaleLockGuidance" xml:space="preserve">
+    <value>过期的 Git 仓库锁阻止了版本控制操作。</value>
+  </data>
+  <data name="VersionControl_RemoveStaleLock" xml:space="preserve">
+    <value>移除过期锁</value>
+  </data>
+  <data name="VersionControl_StaleLockConfirmation" xml:space="preserve">
+    <value>Git 仓库锁已存在超过 10 分钟，且 Beutl 没有正在运行的 Git 进程。要移除过期锁吗？</value>
+  </data>
+  <data name="VersionControl_StaleLockRemoved" xml:space="preserve">
+    <value>已移除过期的 Git 仓库锁。请重试版本控制操作。</value>
+  </data>
+  <data name="VersionControl_StaleLockManualRemovalRequiredFormat" xml:space="preserve">
+    <value>Beutl 无法在当前文件系统上安全移除此 Git 锁。请关闭外部 Git 工具，确认没有 Git 进程运行，然后手动删除 {0} 并重试。</value>
+  </data>
+  <data name="VersionControl_WorktreeOperationInProgress" xml:space="preserve">
+    <value>版本控制正在更新项目文件。请等待操作完成后重试。</value>
+  </data>
+  <data name="AiPendingRequest" xml:space="preserve">
+    <value>待处理的 AI 请求</value>
+  </data>
+  <data name="AiRecoverRequest" xml:space="preserve">
+    <value>恢复</value>
+  </data>
+  <data name="AiAbandonRequest" xml:space="preserve">
+    <value>丢弃</value>
+  </data>
+  <data name="AiSubtitle_Edit" xml:space="preserve">
+    <value>编辑字幕</value>
+  </data>
+  <data name="AiSubtitle_TranscribeDescription" xml:space="preserve">
+    <value>选择音频源并创建带时间信息的字幕。</value>
+  </data>
+  <data name="AiSubtitle_EditDescription" xml:space="preserve">
+    <value>检查时间和文本，选择外观，然后将字幕添加到场景。</value>
+  </data>
+  <data name="AiSubtitle_TranslateDescription" xml:space="preserve">
+    <value>将当前字幕翻译为其他语言。</value>
+  </data>
+  <data name="WebDownloadMedia" xml:space="preserve">
+    <value>下载媒体</value>
+  </data>
+  <data name="WebDownloadProject" xml:space="preserve">
+    <value>项目目录</value>
+  </data>
+  <data name="WebDownloadMaterials" xml:space="preserve">
+    <value>共享素材文件夹</value>
+  </data>
+  <data name="WebDownloadAddToTimeline" xml:space="preserve">
+    <value>下载后添加到时间轴</value>
+  </data>
+  <data name="WebDownloadProjectUnavailable" xml:space="preserve">
+    <value>使用项目目录前请先保存项目。</value>
+  </data>
+  <data name="WebDownloadUnsupported" xml:space="preserve">
+    <value>仅支持通过 HTTP(S) 直接下载图像、音频或视频文件。</value>
+  </data>
+  <data name="WebDownloadHtmlResponse" xml:space="preserve">
+    <value>此 URL 返回的是网页而非媒体文件。请使用文件的下载链接。</value>
+  </data>
+  <data name="WebDownloadIncomplete" xml:space="preserve">
+    <value>下载的文件为空或不完整。</value>
+  </data>
+  <data name="WebDownloadComplete" xml:space="preserve">
+    <value>已保存：{0}</value>
+  </data>
+  <data name="WebDownloadFailed" xml:space="preserve">
+    <value>下载失败：{0}</value>
+  </data>
+  <data name="WebDownloadCanceled" xml:space="preserve">
+    <value>下载已取消。</value>
+  </data>
+  <data name="WebDownloadImportFailed" xml:space="preserve">
+    <value>已保存到 {0}，但导入时间轴失败：{1}</value>
+  </data>
+  <data name="BrowserDownloads" xml:space="preserve">
+    <value>下载历史记录</value>
+  </data>
+  <data name="BrowserBookmarks" xml:space="preserve">
+    <value>书签</value>
+  </data>
+  <data name="BrowserAddBookmark" xml:space="preserve">
+    <value>添加书签</value>
+  </data>
+  <data name="BrowserSettings" xml:space="preserve">
+    <value>搜索与隐私</value>
+  </data>
+  <data name="BrowserRetry" xml:space="preserve">
+    <value>重新下载</value>
+  </data>
+  <data name="BrowserFileMissing" xml:space="preserve">
+    <value>保存的文件或文件夹已不存在。</value>
+  </data>
+  <data name="BrowserStorageError" xml:space="preserve">
+    <value>无法保存浏览器数据：{0}</value>
+  </data>
+  <data name="BrowserSearchEngine" xml:space="preserve">
+    <value>搜索引擎</value>
+  </data>
+  <data name="BrowserRemoteSuggestions" xml:space="preserve">
+    <value>发送输入的搜索词以获取建议</value>
+  </data>
+  <data name="BrowserRecordDownloads" xml:space="preserve">
+    <value>保留下载历史记录</value>
+  </data>
+  <data name="BrowserClearHistory" xml:space="preserve">
+    <value>清除本地历史记录</value>
+  </data>
+  <data name="BrowserHistoryDescription" xml:space="preserve">
+    <value>清除所有标签页的地址补全记录和下载记录。文件和书签将保留。</value>
+  </data>
+  <data name="BrowserHistoryCleared" xml:space="preserve">
+    <value>已清除本地历史记录。</value>
+  </data>
+  <data name="BrowserClearCookies" xml:space="preserve">
+    <value>删除浏览器 Cookie</value>
+  </data>
+  <data name="BrowserCookieWarning" xml:space="preserve">
+    <value>我了解删除 Cookie 可能会使我退出网站登录。</value>
+  </data>
+  <data name="BrowserCookiesCleared" xml:space="preserve">
+    <value>已请求删除 Cookie。未清除缓存和网站存储。</value>
+  </data>
+  <data name="BrowserCookiesUnsupported" xml:space="preserve">
+    <value>此浏览器引擎不支持删除 Cookie。</value>
+  </data>
+  <data name="BrowserFind" xml:space="preserve">
+    <value>在页面中查找</value>
+  </data>
+  <data name="BrowserFindNext" xml:space="preserve">
+    <value>下一个匹配项</value>
+  </data>
+  <data name="BrowserFindPrevious" xml:space="preserve">
+    <value>上一个匹配项</value>
+  </data>
+  <data name="BrowserFindCount" xml:space="preserve">
+    <value>第 {0} 个，共 {1} 个</value>
+  </data>
+  <data name="BrowserPageToolsUnavailable" xml:space="preserve">
+    <value>此页面无法使用页面工具。</value>
+  </data>
+  <data name="BrowserZoomIn" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="BrowserZoomOut" xml:space="preserve">
+    <value>缩小</value>
+  </data>
+  <data name="BrowserZoomReset" xml:space="preserve">
+    <value>重置缩放</value>
+  </data>
+  <data name="BrowserCookieSessionRequired" xml:space="preserve">
+    <value>请打开浏览器标签页以管理 Cookie。部分浏览器引擎不支持删除 Cookie。</value>
+  </data>
+  <data name="BrowserStartDescription" xml:space="preserve">
+    <value>编辑时即可查找参考资料和媒体素材。下载素材并添加到时间轴。</value>
+  </data>
+  <data name="BrowserStartSearch" xml:space="preserve">
+    <value>开始浏览</value>
+  </data>
+  <data name="BrowserBookmarksEmpty" xml:space="preserve">
+    <value>常用页面，汇聚一处</value>
+  </data>
+  <data name="BrowserBookmarksHint" xml:space="preserve">
+    <value>添加书签即可快速打开参考页面和素材网站。</value>
+  </data>
+  <data name="BrowserSearchSection" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="BrowserSearchEngineDescription" xml:space="preserve">
+    <value>用于地址栏搜索和搜索建议。</value>
+  </data>
+  <data name="BrowserSuggestionsTitle" xml:space="preserve">
+    <value>搜索建议</value>
+  </data>
+  <data name="BrowserPrivacySection" xml:space="preserve">
+    <value>历史记录与隐私</value>
+  </data>
+  <data name="BrowserRecordDownloadsDescription" xml:space="preserve">
+    <value>保留已完成的下载记录，以便稍后打开或导入。</value>
+  </data>
+  <data name="BrowserCookiesDescription" xml:space="preserve">
+    <value>删除用于保存网站登录状态和偏好的 Cookie。</value>
+  </data>
+  <data name="BrowserHistoryIntro" xml:space="preserve">
+    <value>已保存的素材，随时可用。</value>
+  </data>
+  <data name="BrowserHistoryEmpty" xml:space="preserve">
+    <value>尚无下载记录</value>
+  </data>
+  <data name="BrowserHistoryEmptyHint" xml:space="preserve">
+    <value>启用历史记录后，
+下载的素材会显示在此处。</value>
+  </data>
+  <data name="BrowserAddToTimeline" xml:space="preserve">
+    <value>添加到时间轴</value>
+  </data>
+  <data name="BrowserRemoveHistoryItem" xml:space="preserve">
+    <value>从历史记录中移除</value>
+  </data>
+  <data name="BrowserDownloadDestination" xml:space="preserve">
+    <value>保存到</value>
+  </data>
+  <data name="BrowserDownloadAfter" xml:space="preserve">
+    <value>下载后</value>
+  </data>
+  <data name="BrowserDownloadStart" xml:space="preserve">
+    <value>下载</value>
+  </data>
+  <data name="BrowserFindNoResults" xml:space="preserve">
+    <value>未找到匹配项。</value>
+  </data>
+  <data name="BrowserFindUnavailable" xml:space="preserve">
+    <value>此页面无法使用搜索。</value>
+  </data>
+  <data name="BrowserPageDownloadRequest" xml:space="preserve">
+    <value>此页面请求的下载</value>
+  </data>
+  <data name="BrowserIgnorePageDownloads" xml:space="preserve">
+    <value>在重新加载此页面前忽略下载请求</value>
+  </data>
+  <data name="CloudStorage" xml:space="preserve">
+    <value>Beutl 存储</value>
+  </data>
+  <data name="CloudStorageSignIn" xml:space="preserve">
+    <value>登录以查看 Beutl 存储中的文件和文件夹。</value>
+  </data>
+  <data name="CloudStorageAccountSettings" xml:space="preserve">
+    <value>打开账户设置</value>
+  </data>
+  <data name="CloudStorageUp" xml:space="preserve">
+    <value>上级文件夹</value>
+  </data>
+  <data name="CloudStorageFolder" xml:space="preserve">
+    <value>文件夹</value>
+  </data>
+  <data name="CloudStoragePublic" xml:space="preserve">
+    <value>公开</value>
+  </data>
+  <data name="CloudStoragePrivate" xml:space="preserve">
+    <value>私有</value>
+  </data>
+  <data name="CloudStorageDedicated" xml:space="preserve">
+    <value>使用中</value>
+  </data>
+  <data name="CloudStorageFree" xml:space="preserve">
+    <value>免费</value>
+  </data>
+  <data name="CloudStorageUsage" xml:space="preserve">
+    <value>{0} / {1} · {2:N0} / {3:N0} 个文件 · {4}</value>
+  </data>
+  <data name="CloudStorageEmpty" xml:space="preserve">
+    <value>没有可显示的文件或文件夹。</value>
+  </data>
+  <data name="CloudStorageLoadFailed" xml:space="preserve">
+    <value>无法加载 Beutl 存储。请检查连接后尝试刷新。</value>
+  </data>
+  <data name="CloudStorageUnavailable" xml:space="preserve">
+    <value>此服务器暂不支持浏览 Beutl 存储。</value>
+  </data>
+  <data name="LocalFiles" xml:space="preserve">
+    <value>此设备</value>
+  </data>
+  <data name="StorageLocations" xml:space="preserve">
+    <value>存储位置</value>
+  </data>
+  <data name="StorageProviderOpenFailed" xml:space="preserve">
+    <value>无法打开此存储服务。请重试。</value>
+  </data>
+  <data name="CloudStorageLoadingMore" xml:space="preserve">
+    <value>正在加载更多文件…</value>
+  </data>
+  <data name="CloudStorageLoadMoreFailed" xml:space="preserve">
+    <value>无法加载更多文件。</value>
+  </data>
+  <data name="CloudStorageRetryLoadMore" xml:space="preserve">
+    <value>重试</value>
+  </data>
+  <data name="CloudStorageDownload" xml:space="preserve">
+    <value>下载</value>
+  </data>
+  <data name="CloudStorageCopyLink" xml:space="preserve">
+    <value>复制链接</value>
+  </data>
+  <data name="CloudStorageSetPublic" xml:space="preserve">
+    <value>设为公开</value>
+  </data>
+  <data name="CloudStorageSetPrivate" xml:space="preserve">
+    <value>设为私有</value>
+  </data>
+  <data name="CloudStorageDedicatedHint" xml:space="preserve">
+    <value>此文件由另一项功能管理。可在此查看、下载或移动。</value>
+  </data>
+  <data name="CloudStorageFileInUse" xml:space="preserve">
+    <value>此文件正在使用，无法更改。</value>
+  </data>
+  <data name="CloudStorageFolderInUse" xml:space="preserve">
+    <value>此文件夹包含正在使用的文件，无法删除。</value>
+  </data>
+  <data name="CloudStorageInvalidMove" xml:space="preserve">
+    <value>无法将文件夹移动到其自身或下级文件夹中。</value>
+  </data>
+  <data name="CloudStorageItemNotFound" xml:space="preserve">
+    <value>文件或文件夹已不存在或不可用。</value>
+  </data>
+  <data name="CloudStorageInvalidRequest" xml:space="preserve">
+    <value>请检查名称或目标位置后重试。</value>
+  </data>
+  <data name="CloudStorageActionFailed" xml:space="preserve">
+    <value>无法完成存储操作。重试前请刷新以检查当前状态。</value>
+  </data>
+  <data name="CloudStorageInvalidName" xml:space="preserve">
+    <value>请输入 1 至 255 个字符的名称，不能包含控制字符。</value>
+  </data>
+  <data name="CloudStorageDeleteFiles" xml:space="preserve">
+    <value>要删除所选的 {0:N0} 个文件吗？此操作无法撤销。</value>
+  </data>
+  <data name="CloudStorageDeleteFolder" xml:space="preserve">
+    <value>要删除“{0}”及其内容（{1:N0} 个文件夹和 {2:N0} 个文件）吗？此操作无法撤销。</value>
+  </data>
+  <data name="CloudStorageDeleteSkipped" xml:space="preserve">
+    <value>将保留 {0:N0} 个正在使用的文件。</value>
+  </data>
+  <data name="CloudStorageMoveHere" xml:space="preserve">
+    <value>移动到此处</value>
+  </data>
+  <data name="CloudStorageMoveDescription" xml:space="preserve">
+    <value>请选择目标文件夹。</value>
+  </data>
+  <data name="CloudStorageSelectionLimit" xml:space="preserve">
+    <value>每次操作最多可选择 200 个文件。</value>
+  </data>
+  <data name="CloudStorageDownloading" xml:space="preserve">
+    <value>正在下载…</value>
+  </data>
+  <data name="CloudStorageUploading" xml:space="preserve">
+    <value>正在上传 {0}…</value>
+  </data>
+  <data name="CloudStorageEmptyUpload" xml:space="preserve">
+    <value>无法向此存储服务上传空文件。</value>
+  </data>
+  <data name="CloudStorageQuotaExceeded" xml:space="preserve">
+    <value>已达到存储容量或文件数量上限。</value>
+  </data>
+  <data name="CloudStorageUploadMoveFailed" xml:space="preserve">
+    <value>{0} 已上传，但无法移至目标文件夹。可在存储根目录找到此文件。</value>
+  </data>
+  <data name="CloudStorageRollingBackUpload" xml:space="preserve">
+    <value>正在移除中断上传时创建的项目…</value>
+  </data>
+  <data name="CloudStorageUploadRollbackIncomplete" xml:space="preserve">
+    <value>由于未能完成清理，部分已上传项目可能仍然保留。请在原账户中检查存储。</value>
+  </data>
+  <data name="CloudStoragePreparingDrag" xml:space="preserve">
+    <value>正在准备拖动 {0}…</value>
+  </data>
+  <data name="CloudStorageDownloadLocalDestinationRequired" xml:space="preserve">
+    <value>此位置不支持安全替换文件。请为此次下载选择本地文件夹。</value>
+  </data>
+  <data name="CloudStorageMimeType" xml:space="preserve">
+    <value>MIME 类型</value>
+  </data>
+  <data name="CloudStorageCreatedAt" xml:space="preserve">
+    <value>创建时间</value>
+  </data>
+  <data name="AiVideoEditing" xml:space="preserve">
+    <value>视频编辑</value>
+  </data>
+  <data name="AiVideoExtend" xml:space="preserve">
+    <value>延长视频</value>
+  </data>
+  <data name="AiVideoMotion" xml:space="preserve">
+    <value>运动控制</value>
+  </data>
+  <data name="AiSourceVideo" xml:space="preserve">
+    <value>源视频</value>
+  </data>
+  <data name="AiCharacterImage" xml:space="preserve">
+    <value>人物或角色图像</value>
+  </data>
+  <data name="AiMotionStandard" xml:space="preserve">
+    <value>标准</value>
+  </data>
+  <data name="AiMotionPro" xml:space="preserve">
+    <value>高质量</value>
+  </data>
+  <data name="AiVideoInput" xml:space="preserve">
+    <value>视频输入素材</value>
+  </data>
+  <data name="AiReferenceImages" xml:space="preserve">
+    <value>参考图像</value>
+  </data>
+  <data name="AiReferenceVideos" xml:space="preserve">
+    <value>参考视频</value>
+  </data>
+  <data name="AiReferenceAudio" xml:space="preserve">
+    <value>参考音频</value>
+  </data>
+  <data name="AiVideoReferenceLimit" xml:space="preserve">
+    <value>{0} / {1} 个文件 · 每个最多 {2:0.#} MiB</value>
+  </data>
+  <data name="AiVideoReferenceTotal" xml:space="preserve">
+    <value>素材总计最多 32 MiB，其中图像总计最多 20 MiB。</value>
+  </data>
+  <data name="AiVideoRemoveReference" xml:space="preserve">
+    <value>移除 {0}</value>
+  </data>
+  <data name="AiVideoReferencePaused" xml:space="preserve">
+    <value>选择首帧时，参考素材会保留，但不会发送。</value>
+  </data>
+  <data name="AiChooseCharacterImage" xml:space="preserve">
+    <value>请选择人物或角色图像。</value>
+  </data>
+  <data name="AiChooseVideoInput" xml:space="preserve">
+    <value>此模型需要首帧或参考素材。</value>
+  </data>
+  <data name="AiVideoInputUnavailable" xml:space="preserve">
+    <value>无法读取此素材。请选择受支持的文件。</value>
+  </data>
+  <data name="AiSourceVideoHelp" xml:space="preserve">
+    <value>MP4 / WebM，最多 32 MiB。编辑使用源视频时长；延长时需指定新增时长。</value>
+  </data>
+  <data name="AiMotionOrientation" xml:space="preserve">
+    <value>方向匹配素材</value>
+  </data>
+  <data name="AiMotionQuality" xml:space="preserve">
+    <value>质量</value>
+  </data>
+  <data name="AiVideoNoSourceSelected" xml:space="preserve">
+    <value>未选择视频</value>
+  </data>
+  <data name="AiVideoEditPromptPlaceholder" xml:space="preserve">
+    <value>描述要对视频进行的更改...</value>
+  </data>
+  <data name="AiVideoEditingIdle" xml:space="preserve">
+    <value>选择视频和任务，然后点击“执行”。</value>
+  </data>
+  <data name="BrowserBlockAds" xml:space="preserve">
+    <value>屏蔽广告</value>
+  </data>
+  <data name="BrowserBlockAdsDescription" xml:space="preserve">
+    <value>更改此设置后请重新加载页面。</value>
+  </data>
+  <data name="BrowserAdBlockLists" xml:space="preserve">
+    <value>过滤规则 URL（HTTPS，每行一个）</value>
+  </data>
+  <data name="BrowserAdBlockCompatibility" xml:space="preserve">
+    <value>支持 EasyList，但部分规则受限。需手动更新。</value>
+  </data>
+  <data name="BrowserAdBlockUpdate" xml:space="preserve">
+    <value>更新过滤规则</value>
+  </data>
+  <data name="BrowserAdBlockFilterStatus" xml:space="preserve">
+    <value>{0:N0} 条规则 · {1:N0} 条不支持 · 更新于 {2}</value>
+  </data>
+  <data name="BrowserAdBlockNotDownloaded" xml:space="preserve">
+    <value>尚未下载过滤规则</value>
+  </data>
+  <data name="BrowserAdBlockUpdated" xml:space="preserve">
+    <value>已更新过滤规则。</value>
+  </data>
+  <data name="BrowserAdBlockFailed" xml:space="preserve">
+    <value>无法应用广告屏蔽：{0}</value>
+  </data>
+  <data name="BrowserAdBlockUpdateFailed" xml:space="preserve">
+    <value>无法更新过滤规则：{0}</value>
+  </data>
+  <data name="BrowserAdBlockInvalidUrls" xml:space="preserve">
+    <value>请输入 1 至 8 个不含凭据或片段标识的 HTTPS URL，每行一个。</value>
+  </data>
+  <data name="BrowserAdBlockListTooLarge" xml:space="preserve">
+    <value>过滤规则列表超过了 16 MiB 的下载上限。</value>
+  </data>
+  <data name="BrowserAdBlockInvalidList" xml:space="preserve">
+    <value>返回内容不是受支持的 Adblock 过滤规则列表。</value>
+  </data>
+  <data name="BrowserAdBlockUnsupported" xml:space="preserve">
+    <value>此 WebView 不支持请求拦截。</value>
+  </data>
+  <data name="BrowserAdBlockLoading" xml:space="preserve">
+    <value>正在加载过滤规则...</value>
+  </data>
+  <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
+    <value>输入值…</value>
+  </data>
+  <data name="CommandPalette_ChoicePlaceholder" xml:space="preserve">
+    <value>输入以筛选选项…</value>
+  </data>
+  <data name="CommandPalette_NoChoices" xml:space="preserve">
+    <value>没有匹配的选项</value>
+  </data>
+  <data name="VersionControl_RemoteCredentialsSaveFailed" xml:space="preserve">
+    <value>无法保存提供的凭据。请配置可用的 Git 凭据助手后重试。</value>
+  </data>
+  <data name="TabSwitcher_Title" xml:space="preserve">
+    <value>切换标签页</value>
+  </data>
+  <data name="TabSwitcher_Documents" xml:space="preserve">
+    <value>文件</value>
+  </data>
+  <data name="TabSwitcher_Tools" xml:space="preserve">
+    <value>工具标签页</value>
+  </data>
+  <data name="TabSwitcher_Create" xml:space="preserve">
+    <value>创建工具标签页</value>
+  </data>
+  <data name="TabSwitcher_NewTab" xml:space="preserve">
+    <value>新建标签页</value>
+  </data>
+  <data name="TabSwitcher_Next" xml:space="preserve">
+    <value>切换到下一个标签页</value>
+  </data>
+  <data name="TabSwitcher_Previous" xml:space="preserve">
+    <value>切换到上一个标签页</value>
+  </data>
+  <data name="TabSwitcher_NextTool" xml:space="preserve">
+    <value>切换到下一个工具标签页</value>
+  </data>
+  <data name="TabSwitcher_PreviousTool" xml:space="preserve">
+    <value>切换到上一个工具标签页</value>
+  </data>
 </root>
