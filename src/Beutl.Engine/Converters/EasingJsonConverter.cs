@@ -28,14 +28,20 @@ internal sealed class EasingJsonConverter : JsonConverter<Easing>
         Type actualType = ResolveEasingType(hasDiscriminator ? obj.GetDiscriminator() : typeof(SplineEasing));
         if (actualType == typeof(SplineEasing))
         {
-            float x1 = ReadSplinePoint(obj, "X1", 0);
-            float y1 = ReadSplinePoint(obj, "Y1", 0);
-            float x2 = ReadSplinePoint(obj, "X2", 1);
-            float y2 = ReadSplinePoint(obj, "Y2", 1);
-            if (x1 is < 0 or > 1 || x2 is < 0 or > 1)
-                throw new JsonException("Spline easing X control points must be between 0 and 1.");
+            try
+            {
+                var spline = obj.Deserialize<SplineEasing>(options)
+                             ?? throw new JsonException("Could not deserialize the spline easing.");
+                if (!float.IsFinite(spline.X1) || !float.IsFinite(spline.Y1)
+                    || !float.IsFinite(spline.X2) || !float.IsFinite(spline.Y2))
+                    throw new JsonException("Spline easing control points must be finite numbers.");
 
-            return new SplineEasing(x1, y1, x2, y2);
+                return spline;
+            }
+            catch (ArgumentException ex)
+            {
+                throw new JsonException("Invalid spline easing control points.", ex);
+            }
         }
 
         return obj.Deserialize(actualType, options) as Easing
@@ -58,14 +64,5 @@ internal sealed class EasingJsonConverter : JsonConverter<Easing>
             throw new JsonException("The easing type could not be resolved to a concrete Easing.");
 
         return type;
-    }
-
-    private static float ReadSplinePoint(JsonObject obj, string name, float fallback)
-    {
-        if (!obj.TryGetPropertyValue(name, out JsonNode? node)) return fallback;
-        if (node is JsonValue number && number.TryGetValue(out float value) && float.IsFinite(value))
-            return value;
-
-        throw new JsonException($"Spline easing control point '{name}' must be a finite number.");
     }
 }

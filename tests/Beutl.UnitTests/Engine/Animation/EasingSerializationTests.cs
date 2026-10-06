@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
 
@@ -61,6 +62,56 @@ public class EasingSerializationTests
             Assert.That(restored.X2, Is.EqualTo(0.3f));
             Assert.That(restored.Y2, Is.EqualTo(1.4f));
         });
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void JsonSerializer_SplineRoundTrip_HonorsNamingAndNumberOptions(bool camelCase, bool writeNumbersAsStrings)
+    {
+        var options = new JsonSerializerOptions(JsonHelper.SerializerOptions)
+        {
+            PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null,
+        };
+        if (writeNumbersAsStrings)
+            options.NumberHandling |= JsonNumberHandling.WriteAsString;
+        Easing source = new SplineEasing(0.125f, -0.25f, 0.75f, 1.5f);
+
+        string json = JsonSerializer.Serialize(source, options);
+        JsonNode? x1 = JsonNode.Parse(json)![camelCase ? "x1" : "X1"];
+        Assert.That(x1, Is.Not.Null);
+        if (writeNumbersAsStrings)
+            Assert.That(x1!.GetValue<string>(), Is.EqualTo("0.125"));
+        var restored = JsonSerializer.Deserialize<Easing>(json, options) as SplineEasing;
+
+        Assert.That(restored, Is.Not.Null);
+        Assert.That(new[] { restored!.X1, restored.Y1, restored.X2, restored.Y2 },
+            Is.EqualTo(new[] { 0.125f, -0.25f, 0.75f, 1.5f }));
+    }
+
+    [Test]
+    public void JsonSerializer_QuotedSplinePoints_WithDefaultOptions_RoundTrips()
+    {
+        const string Json = """{"X1":"0.5","Y1":"-0.25","X2":"0.75","Y2":"1.5"}""";
+
+        Easing? source = JsonSerializer.Deserialize<Easing>(Json, JsonHelper.SerializerOptions);
+        string json = JsonSerializer.Serialize(source, JsonHelper.SerializerOptions);
+        var restored = JsonSerializer.Deserialize<Easing>(json, JsonHelper.SerializerOptions) as SplineEasing;
+
+        Assert.That(restored, Is.Not.Null);
+        Assert.That(new[] { restored!.X1, restored.Y1, restored.X2, restored.Y2 },
+            Is.EqualTo(new[] { 0.5f, -0.25f, 0.75f, 1.5f }));
+    }
+
+    [Test]
+    public void JsonSerializer_QuotedSplinePoint_WithStrictNumberOptions_ThrowsJsonException()
+    {
+        var options = new JsonSerializerOptions(JsonHelper.SerializerOptions)
+        {
+            NumberHandling = JsonNumberHandling.Strict,
+        };
+
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<Easing>("""{"X1":"0.5"}""", options));
     }
 
     [TestCase("$type")]
