@@ -389,8 +389,8 @@ public partial class ListEditor : UserControl
                 .Where(x => !x.IsAbstract
                             && x.IsPublic
                             && x.IsAssignableTo(itemType)
-                            && (itemType.GetConstructor([]) != null
-                                || itemType.GetConstructors().Length == 0))
+                            && (x.GetConstructor([]) != null
+                                || x.GetConstructors().Length == 0))
                 .ToArray();
         }
 
