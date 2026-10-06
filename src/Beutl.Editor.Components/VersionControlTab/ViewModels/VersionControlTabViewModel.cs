@@ -705,12 +705,16 @@ internal sealed class VersionControlTabViewModel : IToolContext
                 return false;
             }
 
-            RemoteUrl.Value = GetRemoteUrlForPresentation(normalizedUrl);
+            string presentedUrl = GetRemoteUrlForPresentation(normalizedUrl);
+            if (!string.IsNullOrEmpty(presentedUrl))
+            {
+                RemoteUrl.Value = presentedUrl;
+            }
             HasRemote.Value = true;
             StatusMessage.Value = Strings.VersionControl_RemoteConnected;
             return true;
         }
-        catch (ArgumentException ex)
+        catch (Exception ex) when (ex is ArgumentException or GitCredentialStorageException)
         {
             if (IsCurrentService(service, revision, cancellationToken))
             {

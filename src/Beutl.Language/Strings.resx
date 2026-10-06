@@ -2543,6 +2543,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_RemoteUrl" xml:space="preserve">
     <value>Remote URL</value>
   </data>
+  <data name="VersionControl_RemoteCredentialsSaveFailed" xml:space="preserve">
+    <value>Could not save the supplied credentials. Configure a working Git credential helper and try again.</value>
+  </data>
   <data name="VersionControl_SetRemote" xml:space="preserve">
     <value>Set remote…</value>
   </data>
