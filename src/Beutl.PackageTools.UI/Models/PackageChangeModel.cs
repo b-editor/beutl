@@ -33,9 +33,14 @@ public record PackageChangeModel(
 
     public bool Conflict { get; init; }
 
+    private static string GetLocalNupkgPath(PackageIdentity package)
+    {
+        return Path.Combine(Helper.LocalSourcePath, $"{package}.nupkg");
+    }
+
     private static bool CheckLocalSource(PackageIdentity package)
     {
-        string localNupkgPath = Path.Combine(Helper.LocalSourcePath, $"{package}.nupkg");
+        string localNupkgPath = GetLocalNupkgPath(package);
         return File.Exists(localNupkgPath);
     }
 
@@ -45,7 +50,7 @@ public record PackageChangeModel(
         PackageChangeAction action,
         CancellationToken cancellationToken)
     {
-        string localNupkgPath = Path.Combine(Helper.LocalSourcePath, $"{package}.nupkg");
+        string localNupkgPath = GetLocalNupkgPath(package);
         s_logger.LogDebug("Reading local source for package {PackageId} at path {Path}", package.Id, localNupkgPath);
         if (File.Exists(localNupkgPath))
         {
@@ -91,83 +96,108 @@ public record PackageChangeModel(
 
         if (splited.Length == 2)
         {
-            var pkg = new PackageIdentity(splited[0], new NuGetVersion(splited[1]));
-            bool alreadyInstalled = repos.ExistsPackage(pkg);
-            PackageChangeModel? item = null;
-
-            try
-            {
-                s_logger.LogDebug("Attempting to discover package {PackageId}", pkg.Id);
-                Package package = await discover.GetPackage(pkg.Id, cancellationToken);
-                s_logger.LogInformation("Successfully discovered package {PackageId}", pkg.Id);
-                item = new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
-                {
-                    AlreadyInstalled = alreadyInstalled,
-                    LogoUrl = package.LogoUrl.Value,
-                    Publisher = package.Owner.Name,
-                    Description = package.ShortDescription.Value,
-                    Conflict = CheckLocalSource(pkg)
-                };
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogError(ex, "An exception occurred while discovering package {PackageId}", pkg.Id);
-                if (action == PackageChangeAction.Uninstall)
-                {
-                    item = new PackageChangeModel(pkg.Id, pkg.Version, pkg.Id, false, action);
-                }
-                else if (CheckLocalSource(pkg))
-                {
-                    item = await ReadLocalSource(pkg, alreadyInstalled, action, cancellationToken);
-                }
-            }
-
-            return item;
+            return await ResolveVersionedAsync(repos, discover, splited[0], splited[1], action, cancellationToken);
         }
         else if (splited.Length == 1)
         {
-            try
-            {
-                s_logger.LogDebug("Attempting to discover package {PackageId}", s);
-                Package package = await discover.GetPackage(s, cancellationToken);
-                Release[] releases = await package.GetReleasesAsync(cancellationToken, 0, 1);
-
-                if (releases.Length > 0)
-                {
-                    Release release = releases[0];
-                    var pkg = new PackageIdentity(package.Name, new NuGetVersion(release.Version.Value));
-                    bool alreadyInstalled = repos.ExistsPackage(pkg);
-                    s_logger.LogInformation("Successfully discovered package {PackageId} with release version {Version}", package.Name, release.Version.Value);
-
-                    return new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
-                    {
-                        AlreadyInstalled = alreadyInstalled,
-                        LogoUrl = package.LogoUrl.Value,
-                        Publisher = package.Owner.Name,
-                        Description = package.ShortDescription.Value
-                    };
-                }
-                else
-                {
-                    s_logger.LogWarning("No releases found for package {PackageId}", s);
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogError(ex, "An exception occurred while discovering package {PackageId}", s);
-            }
+            return await ResolveLatestAsync(repos, discover, s, action, cancellationToken);
         }
         else
         {
             s_logger.LogWarning("Invalid package identifier format: {PackageId}", s);
+        }
+
+        return null;
+    }
+
+    // "<id>/<version>": the remote package, or the local nupkg / an uninstall-only entry when discovery fails.
+    private static async ValueTask<PackageChangeModel?> ResolveVersionedAsync(
+        InstalledPackageRepository repos,
+        DiscoverService discover,
+        string id,
+        string version,
+        PackageChangeAction action,
+        CancellationToken cancellationToken)
+    {
+        var pkg = new PackageIdentity(id, new NuGetVersion(version));
+        bool alreadyInstalled = repos.ExistsPackage(pkg);
+        PackageChangeModel? item = null;
+
+        try
+        {
+            s_logger.LogDebug("Attempting to discover package {PackageId}", pkg.Id);
+            Package package = await discover.GetPackage(pkg.Id, cancellationToken);
+            s_logger.LogInformation("Successfully discovered package {PackageId}", pkg.Id);
+            item = new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
+            {
+                AlreadyInstalled = alreadyInstalled,
+                LogoUrl = package.LogoUrl.Value,
+                Publisher = package.Owner.Name,
+                Description = package.ShortDescription.Value,
+                Conflict = CheckLocalSource(pkg)
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogError(ex, "An exception occurred while discovering package {PackageId}", pkg.Id);
+            if (action == PackageChangeAction.Uninstall)
+            {
+                item = new PackageChangeModel(pkg.Id, pkg.Version, pkg.Id, false, action);
+            }
+            else if (CheckLocalSource(pkg))
+            {
+                item = await ReadLocalSource(pkg, alreadyInstalled, action, cancellationToken);
+            }
+        }
+
+        return item;
+    }
+
+    // "<id>": the latest release of the remote package.
+    private static async ValueTask<PackageChangeModel?> ResolveLatestAsync(
+        InstalledPackageRepository repos,
+        DiscoverService discover,
+        string s,
+        PackageChangeAction action,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            s_logger.LogDebug("Attempting to discover package {PackageId}", s);
+            Package package = await discover.GetPackage(s, cancellationToken);
+            Release[] releases = await package.GetReleasesAsync(cancellationToken, 0, 1);
+
+            if (releases.Length > 0)
+            {
+                Release release = releases[0];
+                var pkg = new PackageIdentity(package.Name, new NuGetVersion(release.Version.Value));
+                bool alreadyInstalled = repos.ExistsPackage(pkg);
+                s_logger.LogInformation("Successfully discovered package {PackageId} with release version {Version}", package.Name, release.Version.Value);
+
+                return new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
+                {
+                    AlreadyInstalled = alreadyInstalled,
+                    LogoUrl = package.LogoUrl.Value,
+                    Publisher = package.Owner.Name,
+                    Description = package.ShortDescription.Value
+                };
+            }
+            else
+            {
+                s_logger.LogWarning("No releases found for package {PackageId}", s);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogError(ex, "An exception occurred while discovering package {PackageId}", s);
         }
 
         return null;

@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using Avalonia.Input;
+
+using Beutl.Graphics;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -37,5 +39,57 @@ internal static class RelativeUnitParser
         {
             return false;
         }
+    }
+
+    // An edit applies when the new text parses and either the old text did not parse or the value changed.
+    public static bool TryParseEdit(
+        string? newText,
+        string? oldText,
+        out float newValue,
+        out RelativeUnit newUnit,
+        out float oldValue,
+        out RelativeUnit oldUnit)
+    {
+        if (TryParse(newText, out newValue, out newUnit))
+        {
+            bool invalidOldValue = !TryParse(oldText, out oldValue, out oldUnit);
+            if (invalidOldValue)
+            {
+                oldValue = newValue;
+                oldUnit = newUnit;
+            }
+
+            return invalidOldValue || newValue != oldValue;
+        }
+
+        oldValue = default;
+        oldUnit = default;
+        return false;
+    }
+
+    public static float StepByWheel(float value, RelativeUnit unit, PointerWheelEventArgs e)
+    {
+        float delta1 = 1;
+        float delta2 = 10;
+        if (unit == RelativeUnit.Relative)
+        {
+            delta1 *= 0.01f;
+            delta2 *= 0.01f;
+        }
+
+        float delta3 = delta2;
+        var wheelDelta = e.Delta.Y;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            delta3 = delta1;
+            wheelDelta = -e.Delta.X;
+        }
+
+        return wheelDelta switch
+        {
+            < 0 => value - delta3,
+            > 0 => value + delta3,
+            _ => value
+        };
     }
 }

@@ -22,34 +22,11 @@ public partial class CleanPage : PackageToolPage
 
     public CleanPage()
     {
-        _backButton = new(() =>
-        {
-            var panel = new FATaskDialogButtonsPanel
-            {
-                [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
-            };
-            var backButton = new FATaskDialogButtonHost()
-            {
-                Content = Strings.Back
-            };
-            backButton.Click += (s, e) =>
-            {
-                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
-                frame?.GoBack();
-            };
-            panel.Children.Add(backButton);
-
-            return panel;
-        });
+        _backButton = new(() => TaskDialogButtons.CreateBackPanel(this));
 
         _buttons = new(() =>
         {
-            var panel = new FATaskDialogButtonsPanel
-            {
-                [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
-            };
+            FATaskDialogButtonsPanel panel = TaskDialogButtons.CreatePanel();
             var cancelButton = new FATaskDialogButtonHost()
             {
                 Content = Strings.Cancel,
@@ -64,48 +41,7 @@ public partial class CleanPage : PackageToolPage
             {
                 _cts?.Cancel();
             };
-            runButton.Click += async (_, _) =>
-            {
-                if (DataContext is CleanViewModel viewModel)
-                {
-                    _cts?.Cancel();
-                    _cts = new CancellationTokenSource();
-                    CancellationToken token = _cts.Token;
-                    try
-                    {
-                        cancelButton.IsEnabled = true;
-                        runButton.IsEnabled = false;
-                        FAFrame? frame = this.FindAncestorOfType<FAFrame>();
-                        if (frame is not { DataContext: MainViewModel main })
-                            return;
-
-                        try
-                        {
-                            await main.RunOperationAsync(
-                                operationToken => Task.Run(() => viewModel.Run(operationToken)),
-                                () =>
-                                {
-                                    object? nextViewModel = main.Result();
-                                    frame.NavigateFromObject(nextViewModel);
-                                },
-                                token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            return;
-                        }
-                        catch (ObjectDisposedException)
-                        {
-                            return;
-                        }
-                    }
-                    finally
-                    {
-                        runButton.IsEnabled = false;
-                        cancelButton.IsEnabled = false;
-                    }
-                }
-            };
+            runButton.Click += async (_, _) => await RunCleanAsync(runButton, cancelButton);
             panel.Children.Add(cancelButton);
             panel.Children.Add(runButton);
 
@@ -114,6 +50,49 @@ public partial class CleanPage : PackageToolPage
 
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
         InitializeComponent();
+    }
+
+    private async Task RunCleanAsync(FATaskDialogButtonHost runButton, FATaskDialogButtonHost cancelButton)
+    {
+        if (DataContext is CleanViewModel viewModel)
+        {
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            CancellationToken token = _cts.Token;
+            try
+            {
+                cancelButton.IsEnabled = true;
+                runButton.IsEnabled = false;
+                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
+                if (frame is not { DataContext: MainViewModel main })
+                    return;
+
+                try
+                {
+                    await main.RunOperationAsync(
+                        operationToken => Task.Run(() => viewModel.Run(operationToken)),
+                        () =>
+                        {
+                            object? nextViewModel = main.Result();
+                            frame.NavigateFromObject(nextViewModel);
+                        },
+                        token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+            }
+            finally
+            {
+                runButton.IsEnabled = false;
+                cancelButton.IsEnabled = false;
+            }
+        }
     }
 
     private void OnNavigatedTo(object? sender, FANavigationEventArgs e)

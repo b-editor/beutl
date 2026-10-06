@@ -88,37 +88,14 @@ public class RelativePointEditor : Vector2Editor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
-        void SubscribeEvents(TextBox? textBox)
-        {
-            if (textBox != null)
-            {
-                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
-                    .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
-                    .DisposeWith(_disposables);
-                textBox.GetPropertyChangedObservable(TextBox.TextProperty)
-                    .Subscribe(e =>
-                    {
-                        if (e is AvaloniaPropertyChangedEventArgs<string> args
-                            && args.Sender is TextBox textBox)
-                        {
-                            OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(),
-                                args.OldValue.GetValueOrDefault());
-                        }
-                    })
-                    .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged,
-                        RoutingStrategies.Tunnel)
-                    .DisposeWith(_disposables);
-            }
-        }
-
         _disposables.Clear();
         base.OnApplyTemplate(e);
         UpdateText();
 
-        SubscribeEvents(InnerFirstTextBox);
-        SubscribeEvents(InnerSecondTextBox);
+        var valueHandlers = new ComponentValueHandlers(
+            OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
+        valueHandlers.Subscribe(InnerFirstTextBox, _disposables);
+        valueHandlers.Subscribe(InnerSecondTextBox, _disposables);
 
         UpdateErrors();
     }
@@ -155,48 +132,41 @@ public class RelativePointEditor : Vector2Editor
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
         if (sender.IsKeyboardFocusWithin
-            && TryParse(newValue, out float newValue2, out Graphics.RelativeUnit newUnit))
+            && RelativeUnitParser.TryParseEdit(
+                newValue, oldValue,
+                out float newValue2, out Graphics.RelativeUnit newUnit,
+                out float oldValue2, out Graphics.RelativeUnit oldUnit))
         {
-            bool invalidOldValue = !TryParse(oldValue, out float oldValue2, out Graphics.RelativeUnit oldUnit);
-            if (invalidOldValue)
+            var newValues = (FirstValue, SecondValue);
+            var oldValues = (FirstValue, SecondValue);
+            Unit = newUnit;
+            if (IsUniform)
             {
-                oldValue2 = newValue2;
-                oldUnit = newUnit;
+                FirstValue = SecondValue = newValue2;
+                newValues = (newValue2, newValue2);
+                oldValues = (oldValue2, oldValue2);
+            }
+            else
+            {
+                switch (sender.Name)
+                {
+                    case "PART_InnerFirstTextBox":
+                        FirstValue = newValue2;
+                        newValues.FirstValue = newValue2;
+                        oldValues.FirstValue = oldValue2;
+                        break;
+                    case "PART_InnerSecondTextBox":
+                        SecondValue = newValue2;
+                        newValues.SecondValue = newValue2;
+                        oldValues.SecondValue = oldValue2;
+                        break;
+                }
             }
 
-            if (invalidOldValue || newValue2 != oldValue2)
-            {
-                var newValues = (FirstValue, SecondValue);
-                var oldValues = (FirstValue, SecondValue);
-                Unit = newUnit;
-                if (IsUniform)
-                {
-                    FirstValue = SecondValue = newValue2;
-                    newValues = (newValue2, newValue2);
-                    oldValues = (oldValue2, oldValue2);
-                }
-                else
-                {
-                    switch (sender.Name)
-                    {
-                        case "PART_InnerFirstTextBox":
-                            FirstValue = newValue2;
-                            newValues.FirstValue = newValue2;
-                            oldValues.FirstValue = oldValue2;
-                            break;
-                        case "PART_InnerSecondTextBox":
-                            SecondValue = newValue2;
-                            newValues.SecondValue = newValue2;
-                            oldValues.SecondValue = oldValue2;
-                            break;
-                    }
-                }
-
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                    new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
-                    new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
-                    ValueChangedEvent));
-            }
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
+                new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
+                new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
+                ValueChangedEvent));
         }
 
         UpdateErrors();
@@ -204,15 +174,10 @@ public class RelativePointEditor : Vector2Editor
 
     private void UpdateErrors()
     {
-        if (TryParse(InnerFirstTextBox.Text, out _, out _)
-            && (IsUniform || TryParse(InnerSecondTextBox?.Text, out _, out _)))
-        {
-            DataValidationErrors.ClearErrors(this);
-        }
-        else
-        {
-            DataValidationErrors.SetErrors(this, DataValidationMessages.InvalidString);
-        }
+        DataValidationMessages.UpdateInvalidString(
+            this,
+            TryParse(InnerFirstTextBox.Text, out _, out _)
+                && (IsUniform || TryParse(InnerSecondTextBox?.Text, out _, out _)));
     }
 
     private void OnInnerTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -222,28 +187,7 @@ public class RelativePointEditor : Vector2Editor
             && textBox.IsKeyboardFocusWithin
             && TryParse(textBox.Text, out float value, out Graphics.RelativeUnit unit))
         {
-            float delta1 = 1;
-            float delta2 = 10;
-            if (unit == Graphics.RelativeUnit.Relative)
-            {
-                delta1 *= 0.01f;
-                delta2 *= 0.01f;
-            }
-
-            float delta3 = delta2;
-            var wheelDelta = e.Delta.Y;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                delta3 = delta1;
-                wheelDelta = -e.Delta.X;
-            }
-
-            value = wheelDelta switch
-            {
-                < 0 => value - delta3,
-                > 0 => value + delta3,
-                _ => value
-            };
+            value = RelativeUnitParser.StepByWheel(value, unit, e);
 
             if (IsUniform)
             {

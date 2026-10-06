@@ -32,7 +32,7 @@ public partial class MainWindow : FAAppWindow
         var progressOption = new Option<bool>("--progress");
         var closableOption = new Option<bool>("--closable");
         var themeOption = new Option<string?>("--theme");
-        var parentProcecss = new Option<int?>("--parent");
+        var parentOption = new Option<int?>("--parent");
         var command = new RootCommand()
         {
             titleOption,
@@ -41,7 +41,7 @@ public partial class MainWindow : FAAppWindow
             contentOption,
             progressOption,
             closableOption,
-            parentProcecss,
+            parentOption,
             themeOption
         };
 
@@ -82,13 +82,7 @@ public partial class MainWindow : FAAppWindow
         string? theme = result.GetValue(themeOption);
         if (theme != null)
         {
-            Application.Current.RequestedThemeVariant = theme switch
-            {
-                "light" => ThemeVariant.Light,
-                "dark" => ThemeVariant.Dark,
-                "highcontrast" => FluentAvaloniaTheme.HighContrastTheme,
-                _ => ThemeVariant.Default,
-            };
+            ApplyTheme(theme);
         }
 
         if (result.GetValue(progressOption))
@@ -99,18 +93,34 @@ public partial class MainWindow : FAAppWindow
 
         _closable = result.GetValue(closableOption);
 
-        int? parent = result.GetValue(parentProcecss);
+        int? parent = result.GetValue(parentOption);
         if (parent.HasValue)
         {
-            try
-            {
-                _parentProcess = Process.GetProcessById(parent.Value);
-                _parentProcess.EnableRaisingEvents = true;
-                _parentProcess.Exited += OnParentExited;
-            }
-            catch
-            {
-            }
+            WatchParentProcess(parent.Value);
+        }
+    }
+
+    private static void ApplyTheme(string theme)
+    {
+        Application.Current!.RequestedThemeVariant = theme switch
+        {
+            "light" => ThemeVariant.Light,
+            "dark" => ThemeVariant.Dark,
+            "highcontrast" => FluentAvaloniaTheme.HighContrastTheme,
+            _ => ThemeVariant.Default,
+        };
+    }
+
+    private void WatchParentProcess(int processId)
+    {
+        try
+        {
+            _parentProcess = Process.GetProcessById(processId);
+            _parentProcess.EnableRaisingEvents = true;
+            _parentProcess.Exited += OnParentExited;
+        }
+        catch
+        {
         }
     }
 

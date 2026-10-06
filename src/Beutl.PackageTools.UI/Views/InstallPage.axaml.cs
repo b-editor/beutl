@@ -27,50 +27,20 @@ public partial class InstallPage : PackageToolPage
 
     public InstallPage()
     {
-        _buttons = new(() =>
+        _buttons = new(() => TaskDialogButtons.CreateBackPanel(this));
+
+        _cancelButton = new(() => TaskDialogButtons.CreatePanel(Strings.Cancel, (_, _) =>
         {
-            var panel = new FATaskDialogButtonsPanel
-            {
-                [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
-            };
-            var backButton = new FATaskDialogButtonHost()
-            {
-                Content = Strings.Back
-            };
-            backButton.Click += (s, e) =>
-            {
-                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
-                frame?.GoBack();
-            };
-            panel.Children.Add(backButton);
-
-            return panel;
-        });
-
-        _cancelButton = new(() =>
-        {
-            var panel = new FATaskDialogButtonsPanel
-            {
-                [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
-            };
-            var button = new FATaskDialogButtonHost()
-            {
-                Content = Strings.Cancel
-            };
-            button.Click += (_, _) =>
-            {
-                _cts?.Cancel();
-            };
-            panel.Children.Add(button);
-
-            return panel;
-        });
+            _cts?.Cancel();
+        }));
 
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
         InitializeComponent();
+        FollowCurrentTask();
+    }
 
+    private void FollowCurrentTask()
+    {
         // 現在のタスクに応じて、スクロールする
         this.GetObservable(DataContextProperty)
             .Select(v => (v as InstallViewModel)?.CurrentRunningTask ?? Observable.ReturnThenNever<object?>(null))
@@ -130,33 +100,11 @@ public partial class InstallPage : PackageToolPage
                 _cts?.Cancel();
                 _cts = new CancellationTokenSource();
                 CancellationToken token = _cts.Token;
-                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
-                if (frame is not { DataContext: MainViewModel main })
-                    return;
-
-                try
-                {
-                    await main.RunOperationAsync(
-                        operationToken => Task.Run(() => viewModel.Run(operationToken)),
-                        () =>
-                        {
-                            // Navigation must run on the UI thread.
-                            Dispatcher.UIThread.Invoke(() =>
-                            {
-                                object? nextViewModel = main.Next(viewModel, token);
-                                frame.NavigateFromObject(nextViewModel);
-                            });
-                        },
-                        token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
+                await PackageActionNavigation.RunThenNavigateAsync(
+                    this,
+                    viewModel,
+                    operationToken => Task.Run(() => viewModel.Run(operationToken)),
+                    token);
             }
         }
     }

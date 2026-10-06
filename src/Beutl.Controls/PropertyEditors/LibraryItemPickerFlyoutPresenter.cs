@@ -165,7 +165,7 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private void OnPresenterKeyDown(object? sender, KeyEventArgs e)
     {
         // Ctrl+F (Windows/Linux) または Cmd+F (macOS): 検索ボックスを表示してフォーカス
-        if (e is { Key: Key.F, KeyModifiers: KeyModifiers.Control or KeyModifiers.Meta })
+        if (PickerListNavigation.IsSearchShortcut(e))
         {
             ShowSearchBox = true;
             e.Handled = true;
@@ -174,7 +174,7 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
 
         // Tab / Shift+Tab: 型タブと参照タブを切り替え
-        if (ShowReferencesTab && e is { Key: Key.Tab, KeyModifiers: KeyModifiers.None or KeyModifiers.Shift })
+        if (ShowReferencesTab && PickerListNavigation.IsTabSwitch(e))
         {
             ShowReferences = !ShowReferences;
             e.Handled = true;
@@ -186,33 +186,9 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (sender is not ListBox listBox) return;
 
-        switch (e.Key)
-        {
-            case Key.Up:
-                listBox.SelectedIndex = listBox.SelectedIndex <= 0
-                    ? 0
-                    : listBox.SelectedIndex - 1;
-                ScrollSelectedIntoView(listBox);
-                e.Handled = true;
-                break;
-            case Key.Down:
-                listBox.SelectedIndex = listBox.SelectedIndex >= listBox.ItemCount - 1
-                    ? listBox.ItemCount - 1
-                    : listBox.SelectedIndex + 1;
-                ScrollSelectedIntoView(listBox);
-                e.Handled = true;
-                break;
-        }
+        PickerListNavigation.MoveSelection(listBox, e);
 
         FocusListBox();
-    }
-
-    private static void ScrollSelectedIntoView(ListBox listBox)
-    {
-        if (listBox.SelectedItem is { } item)
-        {
-            listBox.ScrollIntoView(item);
-        }
     }
 
     private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
@@ -239,12 +215,7 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void FocusListBox()
     {
-        var target = GetCurrentListBox();
-        if (target is null) return;
-        if (target.SelectedIndex < 0 && target.ItemCount > 0)
-            target.SelectedIndex = 0;
-
-        target.Focus();
+        PickerListNavigation.FocusList(GetCurrentListBox());
     }
 
     private ListBox? GetCurrentListBox() => ShowReferences ? _referenceListBox : _listBox;

@@ -89,40 +89,49 @@ public class SimpleColorPicker : TemplatedControl
         UnregisterEvents();
 
         base.OnApplyTemplate(e);
-        _spectrum = e.NameScope.Find<ColorSpectrum>("Spectrum");
-        _ringSpectrum = e.NameScope.Find<ColorSpectrum>("RingSpectrum");
-        _previewer = e.NameScope.Find<ColorPreviewer>("Previewer");
-        _thirdComponentSlider = e.NameScope.Find<ColorSlider>("ThirdComponentSlider");
-        _spectrumAlphaSlider = e.NameScope.Find<ColorSlider>("SpectrumAlphaSlider");
-        _component1Slider = e.NameScope.Find<ColorSlider>("Component1Slider");
-        _component2Slider = e.NameScope.Find<ColorSlider>("Component2Slider");
-        _component3Slider = e.NameScope.Find<ColorSlider>("Component3Slider");
+        FindTemplateParts(e.NameScope);
+        RegisterEvents();
 
-        _colorType = e.NameScope.Find<ComboBox>("ColorType");
-        _dropperButton = e.NameScope.Find<ToggleButton>("ColorDropperButton");
-        _detailsButton = e.NameScope.Find<ToggleButton>("ToggleDetailsButton");
-        _spectrumShapeButton = e.NameScope.Find<ToggleButton>("ToggleSpectrumShapeButton");
-        _componentsBox = e.NameScope.Find<ColorComponentsEditor>("ColorComponentsBox");
-        _hexBox = e.NameScope.Find<TextBox>("HexBox");
-        _opacityBox = e.NameScope.Find<TextBox>("OpacityBox");
+        UpdateColor(Color);
+        OnInputTypeChanged();
+    }
 
+    private void FindTemplateParts(INameScope nameScope)
+    {
+        _spectrum = nameScope.Find<ColorSpectrum>("Spectrum");
+        _ringSpectrum = nameScope.Find<ColorSpectrum>("RingSpectrum");
+        _previewer = nameScope.Find<ColorPreviewer>("Previewer");
+        _thirdComponentSlider = nameScope.Find<ColorSlider>("ThirdComponentSlider");
+        _spectrumAlphaSlider = nameScope.Find<ColorSlider>("SpectrumAlphaSlider");
+        _component1Slider = nameScope.Find<ColorSlider>("Component1Slider");
+        _component2Slider = nameScope.Find<ColorSlider>("Component2Slider");
+        _component3Slider = nameScope.Find<ColorSlider>("Component3Slider");
+
+        _colorType = nameScope.Find<ComboBox>("ColorType");
+        _dropperButton = nameScope.Find<ToggleButton>("ColorDropperButton");
+        _detailsButton = nameScope.Find<ToggleButton>("ToggleDetailsButton");
+        _spectrumShapeButton = nameScope.Find<ToggleButton>("ToggleSpectrumShapeButton");
+        _componentsBox = nameScope.Find<ColorComponentsEditor>("ColorComponentsBox");
+        _hexBox = nameScope.Find<TextBox>("HexBox");
+        _opacityBox = nameScope.Find<TextBox>("OpacityBox");
+    }
+
+    private void RegisterEvents()
+    {
         if (_spectrum != null)
         {
             _spectrum.ColorChanged += OnSpectrumColorChanged;
-            _spectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _spectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            AddConfirmHandlers(_spectrum);
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            _ringSpectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _ringSpectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            AddConfirmHandlers(_ringSpectrum);
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            _previewer.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _previewer.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            AddConfirmHandlers(_previewer);
         }
 
         foreach (ColorSlider? item in GetColorSliders())
@@ -130,8 +139,7 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged += OnColorSliderColorChanged;
-                item.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-                item.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+                AddConfirmHandlers(item);
             }
         }
 
@@ -181,9 +189,18 @@ public class SimpleColorPicker : TemplatedControl
                 .Subscribe(OnToggleSpectrumShapeButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
+    }
 
-        UpdateColor(Color);
-        OnInputTypeChanged();
+    private void AddConfirmHandlers(Interactive target)
+    {
+        target.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
+        target.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+    }
+
+    private void RemoveConfirmHandlers(Interactive target)
+    {
+        target.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
+        target.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
     }
 
     private void OnComponentsBoxValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
@@ -484,15 +501,7 @@ public class SimpleColorPicker : TemplatedControl
 
     private void OnSpectrumColorChanged(object? sender, ColorChangedEventArgs args)
     {
-        HsvColor color = args.NewColor.ToHsv();
-        if (sender is ColorSpectrum spectrum)
-        {
-            color = spectrum.HsvColor;
-        }
-        else if (sender is ColorPreviewer previewer)
-        {
-            color = previewer.HsvColor;
-        }
+        HsvColor color = ColorPickerParts.GetHsvColor(sender, args);
 
         UpdateColor(Color2.FromHSVf((float)color.H, (float)color.S, (float)color.V, Color.Af));
     }
@@ -556,20 +565,17 @@ public class SimpleColorPicker : TemplatedControl
         if (_spectrum != null)
         {
             _spectrum.ColorChanged -= OnSpectrumColorChanged;
-            _spectrum.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            _spectrum.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            RemoveConfirmHandlers(_spectrum);
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged -= OnSpectrumColorChanged;
-            _ringSpectrum.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            _ringSpectrum.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            RemoveConfirmHandlers(_ringSpectrum);
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged -= OnSpectrumColorChanged;
-            _previewer.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            _previewer.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            RemoveConfirmHandlers(_previewer);
         }
         if (_componentsBox != null)
         {
@@ -587,8 +593,7 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged -= OnColorSliderColorChanged;
-                item.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-                item.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+                RemoveConfirmHandlers(item);
             }
         }
     }

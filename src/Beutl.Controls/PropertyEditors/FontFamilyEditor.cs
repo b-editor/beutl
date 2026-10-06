@@ -29,7 +29,12 @@ public class FontFamilyEditor : PropertyEditor
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<DropDownButton>("PART_InnerButton");
         _button.AddDisposableHandler(Button.ClickEvent, OnButtonClick);
-        _button.Content = FontManager.Instance._fontNames.TryGetValue(Value, out var name)
+        _button.Content = GetDisplayName();
+    }
+
+    private string? GetDisplayName()
+    {
+        return FontManager.Instance._fontNames.TryGetValue(Value, out var name)
             ? name.FontFamilyName
             : Value.Name;
     }
@@ -37,22 +42,7 @@ public class FontFamilyEditor : PropertyEditor
     protected override Size MeasureOverride(Size availableSize)
     {
         Size measured = base.MeasureOverride(availableSize);
-        if (!double.IsInfinity(availableSize.Width))
-        {
-            if (availableSize.Width <= 224)
-            {
-                if (!PseudoClasses.Contains(":compact"))
-                {
-                    PseudoClasses.Add(":compact");
-                }
-            }
-            else
-            {
-                if (EditorStyle != PropertyEditorStyle.Compact)
-                    PseudoClasses.Remove(":compact");
-            }
-        }
-
+        UpdateAutoCompact(availableSize);
         return measured;
     }
 
@@ -120,9 +110,7 @@ public class FontFamilyEditor : PropertyEditor
         {
             if (_button != null)
             {
-                _button.Content = FontManager.Instance._fontNames.TryGetValue(Value, out var name)
-                    ? name.FontFamilyName
-                    : Value.Name;
+                _button.Content = GetDisplayName();
             }
         }
     }

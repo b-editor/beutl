@@ -1,12 +1,9 @@
 ﻿using System.Diagnostics;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
-
-using Beutl.Language;
 
 using FluentAvalonia.UI.Controls;
 
@@ -48,29 +45,13 @@ public sealed class FileTreeItem : TreeViewItem
         if (!_isRenaming)
         {
             _isRenaming = true;
-
-            TextBox tb;
-            Header = tb = new TextBox
-            {
-                Text = Info.Name
-            };
-
-            tb.SelectAll();
-            tb.AddHandler(KeyUpEvent, TextBox_KeyUp, RoutingStrategies.Tunnel);
-            tb.TemplateApplied += TextBox_TemplateApplied;
-            tb.LostFocus += TextBox_LostFocus;
+            DirectoryTreeRename.BeginEdit(this, Info.Name, TextBox_KeyUp, TextBox_LostFocus);
         }
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         EndRename();
-    }
-
-    private void TextBox_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
-    {
-        if (sender is TextBox textBox)
-            textBox.Focus();
     }
 
     private void TextBox_KeyUp(object? sender, KeyEventArgs e)
@@ -102,17 +83,7 @@ public sealed class FileTreeItem : TreeViewItem
             bool isDifferentPath = !string.Equals(old, @new, StringComparison.Ordinal);
             if (isDifferentPath && DirectoryTreeRename.HasDistinctDestination(old, @new))
             {
-                string content = MessageStrings.RenameConflict;
-                content = string.Format(content, Info.Name, tb.Text);
-                var dialog = new FAContentDialog()
-                {
-                    CloseButtonText = Strings.Close,
-                    Content = content,
-                    DefaultButton = FAContentDialogButton.None,
-                    IsPrimaryButtonEnabled = false,
-                    IsSecondaryButtonEnabled = false,
-                };
-
+                FAContentDialog dialog = DirectoryTreeRename.CreateConflictDialog(Info.Name, tb.Text);
                 await dialog.ShowAsync();
             }
             else if (isDifferentPath)
@@ -122,9 +93,7 @@ public sealed class FileTreeItem : TreeViewItem
             }
 
 
-            tb.RemoveHandler(KeyUpEvent, TextBox_KeyUp);
-            tb.TemplateApplied -= TextBox_TemplateApplied;
-            tb.LostFocus -= TextBox_LostFocus;
+            DirectoryTreeRename.EndEdit(tb, TextBox_KeyUp, TextBox_LostFocus);
             Header = _info.Name;
         }
     }

@@ -266,4 +266,73 @@ public partial class Player
             EndEditCurrentTime();
         }
     }
+
+    private void DetachCurrentTimeEditor()
+    {
+        // Detach handlers / dispose subscriptions from any previous template so
+        // re-applying the template (e.g. when the control template is reassigned)
+        // doesn't double-wire handlers or leak the observable subscription.
+        if (_currentTimeTextBlock != null)
+        {
+            _currentTimeTextBlock.PointerPressed -= OnCurrentTimeTextBlockPointerPressed;
+        }
+        if (_currentTimeTextBox != null)
+        {
+            _currentTimeTextBox.KeyDown -= OnCurrentTimeTextBoxKeyDown;
+            _currentTimeTextBox.LostFocus -= OnCurrentTimeTextBoxLostFocus;
+        }
+        if (_markerListBox != null)
+        {
+            _markerListBox.PointerReleased -= OnMarkerListBoxPointerReleased;
+        }
+        _currentTimeTextBoxTextSubscription?.Dispose();
+        _currentTimeTextBoxTextSubscription = null;
+        _markersChangeSubscription?.Dispose();
+        _markersChangeSubscription = null;
+    }
+
+    private void AttachCurrentTimeEditor()
+    {
+        if (_currentTimeTextBlock != null)
+        {
+            _currentTimeTextBlock.PointerPressed += OnCurrentTimeTextBlockPointerPressed;
+        }
+
+        if (_currentTimeTextBox != null)
+        {
+            _currentTimeTextBox.IsVisible = false;
+            _currentTimeTextBox.KeyDown += OnCurrentTimeTextBoxKeyDown;
+            _currentTimeTextBox.LostFocus += OnCurrentTimeTextBoxLostFocus;
+            _currentTimeTextBoxTextSubscription = _currentTimeTextBox
+                .GetObservable(TextBox.TextProperty)
+                .Subscribe(text =>
+                {
+                    _currentTimeTextBox.Classes.Remove("invalid");
+                    ToolTip.SetTip(_currentTimeTextBox, null);
+                    // TextBox が非表示の間（編集モード外）のスプリアス通知でポップアップを開かない。
+                    if (_currentTimeTextBox.IsVisible)
+                    {
+                        UpdateMarkerPopup(text);
+                    }
+                });
+        }
+
+        if (_markerListBox != null)
+        {
+            _markerListBox.PointerReleased += OnMarkerListBoxPointerReleased;
+        }
+
+        // マーカーソースが差し替わったら現在の入力に基づいて再フィルタする。
+        _markersChangeSubscription = this.GetObservable(MarkersProperty).Subscribe(_ =>
+        {
+            if (_currentTimeTextBox != null && _currentTimeTextBox.IsVisible)
+            {
+                UpdateMarkerPopup(_currentTimeTextBox.Text);
+            }
+            else
+            {
+                CloseMarkerPopup();
+            }
+        });
+    }
 }

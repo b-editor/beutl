@@ -26,10 +26,6 @@ public partial class ResultPage : PackageToolPage
         }
     }
 
-    private void OnBackButtonClick(object? sender, RoutedEventArgs e)
-    {
-    }
-
     private void OnCloseButtonClick(object? sender, RoutedEventArgs e)
     {
         this.FindAncestorOfType<Window>()?.Close();

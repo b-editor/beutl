@@ -48,51 +48,11 @@ public sealed class DirectoryTreeView : TreeView
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         DragDrop.SetAllowDrop(this, true);
 
-        _open = new MenuItem
-        {
-            Header = Strings.Open,
-            Icon = new FluentIcon
-            {
-                Icon = Icon.Open,
-                FontSize = 20,
-            }
-        };
-        _copy = new MenuItem
-        {
-            Header = Strings.Copy,
-            Icon = new FluentIcon
-            {
-                Icon = Icon.Copy,
-                FontSize = 20,
-            }
-        };
-        _remove = new MenuItem
-        {
-            Header = Strings.Remove,
-            Icon = new FluentIcon
-            {
-                Icon = Icon.Delete,
-                FontSize = 20,
-            }
-        };
-        _rename = new MenuItem
-        {
-            Header = Strings.Rename,
-            Icon = new FluentIcon
-            {
-                Icon = Icon.Rename,
-                FontSize = 20,
-            }
-        };
-        _addfolder = new MenuItem
-        {
-            Header = Strings.NewFolder,
-            Icon = new FluentIcon
-            {
-                Icon = Icon.Folder,
-                FontSize = 20,
-            }
-        };
+        _open = CreateMenuItem(Strings.Open, Icon.Open);
+        _copy = CreateMenuItem(Strings.Copy, Icon.Copy);
+        _remove = CreateMenuItem(Strings.Remove, Icon.Delete);
+        _rename = CreateMenuItem(Strings.Rename, Icon.Rename);
+        _addfolder = CreateMenuItem(Strings.NewFolder, Icon.Folder);
 
         _open.Click += Open;
         _copy.Click += Copy;
@@ -117,22 +77,6 @@ public sealed class DirectoryTreeView : TreeView
             new Separator()
         ];
 
-        //foreach (var (asm, menus) in PluginManager.Default.FileMenus)
-        //{
-        //    foreach (var menu in menus)
-        //    {
-        //        var menuItem = new MenuItem
-        //        {
-        //            Header = menu.Name,
-        //            DataContext = menu,
-        //        };
-
-        //        menuItem.Click += PluginFileMenu_Click;
-
-        //        _menuItem.Add(menuItem);
-        //    }
-        //}
-
         ContextMenu = new ContextMenu
         {
             ItemsSource = _menuItem
@@ -141,39 +85,23 @@ public sealed class DirectoryTreeView : TreeView
         ContextMenu.Opening += ContextMenu_ContextMenuOpening;
     }
 
-    //private void PluginFileMenu_Click(object sender, RoutedEventArgs e)
-    //{
-    //    if (SelectedItem is FileTreeItem fileTree
-    //        && sender is MenuItem menuItem
-    //        && menuItem.DataContext is FileMenu fileMenu)
-    //    {
-    //        fileMenu.MainWindow = VisualRoot;
-    //        fileMenu.Execute(fileTree.Info.FullName);
-    //    }
-    //}
+    private static MenuItem CreateMenuItem(string header, Icon icon)
+    {
+        return new MenuItem
+        {
+            Header = header,
+            Icon = new FluentIcon
+            {
+                Icon = icon,
+                FontSize = 20,
+            }
+        };
+    }
 
     private void ContextMenu_ContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         _remove.IsEnabled = CanRemove();
         _open.IsEnabled = CanOpen();
-
-        //if (SelectedItem is FileTreeItem fileTree)
-        //{
-        //    foreach (var (menu, model) in _menuItem.OfType<MenuItem>()
-        //        .Where(i => i.DataContext is FileMenu)
-        //        .Select(i => (Menu: i, Model: (FileMenu)i.DataContext!)))
-        //    {
-        //        menu.IsVisible = model.IsMatch(fileTree.Info.FullName);
-        //    }
-        //}
-        //else
-        //{
-        //    foreach (var menu in _menuItem.OfType<MenuItem>()
-        //        .Where(i => i.DataContext is FileMenu))
-        //    {
-        //        menu.IsVisible = false;
-        //    }
-        //}
     }
 
     protected override Type StyleKeyOverride => typeof(TreeView);
@@ -225,14 +153,7 @@ public sealed class DirectoryTreeView : TreeView
     {
         if (SelectedItem is DirectoryTreeItem directory)
         {
-            var dialog = new FAContentDialog
-            {
-                Content = MessageStrings.ConfirmDeleteDirectory,
-                PrimaryButtonText = Strings.OK,
-                CloseButtonText = Strings.Cancel,
-                DefaultButton = FAContentDialogButton.Primary,
-                IsSecondaryButtonEnabled = false,
-            };
+            FAContentDialog dialog = CreateDeleteConfirmation(MessageStrings.ConfirmDeleteDirectory);
 
             if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
@@ -241,20 +162,25 @@ public sealed class DirectoryTreeView : TreeView
         }
         else if (SelectedItem is FileTreeItem file)
         {
-            var dialog = new FAContentDialog
-            {
-                Content = MessageStrings.ConfirmDeleteFile,
-                PrimaryButtonText = Strings.OK,
-                CloseButtonText = Strings.Cancel,
-                DefaultButton = FAContentDialogButton.Primary,
-                IsSecondaryButtonEnabled = false,
-            };
+            FAContentDialog dialog = CreateDeleteConfirmation(MessageStrings.ConfirmDeleteFile);
 
             if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 file.Info.Delete();
             }
         }
+    }
+
+    private static FAContentDialog CreateDeleteConfirmation(string content)
+    {
+        return new FAContentDialog
+        {
+            Content = content,
+            PrimaryButtonText = Strings.OK,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = FAContentDialogButton.Primary,
+            IsSecondaryButtonEnabled = false,
+        };
     }
 
     private void Rename(object? sender, RoutedEventArgs e)
@@ -271,15 +197,7 @@ public sealed class DirectoryTreeView : TreeView
 
     private void AddDirectory(object? sender, RoutedEventArgs e)
     {
-        string baseDir = _directoryInfo.FullName;
-        if (SelectedItem is DirectoryTreeItem directoryTree)
-        {
-            baseDir = directoryTree.Info.FullName;
-        }
-        else if (SelectedItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
-        {
-            baseDir = fileTree.Info.DirectoryName;
-        }
+        string baseDir = GetTargetDirectory(SelectedItem);
 
         int count = 0;
         string str = Strings.NewFolder;
@@ -294,6 +212,21 @@ public sealed class DirectoryTreeView : TreeView
         Directory.CreateDirectory(Path.Combine(baseDir, defaultName));
     }
 
+    private string GetTargetDirectory(object? item)
+    {
+        string baseDir = _directoryInfo.FullName;
+        if (item is DirectoryTreeItem directoryTree)
+        {
+            baseDir = directoryTree.Info.FullName;
+        }
+        else if (item is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
+        {
+            baseDir = fileTree.Info.DirectoryName;
+        }
+
+        return baseDir;
+    }
+
     private void Watcher_Created(object sender, FileSystemEventArgs e)
     {
         Dispatcher.UIThread.InvokeAsync(() =>
@@ -302,21 +235,7 @@ public sealed class DirectoryTreeView : TreeView
 
             if (parent == _directoryInfo.FullName)
             {
-                if (Directory.Exists(e.FullPath))
-                {
-                    var di = new DirectoryInfo(e.FullPath);
-                    _items.Add(new DirectoryTreeItem(di, _watcher, _contextFactory)
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
-                }
-                else
-                {
-                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath))
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
-                }
+                _items.Add(DirectoryTreeNodes.CreateNode(e.FullPath, _watcher, _contextFactory));
             }
 
             Sort();
@@ -332,11 +251,7 @@ public sealed class DirectoryTreeView : TreeView
 
             if (parent == _directoryInfo.FullName)
             {
-                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
-                if (item != null)
-                {
-                    _items.Remove(item);
-                }
+                DirectoryTreeNodes.RemoveNode(_items, filename);
             }
         });
     }
@@ -347,23 +262,10 @@ public sealed class DirectoryTreeView : TreeView
         {
             string? parent = Path.GetDirectoryName(e.FullPath);
             string? oldFilename = Path.GetFileName(e.OldName);
-            string? newFilename = Path.GetFileName(e.Name);
 
             if (parent == _directoryInfo.FullName)
             {
-                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
-                if (item is DirectoryTreeItem dir)
-                {
-                    dir.Info = new DirectoryInfo(e.FullPath);
-                }
-
-                if (item is FileTreeItem file)
-                {
-                    file.Info = new FileInfo(e.FullPath);
-                }
-
-                if (item != null)
-                    item.DataContext = _contextFactory?.Invoke(e.FullPath);
+                DirectoryTreeNodes.RenameNode(_items, oldFilename, e.FullPath, _contextFactory);
             }
 
             Sort();
@@ -385,12 +287,7 @@ public sealed class DirectoryTreeView : TreeView
             e.DragEffects = DragDropEffects.Copy;
 
             TreeViewItem? treeViewItem = logical.FindLogicalAncestorOfType<TreeViewItem>();
-            string baseDir = _directoryInfo.FullName;
-
-            if (treeViewItem is DirectoryTreeItem directoryTreeItem)
-                baseDir = directoryTreeItem.Info.FullName;
-            else if (treeViewItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
-                baseDir = fileTree.Info.DirectoryName;
+            string baseDir = GetTargetDirectory(treeViewItem);
 
             foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
             {
@@ -410,58 +307,11 @@ public sealed class DirectoryTreeView : TreeView
     //サブフォルダツリー追加
     private void InitSubDirectory()
     {
-        //すべてのサブフォルダを追加
-        foreach (DirectoryInfo item in _directoryInfo.GetDirectories())
-        {
-            if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
-            {
-                _items.Add(new DirectoryTreeItem(item, _watcher, _contextFactory)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
-            }
-        }
-
-        // 全てのファイル追加
-        foreach (FileInfo item in _directoryInfo.GetFiles())
-        {
-            if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
-            {
-                _items.Add(new FileTreeItem(item)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
-            }
-        }
+        DirectoryTreeNodes.AddChildren(_items, _directoryInfo, _watcher, _contextFactory);
     }
 
     public void Sort()
     {
-        static string Func(TreeViewItem item)
-        {
-            if (item.Header is string header)
-            {
-                return header;
-            }
-            else if (item.Header is TextBlock tb)
-            {
-                return tb.Text ?? string.Empty;
-            }
-            else
-            {
-                return item.Header?.ToString() ?? string.Empty;
-            }
-        }
-
-        FileTreeItem[] fileArray = [.. _items.OfType<FileTreeItem>().OrderBy(Func)];
-        DirectoryTreeItem[] dirArray = [.. _items.OfType<DirectoryTreeItem>().OrderBy(Func)];
-        _items.Clear();
-        _items.AddRange(dirArray);
-        _items.AddRange(fileArray);
-
-        foreach (DirectoryTreeItem item in dirArray)
-        {
-            item.Sort();
-        }
+        DirectoryTreeNodes.SortNodes(_items);
     }
 }

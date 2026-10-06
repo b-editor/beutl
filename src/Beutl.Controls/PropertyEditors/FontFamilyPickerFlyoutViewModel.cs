@@ -12,12 +12,14 @@ namespace Beutl.Controls.PropertyEditors;
 
 public class FontFamilyPickerFlyoutViewModel
 {
+    private const string PinnedItemsKey = "FontManager.PinnedItems";
+
     private readonly PinnableLibraryItem[] _items;
     private readonly List<FontFamily> _pinnedItems;
 
     public FontFamilyPickerFlyoutViewModel()
     {
-        string json = Preferences.Default.Get("FontManager.PinnedItems", "[]");
+        string json = Preferences.Default.Get(PinnedItemsKey, "[]");
         _pinnedItems = (JsonSerializer.Deserialize<string[]>(json) ?? [])
             .Where(s => s != null)
             .Select(s => new FontFamily(s))
@@ -56,10 +58,7 @@ public class FontFamilyPickerFlyoutViewModel
         if (item.UserData is not FontFamily font) return;
 
         _pinnedItems.Add(font);
-        string[] array = _pinnedItems
-            .Select(f => f.Name)
-            .ToArray();
-        Preferences.Default.Set("FontManager.PinnedItems", JsonSerializer.Serialize(array));
+        SavePinnedItems();
         ProcessSearchText();
     }
 
@@ -68,11 +67,16 @@ public class FontFamilyPickerFlyoutViewModel
         if (item.UserData is not FontFamily font) return;
 
         _pinnedItems.Remove(font);
+        SavePinnedItems();
+        ProcessSearchText();
+    }
+
+    private void SavePinnedItems()
+    {
         string[] array = _pinnedItems
             .Select(f => f.Name)
             .ToArray();
-        Preferences.Default.Set("FontManager.PinnedItems", JsonSerializer.Serialize(array));
-        ProcessSearchText();
+        Preferences.Default.Set(PinnedItemsKey, JsonSerializer.Serialize(array));
     }
 
     private bool IsPinned(FontFamily item)

@@ -11,7 +11,6 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
     : ActionViewModel(changesModel, model), IProgress<double>
 {
     private readonly ILogger _logger = Log.CreateLogger<UninstallViewModel>();
-    private readonly ChangesModel _changesModel = changesModel;
 
     public ReactiveProperty<string> Message { get; } = new();
 
@@ -25,23 +24,11 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
         {
             _logger.LogInformation("Starting uninstallation process for package {PackageId} version {Version}.", Model.Id, Model.Version);
 
-            string[]? installeds;
             var package = new PackageIdentity(Model.Id, Model.Version);
             InstalledPackageRepository repos = app.GetResource<InstalledPackageRepository>();
             PackageInstaller installer = app.GetResource<PackageInstaller>();
 
-            if (!package.HasVersion)
-            {
-                installeds = repos.GetLocalPackages(package.Id)
-                    .Select(Helper.ResolveInstalledDirectory)
-                    .Where(Directory.Exists)
-                    .ToArray();
-            }
-            else
-            {
-                string installed = Helper.ResolveInstalledDirectory(package);
-                installeds = Directory.Exists(installed) ? [installed] : [];
-            }
+            string[]? installeds = ResolveInstalledDirectories(package, repos);
 
             if (installeds.Length <= 0)
             {
@@ -112,6 +99,25 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
         }
+    }
+
+    private static string[] ResolveInstalledDirectories(PackageIdentity package, InstalledPackageRepository repos)
+    {
+        string[]? installeds;
+        if (!package.HasVersion)
+        {
+            installeds = repos.GetLocalPackages(package.Id)
+                .Select(Helper.ResolveInstalledDirectory)
+                .Where(Directory.Exists)
+                .ToArray();
+        }
+        else
+        {
+            string installed = Helper.ResolveInstalledDirectory(package);
+            installeds = Directory.Exists(installed) ? [installed] : [];
+        }
+
+        return installeds;
     }
 
     void IProgress<double>.Report(double value)

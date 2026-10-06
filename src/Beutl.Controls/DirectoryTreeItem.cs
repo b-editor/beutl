@@ -1,12 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-
-using Beutl.Language;
 
 using FluentAvalonia.UI.Controls;
 
@@ -61,64 +58,17 @@ public sealed class DirectoryTreeItem : TreeViewItem
     {
         Refresh();
         _items.Clear();
-        // すべてのサブフォルダを追加
-        foreach (DirectoryInfo item in Info.GetDirectories())
-        {
-            if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
-            {
-                _items.Add(new DirectoryTreeItem(item, _watcher, _contextFactory)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
-            }
-        }
-
-        // 全てのファイル追加
-        foreach (FileInfo item in Info.GetFiles())
-        {
-            if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
-            {
-                _items.Add(new FileTreeItem(item)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
-            }
-        }
+        DirectoryTreeNodes.AddChildren(_items, Info, _watcher, _contextFactory);
 
         _isAdd = true;
     }
 
     public void Sort()
     {
-        static string Func(TreeViewItem item)
-        {
-            if (item.Header is string header)
-            {
-                return header;
-            }
-            else if (item.Header is TextBlock tb)
-            {
-                return tb.Text ?? string.Empty;
-            }
-            else
-            {
-                return item.Header?.ToString() ?? string.Empty;
-            }
-        }
-
         if (!_isAdd)
             return;
 
-        FileTreeItem[] fileArray = [.. _items.OfType<FileTreeItem>().OrderBy(Func)];
-        DirectoryTreeItem[] dirArray = [.. _items.OfType<DirectoryTreeItem>().OrderBy(Func)];
-        _items.Clear();
-        _items.AddRange(dirArray);
-        _items.AddRange(fileArray);
-
-        foreach (DirectoryTreeItem item in dirArray)
-        {
-            item.Sort();
-        }
+        DirectoryTreeNodes.SortNodes(_items);
     }
 
     public void Refresh()
@@ -132,29 +82,13 @@ public sealed class DirectoryTreeItem : TreeViewItem
         if (!_isRenaming)
         {
             _isRenaming = true;
-
-            TextBox tb;
-            Header = tb = new TextBox
-            {
-                Text = Info.Name
-            };
-
-            tb.SelectAll();
-            tb.AddHandler(KeyUpEvent, TextBox_KeyUp, RoutingStrategies.Tunnel);
-            tb.TemplateApplied += TextBox_TemplateApplied;
-            tb.LostFocus += TextBox_LostFocus;
+            DirectoryTreeRename.BeginEdit(this, Info.Name, TextBox_KeyUp, TextBox_LostFocus);
         }
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         EndRename();
-    }
-
-    private void TextBox_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
-    {
-        if (sender is TextBox textBox)
-            textBox.Focus();
     }
 
     private void TextBox_KeyUp(object? sender, KeyEventArgs e)
@@ -186,17 +120,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
             bool isDifferentPath = !string.Equals(old, @new, StringComparison.Ordinal);
             if (isDifferentPath && DirectoryTreeRename.HasDistinctDestination(old, @new))
             {
-                string content = MessageStrings.RenameConflict;
-                content = string.Format(content, Info.Name, tb.Text);
-                var dialog = new FAContentDialog()
-                {
-                    CloseButtonText = Strings.Close,
-                    Content = content,
-                    DefaultButton = FAContentDialogButton.None,
-                    IsPrimaryButtonEnabled = false,
-                    IsSecondaryButtonEnabled = false,
-                };
-
+                FAContentDialog dialog = DirectoryTreeRename.CreateConflictDialog(Info.Name, tb.Text);
                 await dialog.ShowAsync();
             }
             else if (isDifferentPath)
@@ -206,9 +130,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
             }
 
 
-            tb.RemoveHandler(KeyUpEvent, TextBox_KeyUp);
-            tb.TemplateApplied -= TextBox_TemplateApplied;
-            tb.LostFocus -= TextBox_LostFocus;
+            DirectoryTreeRename.EndEdit(tb, TextBox_KeyUp, TextBox_LostFocus);
             Header = _info.Name;
         }
     }
@@ -240,21 +162,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
             if (parent == Info.FullName)
             {
-                if (Directory.Exists(e.FullPath))
-                {
-                    var di = new DirectoryInfo(e.FullPath);
-                    _items.Add(new DirectoryTreeItem(di, _watcher, _contextFactory)
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
-                }
-                else
-                {
-                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath))
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
-                }
+                _items.Add(DirectoryTreeNodes.CreateNode(e.FullPath, _watcher, _contextFactory));
 
                 Sort();
             }
@@ -271,11 +179,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
             if (parent == Info.FullName)
             {
-                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
-                if (item != null)
-                {
-                    _items.Remove(item);
-                }
+                DirectoryTreeNodes.RemoveNode(_items, filename);
             }
         });
     }
@@ -287,23 +191,10 @@ public sealed class DirectoryTreeItem : TreeViewItem
             Refresh();
             string? parent = Path.GetDirectoryName(e.FullPath);
             string? oldFilename = Path.GetFileName(e.OldName);
-            string? newFilename = Path.GetFileName(e.Name);
 
             if (parent == Info.FullName)
             {
-                TreeViewItem? item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
-                if (item is DirectoryTreeItem dir)
-                {
-                    dir.Info = new DirectoryInfo(e.FullPath);
-                }
-
-                if (item is FileTreeItem file)
-                {
-                    file.Info = new FileInfo(e.FullPath);
-                }
-
-                if (item != null)
-                    item.DataContext = _contextFactory?.Invoke(e.FullPath);
+                DirectoryTreeNodes.RenameNode(_items, oldFilename, e.FullPath, _contextFactory);
             }
 
             Sort();

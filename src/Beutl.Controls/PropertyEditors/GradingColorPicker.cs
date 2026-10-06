@@ -6,6 +6,7 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Beutl.Media;
 using Beutl.Reactive;
@@ -89,39 +90,48 @@ public class GradingColorPicker : TemplatedControl
         UnregisterEvents();
 
         base.OnApplyTemplate(e);
-        _ringSpectrum = e.NameScope.Find<ColorSpectrum>("RingSpectrum");
-        _previewer = e.NameScope.Find<ColorPreviewer>("Previewer");
-        _firstComponentWheel = e.NameScope.Find<GradingWheel>("FirstComponentWheel");
-        _secondComponentWheel = e.NameScope.Find<GradingWheel>("SecondComponentWheel");
-        _thirdComponentWheel = e.NameScope.Find<GradingWheel>("ThirdComponentWheel");
-        _fourthComponentWheel = e.NameScope.Find<GradingWheel>("FourthComponentWheel");
-        _hueSlider = e.NameScope.Find<ColorSlider>("HueSlider");
-        _saturationSlider = e.NameScope.Find<ColorSlider>("SaturationSlider");
+        FindTemplateParts(e.NameScope);
+        RegisterEvents();
 
-        _colorType = e.NameScope.Find<ComboBox>("ColorType");
-        _detailsButton = e.NameScope.Find<ToggleButton>("ToggleDetailsButton");
-        _componentsBox = e.NameScope.Find<GradingColorComponentsEditor>("ColorComponentsBox");
+        UpdateColor((Color, null));
+        OnInputTypeChanged();
+    }
 
+    private void FindTemplateParts(INameScope nameScope)
+    {
+        _ringSpectrum = nameScope.Find<ColorSpectrum>("RingSpectrum");
+        _previewer = nameScope.Find<ColorPreviewer>("Previewer");
+        _firstComponentWheel = nameScope.Find<GradingWheel>("FirstComponentWheel");
+        _secondComponentWheel = nameScope.Find<GradingWheel>("SecondComponentWheel");
+        _thirdComponentWheel = nameScope.Find<GradingWheel>("ThirdComponentWheel");
+        _fourthComponentWheel = nameScope.Find<GradingWheel>("FourthComponentWheel");
+        _hueSlider = nameScope.Find<ColorSlider>("HueSlider");
+        _saturationSlider = nameScope.Find<ColorSlider>("SaturationSlider");
+
+        _colorType = nameScope.Find<ComboBox>("ColorType");
+        _detailsButton = nameScope.Find<ToggleButton>("ToggleDetailsButton");
+        _componentsBox = nameScope.Find<GradingColorComponentsEditor>("ColorComponentsBox");
+    }
+
+    private void RegisterEvents()
+    {
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            _ringSpectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _ringSpectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            AddConfirmHandlers(_ringSpectrum);
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            _previewer.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _previewer.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            AddConfirmHandlers(_previewer);
         }
 
         foreach (ColorSlider? item in GetColorSliders())
         {
             if (item == null) continue;
             item.ColorChanged += OnColorSliderColorChanged;
-            item.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            item.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            AddConfirmHandlers(item);
         }
 
         foreach (GradingWheel? item in GetWheels())
@@ -148,9 +158,18 @@ public class GradingColorPicker : TemplatedControl
                 .Subscribe(OnToggleDetailsButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
+    }
 
-        UpdateColor((Color, null));
-        OnInputTypeChanged();
+    private void AddConfirmHandlers(Interactive target)
+    {
+        target.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
+        target.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+    }
+
+    private void RemoveConfirmHandlers(Interactive target)
+    {
+        target.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
+        target.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
     }
 
     private void OnWheelDragStarted(object? sender, VectorEventArgs e)
@@ -314,15 +333,7 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnSpectrumColorChanged(object? sender, ColorChangedEventArgs args)
     {
-        HsvColor color = args.NewColor.ToHsv();
-        if (sender is ColorSpectrum spectrum)
-        {
-            color = spectrum.HsvColor;
-        }
-        else if (sender is ColorPreviewer previewer)
-        {
-            color = previewer.HsvColor;
-        }
+        HsvColor color = ColorPickerParts.GetHsvColor(sender, args);
 
         var hsv = ((float)color.H, (float)color.S, (float)color.V);
         UpdateColor((null, hsv));
@@ -374,15 +385,13 @@ public class GradingColorPicker : TemplatedControl
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged -= OnSpectrumColorChanged;
-            _ringSpectrum.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            _ringSpectrum.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            RemoveConfirmHandlers(_ringSpectrum);
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged -= OnSpectrumColorChanged;
-            _previewer.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            _previewer.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            RemoveConfirmHandlers(_previewer);
         }
 
         if (_componentsBox != null)
@@ -396,8 +405,7 @@ public class GradingColorPicker : TemplatedControl
             if (item == null) continue;
 
             item.ColorChanged -= OnColorSliderColorChanged;
-            item.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            item.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            RemoveConfirmHandlers(item);
         }
 
         foreach (GradingWheel? item in GetWheels())

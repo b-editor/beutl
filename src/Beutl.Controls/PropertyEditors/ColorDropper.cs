@@ -43,21 +43,25 @@ public partial class ColorDropper : IDisposable
     {
         if (_ct.IsCancellationRequested || IsEscapeDown())
         {
-            _timer.Stop();
-            _timer.Tick -= Timer_Tick;
+            StopTimer();
             _tcs.TrySetCanceled();
             return;
         }
 
         if (IsClickDown())
         {
-            _timer.Stop();
-            _timer.Tick -= Timer_Tick;
+            StopTimer();
 
             var (x, y) = GetCursorPosition();
             Color2 col = GetColorAtPoint(x, y);
             _tcs.TrySetResult((col, x, y));
         }
+    }
+
+    private void StopTimer()
+    {
+        _timer.Stop();
+        _timer.Tick -= Timer_Tick;
     }
 
     public void Dispose()

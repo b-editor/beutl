@@ -90,12 +90,9 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
     {
         var pfp = new BrushEditorFlyoutPresenter()
         {
-            Content = new SimpleColorPicker(),
-            Brush = Brush,
-            OriginalBrush = OriginalBrush,
-            DrawableName = DrawableName,
-            CanEditDrawable = CanEditDrawable
+            Content = new SimpleColorPicker()
         };
+        CopyStateTo(pfp);
         pfp.CloseClicked += (_, _) => Hide();
         pfp.KeyDown += (_, e) =>
         {
@@ -131,13 +128,18 @@ public sealed class BrushEditorFlyout : FAPickerFlyoutBase
         if (Popup.Child is BrushEditorFlyoutPresenter pfp)
         {
             pfp.ShowHideButtons = ShouldShowConfirmationButtons();
-            pfp.Brush = Brush;
-            pfp.OriginalBrush = OriginalBrush;
-            pfp.DrawableName = DrawableName;
-            pfp.CanEditDrawable = CanEditDrawable;
+            CopyStateTo(pfp);
         }
 
         Popup.IsLightDismissEnabled = false;
+    }
+
+    private void CopyStateTo(BrushEditorFlyoutPresenter presenter)
+    {
+        presenter.Brush = Brush;
+        presenter.OriginalBrush = OriginalBrush;
+        presenter.DrawableName = DrawableName;
+        presenter.CanEditDrawable = CanEditDrawable;
     }
 
     protected override bool ShouldShowConfirmationButtons() => false;

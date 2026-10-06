@@ -61,9 +61,6 @@ internal static partial class CoreGraphics
     public static partial int CGWarpMouseCursorPosition(CGPoint point);
 
     [LibraryImport(CGLib)]
-    public static partial nint CGDisplayPixelsHigh(uint display);
-
-    [LibraryImport(CGLib)]
     public static partial IntPtr CGDisplayCreateImageForRect(uint display, CGRect rect);
 
     [LibraryImport(CGLib)]

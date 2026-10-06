@@ -16,8 +16,6 @@ public class NavItemHelper : Behavior<FANavigationViewItem>
     public static readonly StyledProperty<FAIconSource?> FilledIconProperty
         = AvaloniaProperty.Register<NavItemHelper, FAIconSource?>("FilledIcon");
     private IDisposable? _disposable;
-    private FAIconSourceElement? _regular;
-    private FAIconSourceElement? _filled;
 
     public FAIconSource? RegularIcon
     {
@@ -46,28 +44,13 @@ public class NavItemHelper : Behavior<FANavigationViewItem>
     protected override void OnDetaching()
     {
         base.OnDetaching();
-        _regular = null;
-        _filled = null;
         _disposable?.Dispose();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
+        // The override stays because it is part of the public API.
         base.OnPropertyChanged(change);
-        if (change.Property.Name is nameof(RegularIcon) or nameof(FilledIcon))
-        {
-            if (_regular != null)
-            {
-                SetFontSize(RegularIcon);
-                _regular.IconSource = RegularIcon;
-            }
-
-            if (_filled != null)
-            {
-                SetFontSize(FilledIcon);
-                _filled.IconSource = FilledIcon;
-            }
-        }
     }
 
     private static void SetFontSize(FAIconSource? iconSource)

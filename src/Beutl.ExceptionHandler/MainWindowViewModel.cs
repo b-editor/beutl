@@ -17,54 +17,67 @@ public class MainWindowViewModel
         Header = Resources.ErrorOccurred;
         Content.Value = Resources.Content;
 
+        Footer = ReadLastException();
+        _logFile = FindLatestLogFile();
+
+        ShowLog.Subscribe(OpenLatestLog);
+
+        SendFeedback.Subscribe(OpenFeedbackPage);
+    }
+
+    private static string ReadLastException()
+    {
         string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "last-unhandled-exeption");
         if (File.Exists(path))
         {
-            Footer = File.ReadAllText(path);
+            return File.ReadAllText(path);
         }
         else
         {
-            Footer = "Nothing";
+            return "Nothing";
         }
+    }
 
+    private static string? FindLatestLogFile()
+    {
         string logFolder = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
 
-        _logFile = Directory.GetFiles(logFolder)
+        return Directory.GetFiles(logFolder)
             .OrderDescending()
             .FirstOrDefault();
+    }
 
-        ShowLog.Subscribe(() =>
+    private void OpenLatestLog()
+    {
+        try
         {
-            try
+            if (_logFile == null || !File.Exists(_logFile))
+                return;
+            Process.Start(new ProcessStartInfo(_logFile)
             {
-                if (_logFile == null || !File.Exists(_logFile))
-                    return;
-                Process.Start(new ProcessStartInfo(_logFile)
-                {
-                    Verb = "open",
-                    UseShellExecute = true
-                });
-            }
-            catch
-            {
-            }
-        });
+                Verb = "open",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+        }
+    }
 
-        SendFeedback.Subscribe(() =>
+    private void OpenFeedbackPage()
+    {
+        try
         {
-            try
+            string url = "https://beutl.beditor.net/feedback";
+            if (!string.IsNullOrEmpty(_sessionId))
             {
-                string url = "https://beutl.beditor.net/feedback";
-                if (!string.IsNullOrEmpty(_sessionId))
-                {
-                    url = $"{url}?traceId={_sessionId}";
-                }
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                url = $"{url}?traceId={_sessionId}";
             }
-            catch
-            {
-            }
-        });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch
+        {
+        }
     }
 
     public string Header { get; }

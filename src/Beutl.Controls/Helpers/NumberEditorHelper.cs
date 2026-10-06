@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Numerics;
 
 using Avalonia.Input;
 
@@ -68,5 +70,57 @@ public static class NumberEditorHelper
         // decimal のビット表現からスケールを取得
         int[] bits = decimal.GetBits(value);
         return (bits[3] >> 16) & 0xFF;
+    }
+
+    // An edit applies when the new text parses and either the old text did not parse or the value changed.
+    internal static bool TryParseEdit<TValue>(
+        string? newText,
+        string? oldText,
+        [NotNullWhen(true)] out TValue? newValue,
+        [NotNullWhen(true)] out TValue? oldValue)
+        where TValue : INumber<TValue>
+    {
+        if (TValue.TryParse(newText, CultureInfo.CurrentCulture, out newValue)
+            && newValue is not null)
+        {
+            bool invalidOldValue = !TValue.TryParse(oldText, CultureInfo.CurrentCulture, out oldValue)
+                || oldValue is null;
+            if (invalidOldValue)
+            {
+                oldValue = newValue;
+            }
+
+            oldValue ??= newValue;
+
+            return invalidOldValue || newValue != oldValue;
+        }
+
+        oldValue = default;
+        return false;
+    }
+
+    internal static TValue StepByWheel<TValue>(TValue value, PointerWheelEventArgs e, TValue largeChange, TValue smallChange)
+        where TValue : INumber<TValue>
+    {
+        TValue delta = largeChange;
+        double wheelDelta = e.Delta.Y;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+        {
+            wheelDelta = -e.Delta.X;
+            delta = smallChange;
+        }
+
+        return wheelDelta switch
+        {
+            < 0 => AddPreservingScale(value, -delta),
+            > 0 => AddPreservingScale(value, delta),
+            _ => value
+        };
+    }
+
+    internal static string Format<TValue>(TValue value, string? numberFormat)
+        where TValue : INumber<TValue>
+    {
+        return value.ToString(numberFormat ?? "G", CultureInfo.CurrentCulture);
     }
 }

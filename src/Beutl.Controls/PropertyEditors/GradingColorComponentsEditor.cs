@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Beutl.Language;
 using Beutl.Media;
 using FluentAvalonia.UI.Media;
 using UnboundedHsv = (float H, float S, float V);
@@ -66,18 +65,7 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
 
     private void UpdateHeaders()
     {
-        if (Rgb)
-        {
-            FirstHeader = Strings.Red;
-            SecondHeader = Strings.Green;
-            ThirdHeader = Strings.Blue;
-        }
-        else
-        {
-            FirstHeader = Strings.Hue;
-            SecondHeader = Strings.Saturation;
-            ThirdHeader = Strings.Brightness;
-        }
+        ColorComponentHeaders.Apply(this, Rgb);
     }
 
     private void UpdateProperties()

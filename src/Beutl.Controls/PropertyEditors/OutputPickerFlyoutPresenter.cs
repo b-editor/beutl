@@ -159,7 +159,7 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void OnPresenterKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e is { Key: Key.F, KeyModifiers: KeyModifiers.Control or KeyModifiers.Meta })
+        if (PickerListNavigation.IsSearchShortcut(e))
         {
             ShowSearchBox = true;
             e.Handled = true;
@@ -167,7 +167,7 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
             return;
         }
 
-        if (e is { Key: Key.Tab, KeyModifiers: KeyModifiers.None or KeyModifiers.Shift })
+        if (PickerListNavigation.IsTabSwitch(e))
         {
             ShowPresets = !ShowPresets;
             e.Handled = true;
@@ -179,33 +179,9 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (sender is not ListBox listBox) return;
 
-        switch (e.Key)
-        {
-            case Key.Up:
-                listBox.SelectedIndex = listBox.SelectedIndex <= 0
-                    ? 0
-                    : listBox.SelectedIndex - 1;
-                ScrollSelectedIntoView(listBox);
-                e.Handled = true;
-                break;
-            case Key.Down:
-                listBox.SelectedIndex = listBox.SelectedIndex >= listBox.ItemCount - 1
-                    ? listBox.ItemCount - 1
-                    : listBox.SelectedIndex + 1;
-                ScrollSelectedIntoView(listBox);
-                e.Handled = true;
-                break;
-        }
+        PickerListNavigation.MoveSelection(listBox, e);
 
         FocusListBox();
-    }
-
-    private static void ScrollSelectedIntoView(ListBox listBox)
-    {
-        if (listBox.SelectedItem is { } item)
-        {
-            listBox.ScrollIntoView(item);
-        }
     }
 
     private void OnProfilesTabClick(object? sender, RoutedEventArgs e)
@@ -241,12 +217,7 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void FocusListBox()
     {
-        var target = GetCurrentListBox();
-        if (target is null) return;
-        if (target.SelectedIndex < 0 && target.ItemCount > 0)
-            target.SelectedIndex = 0;
-
-        target.Focus();
+        PickerListNavigation.FocusList(GetCurrentListBox());
     }
 
     private ListBox? GetCurrentListBox() => ShowPresets ? _presetListBox : _profileListBox;
