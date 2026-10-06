@@ -40,6 +40,43 @@ public sealed class ContextCommandHandlerContractTests : PublicApiContractTestBa
         });
     }
 
+    [Test]
+    public async Task Plugin_can_await_text_and_a_typed_choice_through_the_public_contract()
+    {
+        IContextCommandInteraction interaction = new PluginInteraction();
+        string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
+        {
+            Value = "Layout",
+            Validate = value => value.Length == 0 ? "Required" : null
+        });
+        ContextCommandPickItem<int> item = new("Editing", 42, "Timeline");
+        var selected = await interaction.ShowQuickPickAsync<int>([item]);
+        var definition = new ContextCommandDefinition("Configure") { Scope = ContextCommandScope.Extension };
+        var execution = new ContextCommandExecution(definition.Name) { Interaction = interaction };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(input, Is.EqualTo("Layout"));
+            Assert.That(selected, Is.SameAs(item));
+            Assert.That(selected!.Value, Is.EqualTo(42));
+            Assert.That(execution.Interaction, Is.SameAs(interaction));
+            Assert.That(new ContextCommandDefinition("Local").Scope, Is.EqualTo(ContextCommandScope.Context));
+        });
+    }
+
+    private sealed class PluginInteraction : IContextCommandInteraction
+    {
+        public CancellationToken CancellationToken => CancellationToken.None;
+
+        public Task<string?> ShowInputAsync(ContextCommandInputOptions options, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(options.Value);
+
+        public Task<ContextCommandPickItem<T>?> ShowQuickPickAsync<T>(
+            IReadOnlyList<ContextCommandPickItem<T>> items, ContextCommandPickOptions? options = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(items.FirstOrDefault());
+    }
+
     private sealed class PluginContextCommandHandler(Task operation) : IContextCommandHandler
     {
         public ContextCommandExecution? Execution { get; private set; }

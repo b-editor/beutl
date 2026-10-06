@@ -35,6 +35,21 @@ public class ContextCommandExecution
 
     public KeyEventArgs? KeyEventArgs { get; set; }
 
+    /// <summary>Gets the active editor, if one was selected when the command was invoked.</summary>
+    public IEditorContext? EditorContext { get; init; }
+
+    /// <summary>Gets host services supplied by the command palette.</summary>
+    public IEditorContextServices? Services { get; init; }
+
+    /// <summary>
+    /// Gets the command palette's input and selection UI. This is null for keyboard invocations.
+    /// Await each request and stop the operation when it returns null (the user cancelled).
+    /// </summary>
+    public IContextCommandInteraction? Interaction { get; init; }
+
+    /// <summary>Gets a token cancelled when the user dismisses the interactive command.</summary>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>
     /// Whether the triggering key event came from a text-entry control (a <c>TextBox</c>, a terminal, ...).
     /// Handlers bound to plain keys should not run in that case so the keystroke is typed instead.
@@ -49,6 +64,18 @@ public class ContextCommandAttribute : Attribute
     public string? Name { get; set; }
 }
 
+public enum ContextCommandScope
+{
+    /// <summary>The command is handled by an open editor or tool context.</summary>
+    Context,
+
+    /// <summary>
+    /// The command is handled by the registered ViewExtension implementing IContextCommandHandler,
+    /// including when its editor or tool tab is closed. The palette does not create a tab context.
+    /// </summary>
+    Extension
+}
+
 public class ContextCommandDefinition(
     string name,
     string? displayName = null,
@@ -60,6 +87,9 @@ public class ContextCommandDefinition(
     public string? DisplayName { get; init; } = displayName;
 
     public string? Description { get; init; } = description;
+
+    /// <summary>Gets where the palette resolves this command's handler.</summary>
+    public ContextCommandScope Scope { get; init; } = ContextCommandScope.Context;
 
     public ContextCommandKeyGesture[]? KeyGestures { get; init; } = Normalize(keyGestures);
 

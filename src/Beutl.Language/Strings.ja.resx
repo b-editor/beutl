@@ -1390,6 +1390,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>メニュー</value>
   </data>
+  <data name="CommandPalette_InputPlaceholder" xml:space="preserve">
+    <value>値を入力…</value>
+  </data>
+  <data name="CommandPalette_ChoicePlaceholder" xml:space="preserve">
+    <value>候補を検索…</value>
+  </data>
+  <data name="CommandPalette_NoChoices" xml:space="preserve">
+    <value>一致する候補はありません</value>
+  </data>
   <data name="OnionSkin" xml:space="preserve">
     <value>オニオンスキン</value>
   </data>
