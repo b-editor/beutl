@@ -129,6 +129,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             return default;
 
         IReadOnlySet<string> protectedSources = ResolveProtectedSources();
+        long initialBytes = _store.GetTotalBytes();
 
         List<Candidate> candidates = [];
         foreach (ProxyEntry entry in _store.Enumerate()
@@ -153,7 +154,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             long onDiskBytes = TryGetFileLength(absolutePath) ?? 0;
 
             bool isProtected = protectedSources.Contains(entry.Source.AbsolutePath);
-            candidates.Add(new Candidate(entry, entry.ProxyFileSizeBytes, onDiskBytes, isProtected));
+            candidates.Add(new Candidate(entry, onDiskBytes, isProtected));
         }
 
         // Non-protected LRU candidates first; open-project proxies only as a last resort.
@@ -212,7 +213,9 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))
             {
                 removed++;
-                reclaimedCap += candidate.Bytes;
+                // A pin acquired after the final check can defer deletion. Credit only bytes that
+                // actually left the store's totals, including retained generations.
+                reclaimedCap = Math.Max(0, initialBytes - _store.GetTotalBytes());
 
                 // Store.Delete removes the index entry but only best-effort-deletes the file (a sharing
                 // violation / permission error leaves an orphan). Credit disk reclamation only once the
@@ -311,7 +314,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         }
     }
 
-    private readonly record struct Candidate(ProxyEntry Entry, long Bytes, long OnDiskBytes, bool IsProtected);
+    private readonly record struct Candidate(ProxyEntry Entry, long OnDiskBytes, bool IsProtected);
 }
 
 public readonly record struct ProxyEvictionResult(int RemovedCount, long ReclaimedBytes);

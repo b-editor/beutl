@@ -203,8 +203,11 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            TryDelete(finalPath);
-            RestoreMetadata(finalPath, entry, metadataBackupPath, previous);
+            if (RestoreCanceledStoreEntry(entry, previous))
+            {
+                TryDelete(finalPath);
+                RestoreMetadata(finalPath, entry, metadataBackupPath, previous);
+            }
             throw;
         }
         catch
@@ -219,6 +222,34 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator, I
         {
             if (metadataBackupPath != null)
                 TryDelete(metadataBackupPath);
+        }
+    }
+
+    private bool RestoreCanceledStoreEntry(ProxyEntry? entry, ProxyEntry? previous)
+    {
+        if (entry is null)
+            return true;
+
+        try
+        {
+            // Register may have updated the store before throwing. Roll back only our generation;
+            // a concurrently registered replacement must keep its own entry.
+            if (store.TryGet(entry.Source, entry.Preset)?.ProxyFileRelative == entry.ProxyFileRelative)
+            {
+                if (previous != null)
+                    store.Register(previous);
+                else
+                    store.Delete(entry.Source, entry.Preset);
+            }
+
+            return store.TryGet(entry.Source, entry.Preset)?.ProxyFileRelative != entry.ProxyFileRelative;
+        }
+        catch (Exception ex)
+        {
+            // Preserve a possibly referenced artifact and its metadata if rollback fails, rather
+            // than leave a store entry pointing at a file we just deleted. Keep the cancellation.
+            s_logger.LogWarning(ex, "Failed to restore proxy store entry after cancellation for {Path}", entry.ProxyFileRelative);
+            return false;
         }
     }
 

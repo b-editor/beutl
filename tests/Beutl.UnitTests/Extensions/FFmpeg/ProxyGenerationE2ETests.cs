@@ -435,6 +435,67 @@ public sealed class ProxyGenerationE2ETests
 
 
     [Test]
+    public async Task PublishAsync_CanceledAfterRegisterMutation_KeepsStoreAndFilesConsistent(
+        [Values] bool hasPrevious, [Values] bool rollbackFails)
+    {
+        string root = CreateRoot();
+        var store = new CountingStore(root, failuresBeforeSuccess: 1)
+        {
+            MutateBeforeFailure = true,
+            FailRollback = rollbackFails,
+        };
+        var generator = new FFmpegProxyGenerator(store);
+        string source = Path.Combine(root, "src.mov");
+        File.WriteAllBytes(source, [1, 2, 3, 4]);
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        string oldPath = Path.Combine(root, "hash", "quarter.mp4");
+        string relative = $"hash/quarter.{Guid.NewGuid():N}.mp4";
+        string finalPath = Path.Combine(root, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+        ProxyEntry? previous = null;
+        if (hasPrevious)
+        {
+            File.WriteAllBytes(oldPath, [1, 2, 3]);
+            previous = CreateEntry(fingerprint, ProxyPreset.Quarter, "hash/quarter.mp4");
+            store.Seed(previous);
+            FFmpegProxyGenerator.WriteMetadata(oldPath, previous);
+        }
+
+        string tempPath = FFmpegProxyGenerator.CreateTempPathForOutput(finalPath);
+        File.WriteAllBytes(tempPath, [9, 9, 9, 9, 9]);
+        using var cts = new CancellationTokenSource();
+        store.RegisterAttempted = attempt =>
+        {
+            if (attempt == 1)
+                cts.Cancel();
+        };
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter);
+        await Assert.CatchAsync<OperationCanceledException>(() => generator.PublishAsync(tempPath, finalPath, job,
+            relative, new PixelSize(64, 48), new PixelSize(32, 24), cts.Token));
+
+        ProxyEntry? current = store.TryGet(fingerprint, ProxyPreset.Quarter);
+        Assert.Multiple(() =>
+        {
+            Assert.That(current?.ProxyFileRelative, Is.EqualTo(rollbackFails ? relative : previous?.ProxyFileRelative));
+            Assert.That(File.Exists(finalPath), Is.EqualTo(rollbackFails),
+                "a failed rollback must keep a file the store still references");
+            Assert.That(store.RegisterAttempts, Is.EqualTo(hasPrevious ? 2 : 1));
+        });
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        if (hasPrevious || rollbackFails)
+        {
+            ProxySourceMetadata metadata = JsonSerializer.Deserialize<ProxySourceMetadata>(File.ReadAllText(metadataPath), s_jsonOptions)!;
+            Assert.That(metadata.Entries.Single(), Is.EqualTo(current));
+        }
+        else
+        {
+            Assert.That(File.Exists(metadataPath), Is.False);
+        }
+        if (hasPrevious)
+            Assert.That(File.ReadAllBytes(oldPath), Is.EqualTo(new byte[] { 1, 2, 3 }));
+    }
+
+    [Test]
     [TestCase(1920, 1080)]
     [TestCase(1998, 1080)]
     [TestCase(1280, 720)]
@@ -504,15 +565,26 @@ public sealed class ProxyGenerationE2ETests
 
         public Action<int>? RegisterAttempted { get; set; }
 
+        public bool MutateBeforeFailure { get; init; }
+
+        public bool FailRollback { get; init; }
+
+        public void Seed(ProxyEntry entry) => LastRegistered = entry;
+
         public string StoreRootPath => root;
 
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
+            => LastRegistered is { } entry && entry.Source == source && entry.Preset == preset ? entry : null;
 
         public IReadOnlyList<ProxyEntry> Enumerate() => [];
 
         public void Register(ProxyEntry entry)
         {
             RegisterAttempts++;
+            if (FailRollback && RegisterAttempts > 1)
+                throw new IOException("rollback registration failed");
+            if (MutateBeforeFailure)
+                LastRegistered = entry;
             RegisterAttempted?.Invoke(RegisterAttempts);
             if (RegisterAttempts <= failuresBeforeSuccess)
                 throw new InvalidOperationException("index locked");
@@ -522,7 +594,15 @@ public sealed class ProxyGenerationE2ETests
 
         public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
 
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        {
+            if (TryGet(source, preset) is null)
+                return false;
+            if (FailRollback)
+                throw new IOException("rollback deletion failed");
+            LastRegistered = null;
+            return true;
+        }
 
         public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
         {

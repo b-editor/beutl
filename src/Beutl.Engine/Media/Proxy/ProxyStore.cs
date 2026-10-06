@@ -258,26 +258,27 @@ public sealed class ProxyStore : IProxyStore
     public bool Delete(ProxyFingerprint source, ProxyPreset preset)
     {
         ProxyEntry removed;
+        string proxyPath;
         lock (_lock)
         {
             if (!_entries.TryGetValue((source, preset), out ProxyEntry? existing))
                 return false;
 
             removed = existing;
+            proxyPath = GetAbsolutePath(removed);
             _entries.Remove((source, preset));
+            if (!IsProxyFileReferenced(proxyPath))
+                _retiredFiles[ProxyFingerprint.NormalizeAbsolutePath(proxyPath)] = removed;
             FlushCore(removedKeys: new HashSet<(ProxyFingerprint Source, ProxyPreset Preset)> { (source, preset) });
         }
 
         // Delete the proxy file outside _lock: File.Delete has no bound (a network-share store can stall
         // seconds), and preview reads (TryGet/Touch/Enumerate) contend on _lock, so holding it across the
-        // delete would stall playback. The index entry is already gone; if the file delete fails the file
-        // is a harmless orphan that reconcile's aged-orphan sweep reclaims.
-        string proxyPath = GetAbsolutePath(removed);
+        // delete would stall playback. Deferred deletion remains tracked for last-pin release or a
+        // later successful flush, and continues counting toward the cache cap.
 
-        // A regeneration Registers a replacement for the same (source, preset) reusing the deterministic
-        // proxy filename (ProxyPathUtilities.BuildRelativePath), and may have already moved its bytes to
-        // this exact path. Re-check under the lock that no surviving entry still points at the file before
-        // unlinking, or this Delete would strand the live replacement's index entry over deleted bytes.
+        // Re-check references after releasing _lock: a legacy-path re-registration or another entry
+        // may still own this file.
         if (!IsProxyFileReferenced(proxyPath))
         {
             TryReclaimProxyFile(proxyPath);
@@ -350,9 +351,8 @@ public sealed class ProxyStore : IProxyStore
     {
         lock (_lock)
         {
-            return _entries.Values
+            return _entries.Values.Concat(_retiredFiles.Values)
                 .Where(static e => e.State is ProxyState.Ready or ProxyState.Stale or ProxyState.Failed)
-                .Concat(_retiredFiles.Values)
                 .Sum(static e => e.ProxyFileSizeBytes);
         }
     }

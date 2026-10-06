@@ -75,6 +75,48 @@ public class ProxyEvictionTests
         });
     }
 
+    [Test]
+    public void Sweep_PinAcquiredAfterFinalCheck_DoesNotCreditRetainedBytesTowardCap()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        ProxyEntry old = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
+        ProxyEntry next = Register(store, root, "next.mp4", DateTime.UtcNow, 7);
+        var resolver = new ProxyResolver(store);
+        var resolution = new ProxyResolution(Path.Combine(root, old.ProxyFileRelative), old.Source, old.Preset,
+            old.OriginalLogicalFrameSize, old.ProxyDecodedFrameSize);
+        IDisposable? latePin = null;
+        int generationChecks = 0;
+        var service = new ProxyEvictionService(store, resolver, maxTotalBytes: 7,
+            isGenerationActive: (source, _) =>
+            {
+                // The second probe runs after the final pin check, just before Delete.
+                if (source == old.Source && ++generationChecks == 2)
+                    latePin = resolver.Pin(resolution);
+                return false;
+            });
+
+        try
+        {
+            ProxyEvictionResult result = service.Sweep();
+            Assert.Multiple(() =>
+            {
+                Assert.That(latePin, Is.Not.Null);
+                Assert.That(result.RemovedCount, Is.EqualTo(2), "retaining the first file must not stop eviction before the cap is met");
+                Assert.That(result.ReclaimedBytes, Is.EqualTo(7));
+                Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.True);
+                Assert.That(File.Exists(Path.Combine(root, next.ProxyFileRelative)), Is.False);
+                Assert.That(store.GetTotalBytes(), Is.EqualTo(7));
+            });
+        }
+        finally
+        {
+            latePin?.Dispose();
+        }
+
+        Assert.That(() => store.GetTotalBytes(), Is.Zero.After(2000, 10));
+    }
+
     // Store.Delete removes the index entry but only best-effort-deletes the file; when the file survives
     // (a sharing violation), the bytes are not actually reclaimed, so the sweep must not credit them or a
     // disk-pressure sweep stops early while the orphan still occupies disk.
