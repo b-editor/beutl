@@ -10,6 +10,9 @@ namespace Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
 public sealed class ColorScopesTabViewModel : IToolContext
 {
+    // Restored HDR ranges below this are ignored; the scope controls clamp to the same floor.
+    private const float MinHdrRange = 0.01f;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
@@ -99,89 +102,63 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("scopeType", out var scopeTypeNode) && scopeTypeNode is JsonValue scopeTypeValue)
+        if (json.TryGetPropertyValueAsJsonValue("scopeType", out int scopeType)
+            && Enum.IsDefined(typeof(ColorScopeType), scopeType))
         {
-            if (scopeTypeValue.TryGetValue(out int scopeType) && Enum.IsDefined(typeof(ColorScopeType), scopeType))
-            {
-                SelectedScopeType.Value = (ColorScopeType)scopeType;
-            }
+            SelectedScopeType.Value = (ColorScopeType)scopeType;
         }
 
         // Waveform settings
-        if (json.TryGetPropertyValue("waveformMode", out var modeNode) && modeNode is JsonValue modeValue)
+        if (json.TryGetPropertyValueAsJsonValue("waveformMode", out int mode)
+            && Enum.IsDefined(typeof(WaveformMode), mode))
         {
-            if (modeValue.TryGetValue(out int mode) && Enum.IsDefined(typeof(WaveformMode), mode))
-            {
-                WaveformMode.Value = (WaveformMode)mode;
-            }
+            WaveformMode.Value = (WaveformMode)mode;
         }
 
-        if (json.TryGetPropertyValue("waveformHdrRange", out var waveformHdrNode) && waveformHdrNode is JsonValue waveformHdrValue)
+        if (json.TryGetPropertyValueAsJsonValue("waveformHdrRange", out float waveformHdr) && waveformHdr >= MinHdrRange)
         {
-            if (waveformHdrValue.TryGetValue(out float waveformHdr) && waveformHdr >= 0.01f)
-            {
-                WaveformHdrRange.Value = waveformHdr;
-            }
+            WaveformHdrRange.Value = waveformHdr;
         }
 
         // Histogram settings
-        if (json.TryGetPropertyValue("histogramMode", out var histogramModeNode) && histogramModeNode is JsonValue histogramModeValue)
+        if (json.TryGetPropertyValueAsJsonValue("histogramMode", out int histogramMode)
+            && Enum.IsDefined(typeof(HistogramMode), histogramMode))
         {
-            if (histogramModeValue.TryGetValue(out int histogramMode) && Enum.IsDefined(typeof(HistogramMode), histogramMode))
-            {
-                HistogramMode.Value = (HistogramMode)histogramMode;
-            }
+            HistogramMode.Value = (HistogramMode)histogramMode;
         }
 
-        if (json.TryGetPropertyValue("histogramHdrRange", out var histogramHdrNode) && histogramHdrNode is JsonValue histogramHdrValue)
+        if (json.TryGetPropertyValueAsJsonValue("histogramHdrRange", out float histogramHdr) && histogramHdr >= MinHdrRange)
         {
-            if (histogramHdrValue.TryGetValue(out float histogramHdr) && histogramHdr >= 0.01f)
-            {
-                HistogramHdrRange.Value = histogramHdr;
-            }
+            HistogramHdrRange.Value = histogramHdr;
         }
 
         // False Color settings
-        if (json.TryGetPropertyValue("falseColorHdrRange", out var falseColorHdrNode) && falseColorHdrNode is JsonValue falseColorHdrValue)
+        if (json.TryGetPropertyValueAsJsonValue("falseColorHdrRange", out float falseColorHdr) && falseColorHdr >= MinHdrRange)
         {
-            if (falseColorHdrValue.TryGetValue(out float falseColorHdr) && falseColorHdr >= 0.01f)
-            {
-                FalseColorHdrRange.Value = falseColorHdr;
-            }
+            FalseColorHdrRange.Value = falseColorHdr;
         }
 
         // Zebra settings
-        if (json.TryGetPropertyValue("zebraHighThreshold", out var zebraHighNode) && zebraHighNode is JsonValue zebraHighValue)
+        if (json.TryGetPropertyValueAsJsonValue("zebraHighThreshold", out float zebraHigh))
         {
-            if (zebraHighValue.TryGetValue(out float zebraHigh))
-            {
-                ZebraHighThreshold.Value = Math.Clamp(zebraHigh, 0f, 1f);
-            }
+            ZebraHighThreshold.Value = Math.Clamp(zebraHigh, 0f, 1f);
         }
 
-        if (json.TryGetPropertyValue("zebraLowThreshold", out var zebraLowNode) && zebraLowNode is JsonValue zebraLowValue)
+        if (json.TryGetPropertyValueAsJsonValue("zebraLowThreshold", out float zebraLow))
         {
-            if (zebraLowValue.TryGetValue(out float zebraLow))
-            {
-                ZebraLowThreshold.Value = Math.Clamp(zebraLow, 0f, 1f);
-            }
+            ZebraLowThreshold.Value = Math.Clamp(zebraLow, 0f, 1f);
         }
 
-        if (json.TryGetPropertyValue("zebraHdrRange", out var zebraHdrNode) && zebraHdrNode is JsonValue zebraHdrValue)
+        if (json.TryGetPropertyValueAsJsonValue("zebraHdrRange", out float zebraHdr) && zebraHdr >= MinHdrRange)
         {
-            if (zebraHdrValue.TryGetValue(out float zebraHdr) && zebraHdr >= 0.01f)
-            {
-                ZebraHdrRange.Value = zebraHdr;
-            }
+            ZebraHdrRange.Value = zebraHdr;
         }
 
         // Shared settings
-        if (json.TryGetPropertyValue("colorSpace", out var colorSpaceNode) && colorSpaceNode is JsonValue colorSpaceValue)
+        if (json.TryGetPropertyValueAsJsonValue("colorSpace", out int colorSpace)
+            && Enum.IsDefined(typeof(ScopeColorSpace), colorSpace))
         {
-            if (colorSpaceValue.TryGetValue(out int colorSpace) && Enum.IsDefined(typeof(ScopeColorSpace), colorSpace))
-            {
-                ColorSpace.Value = (ScopeColorSpace)colorSpace;
-            }
+            ColorSpace.Value = (ScopeColorSpace)colorSpace;
         }
     }
 

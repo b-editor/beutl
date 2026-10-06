@@ -108,11 +108,7 @@ public sealed partial class ProxiesTabViewModel
 
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (!_isDisposed)
-                    Refresh();
-            });
+            PostIfLive(Refresh);
             return;
         }
 
@@ -159,6 +155,16 @@ public sealed partial class ProxiesTabViewModel
         UpdateClipSummary();
     }
 
+    // Re-enters on the UI thread unless the tab is disposed by the time the dispatcher runs it.
+    private void PostIfLive(Action action)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_isDisposed)
+                action();
+        });
+    }
+
     private void RefreshJobs()
     {
         if (_isDisposed)
@@ -166,11 +172,7 @@ public sealed partial class ProxiesTabViewModel
 
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (!_isDisposed)
-                    RefreshJobs();
-            });
+            PostIfLive(RefreshJobs);
             return;
         }
 
@@ -214,7 +216,7 @@ public sealed partial class ProxiesTabViewModel
             {
                 foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element, visitedRefScenes))
                 {
-                    if (TryGetVideoSource(source, storeEntries, seenPaths, preferredPreset, out var item))
+                    if (ProxyClipSourceResolver.TryGetVideoSource(source, storeEntries, seenPaths, preferredPreset, out var item))
                         yield return item;
                 }
             }
@@ -343,11 +345,7 @@ public sealed partial class ProxiesTabViewModel
 
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (!_isDisposed)
-                    OnJobChanged(sender, e);
-            });
+            PostIfLive(() => OnJobChanged(sender, e));
             return;
         }
 

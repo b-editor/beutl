@@ -158,8 +158,7 @@ public sealed class AudioSampleRingBuffer
         {
             if (!_hasAnchor || _sampleRate <= 0)
             {
-                destLeft.Slice(0, length).Clear();
-                destRight.Slice(0, length).Clear();
+                ClearRange(destLeft, destRight, 0, length);
                 return 0;
             }
 
@@ -205,8 +204,7 @@ public sealed class AudioSampleRingBuffer
         leadingZeros = 0;
         if (_capacity == 0)
         {
-            destLeft.Slice(0, length).Clear();
-            destRight.Slice(0, length).Clear();
+            ClearRange(destLeft, destRight, 0, length);
             return 0;
         }
 
@@ -214,8 +212,7 @@ public sealed class AudioSampleRingBuffer
         if (endAbsIndex > _totalWritten) endAbsIndex = _totalWritten;
         if (endAbsIndex <= oldestAbs)
         {
-            destLeft.Slice(0, length).Clear();
-            destRight.Slice(0, length).Clear();
+            ClearRange(destLeft, destRight, 0, length);
             return 0;
         }
 
@@ -227,15 +224,13 @@ public sealed class AudioSampleRingBuffer
         }
         if (leadingZeros > 0)
         {
-            destLeft.Slice(0, leadingZeros).Clear();
-            destRight.Slice(0, leadingZeros).Clear();
+            ClearRange(destLeft, destRight, 0, leadingZeros);
         }
 
         int toCopy = (int)(endAbsIndex - startAbs);
         if (toCopy <= 0)
         {
-            destLeft.Slice(leadingZeros, length - leadingZeros).Clear();
-            destRight.Slice(leadingZeros, length - leadingZeros).Clear();
+            ClearRange(destLeft, destRight, leadingZeros, length - leadingZeros);
             return 0;
         }
 
@@ -258,11 +253,16 @@ public sealed class AudioSampleRingBuffer
         int trailingStart = leadingZeros + toCopy;
         if (trailingStart < length)
         {
-            destLeft.Slice(trailingStart, length - trailingStart).Clear();
-            destRight.Slice(trailingStart, length - trailingStart).Clear();
+            ClearRange(destLeft, destRight, trailingStart, length - trailingStart);
         }
 
         return toCopy;
+    }
+
+    private static void ClearRange(Span<float> left, Span<float> right, int start, int count)
+    {
+        left.Slice(start, count).Clear();
+        right.Slice(start, count).Clear();
     }
 
     private void ResetInternal(int sampleRate, int capacity)

@@ -4,11 +4,11 @@ using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,68 +53,75 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         InitializeStorage(storageProviders);
 
         // お気に入り変更時にホームビューを更新
-        _favoritesManager.Changed += () =>
-        {
-            if (IsHomeView.Value)
-            {
-                _favoritesManager.RefreshFavoriteItems();
-            }
-        };
+        _favoritesManager.Changed += OnFavoritesChanged;
 
         DecoderRegistry.DecodersChanged += OnDecodersChanged;
 
         // ディレクトリ変更時にリフレッシュ
-        _directoryWatcher.Changed += () =>
-        {
-            // A debounced refresh can arrive after disposal.
-            if (_disposed)
-                return;
-
-            if (IsHomeView.Value)
-                RefreshHomeView();
-            else
-                RefreshItems();
-        };
+        _directoryWatcher.Changed += OnWatchedDirectoryChanged;
         _directoryWatcher.EntriesChanged += RefreshChangedEntries;
 
         // プロジェクトディレクトリの取得
-        _projectDirectory = GetProjectDirectory();
+        _projectDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(_editorContext);
 
         Header = RootPath.CombineLatest(ActiveStorageProvider,
                 (path, provider) => provider?.DisplayName ?? CreateHeader(path))
             .ToReadOnlyReactivePropertySlim(CreateHeader(RootPath.Value))
             .AddTo(_disposables)!;
 
-        RootPath.Subscribe(path =>
-        {
-            _rootPath = path;
-            if (!string.IsNullOrEmpty(path))
-            {
-                IsHomeView.Value = false;
-            }
-            UpdateBreadcrumbItems(path);
-            RefreshItems();
-            _directoryWatcher.Watch(path);
-        }).AddTo(_disposables);
+        RootPath.Subscribe(OnRootPathChanged).AddTo(_disposables);
 
         // IsHomeView subscriptions replay immediately, so this performs the initial home-view build.
-        IsHomeView.Subscribe(isHome =>
-        {
-            if (isHome)
-            {
-                RootPath.Value = string.Empty;
-                RefreshHomeView();
-                _directoryWatcher.Watch(_projectDirectory);
-            }
-        }).AddTo(_disposables);
+        IsHomeView.Subscribe(OnHomeViewChanged).AddTo(_disposables);
 
-        ViewMode.Subscribe(_ =>
+        ViewMode.Subscribe(OnViewModeChanged).AddTo(_disposables);
+    }
+
+    private void OnFavoritesChanged()
+    {
+        if (IsHomeView.Value)
         {
-            if (!IsHomeView.Value)
-            {
-                RefreshItems();
-            }
-        }).AddTo(_disposables);
+            _favoritesManager.RefreshFavoriteItems();
+        }
+    }
+
+    private void OnWatchedDirectoryChanged()
+    {
+        // A debounced refresh can arrive after disposal.
+        if (_disposed)
+            return;
+
+        Refresh();
+    }
+
+    private void OnRootPathChanged(string path)
+    {
+        _rootPath = path;
+        if (!string.IsNullOrEmpty(path))
+        {
+            IsHomeView.Value = false;
+        }
+        UpdateBreadcrumbItems(path);
+        RefreshItems();
+        _directoryWatcher.Watch(path);
+    }
+
+    private void OnHomeViewChanged(bool isHome)
+    {
+        if (isHome)
+        {
+            RootPath.Value = string.Empty;
+            RefreshHomeView();
+            _directoryWatcher.Watch(_projectDirectory);
+        }
+    }
+
+    private void OnViewModeChanged(FileBrowserViewMode mode)
+    {
+        if (!IsHomeView.Value)
+        {
+            RefreshItems();
+        }
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -169,28 +176,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         return string.IsNullOrEmpty(name) ? rootPath : name;
     }
 
-    private string? GetProjectDirectory()
-    {
-        var scene = _editorContext.GetService<Scene>();
-        var project = scene?.FindHierarchicalParent<Project>();
-        var projectDirectory = project?.Uri != null
-            ? Path.GetDirectoryName(project.Uri.LocalPath)
-            : null;
-
-        if (!string.IsNullOrEmpty(projectDirectory))
-        {
-            return projectDirectory;
-        }
-
-        if (scene?.Uri != null)
-        {
-            string? sceneDir = Path.GetDirectoryName(scene.Uri.LocalPath);
-            if (!string.IsNullOrEmpty(sceneDir))
-                return sceneDir;
-        }
-        return null;
-    }
-
     // Each item classifies itself once, when it is built. Decoding extensions register on a
     // background task after the tab is already live, so anything materialized before that keeps a
     // non-media icon and no thumbnail until the list is rebuilt.
@@ -225,11 +210,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             // A deleted directory can no longer be distinguished from a temporary file by its
             // attributes. Refresh home results if a previously displayed favorite/media path is affected.
-            if (IsHomeView.Value && paths.Any(path =>
-                    FavoriteItems.Any(item => string.Equals(item.FullPath, path, StringComparison.Ordinal)
-                        && !(item.IsDirectory ? Directory.Exists(path) : File.Exists(path)))
-                    || MediaFileItems.Any(item => item.FullPath.StartsWith(
-                        path + Path.DirectorySeparatorChar, StringComparison.Ordinal))))
+            if (IsHomeView.Value && ShouldRebuildHomeView(paths))
             {
                 RefreshHomeView();
                 return;
@@ -266,10 +247,19 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         }
     }
 
+    private bool ShouldRebuildHomeView(IReadOnlyCollection<string> paths)
+    {
+        return paths.Any(path =>
+            FavoriteItems.Any(item => string.Equals(item.FullPath, path, StringComparison.Ordinal)
+                && !(item.IsDirectory ? Directory.Exists(path) : File.Exists(path)))
+            || MediaFileItems.Any(item => item.FullPath.StartsWith(
+                path + Path.DirectorySeparatorChar, StringComparison.Ordinal)));
+    }
+
     private void RefreshItems()
     {
-        DisposeAndClear(Items);
-        DisposeAndClear(TreeRootItems);
+        FileSystemEnumerator.DisposeAndClear(Items);
+        FileSystemEnumerator.DisposeAndClear(TreeRootItems);
         SelectedItems.Clear();
 
         if (string.IsNullOrEmpty(_rootPath) || !Directory.Exists(_rootPath))
@@ -365,13 +355,13 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
     private void RefreshHomeView()
     {
-        _projectDirectory = GetProjectDirectory();
+        _projectDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(_editorContext);
 
         // お気に入りの更新
         _favoritesManager.RefreshFavoriteItems();
 
         // プロジェクトディレクトリの更新
-        DisposeAndClear(ProjectDirectoryItems);
+        FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
         if (!string.IsNullOrEmpty(_projectDirectory) && Directory.Exists(_projectDirectory))
         {
             try
@@ -387,15 +377,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
         // メディアファイル検索
         _mediaSearcher.SearchAsync(_projectDirectory);
-    }
-
-    private static void DisposeAndClear(ObservableCollection<FileSystemItemViewModel> collection)
-    {
-        foreach (var item in collection)
-        {
-            item.Dispose();
-        }
-        collection.Clear();
     }
 
     public void ToggleFavorite(string path)
@@ -429,38 +410,28 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("ViewMode", out var viewModeNode)
-            && viewModeNode is JsonValue viewModeValue
-            && viewModeValue.TryGetValue(out int viewModeInt)
+        if (json.TryGetPropertyValueAsJsonValue("ViewMode", out int viewModeInt)
             && Enum.IsDefined(typeof(FileBrowserViewMode), viewModeInt))
         {
             ViewMode.Value = (FileBrowserViewMode)viewModeInt;
         }
 
-        if (json.TryGetPropertyValue("IsHomeView", out var isHomeViewNode)
-            && isHomeViewNode is JsonValue isHomeViewValue
-            && isHomeViewValue.TryGetValue(out bool isHome))
+        if (json.TryGetPropertyValueAsJsonValue("IsHomeView", out bool isHome))
         {
             IsHomeView.Value = isHome;
         }
 
-        if (json.TryGetPropertyValue("IsFavoritesIconView", out var favIconNode)
-            && favIconNode is JsonValue favIconVal
-            && favIconVal.TryGetValue(out bool favIcon))
+        if (json.TryGetPropertyValueAsJsonValue("IsFavoritesIconView", out bool favIcon))
         {
             IsFavoritesIconView.Value = favIcon;
         }
 
-        if (json.TryGetPropertyValue("IsProjectDirIconView", out var projIconNode)
-            && projIconNode is JsonValue projIconVal
-            && projIconVal.TryGetValue(out bool projIcon))
+        if (json.TryGetPropertyValueAsJsonValue("IsProjectDirIconView", out bool projIcon))
         {
             IsProjectDirIconView.Value = projIcon;
         }
 
-        if (json.TryGetPropertyValue("IsMediaFilesIconView", out var mediaIconNode)
-            && mediaIconNode is JsonValue mediaIconVal
-            && mediaIconVal.TryGetValue(out bool mediaIcon))
+        if (json.TryGetPropertyValueAsJsonValue("IsMediaFilesIconView", out bool mediaIcon))
         {
             IsMediaFilesIconView.Value = mediaIcon;
         }
@@ -481,9 +452,9 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         _favoritesManager.Dispose();
         _directoryWatcher.Dispose();
 
-        DisposeAndClear(Items);
-        DisposeAndClear(TreeRootItems);
-        DisposeAndClear(ProjectDirectoryItems);
+        FileSystemEnumerator.DisposeAndClear(Items);
+        FileSystemEnumerator.DisposeAndClear(TreeRootItems);
+        FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
 
         _disposables.Dispose();
     }

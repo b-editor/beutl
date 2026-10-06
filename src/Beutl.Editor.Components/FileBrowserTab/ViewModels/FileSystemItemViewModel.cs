@@ -265,12 +265,7 @@ public class FileSystemItemViewModel : IDisposable
         if (IsDirectory && Children != null)
         {
             _childrenLoaded = false;
-            foreach (var child in Children)
-            {
-                child.Dispose();
-            }
-
-            Children.Clear();
+            FileSystemEnumerator.DisposeAndClear(Children);
             if (IsExpanded.Value)
             {
                 LoadChildren();
@@ -333,12 +328,7 @@ public class FileSystemItemViewModel : IDisposable
 
         if (Children != null)
         {
-            foreach (var child in Children)
-            {
-                child.Dispose();
-            }
-
-            Children.Clear();
+            FileSystemEnumerator.DisposeAndClear(Children);
         }
 
         _disposables.Dispose();

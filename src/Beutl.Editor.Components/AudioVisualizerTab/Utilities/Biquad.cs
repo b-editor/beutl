@@ -28,14 +28,6 @@ internal sealed class Biquad
         _z2 = 0f;
     }
 
-    public float ProcessOne(float x)
-    {
-        float y = B0 * x + _z1;
-        _z1 = B1 * x - A1 * y + _z2;
-        _z2 = B2 * x - A2 * y;
-        return y;
-    }
-
     public void Process(ReadOnlySpan<float> input, Span<float> output)
     {
         float b0 = B0, b1 = B1, b2 = B2, a1 = A1, a2 = A2;

@@ -75,14 +75,7 @@ public sealed partial class FileBrowserTabViewModel
     public async Task DeleteItemAsync(FileSystemItemViewModel item)
     {
         if (!CanMutateItem(item)) return;
-        var dialog = new FAContentDialog
-        {
-            Title = Strings.Delete,
-            Content = string.Format(MessageStrings.ConfirmDeleteFile, item.Name.Value),
-            PrimaryButtonText = Strings.Yes,
-            CloseButtonText = Strings.No,
-            DefaultButton = FAContentDialogButton.Close
-        };
+        var dialog = CreateDeleteConfirmation(string.Format(MessageStrings.ConfirmDeleteFile, item.Name.Value));
 
         FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
@@ -94,19 +87,11 @@ public sealed partial class FileBrowserTabViewModel
             using (fileWrite)
                 try
                 {
-                    if (item.IsDirectory)
-                    {
-                        Directory.Delete(item.FullPath, true);
-                    }
-                    else
-                    {
-                        File.Delete(item.FullPath);
-                    }
+                    DeleteEntry(item);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                    NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
+                    ReportDeleteFailure(ex, item);
                 }
         }
     }
@@ -123,14 +108,7 @@ public sealed partial class FileBrowserTabViewModel
             return;
         }
 
-        var dialog = new FAContentDialog
-        {
-            Title = Strings.Delete,
-            Content = string.Format(Strings.DeleteSelectedItems, items.Count),
-            PrimaryButtonText = Strings.Yes,
-            CloseButtonText = Strings.No,
-            DefaultButton = FAContentDialogButton.Close
-        };
+        var dialog = CreateDeleteConfirmation(string.Format(Strings.DeleteSelectedItems, items.Count));
 
         FAContentDialogResult result = await ConfirmAsync(dialog);
         if (result == FAContentDialogResult.Primary)
@@ -144,22 +122,44 @@ public sealed partial class FileBrowserTabViewModel
                     try
                     {
                         if (!CanMutateItem(item)) continue;
-                        if (item.IsDirectory)
-                        {
-                            Directory.Delete(item.FullPath, true);
-                        }
-                        else
-                        {
-                            File.Delete(item.FullPath);
-                        }
+                        DeleteEntry(item);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                        NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
+                        ReportDeleteFailure(ex, item);
                     }
                 }
         }
+    }
+
+    private static FAContentDialog CreateDeleteConfirmation(string content)
+    {
+        return new FAContentDialog
+        {
+            Title = Strings.Delete,
+            Content = content,
+            PrimaryButtonText = Strings.Yes,
+            CloseButtonText = Strings.No,
+            DefaultButton = FAContentDialogButton.Close
+        };
+    }
+
+    private static void DeleteEntry(FileSystemItemViewModel item)
+    {
+        if (item.IsDirectory)
+        {
+            Directory.Delete(item.FullPath, true);
+        }
+        else
+        {
+            File.Delete(item.FullPath);
+        }
+    }
+
+    private void ReportDeleteFailure(Exception ex, FileSystemItemViewModel item)
+    {
+        _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+        NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
     }
 
     public void CreateNewFolder()
@@ -285,11 +285,7 @@ public sealed partial class FileBrowserTabViewModel
             return;
 
         using (fileWrite)
-        {
-            string resourcesDir = Path.Combine(_projectDirectory, "resources");
-            Directory.CreateDirectory(resourcesDir);
-            CopyFilesToDirectoryCore(files, resourcesDir);
-        }
+            CopyFilesToDirectoryCore(files, EnsureResourcesDirectory(_projectDirectory));
     }
 
     public void MoveFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
@@ -371,11 +367,14 @@ public sealed partial class FileBrowserTabViewModel
             return;
 
         using (fileWrite)
-        {
-            string resourcesDir = Path.Combine(_projectDirectory, "resources");
-            Directory.CreateDirectory(resourcesDir);
-            MoveFilesToDirectoryCore(files, resourcesDir);
-        }
+            MoveFilesToDirectoryCore(files, EnsureResourcesDirectory(_projectDirectory));
+    }
+
+    private static string EnsureResourcesDirectory(string projectDirectory)
+    {
+        string resourcesDir = Path.Combine(projectDirectory, "resources");
+        Directory.CreateDirectory(resourcesDir);
+        return resourcesDir;
     }
 
     /// <summary>

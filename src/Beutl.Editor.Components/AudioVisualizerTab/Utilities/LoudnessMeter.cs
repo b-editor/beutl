@@ -20,10 +20,7 @@ internal sealed class LoudnessMeter
         if (sampleRate == _configuredRate) return;
         KWeighting.ConfigurePair(sampleRate, _preL, _rlbL);
         KWeighting.ConfigurePair(sampleRate, _preR, _rlbR);
-        _preL.Reset();
-        _rlbL.Reset();
-        _preR.Reset();
-        _rlbR.Reset();
+        ResetFilters();
         _configuredRate = sampleRate;
     }
 
@@ -43,10 +40,7 @@ internal sealed class LoudnessMeter
         // calls would make the reading depend on repaint cadence instead of the
         // samples in the current window. The biquad start-up transient settles
         // within a handful of samples and is negligible over a 400 ms block.
-        _preL.Reset();
-        _rlbL.Reset();
-        _preR.Reset();
-        _rlbR.Reset();
+        ResetFilters();
 
         _preL.Process(left, tmp);
         _rlbL.Process(tmp, tmp);
@@ -60,5 +54,13 @@ internal sealed class LoudnessMeter
         double meanSquare = sum / n;
         if (meanSquare <= 0) return -160f;
         return (float)(-0.691 + 10.0 * Math.Log10(meanSquare));
+    }
+
+    private void ResetFilters()
+    {
+        _preL.Reset();
+        _rlbL.Reset();
+        _preR.Reset();
+        _rlbR.Reset();
     }
 }

@@ -45,7 +45,7 @@ internal sealed class FavoritesManager : IDisposable
         if (_disposed)
             return;
 
-        DisposeAndClearItems();
+        FileSystemEnumerator.DisposeAndClear(FavoriteItems);
 
         // テンプレートフォルダを常に先頭に表示（ローカライズ名で）
         AddFixedFolder(ObjectTemplateService.Instance.DirectoryPath, Strings.Templates);
@@ -87,16 +87,6 @@ internal sealed class FavoritesManager : IDisposable
         FavoriteItems.Add(item);
     }
 
-    private void DisposeAndClearItems()
-    {
-        foreach (var item in FavoriteItems)
-        {
-            item.Dispose();
-        }
-
-        FavoriteItems.Clear();
-    }
-
     public void Dispose()
     {
         if (_disposed)
@@ -106,6 +96,6 @@ internal sealed class FavoritesManager : IDisposable
         // Unsubscribe because the store outlives each tab.
         _store.Changed -= _onStoreChanged;
         Changed = null;
-        DisposeAndClearItems();
+        FileSystemEnumerator.DisposeAndClear(FavoriteItems);
     }
 }

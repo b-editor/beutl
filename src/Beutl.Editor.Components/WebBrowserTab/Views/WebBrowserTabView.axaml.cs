@@ -71,22 +71,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         WebBrowserTabViewModel? previousViewModel = _viewModel;
-        _adBlockSession?.Dispose();
-        _adBlockSession = null;
-        _downloadCancellation?.Cancel();
-        ClearDeferredNativeDownloads();
-        ResetPageDownloadRequests();
-        CloseBrowserPanel();
-        _pageRevision++;
-        _findRequest?.Cancel();
-        AddressTextBox.CancelSearchSuggestions();
-        if (_viewModel != null)
-        {
-            _viewModel.Disposing -= Dispose;
-            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
-            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
-            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
-        }
+        ResetPageStateForRebind();
+        UnsubscribeFromViewModel();
         _viewModel = viewModel;
         if (viewModel == null)
         {
@@ -103,6 +89,36 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             // Source may be a provisional URL; the previous model knows the last loaded page.
             viewModel.AdoptCommittedPage(previousViewModel);
         }
+        AttachToViewModel(viewModel);
+    }
+
+    // Work, offers and panels that belong to the page the previous context was showing.
+    private void ResetPageStateForRebind()
+    {
+        _adBlockSession?.Dispose();
+        _adBlockSession = null;
+        _downloadCancellation?.Cancel();
+        ClearDeferredNativeDownloads();
+        ResetPageDownloadRequests();
+        CloseBrowserPanel();
+        _pageRevision++;
+        _findRequest?.Cancel();
+        AddressTextBox.CancelSearchSuggestions();
+    }
+
+    private void UnsubscribeFromViewModel()
+    {
+        if (_viewModel != null)
+        {
+            _viewModel.Disposing -= Dispose;
+            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
+            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
+        }
+    }
+
+    private void AttachToViewModel(WebBrowserTabViewModel viewModel)
+    {
         viewModel.Disposing += Dispose;
         viewModel.Profile.SettingsChanged += OnProfileChanged;
         viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
@@ -194,12 +210,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
-        _nativeDownloadHandlerVersion++;
-        int handlerVersion = _nativeDownloadHandlerVersion;
+        int handlerVersion = InvalidateNativeDownloads();
         NativeWebView webView = _webView;
-        _nativeDownloadFailures.Clear();
-        _latestNavigationRequest = null;
-        ClearDeferredNativeDownloads();
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
@@ -227,13 +239,21 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
     {
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
+        InvalidateNativeDownloads();
+        if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
+        _nativeDownloadHandler?.Dispose();
+        _nativeDownloadHandler = null;
+    }
+
+    // A native download callback checks the returned version, so callbacks of the previous adapter or
+    // web view are ignored; failures and deferred offers recorded for it are dropped with it.
+    private int InvalidateNativeDownloads()
+    {
         _nativeDownloadHandlerVersion++;
         _nativeDownloadFailures.Clear();
         _latestNavigationRequest = null;
         ClearDeferredNativeDownloads();
-        if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
-        _nativeDownloadHandler?.Dispose();
-        _nativeDownloadHandler = null;
+        return _nativeDownloadHandlerVersion;
     }
 
     private void ScheduleLinuxSizeRefresh(NativeWebView webView)
@@ -376,13 +396,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _downloadCancellation?.Cancel();
         AddressTextBox.CancelSearchSuggestions();
         Loaded -= OnLoaded;
-        if (_viewModel != null)
-        {
-            _viewModel.Disposing -= Dispose;
-            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
-            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
-            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
-        }
+        UnsubscribeFromViewModel();
         _viewModel = null;
         BookmarkItems.ItemsSource = null;
         DisposeWebView();
@@ -390,10 +404,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void DisposeWebView()
     {
-        _nativeDownloadHandlerVersion++;
-        _nativeDownloadFailures.Clear();
-        _latestNavigationRequest = null;
-        ClearDeferredNativeDownloads();
+        InvalidateNativeDownloads();
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         if (_webView == null)

@@ -24,17 +24,6 @@ public sealed partial class ProxiesTabViewModel
         return $"{size.Width}x{size.Height}";
     }
 
-    internal static string GetPresetDisplayName(ProxyPreset preset)
-    {
-        return preset switch
-        {
-            ProxyPreset.Half => Strings.ProxyPresetHalf,
-            ProxyPreset.Quarter => Strings.ProxyPresetQuarter,
-            ProxyPreset.Eighth => Strings.ProxyPresetEighth,
-            _ => preset.ToString(),
-        };
-    }
-
     internal static string GetProxyStateText(ProxyState state)
     {
         return state switch

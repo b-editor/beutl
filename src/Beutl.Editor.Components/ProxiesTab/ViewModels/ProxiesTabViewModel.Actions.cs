@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
@@ -13,13 +14,20 @@ public sealed partial class ProxiesTabViewModel
         Notify(new Notification(Strings.Proxies, message, type));
     }
 
+    [MemberNotNullWhen(true, nameof(_queue))]
+    private bool EnsureQueueAvailable()
+    {
+        if (_queue != null)
+            return true;
+
+        ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
+        return false;
+    }
+
     public async Task GenerateAsync(ProxyClipViewModel clip)
     {
-        if (_queue == null)
-        {
-            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
+        if (!EnsureQueueAvailable())
             return;
-        }
 
         await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         RefreshJobs();
@@ -32,10 +40,15 @@ public sealed partial class ProxiesTabViewModel
 
     public void Delete(ProxyClipViewModel clip)
     {
-        CancelMatchingJobs(clip);
-        int failed = TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value) ? 0 : 1;
+        int failed = DeleteClipProxy(clip) ? 0 : 1;
         ReportDeleteFailures(failed);
         Refresh();
+    }
+
+    private bool DeleteClipProxy(ProxyClipViewModel clip)
+    {
+        CancelMatchingJobs(clip);
+        return TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value);
     }
 
     // Two shapes of a real failure are surfaced, both typically a sharing violation while the preview
@@ -126,30 +139,15 @@ public sealed partial class ProxiesTabViewModel
         // user no longer selected. Each source maps to a single row here, so cancelling the job
         // for (this source, old preset) cannot affect another visible clip.
         if (oldPreset != newPreset)
-            CancelJobForSourcePreset(clip.Source, oldPreset);
+            CancelMatchingJobs(clip.Source, oldPreset);
 
         RefreshClip(clip);
     }
 
-    private void CancelJobForSourcePreset(ProxyFingerprint source, ProxyPreset preset)
-    {
-        if (_queue == null)
-            return;
-
-        foreach (ProxyJob job in _queue.Pending())
-        {
-            if (job.Preset == preset && job.Source.Equals(source))
-                _queue.Cancel(job.JobId);
-        }
-    }
-
     private async Task GenerateAllAsync()
     {
-        if (_queue == null)
-        {
-            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
+        if (!EnsureQueueAvailable())
             return;
-        }
 
         ProxyClipViewModel[] eligible = [.. Clips.Where(IsEligibleForBulkGeneration)];
         if (eligible.Length == 0)
@@ -203,15 +201,14 @@ public sealed partial class ProxiesTabViewModel
         return null;
     }
 
+    private ProxyClipViewModel[] SelectedClips() => Clips.Where(static c => c.IsSelected.Value).ToArray();
+
     private async Task GenerateSelectedAsync()
     {
-        if (_queue == null)
-        {
-            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
+        if (!EnsureQueueAvailable())
             return;
-        }
 
-        foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
+        foreach (ProxyClipViewModel clip in SelectedClips())
         {
             await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         }
@@ -221,13 +218,10 @@ public sealed partial class ProxiesTabViewModel
 
     private async Task RegenerateSelectedAsync()
     {
-        if (_queue == null)
-        {
-            ReportActionStatus(Strings.ProxyQueueUnavailable, NotificationType.Warning);
+        if (!EnsureQueueAvailable())
             return;
-        }
 
-        foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
+        foreach (ProxyClipViewModel clip in SelectedClips())
         {
             await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         }
@@ -238,10 +232,9 @@ public sealed partial class ProxiesTabViewModel
     private void DeleteSelected()
     {
         int failed = 0;
-        foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
+        foreach (ProxyClipViewModel clip in SelectedClips())
         {
-            CancelMatchingJobs(clip);
-            if (!TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value))
+            if (!DeleteClipProxy(clip))
                 failed++;
         }
 
