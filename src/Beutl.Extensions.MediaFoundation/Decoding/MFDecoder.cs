@@ -235,6 +235,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
             }
             catch (Exception ex)
             {
+                sample?.Dispose();
                 _logger.LogError(ex,
                     "MFDecoder.ReadSample MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED ConfigureDecoder failed");
                 return null;
@@ -368,23 +369,29 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
             using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
-            MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out IntPtr pMFVF, out var pcbSize);
-            var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
+            IntPtr pMFVF = IntPtr.Zero;
+            try
+            {
+                MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out pMFVF, out var pcbSize);
+                var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
 
-            bih.Width = (int)ppMFVF->videoInfo.dwWidth;
-            bih.Height = (int)ppMFVF->videoInfo.dwHeight;
+                bih.Width = (int)ppMFVF->videoInfo.dwWidth;
+                bih.Height = (int)ppMFVF->videoInfo.dwHeight;
 
-            RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
-            RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
-                rcSrc,
-                ppMFVF->videoInfo.PixelAspectRatio,
-                new MFRatio { Denominator = 1, Numerator = 1 });
-            bih.Width = destRect.right;
-            bih.Height = destRect.bottom;
+                RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
+                RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
+                    rcSrc,
+                    ppMFVF->videoInfo.PixelAspectRatio,
+                    new MFRatio { Denominator = 1, Numerator = 1 });
+                bih.Width = destRect.right;
+                bih.Height = destRect.bottom;
 
-            _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
-
-            Marshal.FreeCoTaskMem((nint)ppMFVF);
+                _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(pMFVF);
+            }
 
             Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
             // YUY2
@@ -439,8 +446,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     {
         _sampleCache.ResetVideo();
 
-        // Runs on the same thread as the existing _videoSourceReader disposal; both are MF COM
-        // objects created on that thread, so this does not introduce a cross-apartment release.
+        // Dispose can also be reached from MediaReader's finalizer thread, so callers
+        // are not guaranteed to run on MFThread.Dispatcher.
         _videoSourceReader?.Dispose();
         _attributes?.Dispose();
     }
