@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Resources;
+﻿using System.Resources;
 
 namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 

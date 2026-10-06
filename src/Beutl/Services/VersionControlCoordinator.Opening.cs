@@ -207,19 +207,9 @@ internal partial class VersionControlCoordinator
         try
         {
             discoveryService = CreateTemporaryBackend(repository: null, projectFile);
-            GitAvailability availability = await discoveryService.GetAvailabilityAsync(
-                    operation.CancellationToken)
-                .ConfigureAwait(false);
-            if (availability.State != GitAvailabilityState.Installed)
-            {
-                return null;
-            }
-
-            string projectRoot = Path.GetDirectoryName(projectFile)
-                                 ?? throw new InvalidOperationException(
-                                     "The project file has no parent directory.");
-            return await discoveryService.DiscoverRepositoryAsync(
-                    projectRoot,
+            return await DiscoverInstalledRepositoryAsync(
+                    discoveryService,
+                    projectFile,
                     operation.CancellationToken)
                 .ConfigureAwait(false);
         }
@@ -239,9 +229,7 @@ internal partial class VersionControlCoordinator
             || !PathsEqual(attempt.ProjectFile, inspection.ProjectFile)
             || !VersionControlPathComparison.AreSameCanonicalPath(
                 inspection.Repository.ProjectRoot,
-                Path.GetDirectoryName(inspection.ProjectFile)
-                ?? throw new InvalidOperationException(
-                    "The project file has no parent directory.")))
+                GetProjectDirectory(inspection.ProjectFile)))
         {
             return false;
         }
@@ -262,6 +250,26 @@ internal partial class VersionControlCoordinator
                 inspection.EnclosingRepositoryAccepted);
             return true;
         }
+    }
+
+    // Null when Git is not installed or no repository holds the project; both callers treat the two alike.
+    private static async Task<RepositoryInfo?> DiscoverInstalledRepositoryAsync(
+        IProjectVersionControlBackend discoveryService,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        GitAvailability availability = await discoveryService.GetAvailabilityAsync(
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (availability.State != GitAvailabilityState.Installed)
+        {
+            return null;
+        }
+
+        return await discoveryService.DiscoverRepositoryAsync(
+                GetProjectDirectory(projectFile),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private IProjectVersionControlBackend CreateTemporaryBackend(
@@ -307,11 +315,7 @@ internal partial class VersionControlCoordinator
                     pending.Repository.ProjectRoot,
                     projectRoot);
             }
-            catch (Exception ex)
-                when (ex is IOException
-                      or UnauthorizedAccessException
-                      or NotSupportedException
-                      or ArgumentException)
+            catch (Exception ex) when (IsPathResolutionFailure(ex))
             {
                 _logger.LogWarning(
                     ex,

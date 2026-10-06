@@ -29,13 +29,10 @@ internal partial class VersionControlCoordinator
                     string projectFile = GetProjectFile(project);
                     IProjectVersionControlBackend service = GetTrackedBackend();
                     confirmedRecovery = await service.ExecuteExclusiveAsync(
-                        async transaction =>
-                            (await transaction.GetPendingPullRecoveriesAsync(
-                                operation.CancellationToken))
-                            .SingleOrDefault(candidate => string.Equals(
-                                candidate.Id,
-                                recoveryId,
-                                StringComparison.Ordinal)),
+                        transaction => FindPendingPullRecoveryAsync(
+                            transaction,
+                            recoveryId,
+                            operation.CancellationToken),
                         operation.CancellationToken);
                     if (confirmedRecovery is null
                         || !RecoveryProjectPathsEqual(
@@ -126,11 +123,7 @@ internal partial class VersionControlCoordinator
             Project project = GetOpenProject();
             IProjectVersionControlBackend ownedService = GetTrackedBackend();
             PendingPullRecovery? offeredRecovery = await ownedService.ExecuteExclusiveAsync(
-                async service => (await service.GetPendingPullRecoveriesAsync(cancellationToken))
-                    .SingleOrDefault(candidate => string.Equals(
-                        candidate.Id,
-                        recoveryId,
-                        StringComparison.Ordinal)),
+                service => FindPendingPullRecoveryAsync(service, recoveryId, cancellationToken),
                 cancellationToken);
             if (offeredRecovery is null)
             {
@@ -169,66 +162,13 @@ internal partial class VersionControlCoordinator
             try
             {
                 return await ownedService.ExecuteExclusiveAsync(
-                    async service =>
-                    {
-                        PendingPullRecovery? recovery =
-                            (await service.GetPendingPullRecoveriesAsync(cancellationToken))
-                            .SingleOrDefault(candidate => string.Equals(
-                                candidate.Id,
-                                recoveryId,
-                                StringComparison.Ordinal));
-                        if (recovery is null
-                            || !PendingPullRecoveriesMatch(offeredRecovery, recovery)
-                            || !RecoveryProjectPathsEqual(
-                                openProjectFile,
-                                recovery.ProjectFile))
-                        {
-                            return new ProjectRecoveryResult.NotFoundOrChanged();
-                        }
-
-                        try
-                        {
-                            await CloseProjectForOperationAsync(
-                                transition,
-                                CancellationToken.None);
-                            PendingPullRecoveryOutcome outcome =
-                                await service.RecoverPendingPullRecoveryAsync(
-                                recovery,
-                                CancellationToken.None);
-                            string recoveryBranchName = await FindRecoveryBranchNameAsync(
-                                service,
-                                recovery,
-                                outcome);
-                            await ReopenProjectAsync(transition, openProjectFile);
-                            await service.CompletePendingPullRecoveryAsync(
-                                recovery,
-                                CancellationToken.None);
-                            CompletePendingPullRecoveryPublication(recovery.Id);
-                            PublishRecoveryOutcomeNotification(outcome, recoveryBranchName);
-                            return ToProjectRecoveryResult(outcome, recoveryBranchName);
-                        }
-                        catch (PendingPullRecoveryPreservedException ex)
-                        {
-                            PublishPreservedRecoveryBranchNotification(ex.RecoveryReference);
-                            return new ProjectRecoveryResult.FailedPreserved(
-                                ex.RecoveryReference);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(
-                                ex,
-                                "Failed to recover pending pull state {RecoveryId}; its retained-reference state could not be verified.",
-                                recovery.Id);
-                            PublishNotification(() =>
-                                NotificationService.ShowError(
-                                    Strings.VersionControl_ErrorTitle,
-                                    string.Format(
-                                        Strings.VersionControl_RecoveryFailed,
-                                        Strings.VersionControl_PullTransitionUncertain,
-                                        GetErrorText(ex))));
-                            return new ProjectRecoveryResult.FailedUncertain();
-                        }
-                    },
+                    service => RecoverPendingPullWithinTransactionAsync(
+                        service,
+                        recoveryId,
+                        offeredRecovery,
+                        openProjectFile,
+                        transition,
+                        cancellationToken),
                     cancellationToken);
             }
             finally
@@ -240,6 +180,91 @@ internal partial class VersionControlCoordinator
         {
             FinishLifecycleOperation(gateEntered);
         }
+    }
+
+    private async Task<ProjectRecoveryResult> RecoverPendingPullWithinTransactionAsync(
+        IProjectVersionControlTransaction service,
+        string recoveryId,
+        PendingPullRecovery offeredRecovery,
+        string openProjectFile,
+        ProjectService.ProjectTransitionScope transition,
+        CancellationToken cancellationToken)
+    {
+        PendingPullRecovery? recovery = await FindPendingPullRecoveryAsync(
+            service,
+            recoveryId,
+            cancellationToken);
+        if (recovery is null
+            || !PendingPullRecoveriesMatch(offeredRecovery, recovery)
+            || !RecoveryProjectPathsEqual(
+                openProjectFile,
+                recovery.ProjectFile))
+        {
+            return new ProjectRecoveryResult.NotFoundOrChanged();
+        }
+
+        try
+        {
+            await CloseProjectForOperationAsync(
+                transition,
+                CancellationToken.None);
+            PendingPullRecoveryOutcome outcome =
+                await service.RecoverPendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None);
+            string recoveryBranchName = await FindRecoveryBranchNameAsync(
+                service,
+                recovery,
+                outcome);
+            await ReopenProjectAsync(transition, openProjectFile);
+            await service.CompletePendingPullRecoveryAsync(
+                recovery,
+                CancellationToken.None);
+            CompletePendingPullRecoveryPublication(recovery.Id);
+            PublishRecoveryOutcomeNotification(outcome, recoveryBranchName);
+            return ToProjectRecoveryResult(outcome, recoveryBranchName);
+        }
+        catch (PendingPullRecoveryPreservedException ex)
+        {
+            PublishPreservedRecoveryBranchNotification(ex.RecoveryReference);
+            return new ProjectRecoveryResult.FailedPreserved(
+                ex.RecoveryReference);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to recover pending pull state {RecoveryId}; its retained-reference state could not be verified.",
+                recovery.Id);
+            PublishNotification(() =>
+                NotificationService.ShowError(
+                    Strings.VersionControl_ErrorTitle,
+                    string.Format(
+                        Strings.VersionControl_RecoveryFailed,
+                        Strings.VersionControl_PullTransitionUncertain,
+                        GetErrorText(ex))));
+            return new ProjectRecoveryResult.FailedUncertain();
+        }
+    }
+
+    private static async Task<PendingPullRecovery?> FindPendingPullRecoveryAsync(
+        IProjectVersionControlTransaction transaction,
+        string recoveryId,
+        CancellationToken cancellationToken)
+    {
+        return (await transaction.GetPendingPullRecoveriesAsync(cancellationToken))
+            .SingleOrDefault(candidate => string.Equals(
+                candidate.Id,
+                recoveryId,
+                StringComparison.Ordinal));
+    }
+
+    private static IOrderedEnumerable<PendingPullRecovery> OrderOldestFirst(
+        IEnumerable<PendingPullRecovery> recoveries)
+    {
+        return recoveries
+            .OrderBy(static candidate => candidate.CreatedAt)
+            .ThenBy(static candidate => candidate.Id, StringComparer.Ordinal);
     }
 
     private static ProjectRecoveryInfo ToRecoveryInfo(PendingPullRecovery recovery)
@@ -391,10 +416,7 @@ internal partial class VersionControlCoordinator
             var currentIds = recoveries
                 .Select(static recovery => recovery.Id)
                 .ToHashSet(StringComparer.Ordinal);
-            PendingPullRecovery[] orderedRecoveries = recoveries
-                .OrderBy(static candidate => candidate.CreatedAt)
-                .ThenBy(static candidate => candidate.Id, StringComparer.Ordinal)
-                .ToArray();
+            PendingPullRecovery[] orderedRecoveries = OrderOldestFirst(recoveries).ToArray();
             PendingPullRecovery? recovery = null;
             bool offerRecovery = false;
             lock (_stateGate)

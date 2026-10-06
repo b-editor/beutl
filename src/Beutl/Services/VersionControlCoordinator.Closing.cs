@@ -55,27 +55,12 @@ internal partial class VersionControlCoordinator
                 }
 
                 closeContext.RegisterCompletion(
-                    async projectClosed =>
-                    {
-                        try
-                        {
-                            await ReleaseEditorSuspensionAsync(editorSuspension);
-                        }
-                        finally
-                        {
-                            try
-                            {
-                                await CompletePreparedCloseBarrierAsync(
-                                    closeContext,
-                                    closeBarrier,
-                                    projectClosed);
-                            }
-                            finally
-                            {
-                                closingPresentation?.Dispose();
-                            }
-                        }
-                    });
+                    projectClosed => CompletePreparedCloseAsync(
+                        closeContext,
+                        closeBarrier,
+                        editorSuspension,
+                        closingPresentation,
+                        projectClosed));
                 completionRegistered = true;
             }
             finally
@@ -153,6 +138,35 @@ internal partial class VersionControlCoordinator
         closeContext.PreparedEditorService = _editorService;
     }
 
+    // Runs once the close finishes or is aborted: the editors come back before the barrier lets
+    // operations start again, and the close stays on screen until both are done.
+    private async Task CompletePreparedCloseAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        NonTransactionalCloseBarrier closeBarrier,
+        IDisposable? editorSuspension,
+        IDisposable? closingPresentation,
+        bool projectClosed)
+    {
+        try
+        {
+            await ReleaseEditorSuspensionAsync(editorSuspension);
+        }
+        finally
+        {
+            try
+            {
+                await CompletePreparedCloseBarrierAsync(
+                    closeContext,
+                    closeBarrier,
+                    projectClosed);
+            }
+            finally
+            {
+                closingPresentation?.Dispose();
+            }
+        }
+    }
+
     private async Task CompletePreparedCloseBarrierAsync(
         ProjectService.ProjectCloseContext closeContext,
         NonTransactionalCloseBarrier closeBarrier,
@@ -227,11 +241,7 @@ internal partial class VersionControlCoordinator
             bool finalSnapshotRequested;
             lock (_stateGate)
             {
-                if (_disposed
-                    || projectRoot is null
-                    || activationRevision != _latestActivationRevision
-                    || _state.ProjectRoot is not { } currentRoot
-                    || !PathsEqual(currentRoot, projectRoot))
+                if (!IsClosingProjectCurrentLocked(projectRoot, activationRevision))
                 {
                     return;
                 }
@@ -269,11 +279,7 @@ internal partial class VersionControlCoordinator
             bool schedulePublication;
             lock (_stateGate)
             {
-                if (_disposed
-                    || projectRoot is null
-                    || activationRevision != _latestActivationRevision
-                    || _state.ProjectRoot is not { } currentRoot
-                    || !PathsEqual(currentRoot, projectRoot)
+                if (!IsClosingProjectCurrentLocked(projectRoot, activationRevision)
                     || !ReferenceEquals(_state.OwnedService, service))
                 {
                     return;
@@ -343,6 +349,16 @@ internal partial class VersionControlCoordinator
                && (_operationUsers > 0
                    || _activation is not null
                    || _state.OwnedService?.Repository is not null);
+    }
+
+    // The close still concerns the project and the activation it captured before it waited.
+    private bool IsClosingProjectCurrentLocked(string? projectRoot, long activationRevision)
+    {
+        return !_disposed
+               && projectRoot is not null
+               && activationRevision == _latestActivationRevision
+               && _state.ProjectRoot is { } currentRoot
+               && PathsEqual(currentRoot, projectRoot);
     }
 
     // versionControlWorkPending runs once the barrier stops new operations, and only when the close then

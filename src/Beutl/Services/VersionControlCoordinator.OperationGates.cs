@@ -168,20 +168,9 @@ internal partial class VersionControlCoordinator
                 continue;
             }
 
-            try
-            {
-                return new NonTransactionalOperationLease(
-                    this,
-                    CancellationTokenSource.CreateLinkedTokenSource(
-                        cancellationToken,
-                        _lifetimeCancellation.Token,
-                        operationEpochCancellation));
-            }
-            catch
-            {
-                FinishNonTransactionalOperation();
-                throw;
-            }
+            return CreateNonTransactionalOperationLease(
+                cancellationToken,
+                operationEpochCancellation);
         }
     }
 
@@ -202,6 +191,16 @@ internal partial class VersionControlCoordinator
             _operationUsers++;
         }
 
+        return CreateNonTransactionalOperationLease(
+            cancellationToken,
+            operationEpochCancellation);
+    }
+
+    // Called once _operationUsers counts the new operation, which the lease releases again.
+    private NonTransactionalOperationLease CreateNonTransactionalOperationLease(
+        CancellationToken cancellationToken,
+        CancellationToken operationEpochCancellation)
+    {
         try
         {
             return new NonTransactionalOperationLease(
@@ -279,6 +278,37 @@ internal partial class VersionControlCoordinator
         {
             quiesced?.TrySetResult();
             TryStartPendingConfigurationActivation();
+        }
+    }
+
+    // The branch switch and the restore close and reopen the project, so each runs under the lifecycle
+    // gate, inside a version-control transition and with the workspace reserved; all three are released
+    // in the reverse order once the cycle has finished.
+    private async Task<bool> RunProjectTransitionCycleAsync(
+        Func<ProjectService.ProjectTransitionScope, Task<bool>> cycle,
+        CancellationToken cancellationToken)
+    {
+        await BeginLifecycleOperationAsync(cancellationToken);
+        bool gateEntered = false;
+        try
+        {
+            await _lifecycleGate.WaitAsync(cancellationToken);
+            gateEntered = true;
+            ThrowIfLifecycleOperationUnavailable();
+            await using ProjectService.ProjectTransitionScope transition =
+                await _projectService.BeginVersionControlTransitionAsync(this, cancellationToken);
+            ThrowIfLifecycleOperationUnavailable();
+            using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+            if (worktreeMutation is null)
+            {
+                return false;
+            }
+
+            return await cycle(transition);
+        }
+        finally
+        {
+            FinishLifecycleOperation(gateEntered);
         }
     }
 

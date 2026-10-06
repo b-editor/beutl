@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Reactive.Disposables;
-using Avalonia.Threading;
 using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -37,7 +36,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             serviceSource,
             gitAvailabilitySource,
             coordinator,
-            PostToUiThread)
+            VersionControlUiThread.Post)
     {
     }
 
@@ -225,24 +224,9 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 lifetimeToken);
-        try
-        {
-            await _coordinator.SwitchBranchAsync(
-                branchName,
-                operationCancellation.Token);
-            await RefreshAsync(operationCancellation.Token);
-        }
-        catch (OperationCanceledException)
-            when (_lifetimeCancellation.IsCancellationRequested)
-        {
-        }
-        finally
-        {
-            if (!_disposed)
-            {
-                IsBusy.Value = false;
-            }
-        }
+        await RunBusyBranchOperationAsync(
+            token => _coordinator.SwitchBranchAsync(branchName, token),
+            operationCancellation.Token);
     }
 
     internal async Task CreateBranchAsync()
@@ -276,12 +260,20 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         using var operationCancellation =
             CancellationTokenSource.CreateLinkedTokenSource(
                 lifetimeToken);
+        await RunBusyBranchOperationAsync(
+            token => _coordinator.CreateBranchAsync(branchName.Trim(), token),
+            operationCancellation.Token);
+    }
+
+    // The caller sets IsBusy before it links the operation's cancellation; this clears it again.
+    private async Task RunBusyBranchOperationAsync(
+        Func<CancellationToken, Task> operation,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            await _coordinator.CreateBranchAsync(
-                branchName.Trim(),
-                operationCancellation.Token);
-            await RefreshAsync(operationCancellation.Token);
+            await operation(cancellationToken);
+            await RefreshAsync(cancellationToken);
         }
         catch (OperationCanceledException)
             when (_lifetimeCancellation.IsCancellationRequested)
@@ -685,18 +677,6 @@ internal sealed class TitleBarBranchViewModel : IDisposable
         {
             cancellationToken = default;
             return false;
-        }
-    }
-
-    private static void PostToUiThread(Action action)
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            action();
-        }
-        else
-        {
-            Dispatcher.UIThread.Post(action);
         }
     }
 }

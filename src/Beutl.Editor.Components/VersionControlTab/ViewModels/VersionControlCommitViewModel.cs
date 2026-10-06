@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.VersionControlTab.ViewModels;

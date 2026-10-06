@@ -210,12 +210,7 @@ internal partial class VersionControlCoordinator
             return null;
         }
 
-        if (_operationCloseBarrierActive
-            || _closeBarrierUsers != 0
-            || _operationUsers != 0
-            || _lifecycleUsers != 0
-            || _activationSetupUsers != 0
-            || _activation is not null)
+        if (IsVersionControlWorkActiveLocked())
         {
             return null;
         }
@@ -251,6 +246,16 @@ internal partial class VersionControlCoordinator
         _configurationActivationCancellation = cancellation;
         _operationUsers++;
         return new ConfigurationActivationStart(request, cancellation, trackedService);
+    }
+
+    private bool IsVersionControlWorkActiveLocked()
+    {
+        return _operationCloseBarrierActive
+               || _closeBarrierUsers != 0
+               || _operationUsers != 0
+               || _lifecycleUsers != 0
+               || _activationSetupUsers != 0
+               || _activation is not null;
     }
 
     private void StartConfigurationActivation(ConfigurationActivationStart? activationStart)

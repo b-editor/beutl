@@ -168,13 +168,7 @@ internal partial class VersionControlCoordinator
         bool schedulePublication = false;
         lock (_stateGate)
         {
-            accepted = !_disposed
-                       && ReferenceEquals(_activation, activation)
-                       && activation.Revision == Volatile.Read(ref _latestActivationRevision)
-                       && ReferenceEquals(_state.OwnedService, activation.Service)
-                       && _state.ProjectRoot is { } projectRoot
-                       && PathsEqual(projectRoot, activation.ProjectRoot)
-                       && !activation.CancellationToken.IsCancellationRequested
+            accepted = IsCurrentActivationLocked(activation)
                        && CanAdoptServiceLocked(trackedService);
             if (accepted)
             {

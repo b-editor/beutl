@@ -5,6 +5,9 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
+    private const string PullProjectChangedMessage =
+        "The open project changed while the pull was being prepared.";
+
     private async Task<RemoteOpResult> RunPullCycleAsync(CancellationToken cancellationToken)
     {
         CancellationTokenSource? confirmationCancellation = null;
@@ -36,16 +39,14 @@ internal partial class VersionControlCoordinator
             _logger.LogInformation(
                 ex,
                 "Skipped pull because its project/service epoch was unavailable before confirmation.");
-            return new RemoteOpResult.Failed(
-                "The open project changed while the pull was being prepared.");
+            return new RemoteOpResult.Failed(PullProjectChangedMessage);
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogInformation(
                 ex,
                 "Skipped pull because the project lifecycle changed before confirmation.");
-            return new RemoteOpResult.Failed(
-                "The open project changed while the pull was being prepared.");
+            return new RemoteOpResult.Failed(PullProjectChangedMessage);
         }
         finally
         {
@@ -62,16 +63,14 @@ internal partial class VersionControlCoordinator
             _logger.LogInformation(
                 ex,
                 "Skipped pull because its backend retired after confirmation.");
-            return new RemoteOpResult.Failed(
-                "The open project changed while the pull was being prepared.");
+            return new RemoteOpResult.Failed(PullProjectChangedMessage);
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogInformation(
                 ex,
                 "Skipped pull because the project lifecycle changed after confirmation.");
-            return new RemoteOpResult.Failed(
-                "The open project changed while the pull was being prepared.");
+            return new RemoteOpResult.Failed(PullProjectChangedMessage);
         }
 
         if (outcome.Recovery is not null)
@@ -158,188 +157,19 @@ internal partial class VersionControlCoordinator
                     || !ReferenceEquals(GetOwnedBackend(), ownedService))
                 {
                     return new PullMutationOutcome(
-                        new RemoteOpResult.Failed(
-                            "The open project changed while the pull was being prepared."),
+                        new RemoteOpResult.Failed(PullProjectChangedMessage),
                         null,
                         projectFile);
                 }
 
-                PendingPullRecovery? recoveryToOffer = null;
-                RemoteOpResult result = await ownedService.ExecuteExclusiveAsync(
-                    async service =>
-                    {
-                        // Held until the project is closed further down, so an edit made while the
-                        // preflight and checkpoint awaits run cannot miss the safety checkpoint.
-                        using IDisposable editorSuspension = _editorService.SuspendEditors();
-                        if (!await TrySaveOpenProjectAsync(project, cancellationToken))
-                        {
-                            return new RemoteOpResult.Failed(
-                                "The open project could not be saved before pulling.");
-                        }
-
-                        WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
-                        if (!EnsureRepositoryIsNotConflicted(status))
-                        {
-                            return new RemoteOpResult.Failed(
-                                Strings.VersionControl_ConflictGuidance);
-                        }
-
-                        CheckedOutBranchTip originalHead =
-                            await service.GetCheckedOutBranchTipAsync(cancellationToken);
-                        PullPreflightResult preflight = await service.PreflightPullAsync(
-                            originalHead,
-                            cancellationToken);
-                        if (preflight.Result is not RemoteOpResult.Success
-                            || !preflight.RequiresTransition)
-                        {
-                            return preflight.Result;
-                        }
-
-                        ProjectCheckpoint? checkpoint = status.IsClean
-                            ? null
-                            : await service.CreateProjectCheckpointAsync(
-                                PullSafetySnapshotMessage,
-                                CancellationToken.None);
-                        bool projectClosed = false;
-                        CheckedOutBranchTip expectedCurrentHead = originalHead;
-                        PendingPullRecovery? pendingRecovery = null;
-                        PullTransitionState pullTransitionState = PullTransitionState.Unchanged;
-                        // Same reason as the restore and branch-switch paths: the fast-forward
-                        // checkout runs uncancellable with the project closed, so the objects its
-                        // LFS smudge filter needs are pulled in here, while this is still
-                        // cancellable and the project is still open. The preflight's fetch moved
-                        // the remote-tracking ref and not the local branch, so the prefetch has to
-                        // name the fetched commit - a branch name would resolve to the pre-pull tip
-                        // and miss exactly the objects the checkout is about to need.
-                        if (preflight.UpstreamCommit is { } upstreamCommit)
-                        {
-                            await service.PrefetchCommitLfsObjectsAsync(
-                                upstreamCommit,
-                                LfsPrefetchScope.RepositoryWide,
-                                cancellationToken);
-                        }
-                        try
-                        {
-                            await CloseProjectForOperationAsync(transition, CancellationToken.None);
-                            projectClosed = true;
-                            FastForwardPullResult pull = await service.PullFastForwardAsync(
-                                originalHead,
-                                checkpoint,
-                                projectFile,
-                                cancellationToken);
-
-                            RemoteOpResult result = pull.Result;
-                            expectedCurrentHead = pull.Tip;
-                            pendingRecovery = pull.Recovery;
-                            if (pendingRecovery is not null)
-                            {
-                                PublishPendingPullRecoveriesChanged();
-                            }
-                            pullTransitionState = pull.TransitionState;
-                            if (pullTransitionState is PullTransitionState.OwnershipLost
-                                or PullTransitionState.RecoveryFailed)
-                            {
-                                recoveryToOffer = pendingRecovery;
-                                return new RemoteOpResult.Failed(
-                                    Strings.VersionControl_PullTransitionUncertain);
-                            }
-
-                            if (result is not RemoteOpResult.Success)
-                            {
-                                Exception? recoveryFailure = await TryRecoverPullAsync(
-                                    service,
-                                    originalHead,
-                                    expectedCurrentHead,
-                                    checkpoint,
-                                    transition,
-                                    projectFile);
-                                if (recoveryFailure is not null)
-                                {
-                                    _logger.LogError(
-                                        recoveryFailure,
-                                        "Failed to recover a pull after {PullError}.",
-                                        GetRemoteOperationError(result));
-                                    recoveryToOffer = pendingRecovery;
-                                    return new RemoteOpResult.Failed(
-                                        Strings.VersionControl_PullTransitionUncertain);
-                                }
-
-                                await TryCompletePullRecoveryAsync(
-                                    service,
-                                    pendingRecovery,
-                                    checkpoint);
-                                return result;
-                            }
-
-                            CheckedOutBranchTip verifiedHead =
-                                await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
-                            if (!BranchTipsEqual(verifiedHead, expectedCurrentHead))
-                            {
-                                throw new InvalidOperationException(
-                                    "The repository ref changed before the pulled project could be reopened.");
-                            }
-
-                            await ReopenProjectAsync(transition, projectFile);
-                            await TryCompletePullRecoveryAsync(
-                                service,
-                                pendingRecovery,
-                                checkpoint);
-                            return new RemoteOpResult.Success();
-                        }
-                        catch (Exception ex)
-                        {
-                            if (projectClosed
-                                && pullTransitionState is PullTransitionState.OwnershipLost
-                                    or PullTransitionState.RecoveryFailed)
-                            {
-                                _logger.LogError(
-                                    ex,
-                                    "The pull transition became uncertain after the project was closed.");
-                                recoveryToOffer = pendingRecovery;
-                                return new RemoteOpResult.Failed(
-                                    Strings.VersionControl_PullTransitionUncertain);
-                            }
-
-                            Exception? recoveryFailure = projectClosed
-                                ? await TryRecoverPullAsync(
-                                    service,
-                                    originalHead,
-                                    expectedCurrentHead,
-                                    checkpoint,
-                                    transition,
-                                    projectFile)
-                                : null;
-                            if (ex is OperationCanceledException
-                                && cancellationToken.IsCancellationRequested)
-                            {
-                                throw;
-                            }
-
-                            if (projectClosed && recoveryFailure is null)
-                            {
-                                await TryCompletePullRecoveryAsync(
-                                    service,
-                                    pendingRecovery,
-                                    checkpoint);
-                            }
-
-                            if (recoveryFailure is not null)
-                            {
-                                _logger.LogError(
-                                    recoveryFailure,
-                                    "Failed to recover a pull after {PullError}.",
-                                    GetErrorText(ex));
-                                recoveryToOffer = pendingRecovery;
-                                return new RemoteOpResult.Failed(
-                                    Strings.VersionControl_PullTransitionUncertain);
-                            }
-
-                            _logger.LogError(ex, "Failed to pull project versions.");
-                            return new RemoteOpResult.Failed(GetErrorText(ex));
-                        }
-                    },
+                return await ownedService.ExecuteExclusiveAsync(
+                    service => PullWithinTransactionAsync(
+                        service,
+                        project,
+                        projectFile,
+                        transition,
+                        cancellationToken),
                     cancellationToken);
-                return new PullMutationOutcome(result, recoveryToOffer, projectFile);
             }
             finally
             {
@@ -350,6 +180,197 @@ internal partial class VersionControlCoordinator
         {
             FinishLifecycleOperation(gateEntered);
         }
+    }
+
+    private async Task<PullMutationOutcome> PullWithinTransactionAsync(
+        IProjectVersionControlTransaction service,
+        Project project,
+        string projectFile,
+        ProjectService.ProjectTransitionScope transition,
+        CancellationToken cancellationToken)
+    {
+        // Held until the project is closed further down, so an edit made while the
+        // preflight and checkpoint awaits run cannot miss the safety checkpoint.
+        using IDisposable editorSuspension = _editorService.SuspendEditors();
+        if (!await TrySaveOpenProjectAsync(project, cancellationToken))
+        {
+            return new PullMutationOutcome(
+                new RemoteOpResult.Failed(
+                    "The open project could not be saved before pulling."),
+                null,
+                projectFile);
+        }
+
+        WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+        if (!EnsureRepositoryIsNotConflicted(status))
+        {
+            return new PullMutationOutcome(
+                new RemoteOpResult.Failed(
+                    Strings.VersionControl_ConflictGuidance),
+                null,
+                projectFile);
+        }
+
+        CheckedOutBranchTip originalHead =
+            await service.GetCheckedOutBranchTipAsync(cancellationToken);
+        PullPreflightResult preflight = await service.PreflightPullAsync(
+            originalHead,
+            cancellationToken);
+        if (preflight.Result is not RemoteOpResult.Success
+            || !preflight.RequiresTransition)
+        {
+            return new PullMutationOutcome(preflight.Result, null, projectFile);
+        }
+
+        ProjectCheckpoint? checkpoint = status.IsClean
+            ? null
+            : await service.CreateProjectCheckpointAsync(
+                PullSafetySnapshotMessage,
+                CancellationToken.None);
+        bool projectClosed = false;
+        CheckedOutBranchTip expectedCurrentHead = originalHead;
+        PendingPullRecovery? pendingRecovery = null;
+        PullTransitionState pullTransitionState = PullTransitionState.Unchanged;
+        // Same reason as the restore and branch-switch paths: the fast-forward
+        // checkout runs uncancellable with the project closed, so the objects its
+        // LFS smudge filter needs are pulled in here, while this is still
+        // cancellable and the project is still open. The preflight's fetch moved
+        // the remote-tracking ref and not the local branch, so the prefetch has to
+        // name the fetched commit - a branch name would resolve to the pre-pull tip
+        // and miss exactly the objects the checkout is about to need.
+        if (preflight.UpstreamCommit is { } upstreamCommit)
+        {
+            await service.PrefetchCommitLfsObjectsAsync(
+                upstreamCommit,
+                LfsPrefetchScope.RepositoryWide,
+                cancellationToken);
+        }
+        try
+        {
+            await CloseProjectForOperationAsync(transition, CancellationToken.None);
+            projectClosed = true;
+            FastForwardPullResult pull = await service.PullFastForwardAsync(
+                originalHead,
+                checkpoint,
+                projectFile,
+                cancellationToken);
+
+            RemoteOpResult result = pull.Result;
+            expectedCurrentHead = pull.Tip;
+            pendingRecovery = pull.Recovery;
+            if (pendingRecovery is not null)
+            {
+                PublishPendingPullRecoveriesChanged();
+            }
+            pullTransitionState = pull.TransitionState;
+            if (pullTransitionState is PullTransitionState.OwnershipLost
+                or PullTransitionState.RecoveryFailed)
+            {
+                return UncertainPullOutcome(pendingRecovery, projectFile);
+            }
+
+            if (result is not RemoteOpResult.Success)
+            {
+                Exception? recoveryFailure = await TryRecoverPullAsync(
+                    service,
+                    originalHead,
+                    expectedCurrentHead,
+                    checkpoint,
+                    transition,
+                    projectFile);
+                if (recoveryFailure is not null)
+                {
+                    _logger.LogError(
+                        recoveryFailure,
+                        "Failed to recover a pull after {PullError}.",
+                        GetRemoteOperationError(result));
+                    return UncertainPullOutcome(pendingRecovery, projectFile);
+                }
+
+                await TryCompletePullRecoveryAsync(
+                    service,
+                    pendingRecovery,
+                    checkpoint);
+                return new PullMutationOutcome(result, null, projectFile);
+            }
+
+            CheckedOutBranchTip verifiedHead =
+                await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+            if (!BranchTipsEqual(verifiedHead, expectedCurrentHead))
+            {
+                throw new InvalidOperationException(
+                    "The repository ref changed before the pulled project could be reopened.");
+            }
+
+            await ReopenProjectAsync(transition, projectFile);
+            await TryCompletePullRecoveryAsync(
+                service,
+                pendingRecovery,
+                checkpoint);
+            return new PullMutationOutcome(new RemoteOpResult.Success(), null, projectFile);
+        }
+        catch (Exception ex)
+        {
+            if (projectClosed
+                && pullTransitionState is PullTransitionState.OwnershipLost
+                    or PullTransitionState.RecoveryFailed)
+            {
+                _logger.LogError(
+                    ex,
+                    "The pull transition became uncertain after the project was closed.");
+                return UncertainPullOutcome(pendingRecovery, projectFile);
+            }
+
+            Exception? recoveryFailure = projectClosed
+                ? await TryRecoverPullAsync(
+                    service,
+                    originalHead,
+                    expectedCurrentHead,
+                    checkpoint,
+                    transition,
+                    projectFile)
+                : null;
+            if (ex is OperationCanceledException
+                && cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+
+            if (projectClosed && recoveryFailure is null)
+            {
+                await TryCompletePullRecoveryAsync(
+                    service,
+                    pendingRecovery,
+                    checkpoint);
+            }
+
+            if (recoveryFailure is not null)
+            {
+                _logger.LogError(
+                    recoveryFailure,
+                    "Failed to recover a pull after {PullError}.",
+                    GetErrorText(ex));
+                return UncertainPullOutcome(pendingRecovery, projectFile);
+            }
+
+            _logger.LogError(ex, "Failed to pull project versions.");
+            return new PullMutationOutcome(
+                new RemoteOpResult.Failed(GetErrorText(ex)),
+                null,
+                projectFile);
+        }
+    }
+
+    // The pull left the repository in a state only the pending recovery can settle, so that recovery is
+    // offered once the pull cycle has released its gates.
+    private static PullMutationOutcome UncertainPullOutcome(
+        PendingPullRecovery? recovery,
+        string projectFile)
+    {
+        return new PullMutationOutcome(
+            new RemoteOpResult.Failed(Strings.VersionControl_PullTransitionUncertain),
+            recovery,
+            projectFile);
     }
 
     private async Task OfferUncertainPullRecoveryAsync(

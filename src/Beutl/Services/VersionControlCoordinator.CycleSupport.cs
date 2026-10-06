@@ -6,6 +6,9 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
+    private const string CombinedFailureMessage =
+        "The version-control operation and recovery both failed.";
+
     private async Task<IDisposable> SuspendEditorsAsync(CancellationToken cancellationToken)
     {
         if (_dispatcher.CheckAccess())
@@ -239,6 +242,42 @@ internal partial class VersionControlCoordinator
         return result;
     }
 
+    // Returns the tip the branch switch or restore starts from: the checked-out tip, moved past a safety
+    // snapshot when the workspace is dirty. Returns null when that snapshot could not be recorded.
+    private async Task<CheckedOutBranchTip?> GetTipAfterSafetySnapshotAsync(
+        IProjectVersionControlTransaction service,
+        WorkspaceStatus status,
+        string snapshotMessage,
+        string tipChangedMessage)
+    {
+        CheckedOutBranchTip originalTip = await service.GetCheckedOutBranchTipAsync(
+            CancellationToken.None);
+        if (!status.IsClean)
+        {
+            CommitResult? result = await CommitSafetySnapshotAsync(
+                service,
+                snapshotMessage,
+                CancellationToken.None);
+            if (result is null)
+            {
+                return null;
+            }
+
+            CheckedOutBranchTip committedTip = await service.GetCheckedOutBranchTipAsync(
+                CancellationToken.None);
+            originalTip = GetExpectedTipAfterCommitAll(
+                originalTip,
+                result,
+                committedTip);
+            if (!BranchTipsEqual(committedTip, originalTip))
+            {
+                throw new InvalidOperationException(tipChangedMessage);
+            }
+        }
+
+        return originalTip;
+    }
+
     private bool EnsureRepositoryIsNotConflicted(WorkspaceStatus status)
     {
         if (!status.HasConflicts)
@@ -287,7 +326,7 @@ internal partial class VersionControlCoordinator
         if (recoveryFailure is not null)
         {
             var combined = new AggregateException(
-                "The version-control operation and recovery both failed.",
+                CombinedFailureMessage,
                 exception,
                 recoveryFailure);
             _logger.LogError(
@@ -342,9 +381,12 @@ internal partial class VersionControlCoordinator
 
     private static string GetProjectRoot(Project project)
     {
-        string projectPath = project.Uri?.LocalPath
-                             ?? throw new InvalidOperationException("The project has no file path.");
-        return Path.GetDirectoryName(projectPath)
+        return GetProjectDirectory(GetProjectFile(project));
+    }
+
+    private static string GetProjectDirectory(string projectFile)
+    {
+        return Path.GetDirectoryName(projectFile)
                ?? throw new InvalidOperationException("The project file has no parent directory.");
     }
 

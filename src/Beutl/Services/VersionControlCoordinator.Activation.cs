@@ -20,15 +20,9 @@ internal partial class VersionControlCoordinator
         {
             _lastProjectNotification = project;
             _hasProjectNotification = true;
-            _pendingConfigurationActivation = null;
-            if (!internalTransition)
-            {
-                _repositoryHygieneConfigurationDirty = false;
-            }
-
-            configurationActivationCancellation = _configurationActivationCancellation;
-            if (!TryBeginActivationSetupLocked(
+            if (!TryBeginProjectActivationLocked(
                     internalTransition,
+                    out configurationActivationCancellation,
                     out activationRevision))
             {
                 return;
@@ -70,15 +64,9 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            _pendingConfigurationActivation = null;
-            if (!internalTransition)
-            {
-                _repositoryHygieneConfigurationDirty = false;
-            }
-
-            configurationActivationCancellation = _configurationActivationCancellation;
-            if (!TryBeginActivationSetupLocked(
+            if (!TryBeginProjectActivationLocked(
                     internalTransition,
+                    out configurationActivationCancellation,
                     out activationRevision))
             {
                 return;
@@ -285,6 +273,23 @@ internal partial class VersionControlCoordinator
         }
     }
 
+    private bool TryBeginProjectActivationLocked(
+        bool internalTransition,
+        out CancellationTokenSource? configurationActivationCancellation,
+        out long activationRevision)
+    {
+        _pendingConfigurationActivation = null;
+        if (!internalTransition)
+        {
+            _repositoryHygieneConfigurationDirty = false;
+        }
+
+        configurationActivationCancellation = _configurationActivationCancellation;
+        return TryBeginActivationSetupLocked(
+            internalTransition,
+            out activationRevision);
+    }
+
     private bool TryBeginActivationSetup(
         bool internalTransition,
         out long activationRevision)
@@ -385,77 +390,13 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            GitAvailability availability = await activation.Service.GetAvailabilityAsync(
-                activation.CancellationToken);
-            // A project created in this session opens with the backend its creation left: tracked when the
-            // new-project dialog chose tracking and initialization recorded the first version, untracked
-            // otherwise. The dialog already decided, so discovery neither adopts an enclosing repository
-            // nor asks again; initialization did both before the project opened. Discovery only looks
-            // again at a repository that initialization created or attached before it stopped.
-            if (availability.State != GitAvailabilityState.Installed
-                || activation.IsNewProject && activation.InterruptedNewProjectRepository is null)
-            {
-                return;
-            }
-
-            RepositoryInfo? repository = await activation.Service.DiscoverRepositoryAsync(
-                activation.ProjectRoot,
-                activation.CancellationToken);
+            RepositoryInfo? repository = await DiscoverActivationRepositoryAsync(activation);
             if (repository is null)
             {
                 return;
             }
 
-            // Hygiene needs a checked-out commit, so a branch with none yet, such as a bare
-            // `git init`, can neither resume nor adopt tracking. Leaving the project untracked
-            // offers initialization instead, which accepts the unborn branch.
-            if (!await activation.Service.HasCheckedOutCommitAsync(
-                    repository,
-                    activation.CancellationToken))
-            {
-                return;
-            }
-
-            if (activation.InterruptedNewProjectRepository is { } interruptedRepository)
-            {
-                // The dialog chose tracking and consented to the repository initialization reached, so once it
-                // has a checked-out commit it resumes tracking without asking again, but only if discovery
-                // still finds that same repository.
-                if (!RepositoriesEqual(interruptedRepository, repository))
-                {
-                    return;
-                }
-            }
-            else if (repository.IsNestedInForeignRepo)
-            {
-                PendingOpeningRepositoryDecision? openingDecision =
-                    activation.OpeningRepositoryDecision;
-                bool matchesOpeningDecision = openingDecision is not null
-                                              && RepositoriesEqual(
-                                                  openingDecision.Repository,
-                                                  repository)
-                                              && VersionControlPathComparison.AreSameCanonicalPath(
-                                                  repository.ProjectRoot,
-                                                  activation.ProjectRoot);
-                if (matchesOpeningDecision)
-                {
-                    if (!openingDecision!.Accepted)
-                    {
-                        return;
-                    }
-                }
-                else if (!await ConfirmUseEnclosingRepositoryIfNeededAsync(
-                             activation.Service,
-                             repository,
-                             activation.CancellationToken))
-                {
-                    return;
-                }
-            }
-            else if (!await ConfirmAdoptRepositoryIfNeededAsync(
-                         activation.Service,
-                         repository,
-                         activation.CancellationToken))
+            if (!await IsActivationRepositoryAcceptedAsync(activation, repository))
             {
                 return;
             }
@@ -536,56 +477,160 @@ internal partial class VersionControlCoordinator
         }
         finally
         {
-            try
+            await FinishRepositoryActivationAsync(
+                    activation,
+                    pendingCleanup,
+                    candidateService,
+                    pendingRecoveryOfferService)
+                .ConfigureAwait(false);
+        }
+    }
+
+    // Null when Git is missing, a new project's own decision stands, or there is no repository with a
+    // checked-out commit to track.
+    private static async Task<RepositoryInfo?> DiscoverActivationRepositoryAsync(
+        ActivationContext activation)
+    {
+        GitAvailability availability = await activation.Service.GetAvailabilityAsync(
+            activation.CancellationToken);
+        // A project created in this session opens with the backend its creation left: tracked when the
+        // new-project dialog chose tracking and initialization recorded the first version, untracked
+        // otherwise. The dialog already decided, so discovery neither adopts an enclosing repository
+        // nor asks again; initialization did both before the project opened. Discovery only looks
+        // again at a repository that initialization created or attached before it stopped.
+        if (availability.State != GitAvailabilityState.Installed
+            || activation.IsNewProject && activation.InterruptedNewProjectRepository is null)
+        {
+            return null;
+        }
+
+        RepositoryInfo? repository = await activation.Service.DiscoverRepositoryAsync(
+            activation.ProjectRoot,
+            activation.CancellationToken);
+        if (repository is null)
+        {
+            return null;
+        }
+
+        // Hygiene needs a checked-out commit, so a branch with none yet, such as a bare
+        // `git init`, can neither resume nor adopt tracking. Leaving the project untracked
+        // offers initialization instead, which accepts the unborn branch.
+        if (!await activation.Service.HasCheckedOutCommitAsync(
+                repository,
+                activation.CancellationToken))
+        {
+            return null;
+        }
+
+        return repository;
+    }
+
+    private async Task<bool> IsActivationRepositoryAcceptedAsync(
+        ActivationContext activation,
+        RepositoryInfo repository)
+    {
+        if (activation.InterruptedNewProjectRepository is { } interruptedRepository)
+        {
+            // The dialog chose tracking and consented to the repository initialization reached, so once it
+            // has a checked-out commit it resumes tracking without asking again, but only if discovery
+            // still finds that same repository.
+            if (!RepositoriesEqual(interruptedRepository, repository))
             {
-                activation.Complete();
-                await activation.CancellationQuiesced.ConfigureAwait(false);
-                await activation.PredecessorsCompleted.ConfigureAwait(false);
-                if (pendingCleanup is not null)
+                return false;
+            }
+        }
+        else if (repository.IsNestedInForeignRepo)
+        {
+            PendingOpeningRepositoryDecision? openingDecision =
+                activation.OpeningRepositoryDecision;
+            bool matchesOpeningDecision = openingDecision is not null
+                                          && RepositoriesEqual(
+                                              openingDecision.Repository,
+                                              repository)
+                                          && VersionControlPathComparison.AreSameCanonicalPath(
+                                              repository.ProjectRoot,
+                                              activation.ProjectRoot);
+            if (matchesOpeningDecision)
+            {
+                if (!openingDecision!.Accepted)
                 {
-                    await RetireDiscardedServiceAsync(activation, pendingCleanup)
-                        .ConfigureAwait(false);
+                    return false;
                 }
-                else if (candidateService is not null)
+            }
+            else if (!await ConfirmUseEnclosingRepositoryIfNeededAsync(
+                         activation.Service,
+                         repository,
+                         activation.CancellationToken))
+            {
+                return false;
+            }
+        }
+        else if (!await ConfirmAdoptRepositoryIfNeededAsync(
+                     activation.Service,
+                     repository,
+                     activation.CancellationToken))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task FinishRepositoryActivationAsync(
+        ActivationContext activation,
+        IProjectVersionControlBackend? pendingCleanup,
+        IProjectVersionControlBackend? candidateService,
+        IProjectVersionControlBackend? pendingRecoveryOfferService)
+    {
+        try
+        {
+            activation.Complete();
+            await activation.CancellationQuiesced.ConfigureAwait(false);
+            await activation.PredecessorsCompleted.ConfigureAwait(false);
+            if (pendingCleanup is not null)
+            {
+                await RetireDiscardedServiceAsync(activation, pendingCleanup)
+                    .ConfigureAwait(false);
+            }
+            else if (candidateService is not null)
+            {
+                if (activation.OwnsService(candidateService))
                 {
-                    if (activation.OwnsService(candidateService))
-                    {
-                        UnregisterCandidateService(activation, candidateService);
-                    }
-                    else
-                    {
-                        await RetireDiscardedServiceAsync(activation, candidateService)
-                            .ConfigureAwait(false);
-                    }
+                    UnregisterCandidateService(activation, candidateService);
                 }
-
-                bool stillOwned;
-                lock (_stateGate)
+                else
                 {
-                    if (ReferenceEquals(_activation, activation))
-                    {
-                        _activation = null;
-                    }
-
-                    stillOwned = ReferenceEquals(_state.OwnedService, activation.Service);
-                }
-
-                if (!stillOwned)
-                {
-                    await RetireDiscardedServiceAsync(activation, activation.Service)
+                    await RetireDiscardedServiceAsync(activation, candidateService)
                         .ConfigureAwait(false);
                 }
             }
-            finally
+
+            bool stillOwned;
+            lock (_stateGate)
             {
-                activation.Finish();
-                if (pendingRecoveryOfferService is not null)
+                if (ReferenceEquals(_activation, activation))
                 {
-                    StartPendingPullRecoveryOffer(pendingRecoveryOfferService);
+                    _activation = null;
                 }
 
-                TryStartPendingConfigurationActivation();
+                stillOwned = ReferenceEquals(_state.OwnedService, activation.Service);
             }
+
+            if (!stillOwned)
+            {
+                await RetireDiscardedServiceAsync(activation, activation.Service)
+                    .ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            activation.Finish();
+            if (pendingRecoveryOfferService is not null)
+            {
+                StartPendingPullRecoveryOffer(pendingRecoveryOfferService);
+            }
+
+            TryStartPendingConfigurationActivation();
         }
     }
 

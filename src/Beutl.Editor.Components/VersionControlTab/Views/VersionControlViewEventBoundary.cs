@@ -1,5 +1,4 @@
-﻿using Beutl.Language;
-using Beutl.Services;
+﻿using Beutl.Services;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 

@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;

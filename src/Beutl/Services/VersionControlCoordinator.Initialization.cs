@@ -122,13 +122,7 @@ internal partial class VersionControlCoordinator
         // Runs after initialization, once the repository exists and is attached. Already-tracked
         // .beutl/*.tmp entries leave the repository permanently dirty for the pull precondition, but
         // a repository may be sharing them on purpose, so untracking them is the user's call.
-        IReadOnlyList<string> reservedPaths = await service.GetTrackedReservedPathsAsync(
-            operationCancellation);
-        if (reservedPaths.Count > 0
-            && await ConfirmUntrackReservedPathsAsync(reservedPaths, operationCancellation))
-        {
-            await service.UntrackReservedPathsAsync(reservedPaths, operationCancellation);
-        }
+        await UntrackReservedPathsIfConfirmedAsync(service, operationCancellation);
 
         bool schedulePublication;
         lock (_stateGate)
@@ -258,13 +252,7 @@ internal partial class VersionControlCoordinator
 
             // An enclosing repository can already track Beutl's temporary files, and whether to stop
             // sharing them is the user's call, as when tracking is enabled for an open project.
-            IReadOnlyList<string> reservedPaths = await service.GetTrackedReservedPathsAsync(
-                operationCancellation);
-            if (reservedPaths.Count > 0
-                && await ConfirmUntrackReservedPathsAsync(reservedPaths, operationCancellation))
-            {
-                await service.UntrackReservedPathsAsync(reservedPaths, operationCancellation);
-            }
+            await UntrackReservedPathsIfConfirmedAsync(service, operationCancellation);
 
             return true;
         }
@@ -364,6 +352,19 @@ internal partial class VersionControlCoordinator
     private void DiscardNewProjectBackend(IProjectVersionControlBackend service)
     {
         RetireService(new ServiceRetirement(service, Task.CompletedTask));
+    }
+
+    private async Task UntrackReservedPathsIfConfirmedAsync(
+        IProjectVersionControlBackend service,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> reservedPaths = await service.GetTrackedReservedPathsAsync(
+            cancellationToken);
+        if (reservedPaths.Count > 0
+            && await ConfirmUntrackReservedPathsAsync(reservedPaths, cancellationToken))
+        {
+            await service.UntrackReservedPathsAsync(reservedPaths, cancellationToken);
+        }
     }
 
     private async Task<bool> InitializeWithEditorSuspensionAsync(

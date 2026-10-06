@@ -36,11 +36,7 @@ internal partial class VersionControlCoordinator
         {
             return PathsEqual(left, right);
         }
-        catch (Exception ex)
-            when (ex is IOException
-                  or UnauthorizedAccessException
-                  or NotSupportedException
-                  or ArgumentException)
+        catch (Exception ex) when (IsPathResolutionFailure(ex))
         {
             return false;
         }
@@ -51,8 +47,8 @@ internal partial class VersionControlCoordinator
         string left,
         string right)
     {
-        if (TryGetRecoveryRelativePath(repository, left, out string? leftRelative)
-            && TryGetRecoveryRelativePath(repository, right, out string? rightRelative)
+        if (TryGetPathRelativeToRoot(repository.ProjectRoot, left, out string? leftRelative)
+            && TryGetPathRelativeToRoot(repository.ProjectRoot, right, out string? rightRelative)
             && string.Equals(leftRelative, rightRelative, StringComparison.Ordinal))
         {
             return true;
@@ -61,8 +57,10 @@ internal partial class VersionControlCoordinator
         return RecoveryProjectPathsEqual(left, right);
     }
 
-    private static bool TryGetRecoveryRelativePath(
-        RepositoryInfo repository,
+    // Walks up from the path to the ancestor that is the root, and reports whether the path stays
+    // inside it.
+    private static bool TryGetPathRelativeToRoot(
+        string root,
         string path,
         out string? relativePath)
     {
@@ -72,9 +70,7 @@ internal partial class VersionControlCoordinator
         {
             try
             {
-                if (VersionControlPathComparison.AreSameCanonicalPath(
-                        ancestor,
-                        repository.ProjectRoot))
+                if (VersionControlPathComparison.AreSameCanonicalPath(ancestor, root))
                 {
                     relativePath = Path.GetRelativePath(ancestor, fullPath);
                     return relativePath != ".."
@@ -84,13 +80,10 @@ internal partial class VersionControlCoordinator
                            && !Path.IsPathRooted(relativePath);
                 }
             }
-            catch (Exception ex)
-                when (ex is IOException
-                      or UnauthorizedAccessException
-                      or NotSupportedException
-                      or ArgumentException)
+            catch (Exception ex) when (IsPathResolutionFailure(ex))
             {
-                // A mutated child link must not prevent finding a safe lexical root ancestor.
+                // An unresolvable or mutated child link must not stop the walk from reaching a
+                // resolvable root ancestor.
             }
 
             ancestor = Path.GetDirectoryName(ancestor);
@@ -124,45 +117,23 @@ internal partial class VersionControlCoordinator
         {
             return VersionControlPathComparison.IsSameOrDescendant(projectRoot, projectFile);
         }
-        catch (Exception ex)
-            when (ex is IOException
-                  or UnauthorizedAccessException
-                  or NotSupportedException
-                  or ArgumentException)
+        catch (Exception ex) when (IsPathResolutionFailure(ex))
         {
             // Only when the path cannot be canonicalized at all - a symbolic-link cycle, or a
             // component that cannot be read. A resolvable path that lands outside has already
             // returned false above, so this fallback cannot turn an escape into containment.
         }
 
-        string fullPath = Path.GetFullPath(projectFile);
-        string? ancestor = Path.GetDirectoryName(fullPath);
-        while (ancestor is not null)
-        {
-            try
-            {
-                if (VersionControlPathComparison.AreSameCanonicalPath(ancestor, projectRoot))
-                {
-                    string relative = Path.GetRelativePath(ancestor, fullPath);
-                    return relative != ".."
-                           && !relative.StartsWith(
-                               $"..{Path.DirectorySeparatorChar}",
-                               StringComparison.Ordinal)
-                           && !Path.IsPathRooted(relative);
-                }
-            }
-            catch (Exception ex)
-                when (ex is IOException
-                      or UnauthorizedAccessException
-                      or NotSupportedException
-                      or ArgumentException)
-            {
-                // An unresolvable child must not stop the walk from reaching a resolvable ancestor.
-            }
+        return TryGetPathRelativeToRoot(projectRoot, projectFile, out _);
+    }
 
-            ancestor = Path.GetDirectoryName(ancestor);
-        }
-
-        return false;
+    // A path that does not exist, cannot be read or is malformed, as opposed to a failure that has to
+    // surface.
+    private static bool IsPathResolutionFailure(Exception exception)
+    {
+        return exception is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or ArgumentException;
     }
 }

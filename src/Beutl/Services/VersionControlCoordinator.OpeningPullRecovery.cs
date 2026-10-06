@@ -107,6 +107,7 @@ internal partial class VersionControlCoordinator
                 out cleanupCandidate);
         }
 
+        bool noRecoveryToGuard = requiredRecoveryId is null && cleanupCandidate is null;
         IProjectVersionControlBackend? discoveryService = null;
         IProjectVersionControlBackend? trackedService = null;
         try
@@ -119,9 +120,7 @@ internal partial class VersionControlCoordinator
                 return null;
             }
 
-            string projectRoot = Path.GetDirectoryName(projectFile)
-                                 ?? throw new InvalidOperationException(
-                                     "The project file has no parent directory.");
+            string projectRoot = GetProjectDirectory(projectFile);
             RepositoryInfo? repository;
             try
             {
@@ -131,8 +130,7 @@ internal partial class VersionControlCoordinator
                     .ConfigureAwait(false);
             }
             catch (ArgumentException ex)
-                when (requiredRecoveryId is null
-                      && cleanupCandidate is null
+                when (noRecoveryToGuard
                       && projectRoot.Any(char.IsControl))
             {
                 // Git commands cannot safely carry control-character repository paths through the
@@ -146,8 +144,7 @@ internal partial class VersionControlCoordinator
             }
             catch (Exception ex)
                 when (ex is not OperationCanceledException and not OutOfMemoryException
-                      && requiredRecoveryId is null
-                      && cleanupCandidate is null)
+                      && noRecoveryToGuard)
             {
                 // Git refused the folder itself (for example dubious ownership on a shared or
                 // removable volume), so no pull recovery can run there either. Open the project
@@ -173,8 +170,7 @@ internal partial class VersionControlCoordinator
             // Activation leaves a branch with no commit yet for initialization, so asking to share
             // the enclosing repository now would lead nowhere.
             if (repository.IsNestedInForeignRepo
-                && requiredRecoveryId is null
-                && cleanupCandidate is null
+                && noRecoveryToGuard
                 && !await discoveryService.HasCheckedOutCommitAsync(repository, cancellationToken)
                     .ConfigureAwait(false))
             {
@@ -201,33 +197,22 @@ internal partial class VersionControlCoordinator
                         transaction => transaction.GetPendingPullRecoveriesAsync(cancellationToken),
                         cancellationToken)
                     .ConfigureAwait(false);
-            PendingPullRecovery? recovery = recoveries
-                .Where(candidate => RecoveryProjectPathsEqual(
-                                        repository,
-                                        candidate.ProjectFile,
-                                        projectFile)
-                                    && (requiredRecoveryId is null
-                                        || string.Equals(
-                                            candidate.Id,
-                                            requiredRecoveryId,
-                                            StringComparison.Ordinal)))
-                .OrderBy(static candidate => candidate.CreatedAt)
-                .ThenBy(static candidate => candidate.Id, StringComparer.Ordinal)
+            PendingPullRecovery? recovery = OrderOldestFirst(recoveries
+                    .Where(candidate => RecoveryProjectPathsEqual(
+                                            repository,
+                                            candidate.ProjectFile,
+                                            projectFile)
+                                        && (requiredRecoveryId is null
+                                            || string.Equals(
+                                                candidate.Id,
+                                                requiredRecoveryId,
+                                                StringComparison.Ordinal))))
                 .FirstOrDefault();
             if (recovery is null)
             {
                 if (requiredRecoveryId is null && cleanupCandidate is not null)
                 {
-                    lock (_stateGate)
-                    {
-                        if (_openingPullRecoveries.TryGetValue(
-                                canonicalProjectFile,
-                                out PendingOpeningPullRecovery? current)
-                            && ReferenceEquals(current, cleanupCandidate))
-                        {
-                            _openingPullRecoveries.Remove(canonicalProjectFile);
-                        }
-                    }
+                    ForgetOpeningPullRecoveryMarker(canonicalProjectFile, cleanupCandidate);
                 }
 
                 return new OpeningRepositoryInspection(
@@ -237,23 +222,10 @@ internal partial class VersionControlCoordinator
                     Recovery: null);
             }
 
-            PendingOpeningPullRecovery? appliedMarker = null;
-            lock (_stateGate)
-            {
-                if (_openingPullRecoveries.TryGetValue(
-                        canonicalProjectFile,
-                        out PendingOpeningPullRecovery? liveMarker)
-                    && liveMarker is not null
-                    && RepositoriesEqual(liveMarker.Repository, repository)
-                    && PendingPullRecoveriesMatch(
-                        liveMarker.Recovery,
-                        recovery,
-                        repository))
-                {
-                    appliedMarker = liveMarker;
-                }
-            }
-
+            PendingOpeningPullRecovery? appliedMarker = FindAppliedOpeningPullRecoveryMarker(
+                canonicalProjectFile,
+                repository,
+                recovery);
             return new OpeningRepositoryInspection(
                 repository,
                 projectFile,
@@ -301,19 +273,9 @@ internal partial class VersionControlCoordinator
             CancellationToken operationCancellation = operation.CancellationToken;
             string canonicalProjectFile = GetOpeningRecoveryKey(selection.ProjectFile);
             discoveryService = CreateTemporaryBackend(repository: null, selection.ProjectFile);
-            GitAvailability availability = await discoveryService.GetAvailabilityAsync(
-                    operationCancellation)
-                .ConfigureAwait(false);
-            if (availability.State != GitAvailabilityState.Installed)
-            {
-                return ProjectOpenPreparationResult.Abort;
-            }
-
-            string projectRoot = Path.GetDirectoryName(selection.ProjectFile)
-                                 ?? throw new InvalidOperationException(
-                                     "The project file has no parent directory.");
-            RepositoryInfo? repository = await discoveryService.DiscoverRepositoryAsync(
-                    projectRoot,
+            RepositoryInfo? repository = await DiscoverInstalledRepositoryAsync(
+                    discoveryService,
+                    selection.ProjectFile,
                     operationCancellation)
                 .ConfigureAwait(false);
             if (repository is null || !RepositoriesEqual(repository, selection.Repository))
@@ -326,50 +288,20 @@ internal partial class VersionControlCoordinator
             PendingPullRecoveryOutcome? outcome = await trackedService.ExecuteExclusiveAsync(
                     async transaction =>
                     {
-                        PendingPullRecovery? current =
-                            (await transaction.GetPendingPullRecoveriesAsync(operationCancellation))
-                            .SingleOrDefault(candidate => string.Equals(
-                                candidate.Id,
-                                selection.Recovery.Id,
-                                StringComparison.Ordinal));
-                        if (current is null
-                            || !PendingPullRecoveriesMatch(
-                                selection.Recovery,
-                                current,
-                                repository)
-                            || !RecoveryProjectPathsEqual(
-                                repository,
-                                current.ProjectFile,
-                                selection.ProjectFile))
+                        PendingPullRecovery current = await GetUnchangedPendingPullRecoveryAsync(
+                            transaction,
+                            selection.Recovery,
+                            repository,
+                            selection.ProjectFile,
+                            operationCancellation);
+                        if (selection.AlreadyApplied
+                            && !IsAppliedOpeningPullRecoveryMarkerCurrent(
+                                canonicalProjectFile,
+                                selection,
+                                repository))
                         {
                             throw new PendingPullRecoveryChangedException(
                                 selection.Recovery.DescriptorRef);
-                        }
-
-                        if (selection.AlreadyApplied)
-                        {
-                            bool markerMatches;
-                            lock (_stateGate)
-                            {
-                                markerMatches = _openingPullRecoveries.TryGetValue(
-                                                    canonicalProjectFile,
-                                                    out PendingOpeningPullRecovery? liveMarker)
-                                                && liveMarker is not null
-                                                && ReferenceEquals(
-                                                    liveMarker,
-                                                    selection.AppliedMarker)
-                                                && liveMarker.Repository.Equals(repository)
-                                                && PendingPullRecoveriesMatch(
-                                                    liveMarker.Recovery,
-                                                    selection.Recovery,
-                                                    repository);
-                            }
-
-                            if (!markerMatches)
-                            {
-                                throw new PendingPullRecoveryChangedException(
-                                    selection.Recovery.DescriptorRef);
-                            }
                         }
 
                         if (!selection.Accepted || selection.AlreadyApplied)
@@ -481,27 +413,12 @@ internal partial class VersionControlCoordinator
             await service.ExecuteExclusiveAsync(
                     async transaction =>
                     {
-                        PendingPullRecovery? current =
-                            (await transaction.GetPendingPullRecoveriesAsync(
-                                CancellationToken.None))
-                            .SingleOrDefault(candidate => string.Equals(
-                                candidate.Id,
-                                prepared.Recovery.Id,
-                                StringComparison.Ordinal));
-                        if (current is null
-                            || !PendingPullRecoveriesMatch(
-                                prepared.Recovery,
-                                current,
-                                prepared.Repository)
-                            || !RecoveryProjectPathsEqual(
-                                prepared.Repository,
-                                current.ProjectFile,
-                                projectFile))
-                        {
-                            throw new PendingPullRecoveryChangedException(
-                                prepared.Recovery.DescriptorRef);
-                        }
-
+                        PendingPullRecovery current = await GetUnchangedPendingPullRecoveryAsync(
+                            transaction,
+                            prepared.Recovery,
+                            prepared.Repository,
+                            projectFile,
+                            CancellationToken.None);
                         await transaction.CompletePendingPullRecoveryAsync(
                             current,
                             CancellationToken.None);
@@ -509,17 +426,7 @@ internal partial class VersionControlCoordinator
                     },
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            lock (_stateGate)
-            {
-                if (_openingPullRecoveries.TryGetValue(
-                        canonicalProjectFile,
-                        out PendingOpeningPullRecovery? current)
-                    && ReferenceEquals(current, prepared))
-                {
-                    _openingPullRecoveries.Remove(canonicalProjectFile);
-                }
-            }
-
+            ForgetOpeningPullRecoveryMarker(canonicalProjectFile, prepared);
             CompletePendingPullRecoveryPublication(prepared.Recovery.Id);
         }
         catch (Exception ex)
@@ -531,6 +438,97 @@ internal partial class VersionControlCoordinator
         finally
         {
             DisposeService(service);
+        }
+    }
+
+    // The recovery a transaction acts on must still be the one this open inspected.
+    private static async Task<PendingPullRecovery> GetUnchangedPendingPullRecoveryAsync(
+        IProjectVersionControlTransaction transaction,
+        PendingPullRecovery expected,
+        RepositoryInfo repository,
+        string projectFile,
+        CancellationToken cancellationToken)
+    {
+        PendingPullRecovery? current = await FindPendingPullRecoveryAsync(
+            transaction,
+            expected.Id,
+            cancellationToken);
+        if (current is null
+            || !PendingPullRecoveriesMatch(
+                expected,
+                current,
+                repository)
+            || !RecoveryProjectPathsEqual(
+                repository,
+                current.ProjectFile,
+                projectFile))
+        {
+            throw new PendingPullRecoveryChangedException(
+                expected.DescriptorRef);
+        }
+
+        return current;
+    }
+
+    private void ForgetOpeningPullRecoveryMarker(
+        string canonicalProjectFile,
+        PendingOpeningPullRecovery expected)
+    {
+        lock (_stateGate)
+        {
+            if (_openingPullRecoveries.TryGetValue(
+                    canonicalProjectFile,
+                    out PendingOpeningPullRecovery? current)
+                && ReferenceEquals(current, expected))
+            {
+                _openingPullRecoveries.Remove(canonicalProjectFile);
+            }
+        }
+    }
+
+    private PendingOpeningPullRecovery? FindAppliedOpeningPullRecoveryMarker(
+        string canonicalProjectFile,
+        RepositoryInfo repository,
+        PendingPullRecovery recovery)
+    {
+        lock (_stateGate)
+        {
+            if (_openingPullRecoveries.TryGetValue(
+                    canonicalProjectFile,
+                    out PendingOpeningPullRecovery? liveMarker)
+                && liveMarker is not null
+                && RepositoriesEqual(liveMarker.Repository, repository)
+                && PendingPullRecoveriesMatch(
+                    liveMarker.Recovery,
+                    recovery,
+                    repository))
+            {
+                return liveMarker;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsAppliedOpeningPullRecoveryMarkerCurrent(
+        string canonicalProjectFile,
+        PendingPullRecoveryOpenSelection selection,
+        RepositoryInfo repository)
+    {
+        lock (_stateGate)
+        {
+            return _openingPullRecoveries.TryGetValue(
+                       canonicalProjectFile,
+                       out PendingOpeningPullRecovery? liveMarker)
+                   && liveMarker is not null
+                   && ReferenceEquals(
+                       liveMarker,
+                       selection.AppliedMarker)
+                   && liveMarker.Repository.Equals(repository)
+                   && PendingPullRecoveriesMatch(
+                       liveMarker.Recovery,
+                       selection.Recovery,
+                       repository);
         }
     }
 

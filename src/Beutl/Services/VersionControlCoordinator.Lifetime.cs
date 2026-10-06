@@ -96,18 +96,18 @@ internal partial class VersionControlCoordinator
     {
         try
         {
-            await WaitForAvailabilityQuiescenceAsync().ConfigureAwait(false);
-            await WaitForOperationQuiescenceAsync().ConfigureAwait(false);
-            await WaitForCloseBarrierQuiescenceAsync().ConfigureAwait(false);
-            await WaitForLifecycleQuiescenceAsync().ConfigureAwait(false);
-            await WaitForActivationSetupQuiescenceAsync().ConfigureAwait(false);
-            await WaitForPendingRecoveryOfferQuiescenceAsync().ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _availabilityUsers, ref _availabilityQuiesced).ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _operationUsers, ref _operationsQuiesced).ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _closeBarrierUsers, ref _closeBarriersQuiesced).ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _lifecycleUsers, ref _lifecycleQuiesced).ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _activationSetupUsers, ref _activationSetupsQuiesced).ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _pendingRecoveryOfferUsers, ref _pendingRecoveryOffersQuiesced).ConfigureAwait(false);
             ClearProjectState();
-            await WaitForLockRecoveryQuiescenceAsync().ConfigureAwait(false);
-            await WaitForNotificationQuiescenceAsync().ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _lockRecoveryUsers, ref _lockRecoveryQuiesced).ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _notificationUsers, ref _notificationsQuiesced).ConfigureAwait(false);
             await FlushPublicationDrainAsync();
             await _propertiesDisposedCompletion.Task.ConfigureAwait(false);
-            await WaitForRetirementQuiescenceAsync().ConfigureAwait(false);
+            await WaitForQuiescenceAsync(ref _retirementUsers, ref _retirementsQuiesced).ConfigureAwait(false);
             DisposeOperationEpochCancellation();
             _lifetimeCancellation.Dispose();
             _asyncDisposalCompletion.TrySetResult();
@@ -130,120 +130,18 @@ internal partial class VersionControlCoordinator
         operationEpochCancellation?.Dispose();
     }
 
-    private Task WaitForAvailabilityQuiescenceAsync()
+    // The counter and its completion source are passed by reference so both are read and created under
+    // the state lock, as each per-counter wait did.
+    private Task WaitForQuiescenceAsync(ref int users, ref TaskCompletionSource? quiesced)
     {
         lock (_stateGate)
         {
-            if (_availabilityUsers == 0)
+            if (users == 0)
             {
                 return Task.CompletedTask;
             }
 
-            return (_availabilityQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForActivationSetupQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_activationSetupUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_activationSetupsQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForLifecycleQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_lifecycleUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_lifecycleQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForCloseBarrierQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_closeBarrierUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_closeBarriersQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForOperationQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_operationUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_operationsQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForLockRecoveryQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_lockRecoveryUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_lockRecoveryQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForPendingRecoveryOfferQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_pendingRecoveryOfferUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_pendingRecoveryOffersQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForRetirementQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_retirementUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_retirementsQuiesced ??= CreateCompletionSource()).Task;
-        }
-    }
-
-    private Task WaitForNotificationQuiescenceAsync()
-    {
-        lock (_stateGate)
-        {
-            if (_notificationUsers == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            return (_notificationsQuiesced ??= CreateCompletionSource()).Task;
+            return (quiesced ??= CreateCompletionSource()).Task;
         }
     }
 
