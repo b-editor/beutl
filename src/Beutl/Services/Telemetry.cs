@@ -19,6 +19,8 @@ namespace Beutl.Services;
 
 internal class Telemetry : IDisposable
 {
+    private const int MaxLogFiles = 10;
+    private const int MaxUncompressedLogFiles = 5;
     private static readonly KeyValuePair<string, object>[] s_attributes;
     private static readonly string s_version;
     private readonly TracerProvider? _tracerProvider;
@@ -229,36 +231,7 @@ internal class Telemetry : IDisposable
                         string logDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
                         if (Directory.Exists(logDir))
                         {
-                            var files = Directory.GetFiles(logDir).ToList();
-                            files.Sort((x, y) => string.Compare(x, y, StringComparison.OrdinalIgnoreCase));
-
-                            if (files.Count > 10)
-                            {
-                                int deleteCount = files.Count - 10;
-                                foreach (string? item in files.Take(deleteCount))
-                                {
-                                    try
-                                    {
-                                        File.Delete(item);
-                                    }
-                                    catch
-                                    {
-                                    }
-                                }
-
-                                files.RemoveRange(0, deleteCount);
-                            }
-
-                            if (files.Count > 5)
-                            {
-                                int compressCount = files.Count - 5;
-                                foreach (string? item in files.Take(compressCount))
-                                {
-                                    ReplaceCompressedFile(item);
-                                }
-
-                                files.RemoveRange(0, compressCount);
-                            }
+                            PruneLogDirectory(logDir);
                         }
                     });
                 }
@@ -272,6 +245,40 @@ internal class Telemetry : IDisposable
                 mutex.Close();
             }
         });
+    }
+
+    private static void PruneLogDirectory(string logDir)
+    {
+        var files = Directory.GetFiles(logDir).ToList();
+        files.Sort((x, y) => string.Compare(x, y, StringComparison.OrdinalIgnoreCase));
+
+        if (files.Count > MaxLogFiles)
+        {
+            int deleteCount = files.Count - MaxLogFiles;
+            foreach (string? item in files.Take(deleteCount))
+            {
+                try
+                {
+                    File.Delete(item);
+                }
+                catch
+                {
+                }
+            }
+
+            files.RemoveRange(0, deleteCount);
+        }
+
+        if (files.Count > MaxUncompressedLogFiles)
+        {
+            int compressCount = files.Count - MaxUncompressedLogFiles;
+            foreach (string? item in files.Take(compressCount))
+            {
+                ReplaceCompressedFile(item);
+            }
+
+            files.RemoveRange(0, compressCount);
+        }
     }
 
     private static void ReplaceCompressedFile(string file)

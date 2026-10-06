@@ -159,38 +159,31 @@ internal abstract class BuiltInAiJobResultCapability(
 
         if (status.Outcome == AiJobOutcomes.Succeeded)
         {
-            return new AiJobCompletionPresentation(
-                Strings.AiJobCenter,
-                string.Format(
-                    Strings.AiJobCenter_CompletedNotification,
-                    getKindDisplayName()),
-                AiJobNotificationKind.Success,
-                TimeSpan.FromSeconds(15));
+            return Completion(Strings.AiJobCenter_CompletedNotification, AiJobNotificationKind.Success, 15);
         }
 
         if (status.Outcome == AiJobOutcomes.Failed)
         {
-            return new AiJobCompletionPresentation(
-                Strings.AiJobCenter,
-                string.Format(
-                    Strings.AiJobCenter_FailedNotification,
-                    getKindDisplayName()),
-                AiJobNotificationKind.Warning,
-                TimeSpan.FromSeconds(20));
+            return Completion(Strings.AiJobCenter_FailedNotification, AiJobNotificationKind.Warning, 20);
         }
 
         if (status.Outcome == AiJobOutcomes.Canceled)
         {
-            return new AiJobCompletionPresentation(
-                Strings.AiJobCenter,
-                string.Format(
-                    Strings.AiJobCenter_CanceledNotification,
-                    getKindDisplayName()),
-                AiJobNotificationKind.Information,
-                TimeSpan.FromSeconds(15));
+            return Completion(Strings.AiJobCenter_CanceledNotification, AiJobNotificationKind.Information, 15);
         }
 
         return null;
+    }
+
+    private AiJobCompletionPresentation Completion(string format, AiJobNotificationKind kind, int seconds)
+    {
+        return new AiJobCompletionPresentation(
+            Strings.AiJobCenter,
+            string.Format(
+                format,
+                getKindDisplayName()),
+            kind,
+            TimeSpan.FromSeconds(seconds));
     }
 
     public virtual bool CanApply(AiJob job, AiJobStatusSemantics status)

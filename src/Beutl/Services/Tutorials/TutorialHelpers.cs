@@ -1,11 +1,16 @@
-﻿using Avalonia.Threading;
+﻿using Avalonia.Controls;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
@@ -253,5 +258,18 @@ public static class TutorialHelpers
             e.Objects.OfType<Drawable>().Any());
 
         return element?.Objects.OfType<Drawable>().FirstOrDefault();
+    }
+
+    // The float editor shown for the named property of a TOwner object.
+    internal static Control? FindFloatEditor<TOwner>(string propertyName)
+    {
+        TopLevel? topLevel = AppHelper.GetTopLevel();
+        return topLevel?.GetVisualDescendants()
+            .OfType<NumberEditor<float>>()
+            .FirstOrDefault(c =>
+                c.DataContext is BaseEditorViewModel vm &&
+                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
+                prop.GetOwnerObject() is TOwner &&
+                prop.Name == propertyName);
     }
 }

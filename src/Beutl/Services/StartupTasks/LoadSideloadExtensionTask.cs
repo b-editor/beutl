@@ -93,18 +93,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
         activity?.AddEvent(new ActivityEvent("Started loading side-load-packages."));
 
         Parallel.ForEach(sideloads, item =>
-        {
-            try
-            {
-                _load(item);
-            }
-            catch (Exception e)
-            {
-                activity?.SetStatus(ActivityStatusCode.Error);
-                _logger.LogError(e, "Failed to load package: {PackageName}", item.Name);
-                Failures.Add((item, e));
-            }
-        });
+            LoadInstalledExtensionTask.TryLoadPackage(item, _load, _logger, activity, Failures));
 
         activity?.AddEvent(new ActivityEvent("Finished loading side-load-packages."));
 

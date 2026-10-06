@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Beutl.Api.Services;
@@ -306,28 +307,23 @@ internal sealed class AiRequestKey : IDisposable
             ?? Array.Empty<AiPendingAttempt>();
 
     internal IReadOnlyList<string> ResolveSources(AiPendingAttempt attempt)
-    {
-        if (_recoveryContext is null)
-            throw new InvalidDataException("AI request recovery is not configured.");
-        return _recoveryContext.Store.ResolveSources(attempt);
-    }
+        => RequireRecoveryStore().ResolveSources(attempt);
 
     internal byte[] ReadSourceBytes(AiRequestRecoverySource source)
-    {
-        if (_recoveryContext is null)
-            throw new InvalidDataException("AI request recovery is not configured.");
-        return _recoveryContext.Store.ReadSourceBytes(source);
-    }
+        => RequireRecoveryStore().ReadSourceBytes(source);
 
     internal AiRequestRecoverySource CreateDurableSource(
         string role,
         string name,
         ReadOnlySpan<byte> content,
         string? elementId = null)
+        => RequireRecoveryStore().CreateDurableSource(role, name, content, elementId);
+
+    private FileAiRequestRecoveryStore RequireRecoveryStore()
     {
         if (_recoveryContext is null)
             throw new InvalidDataException("AI request recovery is not configured.");
-        return _recoveryContext.Store.CreateDurableSource(role, name, content, elementId);
+        return _recoveryContext.Store;
     }
 
     internal void CleanupUncommittedSources(IEnumerable<AiRequestRecoverySource> sources)
@@ -342,9 +338,7 @@ internal sealed class AiRequestKey : IDisposable
             return null;
         lock (_gate)
         {
-            if (!_outstanding.TryGetValue(name.Key, out string? request)
-                || !_outstandingAccounts.TryGetValue(name.Key, out string? account)
-                || !_outstandingOperations.TryGetValue(name.Key, out string? operation))
+            if (!TryGetOutstanding(name.Key, out string? request, out string? account, out string? operation))
                 return null;
             AiPendingAttempt? current = _recoveryContext.Store.Find(account, operation, request);
             if (current is null || !StringComparer.Ordinal.Equals(current.Key, name.Key))
@@ -427,9 +421,7 @@ internal sealed class AiRequestKey : IDisposable
         ArgumentNullException.ThrowIfNull(form);
         lock (_gate)
         {
-            if (!_outstanding.TryGetValue(name.Key, out string? request)
-                || !_outstandingAccounts.TryGetValue(name.Key, out string? account)
-                || !_outstandingOperations.TryGetValue(name.Key, out string? operation))
+            if (!TryGetOutstanding(name.Key, out string? request, out string? account, out string? operation))
             {
                 throw new InvalidOperationException("The AI request name is not outstanding.");
             }
@@ -508,7 +500,7 @@ internal sealed class AiRequestKey : IDisposable
             if (removed)
             {
                 string generationIdentity =
-                    $"{attempt.AccountId}\n{attempt.Operation}\n{attempt.Fingerprint}";
+                    GenerationIdentity(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
                 int durableGeneration = persisted is null
                     ? _recoveryContext.Store.AdvanceGeneration(
                         attempt.AccountId,
@@ -523,9 +515,7 @@ internal sealed class AiRequestKey : IDisposable
                     durableGeneration);
                 if (key is not null)
                 {
-                    _outstanding.Remove(key);
-                    _outstandingAccounts.Remove(key);
-                    _outstandingOperations.Remove(key);
+                    ForgetOutstanding(key);
                 }
             }
         }
@@ -627,9 +617,7 @@ internal sealed class AiRequestKey : IDisposable
                 string? issuedAccount = _outstandingAccounts.GetValueOrDefault(name.Key);
                 string? issuedOperation = _outstandingOperations.GetValueOrDefault(name.Key);
                 AiRequestRecoveryLease? claim = _claims.GetValueOrDefault(name.Key);
-                string generationIdentity = _recoveryContext is null
-                    ? request
-                    : $"{issuedAccount}\n{issuedOperation}\n{request}";
+                string generationIdentity = GenerationIdentity(issuedAccount, issuedOperation, request);
                 bool removedPersisted = RemovePersisted(
                     request,
                     issuedAccount,
@@ -642,11 +630,7 @@ internal sealed class AiRequestKey : IDisposable
                 {
                     // Another process already changed the row. Do not let a
                     // stale local completion advance or delete that owner.
-                    _outstanding[name.Key] = request;
-                    if (issuedAccount is not null)
-                        _outstandingAccounts[name.Key] = issuedAccount;
-                    if (issuedOperation is not null)
-                        _outstandingOperations[name.Key] = issuedOperation;
+                    RestoreOutstanding(name.Key, request, issuedAccount, issuedOperation);
                     return false;
                 }
                 _generations[generationIdentity] =
@@ -779,11 +763,7 @@ internal sealed class AiRequestKey : IDisposable
                     exactDispatchedOwner);
                 if (!removedPersisted && _recoveryContext is not null)
                 {
-                    _outstanding[name.Key] = request;
-                    if (issuedAccount is not null)
-                        _outstandingAccounts[name.Key] = issuedAccount;
-                    if (issuedOperation is not null)
-                        _outstandingOperations[name.Key] = issuedOperation;
+                    RestoreOutstanding(name.Key, request, issuedAccount, issuedOperation);
                     return false;
                 }
                 _outstandingAccounts.Remove(name.Key);
@@ -821,45 +801,7 @@ internal sealed class AiRequestKey : IDisposable
                 {
                     AiPendingAttempt? persisted = _recoveryContext.Store.Find(account!, operation, request);
                     if (persisted is not null)
-                    {
-                        string persistedKey = persisted.Key;
-                        string[] staleKeys = _outstanding
-                            .Where(pair => pair.Key != persistedKey
-                                && pair.Value == request
-                                && _outstandingAccounts.GetValueOrDefault(pair.Key) == account
-                                && _outstandingOperations.GetValueOrDefault(pair.Key) == operation)
-                            .Select(static pair => pair.Key)
-                            .ToArray();
-                        foreach (string staleKey in staleKeys)
-                        {
-                            _outstanding.Remove(staleKey);
-                            _outstandingAccounts.Remove(staleKey);
-                            _outstandingOperations.Remove(staleKey);
-                            if (_claims.Remove(staleKey, out AiRequestRecoveryLease? staleClaim))
-                                staleClaim.Dispose();
-                        }
-                        if (!_outstanding.ContainsKey(persistedKey))
-                        {
-                            _outstanding[persistedKey] = request;
-                            _outstandingAccounts[persistedKey] = account!;
-                            _outstandingOperations[persistedKey] = operation;
-                        }
-                        if (form is not null && !persisted.HasCanonicalForm)
-                        {
-                            _recoveryContext.Store.WriteOrGet(
-                                persisted with { Form = form, Sources = sources });
-                        }
-                        else if (sources is not null)
-                        {
-                            // The caller may have prepared fresh durable copies
-                            // while racing with another request that committed the
-                            // same identity. Keep the committed row's copies and
-                            // remove only the newly unreferenced ones.
-                            _recoveryContext.Store.DeleteUncommittedSources(sources);
-                        }
-                        _hasOutstandingName.Value = true;
-                        return new AiRequestName(persistedKey, true);
-                    }
+                        return AdoptPersistedAttempt(persisted, request, account!, operation, form, sources);
                 }
                 catch
                 {
@@ -868,9 +810,7 @@ internal sealed class AiRequestKey : IDisposable
                     throw;
                 }
             }
-            string generationIdentity = _recoveryContext is null
-                ? request
-                : $"{account}\n{operation}\n{request}";
+            string generationIdentity = GenerationIdentity(account, operation, request);
             int generation = _generations.GetValueOrDefault(generationIdentity);
             if (_recoveryContext is not null)
             {
@@ -878,14 +818,7 @@ internal sealed class AiRequestKey : IDisposable
                     generation,
                     _recoveryContext.Store.GetGeneration(account!, operation, request));
             }
-            // Generation 0 keeps the shape used before generations existed. Both the seed in
-            // recovery and the name retained by the server continue to work unchanged.
-            string keyBase = _recoveryContext is null
-                ? $"{_seed}-{request}"
-                : $"{_seed}-{request}-{ScopeFingerprint(account!, operation)}";
-            string key = generation == 0
-                ? keyBase
-                : $"{keyBase}-r{generation.ToString(CultureInfo.InvariantCulture)}";
+            string key = ComposeKey(request, account, operation, generation);
             if (_outstanding.ContainsKey(key))
                 return new AiRequestName(key, true);
             bool resumed = _resumedAttemptPending;
@@ -922,6 +855,99 @@ internal sealed class AiRequestKey : IDisposable
             _hasOutstandingName.Value = true;
         return name;
     }
+
+    // Another request already committed this identity durably: its key wins over any this
+    // instance issued for the same request, and the request goes out again as a repeat.
+    private AiRequestName AdoptPersistedAttempt(
+        AiPendingAttempt persisted,
+        string request,
+        string account,
+        string operation,
+        AiRequestFormSnapshot? form,
+        IReadOnlyList<AiRequestRecoverySource>? sources)
+    {
+        string persistedKey = persisted.Key;
+        string[] staleKeys = _outstanding
+            .Where(pair => pair.Key != persistedKey
+                && pair.Value == request
+                && _outstandingAccounts.GetValueOrDefault(pair.Key) == account
+                && _outstandingOperations.GetValueOrDefault(pair.Key) == operation)
+            .Select(static pair => pair.Key)
+            .ToArray();
+        foreach (string staleKey in staleKeys)
+        {
+            ForgetOutstanding(staleKey);
+            if (_claims.Remove(staleKey, out AiRequestRecoveryLease? staleClaim))
+                staleClaim.Dispose();
+        }
+        if (!_outstanding.ContainsKey(persistedKey))
+        {
+            _outstanding[persistedKey] = request;
+            _outstandingAccounts[persistedKey] = account;
+            _outstandingOperations[persistedKey] = operation;
+        }
+        if (form is not null && !persisted.HasCanonicalForm)
+        {
+            _recoveryContext!.Store.WriteOrGet(
+                persisted with { Form = form, Sources = sources });
+        }
+        else if (sources is not null)
+        {
+            // The caller may have prepared fresh durable copies
+            // while racing with another request that committed the
+            // same identity. Keep the committed row's copies and
+            // remove only the newly unreferenced ones.
+            _recoveryContext!.Store.DeleteUncommittedSources(sources);
+        }
+        _hasOutstandingName.Value = true;
+        return new AiRequestName(persistedKey, true);
+    }
+
+    // Generation 0 keeps the shape used before generations existed. Both the seed in
+    // recovery and the name retained by the server continue to work unchanged.
+    private string ComposeKey(string request, string? account, string operation, int generation)
+    {
+        string keyBase = _recoveryContext is null
+            ? $"{_seed}-{request}"
+            : $"{_seed}-{request}-{ScopeFingerprint(account!, operation)}";
+        return generation == 0
+            ? keyBase
+            : $"{keyBase}-r{generation.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    // _outstanding, _outstandingAccounts and _outstandingOperations are keyed by the same issued
+    // names and are only read or written under _gate.
+    private bool TryGetOutstanding(
+        string key,
+        [NotNullWhen(true)] out string? request,
+        [NotNullWhen(true)] out string? account,
+        [NotNullWhen(true)] out string? operation)
+    {
+        account = null;
+        operation = null;
+        return _outstanding.TryGetValue(key, out request)
+            && _outstandingAccounts.TryGetValue(key, out account)
+            && _outstandingOperations.TryGetValue(key, out operation);
+    }
+
+    private void RestoreOutstanding(string key, string request, string? account, string? operation)
+    {
+        _outstanding[key] = request;
+        if (account is not null)
+            _outstandingAccounts[key] = account;
+        if (operation is not null)
+            _outstandingOperations[key] = operation;
+    }
+
+    private void ForgetOutstanding(string key)
+    {
+        _outstanding.Remove(key);
+        _outstandingAccounts.Remove(key);
+        _outstandingOperations.Remove(key);
+    }
+
+    private string GenerationIdentity(string? account, string? operation, string request)
+        => _recoveryContext is null ? request : $"{account}\n{operation}\n{request}";
 
     private bool RemovePersisted(
         string request,

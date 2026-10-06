@@ -152,15 +152,17 @@ public sealed class DockLayoutPresetService
         if (string.Equals(item.Name.Value, newName, StringComparison.OrdinalIgnoreCase))
         {
             // Same preset, possibly a case-only change — allow it.
-            item.Name.Value = newName;
-            if (SaveItems()) return true;
-
-            item.Name.Value = previousName;
-            return false;
+            return TryRenameAndSave(item, newName, previousName);
         }
 
         if (Find(newName) is not null) return false;
 
+        return TryRenameAndSave(item, newName, previousName);
+    }
+
+    // The name is put back when the store cannot be written.
+    private bool TryRenameAndSave(DockLayoutPresetItem item, string newName, string previousName)
+    {
         item.Name.Value = newName;
         if (SaveItems()) return true;
 

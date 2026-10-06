@@ -15,6 +15,8 @@ internal readonly record struct SpeechWaveChunkResult(
 
 internal static class SpeechWaveEncoder
 {
+    private const int WaveHeaderLength = 44;
+
     internal static SpeechWaveChunkResult WriteSpeechWave(
         MediaReader reader,
         int startSample,
@@ -41,20 +43,8 @@ internal static class SpeechWaveEncoder
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
         const int outputRate = 16_000;
-        const int waveHeaderLength = 44;
         using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
-        writer.Write(Encoding.ASCII.GetBytes("RIFF"));
-        writer.Write(0);
-        writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write((short)1);
-        writer.Write(outputRate);
-        writer.Write(outputRate * sizeof(short));
-        writer.Write((short)sizeof(short));
-        writer.Write((short)16);
-        writer.Write(Encoding.ASCII.GetBytes("data"));
-        writer.Write(0);
+        WriteWaveHeader(writer, outputRate);
 
         int sourceSamplesWritten = 0;
         int outputSamplesWritten = 0;
@@ -106,15 +96,38 @@ internal static class SpeechWaveEncoder
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
         int dataLength = checked(outputSamplesWritten * sizeof(short));
-        stream.Position = 4;
-        writer.Write(checked(waveHeaderLength - 8 + dataLength));
-        stream.Position = 40;
-        writer.Write(dataLength);
-        stream.Position = waveHeaderLength + dataLength;
+        PatchWaveLengths(stream, writer, dataLength);
         return new SpeechWaveChunkResult(
             sourceSamplesWritten,
             outputSamplesWritten,
             TimeSpan.FromSeconds(outputSamplesWritten / (double)outputRate));
+    }
+
+    // 16-bit mono PCM. Both lengths are written as zero and patched once the data is complete.
+    private static void WriteWaveHeader(BinaryWriter writer, int sampleRate)
+    {
+        writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+        writer.Write(0);
+        writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)1);
+        writer.Write(sampleRate);
+        writer.Write(sampleRate * sizeof(short));
+        writer.Write((short)sizeof(short));
+        writer.Write((short)16);
+        writer.Write(Encoding.ASCII.GetBytes("data"));
+        writer.Write(0);
+    }
+
+    // Leaves the stream positioned at the end of the data.
+    private static void PatchWaveLengths(Stream stream, BinaryWriter writer, int dataLength)
+    {
+        stream.Position = 4;
+        writer.Write(checked(WaveHeaderLength - 8 + dataLength));
+        stream.Position = 40;
+        writer.Write(dataLength);
+        stream.Position = WaveHeaderLength + dataLength;
     }
 
     /// <summary>
@@ -126,7 +139,6 @@ internal static class SpeechWaveEncoder
     /// </summary>
     internal sealed class SpeechWaveWriter(Stream stream)
     {
-        private const int WaveHeaderLength = 44;
         private const int MaximumOutputRate = 16_000;
         private readonly Stream _stream = stream;
         private int _sourceRate;
@@ -194,28 +206,13 @@ internal static class SpeechWaveEncoder
 
             int dataLength = checked(_outputSampleCount * sizeof(short));
             using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
-            _stream.Position = 4;
-            writer.Write(checked(WaveHeaderLength - 8 + dataLength));
-            _stream.Position = 40;
-            writer.Write(dataLength);
-            _stream.Position = WaveHeaderLength + dataLength;
+            PatchWaveLengths(_stream, writer, dataLength);
         }
 
         private void WriteHeader()
         {
             using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
-            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
-            writer.Write(0);
-            writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
-            writer.Write(16);
-            writer.Write((short)1);
-            writer.Write((short)1);
-            writer.Write(_outputRate);
-            writer.Write(_outputRate * sizeof(short));
-            writer.Write((short)sizeof(short));
-            writer.Write((short)16);
-            writer.Write(Encoding.ASCII.GetBytes("data"));
-            writer.Write(0);
+            WriteWaveHeader(writer, _outputRate);
         }
     }
 

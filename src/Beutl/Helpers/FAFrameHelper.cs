@@ -7,45 +7,46 @@ public static class FAFrameHelper
 {
     public static void RemoveAllStack(this FAFrame frame, Func<object, bool> func)
     {
-        for (int i = frame.BackStack.Count - 1; i >= 0; i--)
-        {
-            FAPageStackEntry item = frame.BackStack[i];
-            if (func(item.Parameter))
-            {
-                frame.BackStack.RemoveAt(i);
-            }
-        }
-
-        for (int i = frame.ForwardStack.Count - 1; i >= 0; i--)
-        {
-            FAPageStackEntry item = frame.ForwardStack[i];
-            if (func(item.Parameter))
-            {
-                frame.ForwardStack.RemoveAt(i);
-            }
-        }
+        RemoveAll(frame.BackStack, func);
+        RemoveAll(frame.ForwardStack, func);
     }
 
     public static T? FindParameter<T>(this FAFrame frame, Func<T, bool> func)
     {
-        for (int i = 0; i < frame.BackStack.Count; i++)
+        if (TryFindParameter(frame.BackStack, func, out T? found)
+            || TryFindParameter(frame.ForwardStack, func, out found))
         {
-            FAPageStackEntry item = frame.BackStack[i];
-            if (item.Parameter is T typed && func(typed))
-            {
-                return typed;
-            }
-        }
-
-        for (int i = 0; i < frame.ForwardStack.Count; i++)
-        {
-            FAPageStackEntry item = frame.ForwardStack[i];
-            if (item.Parameter is T typed && func(typed))
-            {
-                return typed;
-            }
+            return found;
         }
 
         return default;
+    }
+
+    private static void RemoveAll(IList<FAPageStackEntry> stack, Func<object, bool> func)
+    {
+        for (int i = stack.Count - 1; i >= 0; i--)
+        {
+            FAPageStackEntry item = stack[i];
+            if (func(item.Parameter))
+            {
+                stack.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool TryFindParameter<T>(IList<FAPageStackEntry> stack, Func<T, bool> func, out T? found)
+    {
+        for (int i = 0; i < stack.Count; i++)
+        {
+            FAPageStackEntry item = stack[i];
+            if (item.Parameter is T typed && func(typed))
+            {
+                found = typed;
+                return true;
+            }
+        }
+
+        found = default;
+        return false;
     }
 }

@@ -374,19 +374,14 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     envelope.Version,
                     recordsNamePending);
                 CaptionDraftEntry[] storedRecoveries = envelope.Recoveries ?? [];
-                var recoveries = new CaptionDraftEntry[storedRecoveries.Length];
-                for (int index = 0; index < storedRecoveries.Length; index++)
+                if (!TryMigrateRecoveries(
+                        storedRecoveries,
+                        envelope.Version,
+                        recordsNamePending,
+                        out CaptionDraftEntry[] recoveries))
                 {
-                    CaptionDraftEntry? recovery = storedRecoveries[index];
-                    if (recovery is null)
-                    {
-                        DeleteInvalidFile(storagePath);
-                        return CaptionDraftReadResult.Absent;
-                    }
-                    recoveries[index] = new CaptionDraftEntry(
-                        recovery.JobId,
-                        Migrate(recovery.Draft, envelope.Version, recordsNamePending),
-                        recovery.Recoveries);
+                    DeleteInvalidFile(storagePath);
+                    return CaptionDraftReadResult.Absent;
                 }
                 var entry = new CaptionDraftEntry(envelope.JobId, draft, recoveries);
                 if (!IsValid(entry))
@@ -407,6 +402,28 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 return CaptionDraftReadResult.Absent;
             }
         }
+    }
+
+    // False on a missing entry, which makes the whole document invalid.
+    private static bool TryMigrateRecoveries(
+        CaptionDraftEntry[] storedRecoveries,
+        int version,
+        bool recordsNamePending,
+        out CaptionDraftEntry[] recoveries)
+    {
+        recoveries = new CaptionDraftEntry[storedRecoveries.Length];
+        for (int index = 0; index < storedRecoveries.Length; index++)
+        {
+            CaptionDraftEntry? recovery = storedRecoveries[index];
+            if (recovery is null)
+                return false;
+            recoveries[index] = new CaptionDraftEntry(
+                recovery.JobId,
+                Migrate(recovery.Draft, version, recordsNamePending),
+                recovery.Recoveries);
+        }
+
+        return true;
     }
 
     private void Save(CaptionDraftScope scope, Guid leaseId, CaptionDraftEntry entry)
@@ -629,12 +646,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         if (draft.Version != CurrentVersion
             || draft.Cues is null
             || draft.Cues.Length > MaximumCueCount
-            || draft.Cues.Any(cue => cue is null
-                || cue.Text is null
-                || cue.Text.Length > MaximumCueTextLength
-                || cue.StartTicks < 0
-                || cue.EndTicks <= cue.StartTicks
-                || cue.Metadata is null
+            || draft.Cues.Any(cue => !HasValidCueShape(cue)
                 || cue.Metadata.Any(pair =>
                     string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null))
             // Nothing finished yet is a run worth keeping: it holds the names
@@ -688,12 +700,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 || resume.MaxSegments > 0
                 && resume.MaxCharacters > 0
                 && resume.MaxRequestBytes > 0)
-            && resume.SourceCues.All(cue => cue is not null
-                && cue.Text is not null
-                && cue.Text.Length <= MaximumCueTextLength
-                && cue.StartTicks >= 0
-                && cue.EndTicks > cue.StartTicks
-                && cue.Metadata is not null)
+            && resume.SourceCues.All(HasValidCueShape)
             && resume.TranslatedPieces is not null
             && (resume.CompletedBatchCount > 0) == (resume.TranslatedPieces.Count > 0)
             && resume.TranslatedPieces.All(pair =>
@@ -714,12 +721,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             && resume.SceneId != Guid.Empty
             && duration > TimeSpan.Zero
             && chunkDuration > TimeSpan.Zero
-            && resume.Segments.All(segment => segment is not null
-                && double.IsFinite(segment.Start)
-                && double.IsFinite(segment.End)
-                && segment.End > segment.Start
-                && segment.Text is not null
-                && segment.Text.Length <= MaximumCueTextLength);
+            && resume.Segments.All(IsValidSegment);
 
     private static bool IsValid(CaptionSourceTranscriptionResume? resume)
         => resume is
@@ -743,12 +745,24 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             && resume.LastWriteTimeUtcTicks >= 0
             && resume.LastWriteTimeUtcTicks <= DateTime.MaxValue.Ticks
             && resume.SourceStartSamples is null or >= 0
-            && resume.Segments.All(segment => segment is not null
-                && double.IsFinite(segment.Start)
-                && double.IsFinite(segment.End)
-                && segment.End > segment.Start
-                && segment.Text is not null
-                && segment.Text.Length <= MaximumCueTextLength);
+            && resume.Segments.All(IsValidSegment);
+
+    // Stored data is read back from JSON, so declared non-null members can still be null here.
+    private static bool HasValidCueShape(StoredCaptionCue cue)
+        => cue is not null
+            && cue.Text is not null
+            && cue.Text.Length <= MaximumCueTextLength
+            && cue.StartTicks >= 0
+            && cue.EndTicks > cue.StartTicks
+            && cue.Metadata is not null;
+
+    private static bool IsValidSegment(AiTranscriptionSegment segment)
+        => segment is not null
+            && double.IsFinite(segment.Start)
+            && double.IsFinite(segment.End)
+            && segment.End > segment.Start
+            && segment.Text is not null
+            && segment.Text.Length <= MaximumCueTextLength;
 
     private static void DeleteInvalidFile(string storagePath)
     {

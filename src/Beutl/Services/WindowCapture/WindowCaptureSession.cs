@@ -149,85 +149,20 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         // and discard the tail of the recording (up to BufferPoolSize frames).
         if (_writerTask is { } wt)
         {
-            bool drained = false;
-            try
-            {
-                using var drainCts = new CancellationTokenSource(StopTimeout);
-                await wt.WaitAsync(drainCts.Token).ConfigureAwait(false);
-                drained = true;
-            }
-            catch (OperationCanceledException)
-            {
-                // Writer is stuck — most likely blocked inside stdin.WriteAsync because
-                // ffmpeg has stalled and the pipe is full. Close stdin to unblock it,
-                // then wait again with a fresh timeout.
-                _logger.LogWarning(
-                    "Writer task did not drain within {Timeout}; closing ffmpeg stdin to unblock.",
-                    StopTimeout);
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
-
-            if (!drained)
-            {
-                if (_process is { } stuckProc)
-                {
-                    try
-                    {
-                        if (!stuckProc.HasExited)
-                            stuckProc.StandardInput.Close();
-                    }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
-                }
-
-                try
-                {
-                    using var unblockCts = new CancellationTokenSource(StopTimeout);
-                    await wt.WaitAsync(unblockCts.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    _encoderFailed = true;
-                    _logger.LogWarning("Window capture writer task did not complete within {Timeout}.", StopTimeout);
-                }
-                catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
-            }
+            await DrainWriterAsync(wt).ConfigureAwait(false);
         }
 
         // After the writer has finished (or been forced to give up), make sure stdin
         // is closed so ffmpeg can finalize the output file.
         if (_process is { } procForStdin)
         {
-            try
-            {
-                if (!procForStdin.HasExited)
-                    procForStdin.StandardInput.Close();
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
+            TryCloseEncoderInput(procForStdin);
         }
 
         int exitCode = -1;
         if (_process is { } proc)
         {
-            try
-            {
-                using var cts = new CancellationTokenSource(StopTimeout);
-                await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _encoderFailed = true;
-                _logger.LogWarning("ffmpeg did not exit within {Timeout}; killing.", StopTimeout);
-                try { proc.Kill(entireProcessTree: true); }
-                catch (Exception ex) { _logger.LogError(ex, "Failed to kill ffmpeg."); }
-            }
-
-            exitCode = proc.HasExited ? proc.ExitCode : -1;
-            _logger.LogInformation(
-                "Window capture stopped: captured={Captured}, dropped={Dropped}, ffmpeg exit={ExitCode}",
-                CapturedFrameCount, DroppedFrameCount, exitCode);
-
-            proc.Dispose();
-            _process = null;
+            exitCode = await WaitForEncoderExitAsync(proc).ConfigureAwait(false);
         }
 
         _rtb.Dispose();
@@ -237,6 +172,83 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
             throw new InvalidOperationException(
                 $"ffmpeg encoder failed (exit code: {exitCode}). See log for details.");
         }
+    }
+
+    private async Task DrainWriterAsync(Task writerTask)
+    {
+        bool drained = false;
+        try
+        {
+            using var drainCts = new CancellationTokenSource(StopTimeout);
+            await writerTask.WaitAsync(drainCts.Token).ConfigureAwait(false);
+            drained = true;
+        }
+        catch (OperationCanceledException)
+        {
+            // Writer is stuck — most likely blocked inside stdin.WriteAsync because
+            // ffmpeg has stalled and the pipe is full. Close stdin to unblock it,
+            // then wait again with a fresh timeout.
+            _logger.LogWarning(
+                "Writer task did not drain within {Timeout}; closing ffmpeg stdin to unblock.",
+                StopTimeout);
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+
+        if (!drained)
+        {
+            if (_process is { } stuckProc)
+            {
+                TryCloseEncoderInput(stuckProc);
+            }
+
+            try
+            {
+                using var unblockCts = new CancellationTokenSource(StopTimeout);
+                await writerTask.WaitAsync(unblockCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _encoderFailed = true;
+                _logger.LogWarning("Window capture writer task did not complete within {Timeout}.", StopTimeout);
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+        }
+    }
+
+    private void TryCloseEncoderInput(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.StandardInput.Close();
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
+    }
+
+    // Waits for ffmpeg to finalize the file, killing it after the timeout, and releases it.
+    private async Task<int> WaitForEncoderExitAsync(Process proc)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(StopTimeout);
+            await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            _encoderFailed = true;
+            _logger.LogWarning("ffmpeg did not exit within {Timeout}; killing.", StopTimeout);
+            try { proc.Kill(entireProcessTree: true); }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to kill ffmpeg."); }
+        }
+
+        int exitCode = proc.HasExited ? proc.ExitCode : -1;
+        _logger.LogInformation(
+            "Window capture stopped: captured={Captured}, dropped={Dropped}, ffmpeg exit={ExitCode}",
+            CapturedFrameCount, DroppedFrameCount, exitCode);
+
+        proc.Dispose();
+        _process = null;
+        return exitCode;
     }
 
     public async ValueTask DisposeAsync()

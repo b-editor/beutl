@@ -214,7 +214,7 @@ internal sealed class AiRequestRecoveryLease : IDisposable
         if (Interlocked.CompareExchange(ref _state, DispatchedState, DispatchingState)
             != DispatchingState)
         {
-            Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+            DisposeRenewalTimer();
             return false;
         }
         return true;
@@ -260,14 +260,14 @@ internal sealed class AiRequestRecoveryLease : IDisposable
                 if (Interlocked.CompareExchange(ref _state, DispatchedState, DispatchingState)
                     != DispatchingState)
                 {
-                    Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+                    DisposeRenewalTimer();
                     return false;
                 }
             }
             else
             {
                 Volatile.Write(ref _state, ReleasedState);
-                Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+                DisposeRenewalTimer();
             }
             return reacquired;
         }
@@ -276,7 +276,7 @@ internal sealed class AiRequestRecoveryLease : IDisposable
             // A failed lock/read/write must not strand the lease in the
             // transitional state. Dispose must remain terminating.
             Volatile.Write(ref _state, ReleasedState);
-            Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+            DisposeRenewalTimer();
             throw;
         }
     }
@@ -300,6 +300,9 @@ internal sealed class AiRequestRecoveryLease : IDisposable
         }
         timer.Change(RenewalCadence, RenewalCadence);
     }
+
+    private void DisposeRenewalTimer()
+        => Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
 
     private void RenewTick()
     {
@@ -337,8 +340,7 @@ internal sealed class AiRequestRecoveryLease : IDisposable
                 break;
         }
 
-        Timer? timer = Interlocked.Exchange(ref _renewalTimer, null);
-        timer?.Dispose();
+        DisposeRenewalTimer();
         _store.ReleaseClaim(this, force: false);
     }
 }
@@ -361,6 +363,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
     private const string SourceDirectoryName = "ai-request-recovery-sources";
     private const int MaximumGenerationEntries = 1_024;
     private const int MaximumClaims = 256;
+    private const int MaximumSidecarBytes = 256 * 1024;
     private static readonly TimeSpan ClaimLifetime = TimeSpan.FromMinutes(15);
 
     private readonly object _gate = new();
@@ -412,10 +415,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
-            return LoadGenerations().FirstOrDefault(entry =>
-                entry.AccountId == accountId
-                && entry.Operation == operation
-                && entry.Fingerprint == fingerprint)?.Generation ?? 0;
+            return GetGenerationCore(accountId, operation, fingerprint);
         }
     }
 
@@ -454,9 +454,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         {
             ValidateIdentity(accountId, operation, fingerprint);
             using FileStream lease = AcquireLock();
-            return Load().FirstOrDefault(x => x.AccountId == accountId
-                && x.Operation == operation
-                && x.Fingerprint == fingerprint);
+            return Load().FirstOrDefault(x => HasIdentity(x, accountId, operation, fingerprint));
         }
     }
 
@@ -473,9 +471,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             ValidateIdentity(accountId, operation, fingerprint);
             using FileStream lease = AcquireLock();
             List<AiPendingAttempt> records = Load();
-            int index = records.FindIndex(attempt => attempt.AccountId == accountId
-                && attempt.Operation == operation
-                && attempt.Fingerprint == fingerprint
+            int index = records.FindIndex(attempt => HasIdentity(attempt, accountId, operation, fingerprint)
                 && attempt.Key == key);
             if (index < 0)
                 return false;
@@ -495,9 +491,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         {
             using FileStream lease = AcquireLock();
             return Load()
-                .Where(record => record.AccountId == accountId
-                    && (record.Operation == operation
-                        || record.Operation.StartsWith(operation + ".", StringComparison.Ordinal)))
+                .Where(record => IsInOperationScope(record, accountId, operation))
                 .ToArray();
         }
     }
@@ -514,9 +508,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             ValidateRecord(attempt);
             using FileStream lease = AcquireLock();
             List<AiPendingAttempt> records = Load();
-            int existingIndex = records.FindIndex(x => x.AccountId == attempt.AccountId
-                && x.Operation == attempt.Operation
-                && x.Fingerprint == attempt.Fingerprint);
+            int existingIndex = records.FindIndex(x =>
+                HasIdentity(x, attempt.AccountId, attempt.Operation, attempt.Fingerprint));
             if (existingIndex >= 0)
             {
                 AiPendingAttempt existing = records[existingIndex];
@@ -554,15 +547,12 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         string key)
     {
         ValidateIdentity(accountId, operation, fingerprint);
-        if (!IsPrintable(key, 255))
-            throw new InvalidDataException("AI request recovery key is invalid.");
+        ValidateKey(key);
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
             AiPendingAttempt? current = Load().FirstOrDefault(attempt =>
-                attempt.AccountId == accountId
-                && attempt.Operation == operation
-                && attempt.Fingerprint == fingerprint);
+                HasIdentity(attempt, accountId, operation, fingerprint));
             if (current is null || !StringComparer.Ordinal.Equals(current.Key, key))
                 throw new InvalidDataException("AI request recovery attempt is stale.");
 
@@ -573,15 +563,11 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             // renewal only; it cannot make the request abandonable or reusable.
             claims.RemoveAll(claim => !claim.Dispatched && claim.ExpiresAt <= now);
             int removedStale = claims.RemoveAll(claim =>
-                claim.AccountId == accountId
-                && claim.Operation == operation
-                && claim.Fingerprint == fingerprint
+                HasIdentity(claim, accountId, operation, fingerprint)
                 && (claim.Generation != generation
                     || !StringComparer.Ordinal.Equals(claim.Key, key)));
             AiRequestRecoveryClaim? existingClaim = claims.FirstOrDefault(claim =>
-                claim.AccountId == accountId
-                && claim.Operation == operation
-                && claim.Fingerprint == fingerprint);
+                HasIdentity(claim, accountId, operation, fingerprint));
             if (existingClaim is not null
                 && existingClaim.Dispatched
                 && existingClaim.ExpiresAt <= now)
@@ -730,13 +716,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 using FileStream lease = AcquireLock();
                 List<AiRequestRecoveryClaim> claims = LoadClaims();
                 int removed = force || !claim.WasDispatched
-                    ? claims.RemoveAll(item =>
-                    item.AccountId == claim.AccountId
-                    && item.Operation == claim.Operation
-                    && item.Fingerprint == claim.Fingerprint
-                    && item.Generation == claim.Generation
-                    && StringComparer.Ordinal.Equals(item.Key, claim.Key)
-                    && StringComparer.Ordinal.Equals(item.OwnerToken, claim.OwnerToken))
+                    ? claims.RemoveAll(item => MatchesClaim(item, claim))
                     : 0;
                 if (removed > 0)
                     SaveClaims(claims);
@@ -803,18 +783,14 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             using FileStream lease = AcquireLock();
             List<AiPendingAttempt> records = Load();
             AiPendingAttempt? existing = records.FirstOrDefault(record =>
-                record.AccountId == attempt.AccountId
-                && record.Operation == attempt.Operation
-                && record.Fingerprint == attempt.Fingerprint);
+                HasIdentity(record, attempt.AccountId, attempt.Operation, attempt.Fingerprint));
             if (existing is null)
                 return false;
             if (!StringComparer.Ordinal.Equals(existing.Key, attempt.Key))
                 return false;
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             DateTimeOffset now = _utcNow();
-            if (claims.Any(claim => claim.AccountId == attempt.AccountId
-                && claim.Operation == attempt.Operation
-                && claim.Fingerprint == attempt.Fingerprint
+            if (claims.Any(claim => HasIdentity(claim, attempt.AccountId, attempt.Operation, attempt.Fingerprint)
                 && claim.Key == attempt.Key
                 && (claim.Dispatched || claim.ExpiresAt > now)))
             {
@@ -832,14 +808,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             Save(records);
             DeleteDurableSources([existing], records);
             InvalidateClaimsCore(existing.AccountId, existing.Operation, existing.Fingerprint);
-            if (existing.EffectiveSources.Count != 0)
-            {
-                foreach (AiRequestRecoverySource source in existing.EffectiveSources)
-                {
-                    if (source.DurableFile is { } durable)
-                        _newSourceFiles.Remove(durable);
-                }
-            }
+            ForgetNewSourceFiles(existing);
             return true;
         }
     }
@@ -857,23 +826,18 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         lock (_gate)
         {
             ValidateIdentity(accountId, operation, fingerprint);
-            if (!IsPrintable(key, 255))
-                throw new InvalidDataException("AI request recovery key is invalid.");
+            ValidateKey(key);
             using FileStream lease = AcquireLock();
             List<AiPendingAttempt> records = Load();
             AiPendingAttempt? existing = records.FirstOrDefault(record =>
-                record.AccountId == accountId
-                && record.Operation == operation
-                && record.Fingerprint == fingerprint);
+                HasIdentity(record, accountId, operation, fingerprint));
             if (existing is null || !StringComparer.Ordinal.Equals(existing.Key, key))
                 return false;
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             DateTimeOffset now = _utcNow();
             claims.RemoveAll(claim => !claim.Dispatched && claim.ExpiresAt <= now);
             AiRequestRecoveryClaim? matchingDispatched = claims.FirstOrDefault(claim =>
-                claim.AccountId == accountId
-                && claim.Operation == operation
-                && claim.Fingerprint == fingerprint
+                HasIdentity(claim, accountId, operation, fingerprint)
                 && claim.Key == key
                 && claim.Dispatched);
             if (requireDispatchedOwner && matchingDispatched is null)
@@ -889,9 +853,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 // response. Process loss and lease expiry are not terminality.
                 return false;
             }
-            if (claims.Any(claim => claim.AccountId == accountId
-                && claim.Operation == operation
-                && claim.Fingerprint == fingerprint
+            if (claims.Any(claim => HasIdentity(claim, accountId, operation, fingerprint)
                 && claim.Key == key
                 && (ownerToken is null
                     || !StringComparer.Ordinal.Equals(claim.OwnerToken, ownerToken)
@@ -915,9 +877,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
 
     private int GetGenerationCore(string accountId, string operation, string fingerprint)
         => LoadGenerations().FirstOrDefault(entry =>
-            entry.AccountId == accountId
-            && entry.Operation == operation
-            && entry.Fingerprint == fingerprint)?.Generation ?? 0;
+            HasIdentity(entry, accountId, operation, fingerprint))?.Generation ?? 0;
 
     internal bool SettleMany(
         string accountId,
@@ -931,27 +891,21 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         foreach (AiPendingAttempt identity in requested)
         {
             ValidateIdentity(identity.AccountId, identity.Operation, identity.Fingerprint);
-            if (!IsPrintable(identity.Key, 255))
-                throw new InvalidDataException("AI request recovery key is invalid.");
+            ValidateKey(identity.Key);
         }
 
         lock (_gate)
         {
             using FileStream lease = AcquireLock();
             List<AiPendingAttempt> records = Load();
-            AiPendingAttempt[] scoped = records.Where(record =>
-                record.AccountId == accountId
-                && (record.Operation == operation
-                    || record.Operation.StartsWith(operation + ".", StringComparison.Ordinal)))
+            AiPendingAttempt[] scoped = records.Where(record => IsInOperationScope(record, accountId, operation))
                 .ToArray();
             // Whole-run retirement is one CAS over the complete operation
             // scope. A row that was replaced, or one this process never
             // materialized, keeps every row and generation unchanged.
             if (scoped.Length != requested.Length
                 || scoped.Any(record => !requested.Any(identity =>
-                    identity.AccountId == record.AccountId
-                    && identity.Operation == record.Operation
-                    && identity.Fingerprint == record.Fingerprint
+                    HasIdentity(identity, record.AccountId, record.Operation, record.Fingerprint)
                     && identity.Key == record.Key)))
             {
                 return false;
@@ -962,9 +916,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
 
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             if (removed.Any(attempt => claims.Any(claim =>
-                claim.AccountId == attempt.AccountId
-                && claim.Operation == attempt.Operation
-                && claim.Fingerprint == attempt.Fingerprint
+                HasIdentity(claim, attempt.AccountId, attempt.Operation, attempt.Fingerprint)
                 && claim.Key == attempt.Key
                 && claim.Dispatched)))
             {
@@ -979,21 +931,13 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 AdvanceGenerationCore(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
 
             records.RemoveAll(record => requested.Any(identity =>
-                identity.AccountId == record.AccountId
-                && identity.Operation == record.Operation
-                && identity.Fingerprint == record.Fingerprint
+                HasIdentity(identity, record.AccountId, record.Operation, record.Fingerprint)
                 && identity.Key == record.Key));
             Save(records);
             foreach (AiPendingAttempt attempt in removed)
                 InvalidateClaimsCore(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
             foreach (AiPendingAttempt attempt in removed)
-            {
-                foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
-                {
-                    if (source.DurableFile is { } durable)
-                        _newSourceFiles.Remove(durable);
-                }
-            }
+                ForgetNewSourceFiles(attempt);
             DeleteDurableSources(removed, records);
             return true;
         }
@@ -1137,21 +1081,38 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         IEnumerable<AiRequestRecoverySource> requested,
         IReadOnlyList<AiPendingAttempt> records)
     {
-        HashSet<string> retained = records
-            .SelectMany(record => record.EffectiveSources)
-            .Where(source => source.DurableFile is not null)
-            .Select(source => source.DurableFile!)
-            .ToHashSet(StringComparer.Ordinal);
+        HashSet<string> retained = ReferencedDurableFiles(records);
         foreach (AiRequestRecoverySource source in requested)
         {
             if (source.DurableFile is { } durable && !retained.Contains(durable))
             {
-                TryDelete(Path.Combine(_sourceDirectory, durable));
-                if (_pendingPublicationMarkers.Remove(durable, out FileStream? marker))
-                    marker.Dispose();
-                TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
+                DeleteDurableSourceFiles(durable);
                 _newSourceFiles.Remove(durable);
             }
+        }
+    }
+
+    private static HashSet<string> ReferencedDurableFiles(IEnumerable<AiPendingAttempt> attempts)
+        => attempts
+            .SelectMany(attempt => attempt.EffectiveSources)
+            .Where(source => source.DurableFile is not null)
+            .Select(source => source.DurableFile!)
+            .ToHashSet(StringComparer.Ordinal);
+
+    private void DeleteDurableSourceFiles(string durable)
+    {
+        TryDelete(Path.Combine(_sourceDirectory, durable));
+        if (_pendingPublicationMarkers.Remove(durable, out FileStream? marker))
+            marker.Dispose();
+        TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
+    }
+
+    private void ForgetNewSourceFiles(AiPendingAttempt attempt)
+    {
+        foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
+        {
+            if (source.DurableFile is { } durable)
+                _newSourceFiles.Remove(durable);
         }
     }
 
@@ -1174,11 +1135,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         try
         {
             using FileStream lease = AcquireLock();
-            HashSet<string> retained = Load()
-                .SelectMany(record => record.EffectiveSources)
-                .Where(source => source.DurableFile is not null)
-                .Select(source => source.DurableFile!)
-                .ToHashSet(StringComparer.Ordinal);
+            HashSet<string> retained = ReferencedDurableFiles(Load());
             DateTime now = _utcNow().UtcDateTime;
             foreach (string path in Directory.EnumerateFiles(_sourceDirectory))
             {
@@ -1400,7 +1357,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             {
                 AiPendingAttempt attempt = ParseAttempt(item);
                 ValidateRecord(attempt);
-                string identity = $"{attempt.AccountId}\n{attempt.Operation}\n{attempt.Fingerprint}";
+                string identity = IdentityKey(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
                 if (!identities.Add(identity))
                     throw new InvalidDataException("Duplicate AI recovery record.");
                 result.Add(attempt);
@@ -1504,26 +1461,13 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         if (bytes.Length is <= 0 or > MaximumBytes)
             throw new InvalidDataException("AI request recovery store exceeds its size limit.");
 
-        string temporary = _path + $".{Guid.NewGuid():N}.tmp";
-        try
-        {
-            WritePrivateBytes(temporary, bytes);
-            AtomicReplace(temporary, _path, overwrite: true);
-            RestrictFile(_path);
-            EnsureDirectorySynced(Path.GetDirectoryName(_path)!);
-        }
-        finally
-        {
-            TryDelete(temporary);
-        }
+        PublishDocument(_path, bytes);
     }
 
     private int AdvanceGenerationCore(string accountId, string operation, string fingerprint)
     {
         List<AiGenerationEntry> entries = LoadGenerations();
-        int index = entries.FindIndex(entry => entry.AccountId == accountId
-            && entry.Operation == operation
-            && entry.Fingerprint == fingerprint);
+        int index = entries.FindIndex(entry => HasIdentity(entry, accountId, operation, fingerprint));
         int next = index >= 0 ? checked(entries[index].Generation + 1) : 1;
         if (index >= 0)
             entries[index] = entries[index] with { Generation = next };
@@ -1535,12 +1479,12 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 // no live pending row or claim; active identities keep their
                 // fence and can never be reused while a stale response exists.
                 HashSet<string> active = Load()
-                    .Select(attempt => $"{attempt.AccountId}\n{attempt.Operation}\n{attempt.Fingerprint}")
+                    .Select(attempt => IdentityKey(attempt.AccountId, attempt.Operation, attempt.Fingerprint))
                     .Concat(LoadClaims().Select(claim =>
-                        $"{claim.AccountId}\n{claim.Operation}\n{claim.Fingerprint}"))
+                        IdentityKey(claim.AccountId, claim.Operation, claim.Fingerprint)))
                     .ToHashSet(StringComparer.Ordinal);
                 entries.RemoveAll(entry => !active.Contains(
-                    $"{entry.AccountId}\n{entry.Operation}\n{entry.Fingerprint}"));
+                    IdentityKey(entry.AccountId, entry.Operation, entry.Fingerprint)));
                 if (entries.Count >= MaximumGenerationEntries)
                 {
                     // This can only happen when every slot is active. Keep the
@@ -1560,9 +1504,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
     private void InvalidateClaimsCore(string accountId, string operation, string fingerprint)
     {
         List<AiRequestRecoveryClaim> claims = LoadClaims();
-        if (claims.RemoveAll(claim => claim.AccountId == accountId
-            && claim.Operation == operation
-            && claim.Fingerprint == fingerprint) > 0)
+        if (claims.RemoveAll(claim => HasIdentity(claim, accountId, operation, fingerprint)) > 0)
         {
             SaveClaims(claims);
         }
@@ -1575,7 +1517,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         try
         {
             FileInfo info = new(_generationPath);
-            if (info.Length is <= 0 or > 256 * 1024)
+            if (info.Length is <= 0 or > MaximumSidecarBytes)
                 throw new InvalidDataException("AI request generation store has invalid size.");
             using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(_generationPath));
             JsonElement root = document.RootElement;
@@ -1619,7 +1561,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
 
                 ValidateIdentity(account, operation, fingerprint);
                 var entry = new AiGenerationEntry(account, operation, fingerprint, number.GetInt32());
-                string identity = $"{account}\n{operation}\n{fingerprint}";
+                string identity = IdentityKey(account, operation, fingerprint);
                 if (!identities.Add(identity))
                     throw new InvalidDataException("Duplicate AI request generation entry.");
                 result.Add(entry);
@@ -1645,20 +1587,9 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(
             new GenerationDocument(Version, entries),
             SerializerOptions);
-        if (bytes.Length is <= 0 or > 256 * 1024)
+        if (bytes.Length is <= 0 or > MaximumSidecarBytes)
             throw new InvalidDataException("AI request generation store exceeds its size limit.");
-        string temporary = _generationPath + $".{Guid.NewGuid():N}.tmp";
-        try
-        {
-            WritePrivateBytes(temporary, bytes);
-            AtomicReplace(temporary, _generationPath, overwrite: true);
-            RestrictFile(_generationPath);
-            EnsureDirectorySynced(Path.GetDirectoryName(_generationPath)!);
-        }
-        finally
-        {
-            TryDelete(temporary);
-        }
+        PublishDocument(_generationPath, bytes);
     }
 
     private List<AiRequestRecoveryClaim> LoadClaims()
@@ -1668,7 +1599,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         try
         {
             FileInfo info = new(_claimPath);
-            if (info.Length is <= 0 or > 256 * 1024)
+            if (info.Length is <= 0 or > MaximumSidecarBytes)
                 throw new InvalidDataException("AI recovery claims have invalid size.");
             using JsonDocument document = JsonDocument.Parse(File.ReadAllBytes(_claimPath));
             JsonElement root = document.RootElement;
@@ -1717,20 +1648,9 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(
             new ClaimDocument(Version, claims),
             SerializerOptions);
-        if (bytes.Length is <= 0 or > 256 * 1024)
+        if (bytes.Length is <= 0 or > MaximumSidecarBytes)
             throw new InvalidDataException("AI recovery claims exceed their size limit.");
-        string temporary = _claimPath + $".{Guid.NewGuid():N}.tmp";
-        try
-        {
-            WritePrivateBytes(temporary, bytes);
-            AtomicReplace(temporary, _claimPath, overwrite: true);
-            RestrictFile(_claimPath);
-            EnsureDirectorySynced(Path.GetDirectoryName(_claimPath)!);
-        }
-        finally
-        {
-            TryDelete(temporary);
-        }
+        PublishDocument(_claimPath, bytes);
     }
 
     private FileStream AcquireLock()
@@ -1760,22 +1680,13 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         IEnumerable<AiPendingAttempt> removed,
         IEnumerable<AiPendingAttempt> remaining)
     {
-        HashSet<string> retained = remaining
-            .SelectMany(attempt => attempt.EffectiveSources)
-            .Where(source => source.DurableFile is not null)
-            .Select(source => source.DurableFile!)
-            .ToHashSet(StringComparer.Ordinal);
+        HashSet<string> retained = ReferencedDurableFiles(remaining);
         foreach (AiPendingAttempt attempt in removed)
         {
             foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
             {
                 if (source.DurableFile is { } durable && !retained.Contains(durable))
-                {
-                    TryDelete(Path.Combine(_sourceDirectory, durable));
-                    if (_pendingPublicationMarkers.Remove(durable, out FileStream? marker))
-                        marker.Dispose();
-                    TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
-                }
+                    DeleteDurableSourceFiles(durable);
             }
         }
     }
@@ -1898,11 +1809,39 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         ValidateText(fingerprint, 128, nameof(fingerprint));
     }
 
+    private static void ValidateKey(string key)
+    {
+        if (!IsPrintable(key, 255))
+            throw new InvalidDataException("AI request recovery key is invalid.");
+    }
+
+    private static string IdentityKey(string accountId, string operation, string fingerprint)
+        => $"{accountId}\n{operation}\n{fingerprint}";
+
+    private static bool HasIdentity(AiPendingAttempt item, string accountId, string operation, string fingerprint)
+        => item.AccountId == accountId
+            && item.Operation == operation
+            && item.Fingerprint == fingerprint;
+
+    private static bool HasIdentity(AiRequestRecoveryClaim item, string accountId, string operation, string fingerprint)
+        => item.AccountId == accountId
+            && item.Operation == operation
+            && item.Fingerprint == fingerprint;
+
+    private static bool HasIdentity(AiGenerationEntry item, string accountId, string operation, string fingerprint)
+        => item.AccountId == accountId
+            && item.Operation == operation
+            && item.Fingerprint == fingerprint;
+
+    private static bool IsInOperationScope(AiPendingAttempt record, string accountId, string operation)
+        => record.AccountId == accountId
+            && (record.Operation == operation
+                || record.Operation.StartsWith(operation + ".", StringComparison.Ordinal));
+
     private static void ValidateRecord(AiPendingAttempt attempt)
     {
         ValidateIdentity(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
-        if (!IsPrintable(attempt.Key, 255))
-            throw new InvalidDataException("AI request recovery key is invalid.");
+        ValidateKey(attempt.Key);
         if (attempt.Model is not null && !IsPrintable(attempt.Model, 256))
             throw new InvalidDataException("AI request recovery model is invalid.");
 
@@ -2019,6 +1958,22 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         => value.Length > 0
             && value.Length <= maxLength
             && value.All(character => character is >= '\x20' and <= '\x7e');
+
+    private static void PublishDocument(string path, byte[] bytes)
+    {
+        string temporary = path + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            WritePrivateBytes(temporary, bytes);
+            AtomicReplace(temporary, path, overwrite: true);
+            RestrictFile(path);
+            EnsureDirectorySynced(Path.GetDirectoryName(path)!);
+        }
+        finally
+        {
+            TryDelete(temporary);
+        }
+    }
 
     private static void WritePrivateBytes(string path, ReadOnlySpan<byte> bytes)
     {
@@ -2166,9 +2121,7 @@ internal sealed class AiRequestRecoveryContext : IDisposable
     {
         AiAuthenticatedRequestIdentity identity = _identityProvider()
             ?? throw new AuthenticationRequiredException();
-        if (string.IsNullOrWhiteSpace(identity.AccountId)
-            || identity.User is { } user
-                && !StringComparer.Ordinal.Equals(user.Profile.Id, identity.AccountId))
+        if (IsInconsistent(identity))
         {
             throw new AuthenticationRequiredException();
         }
@@ -2179,10 +2132,7 @@ internal sealed class AiRequestRecoveryContext : IDisposable
     public AiAuthenticatedRequestIdentity? TryGetIdentity()
     {
         AiAuthenticatedRequestIdentity? current = _identityProvider();
-        if (current is { } identity
-            && (string.IsNullOrWhiteSpace(identity.AccountId)
-                || identity.User is { } user
-                    && !StringComparer.Ordinal.Equals(user.Profile.Id, identity.AccountId)))
+        if (current is { } identity && IsInconsistent(identity))
         {
             current = null;
         }
@@ -2214,6 +2164,11 @@ internal sealed class AiRequestRecoveryContext : IDisposable
     }
 
     public void RefreshIdentity() => _ = TryGetIdentity();
+
+    private static bool IsInconsistent(AiAuthenticatedRequestIdentity identity)
+        => string.IsNullOrWhiteSpace(identity.AccountId)
+            || identity.User is { } user
+                && !StringComparer.Ordinal.Equals(user.Profile.Id, identity.AccountId);
 
     public IReadOnlyList<AiPendingAttempt> PendingFor(string operation)
         => TryGetIdentity() is { } identity

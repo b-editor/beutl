@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -75,17 +76,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
             if (_stopTask is null)
             {
-                drained = HasNoActiveWork_NoLock()
-                    ? Task.CompletedTask
-                    : (_drained ??= new TaskCompletionSource(
-                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-                _stopCompletion = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                _stopDrainCompletion = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                _stopTask = _stopCompletion.Task;
-                _stopDrainTask = _stopDrainCompletion.Task;
-                _stopCancellationTask = CreateCancellationTask(cancellation);
+                drained = BeginStop_NoLock(cancellation);
                 startCompletion = true;
             }
 
@@ -115,6 +106,25 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         }
 
         return stopTask;
+    }
+
+    // Creates the single stop state shared by StopAsync and DisposeAsync. The caller starts
+    // its completion outside the gate; the returned task completes when no work is active.
+    [MemberNotNull(nameof(_stopTask))]
+    private Task BeginStop_NoLock(CancellationTokenSource? cancellation)
+    {
+        Task drained = HasNoActiveWork_NoLock()
+            ? Task.CompletedTask
+            : (_drained ??= new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+        _stopCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _stopDrainCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _stopTask = _stopCompletion.Task;
+        _stopDrainTask = _stopDrainCompletion.Task;
+        _stopCancellationTask = CreateCancellationTask(cancellation);
+        return drained;
     }
 
     private void CancelStop(CancellationTokenSource cancellation)
@@ -197,11 +207,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     {
         if (remaining <= TimeSpan.Zero)
         {
-            s_logger.LogWarning(
-                "Asynchronous operation shutdown exceeded {Deadline}; draining will continue.",
-                _shutdownDeadline);
-            completion.TrySetResult();
-            _ = ObserveDeferredStopAsync(drain);
+            AbandonStopDeadline(completion, drain);
             return;
         }
 
@@ -215,16 +221,22 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         }
         catch (TimeoutException)
         {
-            s_logger.LogWarning(
-                "Asynchronous operation shutdown exceeded {Deadline}; draining will continue.",
-                _shutdownDeadline);
-            completion.TrySetResult();
-            _ = ObserveDeferredStopAsync(drain);
+            AbandonStopDeadline(completion, drain);
         }
         catch (Exception ex)
         {
             completion.TrySetException(ex);
         }
+    }
+
+    // A stop past its deadline reports success; draining continues and a later failure is observed.
+    private void AbandonStopDeadline(TaskCompletionSource completion, Task drain)
+    {
+        s_logger.LogWarning(
+            "Asynchronous operation shutdown exceeded {Deadline}; draining will continue.",
+            _shutdownDeadline);
+        completion.TrySetResult();
+        _ = ObserveDeferredStopAsync(drain);
     }
 
     private async Task ObserveDeferredStopAsync(Task drain)
@@ -270,17 +282,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
                 }
                 if (_stopTask is null)
                 {
-                    drained = HasNoActiveWork_NoLock()
-                        ? Task.CompletedTask
-                        : (_drained ??= new TaskCompletionSource(
-                            TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-                    _stopCompletion = new TaskCompletionSource(
-                        TaskCreationOptions.RunContinuationsAsynchronously);
-                    _stopDrainCompletion = new TaskCompletionSource(
-                        TaskCreationOptions.RunContinuationsAsynchronously);
-                    _stopTask = _stopCompletion.Task;
-                    _stopDrainTask = _stopDrainCompletion.Task;
-                    _stopCancellationTask = CreateCancellationTask(_cancellation);
+                    drained = BeginStop_NoLock(_cancellation);
                     startStopCompletion = true;
                 }
             }

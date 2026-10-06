@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
@@ -17,35 +16,12 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 {
     private readonly ILogger _logger = Log.CreateLogger<NotificationServiceHandler>();
 
-    private static MainView? GetMainView()
-    {
-        IApplicationLifetime? lifetime = Application.Current?.ApplicationLifetime;
-
-        if (lifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime)
-        {
-            if (desktopLifetime.MainWindow is MainWindow window)
-            {
-                return window.mainView;
-            }
-            else if (desktopLifetime.MainWindow is MacWindow mwindow)
-            {
-                return mwindow.mainView;
-            }
-        }
-        else if (lifetime is ISingleViewApplicationLifetime singleViewLifetime)
-        {
-            return singleViewLifetime.MainView as MainView;
-        }
-
-        return null;
-    }
-
     private static void Close(FAInfoBar infoBar)
     {
         // ShowCoreAsync 側の Expiration 待機が後から `if (!infoBar.IsOpen) return;` を
         // 通過して HiddenNotificationPanel に積み直さないように、ここで明示的に閉じる
         infoBar.IsOpen = false;
-        if (GetMainView() is MainView mainView)
+        if (MainViewLocator.Find() is MainView mainView)
         {
             mainView.NotificationPanel.Children.Remove(infoBar);
             mainView.HiddenNotificationPanel.Children.Remove(infoBar);
@@ -73,7 +49,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             {
                 try
                 {
-                    if (GetMainView() is not MainView mainView)
+                    if (MainViewLocator.Find() is not MainView mainView)
                     {
                         showFailed();
                         return;
@@ -98,7 +74,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     // FluentAvalonia の FAInfoBar クローズアニメーション完了待ち (≈167ms)
                     await Task.Delay(167);
 
-                    if (GetMainView() is MainView mv)
+                    if (MainViewLocator.Find() is MainView mv)
                     {
                         mv.NotificationPanel.Children.Remove(infoBar);
                         mv.HiddenNotificationPanel.Children.Add(infoBar);

@@ -205,23 +205,56 @@ public static class PropertyEditorService
                     }
                 }
 
-                if (s_editors.ContainsKey(item.PropertyType))
+                if (HasEditorFor(item.PropertyType))
                 {
                     yield return item;
                     yield break;
                 }
-                else
+            }
+        }
+
+        private static bool HasEditorFor(Type type)
+        {
+            if (s_editors.ContainsKey(type))
+            {
+                return true;
+            }
+
+            foreach (KeyValuePair<Type, Editor> pair in s_editors)
+            {
+                if (type.IsAssignableTo(pair.Key))
                 {
-                    foreach (KeyValuePair<Type, Editor> pair in s_editors)
-                    {
-                        if (item.PropertyType.IsAssignableTo(pair.Key))
-                        {
-                            yield return item;
-                            yield break;
-                        }
-                    }
+                    return true;
                 }
             }
+
+            return false;
+        }
+
+        // The exact type first, then every entry the type is assignable to, in the map's order. A
+        // factory that declines is passed over, so the exact entry is asked again by the scan.
+        private static TResult? CreateFromTypeMap<TEntry, TResult>(
+            IReadOnlyDictionary<Type, TEntry> map,
+            IPropertyAdapter property,
+            Func<TEntry, IPropertyAdapter, TResult?> create)
+            where TResult : class
+        {
+            if (map.TryGetValue(property.PropertyType, out TEntry? exact)
+                && create(exact, property) is { } created)
+            {
+                return created;
+            }
+
+            foreach (KeyValuePair<Type, TEntry> item in map)
+            {
+                if (property.PropertyType.IsAssignableTo(item.Key)
+                    && create(item.Value, property) is { } assignable)
+                {
+                    return assignable;
+                }
+            }
+
+            return null;
         }
 
         public bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
@@ -236,43 +269,25 @@ public static class PropertyEditorService
 
         public bool TryCreateContextForListItem(PropertyEditorExtension extension, IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
-            BaseEditorViewModel? viewModel = null;
-            bool result = false;
-
-            if (s_listItemEditorsOverride.TryGetValue(property.PropertyType, out ListItemEditor editor))
+            BaseEditorViewModel? viewModel = CreateFromTypeMap(
+                s_listItemEditorsOverride,
+                property,
+                static (editor, p) => editor.CreateViewModel(p));
+            if (viewModel != null)
             {
-                viewModel = editor.CreateViewModel(property);
-                if (viewModel != null)
-                {
-                    viewModel.Extension = extension;
-                    result = true;
-                    goto Return;
-                }
+                viewModel.Extension = extension;
+                context = viewModel;
+                return true;
             }
 
-            foreach (KeyValuePair<Type, ListItemEditor> item in s_listItemEditorsOverride)
-            {
-                if (property.PropertyType.IsAssignableTo(item.Key))
-                {
-                    viewModel = item.Value.CreateViewModel(property);
-                    if (viewModel != null)
-                    {
-                        viewModel.Extension = extension;
-                        result = true;
-                        goto Return;
-                    }
-                }
-            }
-
-            if (!result && TryCreateContextCore(extension, [property], out IPropertyEditorContext? tmp1))
+            if (TryCreateContextCore(extension, [property], out IPropertyEditorContext? tmp1))
             {
                 context = tmp1;
                 return true;
             }
 
-        Return:
-            context = viewModel;
-            return result;
+            context = null;
+            return false;
         }
 
         public bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
@@ -283,7 +298,6 @@ public static class PropertyEditorService
         private static bool TryCreateContextCore(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             BaseEditorViewModel? viewModel = null;
-            bool result = false;
 
             if (properties.Count > 0 && properties[0] is { } property)
             {
@@ -291,56 +305,27 @@ public static class PropertyEditorService
                 if (attrs.OfType<ChoicesProviderAttribute>().FirstOrDefault() is { } choiceAtt)
                 {
                     viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
-                    if (viewModel != null)
-                    {
-                        viewModel.Extension = extension;
-                        result = true;
-                        goto Return;
-                    }
-                }
-                if (property.GetCoreProperty() is { Id: var propId })
-                {
-                    if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
-                    {
-                        viewModel = editorOverrided.CreateViewModel(property);
-                        if (viewModel != null)
-                        {
-                            viewModel.Extension = extension;
-                            result = true;
-                            goto Return;
-                        }
-                    }
                 }
 
-                if (s_editors.TryGetValue(property.PropertyType, out Editor editor))
+                if (viewModel == null
+                    && property.GetCoreProperty() is { Id: var propId }
+                    && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
                 {
-                    viewModel = editor.CreateViewModel(property);
-                    if (viewModel != null)
-                    {
-                        viewModel.Extension = extension;
-                        result = true;
-                        goto Return;
-                    }
+                    viewModel = editorOverrided.CreateViewModel(property);
                 }
 
-                foreach (KeyValuePair<Type, Editor> item in s_editors)
-                {
-                    if (property.PropertyType.IsAssignableTo(item.Key))
-                    {
-                        viewModel = item.Value.CreateViewModel(property);
-                        if (viewModel != null)
-                        {
-                            viewModel.Extension = extension;
-                            result = true;
-                            goto Return;
-                        }
-                    }
-                }
+                viewModel ??= CreateFromTypeMap(s_editors, property, static (editor, p) => editor.CreateViewModel(p));
             }
 
-        Return:
-            context = viewModel;
-            return result;
+            if (viewModel != null)
+            {
+                viewModel.Extension = extension;
+                context = viewModel;
+                return true;
+            }
+
+            context = null;
+            return false;
         }
 
         public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
@@ -381,25 +366,13 @@ public static class PropertyEditorService
             {
                 if (context is BaseEditorViewModel { PropertyAdapter: { } property })
                 {
-                    if (s_listItemEditorsOverride.TryGetValue(property.PropertyType, out ListItemEditor editor))
+                    control = CreateFromTypeMap(
+                        s_listItemEditorsOverride,
+                        property,
+                        static (editor, p) => editor.CreateEditor(p));
+                    if (control != null)
                     {
-                        control = editor.CreateEditor(property);
-                        if (control != null)
-                        {
-                            return true;
-                        }
-                    }
-
-                    foreach (KeyValuePair<Type, ListItemEditor> item in s_listItemEditorsOverride)
-                    {
-                        if (property.PropertyType.IsAssignableTo(item.Key))
-                        {
-                            control = item.Value.CreateEditor(property);
-                            if (control != null)
-                            {
-                                return true;
-                            }
-                        }
+                        return true;
                     }
                 }
 
@@ -492,25 +465,10 @@ public static class PropertyEditorService
                         }
                     }
 
-                    if (s_editors.TryGetValue(property.PropertyType, out Editor editor))
+                    control = CreateFromTypeMap(s_editors, property, static (editor, p) => editor.CreateEditor(p));
+                    if (control != null)
                     {
-                        control = editor.CreateEditor(property);
-                        if (control != null)
-                        {
-                            return true;
-                        }
-                    }
-
-                    foreach (KeyValuePair<Type, Editor> item in s_editors)
-                    {
-                        if (property.PropertyType.IsAssignableTo(item.Key))
-                        {
-                            control = item.Value.CreateEditor(property);
-                            if (control != null)
-                            {
-                                return true;
-                            }
-                        }
+                        return true;
                     }
                 }
 
