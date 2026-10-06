@@ -282,6 +282,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Initialize()
     {
+        if (!IsElementEditable) return;
 
         if (List.Value == null)
         {
@@ -309,6 +310,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Delete()
     {
+        if (!IsElementEditable) return;
         if (List.Value != null)
         {
             if (PropertyAdapter.IsReadOnly)
@@ -341,12 +343,14 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void AddItem(TItem? item)
     {
+        if (!IsElementEditable) return;
         List.Value!.Add(item);
         Commit();
     }
 
     public void RemoveItem(int index)
     {
+        if (!IsElementEditable) return;
 
         List.Value!.RemoveAt(index);
         CompleteElementRepair();
@@ -355,6 +359,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void MoveItem(int oldIndex, int newIndex)
     {
+        if (!IsElementEditable) return;
         if (List.Value is ICoreList<TItem> coreList)
         {
             coreList.Move(oldIndex, newIndex);

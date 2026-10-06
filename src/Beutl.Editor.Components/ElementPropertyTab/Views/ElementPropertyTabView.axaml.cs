@@ -56,7 +56,7 @@ public sealed partial class ElementPropertyTabView : UserControl
     {
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item
-            && DataContext is ElementPropertyTabViewModel vm
+            && DataContext is ElementPropertyTabViewModel { CanEdit.Value: true } vm
             && vm.Element.Value is Element element)
         {
             vm.GetRequiredService<IElementObjectService>()
@@ -68,7 +68,8 @@ public sealed partial class ElementPropertyTabView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject))
+        if (DataContext is ElementPropertyTabViewModel { CanEdit.Value: true }
+            && e.DataTransfer.Contains(BeutlDataFormats.EngineObject))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }

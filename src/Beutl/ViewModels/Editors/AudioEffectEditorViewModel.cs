@@ -80,8 +80,13 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is { } effect)
+                if (Value.Value is { } effect && effect.IsEnabled != v)
                 {
+                    if (!IsElementEditable)
+                    {
+                        IsEnabled.Value = effect.IsEnabled;
+                        return;
+                    }
                     effect.IsEnabled = v;
                     Commit();
                 }
@@ -173,6 +178,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public void AddItem(AudioEffect instance)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is AudioEffectGroup group)
         {
             IsExpanded.Value = true;

@@ -61,6 +61,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     public void Remove()
     {
+        if (!_parent.IsElementEditable) return;
         if (_graphModel == null) return;
         // 削除するとDisposeされるので、事前にHistoryManagerを取得しておく
         var historyManager = _parent.GetRequiredService<HistoryManager>();

@@ -92,6 +92,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             {
                 if (Value.Value is { } filter && filter.IsEnabled != v)
                 {
+                    if (!IsElementEditable)
+                    {
+                        IsEnabled.Value = filter.IsEnabled;
+                        return;
+                    }
                     filter.IsEnabled = v;
                     Commit();
                 }
@@ -200,6 +205,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void AddItem(FilterEffect instance)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is FilterEffectGroup group)
         {
             IsExpanded.Value = true;
@@ -225,6 +231,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void AddTarget(Type presenterType, FilterEffect target)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is FilterEffectGroup group
             && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
         {
@@ -242,6 +249,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetTarget(FilterEffect? target)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is IPresenter<FilterEffect> presenter)
         {
 

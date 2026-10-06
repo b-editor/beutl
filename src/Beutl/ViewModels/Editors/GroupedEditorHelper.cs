@@ -14,6 +14,7 @@ internal static class GroupedEditorHelper
         IList<TItem>? groupChildren)
         where TItem : class, ICoreObject
     {
+        if (!vm.IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<TItem>(json, out var pasted)) return false;
 
         isExpanded.Value = true;
@@ -49,6 +50,7 @@ internal static class GroupedEditorHelper
         Action<TItem> changeItem)
         where TItem : class
     {
+        if (!vm.IsElementEditable) return false;
         if (template.CreateInstance() is not TItem instance) return false;
         isExpanded.Value = true;
         if (isGroup)

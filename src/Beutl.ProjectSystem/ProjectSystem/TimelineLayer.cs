@@ -57,7 +57,7 @@ public class TimelineLayer : Hierarchical
     }
 
     // Layer-level lock; the editor treats Element.IsLocked or TimelineLayer.IsLocked
-    // as "this element cannot be dragged/trimmed/split/deleted".
+    // as "this element cannot be edited".
     public bool IsLocked
     {
         get;

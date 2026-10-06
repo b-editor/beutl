@@ -24,6 +24,7 @@ public sealed class ElementObjectService : IElementObjectService
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(obj);
 
+        if (!ElementEditability.IsEditable(element)) return;
         element.AddObject(obj);
         _historyManager.Commit(CommandNames.AddObject);
     }
@@ -33,6 +34,7 @@ public sealed class ElementObjectService : IElementObjectService
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(obj);
 
+        if (!ElementEditability.IsEditable(element)) return;
         int clamped = Math.Clamp(index, 0, element.Objects.Count);
         element.InsertObject(clamped, obj);
         _historyManager.Commit(CommandNames.AddObject);
@@ -42,6 +44,7 @@ public sealed class ElementObjectService : IElementObjectService
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(obj);
+        if (!ElementEditability.IsEditable(element)) return false;
         if (!element.Objects.Contains(obj)) return false;
 
         element.RemoveObject(obj);
@@ -54,6 +57,7 @@ public sealed class ElementObjectService : IElementObjectService
     public bool Move(Element element, int oldIndex, int newIndex)
     {
         ArgumentNullException.ThrowIfNull(element);
+        if (!ElementEditability.IsEditable(element)) return false;
         if (oldIndex == newIndex) return false;
         if (oldIndex < 0 || oldIndex >= element.Objects.Count) return false;
         if (newIndex < 0 || newIndex >= element.Objects.Count) return false;
@@ -67,6 +71,7 @@ public sealed class ElementObjectService : IElementObjectService
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(json);
+        if (!ElementEditability.IsEditable(element)) return ObjectPasteOutcome.NotEditable;
         if (index < 0 || index >= element.Objects.Count) return ObjectPasteOutcome.InvalidJson;
 
         if (ClipboardJson.TryParse(json) is not JsonObject newJson)
@@ -102,6 +107,7 @@ public sealed class ElementObjectService : IElementObjectService
     public bool SetEnabled(EngineObject obj, bool isEnabled)
     {
         ArgumentNullException.ThrowIfNull(obj);
+        if (!ElementEditability.IsEditable(obj.FindHierarchicalParent<Element>())) return false;
         if (obj.IsEnabled == isEnabled) return false;
 
         obj.IsEnabled = isEnabled;

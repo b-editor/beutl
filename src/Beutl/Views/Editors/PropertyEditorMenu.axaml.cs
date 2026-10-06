@@ -61,6 +61,14 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
         {
+            if (!viewModel.CanEditProperty.Value)
+            {
+                // Keep the copy actions available on a locked clip.
+                if (sender is Button readOnlyButton)
+                    readOnlyButton.ContextFlyout?.ShowAt(readOnlyButton);
+                return;
+            }
+
             if (viewModel.HasExpression.Value)
             {
                 EditExpression_Click(sender, e);
@@ -86,7 +94,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
@@ -106,7 +114,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
         {
             viewModel.RemoveAnimation();
         }
@@ -114,7 +122,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.GetService<Element>() is { } element
@@ -132,7 +140,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditExpression_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
         {
             string? currentExpression = viewModel.GetExpressionString();
 
@@ -152,7 +160,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void RemoveExpression_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
         {
             viewModel.RemoveExpression();
         }

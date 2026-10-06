@@ -8,6 +8,7 @@ namespace Beutl.Editor.Services;
 /// Add / Insert / Move / Remove / PasteOver / SetEnabled. Centralizes what was
 /// scattered across the property ViewModels so the index-validation, idempotency,
 /// and paste-failure contracts can be unit-tested in one place.
+/// Mutations on a locked element or layer are ignored and do not commit history.
 /// </summary>
 public interface IElementObjectService
 {
@@ -32,6 +33,7 @@ public interface IElementObjectService
     /// payload does not parse, <see cref="ObjectPasteOutcome.MissingType"/> when the
     /// $type discriminator is absent or does not resolve to an
     /// <see cref="EngineObject"/>. Commits <c>PasteObject</c> only on success.</summary>
+    /// <remarks>Returns <see cref="ObjectPasteOutcome.NotEditable"/> when the element or its layer is locked.</remarks>
     ObjectPasteOutcome PasteOver(Element element, int index, string json);
 
     /// <summary>Idempotent boolean write: skips the commit when
@@ -46,4 +48,5 @@ public enum ObjectPasteOutcome
     MissingType,
     UnexpectedError,
     Pasted,
+    NotEditable,
 }

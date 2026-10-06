@@ -145,6 +145,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             {
                 if (Value.Value is Transform transform && transform.IsEnabled != v)
                 {
+                    if (!IsElementEditable)
+                    {
+                        IsEnabled.Value = transform.IsEnabled;
+                        return;
+                    }
                     transform.IsEnabled = v;
                     Commit();
                 }
@@ -241,6 +246,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void AddItem(Transform instance)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is TransformGroup group)
         {
             IsExpanded.Value = true;
@@ -293,6 +299,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetTarget(Transform? target)
     {
+        if (!IsElementEditable) return;
         if (Value.Value is IPresenter<Transform> presenter)
         {
 

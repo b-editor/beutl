@@ -154,6 +154,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
     public override bool TryPasteJson(string json)
     {
+        if (!IsElementEditable) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
