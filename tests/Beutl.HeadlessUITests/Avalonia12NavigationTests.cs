@@ -40,33 +40,5 @@ public class Avalonia12NavigationTests
 
     private sealed record Context(string Name);
 
-    [AvaloniaTest]
-    public void Frame_helpers_find_and_remove_matching_contexts_from_both_stacks()
-    {
-        var frame = new FAFrame();
-        var first = new Context("first");
-        var second = new Context("second");
-        var third = new Context("third");
-        frame.Navigate(typeof(Page), first);
-        frame.Navigate(typeof(Page), second);
-        frame.Navigate(typeof(Page), third);
-        frame.GoBack();
-        object currentPage = frame.Content!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(frame.FindParameter<Context>(context => context.Name == "first"), Is.SameAs(first));
-            Assert.That(frame.FindParameter<Context>(context => context.Name == "third"), Is.SameAs(third));
-            Assert.That(frame.FindParameter<Context>(_ => false), Is.Null);
-        });
-        frame.RemoveAllStack(context => ReferenceEquals(context, first) || ReferenceEquals(context, third));
-        Assert.Multiple(() =>
-        {
-            Assert.That(frame.BackStack, Is.Empty);
-            Assert.That(frame.ForwardStack, Is.Empty);
-            Assert.That(frame.Content, Is.SameAs(currentPage));
-        });
-    }
-
     public sealed class Page : UserControl;
 }

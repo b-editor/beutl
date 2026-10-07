@@ -95,16 +95,4 @@ public static class WindowsClipboard
         Array.Copy(bm32bData, 0, fullImageArr, hdrSize + 12, bm32bData.Length);
         return fullImageArr;
     }
-
-    public static void WriteIntToByteArray(byte[] data, int startIndex, int bytes, bool littleEndian, uint value)
-    {
-        int lastByte = bytes - 1;
-        if (data.Length < startIndex + bytes)
-            throw new ArgumentOutOfRangeException("startIndex", "Data array is too small to write a " + bytes + "-byte value at offset " + startIndex + ".");
-        for (int index = 0; index < bytes; index++)
-        {
-            int offs = startIndex + (littleEndian ? index : lastByte - index);
-            data[offs] = (byte)(value >> (8 * index) & 0xFF);
-        }
-    }
 }

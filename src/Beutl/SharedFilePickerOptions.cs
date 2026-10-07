@@ -4,21 +4,6 @@ namespace Beutl;
 
 public static class SharedFilePickerOptions
 {
-    public static readonly FilePickerFileType NuGetPackageFileType = new("NuGet Package File")
-    {
-        MimeTypes = ["application/x-beutl-package"],
-        Patterns = ["*.nupkg"]
-    };
-    public static readonly FilePickerFileType NuGetPackageManifestFileType = new("NuGet Package Manifest")
-    {
-        MimeTypes = ["application/xml"],
-        Patterns = ["*.nuspec"]
-    };
-    public static readonly FilePickerOpenOptions NuGetPackage = new()
-    {
-        FileTypeFilter = [NuGetPackageFileType]
-    };
-
     public static FilePickerOpenOptions OpenImage()
     {
         return new()
