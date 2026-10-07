@@ -36,12 +36,6 @@ internal static class KnownColors
         s_knownBrushes = [];
     }
 
-    public static SolidColorBrush? GetKnownBrush(string s)
-    {
-        KnownColor color = GetKnownColor(s);
-        return color != KnownColor.None ? color.ToBrush() : null;
-    }
-
     public static KnownColor GetKnownColor(string s)
     {
         return s_knownColorNames.TryGetValue(s, out KnownColor color) ? color : KnownColor.None;

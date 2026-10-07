@@ -20,17 +20,6 @@ public class FontNameTests
         yield return new TestCaseData(new byte[] { 0x12, 0x34 }, (ushort)0x1234);
     }
 
-    public static IEnumerable<TestCaseData> UInt32Patterns()
-    {
-        yield return new TestCaseData(new byte[] { 0x00, 0x00, 0x00, 0x00 }, 0x00000000u);
-        yield return new TestCaseData(new byte[] { 0x00, 0x00, 0x00, 0xFF }, 0x000000FFu);
-        yield return new TestCaseData(new byte[] { 0x00, 0x00, 0xFF, 0x00 }, 0x0000FF00u);
-        yield return new TestCaseData(new byte[] { 0x00, 0xFF, 0x00, 0x00 }, 0x00FF0000u);
-        yield return new TestCaseData(new byte[] { 0xFF, 0x00, 0x00, 0x00 }, 0xFF000000u);
-        yield return new TestCaseData(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }, 0xFFFFFFFFu);
-        yield return new TestCaseData(new byte[] { 0x12, 0x34, 0x56, 0x78 }, 0x12345678u);
-    }
-
     [TestCaseSource(nameof(UInt16Patterns))]
     public void ReadUInt16_ReadsTheBigEndianValue(byte[] bytes, ushort expected)
     {
@@ -38,15 +27,6 @@ public class FontNameTests
         using var reader = new BinaryReader(stream);
 
         Assert.That(FontName.ReadUInt16(reader), Is.EqualTo(expected));
-    }
-
-    [TestCaseSource(nameof(UInt32Patterns))]
-    public void ReadUInt32_ReadsTheBigEndianValue(byte[] bytes, uint expected)
-    {
-        using var stream = new MemoryStream(bytes, writable: false);
-        using var reader = new BinaryReader(stream);
-
-        Assert.That(FontName.ReadUInt32(reader), Is.EqualTo(expected));
     }
 
     [TestCaseSource(nameof(UInt16Patterns))]
@@ -62,22 +42,6 @@ public class FontNameTests
         {
             Assert.That(legacy, Is.EqualTo(expected));
             Assert.That(FontName.ReadUInt16(reader), Is.EqualTo(legacy));
-        });
-    }
-
-    [TestCaseSource(nameof(UInt32Patterns))]
-    public void ReadUInt32_AgreesWithTheReversedBitConverterItReplaced(byte[] bytes, uint expected)
-    {
-        Assume.That(BitConverter.IsLittleEndian);
-
-        using var stream = new MemoryStream(bytes, writable: false);
-        using var reader = new BinaryReader(stream);
-
-        uint legacy = BitConverter.ToUInt32(bytes.Reverse().ToArray(), 0);
-        Assert.Multiple(() =>
-        {
-            Assert.That(legacy, Is.EqualTo(expected));
-            Assert.That(FontName.ReadUInt32(reader), Is.EqualTo(legacy));
         });
     }
 

@@ -69,9 +69,6 @@ internal record FontName(
     internal static ushort ReadUInt16(BinaryReader reader)
         => BinaryPrimitives.ReverseEndianness(reader.ReadUInt16());
 
-    internal static uint ReadUInt32(BinaryReader reader)
-        => BinaryPrimitives.ReverseEndianness(reader.ReadUInt32());
-
     static System.Text.Encoding AsEncoding(EncodingIDs id)
     {
         switch (id)

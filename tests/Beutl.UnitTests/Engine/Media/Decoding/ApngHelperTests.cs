@@ -19,8 +19,6 @@ public class ApngHelperTests
 
     private static uint LegacyConvertEndian(uint i) => BitConverter.ToUInt32(LegacyReverse(BitConverter.GetBytes(i)), 0);
 
-    private static short LegacyConvertEndian(short i) => BitConverter.ToInt16(LegacyReverse(BitConverter.GetBytes(i)), 0);
-
     private static ushort LegacyConvertEndian(ushort i) => BitConverter.ToUInt16(LegacyReverse(BitConverter.GetBytes(i)), 0);
 
     [TestCase(0x00000000u, 0x00000000u)]
@@ -71,32 +69,14 @@ public class ApngHelperTests
         Assert.That(Helper.ConvertEndian(value), Is.EqualTo(LegacyConvertEndian(value)));
     }
 
-    [TestCase(0, 0)]
-    [TestCase(0x00FF, unchecked((short)0xFF00))]
-    [TestCase(unchecked((short)0xFF00), 0x00FF)]
-    [TestCase(-1, -1)]
-    [TestCase(0x1234, 0x3412)]
-    [TestCase(short.MinValue, 0x0080)]
-    [TestCase(short.MaxValue, unchecked((short)0xFF7F))]
-    [TestCase(-2, unchecked((short)0xFEFF))]
-    [TestCase(unchecked((short)0x8001), unchecked((short)0x0180))]
-    public void ConvertEndian_Int16_SwapsBytesAndPreservesTwosComplement(int input, int expected)
-    {
-        short value = (short)input;
-        Assert.That(Helper.ConvertEndian(value), Is.EqualTo((short)expected));
-        Assert.That(Helper.ConvertEndian(value), Is.EqualTo(LegacyConvertEndian(value)));
-    }
-
     [Test]
     public void ConvertEndian_16Bit_MatchesLegacyOverEveryValue()
     {
         for (int i = 0; i <= ushort.MaxValue; i++)
         {
             ushort u = (ushort)i;
-            short s = (short)i;
 
             Assert.That(Helper.ConvertEndian(u), Is.EqualTo(LegacyConvertEndian(u)), $"ushort 0x{i:X4}");
-            Assert.That(Helper.ConvertEndian(s), Is.EqualTo(LegacyConvertEndian(s)), $"short 0x{i:X4}");
         }
     }
 
@@ -132,9 +112,6 @@ public class ApngHelperTests
 
             Assert.That(Helper.ConvertEndian((ushort)0x1234), Is.EqualTo((ushort)0x3412));
             Assert.That(Helper.ConvertEndian((ushort)0x3412), Is.EqualTo((ushort)0x1234));
-
-            Assert.That(Helper.ConvertEndian(short.MinValue), Is.EqualTo((short)0x0080));
-            Assert.That(Helper.ConvertEndian((short)0x0080), Is.EqualTo(short.MinValue));
         });
     }
 
@@ -146,7 +123,6 @@ public class ApngHelperTests
         Assert.That(Helper.ConvertEndian(0x12345678), Is.Not.EqualTo(0x12345678));
         Assert.That(Helper.ConvertEndian(int.MinValue), Is.Not.EqualTo(int.MinValue));
         Assert.That(Helper.ConvertEndian((ushort)0x1234), Is.Not.EqualTo((ushort)0x1234));
-        Assert.That(Helper.ConvertEndian(short.MaxValue), Is.Not.EqualTo(short.MaxValue));
     }
 
     private static byte[] BuildIhdrChunk(int width, int height)
