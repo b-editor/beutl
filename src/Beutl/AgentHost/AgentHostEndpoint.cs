@@ -246,7 +246,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     }
                 }
 
-                // RequestStop ran while app.StartAsync was in flight (so it couldn't see/take
+                // StopAsync ran while app.StartAsync was in flight (so it couldn't see/take
                 // _application): stop the just-started host here instead of leaving it running.
                 if (stopRequested)
                 {
@@ -318,11 +318,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         return cancellationToken.CanBeCanceled
             ? stop.WaitAsync(cancellationToken)
             : stop;
-    }
-
-    public void RequestStop()
-    {
-        _ = StopAsync();
     }
 
     public async ValueTask DisposeAsync()

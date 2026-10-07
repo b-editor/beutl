@@ -22,9 +22,6 @@ internal static class UnsavedSceneStorage
     public static string GetElementDirectory(Guid sceneId)
         => Path.Combine(GetDirectory(sceneId), "elements");
 
-    public static bool OwnsPath(Guid sceneId, string path)
-        => FilePathComparison.IsSameOrDescendant(GetDirectory(sceneId), path);
-
     public static void Cleanup(Guid sceneId)
     {
         string directory = GetDirectory(sceneId);

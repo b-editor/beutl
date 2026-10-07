@@ -1,5 +1,4 @@
-﻿using System.Reactive.Linq;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Extensibility;
@@ -36,6 +35,7 @@ public class OpenProjectTests
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? corruptTarget = null;
         Func<Project, Task>? rejectTarget = null;
+        Action<Project?>? recordTransition = null;
         try
         {
             config.AutoCommitOnClose = false;
@@ -84,7 +84,8 @@ public class OpenProjectTests
             }
 
             var published = new List<Project?>();
-            using IDisposable subscription = TestShell.Project.ProjectObservable.Subscribe(change => published.Add(change.New));
+            recordTransition = published.Add;
+            TestShell.Project.TransitionCommitted += recordTransition;
             await TestShell.Project.OpenProject(target);
 
             Assert.Multiple(() =>
@@ -104,6 +105,7 @@ public class OpenProjectTests
         {
             if (corruptTarget is not null) TestShell.Project.ClosingFinalizing -= corruptTarget;
             if (rejectTarget is not null) TestShell.Project.Opened -= rejectTarget;
+            if (recordTransition is not null) TestShell.Project.TransitionCommitted -= recordTransition;
             try { await ResetProjectAsync(); }
             finally
             {

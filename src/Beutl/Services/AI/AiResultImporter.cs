@@ -1,5 +1,4 @@
 ﻿using System.Buffers.Binary;
-using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
@@ -55,32 +54,6 @@ internal sealed class AiResultImporter
             cancellationToken);
         return await AddStagedResultAsync(path, options, cancellationToken);
     }
-
-    public async Task<ElementAddResult> ImportImageAsync(
-        ReadOnlyMemory<byte> bytes,
-        AiResultImportOptions options,
-        CancellationToken cancellationToken = default)
-    {
-        if (bytes.Length > AiRequestLimits.MaxImageUploadBytes)
-            throw new InvalidDataException("AI image data is too large.");
-        using var stream = new MemoryStream(bytes.ToArray(), writable: false);
-        AiImageDecodeValidator.ValidateEncoded(stream, AiRequestLimits.MaxImageUploadBytes);
-        using Bitmap bitmap = Bitmap.FromStream(stream);
-        return await ImportImageAsync(bitmap, options, cancellationToken);
-    }
-
-    public Task<ElementAddResult> ImportVideoAsync(
-        ReadOnlyMemory<byte> bytes,
-        AiResultImportOptions options,
-        CancellationToken cancellationToken = default)
-        => ImportVideoCoreAsync(
-            async stream =>
-            {
-                await stream.WriteAsync(bytes, cancellationToken);
-            },
-            ".mp4",
-            options,
-            cancellationToken);
 
     public Task<ElementAddResult> ImportVideoAsync(
         string sourcePath,

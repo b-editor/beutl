@@ -51,14 +51,10 @@ internal static class BuiltInAiJobResultCapabilities
         [
             (
                 AiJobKinds.Image,
-                new ImageAiJobResultCapabilities(
-                    () => Strings.AiImageGeneration,
-                    _ => AiOperations.ImageGeneration.Value)),
+                new ImageAiJobResultCapabilities(() => Strings.AiImageGeneration)),
             (
                 AiJobKinds.ImageEdit,
-                new ImageAiJobResultCapabilities(
-                    () => Strings.AiImageEdit,
-                    GetImageEditOperation)),
+                new ImageAiJobResultCapabilities(() => Strings.AiImageEdit)),
             (
                 AiJobKinds.Transcription,
                 new CaptionAiJobResultCapabilities(() => Strings.AiSubtitle)),
@@ -84,14 +80,6 @@ internal static class BuiltInAiJobResultCapabilities
                 item.Capability)),
             extensionProvider,
             reportFailure);
-    }
-
-    private static string GetImageEditOperation(AiJob job)
-    {
-        string? task = AiJobResultInput.GetString(job, "task");
-        return task is null
-            ? "image.edit"
-            : $"image.edit.{task.Replace('_', '.')}";
     }
 }
 
@@ -224,17 +212,13 @@ internal abstract class BuiltInAiJobResultCapability(
 internal sealed class ImageAiJobResultCapabilities : BuiltInAiJobResultCapability
 {
     private readonly Func<string> _getDisplayName;
-    private readonly Func<AiJob, string> _getOperation;
 
     protected override bool HasImagePreview => true;
 
-    public ImageAiJobResultCapabilities(
-        Func<string> getDisplayName,
-        Func<AiJob, string> getOperation)
+    public ImageAiJobResultCapabilities(Func<string> getDisplayName)
         : base(getDisplayName)
     {
         _getDisplayName = getDisplayName ?? throw new ArgumentNullException(nameof(getDisplayName));
-        _getOperation = getOperation ?? throw new ArgumentNullException(nameof(getOperation));
     }
 
     public override async Task ApplyAsync(

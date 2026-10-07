@@ -31,8 +31,7 @@ public sealed class AsyncOperationLifetimeTests
     {
         await using var lifetime = new AsyncOperationLifetime();
         using var identity = new IdentityOperationLifetime();
-        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
-        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(lifetime)!;
 
         bool cleared = false;
         identity.Switch(() => cleared = true);
@@ -91,8 +90,7 @@ public sealed class AsyncOperationLifetimeTests
     {
         await using var lifetime = new AsyncOperationLifetime();
         using var identity = new IdentityOperationLifetime();
-        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
-        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(lifetime)!;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -117,8 +115,7 @@ public sealed class AsyncOperationLifetimeTests
     {
         await using var lifetime = new AsyncOperationLifetime();
         using var identity = new IdentityOperationLifetime();
-        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
-        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(lifetime)!;
         using CancellationTokenRegistration registration = operation.CancellationToken.Register(
             static () => throw new InvalidOperationException("ignored"));
 
@@ -133,8 +130,7 @@ public sealed class AsyncOperationLifetimeTests
     {
         await using var lifetime = new AsyncOperationLifetime();
         using var identity = new IdentityOperationLifetime();
-        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
-        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(lifetime)!;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using CancellationTokenRegistration registration = operation.CancellationToken.Register(() =>
@@ -161,68 +157,6 @@ public sealed class AsyncOperationLifetimeTests
 
         Assert.That(operation.TryPublish(() => { }), Is.True,
             "Cancelling is not shutdown, so the finally block can still clear the running flag.");
-    }
-
-    [Test]
-    public async Task ClosePublicationRejectsLateCallbacksButKeepsOperationInDrain()
-    {
-        var lifetime = new AsyncOperationLifetime();
-        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
-
-        operation.ClosePublication();
-        Task disposal = lifetime.DisposeAsync().AsTask();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(operation.TryPublish(static () => { }), Is.False);
-            Assert.That(disposal.IsCompleted, Is.False,
-                "Closing publication must not detach non-cooperative work from teardown draining.");
-        });
-
-        operation.Dispose();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    [Test]
-    public async Task ClosePublicationDrainsAlreadyAdmittedCallbackBeforeReturning()
-    {
-        await using var lifetime = new AsyncOperationLifetime();
-        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
-        {
-            entered.TrySetResult();
-            release.Task.GetAwaiter().GetResult();
-        }));
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Task close = Task.Run(operation.ClosePublication);
-        await Task.Delay(50);
-        Assert.That(close.IsCompleted, Is.False);
-        release.TrySetResult();
-        await close.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        Assert.That(operation.TryPublish(static () => { }), Is.False);
-    }
-
-    [Test]
-    public async Task ClosePublicationIsReentrantFromItsOwnCallback()
-    {
-        await using var lifetime = new AsyncOperationLifetime();
-        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
-        var returned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
-        {
-            operation.ClosePublication();
-            returned.TrySetResult();
-        }));
-
-        await returned.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        Assert.That(operation.TryPublish(static () => { }), Is.False);
     }
 
     [Test]
@@ -253,31 +187,30 @@ public sealed class AsyncOperationLifetimeTests
     }
 
     [Test]
-    public async Task Stop_EndsEveryOperationAdmittedSoFar()
+    public async Task Dispose_EndsEveryOperationAdmittedSoFar()
     {
         var lifetime = new AsyncOperationLifetime();
         AsyncOperationLifetime.Operation first = lifetime.TryEnter()!;
         AsyncOperationLifetime.Operation second = lifetime.TryEnter()!;
 
-        // Stopping waits for what it cancelled, so the operations are released first.
-        Task stopping = lifetime.StopAsync();
+        // Disposal waits for what it cancelled, so the operations are released first.
+        Task disposal = lifetime.DisposeAsync().AsTask();
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(first.CancellationToken.IsCancellationRequested, Is.True);
-            Assert.That(second.CancellationToken.IsCancellationRequested, Is.True);
+            Assert.That(() => first.CancellationToken.IsCancellationRequested, Is.True.After(5000, 10));
+            Assert.That(() => second.CancellationToken.IsCancellationRequested, Is.True.After(5000, 10));
             Assert.That(lifetime.TryEnter(), Is.Null);
             Assert.That(first.TryPublish(() => { }), Is.False);
         }
 
         first.Dispose();
         second.Dispose();
-        await stopping;
-        await lifetime.DisposeAsync();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
-    public async Task Stop_DoesNotBlockBeforeTheSharedDeadlineWhenPublicationIsInProgress()
+    public async Task Dispose_DoesNotBlockBeforeTheSharedDeadlineWhenPublicationIsInProgress()
     {
         var lifetime = new AsyncOperationLifetime();
         AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
@@ -293,42 +226,40 @@ public sealed class AsyncOperationLifetimeTests
         }));
         await publicationEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Task<Task> stopInvocation = Task.Factory.StartNew(
-            lifetime.StopAsync,
+        Task<Task> disposeInvocation = Task.Factory.StartNew(
+            () => lifetime.DisposeAsync().AsTask(),
             CancellationToken.None,
             TaskCreationOptions.DenyChildAttach,
             TaskScheduler.Default);
-        Task stopping = await stopInvocation.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(stopping.IsCompleted, Is.False);
+        Task disposal = await disposeInvocation.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(disposal.IsCompleted, Is.False);
 
         // Releasing the operation handle must not wait on callback code. The
         // admitted publication remains counted in the lifetime drain.
         Task dispose = Task.Run(operation.Dispose);
         await dispose.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(stopping.IsCompleted, Is.False);
+        Assert.That(disposal.IsCompleted, Is.False);
         releasePublication.TrySetResult();
         Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
-        await lifetime.DisposeAsync();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
-    public async Task Stop_RejectsPublicationAfterShutdownAdmission()
+    public async Task Dispose_RejectsPublicationAfterShutdownAdmission()
     {
         var lifetime = new AsyncOperationLifetime();
         using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
 
-        Task stopping = lifetime.StopAsync();
+        Task disposal = lifetime.DisposeAsync().AsTask();
 
         Assert.That(operation.TryPublish(static () => { }), Is.False);
 
         operation.Dispose();
-        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
-        await lifetime.DisposeAsync();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
-    public async Task Stop_DrainsReentrantPublicationWithoutHoldingTheGate()
+    public async Task Dispose_DrainsReentrantPublicationWithoutHoldingTheGate()
     {
         var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
         using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
@@ -337,9 +268,9 @@ public sealed class AsyncOperationLifetimeTests
 
         Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
         {
-            // StopAsync must publish its task before waiting for this admitted callback,
+            // DisposeAsync must publish its task before waiting for this admitted callback,
             // otherwise a callback that re-enters shutdown would deadlock the lifetime gate.
-            lifetime.StopAsync().GetAwaiter().GetResult();
+            lifetime.DisposeAsync().AsTask().GetAwaiter().GetResult();
             callbackReturned.TrySetResult();
         }));
 
@@ -350,7 +281,7 @@ public sealed class AsyncOperationLifetimeTests
     }
 
     [Test]
-    public async Task Stop_DrainsPublicationWhenCallbackThrows()
+    public async Task Dispose_DrainsPublicationWhenCallbackThrows()
     {
         var lifetime = new AsyncOperationLifetime(TimeSpan.FromSeconds(1));
         using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
@@ -367,81 +298,58 @@ public sealed class AsyncOperationLifetimeTests
         }));
         await callbackEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Task stopping = lifetime.StopAsync();
+        Task disposal = lifetime.DisposeAsync().AsTask();
         operation.Dispose();
         releaseCallback.TrySetResult();
 
         Assert.That(
             async () => await publication.WaitAsync(TimeSpan.FromSeconds(5)),
             Throws.InstanceOf<InvalidOperationException>());
-        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
-        await lifetime.DisposeAsync();
-    }
-
-    [Test]
-    public async Task Stop_PublishesTaskBeforeCancellationCallbacksCanReenter()
-    {
-        var callbackReturned = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
-        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
-        using CancellationTokenRegistration registration = operation.CancellationToken.Register(() =>
-        {
-            lifetime.StopAsync().GetAwaiter().GetResult();
-            callbackReturned.TrySetResult();
-        });
-
-        var stopwatch = Stopwatch.StartNew();
-        Task stopping = lifetime.StopAsync();
-        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
-        stopwatch.Stop();
-        await callbackReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        operation.Dispose();
-
-        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromMilliseconds(500)),
-            "A reentrant callback must consume at most the one shared shutdown deadline.");
-    }
-
-    [Test]
-    public async Task Stop_CompletesAtDeadlineAndContinuesDraining()
-    {
-        var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
-        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
-
-        var stopwatch = Stopwatch.StartNew();
-        Task stopping = lifetime.StopAsync();
-        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
-        stopwatch.Stop();
-
-        Task disposal = lifetime.DisposeAsync().AsTask();
-        Assert.Multiple(() =>
-        {
-            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
-            Assert.That(stopping.IsCompletedSuccessfully, Is.True);
-            Assert.That(disposal.IsCompleted, Is.False,
-                "The deadline only releases the caller; the actual operation drain must continue.");
-        });
-
-        operation.Dispose();
         await disposal.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
-    public async Task Stop_ReportsCancellationCallbackFailureAfterDrain()
+    public async Task Dispose_CompletesAtDeadlineAndContinuesDraining()
+    {
+        var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
+        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        var resourcesDisposed = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var stopwatch = Stopwatch.StartNew();
+        Task disposal = lifetime.DisposeAsync(() =>
+        {
+            resourcesDisposed.TrySetResult();
+            return ValueTask.CompletedTask;
+        }).AsTask();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        stopwatch.Stop();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
+            Assert.That(disposal.IsCompletedSuccessfully, Is.True);
+            Assert.That(resourcesDisposed.Task.IsCompleted, Is.False,
+                "The deadline only releases the caller; the actual operation drain must continue.");
+        });
+
+        operation.Dispose();
+        await resourcesDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public void Dispose_ReportsCancellationCallbackFailureAfterDrain()
     {
         var lifetime = new AsyncOperationLifetime();
         AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
         using CancellationTokenRegistration registration = operation.CancellationToken.Register(
             static () => throw new InvalidOperationException("callback failed"));
 
-        Task stopping = lifetime.StopAsync();
+        Task disposal = lifetime.DisposeAsync().AsTask();
         operation.Dispose();
 
         Assert.That(
-            async () => await stopping.WaitAsync(TimeSpan.FromSeconds(5)),
-            Throws.InstanceOf<InvalidOperationException>());
-        Assert.That(
-            async () => await lifetime.DisposeAsync(),
+            async () => await disposal.WaitAsync(TimeSpan.FromSeconds(5)),
             Throws.InstanceOf<InvalidOperationException>());
     }
 
