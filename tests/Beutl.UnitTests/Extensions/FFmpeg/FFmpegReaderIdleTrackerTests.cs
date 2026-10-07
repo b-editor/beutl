@@ -35,7 +35,24 @@ public class FFmpegReaderIdleTrackerTests
     }
 
     [Test]
-    public void Dispose_StopsThePeriodicSweep()
+    public void Dispose_StopsARunningPeriodicSweep()
+    {
+        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        // A busy reader declines every suspension, so it stays tracked and each tick sweeps it again.
+        var reader = new FakeReader(Environment.TickCount64) { Busy = true };
+        tracker.Track(reader);
+        Assert.That(() => reader.SuspendAttempts, Is.GreaterThan(0).After(5000, 10), "the sweep must be running");
+
+        // Dispose waits for a sweep in progress, so the count is final once it returns.
+        tracker.Dispose();
+        int attempts = reader.SuspendAttempts;
+        Thread.Sleep(100);
+
+        Assert.That(reader.SuspendAttempts, Is.EqualTo(attempts));
+    }
+
+    [Test]
+    public void Track_AfterDispose_DoesNotStartTheSweep()
     {
         var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
         tracker.Dispose();
@@ -114,13 +131,17 @@ public class FFmpegReaderIdleTrackerTests
         });
     }
 
+    // Periodic sweeps call TrySuspend on a timer thread while the test reads the state.
     private sealed class FakeReader(long lastAccessTicks) : IIdleSuspendableReader
     {
+        private int _suspendAttempts;
+        private volatile bool _isSuspended;
+
         public long LastAccessTicks { get; private set; } = lastAccessTicks;
 
         public long PixelCount => 1920L * 1080;
 
-        public bool IsSuspended { get; private set; }
+        public bool IsSuspended => _isSuspended;
 
         public bool Busy { get; init; }
 
@@ -128,20 +149,20 @@ public class FFmpegReaderIdleTrackerTests
 
         public bool ThrowOnFirstSuspend { get; init; }
 
-        public int SuspendAttempts { get; private set; }
+        public int SuspendAttempts => Volatile.Read(ref _suspendAttempts);
 
         public bool TrySuspend(long expectedLastAccessTicks)
         {
-            if (++SuspendAttempts == 1 && ThrowOnFirstSuspend)
+            if (Interlocked.Increment(ref _suspendAttempts) == 1 && ThrowOnFirstSuspend)
                 throw new InvalidOperationException("Simulated suspension failure.");
 
             if (AccessDuringSuspend is { } accessed)
                 LastAccessTicks = accessed;
 
-            if (Busy || IsSuspended || LastAccessTicks != expectedLastAccessTicks)
+            if (Busy || _isSuspended || LastAccessTicks != expectedLastAccessTicks)
                 return false;
 
-            IsSuspended = true;
+            _isSuspended = true;
             return true;
         }
     }

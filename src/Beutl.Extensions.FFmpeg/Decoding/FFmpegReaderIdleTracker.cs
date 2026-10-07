@@ -70,15 +70,25 @@ internal sealed class FFmpegReaderIdleTracker : IDisposable
             _readers.Remove(reader);
     }
 
-    // Stops the periodic sweep. Shared lives for the process; this is for trackers with a shorter lifetime.
+    // Stops the periodic sweep and waits for one in progress, so no sweep runs after this returns. Shared
+    // lives for the process; this is for trackers with a shorter lifetime. Must not be called from a sweep.
     public void Dispose()
     {
+        Timer? timer;
         lock (_lock)
         {
             _disposed = true;
-            _timer?.Dispose();
+            timer = _timer;
             _timer = null;
         }
+
+        if (timer == null)
+            return;
+
+        // Waited outside the lock: a running sweep takes it.
+        using var stopped = new ManualResetEvent(false);
+        if (timer.Dispose(stopped))
+            stopped.WaitOne();
     }
 
     internal void Sweep(long nowTicks)
