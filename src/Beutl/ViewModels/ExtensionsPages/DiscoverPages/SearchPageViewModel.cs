@@ -126,9 +126,11 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
     {
         using (await _discoverService.Lock.LockAsync(cancellationToken))
         {
-            PackagePageList.RemoveLoadMoreItem(Packages);
-            Package[] array = await SearchPackages(Packages.Count, PackagePageList.PageSize, cancellationToken);
-            PackagePageList.AppendPage(Packages, array);
+            Package[] array = await SearchPackages(
+                PackagePageList.NextPageStart(Packages),
+                PackagePageList.PageSize,
+                cancellationToken);
+            PackagePageList.AppendNextPage(Packages, array);
         }
     }
 }

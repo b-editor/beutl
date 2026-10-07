@@ -34,7 +34,8 @@ public sealed partial class DiscoverPage : UserControl
         {
             frame.Navigate(typeof(PackageDetailsPage), package);
         }
-        else if (DataContext is DiscoverPageViewModel viewModel)
+        else if (sender is Button { DataContext: LoadMoreItem }
+                 && DataContext is DiscoverPageViewModel viewModel)
         {
             viewModel.More.Execute();
         }
