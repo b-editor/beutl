@@ -67,38 +67,4 @@ public class TextBlockTests
 
         Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png), Is.True);
     }
-
-    [Test]
-    public void ToSKPath()
-    {
-        Typeface typeface = TypefaceProvider.Typeface();
-        var tb = new TextBlock();
-        tb.FontFamily.CurrentValue = typeface.FontFamily;
-        tb.FontStyle.CurrentValue = typeface.Style;
-        tb.FontWeight.CurrentValue = typeface.Weight;
-        tb.Size.CurrentValue = 100;
-        tb.Fill.CurrentValue = Brushes.White;
-        tb.Spacing.CurrentValue = 0;
-        tb.Text.CurrentValue = Case1;
-        var resource = tb.ToResource(CompositionContext.Default);
-
-        var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 5;
-        pen.StrokeAlignment.CurrentValue = StrokeAlignment.Outside;
-        var penResource = pen.ToResource(CompositionContext.Default);
-
-        using var skpath = TextBlock.ToSKPath(resource.GetTextElements());
-        var bounds = PenHelper.GetBounds(skpath.Bounds.ToGraphicsRect(), penResource);
-
-        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
-        using var graphics = new ImmediateCanvas(renderTarget, RenderIntent.Preview);
-
-        graphics.Clear(Colors.White);
-        graphics.DrawSKPath(skpath, true, null, penResource);
-
-        using Bitmap bmp = renderTarget.Snapshot();
-
-        Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png), Is.True);
-    }
 }

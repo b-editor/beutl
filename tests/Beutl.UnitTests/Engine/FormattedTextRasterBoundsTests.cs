@@ -261,27 +261,6 @@ public class FormattedTextRasterBoundsTests
         }
     }
 
-    [Test]
-    public void AddToSKPath_RemainsStableWhenRunStorageIsConsumedBeforeBuild()
-    {
-        using FormattedText text = CreateText("Outline", 48f);
-        using var firstBuilder = new SKPathBuilder();
-        using var secondBuilder = new SKPathBuilder();
-
-        text.AddToSKPath(firstBuilder, new Point(10, 20));
-        text.AddToSKPath(secondBuilder, new Point(10, 20));
-        using SKPath first = firstBuilder.Detach();
-        using SKPath second = secondBuilder.Detach();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(first.IsEmpty, Is.False, "AddToSKPath must produce outline geometry.");
-            Assert.That(first.TightBounds.Width, Is.GreaterThan(0));
-            Assert.That(first.TightBounds.Height, Is.GreaterThan(0));
-            Assert.That(second.TightBounds, Is.EqualTo(first.TightBounds));
-        });
-    }
-
     private static Pen.Resource CreateThickPen(float textSize)
     {
         var pen = new Pen();

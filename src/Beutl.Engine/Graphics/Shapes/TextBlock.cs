@@ -6,7 +6,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -70,37 +69,6 @@ public partial class TextBlock : Drawable
         }
 
         return new Size(width, height);
-    }
-
-    internal static SKPath ToSKPath(TextElements elements)
-    {
-        using var builder = new SKPathBuilder();
-
-        float prevBottom = 0;
-        foreach (Span<FormattedText> line in elements.Lines)
-        {
-            Size lineBounds = MeasureLine(line);
-            float ascent = MinAscent(line);
-            var point = new Point(0, prevBottom - ascent);
-
-            float prevRight = 0;
-            foreach (FormattedText item in line)
-            {
-                if (item.Text.Length > 0)
-                {
-                    point += new Point(prevRight + item.Spacing / 2, 0);
-                    Rect elementBounds = item.Bounds;
-
-                    item.AddToSKPath(builder, point);
-
-                    prevRight = elementBounds.Width + item.Spacing;
-                }
-            }
-
-            prevBottom += lineBounds.Height;
-        }
-
-        return builder.Detach();
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)

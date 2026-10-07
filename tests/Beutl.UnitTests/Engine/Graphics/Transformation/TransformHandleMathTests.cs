@@ -371,7 +371,7 @@ public class TransformHandleMathTests
         var localSize = new Size(100, 50);
         var bounds = new Rect(0, 0, 100, 50);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
     }
@@ -385,7 +385,7 @@ public class TransformHandleMathTests
         var localSize = new Size(100, 50);
         var bounds = new Rect(10, 5, 100, 50);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
 
         // Post-translate maps the origin (0,0) to (10, 5)
         Point origin = result.Transform(new Point(0, 0));
@@ -405,7 +405,7 @@ public class TransformHandleMathTests
         var localSize = new Size(100, 50);
         var bounds = new Rect(-10, -10, 120, 70);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
     }
@@ -418,7 +418,7 @@ public class TransformHandleMathTests
         var localSize = new Size(100, 50);
         var bounds = new Rect(0.4f, 0.4f, 100, 50);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
     }
@@ -431,7 +431,7 @@ public class TransformHandleMathTests
         var localSize = new Size(100, 50);
         var bounds = new Rect(0.51f, 0, 100, 50);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
 
         Point origin = result.Transform(new Point(0, 0));
         Assert.That(origin.X, Is.EqualTo(0.51f).Within(1e-3));
@@ -465,7 +465,7 @@ public class TransformHandleMathTests
         }
         var bounds = new Rect(minX, minY, maxX - minX, maxY - minY);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
     }
@@ -502,7 +502,7 @@ public class TransformHandleMathTests
         TestContext.WriteLine($"unclipped reference centre is off by {mirroredGap}px");
         Assert.That(mirroredGap, Is.GreaterThan(0.5f), "the fixture must move the centre past the alignment epsilon");
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
     }
@@ -515,7 +515,7 @@ public class TransformHandleMathTests
         var local = new Rect(localSize);
         Rect renderedBounds = local.TransformToAABB(userMatrix).Translate(new Vector(10, 5));
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, null);
 
         Matrix expected = userMatrix * Matrix.CreateTranslation(10, 5);
         Assert.Multiple(() =>
@@ -540,7 +540,7 @@ public class TransformHandleMathTests
         Assert.That(new Rect(localSize).TransformToAABB(userMatrix).IsEmpty, Is.True);
 
         Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(
-            userMatrix, localSize, new Rect(-500, -500, 1000, 1000));
+            userMatrix, localSize, new Rect(-500, -500, 1000, 1000), null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
     }
