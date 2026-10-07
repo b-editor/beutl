@@ -80,9 +80,12 @@ internal static partial class SystemMemoryCapacity
         if (proc == null)
             return FallbackBytes;
 
-        // Drain stdout before waiting for the exit: a child blocked on a full pipe never exits.
+        // Drain stdout before waiting for the exit: a child blocked on a full pipe never exits. The read and the
+        // exit wait share one budget, so the whole query stays within the timeout.
+        long started = Stopwatch.GetTimestamp();
         Task<string> output = proc.StandardOutput.ReadToEndAsync();
-        if (!output.Wait(timeout) || !proc.WaitForExit(timeout))
+        if (!output.Wait(timeout)
+            || !proc.WaitForExit(TimeSpan.FromTicks(Math.Max(0, (timeout - Stopwatch.GetElapsedTime(started)).Ticks))))
         {
             try
             {

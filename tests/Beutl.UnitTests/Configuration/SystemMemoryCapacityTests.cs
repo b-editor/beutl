@@ -41,6 +41,19 @@ public class SystemMemoryCapacityTests
         Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(10)));
     }
 
+    // Closing stdout ends the read, so only the exit wait's timeout can stop this one.
+    [Test]
+    public void AChildThatClosesItsOutputButKeepsRunningFallsBackAfterTheTimeout()
+    {
+        var stopwatch = Stopwatch.StartNew();
+        Task<ulong> query = Task.Run(() => Query("echo 'The system has 8589934592'; exec 1>&-; sleep 30",
+            TimeSpan.FromMilliseconds(200)));
+
+        Assert.That(query.Wait(s_testTimeout), Is.True, "The query waited for a child that never exits.");
+        Assert.That(query.Result, Is.EqualTo(SystemMemoryCapacity.FallbackBytes));
+        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(10)));
+    }
+
     private static ulong Query(string script, TimeSpan timeout)
         => SystemMemoryCapacity.QueryMacMemoryCapacity(new ProcessStartInfo("/bin/sh", ["-c", script]), timeout);
 }
