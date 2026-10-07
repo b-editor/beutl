@@ -49,8 +49,6 @@ internal sealed class VideoRingBuffer : IDisposable
     private readonly Func<int> _nextShmGeneration;
 
     public SharedMemoryBuffer VideoBuffer { get; private set; }
-    public int SlotCount => _slotCount;
-    public long SlotSize => _slotSize;
 
     public VideoRingBuffer(
         int slotCount, long slotSize, SharedMemoryBuffer videoBuffer,

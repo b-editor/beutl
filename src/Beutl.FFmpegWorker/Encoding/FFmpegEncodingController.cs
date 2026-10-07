@@ -12,7 +12,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     : EncodingController(outputFile)
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingController>();
-    const int AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
 
     private bool _isHdr;
     private BitmapColorSpace? _targetColorSpace;
