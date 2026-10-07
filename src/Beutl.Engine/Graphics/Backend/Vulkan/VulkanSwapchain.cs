@@ -103,10 +103,18 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
     /// <summary>
     /// Whether the present shader has to encode sRGB itself: a UNORM format stores its output unconverted,
-    /// while an SRGB format encodes in hardware and the HDR float format takes linear values.
+    /// while an SRGB format encodes in hardware, the HDR float format takes linear values, and a linear
+    /// color space expects linear components whatever the format.
     /// </summary>
-    internal static bool RequiresShaderSrgbEncoding(Format format)
+    internal static bool RequiresShaderSrgbEncoding(Format format, ColorSpaceKHR colorSpace)
     {
+        if (colorSpace is ColorSpaceKHR.SpaceExtendedSrgbLinearExt or ColorSpaceKHR.SpaceDisplayP3LinearExt
+            or ColorSpaceKHR.SpaceBT709LinearExt or ColorSpaceKHR.SpaceBT2020LinearExt
+            or ColorSpaceKHR.SpaceAdobergbLinearExt)
+        {
+            return false;
+        }
+
         // Silk.NET has no format-property table, so read the numeric type from the name
         // (B8G8R8A8Unorm, A2B10G10R10UnormPack32, ...) rather than listing formats.
         return format.ToString().Contains("Unorm", StringComparison.Ordinal);
@@ -120,7 +128,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         // Select format (prefer HDR)
         SelectFormat(out _format, out _colorSpace, out _isHdr);
-        SrgbFormat = !RequiresShaderSrgbEncoding(_format);
+        SrgbFormat = !RequiresShaderSrgbEncoding(_format, _colorSpace);
 
         // Select extent
         _extent = SelectExtent(capabilities, width, height);

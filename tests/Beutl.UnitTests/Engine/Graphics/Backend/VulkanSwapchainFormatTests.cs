@@ -17,7 +17,7 @@ public class VulkanSwapchainFormatTests
     [TestCase(Format.R16G16B16A16Unorm)]
     public void UnormFormatsNeedTheShaderToEncodeSrgb(Format format)
     {
-        Assert.That(VulkanSwapchain.RequiresShaderSrgbEncoding(format), Is.True);
+        Assert.That(VulkanSwapchain.RequiresShaderSrgbEncoding(format, ColorSpaceKHR.SpaceSrgbNonlinearKhr), Is.True);
     }
 
     // An SRGB format encodes in hardware, and the HDR float format takes linear values.
@@ -27,6 +27,17 @@ public class VulkanSwapchainFormatTests
     [TestCase(Format.R16G16B16A16Sfloat)]
     public void SrgbAndFloatFormatsTakeTheShaderOutputAsIs(Format format)
     {
-        Assert.That(VulkanSwapchain.RequiresShaderSrgbEncoding(format), Is.False);
+        Assert.That(VulkanSwapchain.RequiresShaderSrgbEncoding(format, ColorSpaceKHR.SpaceSrgbNonlinearKhr), Is.False);
+    }
+
+    // A linear color space expects linear components, so even a UNORM image takes the output as is.
+    [TestCase(ColorSpaceKHR.SpaceExtendedSrgbLinearExt)]
+    [TestCase(ColorSpaceKHR.SpaceDisplayP3LinearExt)]
+    [TestCase(ColorSpaceKHR.SpaceBT709LinearExt)]
+    [TestCase(ColorSpaceKHR.SpaceBT2020LinearExt)]
+    [TestCase(ColorSpaceKHR.SpaceAdobergbLinearExt)]
+    public void LinearColorSpacesTakeTheShaderOutputAsIs(ColorSpaceKHR colorSpace)
+    {
+        Assert.That(VulkanSwapchain.RequiresShaderSrgbEncoding(Format.B8G8R8A8Unorm, colorSpace), Is.False);
     }
 }
