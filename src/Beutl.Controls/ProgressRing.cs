@@ -33,8 +33,8 @@ public class ProgressRing : RangeBase
         MinimumProperty.Changed.AddClassHandler<ProgressRing>(OnMinimumPropertyChanged);
         MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnMaximumPropertyChanged);
         ValueProperty.Changed.AddClassHandler<ProgressRing>(OnValuePropertyChanged);
-        StartAngleProperty.Changed.AddClassHandler<ProgressRing>(OnStartAnglePropertyChanged);
-        EndAngleProperty.Changed.AddClassHandler<ProgressRing>(OnEndAnglePropertyChanged);
+        StartAngleProperty.Changed.AddClassHandler<ProgressRing>(OnAnglePropertyChanged);
+        EndAngleProperty.Changed.AddClassHandler<ProgressRing>(OnAnglePropertyChanged);
     }
 
     public ProgressRing()
@@ -117,13 +117,9 @@ public class ProgressRing : RangeBase
         sender.ValueAngle = (e.GetNewValue<double>() - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
     }
 
-    static void OnStartAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
+    // Redraws the arc for the new angles instead of writing the angle back, which could replace a binding.
+    static void OnAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.StartAngle = e.GetNewValue<double>();
-    }
-
-    static void OnEndAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        sender.EndAngle = e.GetNewValue<double>();
+        sender.ValueAngle = (sender.Value - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
     }
 }
