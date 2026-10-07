@@ -122,6 +122,40 @@ public class GraphEditorRulerBarTests
     }
 
     [AvaloniaTest]
+    public async Task Scene_bars_never_drag_the_scene_below_one_frame()
+    {
+        using GraphScope graph = await GraphScope.CreateAsync();
+        Scene scene = graph.Model.Scene;
+        TimelineScale horizontal = graph.View.FindControl<TimelineScale>("scale")!;
+        TimeSpan frame = TimeSpan.FromSeconds(1d / 30);
+        scene.Start = TimeSpan.Zero;
+        scene.Duration = TimeSpan.FromSeconds(2);
+        HeadlessTestHelpers.Render();
+
+        // The ending bar sits at 300 px (2 s at 150 px per second); drop it onto the start.
+        Drag(new Point(298, 8), new Point(0, 8));
+        Assert.That(scene.Duration, Is.EqualTo(frame));
+
+        scene.Duration = TimeSpan.FromSeconds(2);
+        HeadlessTestHelpers.Render();
+        // Drop the starting bar onto the end.
+        Drag(new Point(2, 8), new Point(300, 8));
+        Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(2) - frame));
+        Assert.That(scene.Duration, Is.EqualTo(frame));
+
+        void Drag(Point from, Point to)
+        {
+            Point start = horizontal.TranslatePoint(from, graph.Window)!.Value;
+            Point end = horizontal.TranslatePoint(to, graph.Window)!.Value;
+            graph.Window.MouseMove(start);
+            graph.Window.MouseDown(start, MouseButton.Left);
+            graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            graph.Window.MouseUp(end, MouseButton.Left);
+            HeadlessTestHelpers.Render();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(640, false)]
     [TestCase(960, false)]
     [TestCase(640, true)]
