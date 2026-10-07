@@ -34,7 +34,6 @@ public abstract class CoreObject : ICoreObject
     private Dictionary<int, string>? _errors;
     private CoreProperty? _forcedReplacementProperty;
     private string? _requiredMinAppVersionAfterMigration;
-    private bool _wasTypeDiscriminatorAddedDuringRestore;
 
     internal interface IEntry
     {
@@ -80,18 +79,6 @@ public abstract class CoreObject : ICoreObject
     // Non-null while this object stands in for a file the serializer must not regenerate:
     // StoreToUri skips the source location and copies the raw text verbatim to any new one.
     internal SuppressedStorageSource? SuppressedStorageSource { get; set; }
-    internal bool WasTypeDiscriminatorAddedDuringRestore
-    {
-        get => _wasTypeDiscriminatorAddedDuringRestore;
-        set
-        {
-            _wasTypeDiscriminatorAddedDuringRestore = value;
-            if (value)
-            {
-                MergePersistedContentMigration(Project.DefaultMinAppVersion);
-            }
-        }
-    }
 
     internal string? RequiredMinAppVersionAfterMigration
         => Volatile.Read(ref _requiredMinAppVersionAfterMigration);
