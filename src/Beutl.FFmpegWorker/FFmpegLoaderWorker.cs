@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using Beutl.Extensions.FFmpeg;
 using Beutl.FFmpegIpc;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
@@ -61,7 +62,7 @@ internal static class FFmpegLoaderWorker
 
         if (OperatingSystem.IsWindows())
         {
-            string rid = Beutl.Extensions.FFmpeg.FFmpegNativeRid.GetWindowsRid();
+            string rid = FFmpegNativeRid.GetWindowsRid();
             paths.Add(Path.Combine(assemblyDirectory,
                 "runtimes", rid, "native"));
             paths.Add(Path.Combine(AppContext.BaseDirectory,
@@ -69,7 +70,7 @@ internal static class FFmpegLoaderWorker
         }
         else if (OperatingSystem.IsLinux())
         {
-            if (Beutl.Extensions.FFmpeg.FFmpegNativeRid.GetLinuxMultiarchDirectory() is { } multiarch)
+            if (FFmpegNativeRid.GetLinuxMultiarchDirectory() is { } multiarch)
                 paths.Add($"/usr/lib/{multiarch}");
             paths.Add("/usr/lib");
             var libraryPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator) ?? [];

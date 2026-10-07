@@ -27,6 +27,7 @@ public class FFmpegNativeRidTests
     [TestCase(Architecture.X64, "x86_64-linux-gnu")]
     [TestCase(Architecture.Arm64, "aarch64-linux-gnu")]
     [TestCase(Architecture.X86, "i386-linux-gnu")]
+    [TestCase(Architecture.Arm, "arm-linux-gnueabihf")]
     public void GetLinuxMultiarchDirectory_MapsArchitectureToDebianTriplet(Architecture architecture, string expected)
     {
         Assert.That(FFmpegNativeRid.GetLinuxMultiarchDirectory(architecture), Is.EqualTo(expected));

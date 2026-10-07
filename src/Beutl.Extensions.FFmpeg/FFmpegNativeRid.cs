@@ -3,9 +3,10 @@
 namespace Beutl.Extensions.FFmpeg;
 
 /// <summary>
-/// Maps a process architecture to the folders that hold its FFmpeg shared libraries: the Windows
-/// native runtime folder (<c>runtimes/&lt;rid&gt;/native</c>) of the bundled libraries, and the
-/// Linux multiarch directory (<c>/usr/lib/&lt;triplet&gt;</c>) of the system ones.
+/// Maps a process architecture to the folder names that probe paths for its FFmpeg shared libraries
+/// are built from: the Windows runtime identifier in <c>runtimes/&lt;rid&gt;/native</c> for the
+/// bundled libraries, and the Linux multiarch triplet in <c>/usr/lib/&lt;triplet&gt;</c> for the
+/// system ones.
 /// </summary>
 /// <remarks>
 /// <see cref="System.Environment.Is64BitProcess"/> cannot distinguish x64 from arm64 — both are
@@ -37,6 +38,7 @@ internal static class FFmpegNativeRid
         Architecture.X64 => "x86_64-linux-gnu",
         Architecture.Arm64 => "aarch64-linux-gnu",
         Architecture.X86 => "i386-linux-gnu",
+        Architecture.Arm => "arm-linux-gnueabihf",
         _ => null,
     };
 
