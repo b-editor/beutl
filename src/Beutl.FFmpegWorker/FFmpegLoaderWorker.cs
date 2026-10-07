@@ -69,7 +69,8 @@ internal static class FFmpegLoaderWorker
         }
         else if (OperatingSystem.IsLinux())
         {
-            paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
+            if (Beutl.Extensions.FFmpeg.FFmpegNativeRid.GetLinuxMultiarchDirectory() is { } multiarch)
+                paths.Add($"/usr/lib/{multiarch}");
             paths.Add("/usr/lib");
             var libraryPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator) ?? [];
             paths.AddRange(libraryPath);
