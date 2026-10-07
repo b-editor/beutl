@@ -41,6 +41,9 @@ public sealed class FFmpegReader : MediaReader
     private MediaFrame? _currentVideoFrame;
     private MediaFrame? _currentAudioFrame;
     private MediaPacket? _packet;
+    // A video packet avcodec_send_packet rejected with EAGAIN; it must be resent before any later packet.
+    private MediaPacket? _pendingVideoPacket;
+    private bool _hasPendingVideoPacket;
     private SampleConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
@@ -510,6 +513,9 @@ public sealed class FFmpegReader : MediaReader
             _packet?.Dispose();
             _packet = null;
 
+            _pendingVideoPacket?.Dispose();
+            _pendingVideoPacket = null;
+
             _demuxer?.Dispose();
             _demuxer = null;
         }
@@ -587,9 +593,16 @@ public sealed class FFmpegReader : MediaReader
         if (_demuxer == null || _videoDecoder == null || _packet == null || _videoStream == null)
             return false;
 
+        if (DecodePendingVideoPacket())
+        {
+            _videoNowFrame = GetNowFrame();
+            return true;
+        }
+
         foreach (var packet in _demuxer.ReadPackets(_packet))
         {
-            if (packet.StreamIndex == _videoStream.Index && DecodeVideoPacket(packet))
+            if (packet.StreamIndex == _videoStream.Index
+                && (DecodeVideoPacket(packet) || DecodePendingVideoPacket()))
             {
                 _videoNowFrame = GetNowFrame();
                 return true;
@@ -606,14 +619,26 @@ public sealed class FFmpegReader : MediaReader
         return false;
     }
 
-    // Same contract as the first iteration of MediaDecoder.DecodePacket, except for hardware frames:
-    // DecodePacket copies props before the transfer, so the reused _swVideoFrame accumulates side data on
-    // every frame (av_frame_copy_props appends) and the first transfer, which allocates, drops the props.
+    // Unlike MediaDecoder.DecodePacket, keeps a packet that avcodec_send_packet rejects with EAGAIN (the
+    // decoder still holds output) so it can be resent instead of being lost when the demuxer reuses its
+    // buffer, and copies the props of hardware frames after the transfer: DecodePacket copies them before,
+    // so the reused _swVideoFrame accumulated side data on every frame (av_frame_copy_props appends) and
+    // the first transfer, which allocates, dropped them.
     private unsafe bool DecodeVideoPacket(MediaPacket? packet)
     {
         int ret = _videoDecoder!.SendPacket(packet);
-        if (ret < 0 && ret != ffmpeg.AVERROR(ffmpeg.EAGAIN) && ret != ffmpeg.AVERROR_EOF)
-            ret.ThrowIfError();
+        if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN) && packet != null)
+        {
+            KeepPendingVideoPacket(packet);
+        }
+        else
+        {
+            if (packet != null && ReferenceEquals(packet, _pendingVideoPacket))
+                DiscardPendingVideoPacket();
+
+            if (ret < 0 && ret != ffmpeg.AVERROR(ffmpeg.EAGAIN) && ret != ffmpeg.AVERROR_EOF)
+                ret.ThrowIfError();
+        }
 
         // Like DecodePacket, a receive error ends this packet without throwing.
         if (_videoDecoder.ReceiveFrame(_currentVideoFrame) < 0)
@@ -623,6 +648,38 @@ public sealed class FFmpegReader : MediaReader
             TransferHardwareFrame(_currentVideoFrame!, _swVideoFrame!);
 
         return true;
+    }
+
+    // Resends the rejected packet before anything read after it. Receiving the pending output makes the
+    // decoder accept the resend, so a second attempt only fails if the decoder breaks that contract.
+    private bool DecodePendingVideoPacket()
+    {
+        for (int attempt = 0; _hasPendingVideoPacket && attempt < 2; attempt++)
+        {
+            if (DecodeVideoPacket(_pendingVideoPacket))
+                return true;
+        }
+
+        DiscardPendingVideoPacket();
+        return false;
+    }
+
+    private unsafe void KeepPendingVideoPacket(MediaPacket packet)
+    {
+        if (!ReferenceEquals(packet, _pendingVideoPacket))
+        {
+            _pendingVideoPacket ??= new MediaPacket();
+            _pendingVideoPacket.Unref();
+            ffmpeg.av_packet_ref(_pendingVideoPacket, packet).ThrowIfError();
+        }
+
+        _hasPendingVideoPacket = true;
+    }
+
+    private void DiscardPendingVideoPacket()
+    {
+        _pendingVideoPacket?.Unref();
+        _hasPendingVideoPacket = false;
     }
 
     private static unsafe void TransferHardwareFrame(AVFrame* hwFrame, AVFrame* swFrame)
@@ -664,6 +721,7 @@ public sealed class FFmpegReader : MediaReader
                 MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
+            DiscardPendingVideoPacket();
             GrabVideo();
         }
 

@@ -32,6 +32,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     private long _ringSlotSize;
     private volatile bool _suspended;
     private bool _closed;
+    private bool _streamsChanged;
     private long _lastAccessTicks = Environment.TickCount64;
 
     internal FFmpegReaderProxy(
@@ -135,7 +136,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         {
             try
             {
-                ResumeIfSuspended();
+                if (!TryResume())
+                {
+                    image = null;
+                    return false;
+                }
+
                 return ReadVideoCore(frame, out image);
             }
             finally
@@ -203,7 +209,11 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         {
             try
             {
-                ResumeIfSuspended();
+                if (!TryResume())
+                {
+                    sound = null;
+                    return false;
+                }
 
                 int sampleRate = AudioInfo.SampleRate;
 
@@ -336,20 +346,26 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         Volatile.Write(ref _lastAccessTicks, Environment.TickCount64);
     }
 
-    // Opens a fresh worker reader for a suspended proxy. The stream info captured at the first open is
-    // kept, so the reopened file must expose the same streams.
-    private void ResumeIfSuspended()
+    // Returns false when the reader cannot produce media: it was disposed, or the file was replaced while
+    // suspended (callers keep VideoInfo/AudioInfo from the first open, so frames of a file with other stream
+    // properties would be read at the wrong positions). Otherwise reopens a suspended worker reader.
+    private bool TryResume()
     {
-        if (!_suspended)
-            return;
+        if (_closed || _streamsChanged)
+            return false;
 
-        ObjectDisposedException.ThrowIf(_closed, this);
+        if (!_suspended)
+            return true;
 
         var (connection, response) = _reopen!();
-        if (response.HasVideo != _openResponse.HasVideo || response.HasAudio != _openResponse.HasAudio)
+        if (!HasSameStreams(_openResponse, response))
         {
             CloseWorkerReader(connection, response.ReaderId);
-            throw new InvalidOperationException("The media file no longer has the streams it was opened with.");
+            _streamsChanged = true;
+            _logger.LogWarning(
+                "The media file of FFmpeg reader {ReaderId} changed its streams while the reader was suspended; it no longer returns media",
+                _readerId);
+            return false;
         }
 
         _connection = connection;
@@ -367,6 +383,33 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _suspended = false;
         _idleTracker?.Track(this);
         _logger.LogDebug("Resumed FFmpeg reader as {ReaderId}", _readerId);
+        return true;
+    }
+
+    internal static bool HasSameStreams(OpenFileResponse original, OpenFileResponse reopened)
+    {
+        if (original.HasVideo != reopened.HasVideo || original.HasAudio != reopened.HasAudio)
+            return false;
+
+        if (original.HasVideo
+            && (original.VideoCodecName != reopened.VideoCodecName
+                || original.VideoNumFrames != reopened.VideoNumFrames
+                || original.VideoWidth != reopened.VideoWidth
+                || original.VideoHeight != reopened.VideoHeight
+                || original.FrameRateNum != reopened.FrameRateNum
+                || original.FrameRateDen != reopened.FrameRateDen
+                || original.DurationNum != reopened.DurationNum
+                || original.DurationDen != reopened.DurationDen))
+        {
+            return false;
+        }
+
+        return !original.HasAudio
+            || (original.AudioCodecName == reopened.AudioCodecName
+                && original.AudioSampleRate == reopened.AudioSampleRate
+                && original.AudioNumChannels == reopened.AudioNumChannels
+                && original.AudioDurationNum == reopened.AudioDurationNum
+                && original.AudioDurationDen == reopened.AudioDurationDen);
     }
 
     private void CloseWorkerReader(IpcConnection connection, int readerId)

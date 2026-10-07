@@ -73,24 +73,89 @@ public class FFmpegReaderProxySuspendContractTests
         });
     }
 
-    [Test]
-    public void ReadAfterDisposeWhileSuspended_DoesNotReopen()
+    // MediaReader's contract: a disposed reader produces no media (false), without reopening or racing
+    // the asynchronous worker-side close.
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReadAfterDispose_ReturnsFalseWithoutReopening(bool suspendFirst)
     {
         var reader = OpenFixture();
-        var suspendable = (IIdleSuspendableReader)reader;
-        Assert.That(suspendable.TrySuspend(suspendable.LastAccessTicks), Is.True);
+        if (suspendFirst)
+        {
+            var suspendable = (IIdleSuspendableReader)reader;
+            Assert.That(suspendable.TrySuspend(suspendable.LastAccessTicks), Is.True);
+        }
 
+        int readerId = reader.ReaderId;
         reader.Dispose();
 
-        Assert.That(() => reader.ReadVideo(0, out _), Throws.TypeOf<ObjectDisposedException>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ReadVideo(0, out var image), Is.False);
+            Assert.That(image, Is.Null);
+            Assert.That(reader.ReaderId, Is.EqualTo(readerId));
+        });
     }
 
-    private static FFmpegReaderProxy OpenFixture()
+    [Test]
+    public void FileReplacedWhileSuspended_IsNotAdopted()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-ffmpeg-suspend-{Guid.NewGuid():N}.flv");
+        File.Copy(FixturePath, path);
+        try
+        {
+            using var reader = OpenFixture(path);
+            int suspendedReaderId = reader.ReaderId;
+            var suspendable = (IIdleSuspendableReader)reader;
+            Assert.That(suspendable.TrySuspend(suspendable.LastAccessTicks), Is.True);
+            AssertWorkerReaderClosed(suspendedReaderId);
+
+            // Suspension released the file, so it can now be replaced with media of other streams.
+            WriteSilentPcmWav(path);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(reader.ReadVideo(0, out var image), Is.False);
+                Assert.That(image, Is.Null);
+                Assert.That(reader.ReadVideo(0, out _), Is.False, "a replaced file stays rejected");
+                Assert.That(reader.ReaderId, Is.EqualTo(suspendedReaderId), "the reopened reader must not be adopted");
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static FFmpegReaderProxy OpenFixture(string? path = null)
     {
         var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
-        MediaReader? reader = decoderInfo.Open(FixturePath, new MediaOptions(MediaMode.Video));
+        MediaReader? reader = decoderInfo.Open(path ?? FixturePath, new MediaOptions(MediaMode.Video));
         Assert.That(reader, Is.TypeOf<FFmpegReaderProxy>());
         return (FFmpegReaderProxy)reader!;
+    }
+
+    // 0.1 s of 8 kHz mono 16-bit silence: decodable by FFmpeg, but without a video stream.
+    private static void WriteSilentPcmWav(string path)
+    {
+        const int sampleRate = 8000;
+        const int dataSize = 1600;
+
+        using var writer = new BinaryWriter(new FileStream(path, FileMode.Create, FileAccess.Write));
+        writer.Write("RIFF"u8);
+        writer.Write(36 + dataSize);
+        writer.Write("WAVE"u8);
+        writer.Write("fmt "u8);
+        writer.Write(16);
+        writer.Write((short)1); // PCM
+        writer.Write((short)1); // mono
+        writer.Write(sampleRate);
+        writer.Write(sampleRate * 2);
+        writer.Write((short)2);
+        writer.Write((short)16);
+        writer.Write("data"u8);
+        writer.Write(dataSize);
+        writer.Write(new byte[dataSize]);
     }
 
     private static byte[] ReadFramePixels(MediaReader reader, int frame)
