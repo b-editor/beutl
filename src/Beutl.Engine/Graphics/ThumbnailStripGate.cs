@@ -1,4 +1,4 @@
-namespace Beutl.Graphics;
+﻿namespace Beutl.Graphics;
 
 internal sealed class ThumbnailStripGate(int capacity)
 {

@@ -1,4 +1,4 @@
-#if BEUTL_FFMPEG_WORKER
+﻿#if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Decoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Decoding;

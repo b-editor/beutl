@@ -1,4 +1,4 @@
-using Beutl.Extensions.FFmpeg.Decoding;
+﻿using Beutl.Extensions.FFmpeg.Decoding;
 using Candidate = Beutl.Extensions.FFmpeg.Decoding.FFmpegReaderIdlePolicy.Candidate;
 using Limits = Beutl.Extensions.FFmpeg.Decoding.FFmpegReaderIdlePolicy.Limits;
 

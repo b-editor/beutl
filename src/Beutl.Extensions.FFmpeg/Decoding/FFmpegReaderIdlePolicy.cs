@@ -1,4 +1,4 @@
-namespace Beutl.Extensions.FFmpeg.Decoding;
+﻿namespace Beutl.Extensions.FFmpeg.Decoding;
 
 // Chooses which open readers to suspend. Readers used within the grace period are left alone so the
 // sources of the frame being rendered never reopen; among the rest, the most recently used are kept

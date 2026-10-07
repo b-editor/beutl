@@ -1,4 +1,4 @@
-using Beutl.Logging;
+﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
