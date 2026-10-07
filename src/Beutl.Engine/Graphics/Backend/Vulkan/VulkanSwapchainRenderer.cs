@@ -62,7 +62,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private volatile bool _running;
     private bool _disposed;
 
-    // A frame that has not finished after this long will not finish; stop instead of waiting forever.
+    // Bounds the wait for the previous frame, so a stalled GPU drops frames instead of blocking the
+    // presentation thread; a lost device still fails the wait and stops presenting.
     private const ulong FenceTimeoutNanoseconds = 5_000_000_000;
 
     // Set on the presentation thread once a Vulkan call fails. A failed submit leaves the in-flight fence
@@ -159,8 +160,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                     switch (command)
                     {
                         case RenderCommand.DrawCommand draw:
-                            ExecuteRender(draw.BitmapRef, draw.Params);
-                            draw.BitmapRef.Dispose();
+                            try
+                            {
+                                ExecuteRender(draw.BitmapRef, draw.Params);
+                            }
+                            finally
+                            {
+                                draw.BitmapRef.Dispose();
+                            }
+
                             break;
 
                         case RenderCommand.ResizeCommand resize:
@@ -215,7 +223,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         // The previous frame fence covers its upload and present draw because both use this queue.
         // Wait before rewriting the persistent staging buffer or replacing the source image.
         var fence = _inFlightFence;
-        Check(_vk.WaitForFences(_device, 1, &fence, Vk.True, FenceTimeoutNanoseconds), "vkWaitForFences");
+        Result waitResult = _vk.WaitForFences(_device, 1, &fence, Vk.True, FenceTimeoutNanoseconds);
+        if (waitResult == Result.Timeout)
+        {
+            // The GPU may still finish the previous frame, so drop this one and wait again on the next.
+            s_logger.LogWarning("Dropped a preview frame because the previous one had not finished");
+            return;
+        }
+
+        Check(waitResult, "vkWaitForFences");
 
         // The following render submission is ordered after this upload on the same queue, so it
         // needs no per-operation CPU fence wait.
