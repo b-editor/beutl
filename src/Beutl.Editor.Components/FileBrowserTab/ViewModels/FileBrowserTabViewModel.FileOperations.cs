@@ -302,33 +302,26 @@ public sealed partial class FileBrowserTabViewModel
         string targetDir)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
-        string targetDirWithSep = normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 
         foreach (var (localPath, isDir) in files)
         {
             string normalizedSource = Path.GetFullPath(localPath);
 
-            // 同じ親ディレクトリ内での自己ドロップはスキップ
+            // 同じ親ディレクトリ内での自己ドロップはスキップ（大文字小文字の区別はファイルシステムに従う）
             string? sourceParent = Path.GetDirectoryName(normalizedSource);
             if (sourceParent != null
-                && string.Equals(
-                    Path.GetFullPath(sourceParent).TrimEnd(Path.DirectorySeparatorChar),
-                    normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar),
-                    StringComparison.OrdinalIgnoreCase))
+                && FilePathComparison.AreSameCanonicalPath(
+                    sourceParent, Path.TrimEndingDirectorySeparator(normalizedTargetDir)))
             {
                 continue;
             }
 
             // ディレクトリを自身または子孫に移動することはできない
-            if (isDir)
+            if (isDir && FilePathComparison.IsSameOrDescendant(normalizedSource, normalizedTargetDir))
             {
-                string sourceWithSep = normalizedSource.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-                if (targetDirWithSep.StartsWith(sourceWithSep, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
-                    NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
-                    continue;
-                }
+                _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
+                NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
+                continue;
             }
 
             string destPath = Path.Combine(normalizedTargetDir, Path.GetFileName(normalizedSource));
