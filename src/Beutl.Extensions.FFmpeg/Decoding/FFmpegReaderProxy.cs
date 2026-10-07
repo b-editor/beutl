@@ -103,8 +103,8 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
     internal int ReaderId => _readerId;
 
-    // How long a read waits for the worker to close a suspended reader before trying again on a later read.
-    internal TimeSpan CloseTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    // How long a read waits for the worker to close a suspended reader before logging that it is still waiting.
+    internal TimeSpan CloseWarningDelay { get; init; } = TimeSpan.FromSeconds(5);
 
     long IIdleSuspendableReader.LastAccessTicks => Volatile.Read(ref _lastAccessTicks);
 
@@ -367,13 +367,14 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
         // A read right after the sweep would otherwise open the new decoder while the worker still holds
         // the old one, the very allocation suspension exists to avoid under memory pressure.
+        // Returning false instead would drop this frame (an export saves it without the clip). The close
+        // finishes once the worker's in-flight decode does, or fails with the connection.
         if (_pendingClose is { } close)
         {
-            // Still closing (e.g. behind a long decode): a later read retries instead of reopening now.
-            if (!close.Wait(CloseTimeout))
+            if (!close.Wait(CloseWarningDelay))
             {
-                _logger.LogDebug("FFmpeg reader {ReaderId} is still closing; not reopening yet", _readerId);
-                return false;
+                _logger.LogWarning("Waiting for the worker to close FFmpeg reader {ReaderId} before reopening it", _readerId);
+                close.Wait();
             }
 
             _pendingClose = null;

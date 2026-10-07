@@ -372,9 +372,10 @@ public class FFmpegReaderProxyIdleTests
         Assert.That(suspendable.MemoryBytes, Is.EqualTo(opened), "a reopened reader starts with a fresh ring buffer");
     }
 
-    // A close stuck behind a long decode must not lead to a second decoder next to the old one.
+    // A close stuck behind a long decode must neither put a second decoder next to the old one nor drop the
+    // frame: an export would save it without the clip.
     [Test]
-    public void Resume_StaysSuspended_WhenTheCloseOutlastsTheTimeout()
+    public void Resume_KeepsWaitingForASlowClose_AndStillReturnsTheFrame()
     {
         int reopenCount = 0;
         OpenFileResponse response = _worker.OpenVideo();
@@ -387,18 +388,21 @@ public class FFmpegReaderProxyIdleTests
             },
             _tracker)
         {
-            CloseTimeout = TimeSpan.FromMilliseconds(100),
+            CloseWarningDelay = TimeSpan.FromMilliseconds(50),
         };
 
         _worker.ReleaseCloses.Reset();
+        Task<byte>? read = null;
         try
         {
             Assert.That(TrySuspend(reader), Is.True);
+            read = Task.Run(() => ReadFirstByte(reader, 0));
+
+            // Well past the warning delay, the read is still waiting rather than giving up.
+            Thread.Sleep(300);
             Assert.Multiple(() =>
             {
-                Assert.That(reader.ReadVideo(0, out var image), Is.False);
-                Assert.That(image, Is.Null);
-                Assert.That(reader.IsSuspended, Is.True);
+                Assert.That(read.IsCompleted, Is.False);
                 Assert.That(reopenCount, Is.Zero);
             });
         }
@@ -407,9 +411,12 @@ public class FFmpegReaderProxyIdleTests
             _worker.ReleaseCloses.Set();
         }
 
-        _worker.WaitForClose(response.ReaderId);
-        Assert.That(ReadFirstByte(reader, 0), Is.EqualTo(FakeWorker.PixelValue(reader.ReaderId, 0)));
-        Assert.That(reopenCount, Is.EqualTo(1));
+        Assert.That(read!.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(read.Result, Is.EqualTo(FakeWorker.PixelValue(reader.ReaderId, 0)));
+            Assert.That(reopenCount, Is.EqualTo(1));
+        });
     }
 
     [Test]
