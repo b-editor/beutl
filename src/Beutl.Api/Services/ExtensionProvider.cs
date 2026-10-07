@@ -290,8 +290,6 @@ public sealed class ExtensionProvider : IExtensionRegistry
 
     TExtension[] IExtensionRegistry.GetExtensions<TExtension>() => GetExtensions<TExtension>();
 
-    EditorExtension? IExtensionRegistry.MatchEditorExtension(string file) => MatchEditorExtension(file);
-
     void IExtensionRegistry.AddExtensions(int packageId, IReadOnlyList<Extension> extensions)
         => AddExtensions(packageId, extensions);
 

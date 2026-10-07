@@ -13,8 +13,6 @@ internal interface IExtensionRegistry : IExtensionProvider, IBeutlApiResource
     TExtension[] GetExtensions<TExtension>()
         where TExtension : Extension;
 
-    EditorExtension? MatchEditorExtension(string file);
-
     /// <summary>
     /// Registers all extensions owned by one package.
     /// </summary>

@@ -249,22 +249,6 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
-    public void RetryStore_DoesNotReuseKeyAcrossAccounts()
-    {
-        var store = new InMemoryAiRetryKeyStore();
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-        string first = store.GetOrCreate(job, "account-a", out bool firstRepeat);
-        string second = store.GetOrCreate(job, "account-b", out bool secondRepeat);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(firstRepeat, Is.False);
-            Assert.That(secondRepeat, Is.False);
-            Assert.That(second, Is.Not.EqualTo(first));
-        });
-    }
-
-    [Test]
     public async Task PersistedRetryBypassesCurrentBalanceModelAndAvailabilityPreflight()
     {
         var store = new InMemoryAiRetryKeyStore();
@@ -273,7 +257,7 @@ public class AiJobRetryHandlerTests
         {
             Model = new AiModelId("removed/model"),
         };
-        store.GetOrCreate(job, "test-account", out _);
+        SeedRetryKey(store, job, "test-account");
         var handler = new AiImageJobRetryHandler(
             Mock.Of<IAiImageGenerationService>(),
             EntitlementService(),
@@ -299,7 +283,7 @@ public class AiJobRetryHandlerTests
         var images = new Mock<IAiImageGenerationService>();
         var store = new InMemoryAiRetryKeyStore();
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-        store.GetOrCreate(job, "test-account", out _);
+        string key = SeedRetryKey(store, job, "test-account");
         var handler = new AiImageJobRetryHandler(
             images.Object,
             EntitlementService(),
@@ -309,7 +293,11 @@ public class AiJobRetryHandlerTests
 
         AiJobRetryPreparationResult prepared = await handler.PrepareAsync(job, CancellationToken.None);
         IAiJobRetryPreparation preparation = prepared.TakePreparation();
-        store.Retire(job, "test-account");
+        AiRetryAttempt concurrent = store.PrepareAttempt(job, "test-account");
+        Assert.That(store.TryConsumeAttempt(concurrent, job, "test-account", out _, out _), Is.True);
+        Assert.That(
+            store.TryRetire(job, "test-account", key, concurrent.Generation, concurrent.Token),
+            Is.True);
 
         await Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
             preparation.ExecuteAsync(CancellationToken.None));
@@ -330,7 +318,7 @@ public class AiJobRetryHandlerTests
         var store = new InMemoryAiRetryKeyStore();
         string account = "account-a";
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-        string original = store.GetOrCreate(job, account, out _);
+        string original = SeedRetryKey(store, job, account);
         var context = new AiRetryAttemptContext(
             store,
             () => new AiAuthenticatedRequestIdentity(account, User: null),
@@ -765,6 +753,14 @@ public class AiJobRetryHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(available);
         return mock.Object;
+    }
+
+    private static string SeedRetryKey(IAiRetryKeyStore store, AiJob job, string accountId)
+    {
+        AiRetryAttempt attempt = store.PrepareAttempt(job, accountId);
+        Assert.That(store.TryConsumeAttempt(attempt, job, accountId, out string key, out _), Is.True);
+        Assert.That(store.TryRelease(job, accountId, key, attempt.Generation + 1, attempt.Token), Is.True);
+        return key;
     }
 
     private static AiRetryAttemptContext RetryContext(

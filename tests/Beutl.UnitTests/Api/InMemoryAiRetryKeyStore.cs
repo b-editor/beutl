@@ -24,35 +24,6 @@ internal sealed class InMemoryAiRetryKeyStore : IAiRetryKeyStore
         }
     }
 
-    public string GetOrCreate(AiJob job, string accountId, out bool isRepeat)
-    {
-        lock (_gate)
-        {
-            string identity = Identity(job, accountId);
-            if (_entries.TryGetValue(identity, out Entry? entry))
-            {
-                isRepeat = true;
-                return entry.Key;
-            }
-
-            isRepeat = false;
-            string key = $"test-{Guid.NewGuid():N}";
-            _entries[identity] = new Entry(key, Advance(identity), null);
-            return key;
-        }
-    }
-
-    public void Retire(AiJob job, string accountId)
-    {
-        lock (_gate)
-        {
-            string identity = Identity(job, accountId);
-            if (_entries.Remove(identity))
-                Advance(identity);
-            RemoveAttempts(identity);
-        }
-    }
-
     public void AbandonAttempt(AiRetryAttempt attempt)
     {
         lock (_gate)
@@ -84,30 +55,6 @@ internal sealed class InMemoryAiRetryKeyStore : IAiRetryKeyStore
 
             string key = $"test-{Guid.NewGuid():N}";
             return ExistingAttempt(job, accountId, identity, key, generation, AiRetryAttemptKind.NewPurchase);
-        }
-    }
-
-    public bool TryPrepareRecoveryAttempt(AiJob job, string accountId, out AiRetryAttempt attempt)
-    {
-        lock (_gate)
-        {
-            string identity = Identity(job, accountId);
-            if (!_entries.TryGetValue(identity, out Entry? entry))
-            {
-                attempt = null!;
-                return false;
-            }
-
-            if (entry.InFlight)
-                throw new AiRetryAttemptRejectedException();
-            attempt = ExistingAttempt(
-                job,
-                accountId,
-                identity,
-                entry.Key,
-                entry.Generation,
-                AiRetryAttemptKind.Recovery);
-            return true;
         }
     }
 
