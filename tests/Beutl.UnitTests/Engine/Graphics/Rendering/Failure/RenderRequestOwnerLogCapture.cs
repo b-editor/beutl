@@ -5,25 +5,28 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
-// Captures the warnings RenderRequestOwner writes for failures masked by the primary failure.
-// The global logger factory cannot drop a provider, so disposing only stops the capture.
+// Captures the warnings RenderRequestOwner writes for masked failures, or throws from the logger to
+// simulate a faulty provider. The global logger factory cannot drop a provider, so disposing only
+// stops the capture.
 internal sealed class RenderRequestOwnerLogCapture : ILoggerProvider
 {
     private static readonly string s_category = typeof(RenderRequestOwner).FullName!;
+    private readonly bool _throwOnLog;
     private volatile bool _stopped;
 
-    private RenderRequestOwnerLogCapture()
+    private RenderRequestOwnerLogCapture(bool throwOnLog)
     {
+        _throwOnLog = throwOnLog;
     }
 
     public ConcurrentQueue<(LogLevel Level, Exception? Exception)> Entries { get; } = new();
 
-    public static RenderRequestOwnerLogCapture Start()
+    public static RenderRequestOwnerLogCapture Start(bool throwOnLog = false)
     {
         if (!Log.IsLoggerFactoryConfigured)
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Trace));
 
-        var capture = new RenderRequestOwnerLogCapture();
+        var capture = new RenderRequestOwnerLogCapture(throwOnLog);
         Log.LoggerFactory.AddProvider(capture);
         return capture;
     }
@@ -45,8 +48,12 @@ internal sealed class RenderRequestOwnerLogCapture : ILoggerProvider
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            if (IsEnabled(logLevel))
-                owner.Entries.Enqueue((logLevel, exception));
+            if (!IsEnabled(logLevel))
+                return;
+
+            owner.Entries.Enqueue((logLevel, exception));
+            if (owner._throwOnLog)
+                throw new InvalidOperationException("logging-provider-failure");
         }
     }
 }
