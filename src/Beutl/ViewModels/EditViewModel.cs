@@ -177,7 +177,10 @@ public sealed partial class EditViewModel
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
-                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException))
+            {
+                _autoSaveFailed = true;
+                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException);
+            })
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
 

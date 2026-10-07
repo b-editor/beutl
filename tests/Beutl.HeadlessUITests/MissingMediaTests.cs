@@ -541,6 +541,86 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Unsaved_removal_or_relink_keeps_the_saved_reference_fingerprint(bool relink)
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string path = Path.Combine(NewDirectory(), "original.png");
+        File.WriteAllBytes(path, s_png);
+        Element element;
+        using (editor.HistoryManager.SuppressRecording()) element = AddImage(editor.Scene, path);
+        await new MissingMediaService().UpdateFingerprintsAsync(editor.Scene);
+        var fingerprint = editor.Scene.MediaFingerprints[new Uri(path).AbsoluteUri];
+        await editor.SaveAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        byte[] savedBytes = File.ReadAllBytes(editor.Scene.Uri!.LocalPath);
+        try
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                if (relink)
+                {
+                    string replacement = Path.Combine(NewDirectory(), "replacement.png");
+                    File.WriteAllBytes(replacement, [.. s_png, 1]);
+                    ResourceRelocationService.RelinkFileSource(((SourceImage)element.Objects.Single()).Source.CurrentValue!, new Uri(replacement));
+                }
+                else editor.Scene.Children.Remove(element);
+            }
+            editor.ScheduleMediaFingerprints();
+            await editor.WaitForMediaFingerprintsAsync();
+            var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri);
+            Assert.That(editor.Scene.MediaFingerprints.ContainsKey(new Uri(path).AbsoluteUri), Is.False);
+            Assert.That(saved.MediaFingerprints[new Uri(path).AbsoluteUri], Is.EqualTo(fingerprint));
+            Assert.That(File.ReadAllBytes(editor.Scene.Uri.LocalPath), Is.EqualTo(savedBytes));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    public async Task Auto_saved_media_keeps_its_delayed_fingerprint_without_an_explicit_save()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
+        var entered = new TaskCompletionSource(); var release = new TaskCompletionSource();
+        editor.CaptureMediaFingerprints = async (scene, token) =>
+        {
+            entered.TrySetResult();
+            await release.Task.WaitAsync(token);
+            await new MissingMediaService().UpdateFingerprintsAsync(scene, token);
+        };
+        try
+        {
+            EditViewModel.IsAutoSaveSuppressedForTesting = false;
+            string directory = NewDirectory(); string path = Path.Combine(directory, "original.png");
+            File.WriteAllBytes(path, s_png);
+            AddImage(editor.Scene, path);
+            editor.HistoryManager.Commit("Add media");
+            HeadlessTestHelpers.Settle();
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children, Has.Count.EqualTo(1));
+            release.SetResult();
+            await editor.WaitForMediaFingerprintsAsync();
+            string renamed = Path.Combine(directory, "renamed.png"); File.Move(path, renamed);
+            var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
+            var service = new MissingMediaService();
+            var missing = service.FindMissing(saved).Single();
+            Assert.That(missing.Fingerprint, Is.Not.Null);
+            Assert.That((await service.FindMatchesAsync([missing], directory))[missing], Is.EqualTo(renamed));
+        }
+        finally
+        {
+            release.TrySetResult();
+            await TestReset.ResetShellAsync();
+            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Applying_repairs_notifies_the_active_version_control_session()
     {
         await TestReset.ResetShellAsync();
@@ -558,7 +638,8 @@ public class MissingMediaTests
             using var vm = new MissingMediaDialogViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), path);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-            session.Verify(value => value.NotifySavedAsync(Moq.It.Is<Beutl.Editor.VersionControl.IProjectFileWriteLease>(lease => lease != null), Moq.It.IsAny<CancellationToken>()), Moq.Times.Once);
+            await editor.WaitForMediaFingerprintsAsync();
+            session.Verify(value => value.NotifySavedAsync(Moq.It.Is<Beutl.Editor.VersionControl.IProjectFileWriteLease>(lease => lease != null), Moq.It.IsAny<CancellationToken>()), Moq.Times.Exactly(2));
         }
         finally { editor.EditorService.ProjectVersionControlCoordinator = old; await TestReset.ResetShellAsync(); }
     }
@@ -584,8 +665,10 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
-    public void Replacement_model_updates_geometry_while_preserving_materials_and_child_ids()
+    public async Task Replacement_model_updates_geometry_while_preserving_materials_and_child_ids()
     {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
         string directory = NewDirectory(); string original = Path.Combine(directory, "old.obj");
         string replacement = Path.Combine(directory, "new.obj");
         File.WriteAllText(original, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
@@ -596,12 +679,74 @@ public class MissingMediaTests
         child.Name = "User mesh"; var material = child.Material.CurrentValue;
         var mesh = (ModelMesh)child.Mesh.CurrentValue!;
         var oldVertices = mesh.Vertices.CurrentValue;
-        var loaded = new ModelSource(); loaded.ReadFrom(new Uri(replacement));
-        ResourceRelocationService.RelinkFileSource(source, new Uri(replacement), loaded, synchronizeModelGeometry: true);
-        Assert.That(model.Children.Single(), Is.SameAs(child));
-        Assert.That(child.Name, Is.EqualTo("User mesh"));
-        Assert.That(child.Material.CurrentValue, Is.SameAs(material));
-        Assert.That(((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue, Is.Not.EqualTo(oldVertices));
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
+            element.Objects.Add(model);
+        }
+        await new MissingMediaService().UpdateFingerprintsAsync(editor.Scene);
+        File.Delete(original);
+        try
+        {
+            using var vm = new MissingMediaDialogViewModel(editor);
+            await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.That(model.Children.Single(), Is.SameAs(child));
+            Assert.That(child.Name, Is.EqualTo("User mesh"));
+            Assert.That(child.Material.CurrentValue, Is.SameAs(material));
+            Assert.That(((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue, Is.Not.EqualTo(oldVertices));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Repairing_a_moved_model_preserves_reordered_and_added_saved_children(bool withFingerprint)
+    {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string directory = NewDirectory(); string original = Path.Combine(directory, "shapes.obj");
+        File.WriteAllText(original, "o First\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\no Second\nv 3 0 0\nv 5 0 0\nv 3 2 0\nf 4 5 6\n");
+        var source = new ModelSource(); source.ReadFrom(new Uri(original));
+        var model = new Model3D { Source = { CurrentValue = source } };
+        Assert.That(model.Children, Has.Count.EqualTo(2));
+        var first = model.Children[0]; model.Children.RemoveAt(0); model.Children.Add(first);
+        var mesh = (ModelMesh)((MeshObject3D)first).Mesh.CurrentValue!;
+        model.Children.Add(new MeshObject3D
+        {
+            Name = "Added mesh",
+            Mesh = { CurrentValue = new ModelMesh
+            { Vertices = { CurrentValue = mesh.Vertices.CurrentValue }, Indices = { CurrentValue = mesh.Indices.CurrentValue } } }
+        });
+        first.Name = "Edited first"; first.Position.CurrentValue = new System.Numerics.Vector3(7, 8, 9);
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
+            element.Objects.Add(model);
+        }
+        if (withFingerprint) await new MissingMediaService().UpdateFingerprintsAsync(editor.Scene);
+        string moved = Path.Combine(NewDirectory(), "shapes.obj"); File.Move(original, moved);
+        await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
+        string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+        await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
+        TestShell.Editor.ActivateTabItem(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
+        editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var restored = (Model3D)editor.Scene.Children.Single().Objects.Single();
+        var children = restored.Children.ToArray();
+        var savedChildren = children.Select(child => CoreSerializer.SerializeToJsonObject(child).ToJsonString()).ToArray();
+        try
+        {
+            using var vm = new MissingMediaDialogViewModel(editor);
+            if (withFingerprint) await vm.FindInDirectoryAsync(Path.GetDirectoryName(moved)!);
+            else await vm.SetReplacementAsync(vm.Rows.Single(), moved);
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.That(restored.Children, Is.EqualTo(children));
+            Assert.That(restored.Children.Select(child => CoreSerializer.SerializeToJsonObject(child).ToJsonString()), Is.EqualTo(savedChildren));
+            var persisted = (Model3D)CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Single().Objects.Single();
+            Assert.That(persisted.Children.Select(child => CoreSerializer.SerializeToJsonObject(child).ToJsonString()), Is.EqualTo(savedChildren));
+        }
+        finally { await TestReset.ResetShellAsync(); }
     }
 
     [AvaloniaTest]
@@ -646,11 +791,13 @@ public class MissingMediaTests
             face.CopyTo(collection, offsets[index]);
         }
         string path = Path.Combine(NewDirectory(), "families.ttc"); File.WriteAllBytes(path, collection);
+        Beutl.Media.FontFamily firstFamily;
         using (var first = SkiaSharp.SKTypeface.FromFile(path, 0))
         using (var second = SkiaSharp.SKTypeface.FromFile(path, 1))
         {
             Assert.That(first, Is.Not.Null); Assert.That(second, Is.Not.Null);
             Assert.That(first!.FamilyName, Is.Not.EqualTo(second!.FamilyName));
+            firstFamily = new Beutl.Media.FontFamily(first.FamilyName);
         }
         var family = new Beutl.Media.FontFamily("Beutl Test Variable");
         using (editor.HistoryManager.SuppressRecording())
@@ -665,9 +812,14 @@ public class MissingMediaTests
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(path));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
+            Assert.That(FontManager.Instance.IsRegistered(firstFamily), Is.True);
+            var firstFaces = FontManager.Instance.GetTypefaces(firstFamily);
+            var secondFaces = FontManager.Instance.GetTypefaces(family);
             string project = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(project);
             Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
+            Assert.That(FontManager.Instance.GetTypefaces(firstFamily), Is.EquivalentTo(firstFaces));
+            Assert.That(FontManager.Instance.GetTypefaces(family), Is.EquivalentTo(secondFaces));
         }
         finally { await TestReset.ResetShellAsync(); }
     }

@@ -176,11 +176,7 @@ public sealed class FontManager
             if (Directory.Exists(directory))
             {
                 foreach (string file in EnumerateFontCandidates(directory))
-                {
-                    for (int index = 0; index < GetFontFaceCount(file); index++)
-                        if (LoadFont(file, copyToMemory: true, index) is { } typeface)
-                            fonts.Add(typeface);
-                }
+                    fonts.AddRange(LoadProjectFontFaces(file));
             }
         }
 
@@ -325,7 +321,8 @@ public sealed class FontManager
 
     public static IEnumerable<SKTypeface> OpenFontFaces(string file)
     {
-        for (int index = 0; index < GetFontFaceCount(file); index++)
+        int count = GetFontFaceCount(file);
+        for (int index = 0; index < count; index++)
             if (SKTypeface.FromFile(file, index) is { } face) yield return face;
     }
 
@@ -335,29 +332,51 @@ public sealed class FontManager
         {
             using var stream = File.OpenRead(file);
             Span<byte> header = stackalloc byte[12];
-            if (stream.Read(header) != header.Length || !header[..4].SequenceEqual("ttcf"u8)) return 1;
-            uint count = BinaryPrimitives.ReadUInt32BigEndian(header[8..]);
-            return count > 0 && count <= 1024 && 12L + count * 4 <= stream.Length ? (int)count : 0;
+            return GetFontFaceCount(header[..stream.Read(header)], stream.Length);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
     }
 
-    private SKTypeface? LoadFont(string file, bool copyToMemory = false, int index = 0)
+    private static int GetFontFaceCount(ReadOnlySpan<byte> header, long length)
+    {
+        if (header.Length < 12 || !header[..4].SequenceEqual("ttcf"u8)) return 1;
+        uint count = BinaryPrimitives.ReadUInt32BigEndian(header[8..]);
+        return count > 0 && count <= 1024 && 12L + count * 4 <= length ? (int)count : 0;
+    }
+
+    private List<SKTypeface> LoadProjectFontFaces(string file)
+    {
+        var faces = new List<SKTypeface>();
+        try
+        {
+            byte[] bytes = File.ReadAllBytes(file);
+            string hash = Convert.ToHexString(SHA256.HashData(bytes));
+            int count = GetFontFaceCount(bytes, bytes.LongLength);
+            for (int index = 0; index < count; index++)
+                if (LoadFont(file, bytes, hash, index) is { } typeface) faces.Add(typeface);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load font from {File}", file);
+        }
+        return faces;
+    }
+
+    private SKTypeface? LoadFont(string file, byte[]? bytes = null, string? hash = null, int index = 0)
     {
         try
         {
-            if (copyToMemory)
+            if (bytes is not null)
             {
-                byte[] bytes = File.ReadAllBytes(file);
-                string hash = Convert.ToHexString(SHA256.HashData(bytes)) + ":" + index;
+                string key = hash + ":" + index;
                 lock (_gate)
                 {
                     // Registered faces can still be held by renderers. Cache immutable font
                     // bytes across project switches instead of disposing or duplicating them.
-                    if (_projectFontCache.TryGetValue(hash, out SKTypeface? cached)) return cached;
+                    if (_projectFontCache.TryGetValue(key, out SKTypeface? cached)) return cached;
                     using var stream = new MemoryStream(bytes, writable: false);
                     SKTypeface? face = SKTypeface.FromStream(stream, index);
-                    if (face is not null) _projectFontCache.Add(hash, face);
+                    if (face is not null) _projectFontCache.Add(key, face);
                     return face;
                 }
             }

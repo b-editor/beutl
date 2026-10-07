@@ -156,9 +156,18 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             await _editor.Player.Pause();
             _token.ThrowIfCancellationRequested();
             var rows = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value != null).ToArray();
+            var replacementModels = new HashSet<MissingMediaRowViewModel>();
             // Revalidate after any time spent waiting for file-write admission.
             foreach (var row in rows)
+            {
                 row.ValidatedSource = await _service.ValidateAsync(row.Media, row.ReplacementPath.Value!, _token);
+                // A repair keeps saved child meshes, including their order and edits.
+                // Replace geometry only when a saved hash proves this is a different asset.
+                if (row.Media.Kind == MissingMediaKind.Model && row.Media.Fingerprint is { } fingerprint
+                    && !string.Equals(fingerprint.Sha256,
+                        await MissingMediaService.HashFileAsync(row.ReplacementPath.Value!, _token), StringComparison.OrdinalIgnoreCase))
+                    replacementModels.Add(row);
+            }
             _token.ThrowIfCancellationRequested();
             using (_editor.HistoryManager.SuppressRecording())
             {
@@ -168,7 +177,7 @@ public sealed class MissingMediaDialogViewModel : IDisposable
                     foreach (IFileSource source in row.Media.References.Select(reference => reference.Source)
                                  .OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance))
                         ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
-                            synchronizeModelGeometry: row.Media.Kind == MissingMediaKind.Model);
+                            synchronizeModelGeometry: replacementModels.Contains(row));
                 }
             }
             _editor.HasMediaRepairs.Value = true;

@@ -264,7 +264,7 @@ public sealed class MissingMediaService
         }
     }
 
-    private static async Task<string> HashFileAsync(string path, CancellationToken token)
+    internal static async Task<string> HashFileAsync(string path, CancellationToken token)
     {
         await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
             128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);

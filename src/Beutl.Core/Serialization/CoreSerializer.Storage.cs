@@ -231,14 +231,16 @@ public static partial class CoreSerializer
     // 中途半端な状態で残るのを防ぐ。
     // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
     // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
-    internal static bool UpdateStoredMetadata(Uri uri, Guid objectId, string name, JsonNode value)
+    internal static bool UpdateStoredMetadata(Uri uri, Guid objectId, string name, JsonNode? value)
     {
         if (!uri.IsFile || !File.Exists(uri.LocalPath)) return false;
         JsonObject json;
         using (var stream = UriHelper.ResolveStream(uri)) json = ParseStoredObject(stream, uri);
         if (!Guid.TryParse(json[nameof(CoreObject.Id)]?.GetValue<string>(), out var id) || id != objectId)
             return false;
-        json[name] = value;
+        if (JsonNode.DeepEquals(json[name], value)) return false;
+        if (value is null) json.Remove(name);
+        else json[name] = value;
         WriteJsonAtomically(uri.LocalPath, false, writer => json.WriteTo(writer, JsonHelper.SerializerOptions));
         return true;
     }
