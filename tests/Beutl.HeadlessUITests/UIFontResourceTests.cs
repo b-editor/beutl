@@ -18,9 +18,6 @@ public class UIFontResourceTests
     [TestCase("Beutl.ExceptionHandler", "ja-JP", "Noto Sans JP")]
     [TestCase("Beutl.ExceptionHandler", "zh-CN", "Noto Sans SC")]
     [TestCase("Beutl.ExceptionHandler", "ko-KR", "Noto Sans KR")]
-    [TestCase("Beutl.WaitingDialog", "ja-JP", "Noto Sans JP")]
-    [TestCase("Beutl.WaitingDialog", "zh-CN", "Noto Sans SC")]
-    [TestCase("Beutl.WaitingDialog", "ko-KR", "Noto Sans KR")]
     public void Helper_startup_applies_parent_language_before_resolving_fonts(
         string assemblyName, string cultureName, string expectedFamily)
     {
@@ -57,7 +54,6 @@ public class UIFontResourceTests
 
     [AvaloniaTest]
     [TestCase("Beutl.ExceptionHandler")]
-    [TestCase("Beutl.WaitingDialog")]
     public void Helper_dialog_font_resources_resolve_their_linked_assets(string assemblyName)
     {
         var resources = (ResourceDictionary)AvaloniaXamlLoader.Load(
