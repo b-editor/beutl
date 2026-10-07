@@ -397,13 +397,10 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("RootPath", out var rootPathNode) && rootPathNode is JsonValue rootPathValue)
+        if (json.TryGetPropertyValueAsJsonValue("RootPath", out string? rootPath)
+            && !string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
         {
-            string? rootPath = rootPathValue.GetValue<string>();
-            if (!string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
-            {
-                RootPath.Value = rootPath;
-            }
+            RootPath.Value = rootPath;
         }
 
         if (json.TryGetPropertyValueAsJsonValue("ViewMode", out int viewModeInt)
