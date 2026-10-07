@@ -208,4 +208,11 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         base.WriteToJson(json);
         NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
     }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
+        Group.Value?.Dispose();
+    }
 }
