@@ -1,6 +1,4 @@
-﻿using Beutl.Graphics3D.Nodes;
-
-namespace Beutl.Graphics.Backend;
+﻿namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Refuses an extent the device cannot make before its allocator is asked.
@@ -15,18 +13,6 @@ namespace Beutl.Graphics.Backend;
 /// </remarks>
 internal static class DeviceExtentLimits
 {
-    /// <summary>
-    /// The largest cube face the device can both build as a cube image and render through per-face 2D
-    /// attachments, or the larger of the two limits when one was not reported.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PointShadowPass"/> draws each face into a 2D attachment and copies it into the cube, so a
-    /// face has to fit both <see cref="IGraphicsContext.MaxCubeFaceDimension"/> and
-    /// <see cref="IGraphicsContext.MaxAttachmentDimension"/>, and a device may set the two differently.
-    /// </remarks>
-    public static int ResolveCubeFaceAttachmentBudget(IGraphicsContext context)
-        => Device3DExtentBudget.FromContext(context).ResolveCubeFaceAttachmentBudget();
-
     /// <summary>Refuses an extent past what a device can make of an image created with attachment usage.</summary>
     /// <param name="maxImageDimension">The device's image limit for the kind, or zero or less when unknown.</param>
     /// <param name="maxFramebufferWidth">The device's framebuffer width limit, or zero or less when unknown.</param>
@@ -117,21 +103,6 @@ internal static class DeviceExtentLimits
 
         throw new InvalidOperationException(
             $"A {width}x{height} pixel 3D attachment exceeds the {budget} pixels this device can attach.");
-    }
-
-    /// <summary>Refuses a cube face past what <paramref name="context"/> can build as a cube image.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">The face size is negative.</exception>
-    /// <exception cref="InvalidOperationException">The face exceeds the device's cube image limit.</exception>
-    public static void ThrowIfCannotMakeCubeFace(IGraphicsContext context, int faceSize)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentOutOfRangeException.ThrowIfNegative(faceSize);
-        int budget = context.MaxCubeFaceDimension;
-        if (budget <= 0 || faceSize <= budget)
-            return;
-
-        throw new InvalidOperationException(
-            $"A {faceSize} pixel cube face exceeds the {budget} pixels this device can make of a cube map.");
     }
 
     /// <summary>

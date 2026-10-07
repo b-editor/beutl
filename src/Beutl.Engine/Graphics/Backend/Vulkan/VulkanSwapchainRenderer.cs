@@ -84,7 +84,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     public void Initialize(IntPtr nativeHandle, string handleDescriptor, uint width, uint height)
     {
         _surfaceInfo = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle, handleDescriptor);
-        _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _queueFamilyIndex, _surfaceInfo.Surface, width, height);
+        _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _surfaceInfo.Surface, width, height);
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
         _renderCommandBuffer = AllocateCommandBuffer();
         _uploadCommandBuffer = AllocateCommandBuffer();

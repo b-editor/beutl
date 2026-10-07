@@ -21,7 +21,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     private readonly SurfaceKHR _surface;
     private readonly KhrSwapchain _khrSwapchain;
     private readonly KhrSurface _khrSurface;
-    private readonly uint _queueFamilyIndex;
 
     private SwapchainKHR _swapchain;
     private Image[] _images = [];
@@ -37,7 +36,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         Instance instance,
         PhysicalDevice physicalDevice,
         Device device,
-        uint queueFamilyIndex,
         SurfaceKHR surface,
         uint width,
         uint height)
@@ -45,7 +43,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         _vk = vk;
         _physicalDevice = physicalDevice;
         _device = device;
-        _queueFamilyIndex = queueFamilyIndex;
         _surface = surface;
 
         if (!vk.TryGetInstanceExtension(instance, out _khrSurface!))
