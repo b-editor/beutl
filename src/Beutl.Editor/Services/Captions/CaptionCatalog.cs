@@ -266,7 +266,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
                     _hostCodecDecoders,
                     _hostCodecEncoders,
                     new Dictionary<CaptionFormatId, Extension>(),
-                    new Dictionary<CaptionFormatId, Extension>(),
                     new Dictionary<CaptionFormatId, Extension>());
                 CaptionRegistryDrain<Extension> retiredTemplates = _templates.ReplaceOwned(
                     _hostTemplateDescriptors,
@@ -319,12 +318,11 @@ public sealed class CaptionCatalog : IAsyncDisposable
             [.. _hostCodecDescriptors];
         List<CaptionDecoderRegistration> captionDecoders = [.. _hostCodecDecoders];
         List<CaptionEncoderRegistration> captionEncoders = [.. _hostCodecEncoders];
-        var codecDescriptorOwners = new Dictionary<CaptionFormatId, Extension>();
         var decoderOwners = new Dictionary<CaptionFormatId, Extension>();
         var encoderOwners = new Dictionary<CaptionFormatId, Extension>();
 
         CaptionCodecDescriptorExtension[] codecDescriptorExtensions = ComposeCategory(
-            extensionProvider, s_codecDescriptorCategory, codecDescriptors, codecDescriptorOwners);
+            extensionProvider, s_codecDescriptorCategory, codecDescriptors, owners: null);
         CaptionDecoderExtension[] decoderExtensions = ComposeCategory(
             extensionProvider, s_decoderCategory, captionDecoders, decoderOwners);
         CaptionEncoderExtension[] encoderExtensions = ComposeCategory(
@@ -361,7 +359,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
                 codecDescriptors,
                 captionDecoders,
                 captionEncoders,
-                codecDescriptorOwners,
                 decoderOwners,
                 encoderOwners);
         CaptionRegistryDrain<Extension> retiredTemplates =
@@ -452,7 +449,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
         IExtensionRegistry extensionProvider,
         ContributionCategory<TExtension, TRegistration, TId> category,
         List<TRegistration> accepted,
-        Dictionary<TId, Extension> owners)
+        Dictionary<TId, Extension>? owners)
         where TExtension : Extension
         where TRegistration : class
         where TId : notnull
@@ -594,7 +591,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
     private void ComposeSlotExtensions<TExtension, TRegistration, TId>(
         List<(TExtension Extension, TRegistration[] Registrations)> candidates,
         List<TRegistration> accepted,
-        Dictionary<TId, Extension> owners,
+        Dictionary<TId, Extension>? owners,
         Func<TRegistration, TId> getId,
         Func<TRegistration, bool> isAdd,
         CaptionCatalogContributionKind kind,
@@ -644,6 +641,9 @@ public sealed class CaptionCatalog : IAsyncDisposable
 
             accepted.Clear();
             accepted.AddRange(working);
+            if (owners is null)
+                break;
+
             owners.Clear();
             for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
             {
