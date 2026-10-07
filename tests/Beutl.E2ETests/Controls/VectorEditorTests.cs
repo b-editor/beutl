@@ -124,6 +124,11 @@ public class VectorEditorTests
     {
         using var host = new EditorTestHost<TEditor>(editor);
         int[] applied = PartSubscriptionCounts(editor);
+        // The generic editor and its base each subscribe to template parts. Anything else means the template was
+        // not applied yet or the field moved, and the comparison below would prove nothing.
+        Assert.That(editor.Template, Is.Not.Null, typeof(TEditor).Name);
+        Assert.That(applied, Has.Length.EqualTo(2), typeof(TEditor).Name);
+        Assert.That(applied, Is.All.GreaterThan(0), typeof(TEditor).Name);
 
         var template = editor.Template;
         editor.Template = null;
