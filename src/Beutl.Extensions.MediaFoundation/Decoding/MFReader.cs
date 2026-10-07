@@ -29,7 +29,6 @@ public class MFReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<MFReader>();
     private readonly string _file;
-    private readonly MediaOptions _options;
 
     private readonly IMediaFoundationVideoDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
@@ -60,7 +59,6 @@ public class MFReader : MediaReader
         getFirstVideoTimestamp ??= MFStreamProbe.GetFirstVideoTimestamp;
 
         _file = file;
-        _options = options;
         try
         {
             if (options.StreamsToLoad.HasFlag(MediaMode.Video))
