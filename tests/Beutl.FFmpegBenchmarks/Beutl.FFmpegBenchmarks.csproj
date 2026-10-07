@@ -26,12 +26,15 @@
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
   </ItemGroup>
 
   <!-- FFmpegReaderProxy (IPC経由) 用のソースファイルをリンク -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderProxy.cs" Link="Linked\FFmpegReaderProxy.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderIdlePolicy.cs" Link="Linked\FFmpegReaderIdlePolicy.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderIdleTracker.cs" Link="Linked\FFmpegReaderIdleTracker.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\FFmpegWorkerProcess.cs" Link="Linked\FFmpegWorkerProcess.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\FFmpegWorkerLogPump.cs" Link="Linked\FFmpegWorkerLogPump.cs" />
   </ItemGroup>
