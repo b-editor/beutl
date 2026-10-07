@@ -102,7 +102,7 @@ public static partial class CoreSerializer
 
     public static string SerializeToJsonString(ICoreSerializable obj, CoreSerializerOptions? options = null)
     {
-        return ConvertToJsonString(SerializeToJsonObject(obj));
+        return ConvertToJsonString(SerializeToJsonObject(obj, options));
     }
 
     public static string ConvertToJsonString(JsonObject jsonNode)
