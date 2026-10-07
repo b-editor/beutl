@@ -52,6 +52,31 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         _state = NestedRenderTargetBindingState.Staged;
     }
 
+    /// <summary>Gets the staged target the nested request renders into.</summary>
+    public RenderTarget StagedTarget
+        => _state == NestedRenderTargetBindingState.Staged && _lease is not null
+            ? _lease.Target
+            : throw new InvalidOperationException("The nested render target is not staged.");
+
+    /// <summary>Replaces the staged target with an equally sized one, releasing the former.</summary>
+    public void ReplaceStagedTarget(RenderTargetLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (_state != NestedRenderTargetBindingState.Staged || _lease is null)
+            throw new InvalidOperationException("The nested render target is not staged.");
+        if (DeviceBounds.Size != new PixelSize(lease.Target.Width, lease.Target.Height))
+        {
+            throw new ArgumentException(
+                "The replacement lease does not match the staged target size.",
+                nameof(lease));
+        }
+
+        RenderTargetLease previous = _lease;
+        _lease = lease;
+        previous.Dispose();
+    }
+
     public void PrepareForSampling()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);

@@ -2,10 +2,13 @@
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -302,6 +305,61 @@ public sealed class SrgbCompositionTests
         });
     }
 
+    [Test]
+    public void DrawableTexture_HandsLinearRgbTo3D()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var rect = new RectShape();
+            rect.Width.CurrentValue = 16;
+            rect.Height.CurrentValue = 16;
+            rect.Fill.CurrentValue = new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
+            var definition = new DrawableTextureSource();
+            definition.Drawable.CurrentValue = rect;
+            definition.TextureWidth.CurrentValue = 16;
+            definition.TextureHeight.CurrentValue = 16;
+            using var source = (DrawableTextureSource.Resource)definition.ToResource(CompositionContext.Default);
+
+            ITexture2D texture = source.GetTexture(context, 1f)
+                ?? throw new AssertionException("The drawable texture was not created.");
+            Assert.That(ReadTextureRed(texture, 8, 8), Is.EqualTo(MidGrayLinear).Within(0.002f));
+        });
+    }
+
+    [Test]
+    public void NestedTarget_HandsLinearRgbTo3D()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var domain = new Rect(0, 0, 16, 16);
+            using var child = new SolidNestedChildNode(domain, Color.FromArgb(255, 128, 128, 128));
+            using var parent = new NestedTextureProbeNode(child, domain);
+            using var renderer = new RenderNodeRenderer(parent, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = domain,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                CacheOptions = RenderCacheOptions.Disabled,
+            });
+            using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+            Assert.That(parent.TextureRed, Is.EqualTo(MidGrayLinear).Within(0.002f));
+        });
+    }
+
+    // sRGB 128/255 decoded to linear light.
+    private const float MidGrayLinear = 0.2158f;
+
+    private static float ReadTextureRed(ITexture2D texture, int x, int y)
+    {
+        texture.PrepareForSampling();
+        byte[] pixels = texture.DownloadPixels();
+        return (float)BitConverter.ToHalf(pixels, (y * texture.Width + x) * 8);
+    }
+
     private static Bitmap Render(RenderNode node, FusionMode fusion = FusionMode.Enabled,
         IRenderTargetFactory? factory = null)
     {
@@ -337,6 +395,56 @@ public sealed class SrgbCompositionTests
         {
             Created++;
             return base.Create(allocation);
+        }
+    }
+
+    private sealed class SolidNestedChildNode(Rect bounds, Color color) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
+                session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    output.Canvas.Use(canvas => canvas.Clear(color));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale);
+            context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    // Reads the nested texture the way a 3D surface binds it, from inside the consuming callback.
+    private sealed class NestedTextureProbeNode(RenderNode child, Rect domain) : RenderNode
+    {
+        private static readonly RenderResourceSlot<NestedRenderTargetBinding> s_nested = new();
+
+        public float TextureRed { get; private set; } = float.NaN;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RecordedNestedRenderTarget nested = context.RecordNestedTarget(child, domain);
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
+                session => session.UseNestedTarget(
+                    nested.Binding,
+                    image =>
+                    {
+                        ITexture2D texture = nested.Target.GetTexture(domain, 1f)
+                            ?? throw new AssertionException("The nested target has no texture.");
+                        TextureRed = ReadTextureRed(texture, 8, 8);
+                        using OpaqueRenderOutput output = session.CreateOutput(domain);
+                        output.Canvas.Use(image.Draw);
+                        session.Publish(output);
+                    }),
+                OpaqueRenderBoundsContract.Source(domain),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                resources: [s_nested.Bind(nested.Binding)]);
+            context.Publish(context.OpaqueSource(description));
         }
     }
 }

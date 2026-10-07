@@ -100,9 +100,10 @@ public sealed partial class DrawableTextureSource : TextureSource
             if (renderTarget == null) return null;
 
             // Re-render on content change or density change.
-            if (_renderTargetVersion != Version || _lastDensity != density)
+            if ((_renderTargetVersion != Version || _lastDensity != density)
+                && !RenderContent(renderTarget, density, textureWidth, textureHeight))
             {
-                RenderContent(renderTarget, density, textureWidth, textureHeight);
+                return null;
             }
 
             return _renderTarget?.Texture;
@@ -118,7 +119,9 @@ public sealed partial class DrawableTextureSource : TextureSource
             {
                 DisposeRenderTarget();
 
-                _renderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
+                // A 3D surface samples this texture as linear RGB, as it does an uploaded image texture.
+                _renderTarget = RenderTarget.Create(deviceWidth, deviceHeight,
+                    RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
                 if (_renderTarget == null) return null;
 
                 _lastWidth = deviceWidth;
@@ -130,7 +133,7 @@ public sealed partial class DrawableTextureSource : TextureSource
         }
 
         /// <summary>Records the drawable at <paramref name="density"/> and renders it into <paramref name="renderTarget"/>.</summary>
-        private void RenderContent(RenderTarget renderTarget, float density, int textureWidth, int textureHeight)
+        private bool RenderContent(RenderTarget renderTarget, float density, int textureWidth, int textureHeight)
         {
             _lastDensity = density;
             DrawableRenderNode drawableNode = RecordDrawable(density)
@@ -146,15 +149,29 @@ public sealed partial class DrawableTextureSource : TextureSource
                     MaxWorkingScale = density,
                     CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                 });
-            using (var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview, density, density))
+            // Composite in sRGB like any 2D frame, then decode into the linear texture. The sRGB target
+            // lives only for this re-render, so the cached texture costs no more than before.
+            using RenderTarget? composition = RenderTarget.Create(renderTarget.Width, renderTarget.Height);
+            if (composition is null)
+                return false;
+
+            using (var canvas = new ImmediateCanvas(composition, RenderIntent.Preview, density, density))
             {
                 canvas.Clear();
                 renderer.Render(canvas);
             }
 
-            // Prepare for sampling (flush the surface)
+            using (var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview))
+            {
+                canvas.Clear();
+                using (canvas.PushDeviceSpace())
+                    canvas.DrawRenderTarget(composition, default);
+            }
+
+            // Prepare for sampling (flush the surface) while the composition it reads is still alive.
             renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
             _renderTargetVersion = Version;
+            return true;
         }
 
         private void DisposeRenderTarget()

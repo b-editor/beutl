@@ -145,7 +145,25 @@ internal sealed partial class RenderRequestExecutor
 
                 canvas.CloseWithoutFlush();
                 canvas = null;
-                binding.PrepareForSampling();
+                bool linearized;
+                try
+                {
+                    linearized = LinearizeNestedTarget(binding, request.Request.Options.Intent);
+                }
+                catch (Exception ex)
+                {
+                    throw new FamilyExecutionException(ExceptionDispatchInfo.Capture(ex));
+                }
+
+                if (linearized)
+                {
+                    binding.PrepareForSampling();
+                }
+                else
+                {
+                    binding.Reject();
+                    nestedPreviewDropObserved = true;
+                }
             }
         }
         catch (FamilyExecutionException ex)
@@ -179,6 +197,43 @@ internal sealed partial class RenderRequestExecutor
 
         if (failure is not null)
             throw failure;
+    }
+
+    /// <summary>
+    /// Re-stages a nested target in linear sRGB, or returns <see langword="false"/> when Preview could not
+    /// allocate one.
+    /// </summary>
+    /// <remarks>
+    /// The nested request composites in sRGB like any other, but a 3D surface samples the staged texture as
+    /// linear RGB, as it does an uploaded image texture.
+    /// </remarks>
+    private bool LinearizeNestedTarget(NestedRenderTargetBinding binding, RenderIntent intent)
+    {
+        RenderTarget source = binding.StagedTarget;
+        if (source.ColorSpace == BitmapColorSpace.LinearSrgb)
+            return true;
+
+        // TryAcquire itself throws for a Delivery session, so a null result is a preview drop.
+        RenderTargetLease? lease = _targets.TryAcquire(
+            new PixelSize(source.Width, source.Height),
+            pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
+        if (lease is null)
+            return false;
+
+        try
+        {
+            using (var canvas = new ImmediateCanvas(lease.Target, intent))
+            using (canvas.PushDeviceSpace())
+                canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
+        }
+        catch
+        {
+            lease.Dispose();
+            throw;
+        }
+
+        binding.ReplaceStagedTarget(lease);
+        return true;
     }
 
     private void ExecuteSingle(
