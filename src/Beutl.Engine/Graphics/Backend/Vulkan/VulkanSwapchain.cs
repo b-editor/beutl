@@ -102,11 +102,14 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     }
 
     /// <summary>
-    /// Whether the present shader has to encode sRGB itself: these 8-bit UNORM formats store its output unconverted.
+    /// Whether the present shader has to encode sRGB itself: a UNORM format stores its output unconverted,
+    /// while an SRGB format encodes in hardware and the HDR float format takes linear values.
     /// </summary>
-    private static bool RequiresShaderSrgbEncoding(Format format)
+    internal static bool RequiresShaderSrgbEncoding(Format format)
     {
-        return format is Format.B8G8R8A8Unorm or Format.R8G8B8A8Unorm or Format.R8G8B8Unorm;
+        // Silk.NET has no format-property table, so read the numeric type from the name
+        // (B8G8R8A8Unorm, A2B10G10R10UnormPack32, ...) rather than listing formats.
+        return format.ToString().Contains("Unorm", StringComparison.Ordinal);
     }
 
     private void Create(uint width, uint height, SwapchainKHR oldSwapchain)
