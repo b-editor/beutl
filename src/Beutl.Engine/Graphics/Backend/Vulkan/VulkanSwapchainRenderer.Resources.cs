@@ -297,12 +297,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             Flags = CommandBufferUsageFlags.OneTimeSubmitBit
         };
 
-        _vk.BeginCommandBuffer(cmdBuf, &beginInfo);
+        Check(_vk.BeginCommandBuffer(cmdBuf, &beginInfo), "vkBeginCommandBuffer");
     }
 
     private void EndAndSubmitUploadCommands(CommandBuffer cmdBuf)
     {
-        _vk.EndCommandBuffer(cmdBuf);
+        Check(_vk.EndCommandBuffer(cmdBuf), "vkEndCommandBuffer");
 
         var submitInfo = new SubmitInfo
         {
@@ -311,11 +311,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             PCommandBuffers = &cmdBuf
         };
 
-        Result result = _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, default);
-        if (result != Result.Success)
-        {
-            throw new InvalidOperationException($"Failed to submit HDR source upload: {result}");
-        }
+        Check(_vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, default), "vkQueueSubmit (HDR source upload)");
     }
 
     private void TransitionImageLayout(CommandBuffer cmdBuf, Image image, ImageLayout oldLayout, ImageLayout newLayout)
