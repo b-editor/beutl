@@ -385,14 +385,14 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(enabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));
                 Assert.That(enabled.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(3));
                 Assert.That(enabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1));
-                Assert.That(enabled.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(2));
+                Assert.That(enabled.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(1));
                 Assert.That(enabled.LastExecutionStatistics.Synchronizations, Is.Zero);
                 Assert.That(enabled.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
                 Assert.That(enabled.ProgramCacheStatistics.Creations, Is.EqualTo(1));
                 Assert.That(enabled.ProgramCacheStatistics.Hits, Is.EqualTo(1));
-                Assert.That(enabled.TargetPoolStatistics.Creates, Is.EqualTo(3));
-                Assert.That(enabled.TargetPoolStatistics.Misses, Is.EqualTo(3));
-                Assert.That(enabled.TargetPoolStatistics.Reuses, Is.EqualTo(3));
+                Assert.That(enabled.TargetPoolStatistics.Creates, Is.EqualTo(2));
+                Assert.That(enabled.TargetPoolStatistics.Misses, Is.EqualTo(2));
+                Assert.That(enabled.TargetPoolStatistics.Reuses, Is.EqualTo(2));
                 Assert.That(enabled.TargetPoolStatistics.LeasedTargets, Is.Zero);
                 Assert.That(disabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(3));
                 Assert.That(disabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.Zero);
@@ -449,8 +449,8 @@ public sealed class CrossNodeShaderFusionTests
             {
                 Assert.That(directNode.OutputScale.IsUnbounded, Is.True);
                 Assert.That(direct.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));
-                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(3),
-                    "The vector input, linear input conversion, and linear Shader output materialize before sRGB compositing.");
+                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(2),
+                    "The vector input and the linear Shader output materialize before sRGB compositing.");
                 Assert.That(cachedNode.Cache.IsCached, Is.True);
                 Assert.That(missStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(1),
                     "A selected cache capture must force a materialized terminal Shader value.");
@@ -477,8 +477,8 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(result.Bitmap, Is.Not.Null);
                 Assert.That(node.OutputScale.IsUnbounded, Is.True);
                 Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));
-                Assert.That(renderer.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(3),
-                    "Fan-out retains the vector input, its linear conversion, and the terminal linear Shader output.");
+                Assert.That(renderer.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(2),
+                    "Fan-out retains the vector input and the terminal linear Shader output.");
             });
         });
     }
@@ -512,7 +512,7 @@ public sealed class CrossNodeShaderFusionTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(2));
+                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(1));
                 Assert.That(cached.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(0));
                 Assert.That(cachedNode.Cache.IsCached, Is.True);
                 Assert.That(directChange.Maximum, Is.GreaterThan(0.02),

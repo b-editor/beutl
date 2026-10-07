@@ -69,11 +69,11 @@ internal sealed partial class RenderRequestExecutor
                     bool succeeded = false;
                     try
                     {
-                        MaterializedRenderValue normalizedInput = NormalizeSemanticShaderInput(input);
-                        MaterializedRenderValue shaderInput = normalizedInput;
+                        // Sampling converts the sRGB composition raster into the linear output, so the
+                        // input needs no linear copy of its own.
+                        MaterializedRenderValue shaderInput = NormalizeSemanticShaderInput(input);
                         try
                         {
-                            shaderInput = LinearShaderInput(normalizedInput);
                             ExecuteShaderElement(
                                 description,
                                 shaderInput,
@@ -85,8 +85,6 @@ internal sealed partial class RenderRequestExecutor
                         {
                             if (!ReferenceEquals(shaderInput, input))
                                 ReleaseUnpublished(shaderInput);
-                            if (!ReferenceEquals(normalizedInput, input) && !ReferenceEquals(normalizedInput, shaderInput))
-                                ReleaseUnpublished(normalizedInput);
                         }
 
                         results.Add(output);
@@ -415,7 +413,8 @@ internal sealed partial class RenderRequestExecutor
                 input.RasterBounds,
                 output.EffectiveScale.Value,
                 frame.RasterBounds,
-                tileMode);
+                tileMode,
+                output.Target.ColorSpace);
             children.Add(inputShader);
             runtimeChildren[childName] = inputShader;
 

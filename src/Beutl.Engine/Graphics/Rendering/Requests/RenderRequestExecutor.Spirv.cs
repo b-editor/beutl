@@ -39,6 +39,9 @@ internal sealed partial class RenderRequestExecutor
                               && destinationTexture is not null
                               && sourceTexture.Format == TextureFormat.RGBA16Float
                               && destinationTexture.Format == TextureFormat.RGBA16Float
+                              // The SPIR-V path reads stored values without Skia's color conversion.
+                              && input.Target.ColorSpace == BitmapColorSpace.LinearSrgb
+                              && output.Target.ColorSpace == BitmapColorSpace.LinearSrgb
                               && input.EffectiveScale == output.EffectiveScale
                               && input.DeviceBounds.Intersect(output.DeviceBounds) == output.DeviceBounds
                               && input.Bounds == outputBounds

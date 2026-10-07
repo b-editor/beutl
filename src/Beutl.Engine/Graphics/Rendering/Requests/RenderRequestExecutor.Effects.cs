@@ -397,22 +397,14 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale scale = ClampToActiveDeviceGrid(fragment.Bounds, EffectiveScale.At(requestedDensity));
             EffectiveScale inputCallerScale = requestedScale ?? scale;
             MaterializedRenderValue? output = null;
-            var linearInputs = new List<MaterializedRenderValue>();
-            var temporaryInputs = new List<MaterializedRenderValue>();
             bool succeeded = false;
             try
             {
                 // Rasterize the source in the composition space first. Replaying a vector or a
                 // gradient inside the linear layer would change its AA and interpolation policy.
+                // Drawing the sRGB raster into the linear filter layer decodes it, so no linear copy is needed.
                 IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
                     input, currentTarget, input.EffectiveScale.IsUnbounded ? inputCallerScale : null);
-                foreach (MaterializedRenderValue value in inputs)
-                {
-                    MaterializedRenderValue linear = ConvertColorSpace(value, RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
-                    linearInputs.Add(linear);
-                    if (!ReferenceEquals(linear, value))
-                        temporaryInputs.Add(linear);
-                }
                 output = CreateOwnedValue(
                     requiredRegion,
                     scale,
@@ -430,9 +422,9 @@ internal sealed partial class RenderRequestExecutor
                     Rect layerContentBounds = GetDirectFilterLayerBounds(
                         input.Bounds,
                         replayedInputBounds,
-                        linearInputs.Count == 1 ? linearInputs[0].RasterBounds : null);
+                        inputs.Count == 1 ? inputs[0].RasterBounds : null);
                     using (paint is not null ? canvas.PushFilterLayer(paint, layerContentBounds) : default)
-                        DrawValues(linearInputs, canvas);
+                        DrawValues(inputs, canvas);
                 }
 
                 succeeded = true;
@@ -440,8 +432,6 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                foreach (MaterializedRenderValue value in temporaryInputs)
-                    ReleaseUnpublished(value);
                 CompleteFragmentUse(input);
                 if (!succeeded && output is not null)
                     ReleaseUnpublished(output);

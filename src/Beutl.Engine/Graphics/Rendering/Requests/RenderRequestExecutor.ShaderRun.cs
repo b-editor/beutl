@@ -82,7 +82,9 @@ internal sealed partial class RenderRequestExecutor
                 MaterializedRenderValue shaderInput = normalizedInput;
                 try
                 {
-                    shaderInput = LinearShaderInput(normalizedInput);
+                    // Only the SPIR-V path reads the input texture without Skia's color conversion.
+                    if (ShouldMaterializeForSpirv(run))
+                        shaderInput = LinearShaderInput(normalizedInput);
                     ExecuteCompiledShaderRunElement(
                         run,
                         shaderInput,
@@ -173,7 +175,8 @@ internal sealed partial class RenderRequestExecutor
                         input.RasterBounds,
                         outputScale,
                         frame.RasterBounds,
-                        head.SourceTileMode);
+                        head.SourceTileMode,
+                        destination.ColorSpace);
                 }
                 else
                 {
@@ -186,7 +189,11 @@ internal sealed partial class RenderRequestExecutor
                     SKShaderTileMode tileMode = interpolatedBitmap
                         ? SKShaderTileMode.Clamp
                         : SKShaderTileMode.Decal;
-                    inputShader = inputImage.ToShader(
+                    // Sampling converts the sRGB composition raster into the linear output, so the
+                    // input needs no linear copy of its own.
+                    inputShader = ColorTransferShader.Create(
+                        inputImage,
+                        destination.ColorSpace,
                         tileMode,
                         tileMode,
                         sampling,
@@ -409,6 +416,8 @@ internal sealed partial class RenderRequestExecutor
             public Rect RasterBounds => MaterializedOutput?.RasterBounds ?? DirectPlan.RasterBounds;
 
             public float Scale => MaterializedOutput?.EffectiveScale.Value ?? DirectPlan.Density;
+
+            public BitmapColorSpace? ColorSpace => MaterializedOutput?.Target.ColorSpace ?? DirectCanvas?.WorkingColorSpace;
 
             public static ShaderRunDestination ForMaterialized(MaterializedRenderValue output)
             {

@@ -43,7 +43,8 @@ internal static class RasterShaderMapping
         Rect sourceRasterBounds,
         float destinationScale,
         Rect destinationRasterBounds,
-        SKShaderTileMode tileMode)
+        SKShaderTileMode tileMode,
+        BitmapColorSpace? destinationColorSpace = null)
     {
         ArgumentNullException.ThrowIfNull(image);
         var imageBounds = new PixelRect(new PixelSize(image.Width, image.Height));
@@ -100,7 +101,9 @@ internal static class RasterShaderMapping
             semanticRasterBounds);
         if (semanticSubset == imageBounds)
         {
-            return image.ToShader(
+            return ColorTransferShader.Create(
+                image,
+                destinationColorSpace,
                 tileMode,
                 tileMode,
                 SKSamplingOptions.Default,
@@ -112,7 +115,9 @@ internal static class RasterShaderMapping
             : image.Subset(recordingContext, semanticSubset.ToSKRectI());
         if (subset is null)
             throw new InvalidOperationException("The semantic shader source subset could not be created.");
-        return subset.ToShader(
+        return ColorTransferShader.Create(
+            subset,
+            destinationColorSpace,
             tileMode,
             tileMode,
             SKSamplingOptions.Default,

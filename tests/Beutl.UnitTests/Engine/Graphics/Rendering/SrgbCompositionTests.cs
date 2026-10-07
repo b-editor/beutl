@@ -281,7 +281,29 @@ public sealed class SrgbCompositionTests
         return output.GetPixel(0, 0).Red;
     }
 
-    private static Bitmap Render(RenderNode node, FusionMode fusion = FusionMode.Enabled)
+    [Test]
+    public void Blur_FlushDecodesItsSrgbInputWithoutAnExtraLinearCopy()
+    {
+        var blur = new Blur();
+        blur.Sigma.CurrentValue = new Size(4, 4);
+        using FilterEffect.Resource resource = blur.ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        var shapes = new ContainerRenderNode();
+        shapes.AddChild(new RectangleRenderNode(new Rect(40, 20, 60, 40), Brushes.Resource.White, null));
+        shapes.AddChild(new RectangleRenderNode(new Rect(120, 20, 60, 40), Brushes.Resource.White, null));
+        node.AddChild(shapes);
+        var factory = new CountingTargetFactory();
+        using Bitmap frame = Render(node, factory: factory);
+        Assert.Multiple(() =>
+        {
+            // Per shape: its sRGB raster and the linear flush buffer; the flush draw decodes the former.
+            Assert.That(factory.Created, Is.EqualTo(4));
+            Assert.That(Red(frame, 70, 40), Is.EqualTo(255).Within(1));
+        });
+    }
+
+    private static Bitmap Render(RenderNode node, FusionMode fusion = FusionMode.Enabled,
+        IRenderTargetFactory? factory = null)
     {
         using RenderTarget target = RenderTarget.Create(240, 80)!;
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery);
@@ -293,7 +315,7 @@ public sealed class SrgbCompositionTests
             OutputScale = 1,
             FusionMode = fusion,
             CacheOptions = RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, factory ?? new CpuTargetFactory());
         renderer.Render(canvas);
         using Bitmap snapshot = target.Snapshot();
         return snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
@@ -301,9 +323,20 @@ public sealed class SrgbCompositionTests
 
     private static byte Red(Bitmap bitmap, int x, int y) => bitmap.GetPixelSpan()[y * bitmap.RowBytes + x * 4 + 2];
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
+    private class CpuTargetFactory : IRenderTargetFactory
     {
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        public virtual RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
             => RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
+    }
+
+    private sealed class CountingTargetFactory : CpuTargetFactory
+    {
+        public int Created { get; private set; }
+
+        public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Created++;
+            return base.Create(allocation);
+        }
     }
 }

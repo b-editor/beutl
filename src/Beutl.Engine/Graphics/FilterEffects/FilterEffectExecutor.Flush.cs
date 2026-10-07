@@ -17,8 +17,11 @@ public sealed partial class FilterEffectExecutor
 
     public void Flush(bool force = true)
     {
-        EnsureLinearTargets();
         bool hasFilter = Builder.HasFilter();
+        // A pending filter redraws every target into a linear flush buffer, and that draw decodes sRGB
+        // itself. Only targets handed on unredrawn need a separate linear copy.
+        if (!hasFilter)
+            EnsureLinearTargets();
         if (!force && !hasFilter)
         {
             _pendingSkiaTargets = null;
