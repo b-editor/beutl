@@ -8,9 +8,25 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
-public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecoderInfo
+public sealed class FFmpegDecoderInfo : IDecoderInfo
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();
+    private readonly FFmpegDecodingSettings _settings;
+    private readonly Func<IpcConnection> _connectToWorker;
+    private readonly FFmpegReaderIdleTracker _idleTracker;
+
+    public FFmpegDecoderInfo(FFmpegDecodingSettings settings)
+        : this(settings, () => FFmpegWorkerProcess.DecodingInstance.EnsureStarted(), FFmpegReaderIdleTracker.Shared)
+    {
+    }
+
+    internal FFmpegDecoderInfo(
+        FFmpegDecodingSettings settings, Func<IpcConnection> connectToWorker, FFmpegReaderIdleTracker idleTracker)
+    {
+        _settings = settings;
+        _connectToWorker = connectToWorker;
+        _idleTracker = idleTracker;
+    }
 
     public string Name => "FFmpeg Decoder";
 
@@ -36,7 +52,7 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
             return new FFmpegReaderProxy(
                 connection, response.ReaderId, response,
                 () => OpenOnWorker(file, options),
-                FFmpegReaderIdleTracker.Shared);
+                _idleTracker);
         }
         catch (FFmpegLibrariesNotFoundException)
         {
@@ -58,15 +74,15 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
     // Also used to reopen a suspended reader, so it reads the current decoding settings.
     private (IpcConnection Connection, OpenFileResponse Response) OpenOnWorker(string file, MediaOptions options)
     {
-        var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
+        var connection = _connectToWorker();
 
         var request = new OpenFileRequest
         {
             FilePath = file,
             StreamsToLoad = (int)options.StreamsToLoad,
-            ThreadCount = settings.ThreadCount,
-            Acceleration = (int)settings.Acceleration,
-            ForceSrgbGamma = settings.ForceSrgbGamma,
+            ThreadCount = _settings.ThreadCount,
+            Acceleration = (int)_settings.Acceleration,
+            ForceSrgbGamma = _settings.ForceSrgbGamma,
         };
 
         var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(

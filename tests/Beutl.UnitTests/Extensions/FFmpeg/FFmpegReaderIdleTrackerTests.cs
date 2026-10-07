@@ -52,6 +52,34 @@ public class FFmpegReaderIdleTrackerTests
     }
 
     [Test]
+    public void PeriodicSweep_SkipsTicksWhileASweepIsStillRunning()
+    {
+        using var release = new ManualResetEventSlim(false);
+        var reader = new FakeReader(Environment.TickCount64) { BlockSuspendUntil = release };
+        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        try
+        {
+            tracker.Track(reader);
+            Assert.That(() => reader.SuspendAttempts, Is.EqualTo(1).After(5000, 10));
+
+            // Several ticks fire while the first sweep is blocked inside TrySuspend.
+            Thread.Sleep(100);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(reader.SuspendAttempts, Is.EqualTo(1));
+                Assert.That(reader.MaxConcurrentSuspends, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            // Released before Dispose, which waits for the blocked sweep.
+            release.Set();
+            tracker.Dispose();
+        }
+    }
+
+    [Test]
     public void Track_AfterDispose_DoesNotStartTheSweep()
     {
         var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
@@ -135,6 +163,8 @@ public class FFmpegReaderIdleTrackerTests
     private sealed class FakeReader(long lastAccessTicks) : IIdleSuspendableReader
     {
         private int _suspendAttempts;
+        private int _concurrentSuspends;
+        private int _maxConcurrentSuspends;
         private volatile bool _isSuspended;
 
         public long LastAccessTicks { get; private set; } = lastAccessTicks;
@@ -149,21 +179,45 @@ public class FFmpegReaderIdleTrackerTests
 
         public bool ThrowOnFirstSuspend { get; init; }
 
+        public ManualResetEventSlim? BlockSuspendUntil { get; init; }
+
         public int SuspendAttempts => Volatile.Read(ref _suspendAttempts);
+
+        public int MaxConcurrentSuspends => Volatile.Read(ref _maxConcurrentSuspends);
 
         public bool TrySuspend(long expectedLastAccessTicks)
         {
-            if (Interlocked.Increment(ref _suspendAttempts) == 1 && ThrowOnFirstSuspend)
-                throw new InvalidOperationException("Simulated suspension failure.");
+            int concurrent = Interlocked.Increment(ref _concurrentSuspends);
+            InterlockedMax(ref _maxConcurrentSuspends, concurrent);
+            try
+            {
+                if (Interlocked.Increment(ref _suspendAttempts) == 1 && ThrowOnFirstSuspend)
+                    throw new InvalidOperationException("Simulated suspension failure.");
 
-            if (AccessDuringSuspend is { } accessed)
-                LastAccessTicks = accessed;
+                BlockSuspendUntil?.Wait(TimeSpan.FromSeconds(10));
 
-            if (Busy || _isSuspended || LastAccessTicks != expectedLastAccessTicks)
-                return false;
+                if (AccessDuringSuspend is { } accessed)
+                    LastAccessTicks = accessed;
 
-            _isSuspended = true;
-            return true;
+                if (Busy || _isSuspended || LastAccessTicks != expectedLastAccessTicks)
+                    return false;
+
+                _isSuspended = true;
+                return true;
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _concurrentSuspends);
+            }
+        }
+
+        private static void InterlockedMax(ref int target, int value)
+        {
+            int current;
+            while ((current = Volatile.Read(ref target)) < value
+                   && Interlocked.CompareExchange(ref target, value, current) != current)
+            {
+            }
         }
     }
 }

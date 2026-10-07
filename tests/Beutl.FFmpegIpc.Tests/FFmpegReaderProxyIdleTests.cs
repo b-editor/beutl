@@ -5,6 +5,7 @@ using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;
+using Beutl.Media.Decoding;
 
 namespace Beutl.FFmpegIpc.Tests;
 
@@ -197,6 +198,163 @@ public class FFmpegReaderProxyIdleTests
             Assert.That(chunked!.Value.NumSamples, Is.EqualTo(9000));
     }
 
+    // The sweep runs on a timer thread; it must never close the worker reader under a read in progress.
+    [Test]
+    public void TrySuspend_Declines_WhileAReadIsInProgress()
+    {
+        using var reader = CreateVideoProxy();
+        var suspendable = (IIdleSuspendableReader)reader;
+        _worker.ReleaseReads.Reset();
+        Task<byte> read = Task.Run(() => ReadFirstByte(reader, 4));
+        try
+        {
+            Assert.That(_worker.ReadVideoReceived.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            Assert.That(suspendable.TrySuspend(suspendable.LastAccessTicks), Is.False);
+        }
+        finally
+        {
+            _worker.ReleaseReads.Set();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(read.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(read.Result, Is.EqualTo(FakeWorker.PixelValue(reader.ReaderId, 4)));
+            Assert.That(reader.IsSuspended, Is.False);
+        });
+    }
+
+    [Test]
+    public void TrySuspend_Declines_ForSuspendedDisposedOrNonReopenableReaders()
+    {
+        using var suspended = CreateVideoProxy();
+        Suspend(suspended);
+        var disposed = CreateVideoProxy();
+        disposed.Dispose();
+        OpenFileResponse response = _worker.OpenVideo();
+        using var withoutReopen = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(TrySuspend(suspended), Is.False, "already suspended");
+            Assert.That(TrySuspend(disposed), Is.False, "disposed");
+            Assert.That(TrySuspend(withoutReopen), Is.False, "cannot be reopened");
+            Assert.That(withoutReopen.IsSuspended, Is.False);
+        });
+    }
+
+    // Audio-only readers are not swept, but suspending one directly must still reopen it correctly.
+    [Test]
+    public void AudioOnlyReader_ReopensAfterSuspension_AndReturnsFalseOnceDisposed()
+    {
+        int reopenCount = 0;
+        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000);
+        var reader = new FFmpegReaderProxy(
+            _worker.Connection, response.ReaderId, response,
+            () =>
+            {
+                reopenCount++;
+                return (_worker.Connection, _worker.OpenAudio(sampleRate: 8000));
+            },
+            _tracker);
+        int firstId = reader.ReaderId;
+        Assert.That(ReadSamples(reader, 100), Is.EqualTo(100));
+
+        Suspend(reader);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadSamples(reader, 100), Is.EqualTo(100));
+            Assert.That(reader.ReaderId, Is.Not.EqualTo(firstId));
+            Assert.That(reopenCount, Is.EqualTo(1));
+            Assert.That(_tracker.TrackedCount, Is.Zero, "audio-only readers are not tracked");
+        });
+
+        reader.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ReadAudio(0, 100, out var sound), Is.False);
+            Assert.That(sound, Is.Null);
+        });
+    }
+
+    [Test]
+    public void ReadVideo_FollowsTheSharedMemoryTheWorkerRecreated()
+    {
+        using var reader = CreateVideoProxy();
+        _worker.RecreateVideoBufferOnNextRead(reader.ReaderId);
+
+        Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(reader.ReaderId, 1)));
+        // Later reads report no name, so the proxy must keep the recreated mapping.
+        Assert.That(ReadFirstByte(reader, 2), Is.EqualTo(FakeWorker.PixelValue(reader.ReaderId, 2)));
+    }
+
+    [Test]
+    public void ReadAudio_FollowsTheSharedMemoryTheWorkerRecreated()
+    {
+        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000, capacitySamples: 100);
+        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
+
+        Assert.That(ReadSamples(reader, 1000), Is.EqualTo(1000));
+        Assert.That(ReadSamples(reader, 500), Is.EqualTo(500));
+    }
+
+    [Test]
+    public void DecoderInfo_Open_SendsTheDecodingSettings_AndTracksTheReader()
+    {
+        var settings = new FFmpegDecodingSettings
+        {
+            ThreadCount = 3,
+            Acceleration = FFmpegDecodingSettings.AccelerationOptions.D3D11VA,
+            ForceSrgbGamma = false,
+        };
+        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+
+        using var reader = decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video)) as FFmpegReaderProxy;
+
+        Assert.That(reader, Is.Not.Null);
+        Assert.That(_worker.OpenRequests.TryDequeue(out OpenFileRequest? request), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(request!.FilePath, Is.EqualTo("clip.mp4"));
+            Assert.That(request.StreamsToLoad, Is.EqualTo((int)MediaMode.Video));
+            Assert.That(request.ThreadCount, Is.EqualTo(3));
+            Assert.That(request.Acceleration, Is.EqualTo((int)FFmpegDecodingSettings.AccelerationOptions.D3D11VA));
+            Assert.That(request.ForceSrgbGamma, Is.False);
+            Assert.That(_tracker.TrackedCount, Is.EqualTo(1));
+            Assert.That(ReadFirstByte(reader!, 0), Is.EqualTo(FakeWorker.PixelValue(reader!.ReaderId, 0)));
+        });
+    }
+
+    [Test]
+    public void DecoderInfo_Reopen_SendsTheCurrentDecodingSettings()
+    {
+        var settings = new FFmpegDecodingSettings { ThreadCount = 2 };
+        var decoderInfo = new FFmpegDecoderInfo(settings, () => _worker.Connection, _tracker);
+        using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video))!;
+        Assert.That(_worker.OpenRequests.TryDequeue(out _), Is.True);
+
+        settings.ThreadCount = 6;
+        Suspend(reader);
+        ReadFirstByte(reader, 0);
+
+        Assert.That(_worker.OpenRequests.TryDequeue(out OpenFileRequest? reopenRequest), Is.True);
+        Assert.That(reopenRequest!.ThreadCount, Is.EqualTo(6));
+    }
+
+    private static bool TrySuspend(FFmpegReaderProxy reader)
+    {
+        var suspendable = (IIdleSuspendableReader)reader;
+        return suspendable.TrySuspend(suspendable.LastAccessTicks);
+    }
+
+    private static int ReadSamples(FFmpegReaderProxy reader, int length)
+    {
+        Assert.That(reader.ReadAudio(0, length, out var sound), Is.True);
+        using (sound)
+            return sound!.Value.NumSamples;
+    }
+
     private FFmpegReaderProxy CreateVideoProxy(
         Func<(IpcConnection Connection, OpenFileResponse Response)>? reopen = null)
     {
@@ -221,7 +379,7 @@ public class FFmpegReaderProxyIdleTests
             return image!.Value.GetPixelSpan()[0];
     }
 
-    // Answers ReadVideo/ReadAudio/CloseReader like the worker, writing frames into shared memory it owns.
+    // Answers OpenFile/ReadVideo/ReadAudio/CloseReader like the worker, writing media into shared memory it owns.
     private sealed class FakeWorker : IDisposable
     {
         private const int Width = 4;
@@ -232,8 +390,17 @@ public class FFmpegReaderProxyIdleTests
         private readonly CancellationTokenSource _cts = new();
         private readonly ConcurrentDictionary<int, SharedMemoryBuffer> _buffers = new();
         private readonly ConcurrentDictionary<int, bool> _closed = new();
+        private readonly ConcurrentDictionary<int, bool> _recreateVideoBuffer = new();
+        private readonly ConcurrentBag<SharedMemoryBuffer> _retiredBuffers = [];
         private readonly Task _loop;
         private int _nextReaderId;
+
+        public ConcurrentQueue<OpenFileRequest> OpenRequests { get; } = new();
+
+        // Signalled when a ReadVideo arrives; while ReleaseReads is reset, the worker holds its response.
+        public ManualResetEventSlim ReadVideoReceived { get; } = new(false);
+
+        public ManualResetEventSlim ReleaseReads { get; } = new(true);
 
         public FakeWorker(int firstReaderId = 1)
         {
@@ -279,11 +446,11 @@ public class FFmpegReaderProxyIdleTests
             };
         }
 
-        public OpenFileResponse OpenAudio(int sampleRate)
+        public OpenFileResponse OpenAudio(int sampleRate, int capacitySamples = -1)
         {
             int id = Interlocked.Increment(ref _nextReaderId);
             string name = $"beutl-fake-audio-{Guid.NewGuid():N}";
-            _buffers[id] = SharedMemoryBuffer.Create(name, sampleRate * 8L + 64);
+            _buffers[id] = SharedMemoryBuffer.Create(name, (capacitySamples < 0 ? sampleRate : capacitySamples) * 8L + 64);
             return new OpenFileResponse
             {
                 ReaderId = id,
@@ -296,6 +463,9 @@ public class FFmpegReaderProxyIdleTests
                 AudioSharedMemoryName = name,
             };
         }
+
+        // Like the worker growing a ring buffer, the next read answers from a new mapping with a new name.
+        public void RecreateVideoBufferOnNextRead(int readerId) => _recreateVideoBuffer[readerId] = true;
 
         public void WaitForClose(int readerId)
         {
@@ -316,8 +486,10 @@ public class FFmpegReaderProxyIdleTests
             {
             }
 
-            foreach (SharedMemoryBuffer buffer in _buffers.Values)
+            foreach (SharedMemoryBuffer buffer in _buffers.Values.Concat(_retiredBuffers))
                 buffer.Dispose();
+            ReadVideoReceived.Dispose();
+            ReleaseReads.Dispose();
         }
 
         private async Task RunAsync()
@@ -339,6 +511,7 @@ public class FFmpegReaderProxyIdleTests
 
                 IpcMessage response = request.Type switch
                 {
+                    MessageType.OpenFile => HandleOpen(request),
                     MessageType.ReadVideo => HandleReadVideo(request),
                     MessageType.ReadAudio => HandleReadAudio(request),
                     MessageType.CloseReader => HandleClose(request),
@@ -356,11 +529,29 @@ public class FFmpegReaderProxyIdleTests
             }
         }
 
+        private IpcMessage HandleOpen(IpcMessage request)
+        {
+            OpenRequests.Enqueue(request.GetPayload<OpenFileRequest>()!);
+            return IpcMessage.Create(request.Id, MessageType.OpenFileResult, OpenVideo());
+        }
+
         private IpcMessage HandleReadVideo(IpcMessage request)
         {
             var payload = request.GetPayload<ReadVideoRequest>()!;
+            ReadVideoReceived.Set();
+            ReleaseReads.Wait(TimeSpan.FromSeconds(10));
             if (!_buffers.TryGetValue(payload.ReaderId, out SharedMemoryBuffer? buffer))
                 return IpcMessage.CreateError(request.Id, $"Unknown reader ID: {payload.ReaderId}");
+
+            string? newName = null;
+            long? newSlotSize = null;
+            if (_recreateVideoBuffer.TryRemove(payload.ReaderId, out _))
+            {
+                newName = $"beutl-fake-video-{Guid.NewGuid():N}";
+                newSlotSize = buffer.Capacity * 2;
+                _retiredBuffers.Add(buffer);
+                buffer = _buffers[payload.ReaderId] = SharedMemoryBuffer.Create(newName, newSlotSize.Value);
+            }
 
             int length = Width * Height * BytesPerPixel;
             byte[] pixels = new byte[length];
@@ -376,22 +567,36 @@ public class FFmpegReaderProxyIdleTests
                 DataLength = length,
                 SlotIndex = 0,
                 SlotDataOffset = 0,
+                SharedMemoryName = newName,
+                RingBufferSlotSize = newSlotSize,
+                RingBufferSlotCount = newName != null ? 1 : null,
             });
         }
 
         private IpcMessage HandleReadAudio(IpcMessage request)
         {
             var payload = request.GetPayload<ReadAudioRequest>()!;
-            if (!_buffers.ContainsKey(payload.ReaderId))
+            if (!_buffers.TryGetValue(payload.ReaderId, out SharedMemoryBuffer? buffer))
                 return IpcMessage.CreateError(request.Id, $"Unknown reader ID: {payload.ReaderId}");
 
-            // The buffer is zero-filled already, which is silence for stereo float samples.
+            // Like the worker, grow the buffer under a new name when the request does not fit.
+            string? newName = null;
+            long required = payload.Length * 8L + 64;
+            if (buffer.Capacity < required)
+            {
+                newName = $"beutl-fake-audio-{Guid.NewGuid():N}";
+                _retiredBuffers.Add(buffer);
+                _buffers[payload.ReaderId] = SharedMemoryBuffer.Create(newName, required);
+            }
+
+            // Fresh buffers are zero-filled, which is silence for stereo float samples.
             return IpcMessage.Create(request.Id, MessageType.ReadAudioResult, new ReadAudioResponse
             {
                 Success = true,
                 SampleRate = 8000,
                 NumSamples = payload.Length,
                 DataLength = payload.Length * 8,
+                SharedMemoryName = newName,
             });
         }
 
