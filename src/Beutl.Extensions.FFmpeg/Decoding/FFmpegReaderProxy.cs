@@ -15,6 +15,8 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 {
+    private static readonly TimeSpan s_closeTimeout = TimeSpan.FromSeconds(5);
+
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
     private readonly OpenFileResponse _openResponse;
     private readonly Func<(IpcConnection Connection, OpenFileResponse Response)>? _reopen;
@@ -34,6 +36,8 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     private bool _closed;
     private bool _streamsChanged;
     private bool _reopenFailing;
+    private Task? _pendingClose;
+    private long _pixelCount;
     private long _lastAccessTicks = Environment.TickCount64;
 
     internal FFmpegReaderProxy(
@@ -49,6 +53,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _reopen = reopen;
         _videoShmName = openResponse.VideoSharedMemoryName;
         _audioShmName = openResponse.AudioSharedMemoryName;
+        _pixelCount = (long)openResponse.VideoWidth * openResponse.VideoHeight;
 
         if (openResponse.HasVideo)
         {
@@ -102,7 +107,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
     long IIdleSuspendableReader.LastAccessTicks => Volatile.Read(ref _lastAccessTicks);
 
-    long IIdleSuspendableReader.PixelCount => (long)_openResponse.VideoWidth * _openResponse.VideoHeight;
+    long IIdleSuspendableReader.PixelCount => Volatile.Read(ref _pixelCount);
 
     bool IIdleSuspendableReader.IsSuspended => _suspended;
 
@@ -116,7 +121,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             if (_closed || _suspended || Volatile.Read(ref _lastAccessTicks) != expectedLastAccessTicks)
                 return false;
 
-            CloseWorkerReader(_connection, _readerId);
+            _pendingClose = CloseWorkerReader(_connection, _readerId);
             _videoBuffer?.Dispose();
             _videoBuffer = null;
             _audioBuffer?.Dispose();
@@ -163,6 +168,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             image = null;
             return false;
         }
+
+        // The worker only grows its ring buffer when the stream's frames get larger, so the largest frame
+        // decoded so far is what this reader holds in the idle budget.
+        long pixels = (long)response.Width * response.Height;
+        if (pixels > Volatile.Read(ref _pixelCount))
+            Volatile.Write(ref _pixelCount, pixels);
 
         // リサイズによりスロットサイズが変更された場合は更新
         if (response.RingBufferSlotSize.HasValue)
@@ -358,6 +369,16 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         if (!_suspended)
             return true;
 
+        // A read right after the sweep would otherwise open the new decoder while the worker still holds
+        // the old one, the very allocation suspension exists to avoid under memory pressure.
+        if (_pendingClose is { } close)
+        {
+            if (!close.Wait(s_closeTimeout))
+                _logger.LogWarning("FFmpeg reader {ReaderId} was not closed in time; reopening anyway", _readerId);
+
+            _pendingClose = null;
+        }
+
         IpcConnection connection;
         OpenFileResponse response;
         try
@@ -390,6 +411,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _readerId = response.ReaderId;
         _videoShmName = response.VideoSharedMemoryName;
         _audioShmName = response.AudioSharedMemoryName;
+        Volatile.Write(ref _pixelCount, (long)response.VideoWidth * response.VideoHeight);
         if (response.HasVideo)
         {
             _colorSpace = BuildColorSpace(response);
@@ -430,11 +452,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 && original.AudioDurationDen == reopened.AudioDurationDen);
     }
 
-    private void CloseWorkerReader(IpcConnection connection, int readerId)
+    // The returned task never faults; the worker answers only after disposing the reader.
+    private Task CloseWorkerReader(IpcConnection connection, int readerId)
     {
         // fire-and-forget: UIスレッドからの呼び出しでデッドロックしないよう
         // 同期ブロックを避けて非同期で送信
-        _ = Task.Run(async () =>
+        return Task.Run(async () =>
         {
             try
             {

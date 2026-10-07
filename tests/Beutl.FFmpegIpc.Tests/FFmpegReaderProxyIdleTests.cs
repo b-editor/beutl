@@ -342,6 +342,65 @@ public class FFmpegReaderProxyIdleTests
         Assert.That(reopenRequest!.ThreadCount, Is.EqualTo(6));
     }
 
+    // The worker grows the ring buffer for larger frames and never shrinks it, so the idle budget must
+    // count the largest decoded frame rather than the size reported at open.
+    [Test]
+    public void IdleBudgetCost_FollowsTheLargestDecodedFrame()
+    {
+        using var reader = CreateVideoProxy();
+        var suspendable = (IIdleSuspendableReader)reader;
+        Assert.That(suspendable.PixelCount, Is.EqualTo(16));
+
+        _worker.ResizeVideoOnNextRead(reader.ReaderId, 8, 8);
+        Assert.That(reader.ReadVideo(0, out var image), Is.True);
+        using (image)
+            Assert.That(image!.Value.Width, Is.EqualTo(8));
+        Assert.That(suspendable.PixelCount, Is.EqualTo(64));
+
+        Suspend(reader);
+        ReadFirstByte(reader, 0);
+        Assert.That(suspendable.PixelCount, Is.EqualTo(16), "a reopened reader starts with a fresh ring buffer");
+    }
+
+    [Test]
+    public void Resume_WaitsUntilTheWorkerClosedTheSuspendedReader()
+    {
+        bool? closedWhenReopened = null;
+        int suspendedId = 0;
+        using var reader = CreateVideoProxy(() =>
+        {
+            closedWhenReopened = _worker.IsClosed(suspendedId);
+            return (_worker.Connection, _worker.OpenVideo());
+        });
+        suspendedId = reader.ReaderId;
+
+        _worker.ReleaseCloses.Reset();
+        Task<byte>? read = null;
+        try
+        {
+            Assert.That(TrySuspend(reader), Is.True);
+            Assert.That(_worker.CloseReceived.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            read = Task.Run(() => ReadFirstByte(reader, 0));
+            Thread.Sleep(100);
+            Assert.Multiple(() =>
+            {
+                Assert.That(read.IsCompleted, Is.False, "the read must wait for the close");
+                Assert.That(closedWhenReopened, Is.Null, "nothing may be reopened before the close completes");
+            });
+        }
+        finally
+        {
+            _worker.ReleaseCloses.Set();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(read!.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(closedWhenReopened, Is.True);
+        });
+    }
+
     private static bool TrySuspend(FFmpegReaderProxy reader)
     {
         var suspendable = (IIdleSuspendableReader)reader;
@@ -391,6 +450,7 @@ public class FFmpegReaderProxyIdleTests
         private readonly ConcurrentDictionary<int, SharedMemoryBuffer> _buffers = new();
         private readonly ConcurrentDictionary<int, bool> _closed = new();
         private readonly ConcurrentDictionary<int, bool> _recreateVideoBuffer = new();
+        private readonly ConcurrentDictionary<int, (int Width, int Height)> _videoSizes = new();
         private readonly ConcurrentBag<SharedMemoryBuffer> _retiredBuffers = [];
         private readonly Task _loop;
         private int _nextReaderId;
@@ -401,6 +461,11 @@ public class FFmpegReaderProxyIdleTests
         public ManualResetEventSlim ReadVideoReceived { get; } = new(false);
 
         public ManualResetEventSlim ReleaseReads { get; } = new(true);
+
+        // Signalled when a CloseReader arrives; while ReleaseCloses is reset, the reader stays open.
+        public ManualResetEventSlim CloseReceived { get; } = new(false);
+
+        public ManualResetEventSlim ReleaseCloses { get; } = new(true);
 
         public FakeWorker(int firstReaderId = 1)
         {
@@ -467,6 +532,14 @@ public class FFmpegReaderProxyIdleTests
         // Like the worker growing a ring buffer, the next read answers from a new mapping with a new name.
         public void RecreateVideoBufferOnNextRead(int readerId) => _recreateVideoBuffer[readerId] = true;
 
+        public void ResizeVideoOnNextRead(int readerId, int width, int height)
+        {
+            _videoSizes[readerId] = (width, height);
+            _recreateVideoBuffer[readerId] = true;
+        }
+
+        public bool IsClosed(int readerId) => _closed.ContainsKey(readerId);
+
         public void WaitForClose(int readerId)
         {
             Assert.That(() => _closed.ContainsKey(readerId), Is.True.After(5000, 10),
@@ -490,6 +563,8 @@ public class FFmpegReaderProxyIdleTests
                 buffer.Dispose();
             ReadVideoReceived.Dispose();
             ReleaseReads.Dispose();
+            CloseReceived.Dispose();
+            ReleaseCloses.Dispose();
         }
 
         private async Task RunAsync()
@@ -543,17 +618,18 @@ public class FFmpegReaderProxyIdleTests
             if (!_buffers.TryGetValue(payload.ReaderId, out SharedMemoryBuffer? buffer))
                 return IpcMessage.CreateError(request.Id, $"Unknown reader ID: {payload.ReaderId}");
 
+            (int width, int height) = _videoSizes.GetValueOrDefault(payload.ReaderId, (Width, Height));
+            int length = width * height * BytesPerPixel;
             string? newName = null;
             long? newSlotSize = null;
             if (_recreateVideoBuffer.TryRemove(payload.ReaderId, out _))
             {
                 newName = $"beutl-fake-video-{Guid.NewGuid():N}";
-                newSlotSize = buffer.Capacity * 2;
+                newSlotSize = Math.Max(buffer.Capacity * 2, length + 64L);
                 _retiredBuffers.Add(buffer);
                 buffer = _buffers[payload.ReaderId] = SharedMemoryBuffer.Create(newName, newSlotSize.Value);
             }
 
-            int length = Width * Height * BytesPerPixel;
             byte[] pixels = new byte[length];
             Array.Fill(pixels, PixelValue(payload.ReaderId, payload.Frame));
             buffer.Write(pixels);
@@ -561,8 +637,8 @@ public class FFmpegReaderProxyIdleTests
             return IpcMessage.Create(request.Id, MessageType.ReadVideoResult, new ReadVideoResponse
             {
                 Success = true,
-                Width = Width,
-                Height = Height,
+                Width = width,
+                Height = height,
                 BytesPerPixel = BytesPerPixel,
                 DataLength = length,
                 SlotIndex = 0,
@@ -603,6 +679,8 @@ public class FFmpegReaderProxyIdleTests
         private IpcMessage HandleClose(IpcMessage request)
         {
             var payload = request.GetPayload<CloseReaderRequest>()!;
+            CloseReceived.Set();
+            ReleaseCloses.Wait(TimeSpan.FromSeconds(10));
             if (_buffers.TryRemove(payload.ReaderId, out SharedMemoryBuffer? buffer))
                 buffer.Dispose();
             _closed[payload.ReaderId] = true;
