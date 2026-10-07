@@ -8,17 +8,6 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
-    public async Task<Rect> StartSelectRect()
-    {
-        TcsForCrop = new TaskCompletionSource<Rect>();
-        IsCropMode.Value = true;
-        Rect r = await TcsForCrop.Task;
-        TcsForCrop = null;
-        return r;
-    }
-
-    public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
-
     /// <summary>
     /// Measures the logical pixel size <paramref name="drawable"/> renders into at unit scale.
     /// </summary>

@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using Beutl.Logging;
+﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -8,15 +6,12 @@ namespace Beutl.Services;
 
 public sealed class EditorTabItem : IAsyncDisposable
 {
-    private string? _hash;
-
     public EditorTabItem(IEditorContext context)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
         FilePath = Context.Select(ctxt => ctxt?.Object.Uri?.LocalPath)
             .ToReadOnlyReactivePropertySlim()!;
         FileName = FilePath.Select(Path.GetFileName)
-            .Do(_ => _hash = null)
             .ToReadOnlyReactivePropertySlim()!;
         Extension = Context.Select(ctxt => ctxt?.Extension!)
             .ToReadOnlyReactivePropertySlim()!;
@@ -31,22 +26,6 @@ public sealed class EditorTabItem : IAsyncDisposable
     public IReadOnlyReactiveProperty<EditorExtension> Extension { get; }
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public string GetFileNameHash()
-    {
-        if (_hash == null)
-        {
-            string name = FileName.Value;
-            ReadOnlySpan<char> span = name.AsSpan();
-
-            // UTF-8を得たいわけではないので
-            byte[] hash = MD5.HashData(MemoryMarshal.Cast<char, byte>(span));
-
-            _hash = Convert.ToHexString(hash);
-        }
-
-        return _hash;
-    }
 
     public async ValueTask DisposeAsync()
     {

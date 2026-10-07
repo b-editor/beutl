@@ -21,7 +21,6 @@ public sealed class AiUsageEstimateViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(estimate.CanAfford.Value, Is.True);
-            Assert.That(estimate.IsInsufficient.Value, Is.False);
             Assert.That(
                 estimate.Explanation.Value,
                 Is.EqualTo(Beutl.Language.Strings.AiEstimatedUsageTopUp));
@@ -36,7 +35,6 @@ public sealed class AiUsageEstimateViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(estimate.CanAfford.Value, Is.False);
-            Assert.That(estimate.IsInsufficient.Value, Is.True);
             Assert.That(
                 estimate.Explanation.Value,
                 Is.EqualTo(Beutl.Language.Strings.AiEstimatedUsageInsufficient));
@@ -58,8 +56,6 @@ public sealed class AiUsageEstimateViewModelTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(estimate.IsInsufficient.Value, Is.False,
-                "An unanswered check is not a refusal.");
             Assert.That(estimate.CanAfford.Value, Is.True,
                 "The run stays offered; the authoritative check runs before it is sent.");
             Assert.That(estimate.Explanation.Value, Is.Empty);
@@ -68,20 +64,12 @@ public sealed class AiUsageEstimateViewModelTests
 
         available.OnNext(AiOperationAvailabilityState.Unavailable);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(estimate.IsInsufficient.Value, Is.True);
-            Assert.That(estimate.CanAfford.Value, Is.False);
-        }
+        Assert.That(estimate.CanAfford.Value, Is.False);
 
         // A re-check invalidates the previous answer without re-accusing the balance.
         available.OnNext(AiOperationAvailabilityState.Unknown);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(estimate.IsInsufficient.Value, Is.False);
-            Assert.That(estimate.CanAfford.Value, Is.True);
-        }
+        Assert.That(estimate.CanAfford.Value, Is.True);
     }
 
     [Test]
@@ -117,7 +105,6 @@ public sealed class AiUsageEstimateViewModelTests
         {
             Assert.That(estimate.State.Value, Is.EqualTo(AiOperationAvailabilityState.Unavailable));
             Assert.That(estimate.CanAfford.Value, Is.False);
-            Assert.That(estimate.IsInsufficient.Value, Is.False);
             Assert.That(
                 estimate.Summary.Value,
                 Is.EqualTo(Beutl.Language.Strings.AiPricingUnavailable));

@@ -39,8 +39,6 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
 
     public event TypedEventHandler<ExpressionEditorFlyout, ExpressionConfirmedEventArgs>? Confirmed;
 
-    public event TypedEventHandler<ExpressionEditorFlyout, EventArgs>? Dismissed;
-
     protected override Control CreatePresenter()
     {
         _presenter = new ExpressionEditorFlyoutPresenter();
@@ -63,7 +61,6 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
         }
         else if (e.Key == Key.Escape)
         {
-            Dismissed?.Invoke(this, EventArgs.Empty);
             Hide();
             e.Handled = true;
         }
@@ -105,13 +102,11 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
 
     private void OnFlyoutCloseClicked(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {
-        Dismissed?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {
-        Dismissed?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 

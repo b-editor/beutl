@@ -35,13 +35,6 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(false)
             .DisposeWith(_disposables);
 
-        IsInsufficient = usage.CanUseAi
-            .CombineLatest(
-                State,
-                (canUseAi, state) => canUseAi && state == AiOperationAvailabilityState.Unavailable)
-            .ToReadOnlyReactivePropertySlim(false)
-            .DisposeWith(_disposables);
-
         Summary = usage.HasSnapshot
             .CombineLatest(
                 usage.CanUseAi,
@@ -76,9 +69,6 @@ internal sealed class AiUsageEstimateViewModel : IDisposable
     /// pending or failed lookup does not lock the account out of what it paid for.
     /// </summary>
     public ReadOnlyReactivePropertySlim<bool> CanAfford { get; }
-
-    /// <summary>True only where the server actually refused the operation.</summary>
-    public ReadOnlyReactivePropertySlim<bool> IsInsufficient { get; }
 
     public ReadOnlyReactivePropertySlim<string> Summary { get; }
 

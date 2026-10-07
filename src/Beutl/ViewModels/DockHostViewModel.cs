@@ -40,11 +40,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             .FirstOrDefault(condition);
     }
 
-    public T? FindToolTab<T>() where T : IToolContext
-    {
-        return FindToolTab<T>(_ => true);
-    }
-
     public IToolContext? FindToolContext(Type extensionType)
     {
         return Factory.EnumerateTools()

@@ -331,10 +331,6 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     /// </summary>
     public ReactiveCommand StopEditing { get; }
 
-    /// <summary>Pending image-edit attempts that can be explicitly recovered or abandoned.</summary>
-    internal IReadOnlyList<AiPendingAttempt> PendingRecoveryAttempts
-        => GetPendingRecoveryAttempts();
-
     internal ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt { get; }
 
     internal ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts { get; }

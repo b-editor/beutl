@@ -18,8 +18,6 @@ public sealed class SaveFrameDialogViewModel : IDisposable
 
     public SaveFrameDialogViewModel(PixelSize baseSize)
     {
-        BaseSize = baseSize;
-
         OutputSizeText = SelectedScale
             .Select(scale =>
             {
@@ -48,9 +46,6 @@ public sealed class SaveFrameDialogViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
-
-    /// <summary>The logical size the multiplier is applied to (the scene frame size).</summary>
-    public PixelSize BaseSize { get; }
 
     /// <summary>The selectable output-resolution multipliers.</summary>
     public IReadOnlyList<float> ScaleOptions { get; } = SaveFrameScale.Factors;

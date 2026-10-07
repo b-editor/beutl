@@ -325,10 +325,6 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
     /// </summary>
     public ReactiveCommand StopGenerating { get; }
 
-    /// <summary>Pending form attempts that can be explicitly recovered or abandoned.</summary>
-    internal IReadOnlyList<AiPendingAttempt> PendingRecoveryAttempts
-        => GetPendingRecoveryAttempts();
-
     internal ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt { get; }
 
     internal ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts { get; }

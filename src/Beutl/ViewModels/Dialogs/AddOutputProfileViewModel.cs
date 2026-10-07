@@ -12,12 +12,7 @@ public sealed class AddOutputProfileViewModel
     {
         _outputTabViewModel = outputTabViewModel;
         AvailableExtensions = outputTabViewModel.GetExtensions(outputTabViewModel.EditViewModel.Scene.GetType());
-
-        CanAdd = SelectedExtension.Select(x => x != null)
-            .ToReadOnlyReactivePropertySlim();
     }
-
-    public ReadOnlyReactivePropertySlim<bool> CanAdd { get; }
 
     public ReactiveProperty<OutputExtension?> SelectedExtension { get; } = new();
 
