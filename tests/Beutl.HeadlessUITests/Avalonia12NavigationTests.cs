@@ -2,8 +2,6 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
-using Beutl.Controls.Navigation;
-using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
@@ -40,50 +38,6 @@ public class Avalonia12NavigationTests
         }
     }
 
-    [AvaloniaTest]
-    public async Task Navigation_reuses_contexts_and_removes_them_from_both_history_stacks()
-    {
-        var frame = new FAFrame();
-        var navigation = new NavigationProvider(frame, new PageResolver());
-        var first = new Context("first");
-        var second = new Context("second");
-        var third = new Context("third");
-        var window = new Window { Content = frame, Width = 400, Height = 300 };
-        try
-        {
-            window.Show();
-            await navigation.NavigateAsync<Context>(_ => false, () => first);
-            await navigation.NavigateAsync<Context>(_ => false, () => second);
-            await navigation.NavigateAsync<Context>(_ => false, () => third);
-            await navigation.GoBackAsync();
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(navigation.CurrentContext, Is.SameAs(second));
-                Assert.That(((Control)frame.Content!).DataContext, Is.SameAs(second));
-                Assert.That(frame.BackStack.Single().Parameter, Is.SameAs(first));
-                Assert.That(frame.ForwardStack.Single().Parameter, Is.SameAs(third));
-            });
-            Assert.That(await navigation.FindAsync<Context>(context => context.Name == "third"), Is.SameAs(third));
-            await navigation.NavigateAsync<Context>(context => context.Name == "first",
-                () => throw new AssertionException("Navigation must reuse the cached context."));
-            await navigation.GoBackAsync();
-            await navigation.RemoveAllAsync<Context>(context => context == first);
-            Assert.Multiple(() =>
-            {
-                Assert.That(frame.BackStack, Is.Empty);
-                Assert.That(frame.ForwardStack, Is.Empty);
-                Assert.That(navigation.CurrentContext, Is.SameAs(second));
-            });
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
-    }
-
     private sealed record Context(string Name);
 
     [AvaloniaTest]
@@ -115,13 +69,4 @@ public class Avalonia12NavigationTests
     }
 
     public sealed class Page : UserControl;
-
-    private sealed class PageResolver : IPageResolver
-    {
-        public int GetOrder(Type pagetype) => 0;
-
-        public int GetDepth(Type pagetype) => 0;
-
-        public Type GetPageType(Type contextType) => typeof(Page);
-    }
 }

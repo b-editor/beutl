@@ -213,15 +213,6 @@ public partial class ColorPickerButton
     /// </summary>
     public event TypedEventHandler<ColorPickerButton, EventArgs>? FlyoutDismissed;
 
-    /// <summary> Raised when the flyout opens.
-    /// </summary>
-    public event TypedEventHandler<ColorPickerButton, EventArgs>? FlyoutOpened;
-
-    /// <summary>
-    /// Raised when the flyout closes regardless of confirmation or dismissal.
-    /// </summary>
-    public event TypedEventHandler<ColorPickerButton, EventArgs>? FlyoutClosed;
-
     /// <summary>
     /// Fired when the current <see cref="Color"/> property changes
     /// </summary>

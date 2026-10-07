@@ -106,8 +106,6 @@ public partial class ColorPickerButton : TemplatedControl
 
         // Keep track of which button the flyout is active on
         _flyoutActive = true;
-
-        FlyoutOpened?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnColorPickerColorChanged(FAColorPicker sender, ColorChangedEventArgs args)
@@ -141,11 +139,7 @@ public partial class ColorPickerButton : TemplatedControl
                 _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
         }
 
-        if (_flyoutActive)
-        {
-            FlyoutClosed?.Invoke(this, EventArgs.Empty);
-            _flyoutActive = false;
-        }
+        _flyoutActive = false;
     }
 
     private static ColorPickerFlyout? _flyout;

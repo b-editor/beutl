@@ -14,10 +14,6 @@ public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
 
     public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs>? Dismissed;
-
-    public event TypedEventHandler<SimpleColorPickerFlyout, EventArgs>? CloseClicked;
-
     protected override Control CreatePresenter()
     {
         var pfp = new SimpleColorPickerFlyoutPresenter()
@@ -36,20 +32,9 @@ public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
     {
         if (e.Key is Key.Enter or Key.Escape)
         {
-            if (_showButtons)
+            if (_showButtons && e.Key == Key.Enter)
             {
-                if (e.Key == Key.Enter)
-                {
-                    Confirmed?.Invoke(this, EventArgs.Empty);
-                }
-                else
-                {
-                    Dismissed?.Invoke(this, EventArgs.Empty);
-                }
-            }
-            else
-            {
-                CloseClicked?.Invoke(this, EventArgs.Empty);
+                Confirmed?.Invoke(this, EventArgs.Empty);
             }
 
             Hide();
@@ -78,13 +63,11 @@ public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
 
     private void OnFlyoutCloseClicked(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {
-        CloseClicked?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, object args)
     {
-        Dismissed?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 
