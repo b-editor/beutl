@@ -57,7 +57,12 @@ public class ModelSource : EngineObject, IFileSource
     public new Uri Uri
     {
         get => _uri ?? throw new InvalidOperationException("URI is not set.");
-        protected set => _uri = value;
+        protected set
+        {
+            if (_uri == value) return;
+            _uri = value;
+            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(Uri)));
+        }
     }
 
     public bool HasUri => _uri != null;
@@ -99,6 +104,23 @@ public class ModelSource : EngineObject, IFileSource
 
         _basePath = System.IO.Path.GetDirectoryName(path);
         LoadWithAssimp(path);
+        RaiseEdited();
+    }
+
+    internal void RelinkFrom(ModelSource loaded)
+    {
+        Uri = loaded.Uri;
+        _basePath = loaded._basePath;
+        _toYUp = loaded._toYUp;
+        _meshDataList.Clear();
+        _meshDataList.AddRange(loaded._meshDataList);
+        _materialDataList.Clear();
+        _materialDataList.AddRange(loaded._materialDataList);
+        _dependencies.Clear();
+        _dependencies.UnionWith(loaded._dependencies);
+        _embeddedTextures.Clear();
+        foreach (var pair in loaded._embeddedTextures) _embeddedTextures.Add(pair.Key, pair.Value);
+        RaiseEdited();
     }
 
     private unsafe void LoadWithAssimp(string path)

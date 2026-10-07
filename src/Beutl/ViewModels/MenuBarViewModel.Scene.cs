@@ -38,6 +38,11 @@ public partial class MenuBarViewModel
 
         ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnShowSceneSettings);
+        RelinkMedia = new AsyncReactiveCommand(isSceneOpened).WithSubscribe(async () =>
+        {
+            if (TryGetSelectedEditViewModel(out var editor) && AppHelper.GetTopLevel() is Avalonia.Controls.Window owner)
+                await editor.ShowMissingMediaAsync(owner);
+        });
     }
 
     // Scene
@@ -66,6 +71,8 @@ public partial class MenuBarViewModel
     public AsyncReactiveCommand PasteLayer { get; private set; }
 
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
+
+    public AsyncReactiveCommand RelinkMedia { get; private set; }
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {

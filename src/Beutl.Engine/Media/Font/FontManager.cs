@@ -16,6 +16,8 @@ public sealed class FontManager
     public static readonly FontManager Instance = new();
     private readonly ILogger _logger = Log.CreateLogger<FontManager>();
     private readonly Lock _gate = new();
+    private long _revision;
+    internal long Revision => Volatile.Read(ref _revision);
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _projectFonts = [];
@@ -187,6 +189,7 @@ public sealed class FontManager
             _projectFonts = fonts.GroupBy(font => font.FamilyName).ToDictionary(
                 group => new FontFamily(group.Key), group => TypefaceCollection.Create(group.ToArray()));
             _projectFontsOwner = new WeakReference<Project>(project);
+            Interlocked.Increment(ref _revision);
         }
     }
 
@@ -200,6 +203,7 @@ public sealed class FontManager
                 return;
             _projectFonts = [];
             _projectFontsOwner = null;
+            Interlocked.Increment(ref _revision);
         }
     }
 
@@ -212,6 +216,10 @@ public sealed class FontManager
         if (!AddFont(typeface))
         {
             typeface.Dispose();
+        }
+        else
+        {
+            Interlocked.Increment(ref _revision);
         }
     }
 

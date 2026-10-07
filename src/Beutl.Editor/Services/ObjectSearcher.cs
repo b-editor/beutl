@@ -6,7 +6,7 @@ namespace Beutl.Editor.Services;
 
 public class ObjectSearcher
 {
-    private readonly HashSet<object> _hashSet = [];
+    private readonly HashSet<object> _hashSet = new(ReferenceEqualityComparer.Instance);
     private readonly Stack<object>? _stack;
     private readonly Func<Stack<object>, object, bool> _predicate;
     private readonly object _obj;
@@ -89,6 +89,9 @@ public class ObjectSearcher
                             {
                                 return result;
                             }
+                            if (property.Animation is { } animation
+                                && SearchRecursive(animation) is { } animationResult)
+                                return animationResult;
                         }
                     }
 
@@ -136,6 +139,12 @@ public class ObjectSearcher
 
     private void SearchAllRecursive(object obj, List<object> list)
     {
+        if (obj is IOptional optional)
+        {
+            obj = optional.ToObject().GetValueOrDefault()!;
+            if (obj == null) return;
+        }
+
         if (!_hashSet.Add(obj))
             return;
 
@@ -150,7 +159,7 @@ public class ObjectSearcher
             {
                 case CoreObject coreObject:
                     foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                                 .Where(x => !x.PropertyType.IsValueType &&
+                                 .Where(x => (!x.PropertyType.IsValueType || x.PropertyType.IsAssignableTo(typeof(IOptional))) &&
                                              x != Hierarchical.HierarchicalParentProperty)
                                  .Select(coreObject.GetValue)
                                  .Where(x => x != null))
@@ -160,12 +169,13 @@ public class ObjectSearcher
 
                     if (coreObject is EngineObject engineObject)
                     {
-                        foreach (object? item in engineObject.Properties
-                                     .Where(x => !x.ValueType.IsValueType)
-                                     .Select(x => x.CurrentValue)
-                                     .Where(x => x != null))
+                        foreach (IProperty property in engineObject.Properties)
                         {
-                            SearchAllRecursive(item!, list);
+                            if ((!property.ValueType.IsValueType || property.ValueType.IsAssignableTo(typeof(IOptional)))
+                                && property.CurrentValue is { } value)
+                                SearchAllRecursive(value, list);
+                            if (property.Animation is { } animation)
+                                SearchAllRecursive(animation, list);
                         }
                     }
 
@@ -183,7 +193,7 @@ public class ObjectSearcher
 
                 case IPropertyAdapter property:
                     {
-                        if (!property.PropertyType.IsValueType
+                        if ((!property.PropertyType.IsValueType || property.PropertyType.IsAssignableTo(typeof(IOptional)))
                             && property.GetValue() is { } value)
                         {
                             SearchAllRecursive(value, list);

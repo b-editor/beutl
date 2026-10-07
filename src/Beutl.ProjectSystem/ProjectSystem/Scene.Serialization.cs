@@ -11,6 +11,10 @@ namespace Beutl.ProjectSystem;
 
 public partial class Scene
 {
+    // Keys use the same relative-URI rules as media properties when serialized.
+    [NotAutoSerialized]
+    public Dictionary<string, MediaFileFingerprint> MediaFingerprints { get; } = new(StringComparer.Ordinal);
+
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -20,6 +24,9 @@ public partial class Scene
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
         Recovery.WriteMetadata(context);
+        if (MediaFingerprints.Count > 0)
+            context.SetValue(nameof(MediaFingerprints), MediaFingerprints.ToDictionary(
+                pair => UriHelper.ToSerializedUri(new Uri(pair.Key), context.BaseUri).ToString(), pair => pair.Value));
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
@@ -58,6 +65,18 @@ public partial class Scene
         }
 
         Recovery.ReadMetadata(context);
+        MediaFingerprints.Clear();
+        if (context.GetValue<Dictionary<string, MediaFileFingerprint>>(nameof(MediaFingerprints)) is { } fingerprints)
+        {
+            foreach (var pair in fingerprints)
+            {
+                Uri uri;
+                try { uri = UriHelper.ResolvePersistedReference(pair.Key, context.BaseUri); }
+                catch (JsonException) { continue; }
+                if (uri.IsFile)
+                    MediaFingerprints[uri.AbsoluteUri] = pair.Value;
+            }
+        }
 
         Markers.Clear();
         if (context.Contains(nameof(Markers))

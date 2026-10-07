@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Relink missing media</value></data>
+  <data name="Description" xml:space="preserve"><value>Choose a media folder to find all missing files. Unresolved files keep their original references and remain offline.</value></data>
+  <data name="SearchDirectory" xml:space="preserve"><value>Media folder</value></data>
+  <data name="Search" xml:space="preserve"><value>Search</value></data>
+  <data name="FindInFolder" xml:space="preserve"><value>Find in folder…</value></data>
+  <data name="Replace" xml:space="preserve"><value>Replace…</value></data>
+  <data name="MatchFolder" xml:space="preserve"><value>Match folder…</value></data>
+  <data name="KeepOffline" xml:space="preserve"><value>Keep offline</value></data>
+  <data name="ContinueOffline" xml:space="preserve"><value>Continue offline</value></data>
+  <data name="ApplyAndSave" xml:space="preserve"><value>Apply and save</value></data>
+  <data name="Summary" xml:space="preserve"><value>{0} missing · {1} ready · {2} ignored</value></data>
+  <data name="Missing" xml:space="preserve"><value>Missing</value></data>
+  <data name="Ready" xml:space="preserve"><value>Ready to relink</value></data>
+  <data name="Unrecognized" xml:space="preserve"><value>Cannot read file — choose another file or keep offline.</value></data>
+  <data name="NoUniqueMatch" xml:space="preserve"><value>No unique match — choose a file or keep offline.</value></data>
+  <data name="FontCopyFailed" xml:space="preserve"><value>Could not save the selected font in the project.</value></data>
+  <data name="Video" xml:space="preserve"><value>Video</value></data>
+  <data name="Sound" xml:space="preserve"><value>Audio</value></data>
+  <data name="Image" xml:space="preserve"><value>Image</value></data>
+  <data name="Model" xml:space="preserve"><value>3D model</value></data>
+  <data name="Cube" xml:space="preserve"><value>LUT</value></data>
+  <data name="Font" xml:space="preserve"><value>Font</value></data>
+</root>

@@ -72,9 +72,11 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<float> OnionSkinPrevOpacityProperty;
     public static readonly CoreProperty<float> OnionSkinNextOpacityProperty;
     public static readonly CoreProperty<PreviewSourceMode> PreviewSourceModeProperty;
+    public static readonly CoreProperty<string?> LastMediaDirectoryProperty;
 
     static EditorConfig()
     {
+        LastMediaDirectoryProperty = ConfigureProperty<string?, EditorConfig>(nameof(LastMediaDirectory)).Register();
         AutoAdjustSceneDurationProperty = ConfigureProperty<bool, EditorConfig>(nameof(AutoAdjustSceneDuration))
             .DefaultValue(true)
             .Register();
@@ -354,6 +356,12 @@ public sealed partial class EditorConfig : ConfigurationBase
         ["Library"] = LibraryTabDisplayMode.Show,
         ["Nodes"] = LibraryTabDisplayMode.Hide,
     };
+
+    public string? LastMediaDirectory
+    {
+        get => GetValue(LastMediaDirectoryProperty);
+        set => SetValue(LastMediaDirectoryProperty, value);
+    }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

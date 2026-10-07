@@ -186,6 +186,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
                     <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
                     <MenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.RelinkMedia}" Header="{x:Static lang:MissingMediaStrings.Title}" />
                     <!--  要素  -->
                     <MenuItem Header="{x:Static lang:Strings.Element}">
                         <MenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />

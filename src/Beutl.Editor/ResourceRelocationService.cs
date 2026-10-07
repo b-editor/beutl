@@ -229,7 +229,7 @@ public class ResourceRelocationService
         {
             // This is a relocation of the same source, not a user choosing another model.
             // Replacing the property would rebuild Model3D.Children and discard their edits.
-            fileSource.ReadFrom(newUri);
+            RelinkFileSource(fileSource, newUri);
             return;
         }
         var obj = FindObject(stagingProject, id);
@@ -251,6 +251,25 @@ public class ResourceRelocationService
         }
 
         throw new InvalidOperationException("Failed to update URI: Object or property not found.");
+    }
+
+    /// <summary>Reopens a source in place, preserving the owning object's edits.</summary>
+    public static void RelinkFileSource(IFileSource source, Uri newUri, IFileSource? validatedSource = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        Uri originalUri = source.Uri;
+        if (source is ModelSource model && validatedSource is ModelSource loaded && loaded.Uri == newUri)
+            model.RelinkFrom(loaded);
+        else
+            source.ReadFrom(newUri);
+        if (originalUri == newUri && source is MediaSource media)
+            media.InvalidateResourceCache();
+        if (source is EngineObject obj && obj.FindHierarchicalParent<Scene>() is { } scene
+            && scene.MediaFingerprints.TryGetValue(originalUri.AbsoluteUri, out var fingerprint))
+        {
+            scene.MediaFingerprints.Remove(originalUri.AbsoluteUri);
+            scene.MediaFingerprints[newUri.AbsoluteUri] = fingerprint;
+        }
     }
 
     /// <summary>

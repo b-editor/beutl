@@ -8,7 +8,7 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<ImageSourc
     public ImageSourceEditorViewModel(IPropertyAdapter<ImageSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.HasUri == true ? x.Uri.LocalPath : null)
+        FullName = Value.ObserveLocalPath()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 

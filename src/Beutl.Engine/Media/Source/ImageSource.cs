@@ -35,6 +35,12 @@ public sealed class ImageSource : MediaSource
         return resource;
     }
 
+    internal override void InvalidateResourceCache()
+    {
+        Volatile.Write(ref _bitmapRef, null);
+        base.InvalidateResourceCache();
+    }
+
     public new sealed class Resource : MediaSource.Resource
     {
         private Counter<Bitmap>? _counter;
@@ -44,16 +50,19 @@ public sealed class ImageSource : MediaSource
 
         public Bitmap? Bitmap => _counter?.Value;
 
+        public bool IsOffline { get; private set; }
+
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             var imageSource = (ImageSource)obj;
 
-            // Load bitmap if URI changed
-            if (_loadedUri != imageSource.Uri && imageSource.HasUri)
+            // A relink can restore the file at its original URI.
+            if (imageSource.HasUri && (_loadedUri != imageSource.Uri || ReloadRequested))
             {
                 _counter?.Release();
                 _counter = null;
+                IsOffline = false;
 
                 Counter<Bitmap>? shared = null;
                 if (!context.DisableResourceShare)
@@ -84,8 +93,11 @@ public sealed class ImageSource : MediaSource
                     }
                     catch
                     {
-                        _counter = null;
+                        _counter = new Counter<Bitmap>(OfflineMediaPlaceholder.CreateBitmap(), null);
+                        IsOffline = true;
+                        FrameSize = OfflineMediaPlaceholder.Size;
                         _loadedUri = imageSource.Uri;
+                        Version++;
                         return;
                     }
                 }

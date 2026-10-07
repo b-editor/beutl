@@ -294,6 +294,8 @@ public sealed partial class EditViewModel
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
         Cleanup(_autoSaveCancellation.Cancel);
+        Cleanup(() => _missingMediaDialog?.Close());
+        Cleanup(HasMediaRepairs.Dispose);
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         try
         {
@@ -472,7 +474,7 @@ public sealed partial class EditViewModel
         }
     }
 
-    public ValueTask<bool> SaveAsync()
+    public async ValueTask<bool> SaveAsync()
     {
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
@@ -490,6 +492,7 @@ public sealed partial class EditViewModel
                 CoreSerializer.PersistProjectMigrationMetadata([scene]);
 
                 relocation.Apply();
+                await new MissingMediaService().UpdateFingerprintsAsync(scene, _autoSaveCancellation.Token);
                 Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
                 // The scene is the commit record for every child/resource URI. Persist it only
                 // after every referenced file is durable at its new location.
@@ -510,6 +513,7 @@ public sealed partial class EditViewModel
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
         usage?.Complete();
 
-        return ValueTask.FromResult(true);
+        HasMediaRepairs.Value = false;
+        return true;
     }
 }
