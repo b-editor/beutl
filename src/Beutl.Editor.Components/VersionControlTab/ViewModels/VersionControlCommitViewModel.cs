@@ -32,17 +32,9 @@ internal sealed class VersionControlCommitViewModel : IDisposable
 
     public string KindText { get; }
 
-    public bool IsManual => Commit.Kind == SnapshotKind.Manual;
-
-    public bool IsSave => Commit.Kind == SnapshotKind.Save;
-
-    public bool IsClose => Commit.Kind == SnapshotKind.Close;
-
     public bool IsSafety => Commit.Kind == SnapshotKind.Safety;
 
     public bool IsRestore => Commit.Kind is SnapshotKind.Restore or SnapshotKind.Recovery;
-
-    public bool IsInit => Commit.Kind == SnapshotKind.Init;
 
     public string DisplayMessage { get; }
 

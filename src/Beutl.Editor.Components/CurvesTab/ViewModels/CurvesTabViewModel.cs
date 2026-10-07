@@ -339,7 +339,7 @@ public sealed class CurvesTabViewModel : IToolContext
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)
     {
-        var vm = new CurvePresenterViewModel(property.Name, Effect.Value!, property, history);
+        var vm = new CurvePresenterViewModel(property.Name, property, history);
         _effectDisposables.Add(vm);
         return vm;
     }

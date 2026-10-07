@@ -234,14 +234,6 @@ public sealed class GraphEditorViewViewModel : IDisposable
         }
     }
 
-    private void UpdateLast()
-    {
-        if (KeyFrames.Count > 0)
-        {
-            KeyFrames[^1].SetLast();
-        }
-    }
-
     // | NewItem 1 | NewItem 2 | NewItem 3 | Existing | ...
     //          ^     /     ^     /     ^     /
     //           \---/       \---/       \---/
@@ -257,7 +249,6 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
         GraphEditorKeyFrameViewModel? existing = TryGetKeyFrame(index);
         existing?.SetPrevious(TryGetKeyFrame(index - 1));
-        UpdateLast();
     }
 
     // |  Existing | OldItem 1 | OldItem 2 | Existing | ...
@@ -274,7 +265,6 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
         GraphEditorKeyFrameViewModel? existing = TryGetKeyFrame(index);
         existing?.SetPrevious(TryGetKeyFrame(index - 1));
-        UpdateLast();
     }
 
     private void OnKeyFramesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -305,7 +295,6 @@ public sealed class GraphEditorViewViewModel : IDisposable
                 _selectedKeyFrames.Clear();
                 RemoveKeyFrames(0, KeyFrames.Count);
                 AddKeyFrames();
-                UpdateLast();
                 break;
         }
         SelectionCount.Value = _selectedKeyFrames.Count;

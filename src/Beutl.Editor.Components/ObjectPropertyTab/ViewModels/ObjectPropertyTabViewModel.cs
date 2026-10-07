@@ -33,8 +33,6 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
 
     public ToolTabExtension Extension => ObjectPropertyTabExtension.Instance;
 
-    public IEditorContext ParentContext => _editorContext;
-
     public ReactiveProperty<IPropertiesEditorViewModel?> ChildContext { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> CanBack => _canBack;

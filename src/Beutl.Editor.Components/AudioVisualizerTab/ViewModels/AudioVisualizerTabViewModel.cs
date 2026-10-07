@@ -62,8 +62,6 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             .DisposeWith(_disposables)!;
     }
 
-    public event EventHandler? SnapshotUpdated;
-
     public AudioSampleRingBuffer RingBuffer { get; } = new();
 
     public ReactivePropertySlim<TimeSpan> PlayheadTime { get; } = new(TimeSpan.Zero);
@@ -106,7 +104,6 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             snapshot.ChannelCount,
             snapshot.SampleRate,
             snapshot.StartTime);
-        SnapshotUpdated?.Invoke(this, EventArgs.Empty);
     }
 
     // Per-mode compose length. Spectrogram needs the full WindowSeconds (default 4s)

@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -334,33 +335,9 @@ public sealed class ElementViewModelProxyStateTests
     public bool ShouldRefreshThumbnailsForDefaultPresetChange_OnlyWhenProxyDecodeCanChange(PreviewSourceMode mode)
         => ElementViewModel.ShouldRefreshThumbnailsForDefaultPresetChange(mode);
 
-    // C1: a Registered event for the element's own source refreshes the badge (kind gate passes,
-    // relevance gate passes).
-    [Test]
-    public void ElementUsesChangedSource_ForElementSource_ReturnsTrue()
-    {
-        Element element = ElementWithVideoSource("badge-clip.mov", out string absolutePath);
-        string changedKey = ProxyFingerprint.FromFile(absolutePath).AbsolutePath;
-
-        Assert.That(ElementViewModel.ElementUsesChangedSource(element, changedKey), Is.True);
-    }
-
-    // C1: a Registered event for a different source does NOT refresh this element's badge
-    // (kind gate passes, relevance gate fails).
-    [Test]
-    public void ElementUsesChangedSource_ForUnrelatedSource_ReturnsFalse()
-    {
-        Element element = ElementWithVideoSource("badge-clip.mov", out _);
-        string otherPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "other-clip.mov");
-        File.WriteAllBytes(otherPath, [1]);
-        string unrelatedKey = ProxyFingerprint.FromFile(otherPath).AbsolutePath;
-
-        Assert.That(ElementViewModel.ElementUsesChangedSource(element, unrelatedKey), Is.False);
-    }
-
     // Fix #2: a video source reachable only through a nested drawable (here a DrawableGroup child, the
     // same shape as a node-graph/referenced-scene source) still raises Element.Edited when its URI
-    // changes and is matched by ElementUsesChangedSource. That is what lets the badge's Element.Edited
+    // changes and is matched by the badge's relevance gate. That is what lets the badge's Element.Edited
     // subscription bust the stale fingerprint cache — the top-level ThumbnailsInvalidated never fires
     // for these sources.
     [Test]
@@ -399,7 +376,10 @@ public sealed class ElementViewModelProxyStateTests
         Assert.Multiple(() =>
         {
             Assert.That(edited, Is.True);
-            Assert.That(ElementViewModel.ElementUsesChangedSource(element, newKey), Is.True);
+            Assert.That(
+                ProxySourceEnumerator.EnumerateVideoSources(element)
+                    .Select(source => ElementViewModel.ResolveSourceFingerprint(null, source.Uri!)?.AbsolutePath),
+                Does.Contain(newKey));
         });
     }
 
@@ -457,25 +437,6 @@ public sealed class ElementViewModelProxyStateTests
             Assert.That(resolved!.Value.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
             Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved.Value), Is.EqualTo(ProxyState.None));
         });
-    }
-
-    private static Element ElementWithVideoSource(string fileName, out string absolutePath)
-    {
-        absolutePath = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
-        File.WriteAllBytes(absolutePath, [1]);
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(absolutePath));
-        var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = source;
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        return element;
     }
 
     private sealed class FakeProxyStore(params ProxyEntry[] entries) : IProxyStore

@@ -18,11 +18,10 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     private readonly Element? _element;
     private readonly IServiceProvider? _services;
 
-    public EqualizerBandItemViewModel(EqualizerBand band, int index, IPropertyEditorFactory factory,
+    public EqualizerBandItemViewModel(EqualizerBand band, IPropertyEditorFactory factory,
         Element? element, IServiceProvider? services)
     {
         Band = band;
-        Index = index;
         _element = element;
         _services = services;
 
@@ -50,8 +49,6 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     }
 
     public EqualizerBand Band { get; }
-
-    public int Index { get; }
 
     public ReadOnlyReactivePropertySlim<string> Label { get; }
 

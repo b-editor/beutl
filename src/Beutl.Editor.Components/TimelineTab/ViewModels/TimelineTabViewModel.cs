@@ -165,14 +165,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         IsRippleEnabled.Subscribe(b => editorConfig.IsRippleEnabled = b)
             .DisposeWith(_disposables);
 
-        IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IsUnlockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: true })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         DeleteAllFrameCache = new ReactiveCommandSlim()
             .WithSubscribe(() =>
             {
@@ -344,10 +336,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReactivePropertySlim<double?> SnapBarPosition { get; } = new();
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> IsLockCacheButtonEnabled { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsUnlockCacheButtonEnabled { get; }
 
     public TimeSpan ClickedFrame { get; set; }
 
