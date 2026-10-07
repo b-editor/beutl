@@ -20,17 +20,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
-            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
-            .DisposeWith(Disposables);
-
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
-            .DisposeWith(Disposables);
+        (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
 
         FilterName = Value.Select(v => v != null ? TypeDisplayHelpers.GetLocalizedName(v.GetType()) : "Null")
             .ToReadOnlyReactivePropertySlim()
@@ -217,5 +207,12 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     {
         base.WriteToJson(json);
         NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
+        Group.Value?.Dispose();
     }
 }

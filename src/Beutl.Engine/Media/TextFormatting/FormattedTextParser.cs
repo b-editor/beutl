@@ -47,74 +47,20 @@ public static class FormattedTextParser
     // 終了タグの種類を取得
     public static TagType GetCloseTagType(StringSpan tag)
     {
-        ReadOnlySpan<char> span = tag.AsSpan();
-
-        if (span.StartsWith("<", StringComparison.Ordinal))
-        {
-            span = span[1..];
-        }
-        if (span.EndsWith(">", StringComparison.Ordinal))
-        {
-            span = span[..^1];
-        }
-
-        if (span.SequenceEqual("/font"))
-        {
-            return TagType.Font;
-        }
-        else if (span.SequenceEqual("/size"))
-        {
-            return TagType.Size;
-        }
-        else if (span.SequenceEqual("/color"))
-        {
-            return TagType.Color;
-        }
-        else if (span.SequenceEqual("/stroke"))
-        {
-            return TagType.Stroke;
-        }
-        else if (span.SequenceEqual("/cspace"))
-        {
-            return TagType.CharSpace;
-        }
-        else if (span.SequenceEqual("/weight"))
-        {
-            return TagType.FontWeight;
-        }
-        else if (span.SequenceEqual("/style"))
-        {
-            return TagType.FontStyle;
-        }
-        else if (span.SequenceEqual("/b") || span.SequenceEqual("/bold"))
-        {
-            return TagType.FontWeightBold;
-        }
-        else if (span.SequenceEqual("/i") || span.SequenceEqual("/italic"))
-        {
-            return TagType.FontStyleItalic;
-        }
-        else if (span.SequenceEqual("/noparse"))
-        {
-            return TagType.NoParse;
-        }
-        else if (span.SequenceEqual("/single-line"))
-        {
-            return TagType.SingleLine;
-        }
-        else if (span.StartsWith("/#", StringComparison.Ordinal))
-        {
-            return TagType.ColorHash;
-        }
-
-        return TagType.Invalid;
+        ReadOnlySpan<char> span = TrimAngleBrackets(tag.AsSpan());
+        return span.StartsWith("/", StringComparison.Ordinal)
+            ? ClassifyTagName(span[1..])
+            : TagType.Invalid;
     }
 
     // 開始タグの種類を取得
     public static TagType GetTagType(StringSpan tag)
     {
-        ReadOnlySpan<char> span = tag.AsSpan();
+        return ClassifyTagName(TrimAngleBrackets(tag.AsSpan()));
+    }
 
+    private static ReadOnlySpan<char> TrimAngleBrackets(ReadOnlySpan<char> span)
+    {
         if (span.StartsWith("<", StringComparison.Ordinal))
         {
             span = span[1..];
@@ -124,51 +70,57 @@ public static class FormattedTextParser
             span = span[..^1];
         }
 
-        if (span.SequenceEqual("font"))
+        return span;
+    }
+
+    // Opening and closing tags share their names; a closing tag is the same name behind a "/".
+    private static TagType ClassifyTagName(ReadOnlySpan<char> name)
+    {
+        if (name.SequenceEqual("font"))
         {
             return TagType.Font;
         }
-        else if (span.SequenceEqual("size"))
+        else if (name.SequenceEqual("size"))
         {
             return TagType.Size;
         }
-        else if (span.SequenceEqual("color"))
+        else if (name.SequenceEqual("color"))
         {
             return TagType.Color;
         }
-        else if (span.SequenceEqual("stroke"))
+        else if (name.SequenceEqual("stroke"))
         {
             return TagType.Stroke;
         }
-        else if (span.SequenceEqual("cspace"))
+        else if (name.SequenceEqual("cspace"))
         {
             return TagType.CharSpace;
         }
-        else if (span.SequenceEqual("weight"))
+        else if (name.SequenceEqual("weight"))
         {
             return TagType.FontWeight;
         }
-        else if (span.SequenceEqual("style"))
+        else if (name.SequenceEqual("style"))
         {
             return TagType.FontStyle;
         }
-        else if (span.SequenceEqual("b") || span.SequenceEqual("bold"))
+        else if (name.SequenceEqual("b") || name.SequenceEqual("bold"))
         {
             return TagType.FontWeightBold;
         }
-        else if (span.SequenceEqual("i") || span.SequenceEqual("italic"))
+        else if (name.SequenceEqual("i") || name.SequenceEqual("italic"))
         {
             return TagType.FontStyleItalic;
         }
-        else if (span.SequenceEqual("noparse"))
+        else if (name.SequenceEqual("noparse"))
         {
             return TagType.NoParse;
         }
-        else if (span.SequenceEqual("single-line"))
+        else if (name.SequenceEqual("single-line"))
         {
             return TagType.SingleLine;
         }
-        else if (span.StartsWith("#", StringComparison.Ordinal))
+        else if (name.StartsWith("#", StringComparison.Ordinal))
         {
             return TagType.ColorHash;
         }
@@ -194,134 +146,138 @@ public static class FormattedTextParser
 
         public bool TryGetStroke([NotNullWhen(true)] out Pen.Resource? pen)
         {
-            static bool TryReadStrokeCap(ReadOnlySpan<char> s, ref StrokeCap cap)
+            if (Type is not TagType.Stroke)
             {
-                if (s.StartsWith("Join:", StringComparison.OrdinalIgnoreCase))
-                    return false;
-
-                if (s.Equals(nameof(StrokeCap.Flat), StringComparison.OrdinalIgnoreCase))
-                {
-                    cap = StrokeCap.Flat;
-                    return true;
-                }
-                else if (s.Equals(nameof(StrokeCap.Round), StringComparison.OrdinalIgnoreCase))
-                {
-                    cap = StrokeCap.Round;
-                    return true;
-                }
-                else if (s.Equals(nameof(StrokeCap.Square), StringComparison.OrdinalIgnoreCase))
-                {
-                    cap = StrokeCap.Square;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                pen = default;
+                return false;
             }
 
-            static bool TryReadStrokeJoin(ReadOnlySpan<char> s, ref StrokeJoin r)
+            ReadOnlySpan<char> str = RemoveQuotation(Value);
+            var tokenizer = new RefStringTokenizer(str);
+            if (!tokenizer.TryReadString(out ReadOnlySpan<char> colorStr)
+                || !Color.TryParse(colorStr, out Color color)
+                || !tokenizer.TryReadSingle(out float thickness))
             {
-                if (s.StartsWith("Cap:", StringComparison.OrdinalIgnoreCase))
-                    return false;
-
-                if (s.Equals(nameof(StrokeJoin.Miter), StringComparison.OrdinalIgnoreCase))
-                {
-                    r = StrokeJoin.Miter;
-                    return true;
-                }
-                else if (s.Equals(nameof(StrokeJoin.Round), StringComparison.OrdinalIgnoreCase))
-                {
-                    r = StrokeJoin.Round;
-                    return true;
-                }
-                else if (s.Equals(nameof(StrokeJoin.Bevel), StringComparison.OrdinalIgnoreCase))
-                {
-                    r = StrokeJoin.Bevel;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                pen = default;
+                return false;
             }
 
-            static bool TryReadStrokeAlignment(ReadOnlySpan<char> s, ref StrokeAlignment r)
+            StrokeCap cap = StrokeCap.Flat;
+            StrokeJoin join = StrokeJoin.Miter;
+            StrokeAlignment align = StrokeAlignment.Center;
+
+            ReadOnlySpan<char> str1 = tokenizer.TryReadString(out ReadOnlySpan<char> _str1) ? _str1 : default;
+            ReadOnlySpan<char> str2 = tokenizer.TryReadString(out ReadOnlySpan<char> _str2) ? _str2 : default;
+            ReadOnlySpan<char> str3 = tokenizer.TryReadString(out ReadOnlySpan<char> _str3) ? _str3 : default;
+
+            ApplyStrokeOption(str1, ref cap, ref join, ref align);
+            ApplyStrokeOption(str2, ref cap, ref join, ref align);
+            ApplyStrokeOption(str3, ref cap, ref join, ref align);
+
+            float miterLimit = tokenizer.TryReadSingle(out float _miterLimit) ? _miterLimit : 10;
+
+            var brush = new SolidColorBrush.Resource { Color = color, Opacity = 100 };
+            pen = new Pen.Resource
             {
-                if (s.Equals(nameof(StrokeAlignment.Center), StringComparison.OrdinalIgnoreCase))
-                {
-                    r = StrokeAlignment.Center;
-                    return true;
-                }
-                else if (s.Equals(nameof(StrokeAlignment.Inside), StringComparison.OrdinalIgnoreCase))
-                {
-                    r = StrokeAlignment.Inside;
-                    return true;
-                }
-                else if (s.Equals(nameof(StrokeAlignment.Outside), StringComparison.OrdinalIgnoreCase))
-                {
-                    r = StrokeAlignment.Outside;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
+                Brush = brush,
+                DashArray = null,
+                DashOffset = 0,
+                Thickness = thickness,
+                MiterLimit = miterLimit,
+                StrokeCap = cap,
+                StrokeJoin = join,
+                StrokeAlignment = align,
+                TrimEnd = 100,
+            };
 
-            if (Type is TagType.Stroke)
+            return true;
+        }
+
+        // Each optional token names a cap, a join or an alignment; the first kind it parses as wins.
+        private static void ApplyStrokeOption(
+            ReadOnlySpan<char> option,
+            ref StrokeCap cap,
+            ref StrokeJoin join,
+            ref StrokeAlignment align)
+        {
+            _ = TryReadStrokeCap(option, ref cap)
+                || TryReadStrokeJoin(option, ref join)
+                || TryReadStrokeAlignment(option, ref align);
+        }
+
+        private static bool TryReadStrokeCap(ReadOnlySpan<char> s, ref StrokeCap cap)
+        {
+            if (s.StartsWith("Join:", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (s.Equals(nameof(StrokeCap.Flat), StringComparison.OrdinalIgnoreCase))
             {
-                ReadOnlySpan<char> str = RemoveQuotation(Value);
-                var tokenizer = new RefStringTokenizer(str);
-                if (tokenizer.TryReadString(out ReadOnlySpan<char> colorStr)
-                    && Color.TryParse(colorStr, out Color color))
-                {
-                    if (tokenizer.TryReadSingle(out float thickness))
-                    {
-                        StrokeCap cap = StrokeCap.Flat;
-                        StrokeJoin join = StrokeJoin.Miter;
-                        StrokeAlignment align = StrokeAlignment.Center;
-
-                        ReadOnlySpan<char> str1 = tokenizer.TryReadString(out ReadOnlySpan<char> _str1) ? _str1 : default;
-                        ReadOnlySpan<char> str2 = tokenizer.TryReadString(out ReadOnlySpan<char> _str2) ? _str2 : default;
-                        ReadOnlySpan<char> str3 = tokenizer.TryReadString(out ReadOnlySpan<char> _str3) ? _str3 : default;
-
-                        if (TryReadStrokeCap(str1, ref cap)
-                            || TryReadStrokeJoin(str1, ref join)
-                            || TryReadStrokeAlignment(str1, ref align))
-                        { }
-                        if (TryReadStrokeCap(str2, ref cap)
-                            || TryReadStrokeJoin(str2, ref join)
-                            || TryReadStrokeAlignment(str2, ref align))
-                        { }
-                        if (TryReadStrokeCap(str3, ref cap)
-                            || TryReadStrokeJoin(str3, ref join)
-                            || TryReadStrokeAlignment(str3, ref align))
-                        { }
-
-                        float miterLimit = tokenizer.TryReadSingle(out float _miterLimit) ? _miterLimit : 10;
-
-                        var brush = new SolidColorBrush.Resource { Color = color, Opacity = 100 };
-                        pen = new Pen.Resource
-                        {
-                            Brush = brush,
-                            DashArray = null,
-                            DashOffset = 0,
-                            Thickness = thickness,
-                            MiterLimit = miterLimit,
-                            StrokeCap = cap,
-                            StrokeJoin = join,
-                            StrokeAlignment = align,
-                            TrimEnd = 100,
-                        };
-
-                        return true;
-                    }
-                }
+                cap = StrokeCap.Flat;
+                return true;
             }
+            else if (s.Equals(nameof(StrokeCap.Round), StringComparison.OrdinalIgnoreCase))
+            {
+                cap = StrokeCap.Round;
+                return true;
+            }
+            else if (s.Equals(nameof(StrokeCap.Square), StringComparison.OrdinalIgnoreCase))
+            {
+                cap = StrokeCap.Square;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
 
-            pen = default;
-            return false;
+        private static bool TryReadStrokeJoin(ReadOnlySpan<char> s, ref StrokeJoin r)
+        {
+            if (s.StartsWith("Cap:", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (s.Equals(nameof(StrokeJoin.Miter), StringComparison.OrdinalIgnoreCase))
+            {
+                r = StrokeJoin.Miter;
+                return true;
+            }
+            else if (s.Equals(nameof(StrokeJoin.Round), StringComparison.OrdinalIgnoreCase))
+            {
+                r = StrokeJoin.Round;
+                return true;
+            }
+            else if (s.Equals(nameof(StrokeJoin.Bevel), StringComparison.OrdinalIgnoreCase))
+            {
+                r = StrokeJoin.Bevel;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private static bool TryReadStrokeAlignment(ReadOnlySpan<char> s, ref StrokeAlignment r)
+        {
+            if (s.Equals(nameof(StrokeAlignment.Center), StringComparison.OrdinalIgnoreCase))
+            {
+                r = StrokeAlignment.Center;
+                return true;
+            }
+            else if (s.Equals(nameof(StrokeAlignment.Inside), StringComparison.OrdinalIgnoreCase))
+            {
+                r = StrokeAlignment.Inside;
+                return true;
+            }
+            else if (s.Equals(nameof(StrokeAlignment.Outside), StringComparison.OrdinalIgnoreCase))
+            {
+                r = StrokeAlignment.Outside;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         public bool TryGetFont(out FontFamily? font)
@@ -432,15 +388,7 @@ public static class FormattedTextParser
 
         private static ReadOnlySpan<char> RemoveQuotation(StringSpan s)
         {
-            ReadOnlySpan<char> span = s.AsSpan();
-            if (span.StartsWith("<", StringComparison.Ordinal))
-            {
-                span = span[1..];
-            }
-            if (span.EndsWith(">", StringComparison.Ordinal))
-            {
-                span = span[..^1];
-            }
+            ReadOnlySpan<char> span = TrimAngleBrackets(s.AsSpan());
             if (span.StartsWith("\"", StringComparison.Ordinal) ||
                 span.StartsWith("\'", StringComparison.Ordinal))
             {

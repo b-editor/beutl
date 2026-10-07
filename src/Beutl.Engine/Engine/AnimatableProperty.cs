@@ -60,14 +60,7 @@ public class AnimatableProperty<T> : IProperty<T>
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
-            if (_owner is IModifiableHierarchical ownerHierarchical)
-            {
-                if (oldValue is IHierarchical oldHierarchical)
-                    ownerHierarchical.RemoveChild(oldHierarchical);
-
-                if (validatedValue is IHierarchical newHierarchical)
-                    ownerHierarchical.AddChild(newHierarchical);
-            }
+            PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
 
             if (oldValue is INotifyEdited oldEdited)
                 oldEdited.Edited -= OnChildEdited;
@@ -96,14 +89,7 @@ public class AnimatableProperty<T> : IProperty<T>
 
                 AnimationChanged?.Invoke(_animation!);
                 Edited?.Invoke(this, EventArgs.Empty);
-                if (_owner is IModifiableHierarchical ownerHierarchical)
-                {
-                    if (oldValue is IHierarchical oldHierarchical)
-                        ownerHierarchical.RemoveChild(oldHierarchical);
-
-                    if (value is IHierarchical newHierarchical)
-                        ownerHierarchical.AddChild(newHierarchical);
-                }
+                PropertyValueOwnership.Reparent(_owner, oldValue, value);
 
                 if (oldValue is INotifyEdited oldEdited)
                     oldEdited.Edited -= OnChildEdited;
@@ -205,9 +191,7 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public IValidator CreateValidator(Attribute[] attributes)
     {
-        IValidator<T>[] validations = attributes.OfType<ValidationAttribute>()
-            .Select(CorePropertyMetadata<T>.ConvertValidator)
-            .ToArray();
+        IValidator<T>[] validations = Property.ConvertValidators<T>(attributes.OfType<ValidationAttribute>());
 
         return new MultipleValidator<T>(validations);
     }

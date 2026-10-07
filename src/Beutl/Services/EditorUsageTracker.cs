@@ -84,6 +84,9 @@ internal sealed class EditorUsageTracker : IDisposable
         // Match the operation resolver: Animation/Expression belong to the
         // preceding property, not to the owning EngineObject's CLR members.
         if (parts.Length > 1 && name is "Animation" or "Expression") name = parts[^2];
+        // Timeline edits propagate TimeRange through the engine hierarchy.
+        // These internal updates are not separate property edits.
+        if (operation.Object is EngineObject && name == nameof(EngineObject.TimeRange)) return null;
         // Match a compiled property, not arbitrary node-member names or paths.
         return type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not null
             ? type.Name + "." + name : null;

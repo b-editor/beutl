@@ -12,6 +12,7 @@ using Beutl.ViewModels.Dock;
 using Beutl.Views;
 using Beutl.Views.Dock;
 using Dock.Model.Controls;
+using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -99,6 +100,25 @@ public class FileBrowserMultipleTabsTests
         HeadlessTestHelpers.Settle();
 
         Assert.That(browsers[0].Title, Is.EqualTo(Strings.FileBrowser));
+    }
+
+    [AvaloniaTest]
+    public void A_non_string_root_path_is_ignored_and_the_rest_of_the_view_state_restores()
+    {
+        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        string rootPath = browser.RootPath.Value;
+
+        browser.ReadFromJson(new JsonObject
+        {
+            ["RootPath"] = 1,
+            ["ViewMode"] = (int)FileBrowserViewMode.Tree,
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(browser.RootPath.Value, Is.EqualTo(rootPath));
+            Assert.That(browser.ViewMode.Value, Is.EqualTo(FileBrowserViewMode.Tree));
+        });
     }
 
     [AvaloniaTest]

@@ -1,21 +1,13 @@
-﻿using System.Collections.Specialized;
-using System.Reactive.Subjects;
-using System.Text.Json.Nodes;
+﻿using System.Reactive.Subjects;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
-using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +17,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler, IContextCommandStateNotifier
+public sealed partial class TimelineTabViewModel : IToolContext, IContextCommandHandler, IContextCommandStateNotifier
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -190,45 +182,33 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 BufferStatus.ClearCache();
             });
 
-        DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
-            .ToReactiveCommandSlim()
-            .WithSubscribe(() =>
+        DeleteFrameCache = CreateCacheBlockCommand(v => v != null, block =>
+        {
+            _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
+                block.StartFrame);
+            if (block.IsLocked)
             {
-                if (HoveredCacheBlock.Value is not { } block) return;
-
-                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
-                if (block.IsLocked)
-                {
-                    BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-                }
-
-                BufferStatus.DeleteCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-            });
-
-        LockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == false)
-            .ToReactiveCommandSlim()
-            .WithSubscribe(() =>
-            {
-                if (HoveredCacheBlock.Value is not { } block) return;
-
-                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
-                BufferStatus.LockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-                BufferStatus.UpdateBlocks();
-            });
-
-        UnlockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == true)
-            .ToReactiveCommandSlim()
-            .WithSubscribe(() =>
-            {
-                if (HoveredCacheBlock.Value is not { } block) return;
-
-                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
                 BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
-                BufferStatus.UpdateBlocks();
-            });
+            }
+
+            BufferStatus.DeleteCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+        });
+
+        LockFrameCache = CreateCacheBlockCommand(v => v?.IsLocked == false, block =>
+        {
+            _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
+                block.StartFrame);
+            BufferStatus.LockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+            BufferStatus.UpdateBlocks();
+        });
+
+        UnlockFrameCache = CreateCacheBlockCommand(v => v?.IsLocked == true, block =>
+        {
+            _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
+                block.StartFrame);
+            BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+            BufferStatus.UpdateBlocks();
+        });
 
         SubscribeToolMode(IsRazorMode);
         SubscribeToolMode(IsSlipMode);
@@ -270,68 +250,25 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         return result;
     }
 
+    // The command acts on the cache block under the pointer when it runs, if there still is one.
+    private ReactiveCommandSlim CreateCacheBlockCommand(Func<CacheBlock?, bool> canExecute, Action<CacheBlock> execute)
+    {
+        return HoveredCacheBlock.Select(canExecute)
+            .ToReactiveCommandSlim()
+            .WithSubscribe(() =>
+            {
+                if (HoveredCacheBlock.Value is not { } block) return;
+
+                execute(block);
+            });
+    }
+
     private void RaiseCanExecuteChanged()
     {
         if (!_isDisposed)
         {
             _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default);
         }
-    }
-
-    private void SubscribeToolMode(ReactivePropertySlim<bool> mode)
-    {
-        mode.Subscribe(isEnabled =>
-            {
-                if (isEnabled)
-                {
-                    EnforceSingleToolMode(mode);
-                }
-
-                RaiseCanExecuteChanged();
-            })
-            .AddTo(_disposables);
-    }
-
-    private void EnforceSingleToolMode(ReactivePropertySlim<bool> activeMode)
-    {
-        if (_updatingToolMode) return;
-
-        _updatingToolMode = true;
-        try
-        {
-            if (!ReferenceEquals(activeMode, IsRazorMode)) IsRazorMode.Value = false;
-            if (!ReferenceEquals(activeMode, IsSlipMode)) IsSlipMode.Value = false;
-            if (!ReferenceEquals(activeMode, IsRollMode)) IsRollMode.Value = false;
-            if (!ReferenceEquals(activeMode, IsSlideMode)) IsSlideMode.Value = false;
-        }
-        finally
-        {
-            _updatingToolMode = false;
-        }
-    }
-
-    private void OnSetStartTimeToPointerPosition()
-    {
-        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetStart(Scene, ClickedFrame);
-    }
-
-    private void OnSetEndTimeToPointerPosition()
-    {
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
-        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
-    }
-
-    private void OnSetStartTimeToCurrentTime()
-    {
-        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetStart(Scene, CurrentTime.Value);
-    }
-
-    private void OnSetEndTimeToCurrentTime()
-    {
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
-        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
     }
 
     public Scene Scene { get; }
@@ -535,36 +472,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    /// <summary>
-    /// Returns true when a duplicate was placed and committed. Alt+drag uses the
-    /// return value to decide whether to fall back to a plain move.
-    /// </summary>
-    internal bool DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
-    {
-        if (sourceElements.Count == 0)
-        {
-            _logger.LogWarning("DuplicateElementsAt called with empty sourceElements; investigate caller.");
-            return false;
-        }
-
-        if (Scene.Uri is null)
-        {
-            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
-            return false;
-        }
-
-        try
-        {
-            return EditorContext.GetRequiredService<IElementDuplicateService>()
-                .DuplicateAtPosition(Scene, sourceElements, anchorStart, anchorZIndex);
-        }
-        catch (Exception ex)
-        {
-            HandleDuplicateException(ex);
-            return false;
-        }
-    }
-
     private void HandleDuplicateException(Exception ex)
     {
         switch (ex)
@@ -606,261 +513,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             _logger.LogError(ex, "An exception has occurred.");
             NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
         }
-    }
-
-    // ClickedPositionから最後にクリックしたレイヤーを計算します。
-    public int CalculateClickedLayer()
-    {
-        _logger.LogDebug("Calculating clicked layer from position {Position}.", ClickedPosition);
-        return ToLayerNumber(ClickedPosition.Y);
-    }
-
-    // zindexまでLayerHeaderを追加します。
-    private void AddLayerHeaders(int count)
-    {
-        _logger.LogDebug("Adding layer headers up to count {Count}.", count);
-
-        // A new header's Height emits synchronously, reaching CalculateLayerTop and re-entering
-        // here; fold that request into the running loop's bound rather than recursing.
-        if (_addingLayerHeaders)
-        {
-            _pendingLayerHeaderCount = Math.Max(_pendingLayerHeaderCount, count);
-            return;
-        }
-
-        _addingLayerHeaders = true;
-        try
-        {
-            _pendingLayerHeaderCount = count;
-            for (int next = NextLayerNumber(); next < _pendingLayerHeaderCount; next = NextLayerNumber())
-            {
-                LayerHeaders.Add(new LayerHeaderViewModel(next, this));
-            }
-        }
-        finally
-        {
-            _addingLayerHeaders = false;
-            _pendingLayerHeaderCount = 0;
-        }
-
-        if (Options.Value.MaxLayerCount != LayerHeaders.Count)
-        {
-            Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
-
-            _logger.LogDebug("The number of layers has been changed. ({Count})", count);
-        }
-    }
-
-    // Headers can be renumbered by a layer move, so the next row follows the last header's
-    // Number rather than the list index.
-    private int NextLayerNumber()
-        => LayerHeaders.Count == 0 ? 0 : LayerHeaders[^1].Number.Value + 1;
-
-    private void TryApplyLayerCount(int count)
-    {
-        _logger.LogDebug("Trying to apply layer count {Count}.", count);
-        if (LayerHeaders.Count > count)
-        {
-            for (int i = LayerHeaders.Count - 1; i >= count; i--)
-            {
-                LayerHeaderViewModel item = LayerHeaders[i];
-                // A clipless row whose TimelineLayer still carries lock/mute/solo
-                // keeps affecting the editor/compositor; removing its header would
-                // leave no UI to see or clear those flags.
-                if (item.ItemsCount.Value > 0 || HasFlaggedLayerModel(item.Number.Value))
-                    break;
-
-                LayerHeaders.RemoveAt(i);
-            }
-
-            if (Options.Value.MaxLayerCount != LayerHeaders.Count)
-            {
-                Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
-
-                _logger.LogDebug("The number of layers has been changed. ({Count})", LayerHeaders.Count);
-            }
-        }
-        else
-        {
-            AddLayerHeaders(count);
-        }
-    }
-
-    private bool HasFlaggedLayerModel(int zIndex)
-        => Scene.Layers.Any(l => l.ZIndex == zIndex
-                                 && (l.IsLocked || l.IsAudioMuted || l.IsVideoMuted || l.IsSolo));
-
-    public void ReadFromJson(JsonObject json)
-    {
-        _logger.LogInformation("Reading TimelineViewModel state from JSON.");
-
-        if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
-            && layersNode is JsonArray layersArray)
-        {
-            foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
-                         .Select(v =>
-                             v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number)
-                                 ? (number, v)
-                                 : (-1, null))
-                         .Where(v => v.Item2 != null)
-                         .Join(
-                             LayerHeaders,
-                             x => x.Item1,
-                             y => y.Number.Value,
-                             (x, y) => (y, x.Item2!)))
-            {
-                layer.ReadFromJson(item);
-                _logger.LogDebug("LayerHeader {Number} state restored from JSON.", layer.Number.Value);
-            }
-        }
-
-        if (json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
-            && inlinesNode is JsonArray inlinesArray)
-        {
-            RestoreInlineAnimation(inlinesArray);
-        }
-
-        if (json.TryGetPropertyValue(nameof(ThumbnailsDisabledElements), out JsonNode? ThumbnailsDisabledNode)
-            && ThumbnailsDisabledNode is JsonArray thumbnailsDisabledArray)
-        {
-            ThumbnailsDisabledElements.Clear();
-            foreach (JsonNode? item in thumbnailsDisabledArray)
-            {
-                if (item is JsonValue value
-                    && value.TryGetValue(out string? guidStr)
-                    && Guid.TryParse(guidStr, out Guid id)
-                    && Scene.Children.Any(e => e.Id == id))
-                {
-                    ThumbnailsDisabledElements.Add(id);
-                }
-            }
-        }
-
-        _logger.LogInformation("TimelineViewModel state read from JSON successfully.");
-    }
-
-    private void RestoreInlineAnimation(JsonArray inlinesArray)
-    {
-        _logger.LogInformation("Restoring inline animations from JSON.");
-
-        static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
-        {
-            return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
-                   && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
-                ? (elementId, anmId)
-                : (Guid.Empty, Guid.Empty);
-        }
-
-        foreach ((Element element, Guid anmId) in inlinesArray.OfType<JsonObject>()
-                     .Select(GetIds)
-                     .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
-                     .Join(Scene.Children,
-                         x => x.ElementId,
-                         y => y.Id,
-                         (x, y) => (y, x.AnimationId)))
-        {
-            IAnimatablePropertyAdapter? anmProp = null;
-            EngineObject? engineObject = null;
-
-            void FindAndSetAncestor(Span<object> span, KeyFrameAnimation kfAnm)
-            {
-                for (int i = 0; i < span.Length; i++)
-                {
-                    switch (span[i])
-                    {
-                        case IAnimatablePropertyAdapter anmProp2 when ReferenceEquals(anmProp2.Animation, kfAnm):
-                            anmProp = anmProp2;
-                            return;
-                        case EngineObject engineObject2:
-                            engineObject = engineObject2;
-                            return;
-                    }
-                }
-            }
-
-            bool Predicate(Stack<object> stack, object obj)
-            {
-                if (obj is IProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId)
-                {
-                    using var pooledArray = new PooledArray<object>(stack.Count);
-                    // 同じものが見つかった時に、上の階層から、IAbstractPropertyやAnimatableを探す。
-                    stack.CopyTo(pooledArray._array, 0);
-                    FindAndSetAncestor(pooledArray.Span, kfAnm);
-                    return true;
-                }
-
-                return false;
-            }
-
-            var searcher = new ObjectSearcher(element, Predicate);
-
-            //このコードは例えばPenの中にあるアニメーションなどには対応できない。
-            //var searcher = new ObjectSearcher(
-            //    element,
-            //    v => v is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId);
-
-            if (searcher.Search() is IProperty { Animation: KeyFrameAnimation anm } prop)
-            {
-                if (anmProp != null)
-                {
-                    AttachInline(anmProp, element);
-                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.",
-                        element.Id, anmId);
-                }
-                else if (engineObject != null)
-                {
-                    try
-                    {
-                        Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.ValueType);
-                        var createdProp =
-                            (IAnimatablePropertyAdapter)Activator.CreateInstance(type, prop, engineObject)!;
-                        AttachInline(createdProp, element);
-                        _logger.LogDebug(
-                            "Inline animation created and attached for element {ElementId} and animation {AnimationId}.",
-                            element.Id, anmId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex,
-                            "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.",
-                            element.Id, anmId);
-                    }
-                }
-            }
-        }
-
-        _logger.LogInformation("Inline animations restored from JSON successfully.");
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-        _logger.LogInformation("Writing TimelineViewModel state to JSON.");
-
-        var inlines = new JsonArray();
-        foreach (InlineAnimationLayerViewModel item in Inlines.OrderBy(v => v.Index.Value))
-        {
-            if (item.Property.Animation is KeyFrameAnimation { Id: Guid anmId })
-            {
-                Guid elementId = item.Element.Model.Id;
-
-                inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
-                _logger.LogDebug(
-                    "Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.",
-                    elementId, anmId);
-            }
-        }
-
-        json[nameof(Inlines)] = inlines;
-
-        var thumbnailsDisabledArray = new JsonArray();
-        foreach (Guid id in ThumbnailsDisabledElements)
-        {
-            thumbnailsDisabledArray.Add(id.ToString());
-        }
-
-        json[nameof(ThumbnailsDisabledElements)] = thumbnailsDisabledArray;
-
-        _logger.LogInformation("TimelineViewModel state written to JSON successfully.");
     }
 
     public void AttachInline(IAnimatablePropertyAdapter property, Element element)
@@ -907,84 +559,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             item.Element.Model.Id);
     }
 
-    public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
-    {
-        return layer.Select(GetTrackedLayerTopObservable).Switch();
-    }
-
-    public IObservable<double> GetTrackedLayerTopObservable(int zIndex)
-    {
-        lock (_trackerCache)
-        {
-            if (!_trackerCache.TryGetValue(zIndex, out TrackedLayerTopObservable? value))
-            {
-                value = new TrackedLayerTopObservable(zIndex, this);
-                _trackerCache.Add(zIndex, value);
-            }
-
-            return value;
-        }
-    }
-
-    public double CalculateLayerTop(int layer)
-    {
-        AddLayerHeaders(layer + 1);
-
-        // Reentrant calls from AddLayerHeaders see a partially grown list, so clamp rather than
-        // index past the end.
-        double sum = 0;
-        int count = Math.Min(layer, LayerHeaders.Count);
-        for (int i = 0; i < count; i++)
-        {
-            sum += LayerHeaders[i].Height.Value;
-        }
-
-        return sum;
-    }
-
-    public int ToLayerNumber(double pixel)
-    {
-        double sum = 0;
-
-        for (int i = 0; i < LayerHeaders.Count; i++)
-        {
-            LayerHeaderViewModel cur = LayerHeaders[i];
-            if (sum <= pixel && pixel <= (sum += cur.Height.Value))
-            {
-                return i;
-            }
-        }
-
-        double delta = pixel - sum;
-        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
-        int zIndex = addCount + LayerHeaders.Count;
-        AddLayerHeaders(zIndex + 1);
-
-        return zIndex;
-    }
-
-    public int ToLayerNumber(Thickness thickness)
-    {
-        double sum = 0;
-
-        for (int i = 0; i < LayerHeaders.Count; i++)
-        {
-            LayerHeaderViewModel cur = LayerHeaders[i];
-            double top = thickness.Top + (FrameNumberHelper.LayerHeight / 2);
-            if (sum <= top && top <= (sum += cur.Height.Value))
-            {
-                return i;
-            }
-        }
-
-        double delta = thickness.Top - sum;
-        int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
-        int zIndex = addCount + LayerHeaders.Count;
-        AddLayerHeaders(zIndex + 1);
-
-        return zIndex;
-    }
-
     public void ClearSelected()
     {
         foreach (ElementViewModel item in SelectedElements)
@@ -1018,11 +592,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         RaiseCanExecuteChanged();
     }
 
-    internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
-    {
-        _layerHeightChanged.OnNext(value);
-    }
-
     public object? GetService(Type serviceType)
     {
         return EditorContext.GetService(serviceType);
@@ -1031,550 +600,5 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public ElementViewModel? GetViewModelFor(Element element)
     {
         return Elements.FirstOrDefault(x => x.Model == element);
-    }
-
-    public bool CanExecute(ContextCommandExecution execution)
-    {
-        return execution.CommandName switch
-        {
-            "Copy" or "Cut" or "Delete" or "Exclude" or "Duplicate" => SelectedElements.Count > 0,
-            "NudgeLeftFrame" or "NudgeRightFrame"
-                or "NudgeLeftLarge" or "NudgeRightLarge"
-                or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
-            "CloseGap" => SelectedElements.Count > 0,
-            "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
-                && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
-            "ExitRazorMode" => IsRazorMode.Value,
-            "ExitSlipMode" => IsSlipMode.Value,
-            "ExitRollMode" => IsRollMode.Value,
-            "ExitSlideMode" => IsSlideMode.Value,
-            "Paste" or "SetStartTime" or "SetEndTime"
-                or "ToggleRazorMode" or "ToggleRippleMode" or "ToggleSlipMode"
-                or "ToggleRollMode" or "ToggleSlideMode"
-                or "CloseAllGaps" or "GoToNextGap" or "GoToPreviousGap" => true,
-            // Rename / Split など Execute で対応 case が無いコマンドは false を返し、
-            // パレットやショートカット経路で誤って enabled として扱われないようにする。
-            _ => false,
-        };
-    }
-
-    public Task ExecuteAsync(ContextCommandExecution execution)
-    {
-        _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);
-
-        // Nudge 連打を 1 Undo にまとめる debounce 中に他コマンドが Commit すると、
-        // 双方が同じ transaction に積まれて 1 Undo で一緒に取り消されてしまう。
-        // Nudge 以外のコマンドを実行する直前に Nudge 分を確定させて分離する。
-        if (!execution.CommandName.StartsWith("Nudge", StringComparison.Ordinal))
-        {
-            FlushPendingNudgeCommit();
-        }
-
-        Task operation = Task.CompletedTask;
-        switch (execution.CommandName)
-        {
-            case "Paste":
-                operation = Paste.ExecuteAsync();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                    _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
-                }
-
-                break;
-            case "Duplicate":
-                Duplicate.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "Copy":
-                if (SelectedElements.FirstOrDefault() is { } copyTarget)
-                {
-                    operation = copyTarget.Copy.ExecuteAsync();
-                }
-
-                break;
-            case "Cut":
-                if (SelectedElements.FirstOrDefault() is { } cutTarget)
-                {
-                    operation = cutTarget.Cut.ExecuteAsync();
-                }
-                break;
-            case "Delete":
-                SelectedElements.FirstOrDefault()?.Delete.Execute();
-                break;
-            case "Exclude":
-                SelectedElements.FirstOrDefault()?.Exclude.Execute();
-                break;
-            case "SetStartTime" when !IsTextInputFocused(execution.KeyEventArgs):
-                SetStartTimeToCurrentTime.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "SetEndTime" when !IsTextInputFocused(execution.KeyEventArgs):
-                SetEndTimeToCurrentTime.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleGroup":
-                var first = SelectedElements.FirstOrDefault();
-                if (first?.CanUngroupSelectedElements() == true)
-                {
-                    first.UngroupSelectedElements.Execute();
-                }
-                else if (first?.CanGroupSelectedElements() == true)
-                {
-                    first.GroupSelectedElements.Execute();
-                }
-
-                break;
-            case "ToggleRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterRazorMode();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleRippleMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                IsRippleEnabled.Value = !IsRippleEnabled.Value;
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ExitRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsRazorMode.Value)
-                {
-                    IsRazorMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "ToggleSlipMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterTrimMode(IsSlipMode);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleRollMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterTrimMode(IsRollMode);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ToggleSlideMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                EnterTrimMode(IsSlideMode);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "ExitSlipMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsSlipMode.Value)
-                {
-                    IsSlipMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "ExitRollMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsRollMode.Value)
-                {
-                    IsRollMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "ExitSlideMode" when !IsTextInputFocused(execution.KeyEventArgs):
-                if (IsSlideMode.Value)
-                {
-                    IsSlideMode.Value = false;
-                    if (execution.KeyEventArgs != null)
-                    {
-                        execution.KeyEventArgs.Handled = true;
-                    }
-                }
-
-                break;
-            case "NudgeLeftFrame" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(-1, NudgeUnit.Frame);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeRightFrame" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(+1, NudgeUnit.Frame);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeLeftLarge" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(-1, NudgeUnit.Large);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeRightLarge" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(+1, NudgeUnit.Large);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeLeftSecond" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(-1, NudgeUnit.Second);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "NudgeRightSecond" when !IsTextInputFocused(execution.KeyEventArgs):
-                NudgeSelectedElements(+1, NudgeUnit.Second);
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "CloseGap" when !IsTextInputFocused(execution.KeyEventArgs):
-                CloseGap.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "CloseAllGaps" when !IsTextInputFocused(execution.KeyEventArgs):
-                CloseAllGaps.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "GoToNextGap" when !IsTextInputFocused(execution.KeyEventArgs):
-                GoToNextGap.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-            case "GoToPreviousGap" when !IsTextInputFocused(execution.KeyEventArgs):
-                GoToPreviousGap.Execute();
-                if (execution.KeyEventArgs != null)
-                {
-                    execution.KeyEventArgs.Handled = true;
-                }
-
-                break;
-        }
-
-        return operation;
-    }
-
-    // Timeline shortcuts that use printable keys must not fire while a text input has focus.
-    // Checking only TextBox misses embedded text boxes inside wrappers such as AutoCompleteBox,
-    // NumericUpDown, and MaskedTextBox, so inspect the Source visual ancestor chain.
-    private static bool IsTextInputFocused(KeyEventArgs? args)
-    {
-        return IsTextInputSource(args?.Source);
-    }
-
-    internal static bool IsTextInputSource(object? source)
-    {
-        if (source is not Visual visual) return false;
-        return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
-    }
-
-    private void CloseSelectedGap()
-    {
-        Element? anchor = SelectedElements
-            .OrderBy(e => e.Model.Start)
-            .ThenBy(e => e.Model.ZIndex)
-            .Select(e => e.Model)
-            .FirstOrDefault();
-        if (anchor is null)
-        {
-            // Reachable from the flyout menu, which unlike the shortcut path has no selection gate.
-            NotificationService.ShowInformation(Strings.CloseGap, Strings.NoElementSelected);
-            return;
-        }
-
-        FlushPendingNudgeCommit();
-        if (!EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, anchor))
-        {
-            NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
-        }
-    }
-
-    // Context-menu Close Gap acts on the right-clicked position, not the selection, so the gap the
-    // user pointed at is the one that closes.
-    private void CloseGapAtPointer()
-    {
-        FlushPendingNudgeCommit();
-        // Hit-test with the raw pointer time, not the frame-rounded ClickedFrame: rounding can push a
-        // click in the latter half of a one-frame gap onto the next clip's start, which the half-open
-        // gap range then reports as no gap.
-        TimeSpan clickedTime = ClickedPosition.X.PixelToTimeSpan(Options.Value.Scale);
-        if (ResolvePointerGapToClose(Scene, clickedTime, CalculateClickedLayer()) is { } gap
-            && EditorContext.GetRequiredService<IElementGapService>().CloseGapAfter(Scene, gap.Anchor))
-        {
-            return;
-        }
-
-        NotificationService.ShowInformation(Strings.CloseGap, Strings.NoGapsToClose);
-    }
-
-    // The gap under a right-click, but only when it lies wholly inside the active scene. ClickedFrame
-    // is not clamped to the scene, so a click past either edge can land in a gap that straddles the
-    // boundary; closing that raw gap would shift clips by off-scene space the user cannot see.
-    internal static SceneGap? ResolvePointerGapToClose(Scene scene, TimeSpan clickedTime, int layer)
-    {
-        TimeSpan sceneEnd = scene.Start + scene.Duration;
-        return scene.FindGapAt(clickedTime, layer) is { } gap
-               && gap.Range.Start >= scene.Start && gap.Range.End <= sceneEnd
-            ? gap
-            : null;
-    }
-
-    private void CloseAllSceneGaps()
-    {
-        FlushPendingNudgeCommit();
-        if (EditorContext.GetRequiredService<IElementGapService>().CloseAllGaps(Scene) == 0)
-        {
-            NotificationService.ShowInformation(Strings.CloseAllGaps, Strings.NoGapsToClose);
-        }
-    }
-
-    private void GoToGap(bool forward)
-    {
-        if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
-        {
-            CurrentTime.Value = target.Target;
-            // The playhead move alone does not scroll while stopped, so bring the target into view like
-            // the other seek commands. Scroll around the target, not the whole gap: a gap wider than the
-            // viewport always intersects it and the view would skip the scroll. The 1-tick width keeps
-            // the range non-empty so the view's "already visible" check reads it as the target point.
-            ScrollTo.Execute((new TimeRange(target.Target, TimeSpan.FromTicks(1)), target.ZIndex));
-            // A null anchor (start-clipped gap) has no element to select; clear any prior selection so
-            // the selection-based Close Gap cannot act on a stale, unrelated gap after the jump.
-            if (target.Anchor is { } anchor)
-            {
-                SelectGapAnchor(anchor);
-            }
-            else
-            {
-                ClearSelected();
-                EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = null;
-            }
-        }
-        else
-        {
-            NotificationService.ShowInformation(
-                forward ? Strings.GoToNextGap : Strings.GoToPreviousGap,
-                Strings.NoGapsToGoTo);
-        }
-    }
-
-    // Moving to a gap selects its anchor so the selection-based Close Gap then acts on that same gap.
-    // The global editor selection is updated too, matching click selection, so the inspector and other
-    // tabs follow the gap anchor instead of the previously selected element.
-    private void SelectGapAnchor(Element anchor)
-    {
-        ElementViewModel? vm = Elements.FirstOrDefault(e => ReferenceEquals(e.Model, anchor));
-        if (vm is null) return;
-
-        ClearSelected();
-        SelectElement(vm);
-        EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = anchor;
-    }
-
-    // The search is bounded to the active scene range by searchRange, so a playhead parked outside the
-    // scene still navigates within it. currentTime is passed through unclamped: clamping the origin to
-    // the boundary would make the >= / <= searches skip an in-range gap that touches Scene.Start or
-    // Scene.Start + Duration exactly. Returns the target playhead time — the centre of the gap's visible
-    // (scene-clamped) portion — together with the gap's anchor. The anchor is null unless the raw gap is
-    // wholly inside the scene: a clipped gap's anchor sits off-scene, so selecting it would make Close
-    // Gap collapse the raw gap and move a clip the user cannot see.
-    internal static (TimeSpan Target, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
-        Scene scene, TimeSpan currentTime, bool forward)
-    {
-        TimeSpan sceneStart = scene.Start;
-        TimeSpan sceneEnd = scene.Start + scene.Duration;
-        var range = new TimeRange(sceneStart, scene.Duration);
-        SceneGap? gap = forward
-            ? scene.FindNextGap(currentTime, range)
-            : scene.FindPreviousGap(currentTime, range);
-        if (gap is not { } g) return null;
-
-        TimeSpan visibleStart = g.Range.Start > sceneStart ? g.Range.Start : sceneStart;
-        TimeSpan visibleEnd = g.Range.End < sceneEnd ? g.Range.End : sceneEnd;
-        TimeSpan target = visibleStart + new TimeSpan((visibleEnd - visibleStart).Ticks / 2);
-        bool whollyInside = g.Range.Start >= sceneStart && g.Range.End <= sceneEnd;
-        return (target, g.ZIndex, whollyInside ? g.Anchor : null);
-    }
-
-    private void EnterRazorMode()
-    {
-        bool next = !IsRazorMode.Value;
-        IsRazorMode.Value = false;
-        IsSlipMode.Value = false;
-        IsRollMode.Value = false;
-        IsSlideMode.Value = false;
-        IsRazorMode.Value = next;
-    }
-
-    private void EnterTrimMode(ReactivePropertySlim<bool> mode)
-    {
-        bool next = !mode.Value;
-        IsRazorMode.Value = false;
-        IsSlipMode.Value = false;
-        IsRollMode.Value = false;
-        IsSlideMode.Value = false;
-        mode.Value = next;
-    }
-
-    private enum NudgeUnit { Frame, Large, Second }
-
-    private void NudgeSelectedElements(int direction, NudgeUnit unit)
-    {
-        // Anchor on the leftmost selected element so the resulting delta lands
-        // on the frame grid regardless of HashSet iteration order.
-        ElementViewModel? first = SelectedElements
-            .OrderBy(e => e.Model.Start)
-            .ThenBy(e => e.Model.ZIndex)
-            .FirstOrDefault();
-        if (first is null) return;
-
-        ElementViewModel[] targets = first.GetGroupOrSelectedElements()
-            .Where(x => x.IsEditable.Value)
-            .ToArray();
-        if (targets.Length == 0) return;
-
-        int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
-        int frames = unit switch
-        {
-            NudgeUnit.Frame => direction,
-            NudgeUnit.Large => direction * 10,
-            NudgeUnit.Second => direction * rate,
-            _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unhandled NudgeUnit."),
-        };
-
-        EditorContext.GetRequiredService<IElementNudgeService>()
-            .Nudge(Scene, targets.Select(x => x.Model).ToArray(), frames);
-    }
-
-    private void FlushPendingNudgeCommit()
-    {
-        if (_isDisposed) return;
-        try
-        {
-            EditorContext.GetRequiredService<IElementNudgeService>().Flush();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogWarning(ex, "Pending nudge flush dropped: editor context already disposed.");
-        }
-    }
-
-    public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)
-    {
-        IReadOnlyList<ElementViewModel> targets = acrossAllLayers
-            ? Elements.Where(e => e.Model.Range.Contains(time)).ToArray()
-            : Elements.Where(e => e.Model.Range.Contains(time) && e.Model.ZIndex == CalculateClickedLayer()).ToArray();
-
-        if (targets.Count == 0)
-        {
-            return;
-        }
-
-        targets[0].SplitAt(targets, time);
-    }
-
-    private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)
-        : LightweightObservableBase<double>, IDisposable
-    {
-        private IDisposable? _disposable1;
-        private IDisposable? _disposable2;
-
-        protected override void Deinitialize()
-        {
-            _disposable1?.Dispose();
-            _disposable2?.Dispose();
-            timeline._trackerCache.Remove(layerNum);
-        }
-
-        protected override void Initialize()
-        {
-            _disposable1 = timeline.LayerHeaders.CollectionChangedAsObservable()
-                .Subscribe(OnCollectionChanged);
-
-            _disposable2 = timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
-        }
-
-        private void OnLayerHeightChanged(LayerHeaderViewModel obj)
-        {
-            if (obj.Number.Value < layerNum)
-            {
-                PublishNext(timeline.CalculateLayerTop(layerNum));
-            }
-        }
-
-        protected override void Subscribed(IObserver<double> observer, bool first)
-        {
-            observer.OnNext(timeline.CalculateLayerTop(layerNum));
-        }
-
-        private void OnCollectionChanged(NotifyCollectionChangedEventArgs obj)
-        {
-            if (obj.Action == NotifyCollectionChangedAction.Move)
-            {
-                if (layerNum != obj.OldStartingIndex
-                    && ((layerNum > obj.OldStartingIndex && layerNum <= obj.NewStartingIndex)
-                        || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)))
-                {
-                    PublishNext(timeline.CalculateLayerTop(layerNum));
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            PublishCompleted();
-        }
     }
 }

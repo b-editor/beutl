@@ -32,6 +32,10 @@ public sealed class IpcMessage
         return JsonSerializer.Deserialize<T>(element, IpcJsonContext.Default.Options);
     }
 
+    internal T RequirePayload<T>(MessageType expected)
+        where T : class
+        => GetPayload<T>() ?? throw new InvalidOperationException($"Missing payload for {expected}");
+
     public static IpcMessage Create<T>(int id, MessageType type, T payload)
     {
         return new IpcMessage

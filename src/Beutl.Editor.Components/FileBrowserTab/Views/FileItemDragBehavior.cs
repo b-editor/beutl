@@ -42,19 +42,22 @@ public class FileItemDragBehavior : Behavior<Control>
             AssociatedObject.PointerReleased -= OnPointerReleased;
         }
 
+        ResetDragState();
+        base.OnDetaching();
+    }
+
+    private void ResetDragState()
+    {
         _dragStartEvent = null;
         _dragStartPoint = null;
         _dragItem = null;
-        base.OnDetaching();
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (!_isDragStarting)
         {
-            _dragStartEvent = null;
-            _dragStartPoint = null;
-            _dragItem = null;
+            ResetDragState();
         }
     }
 
@@ -79,9 +82,7 @@ public class FileItemDragBehavior : Behavior<Control>
 
         if (!e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed)
         {
-            _dragStartEvent = null;
-            _dragStartPoint = null;
-            _dragItem = null;
+            ResetDragState();
             return;
         }
 
@@ -100,26 +101,7 @@ public class FileItemDragBehavior : Behavior<Control>
         IsInternalDragInProgress = true;
         try
         {
-            var data = new DataTransfer();
-
-            // 選択中アイテムが複数あればすべて含める
-            var vm = GetViewModel();
-            var items = vm?.SelectedItems is { Count: > 1 } selectedItems
-                        && selectedItems.Contains(_dragItem)
-                ? selectedItems.ToList()
-                : new List<FileSystemItemViewModel> { _dragItem };
-
-            foreach (FileSystemItemViewModel item in items)
-            {
-                IStorageItem? storageItem = item.IsDirectory
-                    ? await storageProvider.TryGetFolderFromPathAsync(item.FullPath) as IStorageItem
-                    : await storageProvider.TryGetFileFromPathAsync(item.FullPath);
-
-                if (storageItem != null)
-                {
-                    data.Add(DataTransferItem.CreateFile(storageItem));
-                }
-            }
+            DataTransfer data = await CreateDragDataAsync(storageProvider, _dragItem);
 
             // 外部アプリ（Finder/Explorer等）にMoveを要求させないため、ソース側ではCopyのみを許可する。
             // FileBrowserTab内部での移動は、ドロップハンドラ側で IsInternalDragInProgress を見て実施する。
@@ -127,12 +109,36 @@ public class FileItemDragBehavior : Behavior<Control>
         }
         finally
         {
-            _dragStartEvent = null;
-            _dragStartPoint = null;
-            _dragItem = null;
+            ResetDragState();
             _isDragStarting = false;
             IsInternalDragInProgress = false;
         }
+    }
+
+    private async Task<DataTransfer> CreateDragDataAsync(IStorageProvider storageProvider, FileSystemItemViewModel dragItem)
+    {
+        var data = new DataTransfer();
+
+        // 選択中アイテムが複数あればすべて含める
+        var vm = GetViewModel();
+        var items = vm?.SelectedItems is { Count: > 1 } selectedItems
+                    && selectedItems.Contains(dragItem)
+            ? selectedItems.ToList()
+            : new List<FileSystemItemViewModel> { dragItem };
+
+        foreach (FileSystemItemViewModel item in items)
+        {
+            IStorageItem? storageItem = item.IsDirectory
+                ? await storageProvider.TryGetFolderFromPathAsync(item.FullPath) as IStorageItem
+                : await storageProvider.TryGetFileFromPathAsync(item.FullPath);
+
+            if (storageItem != null)
+            {
+                data.Add(DataTransferItem.CreateFile(storageItem));
+            }
+        }
+
+        return data;
     }
 
     private FileBrowserTabViewModel? GetViewModel()

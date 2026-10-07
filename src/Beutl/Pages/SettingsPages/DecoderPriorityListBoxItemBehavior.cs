@@ -4,10 +4,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.ViewModels.SettingsPages;
+using Beutl.Views;
 
 namespace Beutl.Pages.SettingsPages;
 
@@ -61,9 +61,9 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
             _draggedIndex = -1;
             _targetIndex = -1;
 
-            SetDraggingPseudoClasses(AssociatedObject, true);
+            ReorderDragHelper.SetDraggingPseudoClasses(AssociatedObject, true);
 
-            AddTransforms(_itemsControl);
+            ResetTransforms(_itemsControl);
 
             e.Pointer.Capture(AssociatedObject);
         }
@@ -94,13 +94,13 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
             return;
         }
 
-        RemoveTransforms(_itemsControl);
+        ResetTransforms(_itemsControl);
 
         if (_itemsControl is { })
         {
             foreach (Control? container in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container, true);
+                ReorderDragHelper.SetDraggingPseudoClasses(container, true);
             }
         }
 
@@ -113,13 +113,13 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
         {
             foreach (Control? container in _itemsControl.GetRealizedContainers())
             {
-                SetDraggingPseudoClasses(container, false);
+                ReorderDragHelper.SetDraggingPseudoClasses(container, false);
             }
         }
 
         if (AssociatedObject is { })
         {
-            SetDraggingPseudoClasses(AssociatedObject, false);
+            ReorderDragHelper.SetDraggingPseudoClasses(AssociatedObject, false);
         }
 
         _draggedIndex = -1;
@@ -129,46 +129,14 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
         _itemsControl = null;
     }
 
-    private static void AddTransforms(ItemsControl? itemsControl)
+    private static void ResetTransforms(ItemsControl? itemsControl)
     {
         if (itemsControl?.ItemsSource is null)
         {
             return;
         }
 
-        int i = 0;
-
-        foreach (object? _ in itemsControl.ItemsSource)
-        {
-            Control? container = itemsControl.ContainerFromIndex(i);
-            if (container is not null)
-            {
-                SetTranslateTransform(container, 0, 0);
-            }
-
-            i++;
-        }
-    }
-
-    private static void RemoveTransforms(ItemsControl? itemsControl)
-    {
-        if (itemsControl?.ItemsSource is null)
-        {
-            return;
-        }
-
-        int i = 0;
-
-        foreach (object? _ in itemsControl.ItemsSource)
-        {
-            Control? container = itemsControl.ContainerFromIndex(i);
-            if (container is not null)
-            {
-                SetTranslateTransform(container, 0, 0);
-            }
-
-            i++;
-        }
+        ReorderDragHelper.ResetTranslateTransforms(itemsControl, itemsControl.ItemsSource);
     }
 
     private static void MoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
@@ -212,7 +180,7 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
                 }
             }
 
-            SetTranslateTransform(AssociatedObject, 0, delta);
+            ReorderDragHelper.SetTranslateTransform(AssociatedObject, 0, delta);
 
             _draggedIndex = _itemsControl.IndexFromContainer(AssociatedObject);
             _targetIndex = -1;
@@ -240,44 +208,25 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
 
                 if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
                 {
-                    SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
+                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
 
                     _targetIndex = _targetIndex == -1 ? targetIndex :
                         targetIndex > _targetIndex ? targetIndex : _targetIndex;
                 }
                 else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
                 {
-                    SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
+                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
 
                     _targetIndex = _targetIndex == -1 ? targetIndex :
                         targetIndex < _targetIndex ? targetIndex : _targetIndex;
                 }
                 else
                 {
-                    SetTranslateTransform(targetContainer, 0, 0);
+                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, 0);
                 }
 
                 i++;
             }
         }
-    }
-
-    private static void SetDraggingPseudoClasses(Control control, bool isDragging)
-    {
-        if (isDragging)
-        {
-            ((IPseudoClasses)control.Classes).Add(":dragging");
-        }
-        else
-        {
-            ((IPseudoClasses)control.Classes).Remove(":dragging");
-        }
-    }
-
-    private static void SetTranslateTransform(Control control, double x, double y)
-    {
-        var transformBuilder = new TransformOperations.Builder(1);
-        transformBuilder.AppendTranslate(x, y);
-        control.RenderTransform = transformBuilder.Build();
     }
 }

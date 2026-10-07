@@ -2,11 +2,21 @@
 
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Xaml.Interactivity;
 using Beutl.Composition;
 using Beutl.Controls;
+using Beutl.Editor.Components.PathEditorTab.Services;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
+using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using BtlPoint = Beutl.Graphics.Point;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;
 
@@ -19,6 +29,133 @@ public static class PathEditorHelper
             if (GetProperty(thumb) is { } property)
                 SetCanvasPosition(thumb, view.Matrix.Transform(property.GetValue(context).ToAvaPoint()) * view.Scale);
         }
+    }
+
+    // The dedicated path tab and the preview overlay share the thumb canvas below.
+    internal static void RemoveAllThumbs(Panel canvas)
+    {
+        canvas.Children.RemoveAll(canvas.Children
+            .Where(c => c is Thumb)
+            .Do(t => t.DataContext = null));
+    }
+
+    internal static void RemoveSegmentThumbs(Panel canvas, PathSegment segment)
+    {
+        canvas.Children.RemoveAll(canvas.Children
+            .Where(c => c is Thumb t && t.DataContext == segment)
+            .Do(t => t.DataContext = null));
+    }
+
+    internal static void ReplaceSegmentThumbs(
+        Panel canvas,
+        PathFigure? figure,
+        ref IDisposable? subscription,
+        Action<int, PathSegment> attached,
+        Action<int, PathSegment> detached)
+    {
+        RemoveAllThumbs(canvas);
+
+        subscription?.Dispose();
+        subscription = figure?.Segments.ForEachItem(
+            attached,
+            detached,
+            () => RemoveAllThumbs(canvas));
+    }
+
+    internal static Thumb CreateEditorThumb(EventHandler<RoutedEventArgs> onDelete)
+    {
+        var thumb = new Thumb()
+        {
+            [!Avalonia.StyledElement.ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme")
+        };
+        var flyout = new FAMenuFlyout();
+        var delete = new FAMenuFlyoutItem
+        {
+            Text = Strings.Delete,
+            IconSource = new FluentIconSource { Icon = Icon.Delete }
+        };
+        delete.Click += onDelete;
+        flyout.ItemsSource = new[] { delete };
+
+        thumb.ContextFlyout = flyout;
+
+        Interaction.GetBehaviors(thumb).Add(new PathPointDragBehavior());
+
+        return thumb;
+    }
+
+    internal static void DeleteSegment(object? sender, IPathEditorContext? context)
+    {
+        if (sender is FAMenuFlyoutItem { DataContext: PathSegment op }
+            && context?.FigureContext.Value is IPathFigureEditorContext figureContext)
+        {
+            int index = figureContext.GetSegmentIndex(op);
+            if (index >= 0)
+                figureContext.RemoveSegment(index);
+        }
+    }
+
+    internal static void AddSegmentAt(
+        IPathEditorContext context, object? tag, Avalonia.Point click, double scale, Avalonia.Matrix matrix)
+    {
+        if (context.PathFigure.Value is { } figure
+            && context.FigureContext.Value is IPathFigureEditorContext figureContext)
+        {
+            var clock = context.EditorContext.GetRequiredService<IEditorClock>();
+            int index = figure.Segments.Count;
+            BtlPoint lastPoint = default;
+            if (index > 0)
+            {
+                PathSegment lastOp = figure.Segments[index - 1];
+                lastPoint = lastOp.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
+            }
+
+            BtlPoint point = (click / scale).ToBtlPoint();
+            if (matrix.TryInvert(out Avalonia.Matrix mat))
+            {
+                point = mat.ToBtlMatrix().Transform(point);
+            }
+
+            PathSegment? obj = CreateSegment(tag, point, lastPoint);
+
+            if (obj != null)
+            {
+                figureContext.AddSegment(obj);
+            }
+        }
+    }
+
+    internal static void ApplyDragMode(IPathEditorContext context, object? tag)
+    {
+        context.Symmetry.Value = false;
+        context.Asymmetry.Value = false;
+        context.Separately.Value = false;
+
+        switch (tag)
+        {
+            case "Symmetry":
+                context.Symmetry.Value = true;
+                break;
+            case "Asymmetry":
+                context.Asymmetry.Value = true;
+                break;
+            case "Separately":
+                context.Separately.Value = true;
+                break;
+        }
+    }
+
+    internal static Thumb? FindThumb(Panel canvas, PathSegment segment, IProperty<BtlPoint> property)
+    {
+        return canvas.Children.FirstOrDefault(v =>
+            ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
+    }
+
+    internal static Thumb[] GetSelectedAnchors(Panel canvas)
+    {
+        return canvas.Children.OfType<Thumb>()
+            .Where(c => !c.Classes.Contains("control") && PathPointDragBehavior.GetIsSelected(c))
+            .ToArray();
     }
 
     public static IProperty<BtlPoint>[] GetControlPointProperties(object datacontext)

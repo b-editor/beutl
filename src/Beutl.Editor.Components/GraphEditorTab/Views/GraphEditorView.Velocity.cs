@@ -124,7 +124,7 @@ public partial class GraphEditorView
     private static void InvalidateVelocityPreview(GraphEditorViewModel model)
     {
         if (model.EditorContext.GetService<IBufferStatus>() is not { } buffer) return;
-        int rate = model.Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
+        int rate = model.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan start = model.Element?.Start ?? model.Scene.Start;
         TimeSpan end = model.Element?.Range.End ?? model.Scene.Start + model.Scene.Duration;
         buffer.DeleteCache((int)Math.Floor(start.ToFrameNumber(rate)), (int)Math.Ceiling(end.ToFrameNumber(rate)));

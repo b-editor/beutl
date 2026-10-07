@@ -227,29 +227,16 @@ public sealed partial class SettingsDialog : FAAppWindow
     {
         public int GetDepth(Type pagetype)
         {
-            if (pagetype == typeof(AccountSettingsPage)
-                || pagetype == typeof(ViewSettingsPage)
-                || pagetype == typeof(EditorSettingsPage)
-                || pagetype == typeof(KeyMapSettingsPage)
-                || pagetype == typeof(FontSettingsPage)
-                || pagetype == typeof(ExtensionsSettingsPage)
-                || pagetype == typeof(AiAgentSettingsPage)
-                || pagetype == typeof(BrowserSettingsPage)
-                || pagetype == typeof(InformationPage))
-            {
-                return 0;
-            }
-            else if (pagetype == typeof(EditorExtensionPriorityPage)
-                     || pagetype == typeof(DecoderPriorityPage)
-                     || pagetype == typeof(TelemetrySettingsPage)
-                     || pagetype == typeof(AnExtensionSettingsPage))
-            {
-                return 1;
-            }
-            else
-            {
-                return 0;
-            }
+            return IsSubPage(pagetype) ? 1 : 0;
+        }
+
+        // Pages reached from another settings page rather than from the navigation pane.
+        private static bool IsSubPage(Type pagetype)
+        {
+            return pagetype == typeof(EditorExtensionPriorityPage)
+                   || pagetype == typeof(DecoderPriorityPage)
+                   || pagetype == typeof(TelemetrySettingsPage)
+                   || pagetype == typeof(AnExtensionSettingsPage);
         }
 
         public int GetOrder(Type pagetype)
@@ -265,7 +252,6 @@ public sealed partial class SettingsDialog : FAAppWindow
                     or "AnExtensionSettingsPage" => 5,
                 "AiAgentSettingsPage" => 6,
                 "BrowserSettingsPage" => 7,
-                "StorageSettingsPage" or "StorageDetailPage" => 8,
                 "InformationPage" or "TelemetrySettingsPage" => 9,
                 _ => 0,
             };

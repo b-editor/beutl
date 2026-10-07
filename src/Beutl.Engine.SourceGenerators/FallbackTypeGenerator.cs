@@ -52,25 +52,8 @@ public sealed class FallbackTypeGenerator : IIncrementalGenerator
             }
 
             string source = FallbackClassEmitter.Emit(info);
-            string hintName = GetHintName(info.Symbol);
+            string hintName = EmitHelpers.BuildHintName(info.Symbol, "_Fallback.g.cs");
             context.AddSource(hintName, source);
         }
-    }
-
-    private static string GetHintName(INamedTypeSymbol symbol)
-    {
-        string name = symbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
-        var sb = new System.Text.StringBuilder(name.Length + 32);
-        foreach (char c in name)
-        {
-            sb.Append(c switch
-            {
-                '<' or '>' or ',' or '.' or ' ' or ':' => '_',
-                _ => c,
-            });
-        }
-
-        sb.Append("_Fallback.g.cs");
-        return sb.ToString();
     }
 }

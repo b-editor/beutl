@@ -7,11 +7,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Media.Proxy;
 
-public sealed class ProxyJobQueue : IProxyJobQueue
+public sealed partial class ProxyJobQueue : IProxyJobQueue
 {
-    private readonly record struct FailureRegistration(ProxyEntry? Previous, bool Changed);
-
     private static readonly ILogger s_logger = Log.CreateLogger("ProxyJobQueue");
+    private static readonly TimeSpan s_defaultMinUnavailableBackoff = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan s_defaultMaxUnavailableBackoff = TimeSpan.FromSeconds(30);
     private readonly Func<IProxyGenerator?> _generatorProvider;
     private IProxyGenerator? _generator;
     private IProxyGeneratorAvailability? _generatorAvailability;
@@ -39,7 +39,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     }
 
     public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store)
-        : this(EagerProvider(generator), store, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+        : this(EagerProvider(generator), store, s_defaultMinUnavailableBackoff, s_defaultMaxUnavailableBackoff)
     {
     }
 
@@ -54,8 +54,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         : this(
             EagerProvider(generator),
             store,
-            TimeSpan.FromSeconds(2),
-            TimeSpan.FromSeconds(30),
+            s_defaultMinUnavailableBackoff,
+            s_defaultMaxUnavailableBackoff,
             admission ?? throw new ArgumentNullException(nameof(admission)))
     {
     }
@@ -86,7 +86,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     /// job queued before extension registration is not lost.
     /// </summary>
     public ProxyJobQueue(Func<IProxyGenerator?> generatorProvider, IProxyStore? store)
-        : this(generatorProvider, store, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30))
+        : this(generatorProvider, store, s_defaultMinUnavailableBackoff, s_defaultMaxUnavailableBackoff)
     {
     }
 
@@ -101,8 +101,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         : this(
             generatorProvider,
             store,
-            TimeSpan.FromSeconds(2),
-            TimeSpan.FromSeconds(30),
+            s_defaultMinUnavailableBackoff,
+            s_defaultMaxUnavailableBackoff,
             admission ?? throw new ArgumentNullException(nameof(admission)))
     {
     }
@@ -302,9 +302,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             // Already canceled at enqueue (caller token or a Dispose/CancelAll that beat us here): do
             // not publish a job. Complete it first so a deduplicated caller holding this ProxyJob sees a
             // terminal transition instead of a permanent Queued.
-            CompleteCanceled(item);
-            Remove(item);
-            item.Dispose();
+            RetireCanceled(item);
             cancellationToken.ThrowIfCancellationRequested();
             throw new OperationCanceledException(item.Token);
         }
@@ -463,9 +461,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         foreach (WorkItem item in leftovers)
         {
-            CompleteCanceled(item);
-            Remove(item);
-            item.Dispose();
+            RetireCanceled(item);
         }
     }
 
@@ -483,9 +479,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
             if (!item.TryStart())
             {
-                CompleteCanceled(item);
-                Remove(item);
-                item.Dispose();
+                RetireCanceled(item);
                 return;
             }
 
@@ -498,14 +492,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 IProxyGenerator? generator = ResolveGenerator();
                 if (generator is null)
                 {
-                    item.Job.Status = ProxyJobStatus.Running;
-                    OnJobChanged(item.Job, ProxyJobChangeKind.Started);
-                    // No generator has registered yet. Keep the job queued and re-probe after the same
-                    // bounded backoff used for unavailable generators; extension loading may register one.
-                    item.Job.StatusMessage = "Waiting for proxy generator registration.";
-                    requeued = RequeueForRetry(item);
-                    if (!requeued)
-                        CompleteCanceled(item);
+                    requeued = DeferUntilGeneratorRegistered(item);
                 }
                 else
                 {
@@ -558,36 +545,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
             catch (ProxyGeneratorUnavailableException ex)
             {
-                // A racing InvalidateGenerator writes null under _lock; the terminal-vs-requeue
-                // decision must not act on a stale non-null read.
-                bool generatorStillCached;
-                bool hasAvailabilitySignal;
-                lock (_lock)
-                {
-                    generatorStillCached = _generator != null;
-                    hasAvailabilitySignal = _generatorAvailability != null;
-                }
-
-                if (generatorStillCached && !hasAvailabilitySignal)
-                {
-                    // With no availability signal the queue can never learn the generator recovered,
-                    // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
-                    // Treat it as a terminal skip instead.
-                    CompleteSkippedOrCanceled(item, ex.Message);
-                }
-                else
-                {
-                    // Either the unavailability is environmental (a signal exists to learn recovery),
-                    // or InvalidateGenerator raced mid-generate — a generator swap/unload, where the
-                    // next dispatch re-resolves the provider like the not-yet-registered path. Both
-                    // keep the job Queued and re-probe after a bounded backoff instead of dropping it.
-                    // Carry the reason so the UI can distinguish "blocked on availability" from a
-                    // plain backlog; the next dispatch clears it before GenerateAsync.
-                    item.Job.StatusMessage = ex.Message;
-                    requeued = RequeueForRetry(item);
-                    if (!requeued)
-                        CompleteCanceled(item);
-                }
+                requeued = HandleGeneratorUnavailable(item, ex);
             }
             catch (Exception ex)
             {
@@ -616,6 +574,57 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
+    // Returns whether the item was requeued; otherwise it has been completed as canceled.
+    private bool DeferUntilGeneratorRegistered(WorkItem item)
+    {
+        item.Job.Status = ProxyJobStatus.Running;
+        OnJobChanged(item.Job, ProxyJobChangeKind.Started);
+        // No generator has registered yet. Keep the job queued and re-probe after the same
+        // bounded backoff used for unavailable generators; extension loading may register one.
+        item.Job.StatusMessage = "Waiting for proxy generator registration.";
+        bool requeued = RequeueForRetry(item);
+        if (!requeued)
+            CompleteCanceled(item);
+
+        return requeued;
+    }
+
+    // Returns whether the item was requeued; otherwise it has reached a terminal state.
+    private bool HandleGeneratorUnavailable(WorkItem item, ProxyGeneratorUnavailableException ex)
+    {
+        // A racing InvalidateGenerator writes null under _lock; the terminal-vs-requeue
+        // decision must not act on a stale non-null read.
+        bool generatorStillCached;
+        bool hasAvailabilitySignal;
+        lock (_lock)
+        {
+            generatorStillCached = _generator != null;
+            hasAvailabilitySignal = _generatorAvailability != null;
+        }
+
+        if (generatorStillCached && !hasAvailabilitySignal)
+        {
+            // With no availability signal the queue can never learn the generator recovered,
+            // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
+            // Treat it as a terminal skip instead.
+            CompleteSkippedOrCanceled(item, ex.Message);
+            return false;
+        }
+
+        // Either the unavailability is environmental (a signal exists to learn recovery),
+        // or InvalidateGenerator raced mid-generate — a generator swap/unload, where the
+        // next dispatch re-resolves the provider like the not-yet-registered path. Both
+        // keep the job Queued and re-probe after a bounded backoff instead of dropping it.
+        // Carry the reason so the UI can distinguish "blocked on availability" from a
+        // plain backlog; the next dispatch clears it before GenerateAsync.
+        item.Job.StatusMessage = ex.Message;
+        bool requeued = RequeueForRetry(item);
+        if (!requeued)
+            CompleteCanceled(item);
+
+        return requeued;
+    }
+
     private async Task<bool> GenerateWithAdmissionLeaseAsync(
         IProxyGenerator generator,
         WorkItem item,
@@ -639,90 +648,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                                           && item.TryCloseCancellationWindow();
 
         if (generationFailure is not null
-            && generationFailure.SourceException is not (ProxyGenerationSkippedException
-                or ProxyGeneratorUnavailableException)
-            && (generationFailure.SourceException is not OperationCanceledException
-                || !item.Token.IsCancellationRequested))
+            && IsReportableGenerationFailure(generationFailure.SourceException, item.Token))
         {
-            Exception failure = generationFailure.SourceException;
-            item.Job.Error = failure;
-            // Store bookkeeping is part of terminal cleanup and remains inside admission.
-            FailureRegistration failureRegistration = RegisterFailure(
-                item.Job,
-                failure.Message);
-
-            Exception? rollbackFailure = null;
-            var rollbackSync = new object();
-            Exception? terminalReleaseFailure;
-            bool failureCanPublish;
-            using (item.Token.Register(() =>
-                   {
-                       if (!item.TryClaimCancellationDuringCleanup())
-                       {
-                           return;
-                       }
-
-                       Exception? currentRollbackFailure = RollBackFailure(
-                           item.Job,
-                           failureRegistration);
-                       if (currentRollbackFailure is not null)
-                       {
-                           lock (rollbackSync)
-                           {
-                               rollbackFailure = currentRollbackFailure;
-                           }
-                       }
-                   }))
-            {
-                terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
-                failureCanPublish = terminalReleaseFailure is not null
-                                    || item.TryCloseCancellationWindow();
-                if (!failureCanPublish)
-                {
-                    await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
-                }
-            }
-
-            Exception? synchronizedRollbackFailure;
-            lock (rollbackSync)
-            {
-                synchronizedRollbackFailure = rollbackFailure;
-            }
-
-            if (terminalReleaseFailure is not null)
-            {
-                item.TryClaimNonCancellationTerminal(cancellationWins: false);
-                item.Job.Error = new AggregateException(
-                    "Proxy generation and admission-lease release both failed.",
-                    failure,
-                    terminalReleaseFailure);
-                if (item.Token.IsCancellationRequested && failureRegistration.Changed)
-                {
-                    RegisterFailure(item.Job, item.Job.Error.Message);
-                }
-            }
-            else if (!failureCanPublish
-                     || !item.TryClaimNonCancellationTerminal(cancellationWins: false))
-            {
-                if (synchronizedRollbackFailure is null)
-                {
-                    item.Job.Error = null;
-                    item.Job.Status = ProxyJobStatus.Canceled;
-                    OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
-                    return false;
-                }
-
-                item.TryClaimNonCancellationTerminal(cancellationWins: false);
-                item.Job.Error = new AggregateException(
-                    "Proxy generation failed and cancellation rollback did not complete.",
-                    failure,
-                    synchronizedRollbackFailure);
-            }
-
-            // Publish only after admission is released; observers can now safely start conflicting
-            // work and still see the already-recorded Failed store entry.
-            item.Job.Status = ProxyJobStatus.Failed;
-            OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+            await PublishGenerationFailureAsync(item, generationFailure.SourceException, admissionLease)
+                .ConfigureAwait(false);
             return false;
         }
 
@@ -759,17 +688,94 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         return true;
     }
 
-    private static Exception? ReleaseAdmissionLease(IDisposable? admissionLease)
+    // Skips, unavailability and the item's own cancellation are rethrown for ProcessOneAsync to classify;
+    // any other generation failure is recorded in the store before the admission lease is released.
+    private static bool IsReportableGenerationFailure(Exception failure, CancellationToken token)
     {
-        try
+        return failure is not (ProxyGenerationSkippedException or ProxyGeneratorUnavailableException)
+            && (failure is not OperationCanceledException || !token.IsCancellationRequested);
+    }
+
+    private async Task PublishGenerationFailureAsync(WorkItem item, Exception failure, IDisposable? admissionLease)
+    {
+        item.Job.Error = failure;
+        // Store bookkeeping is part of terminal cleanup and remains inside admission.
+        FailureRegistration failureRegistration = RegisterFailure(
+            item.Job,
+            failure.Message);
+
+        Exception? rollbackFailure = null;
+        var rollbackSync = new object();
+        Exception? terminalReleaseFailure;
+        bool failureCanPublish;
+        using (item.Token.Register(() =>
+               {
+                   if (!item.TryClaimCancellationDuringCleanup())
+                   {
+                       return;
+                   }
+
+                   Exception? currentRollbackFailure = RollBackFailure(
+                       item.Job,
+                       failureRegistration);
+                   if (currentRollbackFailure is not null)
+                   {
+                       lock (rollbackSync)
+                       {
+                           rollbackFailure = currentRollbackFailure;
+                       }
+                   }
+               }))
         {
-            admissionLease?.Dispose();
-            return null;
+            terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
+            failureCanPublish = terminalReleaseFailure is not null
+                                || item.TryCloseCancellationWindow();
+            if (!failureCanPublish)
+            {
+                await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
+            }
         }
-        catch (Exception ex)
+
+        Exception? synchronizedRollbackFailure;
+        lock (rollbackSync)
         {
-            return ex;
+            synchronizedRollbackFailure = rollbackFailure;
         }
+
+        if (terminalReleaseFailure is not null)
+        {
+            item.TryClaimNonCancellationTerminal(cancellationWins: false);
+            item.Job.Error = new AggregateException(
+                "Proxy generation and admission-lease release both failed.",
+                failure,
+                terminalReleaseFailure);
+            if (item.Token.IsCancellationRequested && failureRegistration.Changed)
+            {
+                RegisterFailure(item.Job, item.Job.Error.Message);
+            }
+        }
+        else if (!failureCanPublish
+                 || !item.TryClaimNonCancellationTerminal(cancellationWins: false))
+        {
+            if (synchronizedRollbackFailure is null)
+            {
+                item.Job.Error = null;
+                item.Job.Status = ProxyJobStatus.Canceled;
+                OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
+                return;
+            }
+
+            item.TryClaimNonCancellationTerminal(cancellationWins: false);
+            item.Job.Error = new AggregateException(
+                "Proxy generation failed and cancellation rollback did not complete.",
+                failure,
+                synchronizedRollbackFailure);
+        }
+
+        // Publish only after admission is released; observers can now safely start conflicting
+        // work and still see the already-recorded Failed store entry.
+        item.Job.Status = ProxyJobStatus.Failed;
+        OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
     }
 
     private bool RequeueForRetry(WorkItem item)
@@ -779,119 +785,6 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
         return true;
-    }
-
-    private bool RequeueForAdmissionRetry(WorkItem item)
-    {
-        if (!item.ResetForAdmissionRetry())
-            return false;
-
-        TimeSpan backoff = item.NextAdmissionBackoff(
-            _minUnavailableBackoff,
-            _maxUnavailableBackoff,
-            out bool firstRejection);
-        if (firstRejection)
-        {
-            if (!item.TryPublishAdmissionWaiting(() =>
-                    OnJobChanged(item.Job, ProxyJobChangeKind.WaitingForAdmission)))
-            {
-                return false;
-            }
-        }
-
-        Task retry = ResumeAdmissionAfterBackoffAsync(item, backoff);
-        lock (_lock)
-        {
-            _admissionRetryTasks.Add(retry);
-        }
-
-        _ = RemoveAdmissionRetryWhenCompleteAsync(retry);
-        return true;
-    }
-
-    private void OnAdmissionAvailabilityChanged(object? sender, EventArgs e)
-    {
-        List<(WorkItem Item, long Generation)> deferred = [];
-        WorkItem[] items;
-        lock (_lock)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            items = [.. _items];
-        }
-
-        foreach (WorkItem item in items)
-        {
-            if (item.TryGetAdmissionWait(out long generation, out _))
-            {
-                deferred.Add((item, generation));
-            }
-        }
-
-        foreach ((WorkItem item, long generation) in deferred)
-        {
-            item.SignalAdmissionAvailability(generation);
-        }
-    }
-
-    private async Task ResumeAdmissionAfterBackoffAsync(WorkItem item, TimeSpan backoff)
-    {
-        if (!item.TryGetAdmissionWait(out long generation, out Task availability))
-        {
-            return;
-        }
-
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
-            _disposeCts.Token,
-            item.Token);
-        try
-        {
-            Task delay = _delayAsync(backoff, linked.Token);
-            Task completed = await Task.WhenAny(delay, availability)
-                .WaitAsync(linked.Token)
-                .ConfigureAwait(false);
-            if (ReferenceEquals(completed, availability))
-            {
-                linked.Cancel();
-                try
-                {
-                    await delay.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (linked.IsCancellationRequested)
-                {
-                }
-            }
-            else
-            {
-                await delay.ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException) when (linked.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            // The production delay is Task.Delay; this guard keeps a host/test scheduler failure
-            // from silently stranding the job forever.
-            s_logger.LogError(ex, "Proxy admission retry delay failed; retrying immediately.");
-        }
-
-        if (item.TryResumeAdmission(generation))
-        {
-            _channel.Writer.TryWrite(item);
-        }
-    }
-
-    private async Task RemoveAdmissionRetryWhenCompleteAsync(Task retry)
-    {
-        await retry.ConfigureAwait(false);
-        lock (_lock)
-        {
-            _admissionRetryTasks.Remove(retry);
-        }
     }
 
     private async Task WaitForGeneratorResumeOrDisposeAsync(CancellationToken jobCancellation)
@@ -929,9 +822,16 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private TimeSpan NextUnavailableBackoff()
     {
         int attempt = Interlocked.Increment(ref _consecutiveUnavailable);
+        return ExponentialBackoff(attempt, _minUnavailableBackoff, _maxUnavailableBackoff);
+    }
+
+    // Shared by the generator-unavailable wait and the per-item admission retry so both back off on the
+    // same curve; the exponent cap keeps the factor finite over a long streak.
+    private static TimeSpan ExponentialBackoff(int attempt, TimeSpan minimum, TimeSpan maximum)
+    {
         double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
-        double ms = Math.Min(_maxUnavailableBackoff.TotalMilliseconds, _minUnavailableBackoff.TotalMilliseconds * factor);
-        return TimeSpan.FromMilliseconds(ms);
+        double milliseconds = Math.Min(maximum.TotalMilliseconds, minimum.TotalMilliseconds * factor);
+        return TimeSpan.FromMilliseconds(milliseconds);
     }
 
     private WorkItem? TakeNextDispatchable()
@@ -988,145 +888,24 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
     }
 
+    private void RetireCanceled(WorkItem item)
+    {
+        CompleteCanceled(item);
+        Remove(item);
+        item.Dispose();
+    }
+
     private void CancelItem(WorkItem item)
     {
         if (item.TryCancelQueued())
         {
-            CompleteCanceled(item);
-            Remove(item);
             // The drain loop discards this item's channel permit and re-selects from _items, so it
             // never reaches ProcessOneAsync to be disposed; dispose here to release its linked CTS.
-            item.Dispose();
+            RetireCanceled(item);
             return;
         }
 
         item.Cancel();
-    }
-
-    private FailureRegistration RegisterFailure(ProxyJob job, string? failureReason)
-    {
-        if (_store == null)
-            return default;
-
-        ProxyEntry? previous;
-        try
-        {
-            previous = _store.TryGet(job.Source, job.Preset);
-        }
-        catch (Exception ex)
-        {
-            RecordBookkeepingFailure(job, ex);
-            return default;
-        }
-
-        if (previous is { State: ProxyState.Ready or ProxyState.Stale })
-            return default;
-
-        try
-        {
-            var now = DateTime.UtcNow;
-            _store.Register(new ProxyEntry(
-                job.Source,
-                job.Preset,
-                ProxyState.Failed,
-                ProxyPathUtilities.BuildRelativePath(job.Source, job.Preset),
-                0,
-                default,
-                default,
-                now,
-                now,
-                failureReason));
-            return new FailureRegistration(previous, Changed: true);
-        }
-        catch (Exception ex)
-        {
-            RecordBookkeepingFailure(job, ex);
-            // Register may update memory before persistence throws. Treat the result as ambiguous
-            // so a cancellation path restores the captured entry or deletes the attempted one.
-            return new FailureRegistration(previous, Changed: true);
-        }
-    }
-
-    private static void RecordBookkeepingFailure(ProxyJob job, Exception failure)
-    {
-        job.BookkeepingError = job.BookkeepingError is null
-            ? failure
-            : new AggregateException(job.BookkeepingError, failure);
-        s_logger.LogError(
-            failure,
-            "Failed to record Failed proxy entry for {Source} ({Preset}).",
-            job.Source.AbsolutePath,
-            job.Preset);
-    }
-
-    private Exception? RollBackFailure(ProxyJob job, FailureRegistration registration)
-    {
-        if (_store is null || !registration.Changed)
-        {
-            return null;
-        }
-
-        try
-        {
-            if (registration.Previous is { } previous)
-            {
-                _store.Register(previous);
-            }
-            else
-            {
-                _store.Delete(job.Source, job.Preset);
-            }
-
-            ProxyEntry? restored = _store.TryGet(job.Source, job.Preset);
-            if (!Equals(restored, registration.Previous))
-            {
-                throw new InvalidOperationException(
-                    "Proxy failure bookkeeping could not be restored after cancellation.");
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            job.BookkeepingError = job.BookkeepingError is null
-                ? ex
-                : new AggregateException(job.BookkeepingError, ex);
-            s_logger.LogError(
-                ex,
-                "Failed to roll back the proxy failure entry after cancellation for {Source} ({Preset}).",
-                job.Source.AbsolutePath,
-                job.Preset);
-            return ex;
-        }
-    }
-
-    private void CompleteSkippedOrCanceled(WorkItem item, string message)
-    {
-        if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
-        {
-            CompleteCanceled(item);
-            return;
-        }
-
-        item.Job.Status = ProxyJobStatus.Skipped;
-        item.Job.StatusMessage = message;
-        OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
-    }
-
-    private void FailJob(WorkItem item, Exception failure, bool cancellationWins)
-    {
-        if (!item.TryClaimNonCancellationTerminal(cancellationWins))
-        {
-            CompleteCanceled(item);
-            return;
-        }
-
-        // Record the Failed store entry before the terminal transition so an observer that sees
-        // Status == Failed can already read the entry from the store.
-        item.Job.Error = failure;
-        RegisterFailure(item.Job, failure.Message);
-        item.Job.Status = ProxyJobStatus.Failed;
-        OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
     }
 
     private void Remove(WorkItem item)
@@ -1209,344 +988,4 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             or ProxyJobStatus.Failed
             or ProxyJobStatus.Canceled
             or ProxyJobStatus.Skipped;
-
-    private sealed class AdmissionLeaseReleaseException(Exception failure)
-        : Exception("The proxy-generation admission lease could not be released.", failure)
-    {
-        public Exception Failure { get; } = failure;
-    }
-
-    private sealed class WorkItem(ProxyJob job, CancellationTokenSource cancellation) : IDisposable
-    {
-        private readonly Lock _lock = new();
-        private bool _started;
-        private volatile bool _admissionDeferred;
-        private TaskCompletionSource? _admissionAvailability;
-        private TaskCompletionSource? _cancellationCallbacksCompleted;
-        private long _admissionGeneration;
-        private bool _terminalTransitionClaimed;
-        private bool _cancellationRequested;
-        private bool _cancellationWindowClosed;
-        private bool _disposed;
-        private int _consecutiveAdmissionRejections;
-
-        public ProxyJob Job { get; } = job;
-
-        // Guarded by the queue's _lock (not this WorkItem's _lock). Set true once the item is fully
-        // registered, immediately before its wake permit is written; TakeNextDispatchable ignores
-        // unpublished items so a partially-constructed job can never be dispatched.
-        public bool Published { get; set; }
-
-        public CancellationTokenSource Cancellation { get; } = cancellation;
-
-        // Captured up front so a waiter can observe cancellation even after the source is disposed
-        // (reading Cancellation.Token after Dispose throws); the token value stays valid.
-        public CancellationToken Token { get; } = cancellation.Token;
-
-        public bool TryStart()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _admissionDeferred
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested)
-                    return false;
-
-                _started = true;
-                return true;
-            }
-        }
-
-        public bool ResetForRetry()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                    return false;
-
-                _started = false;
-                _admissionDeferred = false;
-                Job.Status = ProxyJobStatus.Queued;
-                return true;
-            }
-        }
-
-        public bool ResetForAdmissionRetry()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                    return false;
-
-                _started = false;
-                _admissionDeferred = true;
-                _admissionGeneration++;
-                _admissionAvailability = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                Job.Status = ProxyJobStatus.Queued;
-                return true;
-            }
-        }
-
-        public TimeSpan NextAdmissionBackoff(
-            TimeSpan minimum,
-            TimeSpan maximum,
-            out bool firstRejection)
-        {
-            lock (_lock)
-            {
-                int attempt = ++_consecutiveAdmissionRejections;
-                firstRejection = attempt == 1;
-                double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
-                double milliseconds = Math.Min(
-                    maximum.TotalMilliseconds,
-                    minimum.TotalMilliseconds * factor);
-                return TimeSpan.FromMilliseconds(milliseconds);
-            }
-        }
-
-        public void ResetAdmissionRejections()
-        {
-            lock (_lock)
-            {
-                _consecutiveAdmissionRejections = 0;
-            }
-        }
-
-        public bool TryResumeAdmission(long generation)
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status)
-                    || !_admissionDeferred
-                    || _admissionGeneration != generation)
-                {
-                    return false;
-                }
-
-                _admissionDeferred = false;
-                _admissionAvailability = null;
-                return true;
-            }
-        }
-
-        public bool TryGetAdmissionWait(out long generation, out Task availability)
-        {
-            lock (_lock)
-            {
-                if (!_admissionDeferred || _admissionAvailability is null)
-                {
-                    generation = 0;
-                    availability = Task.CompletedTask;
-                    return false;
-                }
-
-                generation = _admissionGeneration;
-                availability = _admissionAvailability.Task;
-                return true;
-            }
-        }
-
-        public void SignalAdmissionAvailability(long generation)
-        {
-            TaskCompletionSource? availability;
-            lock (_lock)
-            {
-                if (!_admissionDeferred || _admissionGeneration != generation)
-                {
-                    return;
-                }
-
-                availability = _admissionAvailability;
-            }
-
-            availability?.TrySetResult();
-        }
-
-        public bool IsAdmissionDeferred => _admissionDeferred;
-
-        public bool TryPublishAdmissionWaiting(Func<bool> publish)
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || !_admissionDeferred
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                {
-                    return false;
-                }
-
-            }
-            return publish();
-        }
-
-        public bool TryCompleteSuccess()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || !_cancellationWindowClosed
-                    || IsTerminal(Job.Status))
-                {
-                    return false;
-                }
-
-                Job.Status = ProxyJobStatus.Succeeded;
-                _terminalTransitionClaimed = true;
-                return true;
-            }
-        }
-
-        public bool TryClaimNonCancellationTerminal(bool cancellationWins)
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || IsTerminal(Job.Status)
-                    || (cancellationWins
-                        && (_cancellationRequested
-                            || Cancellation.IsCancellationRequested)))
-                {
-                    return false;
-                }
-
-                _terminalTransitionClaimed = true;
-                return true;
-            }
-        }
-
-        public bool TryCloseCancellationWindow()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationWindowClosed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                {
-                    return false;
-                }
-
-                _cancellationWindowClosed = true;
-                return true;
-            }
-        }
-
-        public bool TryClaimCancellationDuringCleanup()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationWindowClosed
-                    || !_cancellationRequested
-                    && !Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                {
-                    return false;
-                }
-
-                _cancellationWindowClosed = true;
-                return true;
-            }
-        }
-
-        public bool TryCancelQueued()
-        {
-            TaskCompletionSource cancellationCompleted;
-            lock (_lock)
-            {
-                if (_disposed
-                    || _started
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || _cancellationWindowClosed
-                    || IsTerminal(Job.Status))
-                    return false;
-
-                _cancellationRequested = true;
-                cancellationCompleted = _cancellationCallbacksCompleted = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-            }
-
-            CancelSource(cancellationCompleted);
-
-            return true;
-        }
-
-        public void Cancel()
-        {
-            TaskCompletionSource cancellationCompleted;
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || _cancellationWindowClosed
-                    || IsTerminal(Job.Status))
-                    return;
-
-                _cancellationRequested = true;
-                cancellationCompleted = _cancellationCallbacksCompleted = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-            }
-
-            CancelSource(cancellationCompleted);
-        }
-
-        public Task WaitForCancellationCallbacksAsync()
-        {
-            lock (_lock)
-            {
-                return _cancellationCallbacksCompleted?.Task ?? Task.CompletedTask;
-            }
-        }
-
-        private void CancelSource(TaskCompletionSource cancellationCompleted)
-        {
-            try
-            {
-                Cancellation.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-            finally
-            {
-                cancellationCompleted.TrySetResult();
-            }
-        }
-
-        public void Dispose()
-        {
-            lock (_lock)
-            {
-                if (_disposed)
-                    return;
-
-                _disposed = true;
-                Cancellation.Dispose();
-            }
-        }
-    }
 }

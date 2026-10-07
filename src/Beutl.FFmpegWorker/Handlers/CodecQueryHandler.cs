@@ -31,8 +31,7 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQueryCodecs(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryCodecsRequest>()
-            ?? throw new InvalidOperationException("Missing payload for QueryCodecs");
+        var request = msg.RequirePayload<QueryCodecsRequest>(MessageType.QueryCodecs);
         var mediaType = request.MediaType == "audio"
             ? AVMediaType.AVMEDIA_TYPE_AUDIO
             : AVMediaType.AVMEDIA_TYPE_VIDEO;
@@ -48,19 +47,14 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQueryPixelFormats(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryPixelFormatsRequest>()
-            ?? throw new InvalidOperationException("Missing payload for QueryPixelFormats");
+        var request = msg.RequirePayload<QueryPixelFormatsRequest>(MessageType.QueryPixelFormats);
 
         try
         {
             MediaCodec codec = FindVideoEncoder(request.CodecName, request.OutputFile);
             var fmts = codec.GetPixelFmts()
                 .Where(f => ffmpeg.sws_isSupportedOutput(f) != 0)
-                .Select(f => new PixelFormatInfo
-                {
-                    Value = (int)f,
-                    Name = ffmpeg.av_get_pix_fmt_name(f),
-                })
+                .Select(ToPixelFormatInfo)
                 .ToArray();
 
             return IpcMessage.Create(msg.Id, MessageType.QueryPixelFormatsResult,
@@ -72,11 +66,7 @@ internal sealed class CodecQueryHandler
             // フォールバック: 全対応フォーマット
             var allFmts = Enum.GetValues<AVPixelFormat>()
                 .Where(f => f != AVPixelFormat.AV_PIX_FMT_NONE && (int)f >= 0 && ffmpeg.sws_isSupportedOutput(f) != 0)
-                .Select(f => new PixelFormatInfo
-                {
-                    Value = (int)f,
-                    Name = ffmpeg.av_get_pix_fmt_name(f),
-                })
+                .Select(ToPixelFormatInfo)
                 .ToArray();
 
             return IpcMessage.Create(msg.Id, MessageType.QueryPixelFormatsResult,
@@ -86,8 +76,7 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQuerySampleRates(IpcMessage msg)
     {
-        var request = msg.GetPayload<QuerySampleRatesRequest>()
-            ?? throw new InvalidOperationException("Missing payload for QuerySampleRates");
+        var request = msg.RequirePayload<QuerySampleRatesRequest>(MessageType.QuerySampleRates);
 
         try
         {
@@ -106,8 +95,7 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQueryAudioFormats(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryAudioFormatsRequest>()
-            ?? throw new InvalidOperationException("Missing payload for QueryAudioFormats");
+        var request = msg.RequirePayload<QueryAudioFormatsRequest>(MessageType.QueryAudioFormats);
 
         try
         {
@@ -124,21 +112,23 @@ internal sealed class CodecQueryHandler
         }
     }
 
-    private static MediaCodec FindVideoEncoder(string? codecName, string? outputFile)
+    private static PixelFormatInfo ToPixelFormatInfo(AVPixelFormat format)
     {
-        if (!string.IsNullOrEmpty(codecName) && codecName != "Default")
-            return MediaCodec.FindEncoder(codecName);
-
-        if (!string.IsNullOrEmpty(outputFile))
+        return new PixelFormatInfo
         {
-            var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-            return MediaCodec.FindEncoder(outFormat.VideoCodec);
-        }
-
-        throw new InvalidOperationException("No codec name or output file specified");
+            Value = (int)format,
+            Name = ffmpeg.av_get_pix_fmt_name(format),
+        };
     }
 
+    private static MediaCodec FindVideoEncoder(string? codecName, string? outputFile)
+        => FindEncoder(codecName, outputFile, static outFormat => outFormat.VideoCodec);
+
     private static MediaCodec FindAudioEncoder(string? codecName, string? outputFile)
+        => FindEncoder(codecName, outputFile, static outFormat => outFormat.AudioCodec);
+
+    private static MediaCodec FindEncoder(
+        string? codecName, string? outputFile, Func<OutputFormat, AVCodecID> containerCodec)
     {
         if (!string.IsNullOrEmpty(codecName) && codecName != "Default")
             return MediaCodec.FindEncoder(codecName);
@@ -146,7 +136,7 @@ internal sealed class CodecQueryHandler
         if (!string.IsNullOrEmpty(outputFile))
         {
             var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-            return MediaCodec.FindEncoder(outFormat.AudioCodec);
+            return MediaCodec.FindEncoder(containerCodec(outFormat));
         }
 
         throw new InvalidOperationException("No codec name or output file specified");

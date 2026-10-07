@@ -34,48 +34,12 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             // デコード系メッセージは並行処理可能（fire-and-forget で送信）
             if (IsParallelizable(message.Type))
             {
-                var msg = message;
-                _ = Task.Run(async () =>
-                {
-                    IpcMessage response;
-                    try
-                    {
-                        response = HandleMessage(msg);
-                    }
-                    catch (Exception ex)
-                    {
-                        response = IpcMessage.CreateError(
-                            msg.Id, ex.Message, ex.StackTrace,
-                            FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex));
-                    }
-
-                    try
-                    {
-                        await connection.SendAsync(response, ct);
-                    }
-                    catch (IOException) { }
-                }, ct);
+                StartParallel(message, ct);
                 continue;
             }
 
             // エンコード系・ライフサイクル系は逐次処理
-            IpcMessage seqResponse;
-            try
-            {
-                seqResponse = message.Type switch
-                {
-                    MessageType.StartEncode => await _encodingHandler.HandleStartAsync(message, connection, ct),
-                    MessageType.CancelEncode => _encodingHandler.HandleCancel(message),
-                    MessageType.Shutdown => HandleShutdown(message),
-                    _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
-                };
-            }
-            catch (Exception ex)
-            {
-                seqResponse = IpcMessage.CreateError(
-                    message.Id, ex.Message, ex.StackTrace,
-                    FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex));
-            }
+            IpcMessage seqResponse = await HandleSequentialAsync(message, ct);
 
             if (seqResponse.Type == MessageType.Shutdown)
                 break;
@@ -89,6 +53,53 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
                 break;
             }
         }
+    }
+
+    private void StartParallel(IpcMessage msg, CancellationToken ct)
+    {
+        _ = Task.Run(async () =>
+        {
+            IpcMessage response;
+            try
+            {
+                response = HandleMessage(msg);
+            }
+            catch (Exception ex)
+            {
+                response = CreateErrorResponse(msg, ex);
+            }
+
+            try
+            {
+                await connection.SendAsync(response, ct);
+            }
+            catch (IOException) { }
+        }, ct);
+    }
+
+    private async Task<IpcMessage> HandleSequentialAsync(IpcMessage message, CancellationToken ct)
+    {
+        try
+        {
+            return message.Type switch
+            {
+                MessageType.StartEncode => await _encodingHandler.HandleStartAsync(message, connection, ct),
+                MessageType.CancelEncode => _encodingHandler.HandleCancel(message),
+                MessageType.Shutdown => HandleShutdown(message),
+                _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
+            };
+        }
+        catch (Exception ex)
+        {
+            return CreateErrorResponse(message, ex);
+        }
+    }
+
+    private static IpcMessage CreateErrorResponse(IpcMessage request, Exception ex)
+    {
+        return IpcMessage.CreateError(
+            request.Id, ex.Message, ex.StackTrace,
+            FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex));
     }
 
     private IpcMessage HandleMessage(IpcMessage message)

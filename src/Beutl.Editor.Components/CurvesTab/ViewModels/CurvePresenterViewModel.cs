@@ -8,7 +8,6 @@ namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
 public sealed class CurvePresenterViewModel : IDisposable
 {
-    private readonly Curves _effect;
     private readonly IProperty<CurveMap> _property;
     private readonly HistoryManager _history;
     private bool _isUpdating;
@@ -17,7 +16,6 @@ public sealed class CurvePresenterViewModel : IDisposable
         HistoryManager history)
     {
         Header = header;
-        _effect = effect;
         _property = property;
         _history = history;
 

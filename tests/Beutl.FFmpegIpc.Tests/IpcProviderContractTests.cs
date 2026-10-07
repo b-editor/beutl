@@ -810,6 +810,12 @@ public class IpcProviderContractTests
 
         public UnobservedTaskExceptionWatcher()
         {
+            // Unobserved tasks left by earlier tests surface on whichever GC runs next; flush them before
+            // subscribing so the watcher only reports what the provider under test leaves behind.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             TaskScheduler.UnobservedTaskException += OnUnobserved;
         }
 

@@ -10,6 +10,7 @@ namespace Beutl.Editor.Components.WebBrowserTab.ViewModels;
 internal sealed class WebBrowserTabViewModel : IToolContext
 {
     internal static readonly Uri BlankPage = new("about:blank");
+    private const int MaxAddressSuggestions = 100;
 
     private static int s_lastInstanceNumber;
 
@@ -59,7 +60,6 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     internal event Action? Disposing;
 
     internal BrowserProfile Profile { get; }
-    internal string BookmarkTitle => _pageTitle.Value ?? CurrentUri.Host;
     private void ClearAddressHistory() => _addressSuggestions.Clear();
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
@@ -180,12 +180,10 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     {
         if (!IsPersistableUri(uri))
         {
-            _isLoading.Value = false;
-            _errorMessage.Value = Strings.InvalidWebAddress;
+            RejectNavigation();
             return;
         }
-        _currentUri.Value = uri;
-        _address.Value = FormatAddress(uri);
+        SetCurrentUri(uri);
 
         _isLoading.Value = true;
         _errorMessage.Value = null;
@@ -197,8 +195,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
     {
         if (!IsPersistableUri(uri))
         {
-            _isLoading.Value = false;
-            _errorMessage.Value = Strings.InvalidWebAddress;
+            RejectNavigation();
             return;
         }
         // Some adapters complete page-initiated navigation without a reliable top-level start.
@@ -210,16 +207,15 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             string address = FormatAddress(uri);
             _addressSuggestions.Remove(address);
             _addressSuggestions.Insert(0, address);
-            if (_addressSuggestions.Count > 100)
+            if (_addressSuggestions.Count > MaxAddressSuggestions)
             {
-                _addressSuggestions.RemoveAt(100);
+                _addressSuggestions.RemoveAt(MaxAddressSuggestions);
             }
         }
 
         if (IsPersistableUri(uri))
         {
-            _currentUri.Value = uri;
-            _address.Value = FormatAddress(uri);
+            SetCurrentUri(uri);
         }
 
         _isLoading.Value = false;
@@ -227,6 +223,18 @@ internal sealed class WebBrowserTabViewModel : IToolContext
         _canGoForward.Value = canGoForward;
         _errorMessage.Value = isSuccess || _navigationStopped ? null : Strings.WebPageLoadFailed;
         _navigationStopped = false;
+    }
+
+    private void RejectNavigation()
+    {
+        _isLoading.Value = false;
+        _errorMessage.Value = Strings.InvalidWebAddress;
+    }
+
+    private void SetCurrentUri(Uri uri)
+    {
+        _currentUri.Value = uri;
+        _address.Value = FormatAddress(uri);
     }
 
     internal void SetWebViewUnavailable(string? detail, bool showLinuxRuntimeHelp)
@@ -263,8 +271,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal void RestoreCommittedPage()
     {
-        _currentUri.Value = _committedUri;
-        _address.Value = FormatAddress(_committedUri);
+        SetCurrentUri(_committedUri);
         _pageTitle.Value = _committedPageTitle;
         _isLoading.Value = false;
         _errorMessage.Value = null;
@@ -339,13 +346,10 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("source", out JsonNode? sourceNode)
-            && sourceNode is JsonValue sourceValue
-            && sourceValue.TryGetValue(out string? source)
+        if (json.TryGetPropertyValueAsJsonValue("source", out string? source)
             && TryNormalizeAddress(source, out Uri uri))
         {
-            _currentUri.Value = uri;
-            _address.Value = FormatAddress(uri);
+            SetCurrentUri(uri);
         }
     }
 

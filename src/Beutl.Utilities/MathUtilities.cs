@@ -313,20 +313,20 @@ public static class MathUtilities
     }
 
     /// <summary>
-    /// Converts an angle in degrees to radians.
+    /// Converts an angle in radians to degrees.
     /// </summary>
-    /// <param name="angle">The angle in degrees.</param>
-    /// <returns>The angle in radians.</returns>
+    /// <param name="angle">The angle in radians.</param>
+    /// <returns>The angle in degrees.</returns>
     public static float Rad2Deg(float angle)
     {
         return angle * (180f / MathF.PI);
     }
 
     /// <summary>
-    /// Converts an angle in gradians to radians.
+    /// Converts an angle in radians to gradians.
     /// </summary>
-    /// <param name="angle">The angle in gradians.</param>
-    /// <returns>The angle in radians.</returns>
+    /// <param name="angle">The angle in radians.</param>
+    /// <returns>The angle in gradians.</returns>
     public static float Rad2Grad(float angle)
     {
         return angle * (200F / MathF.PI);

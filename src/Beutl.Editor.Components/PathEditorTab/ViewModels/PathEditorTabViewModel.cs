@@ -29,26 +29,12 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        Context = FigureContext.Select(v => v?.GetParentContext() ?? null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        Geometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
-            .Switch()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        PathGeometry = Geometry
-            .Select(v => v as PathGeometry)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
-            .Switch()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        Element = Context.Select(v => v?.GetService<Element>())
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        var chain = PathFigureContextChain.Create(FigureContext, _disposables);
+        Context = chain.Context;
+        Geometry = chain.Geometry;
+        PathGeometry = chain.PathGeometry;
+        PathFigure = chain.PathFigure;
+        Element = chain.Element;
 
         GeometryResource = PathGeometry
             .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
@@ -186,16 +172,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
     // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(IPathFigureEditorContext context)
     {
-        if (FigureContext.Value == context)
-        {
-            FigureContext.Value = null;
-            context.CollapseEditedOperations();
-        }
-        else
-        {
-            context.ExpandForEditing();
-            FigureContext.Value = context;
-        }
+        PathFigureContextChain.ToggleEditing(FigureContext, context);
     }
 
     public void Dispose()

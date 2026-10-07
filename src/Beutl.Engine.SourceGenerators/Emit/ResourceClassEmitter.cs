@@ -101,12 +101,7 @@ public static class ResourceClassEmitter
 
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string valueTypeDisplay = property.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
-            sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {property.Name}");
-            sb.Append(innerIndent).AppendLine("{");
-            sb.Append(innerIndent).AppendLine($"    get => {fieldName};");
-            sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
-            sb.Append(innerIndent).AppendLine("}");
-            sb.AppendLine();
+            AppendFieldBackedProperty(sb, innerIndent, valueTypeDisplay, property.Name, fieldName);
         }
 
         foreach (ObjectPropertyInfo property in info.ObjectProperties)
@@ -142,12 +137,8 @@ public static class ResourceClassEmitter
 
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ElementType);
-            sb.Append(innerIndent).AppendLine($"public global::System.Collections.Generic.List<{resourceType}> {property.Name}");
-            sb.Append(innerIndent).AppendLine("{");
-            sb.Append(innerIndent).AppendLine($"    get => {fieldName};");
-            sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
-            sb.Append(innerIndent).AppendLine("}");
-            sb.AppendLine();
+            AppendFieldBackedProperty(
+                sb, innerIndent, $"global::System.Collections.Generic.List<{resourceType}>", property.Name, fieldName);
         }
 
         foreach (NodePortPropertyInfo port in info.NodePortProperties)
@@ -161,6 +152,17 @@ public static class ResourceClassEmitter
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
         }
+    }
+
+    private static void AppendFieldBackedProperty(
+        StringBuilder sb, string innerIndent, string type, string name, string field)
+    {
+        sb.Append(innerIndent).AppendLine($"public {type} {name}");
+        sb.Append(innerIndent).AppendLine("{");
+        sb.Append(innerIndent).AppendLine($"    get => {field};");
+        sb.Append(innerIndent).AppendLine($"    set => {field} = value;");
+        sb.Append(innerIndent).AppendLine("}");
+        sb.AppendLine();
     }
 
     private static void EmitGetOriginal(StringBuilder sb, string innerIndent, string currentTypeDisplay)
@@ -226,8 +228,7 @@ public static class ResourceClassEmitter
                 {
                     if (property.ExcludeFromResource) continue;
 
-                    string fieldName = EmitHelpers.ToFieldName(property.Name);
-                    sb.Append(innerIndent).AppendLine($"    CompareAndUpdate(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
+                    AppendUpdateCall(sb, innerIndent, "CompareAndUpdate", currentTypeDisplay, property.Name);
                 }
 
                 wroteSection = true;
@@ -240,20 +241,12 @@ public static class ResourceClassEmitter
                     sb.AppendLine();
                 }
 
-                int listIndex = 0;
-                foreach (ListPropertyInfo property in info.ListProperties)
-                {
-                    if (property.ExcludeFromResource) continue;
-
-                    if (listIndex > 0)
-                    {
-                        sb.AppendLine();
-                    }
-
-                    listIndex++;
-                    string fieldName = EmitHelpers.ToFieldName(property.Name);
-                    sb.Append(innerIndent).AppendLine($"    CompareAndUpdateList(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
-                }
+                AppendSeparatedUpdates(
+                    sb,
+                    innerIndent,
+                    "CompareAndUpdateList",
+                    currentTypeDisplay,
+                    info.ListProperties.Where(property => !property.ExcludeFromResource).Select(property => property.Name));
 
                 wroteSection = true;
             }
@@ -265,26 +258,41 @@ public static class ResourceClassEmitter
                     sb.AppendLine();
                 }
 
-                int objectIndex = 0;
-                foreach (ObjectPropertyInfo property in info.ObjectProperties)
-                {
-                    if (property.ExcludeFromResource) continue;
-
-                    if (objectIndex > 0)
-                    {
-                        sb.AppendLine();
-                    }
-
-                    objectIndex++;
-                    string fieldName = EmitHelpers.ToFieldName(property.Name);
-                    sb.Append(innerIndent).AppendLine($"    CompareAndUpdateObject(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
-                }
+                AppendSeparatedUpdates(
+                    sb,
+                    innerIndent,
+                    "CompareAndUpdateObject",
+                    currentTypeDisplay,
+                    info.ObjectProperties.Where(property => !property.ExcludeFromResource).Select(property => property.Name));
             }
         }
 
         sb.Append(innerIndent).AppendLine($"    this.PostUpdate(({currentTypeDisplay})obj, context);");
         sb.Append(innerIndent).AppendLine("}");
         sb.AppendLine();
+    }
+
+    private static void AppendSeparatedUpdates(
+        StringBuilder sb, string innerIndent, string method, string currentTypeDisplay, IEnumerable<string> propertyNames)
+    {
+        bool first = true;
+        foreach (string propertyName in propertyNames)
+        {
+            if (!first)
+            {
+                sb.AppendLine();
+            }
+
+            first = false;
+            AppendUpdateCall(sb, innerIndent, method, currentTypeDisplay, propertyName);
+        }
+    }
+
+    private static void AppendUpdateCall(
+        StringBuilder sb, string innerIndent, string method, string currentTypeDisplay, string propertyName)
+    {
+        string fieldName = EmitHelpers.ToFieldName(propertyName);
+        sb.Append(innerIndent).AppendLine($"    {method}(context, (({currentTypeDisplay})obj).{propertyName}, ref {fieldName}, ref updateOnly);");
     }
 
     private static void EmitDisposeMethod(StringBuilder sb, string innerIndent, ClassInfo info)

@@ -8,6 +8,7 @@ namespace Beutl.Configuration;
 public sealed class GlobalConfiguration
 {
     public static readonly GlobalConfiguration Instance = new();
+    private readonly (string Key, string? LegacyKey, ConfigurationBase Config)[] _sections;
     private string? _filePath;
 
     public static string DefaultFilePath
@@ -20,6 +21,21 @@ public sealed class GlobalConfiguration
 
     private GlobalConfiguration()
     {
+        // In the order Save writes the sections and Restore reads them.
+        _sections =
+        [
+            ("Font", "font", FontConfig),
+            ("View", "view", ViewConfig),
+            ("Extension", "extension", ExtensionConfig),
+            ("Backup", "backup", BackupConfig),
+            ("Telemetry", "telemetry", TelemetryConfig),
+            ("Editor", null, EditorConfig),
+            ("Graphics", null, GraphicsConfig),
+            ("Tutorial", null, TutorialConfig),
+            ("AiAgent", null, AiAgentConfig),
+            ("ProxyStore", null, ProxyStoreConfig),
+            ("VersionControl", null, VersionControlConfig),
+        ];
         AddHandlers();
     }
 
@@ -67,27 +83,10 @@ public sealed class GlobalConfiguration
                 ["Version"] = BeutlApplication.Version
             };
 
-            json["Font"] = CoreSerializer.SerializeToJsonObject(FontConfig);
-
-            json["View"] = CoreSerializer.SerializeToJsonObject(ViewConfig);
-
-            json["Extension"] = CoreSerializer.SerializeToJsonObject(ExtensionConfig);
-
-            json["Backup"] = CoreSerializer.SerializeToJsonObject(BackupConfig);
-
-            json["Telemetry"] = CoreSerializer.SerializeToJsonObject(TelemetryConfig);
-
-            json["Editor"] = CoreSerializer.SerializeToJsonObject(EditorConfig);
-
-            json["Graphics"] = CoreSerializer.SerializeToJsonObject(GraphicsConfig);
-
-            json["Tutorial"] = CoreSerializer.SerializeToJsonObject(TutorialConfig);
-
-            json["AiAgent"] = CoreSerializer.SerializeToJsonObject(AiAgentConfig);
-
-            json["ProxyStore"] = CoreSerializer.SerializeToJsonObject(ProxyStoreConfig);
-
-            json["VersionControl"] = CoreSerializer.SerializeToJsonObject(VersionControlConfig);
+            foreach ((string key, _, ConfigurationBase config) in _sections)
+            {
+                json[key] = CoreSerializer.SerializeToJsonObject(config);
+            }
 
             // AI agent settings include the live editing endpoint's bearer token.
             json.JsonSave(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
@@ -106,52 +105,18 @@ public sealed class GlobalConfiguration
             RemoveHandlers();
             if (JsonHelper.JsonRestore(file) is JsonObject json)
             {
-                JsonNode? GetNode(string name1, string name2)
-                {
-                    if (json[name1] is JsonNode node1)
-                        return node1;
-                    else if (json[name2] is JsonNode node2)
-                        return node2;
-                    else
-                        return null;
-                }
                 static void Deserialize(ICoreSerializable serializable, JsonObject obj)
                 {
                     CoreSerializer.PopulateFromJsonObject(serializable, obj);
                 }
 
-                if (GetNode("font", "Font") is JsonObject font)
-                    Deserialize(FontConfig, font);
-
-                if (GetNode("view", "View") is JsonObject view)
-                    Deserialize(ViewConfig, view);
-
-                if (GetNode("extension", "Extension") is JsonObject extension)
-                    Deserialize(ExtensionConfig, extension);
-
-                if (GetNode("backup", "Backup") is JsonObject backup)
-                    Deserialize(BackupConfig, backup);
-
-                if (GetNode("telemetry", "Telemetry") is JsonObject telemetry)
-                    Deserialize(TelemetryConfig, telemetry);
-
-                if (json["Editor"] is JsonObject editor)
-                    Deserialize(EditorConfig, editor);
-
-                if (json["Graphics"] is JsonObject graphics)
-                    Deserialize(GraphicsConfig, graphics);
-
-                if (json["Tutorial"] is JsonObject tutorial)
-                    Deserialize(TutorialConfig, tutorial);
-
-                if (json["AiAgent"] is JsonObject aiAgent)
-                    Deserialize(AiAgentConfig, aiAgent);
-
-                if (json["ProxyStore"] is JsonObject proxyStore)
-                    Deserialize(ProxyStoreConfig, proxyStore);
-
-                if (json["VersionControl"] is JsonObject versionControl)
-                    Deserialize(VersionControlConfig, versionControl);
+                foreach ((string key, string? legacyKey, ConfigurationBase config) in _sections)
+                {
+                    // A section that has a lower-case legacy key is read from that key when it is present.
+                    JsonNode? node = legacyKey is null ? json[key] : json[legacyKey] ?? json[key];
+                    if (node is JsonObject section)
+                        Deserialize(config, section);
+                }
 
                 if (json["Version"] is JsonValue version
                     && version.TryGetValue(out string? versionString))
@@ -168,32 +133,14 @@ public sealed class GlobalConfiguration
 
     private void AddHandlers()
     {
-        GraphicsConfig.ConfigurationChanged += OnConfigurationChanged;
-        FontConfig.ConfigurationChanged += OnConfigurationChanged;
-        ViewConfig.ConfigurationChanged += OnConfigurationChanged;
-        ExtensionConfig.ConfigurationChanged += OnConfigurationChanged;
-        BackupConfig.ConfigurationChanged += OnConfigurationChanged;
-        TelemetryConfig.ConfigurationChanged += OnConfigurationChanged;
-        EditorConfig.ConfigurationChanged += OnConfigurationChanged;
-        TutorialConfig.ConfigurationChanged += OnConfigurationChanged;
-        AiAgentConfig.ConfigurationChanged += OnConfigurationChanged;
-        ProxyStoreConfig.ConfigurationChanged += OnConfigurationChanged;
-        VersionControlConfig.ConfigurationChanged += OnConfigurationChanged;
+        foreach ((_, _, ConfigurationBase config) in _sections)
+            config.ConfigurationChanged += OnConfigurationChanged;
     }
 
     private void RemoveHandlers()
     {
-        GraphicsConfig.ConfigurationChanged -= OnConfigurationChanged;
-        FontConfig.ConfigurationChanged -= OnConfigurationChanged;
-        ViewConfig.ConfigurationChanged -= OnConfigurationChanged;
-        ExtensionConfig.ConfigurationChanged -= OnConfigurationChanged;
-        BackupConfig.ConfigurationChanged -= OnConfigurationChanged;
-        TelemetryConfig.ConfigurationChanged -= OnConfigurationChanged;
-        EditorConfig.ConfigurationChanged -= OnConfigurationChanged;
-        TutorialConfig.ConfigurationChanged -= OnConfigurationChanged;
-        AiAgentConfig.ConfigurationChanged -= OnConfigurationChanged;
-        ProxyStoreConfig.ConfigurationChanged -= OnConfigurationChanged;
-        VersionControlConfig.ConfigurationChanged -= OnConfigurationChanged;
+        foreach ((_, _, ConfigurationBase config) in _sections)
+            config.ConfigurationChanged -= OnConfigurationChanged;
     }
 
     private void OnConfigurationChanged(object? sender, EventArgs e)

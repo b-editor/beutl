@@ -90,25 +90,14 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
     private async Task RefreshPackages()
     {
-        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, 0, 30);
-        Packages.Clear();
-        Packages.AddRange(array);
-
-        if (array.Length == 30)
-        {
-            Packages.Add(new LoadMoreItem());
-        }
+        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, 0, PackagePageList.PageSize);
+        PackagePageList.ShowFirstPage(Packages, array);
     }
 
     private async Task MoreLoadPackages()
     {
-        Packages.RemoveAt(Packages.Count - 1);
-        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, Packages.Count, 30);
-        Packages.AddRange(array);
-
-        if (array.Length == 30)
-        {
-            Packages.Add(new LoadMoreItem());
-        }
+        PackagePageList.RemoveLoadMoreItem(Packages);
+        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, Packages.Count, PackagePageList.PageSize);
+        PackagePageList.AppendPage(Packages, array);
     }
 }

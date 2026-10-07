@@ -115,38 +115,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                     .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
                     .Switch())
                 .CombineWithPrevious()
-                .Subscribe(t =>
-                {
-                    if (GetAnimation() is { } animation)
-                    {
-                        (float oldIndex, _) = t.OldValue;
-                        (float newIndex, KeyFrames? keyframes) = t.NewValue;
-
-                        if (_clock != null && keyframes is { Count: > 0 })
-                        {
-                            int newCeiled = (int)Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
-                            EditingKeyFrame.Value = keyframes[newCeiled];
-
-                            if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
-                            {
-                                TimeSpan start = _element?.Start ?? default;
-                                TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
-
-                                _clock.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
-                            }
-                        }
-                        else
-                        {
-                            EditingKeyFrame.Value = null;
-                        }
-
-                        _skipKeyFrameIndexSubscription = false;
-                    }
-                    else
-                    {
-                        EditingKeyFrame.Value = null;
-                    }
-                })
+                .Subscribe(SyncEditingKeyFrame)
                 .DisposeWith(Disposables);
         }
         else
@@ -243,6 +212,70 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return (PropertyAdapter as IAnimatablePropertyAdapter)?.Animation;
     }
 
+    // Follows the keyframe index slider: edits the keyframe it points at and, when the user moved it,
+    // seeks the clock to that keyframe.
+    private void SyncEditingKeyFrame(((float First, KeyFrames? Second) OldValue, (float First, KeyFrames? Second) NewValue) t)
+    {
+        if (GetAnimation() is { } animation)
+        {
+            (float oldIndex, _) = t.OldValue;
+            (float newIndex, KeyFrames? keyframes) = t.NewValue;
+
+            if (_clock != null && keyframes is { Count: > 0 })
+            {
+                int newCeiled = (int)Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
+                EditingKeyFrame.Value = keyframes[newCeiled];
+
+                if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
+                {
+                    TimeSpan start = _element?.Start ?? default;
+                    TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
+
+                    _clock.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
+                }
+            }
+            else
+            {
+                EditingKeyFrame.Value = null;
+            }
+
+            _skipKeyFrameIndexSubscription = false;
+        }
+        else
+        {
+            EditingKeyFrame.Value = null;
+        }
+    }
+
+    // Fills the keyframe icon when the playhead sits on a keyframe, and moves the index slider to it.
+    private void UpdateKeyFrameIndicator((TimeSpan First, KeyFrames? Second) t)
+    {
+        if (GetAnimation() is { } animation)
+        {
+            int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ??
+                       30;
+
+            TimeSpan globalkeyTime = t.First;
+            TimeSpan localKeyTime =
+                _element != null ? globalkeyTime - _element.Start : globalkeyTime;
+            TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+            keyTime = keyTime.RoundToRate(rate);
+
+            SymbolIconVariant.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false
+                ? FluentIcons.Common.IconVariant.Filled
+                : FluentIcons.Common.IconVariant.Regular;
+            if (t.Second != null)
+            {
+                float kfIndex = t.Second.IndexAtOrCount(keyTime);
+                if (SymbolIconVariant.Value != FluentIcons.Common.IconVariant.Filled)
+                    kfIndex -= 0.5f;
+
+                _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
+                KeyFrameIndex.Value = kfIndex;
+            }
+        }
+    }
+
     public virtual void Accept(IPropertyEditorContextVisitor visitor)
     {
         visitor.Visit(this);
@@ -277,33 +310,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 .RefCount())
                             .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
                             .Switch())
-                        .Subscribe(t =>
-                        {
-                            if (GetAnimation() is { } animation)
-                            {
-                                int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ??
-                                           30;
-
-                                TimeSpan globalkeyTime = t.First;
-                                TimeSpan localKeyTime =
-                                    _element != null ? globalkeyTime - _element.Start : globalkeyTime;
-                                TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
-                                keyTime = keyTime.RoundToRate(rate);
-
-                                SymbolIconVariant.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false
-                                    ? FluentIcons.Common.IconVariant.Filled
-                                    : FluentIcons.Common.IconVariant.Regular;
-                                if (t.Second != null)
-                                {
-                                    float kfIndex = t.Second.IndexAtOrCount(keyTime);
-                                    if (SymbolIconVariant.Value != FluentIcons.Common.IconVariant.Filled)
-                                        kfIndex -= 0.5f;
-
-                                    _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
-                                    KeyFrameIndex.Value = kfIndex;
-                                }
-                            }
-                        });
+                        .Subscribe(UpdateKeyFrameIndicator);
                 }
                 else
                 {
@@ -533,8 +540,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
 
                 cacheManager.DeleteAndUpdateBlocks(affectedRange
-                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+                    .Select(item => FrameCacheRanges.ToFrameRange(item, rate)));
             });
         }
     }
@@ -604,15 +610,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (!IsElementEditable) return;
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
-            if (EditingKeyFrame.Value is { } kf)
-            {
-                kf.Value = newValue!;
-            }
-            else
-            {
-                IPropertyAdapter<T> prop = PropertyAdapter;
-                prop.SetValue(newValue);
-            }
+            WriteValue(newValue);
 
             CompleteElementRepair();
             Commit(commandName);
@@ -622,6 +620,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     public void SetValue(T? newValue)
     {
         if (!IsElementEditable) return;
+        WriteValue(newValue);
+
+        CompleteElementRepair();
+        Commit();
+    }
+
+    // Writes to the keyframe being edited, or to the property itself when no keyframe is.
+    private void WriteValue(T? newValue)
+    {
         if (EditingKeyFrame.Value is { } kf)
         {
             kf.Value = newValue!;
@@ -631,9 +638,6 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             IPropertyAdapter<T> prop = PropertyAdapter;
             prop.SetValue(newValue);
         }
-
-        CompleteElementRepair();
-        Commit();
     }
 
     public T? SetCurrentValueAndGetCoerced(T? value)

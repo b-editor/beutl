@@ -4,6 +4,11 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal static class BrowserPageTools
 {
+    internal const int MinZoomPercent = 50;
+    internal const int MaxZoomPercent = 200;
+    internal const int DefaultZoomPercent = 100;
+    internal const int ZoomStepPercent = 10;
+
     internal sealed record FindResult(int Index, int Count, bool LimitReached = false);
 
     internal static string FindScript(string query, int direction) =>
@@ -26,7 +31,7 @@ internal static class BrowserPageTools
             if (!document.documentElement || !CSS.supports('zoom', '1.2')) return JSON.stringify(false);
             const style = document.documentElement.style;
             const percent =
-        """ + Math.Clamp(percent, 50, 200) + ";" + """
+        """ + Math.Clamp(percent, MinZoomPercent, MaxZoomPercent) + ";" + """
             if (!window.__beutlZoom && percent !== 100)
                 window.__beutlZoom = {value:style.getPropertyValue('zoom'),priority:style.getPropertyPriority('zoom')};
             if (percent === 100) {

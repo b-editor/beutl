@@ -67,7 +67,6 @@ public sealed class NavigateButton<T> : NavigateButton
 
     protected override async void OnNew()
     {
-        //progress.IsVisible = true;
         if (DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
         {
             await Task.Run(async () =>
@@ -124,7 +123,5 @@ public sealed class NavigateButton<T> : NavigateButton
                 }
             });
         }
-
-        //progress.IsVisible = false;
     }
 }

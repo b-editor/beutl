@@ -43,6 +43,22 @@ public class RectTests
     }
 
     [Test]
+    public void TryParseUtf8()
+    {
+        ReadOnlySpan<byte> str = "20,80,1900,1000"u8;
+
+        Assert.That(Rect.TryParse(str, out Rect rect), Is.True);
+        Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
+    }
+
+    [Test]
+    public void TryParseUtf8_ReturnsFalseForInvalidText()
+    {
+        Assert.That(Rect.TryParse("20,80"u8, out Rect rect), Is.False);
+        Assert.That(rect, Is.EqualTo(default(Rect)));
+    }
+
+    [Test]
     public void FormatToSpan()
     {
         const string str = "20, 80, 1900, 1000";

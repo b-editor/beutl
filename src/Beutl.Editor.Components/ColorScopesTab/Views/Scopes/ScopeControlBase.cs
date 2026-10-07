@@ -251,8 +251,14 @@ public abstract class ScopeControlBase : Control
         // Draw horizontal axis line
         context.DrawLine(_axisPen, new Point(axisMargin, contentHeight), new Point(bounds.Width, contentHeight));
 
-        // Draw vertical labels (from top to bottom)
-        var verticalLabels = VerticalAxisLabels;
+        DrawVerticalLabels(context, VerticalAxisLabels, labelBrush, axisMargin, contentHeight);
+        DrawHorizontalLabels(context, HorizontalAxisLabels, labelBrush, bounds, axisMargin, contentWidth, contentHeight);
+    }
+
+    // Draw vertical labels (from top to bottom)
+    private void DrawVerticalLabels(
+        DrawingContext context, string[]? verticalLabels, IBrush labelBrush, double axisMargin, double contentHeight)
+    {
         if (verticalLabels is { Length: > 0 })
         {
             int count = verticalLabels.Length;
@@ -260,13 +266,7 @@ public abstract class ScopeControlBase : Control
             {
                 double y = count > 1 ? i * contentHeight / (count - 1) : contentHeight / 2;
 
-                var formattedText = new FormattedText(
-                    verticalLabels[i],
-                    CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
-                    DefaultTypeface,
-                    10,
-                    labelBrush);
+                var formattedText = CreateAxisLabel(verticalLabels[i], labelBrush);
 
                 double textX = axisMargin - formattedText.Width - 4;
                 double textY = y - formattedText.Height / 2;
@@ -283,9 +283,13 @@ public abstract class ScopeControlBase : Control
                 context.DrawLine(_axisPen, new Point(axisMargin - 3, y), new Point(axisMargin, y));
             }
         }
+    }
 
-        // Draw horizontal labels (from left to right)
-        var horizontalLabels = HorizontalAxisLabels;
+    // Draw horizontal labels (from left to right)
+    private void DrawHorizontalLabels(
+        DrawingContext context, string[]? horizontalLabels, IBrush labelBrush, Rect bounds, double axisMargin,
+        double contentWidth, double contentHeight)
+    {
         if (horizontalLabels is { Length: > 0 })
         {
             int count = horizontalLabels.Length;
@@ -293,13 +297,7 @@ public abstract class ScopeControlBase : Control
             {
                 double x = axisMargin + (count > 1 ? i * contentWidth / (count - 1) : contentWidth / 2);
 
-                var formattedText = new FormattedText(
-                    horizontalLabels[i],
-                    CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
-                    DefaultTypeface,
-                    10,
-                    labelBrush);
+                var formattedText = CreateAxisLabel(horizontalLabels[i], labelBrush);
 
                 double textX = x - formattedText.Width / 2;
                 double textY = contentHeight + 4;
@@ -316,6 +314,17 @@ public abstract class ScopeControlBase : Control
                 context.DrawLine(_axisPen, new Point(x, contentHeight), new Point(x, contentHeight + 3));
             }
         }
+    }
+
+    private static FormattedText CreateAxisLabel(string text, IBrush brush)
+    {
+        return new FormattedText(
+            text,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            DefaultTypeface,
+            10,
+            brush);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

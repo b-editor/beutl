@@ -316,31 +316,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
             finally
             {
-                Exception? muxerFinalizationError = null;
-                if (headerWritten)
-                {
-                    try
-                    {
-                        muxer.FlushCodecs(encoders.Select(i => i.Item1));
-                        muxer.WriteTrailer();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to finalize muxer output for {OutputFile}.", OutputFile);
-                        muxerFinalizationError = ex;
-                    }
-                }
+                Exception? muxerFinalizationError = headerWritten ? FinalizeMuxer(muxer, encoders) : null;
 
-                foreach (var (encoder, _) in encoders)
-                {
-                    DisposeQuietly(encoder, nameof(MediaEncoder));
-                }
-                DisposeQuietly(swr, nameof(SampleConverter));
-                DisposeQuietly(_filterGraph, nameof(MediaFilterGraph));
-
-                _filterGraph = null;
-                _bufferSrcCtx = null;
-                _bufferSinkCtx = null;
+                ReleaseEncodingResources(encoders, swr);
 
                 // Surface muxer finalization failures to the caller so a truncated
                 // output file is not reported as a successful encode. If the try
@@ -350,20 +328,49 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 {
                     ExceptionDispatchInfo.Capture(muxerFinalizationError).Throw();
                 }
-
-                void DisposeQuietly(IDisposable? disposable, string resourceName)
-                {
-                    if (disposable is null) return;
-                    try
-                    {
-                        disposable.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to dispose {Resource} during FFmpeg encoding cleanup.", resourceName);
-                    }
-                }
             }
+        }
+    }
+
+    private Exception? FinalizeMuxer(MediaMuxer muxer, List<(MediaEncoder, MediaStream)> encoders)
+    {
+        try
+        {
+            muxer.FlushCodecs(encoders.Select(i => i.Item1));
+            muxer.WriteTrailer();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to finalize muxer output for {OutputFile}.", OutputFile);
+            return ex;
+        }
+    }
+
+    private void ReleaseEncodingResources(List<(MediaEncoder, MediaStream)> encoders, SampleConverter? swr)
+    {
+        foreach (var (encoder, _) in encoders)
+        {
+            DisposeQuietly(encoder, nameof(MediaEncoder));
+        }
+        DisposeQuietly(swr, nameof(SampleConverter));
+        DisposeQuietly(_filterGraph, nameof(MediaFilterGraph));
+
+        _filterGraph = null;
+        _bufferSrcCtx = null;
+        _bufferSinkCtx = null;
+    }
+
+    private void DisposeQuietly(IDisposable? disposable, string resourceName)
+    {
+        if (disposable is null) return;
+        try
+        {
+            disposable.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose {Resource} during FFmpeg encoding cleanup.", resourceName);
         }
     }
 
@@ -424,22 +431,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
 
-        if (_isHdr && _targetColorSpace != null)
-        {
+        using (var converted = _isHdr && _targetColorSpace != null
             // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
-            using var converted =
-                bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace);
-            unsafe
-            {
-                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,
-                    converted.ByteCount);
-            }
-        }
-        else
-        {
+            ? bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace)
             // Skia: LinearSrgb → Bgra8888/Srgb
-            using var converted =
-                bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            : bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb))
+        {
             unsafe
             {
                 Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,

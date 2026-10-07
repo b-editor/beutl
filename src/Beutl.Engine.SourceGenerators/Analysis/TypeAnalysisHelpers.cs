@@ -35,7 +35,7 @@ public static class TypeAnalysisHelpers
     public static bool HasSuppressResourceClassGenerationAttribute(INamedTypeSymbol symbol, INamedTypeSymbol suppressAttribute)
     {
         // Check current class
-        if (symbol.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute)))
+        if (HasAttribute(symbol, suppressAttribute))
         {
             return true;
         }
@@ -43,7 +43,7 @@ public static class TypeAnalysisHelpers
         // Check base classes
         for (INamedTypeSymbol? current = symbol.BaseType; current is not null; current = current.BaseType)
         {
-            if (current.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute)))
+            if (HasAttribute(current, suppressAttribute))
             {
                 return true;
             }
@@ -51,4 +51,7 @@ public static class TypeAnalysisHelpers
 
         return false;
     }
+
+    internal static bool HasAttribute(ISymbol symbol, INamedTypeSymbol attribute)
+        => symbol.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, attribute));
 }

@@ -5,7 +5,7 @@ using Beutl.FFmpegIpc;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public class FFmpegWorkerProcessTests
 {
     [TestCase(false)]
@@ -55,6 +55,9 @@ public class FFmpegWorkerProcessTests
     private static string FlatDll(string baseDir) =>
         Path.Combine(baseDir, "Beutl.FFmpegWorker.dll");
 
+    private static bool IsDeploymentFile(string path, string stem) =>
+        path == stem + ".dll" || path == stem + ".runtimeconfig.json" || path == stem + ".deps.json";
+
     [TestCase(true)]
     [TestCase(false)]
     public void ResolveWorkerCommand_PrefersSubdirApphost_OverFlatLayout(bool isWindows)
@@ -62,7 +65,9 @@ public class FFmpegWorkerProcessTests
         const string baseDir = "/app";
         string subApphost = SubDirApphost(baseDir, isWindows);
         // Both layouts present; the subdir must win so the worker loads its own shared assemblies.
-        bool FileExists(string p) => p == subApphost || p == FlatApphost(baseDir, isWindows);
+        bool FileExists(string p) => p == subApphost || p == FlatApphost(baseDir, isWindows)
+            || IsDeploymentFile(p, Path.Combine(baseDir, "FFmpegWorker", "Beutl.FFmpegWorker"))
+            || IsDeploymentFile(p, Path.Combine(baseDir, "Beutl.FFmpegWorker"));
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
 
@@ -76,7 +81,8 @@ public class FFmpegWorkerProcessTests
     {
         const string baseDir = "/app";
         string flatApphost = FlatApphost(baseDir, isWindows);
-        bool FileExists(string p) => p == flatApphost;
+        bool FileExists(string p) => p == flatApphost
+            || IsDeploymentFile(p, Path.Combine(baseDir, "Beutl.FFmpegWorker"));
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
 
@@ -89,8 +95,8 @@ public class FFmpegWorkerProcessTests
     public void ResolveWorkerCommand_SubdirDllMode_WhenNoApphost(bool isWindows)
     {
         const string baseDir = "/app";
-        // UseAppHost=false dev build: only the subdir .dll exists, launched via the dotnet host.
-        bool FileExists(string p) => p == SubDirDll(baseDir);
+        // UseAppHost=false dev build: the DLL and manifests exist, launched via the dotnet host.
+        bool FileExists(string p) => IsDeploymentFile(p, Path.Combine(baseDir, "FFmpegWorker", "Beutl.FFmpegWorker"));
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
 
@@ -100,11 +106,10 @@ public class FFmpegWorkerProcessTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public void ResolveWorkerCommand_FlatDllMode_WhenNothingElseExists(bool isWindows)
+    public void ResolveWorkerCommand_FlatDllMode_WhenNoApphostExists(bool isWindows)
     {
         const string baseDir = "/app";
-        // No file probe succeeds: fall back to the flat layout in DLL mode.
-        bool FileExists(string p) => false;
+        bool FileExists(string p) => IsDeploymentFile(p, Path.Combine(baseDir, "Beutl.FFmpegWorker"));
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
 
@@ -118,12 +123,107 @@ public class FFmpegWorkerProcessTests
     {
         const string baseDir = "/app";
         // Subdir .dll vs flat apphost: the subdir still wins (isolation first), launched via dotnet host.
-        bool FileExists(string p) => p == SubDirDll(baseDir) || p == FlatApphost(baseDir, isWindows);
+        bool FileExists(string p) => p == FlatApphost(baseDir, isWindows)
+            || IsDeploymentFile(p, Path.Combine(baseDir, "FFmpegWorker", "Beutl.FFmpegWorker"))
+            || IsDeploymentFile(p, Path.Combine(baseDir, "Beutl.FFmpegWorker"));
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
 
         Assert.That(command.FileName, Is.EqualTo(DotnetHost));
         Assert.That(command.DllArgument, Is.EqualTo(SubDirDll(baseDir)));
+    }
+
+    [TestCase(true, ".dll")]
+    [TestCase(false, ".dll")]
+    [TestCase(true, ".runtimeconfig.json")]
+    [TestCase(false, ".runtimeconfig.json")]
+    [TestCase(true, ".deps.json")]
+    [TestCase(false, ".deps.json")]
+    public void ResolveWorkerCommand_IncompleteSubdir_DoesNotHideCompleteFlatLayout(bool isWindows, string missingExtension)
+    {
+        const string baseDir = "/app";
+        string subStem = Path.Combine(baseDir, "FFmpegWorker", "Beutl.FFmpegWorker");
+        string flatStem = Path.Combine(baseDir, "Beutl.FFmpegWorker");
+        bool FileExists(string p) => p != subStem + missingExtension
+            && (p == SubDirApphost(baseDir, isWindows) || p == FlatApphost(baseDir, isWindows)
+                || IsDeploymentFile(p, subStem) || IsDeploymentFile(p, flatStem));
+
+        var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
+
+        Assert.That(command.FileName, Is.EqualTo(FlatApphost(baseDir, isWindows)));
+        Assert.That(command.DllArgument, Is.Null);
+    }
+
+    [TestCase(true, ".dll")]
+    [TestCase(false, ".dll")]
+    [TestCase(true, ".runtimeconfig.json")]
+    [TestCase(false, ".runtimeconfig.json")]
+    [TestCase(true, ".deps.json")]
+    [TestCase(false, ".deps.json")]
+    public void ResolveWorkerCommand_RejectsIncompleteDeployment(bool isWindows, string missingExtension)
+    {
+        const string baseDir = "/app";
+        string flatStem = Path.Combine(baseDir, "Beutl.FFmpegWorker");
+        bool FileExists(string p) => p != flatStem + missingExtension
+            && (p == FlatApphost(baseDir, isWindows) || IsDeploymentFile(p, flatStem));
+
+        FileNotFoundException? error = Assert.Throws<FileNotFoundException>(() =>
+            FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists));
+
+        Assert.That(error!.Message, Does.Contain("No complete FFmpeg worker deployment"));
+        Assert.That(error.Message, Does.Contain("Beutl.FFmpegWorker" + missingExtension));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ResolveWorkerCommand_RejectsAbsentWorker(bool isWindows)
+    {
+        Assert.Throws<FileNotFoundException>(() =>
+            FFmpegWorkerProcess.ResolveWorkerCommand("/app", isWindows, DotnetHost, _ => false));
+    }
+
+    [Test]
+    public async Task EarlyExit_IncludesStandardErrorInStartupException()
+    {
+        var error = await GetStartupFailureAsync("printf 'The application to execute does not exist: Beutl.FFmpegWorker.dll\\n' >&2; exit 154");
+
+        Assert.That(error.Message, Does.Contain("code 154 before establishing connection."));
+        Assert.That(error.Message, Does.Contain("Worker stderr: The application to execute does not exist: Beutl.FFmpegWorker.dll"));
+    }
+
+    [Test]
+    public async Task EarlyExit_StandardErrorTailIsBoundedAndKeepsLastDiagnostic()
+    {
+        var error = await GetStartupFailureAsync(
+            "printf 'discarded-first-line\\n' >&2; printf '%8192s' '' | tr ' ' x >&2; printf '\\nlast diagnostic\\n' >&2; exit 154");
+
+        Assert.That(error.Message, Does.Not.Contain("discarded-first-line"));
+        Assert.That(error.Message, Does.EndWith("last diagnostic"));
+        Assert.That(error.Message.Length, Is.LessThan(4300));
+    }
+
+    [Test]
+    public async Task EarlyExit_WithoutStandardError_PreservesExitCodeMessage()
+    {
+        var error = await GetStartupFailureAsync("exit 154");
+
+        Assert.That(error.Message, Is.EqualTo("FFmpeg worker exited unexpectedly with code 154 before establishing connection."));
+    }
+
+    private static async Task<InvalidOperationException> GetStartupFailureAsync(string script)
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("Uses a POSIX worker fixture.");
+        using var worker = new FFmpegWorkerProcess(false, start =>
+        {
+            start.FileName = "/bin/sh";
+            start.ArgumentList.Add("-c");
+            start.ArgumentList.Add(script);
+        });
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var method = typeof(FFmpegWorkerProcess).GetMethod("StartWorkerWithCooldownAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var startup = (Task)method.Invoke(worker, new object[] { timeout.Token })!;
+        return (await Assert.ThrowsAsync<InvalidOperationException>(async () => await startup))!;
     }
 
     [Test]

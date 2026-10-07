@@ -209,6 +209,41 @@ jobs:
           name: Coverage
           path: coveragereport
 
+  mediafoundation-tests:
+    permissions:
+      contents: read
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Test Media Foundation on Windows x64
+        run: >-
+          dotnet test tests/Beutl.Extensions.MediaFoundation.Tests/Beutl.Extensions.MediaFoundation.Tests.csproj
+          --configuration Release -f net10.0 -p:PlatformTarget=x64
+          --logger trx --results-directory TestResults/mediafoundation
+          --blame-hang --blame-hang-timeout 2m --blame-hang-dump-type mini
+          --blame-crash --blame-crash-dump-type mini
+
+      - name: Save Media Foundation test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: MediaFoundationTestDiagnostics
+          path: TestResults/mediafoundation/
+          if-no-files-found: ignore
+          retention-days: 7
+
   upload-coverage:
     needs: build
     permissions:

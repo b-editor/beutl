@@ -378,20 +378,29 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private readonly record struct ShapedGlyph(ushort Id, SKPoint Position, float Width);
 
+    // The caller owns TextBlob, FillPath and StrokePath.
+    private readonly record struct MeasuredText(
+        SKTextBlob? TextBlob,
+        SKPath FillPath,
+        SKPath? StrokePath,
+        FontMetrics Metrics,
+        Rect Bounds,
+        Rect ActualBounds,
+        Rect RasterBounds);
+
     private void Measure()
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds, Rect rasterBounds)
-            = MeasureCore(1f, updatePathList: true);
+        MeasuredText measured = MeasureCore(1f, updatePathList: true);
 
-        (_metrics, _bounds, _actualBounds, _rasterBounds) = (metrics, bounds, actualBounds, rasterBounds);
+        (_metrics, _bounds, _actualBounds, _rasterBounds) =
+            (measured.Metrics, measured.Bounds, measured.ActualBounds, measured.RasterBounds);
 
         (_textBlob, _fillPath, _strokePath).DisposeAll();
-        (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
+        (_textBlob, _fillPath, _strokePath) = (measured.TextBlob, measured.FillPath, measured.StrokePath);
         _scaledCache.Clear();
     }
 
-    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds, Rect RasterBounds)
-        MeasureCore(float density, bool updatePathList)
+    private MeasuredText MeasureCore(float density, bool updatePathList)
     {
         density = NormalizeDensity(density);
         float spacing = Spacing * density;
@@ -411,16 +420,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         if (updatePathList)
         {
             ClearNonOutlineGlyphs();
-            // SetCount truncates trailing entries without disposing them; release them first so their
-            // owned glyph SKPaths don't leak to finalizers.
-            int glyphCount = result.Codepoints.Length;
-            for (int i = glyphCount; i < _pathList.Count; i++)
-            {
-                _pathList[i]?.Dispose();
-            }
-
-            CollectionsMarshal.SetCount(_pathList, glyphCount);
-            pathList = CollectionsMarshal.AsSpan(_pathList);
+            pathList = PreparePathList(result.Codepoints.Length);
         }
 
         Rect nonOutlineBounds = default;
@@ -461,12 +461,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 if (updatePathList)
                 {
                     tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
-
-                    ref Geometry.Resource? exist = ref pathList[i]!;
-                    exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
-                    // The list is typed as Geometry.Resource so ToGeometries can hand out a well-typed
-                    // span; every entry is minted right here, so it is always an SKPathGeometry.Resource.
-                    ((SKPathGeometry.Resource)exist).SetSKPath(tmp, false);
+                    AssignGlyphGeometry(pathList, i, tmp);
                 }
                 else
                 {
@@ -475,9 +470,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             }
             else if (updatePathList)
             {
-                ref Geometry.Resource? exist = ref pathList[i]!;
-                exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
-                ((SKPathGeometry.Resource)exist).SetSKPath(tmp, false);
+                AssignGlyphGeometry(pathList, i, tmp);
             }
         }
 
@@ -507,7 +500,31 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         actualBounds = actualBounds.Union(nonOutlineBounds);
         rasterBounds = rasterBounds.IsEmpty ? actualBounds : rasterBounds.Union(actualBounds);
 
-        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds, rasterBounds);
+        return new MeasuredText(
+            textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds, rasterBounds);
+    }
+
+    // Sizes the glyph geometry list to one entry per glyph and returns it for filling in place.
+    private Span<Geometry.Resource> PreparePathList(int glyphCount)
+    {
+        // SetCount truncates trailing entries without disposing them; release them first so their
+        // owned glyph SKPaths don't leak to finalizers.
+        for (int i = glyphCount; i < _pathList.Count; i++)
+        {
+            _pathList[i]?.Dispose();
+        }
+
+        CollectionsMarshal.SetCount(_pathList, glyphCount);
+        return CollectionsMarshal.AsSpan(_pathList);
+    }
+
+    // The list is typed as Geometry.Resource so ToGeometries can hand out a well-typed
+    // span; every entry is minted right here, so it is always an SKPathGeometry.Resource.
+    private static void AssignGlyphGeometry(Span<Geometry.Resource> pathList, int index, SKPath? path)
+    {
+        ref Geometry.Resource? exist = ref pathList[index]!;
+        exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
+        ((SKPathGeometry.Resource)exist).SetSKPath(path, false);
     }
 
     private static Rect MeasureGlyphMaskBounds(SKFont font, ReadOnlySpan<ushort> glyphs, ReadOnlySpan<SKPoint> positions)
@@ -572,12 +589,12 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds) MeasureScaledText(float density)
     {
-        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _, Rect rasterBounds) =
-            MeasureCore(density, updatePathList: false);
-        fillPath.Dispose();
+        MeasuredText measured = MeasureCore(density, updatePathList: false);
+        measured.FillPath.Dispose();
+        Rect rasterBounds = measured.RasterBounds;
         return (
-            textBlob,
-            strokePath,
+            measured.TextBlob,
+            measured.StrokePath,
             new Rect(
                 rasterBounds.X / density,
                 rasterBounds.Y / density,

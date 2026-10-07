@@ -31,270 +31,213 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
         _library = app.GetResource<LibraryService>();
         _discover = app.GetResource<DiscoverService>();
 
-        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
-        CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
-        IObservable<bool> notBusy = IsBusy.Not();
-        IsInstallButtonVisible = installed
-            .AnyTrue(CanCancel)
-            .Not()
-            .AreTrue(notBusy)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IObservable<PackageIdentity?> installedPackage = _handler.InstalledPackageRepository.GetPackageObservable(package.Name);
-        IsUpdateButtonVisible = LatestRelease.CombineLatest(installedPackage)
-            .Select(x => PackageUpdateAvailability.IsAvailable(x.First?.Version.Value, x.Second))
-            .AreTrue(CanCancel.Not(), notBusy)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not(), IsUpdateButtonVisible.Not(), notBusy)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        (CanCancel, IsInstallButtonVisible, IsUpdateButtonVisible, IsUninstallButtonVisible) = PackageButtonStates.Create(
+            _handler, package.Name, IsBusy, LatestRelease, _disposables);
 
         Install = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Install");
-
-                try
-                {
-                    IsBusy.Value = true;
-
-                    StatusText.Value = ExtensionsStrings.Installing;
-                    using (await _app.Lock.LockAsync())
-                    {
-                        activity?.AddEvent(new("Entered_AsyncLock"));
-                        if (_app.AuthenticatedUser.Value != null)
-                        {
-                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
-                        }
-
-                        Release release = await AcquirePackage();
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-
-                        try
-                        {
-                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
-                            NotificationService.ShowInformation(
-                                title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
-                                    packageId.Id));
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
-                            _handler.Queue.InstallQueue(packageId);
-                            NotificationService.ShowInformation(
-                                title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
-                                    packageId.Id));
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    StatusText.Value = null;
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
         Update = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Update");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    if (!await _handler.EnsureProjectClosed())
-                        return;
-
-                    StatusText.Value = ExtensionsStrings.Updating;
-                    using (await _app.Lock.LockAsync())
-                    {
-                        activity?.AddEvent(new("Entered_AsyncLock"));
-                        if (_app.AuthenticatedUser.Value != null)
-                        {
-                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
-                        }
-
-                        Release release = await AcquirePackage();
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-
-                        try
-                        {
-                            if (!await _handler.UnloadPackages(Package.Name))
-                            {
-                                throw new InvalidOperationException(
-                                    $"Package '{Package.Name}' could not be unloaded safely.");
-                            }
-
-                            _handler.DeleteOldVersionFiles(Package.Name);
-
-                            await _handler.DownloadAndLoadPackage(release, packageId, CancellationToken.None);
-                            NotificationService.ShowInformation(
-                                title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
-                            _handler.Queue.InstallQueue(packageId);
-                            NotificationService.ShowInformation(
-                                title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    StatusText.Value = null;
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
         Uninstall = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Uninstall");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    if (!await _handler.EnsureProjectClosed())
-                        return;
-
-                    StatusText.Value = ExtensionsStrings.Uninstalling;
-
-                    if (!await _handler.UnloadPackages(Package.Name))
-                    {
-                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
-                    }
-
-                    if (_handler.UninstallWithFallback(Package.Name))
-                    {
-                        NotificationService.ShowInformation(
-                            title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled, Package.Name));
-                    }
-                    else
-                    {
-                        NotificationService.ShowInformation(
-                            title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
-                    _handler.QueueUninstallAll(Package.Name);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsStrings.PackageInstaller,
-                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
-                }
-                finally
-                {
-                    StatusText.Value = null;
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(UninstallAsync)
             .DisposeWith(_disposables);
 
         Cancel = new AsyncReactiveCommand()
-            .WithSubscribe(async () =>
-            {
-                try
-                {
-                    IsBusy.Value = true;
-                    _handler.Cancel(Package.Name);
-                }
-                catch (Exception e)
-                {
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
 
         RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not().AreTrue(_app.AuthenticatedUser.Select(i => i != null)))
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.RemoveFromLibrary");
-
-                try
-                {
-                    IsBusy.Value = true;
-
-                    // 所有しているが支払っていない場合（入手後に価格が設定された）は確認ダイアログを表示する
-                    if (!Package.Paid.Value && Package.FormattedPrice.Value != null)
-                    {
-                        string priceText = Package.FormattedPrice.Value;
-                        var dialog = new FAContentDialog
-                        {
-                            Title = ExtensionsStrings.RemoveFromLibrary_Title,
-                            Content = new TextBlock
-                            {
-                                Text = string.Format(ExtensionsStrings.RemoveFromLibrary_PaidConfirmation, priceText),
-                                TextWrapping = Avalonia.Media.TextWrapping.Wrap
-                            },
-                            PrimaryButtonText = ExtensionsStrings.RemoveFromLibrary,
-                            CloseButtonText = Strings.Cancel
-                        };
-
-                        if (await dialog.ShowAsync() is not FAContentDialogResult.Primary)
-                            return;
-                    }
-
-                    using (await _app.Lock.LockAsync())
-                    {
-                        activity?.AddEvent(new("Entered_AsyncLock"));
-                        if (_app.AuthenticatedUser.Value != null)
-                        {
-                            await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
-                            await _library.RemovePackage(Package, CancellationToken.None);
-                        }
-
-                        activity?.AddEvent(new("Removed_PackageFromLibrary"));
-                        OnRemoveFromLibrary?.Invoke(this);
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+            .WithSubscribe(RemoveFromLibraryAsync)
             .DisposeWith(_disposables);
+    }
+
+    private async Task InstallAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Install");
+
+        try
+        {
+            IsBusy.Value = true;
+
+            StatusText.Value = ExtensionsStrings.Installing;
+            using (await _app.Lock.LockAsync())
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                if (_app.AuthenticatedUser.Value != null)
+                {
+                    await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+                }
+
+                Release release = await AcquirePackage();
+                var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+
+                await _handler.InstallOrQueueAsync(release, packageId, _logger, CancellationToken.None);
+            }
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            StatusText.Value = null;
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task UpdateAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Update");
+
+        try
+        {
+            IsBusy.Value = true;
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
+            StatusText.Value = ExtensionsStrings.Updating;
+            using (await _app.Lock.LockAsync())
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                if (_app.AuthenticatedUser.Value != null)
+                {
+                    await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+                }
+
+                Release release = await AcquirePackage();
+                var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+
+                await _handler.UpdateOrQueueAsync(
+                    Package.Name,
+                    packageId,
+                    token => _handler.DownloadAndLoadPackage(release, packageId, token),
+                    _logger,
+                    CancellationToken.None);
+            }
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            StatusText.Value = null;
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task UninstallAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Uninstall");
+
+        try
+        {
+            IsBusy.Value = true;
+            if (!await _handler.EnsureProjectClosed())
+                return;
+
+            StatusText.Value = ExtensionsStrings.Uninstalling;
+
+            if (await _handler.UnloadAndUninstallAsync(Package.Name))
+            {
+                PackageNotifications.Uninstalled(Package.Name);
+            }
+            else
+            {
+                PackageNotifications.ScheduledUninstallation(Package.Name);
+            }
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
+            _handler.QueueUninstallAll(Package.Name);
+            PackageNotifications.ScheduledUninstallation(Package.Name);
+        }
+        finally
+        {
+            StatusText.Value = null;
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        try
+        {
+            IsBusy.Value = true;
+            _handler.Cancel(Package.Name);
+        }
+        catch (Exception e)
+        {
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            IsBusy.Value = false;
+        }
+    }
+
+    private async Task RemoveFromLibraryAsync()
+    {
+        using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.RemoveFromLibrary");
+
+        try
+        {
+            IsBusy.Value = true;
+
+            // 所有しているが支払っていない場合（入手後に価格が設定された）は確認ダイアログを表示する
+            if (!Package.Paid.Value && Package.FormattedPrice.Value != null)
+            {
+                string priceText = Package.FormattedPrice.Value;
+                var dialog = new FAContentDialog
+                {
+                    Title = ExtensionsStrings.RemoveFromLibrary_Title,
+                    Content = new TextBlock
+                    {
+                        Text = string.Format(ExtensionsStrings.RemoveFromLibrary_PaidConfirmation, priceText),
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    },
+                    PrimaryButtonText = ExtensionsStrings.RemoveFromLibrary,
+                    CloseButtonText = Strings.Cancel
+                };
+
+                if (await dialog.ShowAsync() is not FAContentDialogResult.Primary)
+                    return;
+            }
+
+            using (await _app.Lock.LockAsync())
+            {
+                activity?.AddEvent(new("Entered_AsyncLock"));
+                if (_app.AuthenticatedUser.Value != null)
+                {
+                    await _app.AuthenticatedUser.Value.RefreshAsync(CancellationToken.None);
+                    await _library.RemovePackage(Package, CancellationToken.None);
+                }
+
+                activity?.AddEvent(new("Removed_PackageFromLibrary"));
+                OnRemoveFromLibrary?.Invoke(this);
+            }
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            await e.Handle();
+            _logger.LogError(e, "An unexpected error has occurred.");
+        }
+        finally
+        {
+            IsBusy.Value = false;
+        }
     }
 
     private async Task<Release> AcquirePackage()

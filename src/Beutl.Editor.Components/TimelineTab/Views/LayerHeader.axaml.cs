@@ -109,17 +109,7 @@ public sealed partial class LayerHeader : UserControl
 
         // Snapshot the headers shifted by the move (against pre-move state) so we can
         // update their Number.Value after the service rewrites Element.ZIndex.
-        List<LayerHeaderViewModel> shiftedHeaders = [];
-        foreach (LayerHeaderViewModel item in vm.Timeline.LayerHeaders.GetMarshal().Value)
-        {
-            int n = item.Number.Value;
-            if (n == oldLayerNum) continue;
-            if ((oldLayerNum < newLayerNum && n > oldLayerNum && n <= newLayerNum)
-                || (oldLayerNum > newLayerNum && n < oldLayerNum && n >= newLayerNum))
-            {
-                shiftedHeaders.Add(item);
-            }
-        }
+        List<LayerHeaderViewModel> shiftedHeaders = CollectShiftedHeaders(vm, oldLayerNum, newLayerNum);
 
         ILayerMoveService service = vm.Timeline.EditorContext.GetRequiredService<ILayerMoveService>();
         LayerMovePlan plan = service.ApplyMove(
@@ -134,12 +124,7 @@ public sealed partial class LayerHeader : UserControl
         // their margins to the (unchanged) model rows too.
         if (plan.IsNoop)
         {
-            vm.PosY.Value = 0;
-            foreach (ElementViewModel item in directElements)
-            {
-                item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex), 0, 0);
-            }
-
+            RestoreDraggedRows(vm, directElements);
             return;
         }
 
@@ -164,6 +149,32 @@ public sealed partial class LayerHeader : UserControl
         {
             ElementViewModel? shiftedVm = vm.Timeline.Elements.FirstOrDefault(v => v.Model == shifted);
             shiftedVm?.AnimationRequest(shifted.ZIndex, affectModel: false);
+        }
+    }
+
+    private static List<LayerHeaderViewModel> CollectShiftedHeaders(LayerHeaderViewModel vm, int oldLayerNum, int newLayerNum)
+    {
+        List<LayerHeaderViewModel> shiftedHeaders = [];
+        foreach (LayerHeaderViewModel item in vm.Timeline.LayerHeaders.GetMarshal().Value)
+        {
+            int n = item.Number.Value;
+            if (n == oldLayerNum) continue;
+            if ((oldLayerNum < newLayerNum && n > oldLayerNum && n <= newLayerNum)
+                || (oldLayerNum > newLayerNum && n < oldLayerNum && n >= newLayerNum))
+            {
+                shiftedHeaders.Add(item);
+            }
+        }
+
+        return shiftedHeaders;
+    }
+
+    private static void RestoreDraggedRows(LayerHeaderViewModel vm, ElementViewModel[] directElements)
+    {
+        vm.PosY.Value = 0;
+        foreach (ElementViewModel item in directElements)
+        {
+            item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex), 0, 0);
         }
     }
 

@@ -22,7 +22,6 @@ public static class ColorGenerator
             {
                 byte[] utf8 = Encoding.UTF8.GetBytes(str);
                 byte[] hash = MD5.HashData(utf8);
-                Span<byte> hashSpan = hash.AsSpan(hash.Length - 7);
 
                 int pos = hash.Length - 7;
                 ReadOnlySpan<char> hashStr = Convert.ToHexString(hash.AsSpan().Slice(pos)).AsSpan();
@@ -88,9 +87,6 @@ public static class ColorGenerator
         Vector3 c = ToVector3(color);
         float grayscale = Vector3.Dot(new(0.2126f, 0.7152f, 0.0722f), c);
         c = new Vector3(grayscale);
-
-        // brightness
-        //c = Vector3.One - c;
 
         //lightness
         HslColor hsl = ToColor(c).ToHsl();

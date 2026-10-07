@@ -61,8 +61,6 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             .Subscribe(ci => _config.UICulture = ci)
             .DisposeWith(_disposables);
 
-        GetPredefColors();
-
         bool result = Color.TryParse(_config.CustomAccentColor, out Color customColor);
 
         UseCustomAccent = new ReactiveProperty<bool>(_config.UseCustomAccentColor);

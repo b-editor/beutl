@@ -1,6 +1,5 @@
 ﻿using Beutl.Audio.Effects;
 using Beutl.Engine;
-using Beutl.Media;
 using static Beutl.Audio.Effects.DelayParameters;
 
 namespace Beutl.Audio.Graph.Nodes;
@@ -145,9 +144,7 @@ public sealed class DelayNode : AudioNode
             {
                 int chunkSize = Math.Min(delayTimes.Length, input.SampleCount - processed);
 
-                var chunkStart = context.GetTimeForSample(processed);
-                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+                var chunkRange = context.GetChunkRange(processed, chunkSize);
 
                 // Sample animation values for this chunk
                 context.AnimationSampler.SampleBuffer(DelayTime, chunkRange, context.SampleRate, delayTimes[..chunkSize]);

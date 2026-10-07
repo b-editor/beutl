@@ -43,10 +43,7 @@ public sealed class GainNode : AudioNode
                     int chunkSize = System.Math.Min(gains.Length, input.SampleCount - processed);
                     var chunkGains = gains.Slice(0, chunkSize);
 
-                    var chunkStart = context.GetTimeForSample(processed);
-                    var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                    // context.GetTimeForSample already includes context.TimeRange.Start.
-                    var chunkRange = new Media.TimeRange(chunkStart, chunkEnd - chunkStart);
+                    var chunkRange = context.GetChunkRange(processed, chunkSize);
 
                     // Sample animation values
                     context.AnimationSampler.SampleBuffer(

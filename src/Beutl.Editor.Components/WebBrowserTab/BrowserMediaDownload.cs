@@ -8,6 +8,10 @@ internal enum BrowserReferrerPolicy { Origin, NoReferrer, SameOrigin }
 
 internal sealed class BrowserMediaDownload(HttpClient client)
 {
+    // The leading bytes checked for an HTML document before anything is written to disk.
+    private const int SniffLength = 4096;
+    private const int CopyBufferSize = 81920;
+
     // Redirects and cookies belong to each download, not to this shared transport.
     internal static readonly BrowserMediaDownload Default = new(new HttpClient(new HttpClientHandler
     {
@@ -45,6 +49,10 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     internal static bool IsMediaLink(Uri uri) => IsHttpUri(uri)
         && IsMediaExtension(Path.GetExtension(uri.AbsolutePath));
+
+    // HttpStatusCode.Redirect and HttpStatusCode.Found are both 302.
+    internal static bool IsRedirectStatus(HttpStatusCode status) => status is HttpStatusCode.MovedPermanently
+        or HttpStatusCode.Found or HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect;
 
     internal static bool IsHttpUri(Uri uri) => uri.IsAbsoluteUri
         && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
@@ -98,18 +106,10 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken,
         long? total = null, string? charset = null)
     {
-        byte[] prefix = new byte[4096];
-        int length = 0;
-        while (length < prefix.Length)
-        {
-            int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
-            if (count == 0) break;
-            length += count;
-        }
-        Array.Resize(ref prefix, length);
-        var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096,
+        byte[] prefix = await ReadPrefixAsync(input, cancellationToken);
+        var inspector = new BrowserMediaContentInspector(prefix, isFinal: prefix.Length < SniffLength,
             charset: charset);
-        if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+        ThrowIfHtml(inspector);
         Directory.CreateDirectory(directory);
         string temporaryPath = Path.Combine(directory, $".{Guid.NewGuid():N}.part");
         try
@@ -117,7 +117,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             long received = 0;
             var progressTimer = Stopwatch.StartNew();
             await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                             81920, FileOptions.Asynchronous))
+                             CopyBufferSize, FileOptions.Asynchronous))
             {
                 if (prefix.Length > 0)
                 {
@@ -125,12 +125,12 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                     received = prefix.Length;
                     progress?.Report((received, total));
                 }
-                byte[] buffer = new byte[81920];
+                byte[] buffer = new byte[CopyBufferSize];
                 int count;
                 while ((count = await input.ReadAsync(buffer, cancellationToken)) > 0)
                 {
                     inspector.Inspect(buffer.AsSpan(0, count));
-                    if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+                    ThrowIfHtml(inspector);
                     await output.WriteAsync(buffer.AsMemory(0, count), cancellationToken);
                     received += count;
                     if (progressTimer.ElapsedMilliseconds >= 100 || received == total)
@@ -140,7 +140,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                     }
                 }
                 inspector.Inspect([], isFinal: true);
-                if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+                ThrowIfHtml(inspector);
             }
 
             if (received == 0 || (total.HasValue && total != received))
@@ -163,37 +163,49 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         string? charset, CancellationToken cancellationToken)
     {
         await using (var input = new FileStream(completedPath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                         81920, FileOptions.Asynchronous))
+                         CopyBufferSize, FileOptions.Asynchronous))
         {
             long expectedLength = input.Length;
-            byte[] prefix = new byte[4096];
-            int length = 0;
-            while (length < prefix.Length)
-            {
-                int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
-                if (count == 0) break;
-                length += count;
-            }
-            Array.Resize(ref prefix, length);
-            var inspector = new BrowserMediaContentInspector(prefix, isFinal: length < 4096, charset: charset);
-            if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
-            long received = length;
-            byte[] buffer = new byte[81920];
+            byte[] prefix = await ReadPrefixAsync(input, cancellationToken);
+            var inspector = new BrowserMediaContentInspector(prefix, isFinal: prefix.Length < SniffLength, charset: charset);
+            ThrowIfHtml(inspector);
+            long received = prefix.Length;
+            byte[] buffer = new byte[CopyBufferSize];
             int read;
             while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
             {
                 inspector.Inspect(buffer.AsSpan(0, read));
-                if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+                ThrowIfHtml(inspector);
                 received += read;
             }
             inspector.Inspect([], isFinal: true);
-            if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
+            ThrowIfHtml(inspector);
             if (received == 0 || received != expectedLength) throw new IOException(Strings.WebDownloadIncomplete);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(directory);
         return PublishCompletedFile(completedPath, directory, name, cancellationToken);
+    }
+
+    // Fills the prefix unless the stream ends first, in which case it is trimmed to the bytes that arrived.
+    private static async Task<byte[]> ReadPrefixAsync(Stream input, CancellationToken cancellationToken)
+    {
+        byte[] prefix = new byte[SniffLength];
+        int length = 0;
+        while (length < prefix.Length)
+        {
+            int count = await input.ReadAsync(prefix.AsMemory(length), cancellationToken);
+            if (count == 0) break;
+            length += count;
+        }
+        Array.Resize(ref prefix, length);
+        return prefix;
+    }
+
+    private static void ThrowIfHtml(BrowserMediaContentInspector inspector)
+    {
+        if (inspector.IsHtml) throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
     }
 
     private static string PublishCompletedFile(string path, string directory, string name, CancellationToken cancellationToken)
@@ -242,8 +254,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
                         catch (CookieException) { /* Ignore invalid response cookies, as browsers do. */ }
                     }
                 }
-                if (response.StatusCode is not (HttpStatusCode.MovedPermanently or HttpStatusCode.Found
-                    or HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect)
+                if (!IsRedirectStatus(response.StatusCode)
                     || response.Headers.Location is not { } location || redirects >= 10)
                     return response;
 

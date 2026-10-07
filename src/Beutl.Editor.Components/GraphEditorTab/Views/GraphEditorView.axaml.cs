@@ -164,50 +164,41 @@ public partial class GraphEditorView : UserControl
             }
             else if (_mouseFlag == TimelineHelper.MouseFlags.EndingBarMarkerPressed)
             {
-                // ポインタ位置に基づいてシーンDurationを更新
-                TimeSpan newDuration = _pointerFrame - viewModel.Scene.Start;
-                if (newDuration < TimeSpan.Zero)
-                {
-                    newDuration = TimeSpan.FromSeconds(1d / rate);
-                }
-
-                // 直接値を更新（コマンド記録なし）
-                viewModel.Scene.Duration = newDuration;
+                // タイムラインと同じく、シーンの長さを1フレーム以上に保つ（コマンドは離したときに記録）
+                viewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .UpdateEndDrag(viewModel.Scene, _pointerFrame);
                 e.Handled = true;
             }
             else if (_mouseFlag == TimelineHelper.MouseFlags.StartingBarMarkerPressed)
             {
-                TimeSpan newStart = _pointerFrame;
-                if (newStart < TimeSpan.Zero)
-                {
-                    newStart = TimeSpan.Zero;
-                }
-                else if (newStart > _initialDuration + _initialStart)
-                {
-                    newStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
-                }
-
-                viewModel.Scene.Start = newStart;
-                viewModel.Scene.Duration = _initialDuration + _initialStart - newStart;
+                viewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .UpdateStartDrag(viewModel.Scene, _pointerFrame, _initialStart, _initialDuration);
                 e.Handled = true;
             }
             else
             {
-                Point posScale = e.GetPosition(scale);
-                double startingBarX = viewModel.StartingBarMargin.Value.Left;
-                double endingBarX = viewModel.EndingBarMargin.Value.Left;
-
-                // EndingBarマーカーの当たり判定チェック
-                if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX,
-                        endingBarX))
-                {
-                    scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
-                }
-                else
-                {
-                    scale.Cursor = Cursor.Default;
-                }
+                UpdateScaleCursor(viewModel, e, pointerPt);
             }
+        }
+    }
+
+    private void UpdateScaleCursor(GraphEditorViewModel viewModel, PointerEventArgs e, PointerPoint pointerPt)
+    {
+        Point posScale = e.GetPosition(scale);
+        double startingBarX = viewModel.StartingBarMargin.Value.Left;
+        double endingBarX = viewModel.EndingBarMargin.Value.Left;
+
+        // EndingBarマーカーの当たり判定チェック
+        if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX,
+                endingBarX))
+        {
+            scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+        }
+        else
+        {
+            scale.Cursor = Cursor.Default;
         }
     }
 
@@ -220,11 +211,15 @@ public partial class GraphEditorView : UserControl
         {
             if (_mouseFlag == TimelineHelper.MouseFlags.EndingBarMarkerPressed)
             {
-                viewModel.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
+                viewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .CommitEndChange();
             }
             else if (_mouseFlag == TimelineHelper.MouseFlags.StartingBarMarkerPressed)
             {
-                viewModel.HistoryManager.Commit(CommandNames.ChangeSceneStart);
+                viewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .CommitStartChange();
             }
 
             _mouseFlag = TimelineHelper.MouseFlags.Free;
@@ -262,9 +257,7 @@ public partial class GraphEditorView : UserControl
                     _mouseFlag = TimelineHelper.MouseFlags.SeekBarPressed;
                     viewModel.CurrentTime.Value = pointerPt.Position.X
                         .PixelToTimeSpan(viewModel.Options.Value.Scale)
-                        .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
-                            ? proj.GetFrameRate()
-                            : 30);
+                        .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate());
                 }
 
                 e.Pointer.Capture(RulerBar);

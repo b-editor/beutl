@@ -219,8 +219,7 @@ internal sealed class BrowserAdBlockFilterStore
         for (int redirects = 0; ; redirects++)
         {
             var response = await _client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
-            if (response.StatusCode is not (HttpStatusCode.MovedPermanently or HttpStatusCode.Redirect
-                or HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect)) return response;
+            if (!BrowserMediaDownload.IsRedirectStatus(response.StatusCode)) return response;
             Uri? location = response.Headers.Location;
             response.Dispose();
             if (redirects >= 4 || location == null) throw new HttpRequestException("Too many filter list redirects.");

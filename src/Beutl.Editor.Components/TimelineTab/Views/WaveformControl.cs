@@ -106,8 +106,6 @@ public sealed class WaveformControl : Control
                     // 少し余裕を持たせる(1スロット分)
                     startIndex = Math.Max(0, (int)(minX / slotWidth) - 1);
                     endIndex = Math.Min(count - 1, (int)Math.Ceiling(maxX / slotWidth) + 1);
-
-                    // Console.WriteLine($"minX: {minX}, maxX: {maxX}, startIndex: {startIndex}, endIndex: {endIndex}");
                 }
             }
 

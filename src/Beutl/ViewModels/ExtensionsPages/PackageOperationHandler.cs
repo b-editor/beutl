@@ -52,14 +52,7 @@ internal class PackageOperationHandler
                 release,
                 force: true,
                 cancellationToken).ConfigureAwait(false);
-            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
-            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (!context.HashVerified)
-                throw new InvalidDataException("The package hash could not be verified.");
-            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
-
-            cancellationToken.ThrowIfCancellationRequested();
-            await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+            await DownloadVerifyAndActivateAsync(context, packageId, cancellationToken).ConfigureAwait(false);
         }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }
 
@@ -76,15 +69,106 @@ internal class PackageOperationHandler
                 packageId.Version.ToString(),
                 force: true,
                 cancellationToken);
-            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
-            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (!context.HashVerified)
-                throw new InvalidDataException("The package hash could not be verified.");
-            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
-
-            cancellationToken.ThrowIfCancellationRequested();
-            await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+            await DownloadVerifyAndActivateAsync(context, packageId, cancellationToken).ConfigureAwait(false);
         }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
+    }
+
+    private async Task DownloadVerifyAndActivateAsync(
+        PackageInstallContext context,
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
+    {
+        await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (!context.HashVerified)
+            throw new InvalidDataException("The package hash could not be verified.");
+        await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await ActivateInstalledPackageAsync(packageId, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Installs right away, or queues the install for the next launch when that fails. Cancellation of
+    // cancellationToken is rethrown instead of being queued.
+    public Task InstallOrQueueAsync(
+        Release release,
+        PackageIdentity packageId,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        return InstallOrQueueCoreAsync(
+            () => DownloadAndLoadPackage(release, packageId, cancellationToken), packageId, logger, cancellationToken);
+    }
+
+    public Task InstallOrQueueAsync(PackageIdentity packageId, ILogger logger, CancellationToken cancellationToken)
+    {
+        return InstallOrQueueCoreAsync(
+            () => DownloadAndLoadPackage(packageId, cancellationToken), packageId, logger, cancellationToken);
+    }
+
+    private async Task InstallOrQueueCoreAsync(
+        Func<Task> downloadAndLoad,
+        PackageIdentity packageId,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await downloadAndLoad();
+            PackageNotifications.Installed(packageId.Id);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+            _queue.InstallQueue(packageId);
+            PackageNotifications.ScheduledInstallation(packageId.Id);
+        }
+    }
+
+    // Replaces the installed version, or queues the update for the next launch when that fails.
+    // downloadAndLoad runs after the old version has been unloaded and deleted.
+    public async Task UpdateOrQueueAsync(
+        string packageName,
+        PackageIdentity packageId,
+        Func<CancellationToken, Task> downloadAndLoad,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        bool oldVersionRemoved = false;
+        try
+        {
+            if (!await UnloadPackages(packageName))
+            {
+                throw new InvalidOperationException(
+                    $"Package '{packageName}' could not be unloaded safely.");
+            }
+
+            DeleteOldVersionFiles(packageName);
+            oldVersionRemoved = true;
+
+            await downloadAndLoad(cancellationToken);
+            PackageNotifications.Updated(packageId.Id);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (oldVersionRemoved)
+            {
+                // The old version is gone; queue the update for the next launch.
+                _queue.InstallQueue(packageId);
+            }
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+            _queue.InstallQueue(packageId);
+            PackageNotifications.ScheduledUpdate(packageId.Id);
+        }
     }
 
     private async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
@@ -154,6 +238,17 @@ internal class PackageOperationHandler
         GC.WaitForPendingFinalizers();
 
         return result;
+    }
+
+    // Returns false when part of the uninstall was queued for the next launch.
+    public async Task<bool> UnloadAndUninstallAsync(string packageName)
+    {
+        if (!await UnloadPackages(packageName))
+        {
+            throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+        }
+
+        return UninstallWithFallback(packageName);
     }
 
     public void DeleteOldVersionFiles(string packageName)

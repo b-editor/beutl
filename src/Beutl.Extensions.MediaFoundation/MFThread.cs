@@ -19,6 +19,12 @@ public static class MFThread
         {
             Thread.CurrentThread.IsBackground = true;
             Thread.CurrentThread.Name = "Beutl.MediaFoundation";
+            // Audio-only opens also create Vortice wrappers while probing the
+            // video time origin. Configure SharpGen before any wrapper freezes
+            // its process-wide settings, regardless of which stream opens first.
+            SharpGen.Runtime.Configuration.EnableObjectTracking = true;
+            SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
+            SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
             MediaFactory.MFStartup();
         });
 

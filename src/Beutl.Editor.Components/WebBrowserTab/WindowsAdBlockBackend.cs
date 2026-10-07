@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using Avalonia.Platform;
+using static Beutl.Editor.Components.WebBrowserTab.WebView2Vtable;
 
 namespace Beutl.Editor.Components.WebBrowserTab;
 
@@ -89,14 +90,6 @@ internal sealed unsafe partial class WindowsAdBlockBackend : IBrowserAdBlockBack
             Marshal.Release(_webView);
             _response = _webView = 0;
         }
-    }
-
-    private static nint Method(nint instance, int slot) => (*(nint**)instance)[slot];
-    private static nint GetObject(nint instance, int slot)
-    {
-        nint result;
-        Marshal.ThrowExceptionForHR(((delegate* unmanaged[Stdcall]<nint, nint*, int>)Method(instance, slot))(instance, &result));
-        return result;
     }
 
     internal static bool ShouldBlockRequest(BrowserAdBlockRules rules, Uri uri, Uri page, int context,

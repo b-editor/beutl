@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Text;
 using Avalonia.Threading;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -8,15 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 // ディレクトリ変更を監視し、デバウンス付きで変更通知を発行する。
-internal sealed class DirectoryWatcherService : IDisposable
+internal sealed partial class DirectoryWatcherService : IDisposable
 {
-    private sealed record DirectoryIdentity(string LinkFingerprint, string CanonicalPath);
-
-    private readonly record struct SpecialDirectoryMembershipKey(
-        string TemplatesDirectory,
-        string MaterialsDirectory,
-        string CandidateDirectory);
-
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     private readonly object _stateSync = new();
@@ -101,20 +93,7 @@ internal sealed class DirectoryWatcherService : IDisposable
 
         // Only changing folders clears a failure budget.
         if (!isErrorRearm)
-        {
-            lock (_stateSync)
-            {
-                if (!pathResolved
-                    || !string.Equals(
-                        _failingCanonicalPath,
-                        canonicalPath,
-                        StringComparison.Ordinal))
-                {
-                    _errorRearmCount = 0;
-                    _failingCanonicalPath = null;
-                }
-            }
-        }
+            ResetErrorBudget(pathResolved, canonicalPath);
 
         // Recursive watchers consume one inotify descriptor per subdirectory.
         if (currentWatcher is not null
@@ -124,45 +103,21 @@ internal sealed class DirectoryWatcherService : IDisposable
             && string.Equals(
                 watchedCanonicalPath,
                 canonicalPath,
-                StringComparison.Ordinal))
+                StringComparison.Ordinal)
+            && TryKeepCurrentWatcher(currentWatcher, canonicalPath, path!))
         {
-            lock (_stateSync)
-            {
-                if (!_disposed
-                    && ReferenceEquals(_watcher, currentWatcher)
-                    && string.Equals(
-                        _watchedCanonicalPath,
-                        canonicalPath,
-                        StringComparison.Ordinal))
-                {
-                    _watchedRequestedPath = Path.GetFullPath(path!);
-                    return;
-                }
-            }
+            return;
         }
 
-        CancellationTokenSource? previousDebounce;
-        FileSystemWatcher? previousWatcher;
-        long watchGeneration;
-        lock (_stateSync)
+        if (!TryDetachWatcher(
+                out long watchGeneration,
+                out CancellationTokenSource? previousDebounce,
+                out FileSystemWatcher? previousWatcher))
         {
-            if (_disposed)
-                return;
-
-            watchGeneration = ++_stateGeneration;
-            previousDebounce = _debounceCts;
-            _debounceCts = null;
-            ClearPendingChanges();
-            previousWatcher = _watcher;
-            _watcher = null;
-            _watchedCanonicalPath = null;
-            _watchedRequestedPath = null;
+            return;
         }
 
-        CancelAndDispose(previousDebounce);
-        previousWatcher?.Dispose();
-        _templateOrMaterialDirectories.Clear();
-        _directoryIdentities.Clear();
+        ReleaseDetached(previousDebounce, previousWatcher);
 
         if (!pathResolved || canonicalPath is null || !Directory.Exists(canonicalPath))
             return;
@@ -170,40 +125,9 @@ internal sealed class DirectoryWatcherService : IDisposable
         FileSystemWatcher? nextWatcher = null;
         try
         {
-            nextWatcher = new FileSystemWatcher(canonicalPath)
-            {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
-                IncludeSubdirectories = true,
-            };
-
-            nextWatcher.Created += OnFileSystemEvent;
-            nextWatcher.Deleted += OnFileSystemEvent;
-            nextWatcher.Renamed += OnFileSystemEvent;
-            nextWatcher.Changed += OnFileSystemEvent;
-            nextWatcher.Error += OnWatcherError;
-
-            lock (_stateSync)
-            {
-                if (_disposed || _stateGeneration != watchGeneration)
-                    return;
-
-                _watcher = nextWatcher;
-                _watchedCanonicalPath = canonicalPath;
-                _watchedRequestedPath = Path.GetFullPath(path!);
-                try
-                {
-                    _startWatcher(nextWatcher);
-                }
-                catch
-                {
-                    _watcher = null;
-                    _watchedCanonicalPath = null;
-                    _watchedRequestedPath = null;
-                    throw;
-                }
-
+            nextWatcher = CreateWatcher(canonicalPath);
+            if (TryInstallWatcher(nextWatcher, watchGeneration, canonicalPath, path!))
                 nextWatcher = null;
-            }
         }
         catch (Exception ex)
         {
@@ -212,6 +136,122 @@ internal sealed class DirectoryWatcherService : IDisposable
         finally
         {
             nextWatcher?.Dispose();
+        }
+    }
+
+    private void ResetErrorBudget(bool pathResolved, string? canonicalPath)
+    {
+        lock (_stateSync)
+        {
+            if (!pathResolved
+                || !string.Equals(
+                    _failingCanonicalPath,
+                    canonicalPath,
+                    StringComparison.Ordinal))
+            {
+                _errorRearmCount = 0;
+                _failingCanonicalPath = null;
+            }
+        }
+    }
+
+    // The watcher already covers the folder; only the spelling the items use changes.
+    private bool TryKeepCurrentWatcher(FileSystemWatcher currentWatcher, string canonicalPath, string path)
+    {
+        lock (_stateSync)
+        {
+            if (!_disposed
+                && ReferenceEquals(_watcher, currentWatcher)
+                && string.Equals(
+                    _watchedCanonicalPath,
+                    canonicalPath,
+                    StringComparison.Ordinal))
+            {
+                _watchedRequestedPath = Path.GetFullPath(path);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Takes the watcher and its pending delivery out of the published state; the returned generation
+    // lets the replacement tell whether another Watch or Dispose came in after this one.
+    private bool TryDetachWatcher(
+        out long generation,
+        out CancellationTokenSource? debounce,
+        out FileSystemWatcher? watcher)
+    {
+        lock (_stateSync)
+        {
+            if (_disposed)
+            {
+                generation = 0;
+                debounce = null;
+                watcher = null;
+                return false;
+            }
+
+            generation = ++_stateGeneration;
+            debounce = _debounceCts;
+            _debounceCts = null;
+            ClearPendingChanges();
+            watcher = _watcher;
+            _watcher = null;
+            _watchedCanonicalPath = null;
+            _watchedRequestedPath = null;
+            return true;
+        }
+    }
+
+    private void ReleaseDetached(CancellationTokenSource? debounce, FileSystemWatcher? watcher)
+    {
+        CancelAndDispose(debounce);
+        watcher?.Dispose();
+        _templateOrMaterialDirectories.Clear();
+        _directoryIdentities.Clear();
+    }
+
+    private FileSystemWatcher CreateWatcher(string canonicalPath)
+    {
+        var watcher = new FileSystemWatcher(canonicalPath)
+        {
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+            IncludeSubdirectories = true,
+        };
+
+        watcher.Created += OnFileSystemEvent;
+        watcher.Deleted += OnFileSystemEvent;
+        watcher.Renamed += OnFileSystemEvent;
+        watcher.Changed += OnFileSystemEvent;
+        watcher.Error += OnWatcherError;
+        return watcher;
+    }
+
+    // False when a later Watch or Dispose superseded this one; the caller then still owns the watcher.
+    private bool TryInstallWatcher(FileSystemWatcher watcher, long generation, string canonicalPath, string path)
+    {
+        lock (_stateSync)
+        {
+            if (_disposed || _stateGeneration != generation)
+                return false;
+
+            _watcher = watcher;
+            _watchedCanonicalPath = canonicalPath;
+            _watchedRequestedPath = Path.GetFullPath(path);
+            try
+            {
+                _startWatcher(watcher);
+            }
+            catch
+            {
+                _watcher = null;
+                _watchedCanonicalPath = null;
+                _watchedRequestedPath = null;
+                throw;
+            }
+
+            return true;
         }
     }
 
@@ -318,267 +358,6 @@ internal sealed class DirectoryWatcherService : IDisposable
         {
             return !_disposed && ReferenceEquals(_watcher, sender);
         }
-    }
-
-    // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外
-    internal bool ShouldExcludePath(string path)
-    {
-        return ShouldExcludePath(
-            path,
-            BeutlEnvironment.GetTemplatesDirectoryPath(),
-            BeutlEnvironment.GetMaterialsDirectoryPath());
-    }
-
-    internal bool ShouldExcludePath(
-        string path,
-        string templatesDirectoryPath,
-        string materialsDirectoryPath)
-    {
-        // Atomic saves create <document>.<guid:N>.tmp before replacing the document. These
-        // transient events must not rebuild the browser on every edit, even inside templates.
-        // Directories with these names are visible entries too.
-        if (IsEditorSaveTemporaryFile(path) && !Directory.Exists(path))
-        {
-            return true;
-        }
-
-        // Templates and materials live below BEUTL_HOME/.beutl by default, so their explicit
-        // exception must win over the reserved-metadata rule. Cache by containing directory: a
-        // watcher burst commonly reports hundreds of sibling files, and canonical resolution only
-        // needs to run once for that directory identity.
-        if (IsTemplateOrMaterialPath(
-                path,
-                templatesDirectoryPath,
-                materialsDirectoryPath))
-        {
-            return false;
-        }
-
-        if (HasReservedMetadataSegment(path))
-        {
-            return true;
-        }
-
-        return IsEditorDocument(path) && !Directory.Exists(path);
-    }
-
-    private bool ShouldCheckEntries(string path)
-        => (IsEditorDocument(path) || IsEditorSaveTemporaryFile(path))
-           && (!HasReservedMetadataSegment(path)
-               || IsTemplateOrMaterialPath(path,
-                   BeutlEnvironment.GetTemplatesDirectoryPath(),
-                   BeutlEnvironment.GetMaterialsDirectoryPath()));
-
-    internal static bool IsEditorSaveTemporaryFile(ReadOnlySpan<char> path)
-    {
-        if (!path.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        ReadOnlySpan<char> name = path[..^4];
-        int separator = name.LastIndexOf('.');
-        return separator >= 0
-               // TryParseExact trims whitespace; generated suffixes must already be 32 hex digits.
-               && name.Length - separator - 1 == 32
-               && Guid.TryParseExact(name[(separator + 1)..], "N", out _)
-               && IsEditorDocument(name[..separator]);
-    }
-
-    private static bool IsEditorDocument(ReadOnlySpan<char> path)
-        => path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase);
-
-    private bool IsTemplateOrMaterialPath(
-        string path,
-        string templatesDirectoryPath,
-        string materialsDirectoryPath)
-    {
-        if (IsConfiguredSpecialDirectory(
-                path,
-                templatesDirectoryPath,
-                materialsDirectoryPath))
-        {
-            return true;
-        }
-
-        string? directory = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
-        if (string.IsNullOrEmpty(directory))
-        {
-            return false;
-        }
-
-        string canonicalDirectory;
-        string canonicalTemplatesDirectory;
-        string canonicalMaterialsDirectory;
-        try
-        {
-            canonicalDirectory = ResolveDirectoryIdentity(Path.GetFullPath(directory));
-            canonicalTemplatesDirectory = ResolveConfiguredDirectoryIdentity(
-                templatesDirectoryPath);
-            canonicalMaterialsDirectory = ResolveConfiguredDirectoryIdentity(
-                materialsDirectoryPath);
-        }
-        catch (Exception ex) when (ex is IOException
-                                   or UnauthorizedAccessException
-                                   or ArgumentException
-                                   or NotSupportedException)
-        {
-            return false;
-        }
-
-        if (_templateOrMaterialDirectories.Count >= 512)
-        {
-            _templateOrMaterialDirectories.Clear();
-            _directoryIdentities.Clear();
-        }
-
-        return _templateOrMaterialDirectories.GetOrAdd(
-            new SpecialDirectoryMembershipKey(
-                canonicalTemplatesDirectory,
-                canonicalMaterialsDirectory,
-                canonicalDirectory),
-            static key => FilePathComparison.IsSameOrDescendant(
-                              key.TemplatesDirectory,
-                              key.CandidateDirectory)
-                          || FilePathComparison.IsSameOrDescendant(
-                              key.MaterialsDirectory,
-                              key.CandidateDirectory));
-    }
-
-    private bool IsConfiguredSpecialDirectory(
-        string path,
-        string templatesDirectoryPath,
-        string materialsDirectoryPath)
-    {
-        try
-        {
-            string fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-            string fullTemplatesDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-                templatesDirectoryPath));
-            string fullMaterialsDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-                materialsDirectoryPath));
-            if (string.Equals(fullPath, fullTemplatesDirectory, StringComparison.Ordinal)
-                || string.Equals(fullPath, fullMaterialsDirectory, StringComparison.Ordinal))
-            {
-                return true;
-            }
-
-            // Files cannot be either special directory. Resolve their containing directory
-            // through the shared membership cache instead of enumerating every sibling file.
-            if (!Directory.Exists(fullPath))
-                return false;
-
-            string canonicalPath = FilePathComparison.ResolveCanonicalPath(fullPath);
-            return string.Equals(
-                       canonicalPath,
-                       ResolveConfiguredDirectoryIdentity(templatesDirectoryPath),
-                       StringComparison.Ordinal)
-                   || string.Equals(
-                       canonicalPath,
-                       ResolveConfiguredDirectoryIdentity(materialsDirectoryPath),
-                       StringComparison.Ordinal);
-        }
-        catch (Exception ex) when (ex is IOException
-                                   or UnauthorizedAccessException
-                                   or ArgumentException
-                                   or NotSupportedException)
-        {
-            return false;
-        }
-    }
-
-    private string ResolveConfiguredDirectoryIdentity(string directory)
-    {
-        string fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-        if (Directory.Exists(fullPath))
-        {
-            string canonicalPath = FilePathComparison.ResolveCanonicalPath(fullPath);
-            _configuredSpecialDirectoryIdentities[fullPath] = canonicalPath;
-            return canonicalPath;
-        }
-
-        return _configuredSpecialDirectoryIdentities.TryGetValue(
-            fullPath,
-            out string? previousIdentity)
-            ? previousIdentity
-            : FilePathComparison.ResolveCanonicalPath(fullPath);
-    }
-
-    private string ResolveDirectoryIdentity(string fullPath)
-    {
-        string fingerprint = CreateLinkFingerprint(fullPath);
-        if (_directoryIdentities.TryGetValue(fullPath, out DirectoryIdentity? identity)
-            && string.Equals(identity.LinkFingerprint, fingerprint, StringComparison.Ordinal))
-        {
-            return identity.CanonicalPath;
-        }
-
-        string canonicalPath = FilePathComparison.ResolveCanonicalPath(fullPath);
-        _directoryIdentities[fullPath] = new DirectoryIdentity(fingerprint, canonicalPath);
-        return canonicalPath;
-    }
-
-    private static string CreateLinkFingerprint(string directory)
-    {
-        string root = Path.GetPathRoot(directory)
-                      ?? throw new ArgumentException(
-                          "The directory has no filesystem root.",
-                          nameof(directory));
-        string current = root;
-        var fingerprint = new StringBuilder();
-        foreach (string segment in directory[root.Length..].Split(
-                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-                     StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = Path.Combine(current, segment);
-            var info = new DirectoryInfo(current);
-            string? linkTarget = info.LinkTarget;
-            fingerprint.Append(segment)
-                .Append('=')
-                .Append(linkTarget);
-            if (linkTarget is not null)
-            {
-                fingerprint.Append("->")
-                    .Append(info.ResolveLinkTarget(returnFinalTarget: true)?.FullName);
-            }
-
-            fingerprint
-                .Append('\0');
-        }
-
-        return fingerprint.ToString();
-    }
-
-    private static bool HasReservedMetadataSegment(string path)
-    {
-        string fullPath = Path.GetFullPath(path);
-        string root = Path.GetPathRoot(fullPath)
-                      ?? throw new ArgumentException("The path has no filesystem root.", nameof(path));
-        string parent = root;
-        foreach (string segment in fullPath[root.Length..].Split(
-                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-                     StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (AreSameChildPath(parent, segment, ".git")
-                || AreSameChildPath(parent, segment, ".beutl"))
-            {
-                return true;
-            }
-
-            parent = Path.Combine(parent, segment);
-        }
-
-        return false;
-    }
-
-    private static bool AreSameChildPath(string parent, string leftName, string rightName)
-    {
-        return FilePathComparison.TryAreSameChildPath(
-                   parent,
-                   leftName,
-                   rightName,
-                   out bool areSame)
-               && areSame;
     }
 
     private bool TryResolveWatchPath(string? path, out string? canonicalPath)
@@ -792,10 +571,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             _watchedRequestedPath = null;
         }
 
-        CancelAndDispose(debounce);
-        watcher?.Dispose();
-        _templateOrMaterialDirectories.Clear();
-        _directoryIdentities.Clear();
+        ReleaseDetached(debounce, watcher);
     }
 
     private static void CancelAndDispose(CancellationTokenSource? cancellation)

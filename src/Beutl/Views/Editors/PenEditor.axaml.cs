@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Platform.Storage;
 using Beutl.Controls.Converters;
 using Beutl.Media;
 using Beutl.Services;
@@ -30,10 +29,7 @@ public sealed partial class PenEditor : UserControl
     {
         if (DataContext is not PenEditorViewModel { IsDisposed: false } viewModel) return;
 
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && viewModel.ApplyTemplate(template))
+        if (EditorDragDropHelper.TryApplyDroppedTemplate(e, viewModel))
         {
             e.Handled = true;
         }
@@ -41,11 +37,7 @@ public sealed partial class PenEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(DataFormat.File))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        EditorDragDropHelper.HandleTemplateFileDragOver(e);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)

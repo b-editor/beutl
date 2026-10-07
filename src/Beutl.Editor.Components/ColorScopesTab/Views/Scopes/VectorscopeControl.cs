@@ -2,16 +2,13 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Brushes = Avalonia.Media.Brushes;
 using BtlBitmap = Beutl.Media.Bitmap;
 using Color = Avalonia.Media.Color;
 using Pen = Avalonia.Media.Pen;
-using PixelSize = Avalonia.PixelSize;
 using SolidColorBrush = Avalonia.Media.SolidColorBrush;
-using Vector = Avalonia.Vector;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -59,14 +56,7 @@ public class VectorscopeControl : ScopeControlBase
         int size = Math.Min(targetWidth, targetHeight);
         if (size <= 0) return null;
 
-        // Reuse existing bitmap if size matches
-        WriteableBitmap bitmap = existingBitmap?.PixelSize.Width == size && existingBitmap.PixelSize.Height == size
-            ? existingBitmap
-            : new WriteableBitmap(
-                new PixelSize(size, size),
-                new Vector(96, 96),
-                PixelFormat.Bgra8888,
-                AlphaFormat.Premul);
+        WriteableBitmap bitmap = ScopeBitmaps.ReuseOrCreate(existingBitmap, size, size);
 
         using ILockedFramebuffer fb = bitmap.Lock();
         uint* destPtr = (uint*)fb.Address;
@@ -79,20 +69,8 @@ public class VectorscopeControl : ScopeControlBase
         int sourceHeight = sourceBitmap.Height;
         int step = Math.Max(1, Math.Max(sourceWidth, sourceHeight) / size);
 
-        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
-            ? BitmapColorSpace.LinearSrgb
-            : BitmapColorSpace.Srgb;
-        BtlBitmap rgbaConverted;
-        bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
-        {
-            rgbaConverted = sourceBitmap;
-        }
-        else
-        {
-            rgbaConverted = sourceBitmap.Convert(BitmapColorType.RgbaF16, colorSpace: targetColorSpace);
-            requireDispose = true;
-        }
+        BitmapColorSpace targetColorSpace = ScopeBitmaps.ToBitmapColorSpace(ColorSpace);
+        BtlBitmap rgbaConverted = ScopeBitmaps.ToRgbaF16(sourceBitmap, targetColorSpace, null, out bool requireDispose);
 
         try
         {

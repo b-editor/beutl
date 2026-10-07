@@ -56,8 +56,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             } while (foundItems != null && extension != null);
         }
 
-        foreach (IPropertyEditorContext context in MajorProperties) context.Dispose();
-        foreach (IPropertyEditorContext context in MinorProperties) context.Dispose();
+        DisposeContexts();
         MajorProperties.Clear();
         MinorProperties.Clear();
         if (pen != null)
@@ -92,7 +91,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value != null)
         {
-            var visitor = new Visitor(this);
+            var visitor = new ChildVisitor(this);
             foreach (IPropertyEditorContext item in MajorProperties)
             {
                 item.Accept(visitor);
@@ -191,18 +190,17 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, null);
     }
 
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
+        DisposeContexts();
+    }
+
+    private void DisposeContexts()
+    {
         foreach (IPropertyEditorContext item in MajorProperties)
         {
             item.Dispose();
@@ -210,18 +208,6 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         foreach (IPropertyEditorContext item in MinorProperties)
         {
             item.Dispose();
-        }
-    }
-
-    private sealed record Visitor(PenEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
         }
     }
 }

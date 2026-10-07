@@ -49,19 +49,20 @@ internal static class FFmpegLoaderWorker
             });
     }
 
-    private static string GetRootPath()
+    internal static string GetRootPath(Func<string, bool>? librariesExist = null)
     {
+        string assemblyDirectory = Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName;
         var paths = new List<string>
         {
             s_defaultFFmpegPath,
-            Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+            assemblyDirectory,
             AppContext.BaseDirectory
         };
 
         if (OperatingSystem.IsWindows())
         {
             string rid = Beutl.Extensions.FFmpeg.FFmpegNativeRid.GetWindowsRid();
-            paths.Add(Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+            paths.Add(Path.Combine(assemblyDirectory,
                 "runtimes", rid, "native"));
             paths.Add(Path.Combine(AppContext.BaseDirectory,
                 "runtimes", rid, "native"));
@@ -69,6 +70,7 @@ internal static class FFmpegLoaderWorker
         else if (OperatingSystem.IsLinux())
         {
             paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
+            paths.Add("/usr/lib");
             var libraryPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator) ?? [];
             paths.AddRange(libraryPath);
         }
@@ -89,9 +91,10 @@ internal static class FFmpegLoaderWorker
             }
         }
 
+        librariesExist ??= LibrariesExists;
         foreach (string path in paths)
         {
-            if (LibrariesExists(path))
+            if (librariesExist(path))
                 return path;
         }
 

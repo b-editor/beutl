@@ -1,13 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
-using Beutl.ProjectSystem;
-using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
@@ -41,11 +37,6 @@ public partial class SoundSourceEditor : UserControl
 
         vm.SetValue(SoundSource.Open(fi.FullName));
 
-        // 動画の長さに要素の長さを合わせる
-        if (vm.GetService<Element>() is not { } element) return;
-        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineTabViewModel>();
-        ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
-
-        elmViewModel?.ChangeToOriginalDuration.Execute();
+        MediaSourceEditorHelper.MatchElementToOriginalDuration(vm);
     }
 }

@@ -253,16 +253,16 @@ public partial class FileBrowserTabView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent())
+        if (IsStaleStorageDrag(e))
         { e.DragEffects = DragDropEffects.None; return; }
         if (ViewModel?.IsStorageView.Value == true)
         {
-            var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
+            var breadcrumb = FindStorageBreadcrumb(e);
             e.DragEffects = breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target && target.CanDrop(e.DataTransfer, breadcrumb.FolderId)
                 ? DragDropEffects.Copy : DragDropEffects.None;
             return;
         }
-        if (ViewModel?.IsStorageView.Value == true || !e.DataTransfer.Contains(DataFormat.File))
+        if (!e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.None;
             return;
@@ -282,11 +282,11 @@ public partial class FileBrowserTabView : UserControl
 
     private async void OnDrop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent())
+        if (IsStaleStorageDrag(e))
         { e.DragEffects = DragDropEffects.None; return; }
         if (ViewModel?.IsStorageView.Value == true)
         {
-            var breadcrumb = (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
+            var breadcrumb = FindStorageBreadcrumb(e);
             if (breadcrumb != null && ViewModel.StorageBrowser.Value is IFileBrowserStorageDropTarget target)
             {
                 e.Handled = true;
@@ -297,7 +297,7 @@ public partial class FileBrowserTabView : UserControl
             }
             return;
         }
-        if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null || ViewModel.IsStorageView.Value)
+        if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null)
             return;
 
         if (ViewModel.IsHomeView.Value)
@@ -328,19 +328,7 @@ public partial class FileBrowserTabView : UserControl
         if (IsDropOverElement(projectDirectorySection, e))
         {
             // その他（プロジェクトディレクトリセクション等）
-            FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
-            if (folderItem != null && Directory.Exists(folderItem.FullPath))
-            {
-                TransferFiles(files, folderItem.FullPath, isInternal);
-                return;
-            }
-
-            string? targetDir = ViewModel.ProjectDirectory;
-            if (!string.IsNullOrEmpty(targetDir) && Directory.Exists(targetDir))
-            {
-                TransferFiles(files, targetDir, isInternal);
-            }
-
+            TransferToDropTarget(e, files, isInternal, ViewModel.ProjectDirectory);
             return;
         }
 
@@ -364,6 +352,13 @@ public partial class FileBrowserTabView : UserControl
         var files = GetDroppedFiles(e);
         bool isInternal = FileItemDragBehavior.IsInternalDragInProgress;
 
+        TransferToDropTarget(e, files, isInternal, ViewModel.RootPath.Value);
+    }
+
+    // A folder under the pointer takes the files; otherwise the directory being shown does, while it exists.
+    private void TransferToDropTarget(
+        DragEventArgs e, List<(string LocalPath, bool IsDirectory)> files, bool isInternal, string? fallbackDirectory)
+    {
         FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
         if (folderItem != null && Directory.Exists(folderItem.FullPath))
         {
@@ -371,10 +366,9 @@ public partial class FileBrowserTabView : UserControl
             return;
         }
 
-        string? rootPath = ViewModel.RootPath.Value;
-        if (!string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
+        if (!string.IsNullOrEmpty(fallbackDirectory) && Directory.Exists(fallbackDirectory))
         {
-            TransferFiles(files, rootPath, isInternal);
+            TransferFiles(files, fallbackDirectory, isInternal);
         }
     }
 
@@ -393,6 +387,12 @@ public partial class FileBrowserTabView : UserControl
             ViewModel.CopyFilesToDirectory(payload, targetDir);
         }
     }
+
+    private static bool IsStaleStorageDrag(DragEventArgs e)
+        => e.DataTransfer.TryGetValue(StorageDragData.Format) is { } source && !source.IsCurrent();
+
+    private static FileBrowserStorageBreadcrumb? FindStorageBreadcrumb(DragEventArgs e)
+        => (e.Source as Visual)?.FindAncestorOfType<Control>(includeSelf: true)?.DataContext as FileBrowserStorageBreadcrumb;
 
     private static bool IsDropOverElement(Control element, DragEventArgs e)
     {

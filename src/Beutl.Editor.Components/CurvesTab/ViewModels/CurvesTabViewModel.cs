@@ -94,10 +94,7 @@ public sealed class CurvesTabViewModel : IToolContext
             })
             .DisposeWith(_disposables);
 
-        ShowCustom = SelectedGroup
-            .Select(x => x == CurveGroup.Custom)
-            .ToReadOnlyReactivePropertySlim(initialValue: true)
-            .DisposeWith(_disposables)!;
+        ShowCustom = ObserveGroupVisibility(CurveGroup.Custom, initialValue: true);
 
         SelectedChannelItem
             .Where(v => v != null)
@@ -116,56 +113,39 @@ public sealed class CurvesTabViewModel : IToolContext
             })
             .DisposeWith(_disposables);
 
-        ShowMasterCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Master)
-            .ToReadOnlyReactivePropertySlim(initialValue: true)
-            .DisposeWith(_disposables)!;
+        ShowMasterCurve = ObserveChannelVisibility(CustomCurveChannel.Master, initialValue: true);
+        ShowRedCurve = ObserveChannelVisibility(CustomCurveChannel.Red);
+        ShowGreenCurve = ObserveChannelVisibility(CustomCurveChannel.Green);
+        ShowBlueCurve = ObserveChannelVisibility(CustomCurveChannel.Blue);
 
-        ShowRedCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Red)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowGreenCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Green)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowBlueCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Blue)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowHueVsHue = SelectedGroup
-            .Select(x => x == CurveGroup.HueVsHue)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowHueVsSaturation = SelectedGroup
-            .Select(x => x == CurveGroup.HueVsSaturation)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowHueVsLuminance = SelectedGroup
-            .Select(x => x == CurveGroup.HueVsLuminance)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowLuminanceVsSaturation = SelectedGroup
-            .Select(x => x == CurveGroup.LuminanceVsSaturation)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        ShowSaturationVsSaturation = SelectedGroup
-            .Select(x => x == CurveGroup.SaturationVsSaturation)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
+        ShowHueVsHue = ObserveGroupVisibility(CurveGroup.HueVsHue);
+        ShowHueVsSaturation = ObserveGroupVisibility(CurveGroup.HueVsSaturation);
+        ShowHueVsLuminance = ObserveGroupVisibility(CurveGroup.HueVsLuminance);
+        ShowLuminanceVsSaturation = ObserveGroupVisibility(CurveGroup.LuminanceVsSaturation);
+        ShowSaturationVsSaturation = ObserveGroupVisibility(CurveGroup.SaturationVsSaturation);
 
         Header = Effect
             .Select(ToolTabHeaderHelper.ObserveEffectLabel)
             .Switch()
             .Select(label => ToolTabHeaderHelper.Compose(Strings.Curves, label))
             .ToReadOnlyReactivePropertySlim(Strings.Curves)
+            .DisposeWith(_disposables)!;
+    }
+
+    private ReadOnlyReactivePropertySlim<bool> ObserveGroupVisibility(CurveGroup group, bool initialValue = false)
+    {
+        return SelectedGroup
+            .Select(x => x == group)
+            .ToReadOnlyReactivePropertySlim(initialValue)
+            .DisposeWith(_disposables)!;
+    }
+
+    // The custom curves share one panel; each channel shows only while that panel does.
+    private ReadOnlyReactivePropertySlim<bool> ObserveChannelVisibility(CustomCurveChannel channel, bool initialValue = false)
+    {
+        return ShowCustom
+            .CombineLatest(SelectedChannel, (showCustom, selected) => showCustom && selected == channel)
+            .ToReadOnlyReactivePropertySlim(initialValue)
             .DisposeWith(_disposables)!;
     }
 

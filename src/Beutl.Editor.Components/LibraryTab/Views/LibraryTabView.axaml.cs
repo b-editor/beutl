@@ -34,73 +34,13 @@ public sealed partial class LibraryTabView : UserControl
         InitializeComponent();
 
         tabStrip.ItemsSource = s_tabItems
-            .Select(item =>
-            {
-                var tabItem = new TabStripItem();
-                var binding = new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]")
-                {
-                    Mode = BindingMode.OneWay,
-                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
-                };
-                tabItem.Bind(IsVisibleProperty, binding);
-                AutomationProperties.SetName(tabItem, item.Text);
-                ToolTip.SetTip(tabItem, item.Text);
-                tabItem.Content = new Grid
-                {
-                    ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-                    Children =
-                    {
-                        new FluentIcon { Icon = item.Icon },
-                        new TextBlock { Text = item.Text, [Grid.ColumnProperty] = 1 }
-                    }
-                };
-                var switchMenu = new FAToggleMenuFlyoutItem
-                {
-                    [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
-                    Text = Strings.AlwaysDisplay
-                };
-                switchMenu.Click += (s, e) =>
-                {
-                    if (DataContext is LibraryTabViewModel viewModel)
-                    {
-                        viewModel.LibraryTabDisplayModes[item.Id] = !switchMenu.IsChecked
-                            ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
-                    }
-                };
-                tabItem.ContextFlyout = new FAMenuFlyout
-                {
-                    ItemsSource = new[] { switchMenu }
-                };
-
-                return tabItem;
-            })
+            .Select(CreateTabItem)
             .ToArray();
 
         moreButton.ContextFlyout = new FAMenuFlyout
         {
-            ItemsSource = s_tabItems.Select(item =>
-            {
-                var binding = new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]")
-                {
-                    Mode = BindingMode.OneWay,
-                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
-                };
-                var switchMenu = new FAToggleMenuFlyoutItem
-                {
-                    [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
-                    Text = item.Text
-                };
-                switchMenu.Click += (s, e) =>
-                {
-                    if (DataContext is LibraryTabViewModel viewModel)
-                    {
-                        viewModel.LibraryTabDisplayModes[item.Id] = !switchMenu.IsChecked
-                            ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
-                    }
-                };
-                return switchMenu;
-            })
-            .ToArray()
+            ItemsSource = s_tabItems.Select(CreateMoreMenuItem)
+                .ToArray()
         };
 
         carousel.ItemsSource = s_tabItems.Select(item => item.Create())
@@ -117,6 +57,63 @@ public sealed partial class LibraryTabView : UserControl
         scroll.TemplateApplied += OnScrollViewerTemplateApplied;
 
         scroll.AddHandler(PointerWheelChangedEvent, OnScrollPointerWheelChanged, RoutingStrategies.Tunnel);
+    }
+
+    private TabStripItem CreateTabItem((Icon Icon, string Text, string Id, Func<Control> Create) item)
+    {
+        var tabItem = new TabStripItem();
+        var binding = CreateDisplayModeBinding(item.Id);
+        tabItem.Bind(IsVisibleProperty, binding);
+        AutomationProperties.SetName(tabItem, item.Text);
+        ToolTip.SetTip(tabItem, item.Text);
+        tabItem.Content = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+            Children =
+            {
+                new FluentIcon { Icon = item.Icon },
+                new TextBlock { Text = item.Text, [Grid.ColumnProperty] = 1 }
+            }
+        };
+        var switchMenu = CreateDisplayModeToggle(item.Id, Strings.AlwaysDisplay, binding);
+        tabItem.ContextFlyout = new FAMenuFlyout
+        {
+            ItemsSource = new[] { switchMenu }
+        };
+
+        return tabItem;
+    }
+
+    private FAToggleMenuFlyoutItem CreateMoreMenuItem((Icon Icon, string Text, string Id, Func<Control> Create) item)
+    {
+        return CreateDisplayModeToggle(item.Id, item.Text, CreateDisplayModeBinding(item.Id));
+    }
+
+    private static ReflectionBinding CreateDisplayModeBinding(string id)
+    {
+        return new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{id}]")
+        {
+            Mode = BindingMode.OneWay,
+            Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
+        };
+    }
+
+    private FAToggleMenuFlyoutItem CreateDisplayModeToggle(string id, string text, ReflectionBinding binding)
+    {
+        var switchMenu = new FAToggleMenuFlyoutItem
+        {
+            [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
+            Text = text
+        };
+        switchMenu.Click += (s, e) =>
+        {
+            if (DataContext is LibraryTabViewModel viewModel)
+            {
+                viewModel.LibraryTabDisplayModes[id] = !switchMenu.IsChecked
+                    ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
+            }
+        };
+        return switchMenu;
     }
 
     private void OnScrollPointerWheelChanged(object? sender, PointerWheelEventArgs e)
