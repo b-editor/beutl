@@ -22,11 +22,7 @@ internal sealed record AiRequestRecoverySource(
     string ContentHash,
     long Length,
     string? DurableFile = null,
-    string? ElementId = null)
-{
-    [JsonIgnore]
-    public bool IsDurable => !string.IsNullOrEmpty(DurableFile);
-}
+    string? ElementId = null);
 
 /// <summary>
 /// Canonical form state needed to rebuild one request after a process restart.
@@ -455,31 +451,6 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             ValidateIdentity(accountId, operation, fingerprint);
             using FileStream lease = AcquireLock();
             return Load().FirstOrDefault(x => HasIdentity(x, accountId, operation, fingerprint));
-        }
-    }
-
-    internal bool TryUpdateForm(
-        string accountId,
-        string operation,
-        string fingerprint,
-        string key,
-        AiRequestFormSnapshot form,
-        IReadOnlyList<AiRequestRecoverySource>? sources)
-    {
-        lock (_gate)
-        {
-            ValidateIdentity(accountId, operation, fingerprint);
-            using FileStream lease = AcquireLock();
-            List<AiPendingAttempt> records = Load();
-            int index = records.FindIndex(attempt => HasIdentity(attempt, accountId, operation, fingerprint)
-                && attempt.Key == key);
-            if (index < 0)
-                return false;
-            records[index] = records[index] with { Form = form, Sources = sources ?? Array.Empty<AiRequestRecoverySource>() };
-            ValidateRecord(records[index]);
-            Save(records);
-            MarkSourcesCommitted(records[index].EffectiveSources);
-            return true;
         }
     }
 

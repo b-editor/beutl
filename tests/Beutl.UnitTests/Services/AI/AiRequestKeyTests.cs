@@ -51,7 +51,7 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void Withdraw_ClosesANameTheServerNeverMadeAJobUnder()
+    public void WithdrawAfterNoReservation_ClosesANameTheServerNeverMadeAJobUnder()
     {
         // 名前はリクエストを出す前に配られる。契約や残高やモデルの可否で断られた
         // ときは、サーバーは名前を先に引いて「何も無い」と分かったうえで断って
@@ -61,7 +61,7 @@ public sealed class AiRequestKeyTests
         AiRequestName issued = key.NameFor("a prompt");
         Assert.That(key.HasOutstandingName.Value, Is.True);
 
-        key.Withdraw(issued);
+        key.WithdrawAfterNoReservation(issued);
 
         Assert.Multiple(() =>
         {
@@ -73,7 +73,7 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void Withdraw_LetsTheSameRequestGoOutUnderTheSameNameAgain()
+    public void WithdrawAfterNoReservation_LetsTheSameRequestGoOutUnderTheSameNameAgain()
     {
         // 予約されなかったのだから、その名前はまだ何も指していない。同じ依頼は
         // 同じ名前で出してよい——別の名前にすると、次に届いたときに新しい依頼
@@ -81,7 +81,7 @@ public sealed class AiRequestKeyTests
         var key = new AiRequestKey();
         AiRequestName issued = key.NameFor("a prompt");
 
-        key.Withdraw(issued);
+        key.WithdrawAfterNoReservation(issued);
 
         Assert.That(key.NameFor("a prompt").Key, Is.EqualTo(issued.Key));
     }
@@ -107,14 +107,6 @@ public sealed class AiRequestKeyTests
                 pending.Fingerprint,
                 pending.Key), Is.False,
                 "A caller without the dispatch owner cannot clear a paid-job fence.");
-            // The ordinary withdrawal API is deliberately fail-closed once
-            // dispatch has been persisted; only the owner-authorized path used
-            // for an authoritative no-reservation response may clear it.
-            key.Withdraw(issued);
-            Assert.That(store.Find(
-                pending.AccountId,
-                pending.Operation,
-                pending.Fingerprint), Is.Not.Null);
 
             key.WithdrawAfterNoReservation(issued);
             Assert.Multiple(() =>
@@ -194,13 +186,13 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
-    public void Withdraw_LeavesTheOtherNamesOfTheRunAlone()
+    public void WithdrawAfterNoReservation_LeavesTheOtherNamesOfTheRunAlone()
     {
         var key = new AiRequestKey();
         AiRequestName first = key.NameFor(0, "a chunk");
         AiRequestName second = key.NameFor(1, "a chunk");
 
-        key.Withdraw(second);
+        key.WithdrawAfterNoReservation(second);
 
         Assert.Multiple(() =>
         {
@@ -228,29 +220,32 @@ public sealed class AiRequestKeyTests
             Directory.CreateDirectory(moved);
             string there = Path.Combine(moved, "picture.png");
             File.WriteAllBytes(here, [1, 2, 3]);
-            string before = AiRequestKey.FileStamp(here);
+            string before = Stamp(here);
 
             File.SetLastWriteTimeUtc(here, DateTime.UnixEpoch);
-            Assert.That(AiRequestKey.FileStamp(here), Is.EqualTo(before),
+            Assert.That(Stamp(here), Is.EqualTo(before),
                 "Touching a file does not make it another request.");
 
             File.Copy(here, there);
-            Assert.That(AiRequestKey.FileStamp(there), Is.EqualTo(before),
+            Assert.That(Stamp(there), Is.EqualTo(before),
                 "Nor does moving it.");
 
             File.WriteAllBytes(here, [3, 2, 1]);
-            Assert.That(AiRequestKey.FileStamp(here), Is.Not.EqualTo(before),
+            Assert.That(Stamp(here), Is.Not.EqualTo(before),
                 "Changing what is in it does.");
 
             string renamed = Path.Combine(directory, "another.png");
             File.WriteAllBytes(renamed, [1, 2, 3]);
-            Assert.That(AiRequestKey.FileStamp(renamed), Is.Not.EqualTo(before),
+            Assert.That(Stamp(renamed), Is.Not.EqualTo(before),
                 "So does the name it arrives under.");
         }
         finally
         {
             Directory.Delete(directory, recursive: true);
         }
+
+        static string Stamp(string path)
+            => AiRequestKey.FileStamp(Path.GetFileName(path), File.ReadAllBytes(path));
     }
 
     [Test]
@@ -932,7 +927,7 @@ public sealed class AiRequestKeyTests
 
             AiRequestName materializedOld = new(oldName.Key, true);
             stale.Retire(materializedOld);
-            stale.Withdraw(materializedOld);
+            stale.WithdrawAfterNoReservation(materializedOld);
 
             Assert.That(store.Find("account", "image.generate", oldAttempt.Fingerprint)?.Key,
                 Is.EqualTo(currentName.Key));
