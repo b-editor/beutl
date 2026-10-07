@@ -325,7 +325,7 @@ public sealed class RenderJobManagerTests
     }
 
     [Test]
-    public async Task Terminal_snapshot_is_published_before_the_output_lease_is_released()
+    public async Task Terminal_snapshot_is_published_after_the_output_lease_is_released()
     {
         using var manager = new RenderJobManager();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -346,7 +346,8 @@ public sealed class RenderJobManagerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(stateAtRelease, Is.EqualTo("completed"));
+            // A reader that sees "completed" can start the next output operation without finding the lease held.
+            Assert.That(stateAtRelease, Is.EqualTo("running"));
             Assert.That(lease.DisposeCount, Is.EqualTo(1));
         });
     }
@@ -408,13 +409,43 @@ public sealed class RenderJobManagerTests
         await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {
-            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("completed"));
+            // The terminal state is published only once the lease is released.
+            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("running"));
             Assert.That(manager.Cancel(jobId), Is.False);
         });
 
         releaseLease.TrySetResult();
         RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
         Assert.That(snapshot.State, Is.EqualTo("completed"));
+    }
+
+    [Test]
+    public async Task The_terminal_state_is_published_once_after_the_output_lease_is_released()
+    {
+        using var manager = new RenderJobManager();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromException<JsonNode>(
+                new InvalidOperationException("work failed")),
+            new BlockingLease(releaseStarted, releaseLease.Task));
+
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // A reader during the release must not see a failure that the lease failure then rewrites.
+        Assert.That(manager.Get(jobId)?.State, Is.EqualTo("running"));
+
+        releaseLease.TrySetException(new IOException("lease failed"));
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Error, Is.Not.Null);
+            Assert.That(snapshot.Error!.Message, Does.Contain(nameof(AggregateException)));
+        });
     }
 
     private sealed class TestLease(Action? onDispose = null) : IDisposable
