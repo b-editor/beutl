@@ -17,8 +17,8 @@ public sealed class ExportOrchestrationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(registration.FindForOutput("movie.mp4"), Is.Not.Null);
-            Assert.That(registration.FindForOutput("movie.unknown"), Is.Null);
+            Assert.That(registration.FindAllForOutput("movie.mp4"), Is.Not.Empty);
+            Assert.That(registration.FindAllForOutput("movie.unknown"), Is.Empty);
         });
     }
 

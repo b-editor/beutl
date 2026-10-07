@@ -18,8 +18,6 @@ public sealed class AgentSessionManager
 
     public IEditingSession? CurrentSession => _currentSource?.CurrentSession;
 
-    public bool HasActiveSession => CurrentSession is not null;
-
     public string CurrentSessionKey => GetCompositionSessionKey();
 
     // Key a SPECIFIC session rather than re-reading the current one, so callers holding a session
@@ -120,9 +118,6 @@ public sealed class AgentSessionManager
     }
 
     private const int MaxRetainedCompositionPlans = 32;
-
-    public CompositionPlanState GetCompositionPlan(string planId)
-        => GetCompositionPlan(planId, GetCompositionSessionKey());
 
     // sessionKey is the key of the session the caller captured and will mutate; validating against
     // it (not a key re-read now) stops a plan being accepted for a session swapped in mid-call and
