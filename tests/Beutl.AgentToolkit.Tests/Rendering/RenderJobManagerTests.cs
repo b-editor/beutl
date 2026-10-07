@@ -433,11 +433,17 @@ public sealed class RenderJobManagerTests
                 new InvalidOperationException("work failed")),
             new BlockingLease(releaseStarted, releaseLease.Task));
 
-        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        // A reader during the release must not see a failure that the lease failure then rewrites.
-        Assert.That(manager.Get(jobId)?.State, Is.EqualTo("running"));
+        try
+        {
+            await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            // A reader during the release must not see a failure that the lease failure then rewrites.
+            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("running"));
+        }
+        finally
+        {
+            releaseLease.TrySetException(new IOException("lease failed"));
+        }
 
-        releaseLease.TrySetException(new IOException("lease failed"));
         RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
 
         Assert.Multiple(() =>
