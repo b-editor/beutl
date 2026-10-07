@@ -41,6 +41,9 @@ public class MainWindowViewModel
     private static string? FindLatestLogFile()
     {
         string logFolder = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
+        // A crash before the first log line leaves no folder; show the report without a log.
+        if (!Directory.Exists(logFolder))
+            return null;
 
         return Directory.GetFiles(logFolder)
             .OrderDescending()
