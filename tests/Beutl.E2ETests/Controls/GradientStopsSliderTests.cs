@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -51,5 +52,26 @@ public class GradientStopsSliderTests
         {
             window.Close();
         }
+    }
+
+    // A click there lands on the stops' thumbs, so the color is resolved directly.
+    [AvaloniaTest]
+    public void A_stop_added_where_two_stops_overlap_takes_the_earlier_stops_color()
+    {
+        var stops = new GradientStops
+        {
+            new GradientStop(Colors.Red, 0.5),
+            new GradientStop(Colors.Blue, 0.5),
+        };
+        MethodInfo resolve = typeof(GradientStopsSlider).GetMethod(
+            "ResolveInsertedStop", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        var (color, index) = ((Color, int))resolve.Invoke(null, [stops, 0.5])!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(color, Is.EqualTo(Colors.Red));
+            Assert.That(index, Is.EqualTo(1));
+        });
     }
 }
