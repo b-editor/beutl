@@ -225,6 +225,45 @@ public class FFmpegReaderProxyIdleTests
         });
     }
 
+    // Disposal runs on UI and render paths, so it must not wait for a read stuck on the worker; the read
+    // that holds the reader closes it once it finishes.
+    [Test]
+    public void Dispose_DuringARead_ReturnsAtOnce_AndTheReadClosesTheReader()
+    {
+        var reader = CreateVideoProxy();
+        int readerId = reader.ReaderId;
+        _worker.ReleaseReads.Reset();
+        Task<byte>? read = null;
+        try
+        {
+            read = Task.Run(() => ReadFirstByte(reader, 5));
+            Assert.That(_worker.ReadVideoReceived.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            reader.Dispose();
+            stopwatch.Stop();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(1)), "Dispose must not wait for the read");
+                Assert.That(_worker.IsClosed(readerId), Is.False, "the worker reader is still serving the read");
+            });
+        }
+        finally
+        {
+            _worker.ReleaseReads.Set();
+        }
+
+        Assert.That(read!.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        _worker.WaitForClose(readerId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ReadVideo(0, out var image), Is.False);
+            Assert.That(image, Is.Null);
+            Assert.That(_tracker.TrackedCount, Is.Zero);
+        });
+    }
+
     [Test]
     public void TrySuspend_Declines_ForSuspendedDisposedOrNonReopenableReaders()
     {
@@ -607,6 +646,9 @@ public class FFmpegReaderProxyIdleTests
 
         public void Dispose()
         {
+            // Proxies close their readers asynchronously; let those CloseReader requests finish before the
+            // pipe goes away instead of failing them mid-flight.
+            SpinWait.SpinUntil(() => _buffers.IsEmpty, TimeSpan.FromSeconds(2));
             _cts.Cancel();
             Connection.Dispose();
             _server.Dispose();

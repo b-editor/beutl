@@ -31,7 +31,8 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     private int _ringSlotCount;
     private long _ringSlotSize;
     private volatile bool _suspended;
-    private bool _closed;
+    private volatile bool _closeRequested;
+    private volatile bool _closed;
     private bool _streamsChanged;
     private bool _reopenFailing;
     private Task? _pendingClose;
@@ -119,8 +120,11 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
         try
         {
-            if (_closed || _suspended || Volatile.Read(ref _lastAccessTicks) != expectedLastAccessTicks)
+            if (_closeRequested || _closed || _suspended
+                || Volatile.Read(ref _lastAccessTicks) != expectedLastAccessTicks)
+            {
                 return false;
+            }
 
             _pendingClose = CloseWorkerReader(_connection, _readerId);
             _videoBuffer?.Dispose();
@@ -134,27 +138,35 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         finally
         {
             _gate.Exit();
+            CloseIfRequested();
         }
     }
 
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
-        lock (_gate)
+        try
         {
-            try
+            lock (_gate)
             {
-                if (!TryResume())
+                try
                 {
-                    image = null;
-                    return false;
-                }
+                    if (!TryResume())
+                    {
+                        image = null;
+                        return false;
+                    }
 
-                return ReadVideoCore(frame, out image);
+                    return ReadVideoCore(frame, out image);
+                }
+                finally
+                {
+                    MarkAccessed();
+                }
             }
-            finally
-            {
-                MarkAccessed();
-            }
+        }
+        finally
+        {
+            CloseIfRequested();
         }
     }
 
@@ -213,30 +225,37 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
-        lock (_gate)
+        try
         {
-            try
+            lock (_gate)
             {
-                if (!TryResume())
+                try
                 {
-                    sound = null;
-                    return false;
+                    if (!TryResume())
+                    {
+                        sound = null;
+                        return false;
+                    }
+
+                    int sampleRate = AudioInfo.SampleRate;
+
+                    // SampleRate(1秒分)を超える場合はリクエストを分割
+                    if (length > sampleRate)
+                    {
+                        return ReadAudioChunked(start, length, sampleRate, out sound);
+                    }
+
+                    return ReadAudioCore(start, length, out sound);
                 }
-
-                int sampleRate = AudioInfo.SampleRate;
-
-                // SampleRate(1秒分)を超える場合はリクエストを分割
-                if (length > sampleRate)
+                finally
                 {
-                    return ReadAudioChunked(start, length, sampleRate, out sound);
+                    MarkAccessed();
                 }
-
-                return ReadAudioCore(start, length, out sound);
             }
-            finally
-            {
-                MarkAccessed();
-            }
+        }
+        finally
+        {
+            CloseIfRequested();
         }
     }
 
@@ -323,30 +342,48 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         }
     }
 
+    // Never waits for the gate: disposal runs on UI and render paths, and a read holding the gate can wait
+    // on the worker for as long as a decode takes. A read or sweep holding it closes the reader on release.
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            lock (_gate)
-            {
-                if (!_closed)
-                {
-                    _closed = true;
-                    if (!_suspended)
-                        CloseWorkerReader(_connection, _readerId);
-
-                    _videoBuffer?.Dispose();
-                    _videoBuffer = null;
-                    _audioBuffer?.Dispose();
-                    _audioBuffer = null;
-                }
-            }
-
-            // After _closed is set, so a read resuming concurrently cannot register this reader again.
+            _closeRequested = true;
             _idleTracker?.Untrack(this);
+            CloseIfRequested();
         }
 
         base.Dispose(disposing);
+    }
+
+    // Called after every release of the gate. Dispose sets _closeRequested before trying the gate, so if
+    // its TryEnter fails, the holder at that moment observes the request here once it lets go.
+    private void CloseIfRequested()
+    {
+        if (!_closeRequested || _closed || !_gate.TryEnter())
+            return;
+
+        try
+        {
+            if (_closed)
+                return;
+
+            _closed = true;
+            if (!_suspended)
+                CloseWorkerReader(_connection, _readerId);
+
+            _videoBuffer?.Dispose();
+            _videoBuffer = null;
+            _audioBuffer?.Dispose();
+            _audioBuffer = null;
+
+            // Again under the gate, after any resume that registered the reader while Dispose ran.
+            _idleTracker?.Untrack(this);
+        }
+        finally
+        {
+            _gate.Exit();
+        }
     }
 
     private void MarkAccessed()
@@ -359,7 +396,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     // open, so frames of a file with other stream properties would be read at the wrong positions).
     private bool TryResume()
     {
-        if (_closed || _streamsChanged)
+        if (_closeRequested || _closed || _streamsChanged)
             return false;
 
         if (!_suspended)
