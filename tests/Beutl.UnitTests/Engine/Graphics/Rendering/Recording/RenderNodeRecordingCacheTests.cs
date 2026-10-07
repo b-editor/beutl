@@ -469,7 +469,7 @@ public sealed class RenderNodeRecordingCacheTests
         public override void Process(RenderNodeContext context)
         {
             ProcessCalls++;
-            _ = context.RecordNestedTarget(inner, new Rect(0, 0, 8, 8));
+            _ = context.RecordNestedTargetAtScale(inner, new Rect(0, 0, 8, 8), 1);
         }
     }
 

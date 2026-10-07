@@ -66,8 +66,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderFragmentHandleOw
         InputHandles = facades;
     }
 
-    public IReadOnlyList<RenderFragmentHandle> Inputs => InputHandles;
-
     // Indexing this instead of Inputs keeps the per-visit input walks from boxing an enumerator.
     internal RenderFragmentHandle[] InputHandles { get; }
 

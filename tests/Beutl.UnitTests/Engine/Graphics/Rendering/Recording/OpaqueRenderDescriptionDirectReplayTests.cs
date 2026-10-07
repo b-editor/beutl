@@ -69,29 +69,6 @@ public sealed class OpaqueRenderDescriptionDirectReplayTests
         });
     }
 
-    [Test]
-    public void WithoutDirectReplay_ClearsDirectMaterializationContract()
-    {
-        using var node = new RectangleRenderNode(
-            new Rect(2, 3, 24, 16),
-            Brushes.Resource.White,
-            null);
-
-        RecordSingleOpaqueSource(node, static (_, description) =>
-        {
-            OpaqueRenderDescription withoutDirectReplay = description.WithoutDirectReplay();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(description.DirectReplay, Is.Not.Null);
-                Assert.That(description.HasDirectReplayMaterializationContract, Is.True);
-                Assert.That(withoutDirectReplay, Is.Not.SameAs(description));
-                Assert.That(withoutDirectReplay.DirectReplay, Is.Null);
-                Assert.That(withoutDirectReplay.HasDirectReplayMaterializationContract, Is.False);
-            });
-        });
-    }
-
     private static Brush.Resource CreateDrawableBrush()
     {
         var content = new RectShape();

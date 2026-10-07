@@ -46,7 +46,7 @@ internal sealed partial class RegionAnalyzer
             { } requested => requested.Intersect(measurement.OutputBounds),
             null => measurement.OutputBounds,
         };
-        RequiredRegion finalCommitRegion = RequiredRegion.Region(finalCommitBounds);
+        _ = RequiredRegion.Region(finalCommitBounds);
 
         var fragmentRequirements = new Dictionary<RenderFragmentReference, RequiredRegion>(
             ReferenceEqualityComparer.Instance);
@@ -109,10 +109,7 @@ internal sealed partial class RegionAnalyzer
 
         return new RegionAnalysis(
             measurement,
-            options.TargetDomain,
-            options.RequestedRegion,
             finalCommitBounds,
-            finalCommitRegion,
             fragmentRegions.ToImmutable(),
             targetAccessRegions.ToImmutable(),
             metadata,

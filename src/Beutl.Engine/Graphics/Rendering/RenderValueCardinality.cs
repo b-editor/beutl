@@ -68,8 +68,6 @@ public readonly struct RenderValueCardinality : IEquatable<RenderValueCardinalit
     public override int GetHashCode()
         => HashCode.Combine(_isInitialized, Minimum, Maximum);
 
-    internal bool IsInitialized => _isInitialized;
-
     internal void ThrowIfUninitialized(string parameterName)
     {
         if (!_isInitialized)

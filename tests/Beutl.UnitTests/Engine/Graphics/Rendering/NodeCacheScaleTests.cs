@@ -74,29 +74,6 @@ public class NodeCacheScaleTests
     }
 
     [Test]
-    public void FrameCache_TargetSizeMatchesResolvedDensity()
-    {
-        using EllipseRenderNode node = CacheableEllipse();
-        using var renderer = CreateFrameRenderer(node, outputScale: 0.5f, maxWorkingScale: 1f);
-
-        using (renderer.Rasterize())
-        {
-        }
-
-        Assert.That(node.Cache.IsCached, Is.True);
-        foreach ((RenderTarget target, Rect bounds) in node.Cache.UseCache())
-        {
-            using (target)
-            {
-                PixelRect expectedDeviceBounds = RenderScaleUtilities.AddRasterApron(
-                    PixelRect.FromRect(bounds, 0.5f));
-                Assert.That(target.Width, Is.EqualTo(expectedDeviceBounds.Width));
-                Assert.That(target.Height, Is.EqualTo(expectedDeviceBounds.Height));
-            }
-        }
-    }
-
-    [Test]
     public void CacheRuleBypass_IsRequestPolicyAndDoesNotPoisonLaterEligibleFrames()
     {
         using EllipseRenderNode node = CacheableEllipse();

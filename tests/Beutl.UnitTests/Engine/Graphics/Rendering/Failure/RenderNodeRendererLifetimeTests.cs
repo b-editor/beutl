@@ -139,8 +139,9 @@ public sealed class RenderNodeRendererLifetimeTests
         source.Value.Canvas.Clear(new SKColor(80, 120, 160, 192));
         using var node = new ShaderNode(source, bounds);
         using var cacheSeed = new TrackingRenderTarget(new PixelSize(8, 8));
-        RenderNodeCache.PublishAtomically(
-            [RenderCacheTestSupport.CreatePublication(node.Cache, cacheSeed, bounds)]);
+        RenderNodeCachePublication publication =
+            RenderCacheTestSupport.CreatePublication(node.Cache, cacheSeed, bounds);
+        RenderNodeCache.PublishAtomically([publication]);
         using var factory = new TrackingTargetFactory();
         var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
@@ -165,7 +166,7 @@ public sealed class RenderNodeRendererLifetimeTests
         });
 
         renderer.Dispose();
-        using RenderTarget cached = node.Cache.UseCache(out Rect cachedBounds);
+        bool hasCachedOutput = node.Cache.TryGetCachedOutput(publication.Identity, out RenderNodeCachedOutput? cached);
 
         Assert.Multiple(() =>
         {
@@ -179,8 +180,9 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(factory.IsDisposed, Is.False, "The caller owns the target factory.");
             Assert.That(node.IsDisposed, Is.False, "The caller owns the root node.");
             Assert.That(node.Cache.IsDisposed, Is.False, "The root owns its render cache.");
-            Assert.That(cachedBounds, Is.EqualTo(bounds));
-            Assert.That(cached.IsDisposed, Is.False);
+            Assert.That(hasCachedOutput, Is.True);
+            Assert.That(cached!.Values.Single().Bounds, Is.EqualTo(bounds));
+            Assert.That(cached.Values.Single().Target.IsDisposed, Is.False);
             Assert.That(source.IsDisposed, Is.False, "Borrowed materialized inputs remain caller-owned.");
             Assert.That(bitmap.IsDisposed, Is.False, "A returned rasterization owns its bitmap independently.");
         });

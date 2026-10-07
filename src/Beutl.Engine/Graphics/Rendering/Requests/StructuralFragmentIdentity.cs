@@ -291,15 +291,6 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
     }
 
     private static void AddResourceTypes(
-        IReadOnlyList<RenderResource> resources,
-        ref ComponentBuilder components)
-    {
-        components.AddInt32(resources.Count);
-        for (int index = 0; index < resources.Count; index++)
-            components.AddReference(resources[index].GetType());
-    }
-
-    private static void AddResourceTypes(
         IReadOnlyList<RenderResourceBinding> resources,
         ref ComponentBuilder components)
     {

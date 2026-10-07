@@ -61,21 +61,7 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
 
     public Rect Bounds => _bounds;
 
-    public RequiredRegion Coverage => _coverage;
-
     public float Density => BitConverter.Int32BitsToSingle(_densityBits);
-
-    public RenderCacheFormatIdentity Format => _format;
-
-    public RenderIntent Intent => _intent;
-
-    public RenderRequestPurpose Purpose => _purpose;
-
-    public FusionMode FusionMode => _fusionMode;
-
-    public RenderCacheDeviceContextIdentity DeviceContext => _deviceContext;
-
-    public Vector DeviceGridOffset => _deviceGridOffset;
 
     public bool Equals(RenderOutputCacheIdentity? other)
         => other is not null

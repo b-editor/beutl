@@ -6,20 +6,14 @@ internal sealed class RegionAnalysis
 {
     public RegionAnalysis(
         RenderNodeMeasurement measurement,
-        Rect? targetDomain,
-        Rect? requestedRegion,
         Rect finalCommitBounds,
-        RequiredRegion finalCommitRegion,
         ImmutableDictionary<RenderFragmentId, RequiredRegion> fragmentRequirements,
         ImmutableDictionary<RenderFragmentId, RequiredRegion> targetAccessRequirements,
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata,
         ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures)
     {
         Measurement = measurement;
-        TargetDomain = targetDomain;
-        RequestedRegion = requestedRegion;
         FinalCommitBounds = finalCommitBounds;
-        FinalCommitRegion = finalCommitRegion;
         FragmentRequirements = fragmentRequirements;
         TargetAccessRequirements = targetAccessRequirements;
         Metadata = metadata;
@@ -28,13 +22,7 @@ internal sealed class RegionAnalysis
 
     public RenderNodeMeasurement Measurement { get; }
 
-    public Rect? TargetDomain { get; }
-
-    public Rect? RequestedRegion { get; }
-
     public Rect FinalCommitBounds { get; }
-
-    public RequiredRegion FinalCommitRegion { get; }
 
     public ImmutableDictionary<RenderFragmentId, RequiredRegion> FragmentRequirements { get; }
 
@@ -51,9 +39,6 @@ internal sealed class RegionAnalysis
         => TargetAccessRequirements.TryGetValue(GetId(reference), out RequiredRegion requirement)
             ? requirement
             : RequiredRegion.Empty;
-
-    public ResolvedFragmentMetadata GetMetadata(RenderFragmentReference reference)
-        => Metadata[GetId(reference)];
 
     private static RenderFragmentId GetId(RenderFragmentReference reference)
         => reference.Id

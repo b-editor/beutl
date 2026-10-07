@@ -362,7 +362,6 @@ public sealed class RasterFootprintMetadataTests
             Assert.That(value.Bounds, Is.EqualTo(bounds));
             Assert.That(value.CompleteBounds, Is.EqualTo(bounds));
             Assert.That(value.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(value.RasterBounds, Is.EqualTo(deviceBounds.ToRect(density)));
         });
     }
 
@@ -746,7 +745,7 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
-    public void CanBlitLossless_OnAGuardedCallbackCanvas_IsRefusedLikeCanDrawPixelAligned()
+    public void CanBlitLossless_OnAGuardedCallbackCanvas_IsRefused()
     {
         const float density = 1;
         var bounds = new Rect(0, 0, 8, 6);
@@ -763,16 +762,10 @@ public sealed class RasterFootprintMetadataTests
 
         try
         {
-            canvas.Use(guarded => Assert.Multiple(() =>
-            {
-                Assert.That(
-                    () => guarded.CanBlitLossless(bounds, deviceBounds.Size),
-                    Throws.InstanceOf<InvalidOperationException>()
-                        .With.Message.Contains("render targets are not available"));
-                Assert.That(
-                    () => guarded.CanDrawPixelAligned(bounds, density, deviceBounds.Size),
-                    Throws.InstanceOf<InvalidOperationException>());
-            }));
+            canvas.Use(guarded => Assert.That(
+                () => guarded.CanBlitLossless(bounds, deviceBounds.Size),
+                Throws.InstanceOf<InvalidOperationException>()
+                    .With.Message.Contains("render targets are not available")));
         }
         finally
         {

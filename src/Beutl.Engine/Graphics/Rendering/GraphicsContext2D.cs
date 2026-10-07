@@ -35,11 +35,6 @@ public sealed class GraphicsContext2D(
 
     internal Action<RenderNode>? OnUntracked { get; set; }
 
-    internal void MarkChanges()
-    {
-        _hasChanges = true;
-    }
-
     private void Untracked(RenderNode? node)
     {
         if (node != null) OnUntracked?.Invoke(node);

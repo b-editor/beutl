@@ -306,32 +306,11 @@ public sealed partial class RenderNodeContext
         IReadOnlyList<RenderFragmentHandle> inputs)
         => GetTransaction().RecordNode(node, inputs, subtree: false);
 
-    internal RecordedNestedRenderTarget RecordNestedTarget(
-        RenderNode root,
-        Rect targetDomain,
-        Rect? requestedRegion = null)
-        => RecordNestedTargetCore(
-            root,
-            targetDomain,
-            requestedRegion,
-            workingScale: null);
-
     internal RecordedNestedRenderTarget RecordNestedTargetAtScale(
         RenderNode root,
         Rect targetDomain,
         float workingScale,
         Rect? requestedRegion = null)
-        => RecordNestedTargetCore(
-            root,
-            targetDomain,
-            requestedRegion,
-            workingScale);
-
-    private RecordedNestedRenderTarget RecordNestedTargetCore(
-        RenderNode root,
-        Rect targetDomain,
-        Rect? requestedRegion,
-        float? workingScale)
     {
         ArgumentNullException.ThrowIfNull(root);
         var binding = new NestedRenderTargetBinding();
@@ -340,16 +319,11 @@ public sealed partial class RenderNodeContext
         try
         {
             bindingResource = transaction.Own(binding);
-            RenderRequestOptions nestedOptions = workingScale is { } scale
-                ? transaction.Request.Options.CreateNestedAtScale(
-                    binding,
-                    scale,
-                    targetDomain,
-                    requestedRegion ?? targetDomain)
-                : transaction.Request.Options.CreateNested(
-                    binding,
-                    targetDomain,
-                    requestedRegion ?? targetDomain);
+            RenderRequestOptions nestedOptions = transaction.Request.Options.CreateNestedAtScale(
+                binding,
+                workingScale,
+                targetDomain,
+                requestedRegion ?? targetDomain);
             RecordedNestedRenderRequest recording = transaction.RecordNestedRequest(
                 root,
                 nestedOptions);

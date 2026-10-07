@@ -101,22 +101,6 @@ public partial class ImmediateCanvas
             : sourceContext is not null && destinationContext.Handle == sourceContext.Handle;
     }
 
-    internal bool CanDrawPixelAligned(
-        Rect dest,
-        float sourceDensity,
-        PixelSize sourceSize)
-    {
-        VerifyAccess();
-        VerifyNativeTargetOperation();
-        return TryGetPixelAlignedDeviceOrigin(
-            dest,
-            sourceDensity,
-            sourceSize,
-            _currentDensity,
-            _currentTransform,
-            out _);
-    }
-
     internal static bool CanDrawPixelAligned(
         Rect dest,
         float sourceDensity,

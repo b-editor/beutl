@@ -50,24 +50,6 @@ public sealed class RegionAnalysisReuseTests
     }
 
     [Test]
-    public void CompileAfterMetadata_RunsOneRegionAnalysisForTheRequestItResumes()
-    {
-        using var node = new RectangleRenderNode(s_bounds, Brushes.Resource.White, null);
-        using var request = new RenderRequest(Options());
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        var compiler = new RenderRequestCompiler();
-        RenderNodeMeasurement measurement = compiler.ResolveMetadata(request, graph);
-
-        using CompiledRenderRequest compiled = compiler.CompileAfterMetadata(request, graph, measurement);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(compiler.RegionAnalysisCount, Is.EqualTo(1));
-            Assert.That(compiled.Regions.Measurement, Is.EqualTo(measurement));
-        });
-    }
-
-    [Test]
     public void Compile_RunsOneRegionAnalysisPerRequestOfANestedFamily()
     {
         using var child = new RectangleRenderNode(s_bounds, Brushes.Resource.White, null);
@@ -86,22 +68,6 @@ public sealed class RegionAnalysisReuseTests
         });
     }
 
-    [Test]
-    public void CompileAfterMetadata_RunsOneRegionAnalysisPerRequestOfANestedFamily()
-    {
-        using var child = new RectangleRenderNode(s_bounds, Brushes.Resource.White, null);
-        using var parent = new NestedTargetParentNode(child);
-        using var request = new RenderRequest(Options());
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
-        var compiler = new RenderRequestCompiler();
-        RenderNodeMeasurement measurement = compiler.ResolveMetadata(request, graph);
-
-        using CompiledRenderRequest compiled = compiler.CompileAfterMetadata(request, graph, measurement);
-
-        Assert.That(compiler.RegionAnalysisCount, Is.EqualTo(2));
-        Assert.That(compiled.NestedRequests, Has.Length.EqualTo(1));
-    }
-
     private static RenderRequestOptions Options(
         RenderRequestPurpose purpose = RenderRequestPurpose.Frame)
         => new(
@@ -114,6 +80,6 @@ public sealed class RegionAnalysisReuseTests
     private sealed class NestedTargetParentNode(RenderNode child) : RenderNode
     {
         public override void Process(RenderNodeContext context)
-            => _ = context.RecordNestedTarget(child, s_bounds);
+            => _ = context.RecordNestedTargetAtScale(child, s_bounds, 1);
     }
 }
