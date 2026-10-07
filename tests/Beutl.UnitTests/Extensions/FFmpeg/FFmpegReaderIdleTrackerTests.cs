@@ -8,7 +8,31 @@ public class FFmpegReaderIdleTrackerTests
     private const long Now = 100_000;
 
     private static FFmpegReaderIdleTracker CreateTracker(int maxIdleReaders = 1)
-        => new(new FFmpegReaderIdlePolicy.Limits(5000, maxIdleReaders, long.MaxValue), sweepPeriodically: false);
+        => new(new FFmpegReaderIdlePolicy.Limits(5000, maxIdleReaders, long.MaxValue), sweepInterval: null);
+
+    private static readonly FFmpegReaderIdlePolicy.Limits s_suspendImmediately = new(0, 0, 0);
+
+    [Test]
+    public void PeriodicSweep_SuspendsIdleReaders()
+    {
+        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        var reader = new FakeReader(Environment.TickCount64);
+        tracker.Track(reader);
+
+        Assert.That(() => reader.IsSuspended, Is.True.After(5000, 10));
+        Assert.That(() => tracker.TrackedCount, Is.Zero.After(5000, 10));
+    }
+
+    [Test]
+    public void PeriodicSweep_KeepsRunningAfterASweepThrows()
+    {
+        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        var reader = new FakeReader(Environment.TickCount64) { ThrowOnFirstSuspend = true };
+        tracker.Track(reader);
+
+        Assert.That(() => reader.IsSuspended, Is.True.After(5000, 10));
+        Assert.That(reader.SuspendAttempts, Is.GreaterThanOrEqualTo(2));
+    }
 
     [Test]
     public void Sweep_SuspendsReadersSelectedByPolicy_AndStopsTrackingThem()
@@ -89,8 +113,15 @@ public class FFmpegReaderIdleTrackerTests
 
         public long? AccessDuringSuspend { get; init; }
 
+        public bool ThrowOnFirstSuspend { get; init; }
+
+        public int SuspendAttempts { get; private set; }
+
         public bool TrySuspend(long expectedLastAccessTicks)
         {
+            if (++SuspendAttempts == 1 && ThrowOnFirstSuspend)
+                throw new InvalidOperationException("Simulated suspension failure.");
+
             if (AccessDuringSuspend is { } accessed)
                 LastAccessTicks = accessed;
 

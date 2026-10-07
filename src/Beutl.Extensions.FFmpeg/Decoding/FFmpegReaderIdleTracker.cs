@@ -21,24 +21,24 @@ internal interface IIdleSuspendableReader
 internal sealed class FFmpegReaderIdleTracker
 {
     private static readonly ILogger s_logger = Log.CreateLogger<FFmpegReaderIdleTracker>();
-    private static readonly TimeSpan s_sweepInterval = TimeSpan.FromSeconds(1);
 
     private readonly Lock _lock = new();
     // Held strongly so that a reader which is never disposed is still suspended: its finalizer cannot
     // reach the worker, so dropping it here would leak the worker-side decoder for the process lifetime.
     private readonly HashSet<IIdleSuspendableReader> _readers = new(ReferenceEqualityComparer.Instance);
     private readonly FFmpegReaderIdlePolicy.Limits _limits;
-    private readonly bool _sweepPeriodically;
+    private readonly TimeSpan? _sweepInterval;
     private Timer? _timer;
     private int _sweeping;
 
-    internal FFmpegReaderIdleTracker(FFmpegReaderIdlePolicy.Limits limits, bool sweepPeriodically)
+    // A null interval disables the periodic sweep; Sweep can then be called directly.
+    internal FFmpegReaderIdleTracker(FFmpegReaderIdlePolicy.Limits limits, TimeSpan? sweepInterval)
     {
         _limits = limits;
-        _sweepPeriodically = sweepPeriodically;
+        _sweepInterval = sweepInterval;
     }
 
-    public static FFmpegReaderIdleTracker Shared { get; } = new(FFmpegReaderIdlePolicy.DefaultLimits, sweepPeriodically: true);
+    public static FFmpegReaderIdleTracker Shared { get; } = new(FFmpegReaderIdlePolicy.DefaultLimits, TimeSpan.FromSeconds(1));
 
     internal int TrackedCount
     {
@@ -54,11 +54,11 @@ internal sealed class FFmpegReaderIdleTracker
         lock (_lock)
         {
             _readers.Add(reader);
-            if (_sweepPeriodically)
+            if (_sweepInterval is { } interval)
             {
                 _timer ??= new Timer(
                     static state => ((FFmpegReaderIdleTracker)state!).OnTimer(),
-                    this, s_sweepInterval, s_sweepInterval);
+                    this, interval, interval);
             }
         }
     }
