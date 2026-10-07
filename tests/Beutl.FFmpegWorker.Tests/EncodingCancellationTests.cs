@@ -152,6 +152,32 @@ public class EncodingCancellationTests
         Assert.That(new FileInfo(outputPath).Length, Is.InRange(1, previous.Length - 1));
     }
 
+    // The sample provider is always stereo; other channel counts are remixed into the encoder's layout.
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(6)]
+    public async Task Encode_WritesTheConfiguredAudioChannelCount(int channels)
+    {
+        if (!s_ffmpegAvailable.Value)
+            Assert.Ignore("FFmpeg native libraries are not available.");
+
+        string outputPath = Path.Combine(_workDir, $"channels-{channels}.mp4");
+        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = new Rational(30, 1);
+        controller.AudioSettings.SampleRate = 44100;
+        controller.AudioSettings.Channels = channels;
+        using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
+        using var samples = new SineSampleProvider(4410, 44100);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using MediaDemuxer demuxer = MediaDemuxer.Open(outputPath);
+        MediaStream audio = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO);
+        Assert.That(audio.CodecparRef.ch_layout.nb_channels, Is.EqualTo(channels));
+    }
+
     private sealed class CancelAfterFirstFrameProvider(
         CancellationTokenSource cts, long frameCount, Rational frameRate, int width, int height)
         : IFrameProvider

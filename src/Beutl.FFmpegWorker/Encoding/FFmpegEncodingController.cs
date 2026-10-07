@@ -90,12 +90,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var codec = AudioSettings.Codec.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.AudioCodec)
             : MediaCodec.FindEncoder(AudioSettings.Codec.Name);
-        var channelLayout = new AVChannelLayout
-        {
-            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
-            nb_channels = AudioSettings.Channels,
-            u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
-        };
+        AVChannelLayout channelLayout = SelectChannelLayout(codec, AudioSettings.Channels);
         int sampleRate = AudioSettings.SampleRate;
         var format = (AVSampleFormat)AudioSettings.Format;
         int bitRate = AudioSettings.Bitrate;
@@ -160,12 +155,32 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         swr.SetOpts(encoder.ChLayout, encoder.SampleRate,
             (AVSampleFormat)AudioSettings.Format, nbsamples);
 
-        // src
-        audioFrame.ChLayout = encoder.ChLayout;
+        // src: the sample provider always delivers interleaved stereo, which swr remixes into the encoder's layout
+        audioFrame.ChLayout = DefaultChannelLayout(2);
         audioFrame.NbSamples = nbsamples;
         audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
         audioFrame.SampleRate = encoder.SampleRate;
         audioFrame.AllocateBuffer();
+    }
+
+    // The codec's own layout for the channel count comes first: AAC takes 5.1 only with back
+    // speakers, while FFmpeg's default six-channel layout uses side ones.
+    private static AVChannelLayout SelectChannelLayout(MediaCodec codec, int channels)
+    {
+        foreach (AVChannelLayout layout in codec.GetChLayouts())
+        {
+            if (layout.nb_channels == channels)
+                return layout;
+        }
+
+        return DefaultChannelLayout(channels);
+    }
+
+    private static unsafe AVChannelLayout DefaultChannelLayout(int channels)
+    {
+        AVChannelLayout layout;
+        ffmpeg.av_channel_layout_default(&layout, channels);
+        return layout;
     }
 
     private unsafe void ConfigureVideoStream(
