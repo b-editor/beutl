@@ -9,6 +9,7 @@ using Avalonia.VisualTree;
 using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Extensions.FFmpeg.PropertyEditors;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -75,10 +76,11 @@ public sealed class EncoderOptionsEditorTests
         {
             Codec = new CodecRecord("libx264", "H.264"),
             OutputFile = "out.mp4",
-            Options = [new("first", "one"), new("second", "two")],
+            Options = [new("first", "one"), new("second", "two"), new("crf", "100")],
         };
+        EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 63 }];
         string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>([], false)));
+        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
         using var model = new EncoderOptionsEditorViewModel(
             new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
             new FFmpegEncoderSpecializedPropertyExtension());
@@ -90,13 +92,30 @@ public sealed class EncoderOptionsEditorTests
             HeadlessTestHelpers.Render(2);
             view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
             HeadlessTestHelpers.Render(2);
+            string expectedWarning = model.GetWarning(schema[0], "100")!;
+            var valueWarning = view.GetVisualDescendants().OfType<TextBlock>().Single(c => c.Text == expectedWarning);
+            Assert.That(valueWarning.IsEffectivelyVisible, Is.True);
             var name = view.GetVisualDescendants().OfType<StringEditor>().Single(c => c.Text == "first");
             name.Text = "second";
             name.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            HeadlessTestHelpers.Render(2);
             Assert.That(name.Text, Is.EqualTo("first"));
+            Assert.That(valueWarning.Text, Is.EqualTo(expectedWarning));
+            Assert.That(valueWarning.IsEffectivelyVisible, Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
+                .Any(c => c.IsEffectivelyVisible && c.Text == Strings.EncoderOptionsDuplicate), Is.True);
             Assert.DoesNotThrow(() => settings.Options.ToDictionary(o => o.Name, o => o.Value));
             Assert.That(model.GetValue("first"), Is.EqualTo("one"));
             Assert.That(model.GetValue("second"), Is.EqualTo("two"));
+            Assert.That(model.GetValue("crf"), Is.EqualTo("100"));
+
+            name.Text = "unique";
+            name.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            HeadlessTestHelpers.Render(2);
+            Assert.That(model.GetValue("unique"), Is.EqualTo("one"));
+            Assert.That(valueWarning.Text, Is.EqualTo(expectedWarning));
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
+                .Any(c => c.IsEffectivelyVisible && c.Text == Strings.EncoderOptionsDuplicate), Is.False);
         }
         finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
     }

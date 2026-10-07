@@ -146,15 +146,19 @@ internal sealed class EncoderOptionsEditor : UserControl
         {
             EncoderOptionInfo? descriptor = _model.Descriptors.FirstOrDefault(d => d.Name == option.Name);
             var name = new StringEditor { Header = Strings.EncoderOptionsOptionName, Text = option.Name };
+            var renameWarning = new TextBlock
+            {
+                Text = Strings.EncoderOptionsDuplicate,
+                IsVisible = false,
+                Margin = new Thickness(8, 4),
+                TextWrapping = TextWrapping.Wrap,
+            };
+            renameWarning.Bind(ThemeProperty, new DynamicResourceExtension("ErrorTextBlockStyle"));
             CommitText(name, () => option.Name, value =>
             {
                 _model.RenameOption(option, value);
                 name.Text = option.Name;
-                if (option.Name != value.Trim())
-                {
-                    _warning.Text = Strings.EncoderOptionsDuplicate;
-                    _warning.IsVisible = true;
-                }
+                renameWarning.IsVisible = option.Name != value.Trim();
             });
             var remove = IconButton(Icon.Delete, Strings.EncoderOptionsRemove);
             remove.Click += (_, _) => _model.RemoveOption(option);
@@ -166,7 +170,7 @@ internal sealed class EncoderOptionsEditor : UserControl
                     else _model.SetValue(option, value);
                 }, _advancedRefreshers);
             input.Header = Strings.EncoderOptionsValue;
-            _advancedRows.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 4), Children = { name, input } });
+            _advancedRows.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 4), Children = { name, renameWarning, input } });
         }
         _optionName.ItemsSource = _model.Descriptors.Select(d => d.Name)
             .Where(name => !_model.Options.Any(o => o.Name == name)).Order().ToArray();
