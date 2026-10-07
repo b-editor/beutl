@@ -25,10 +25,7 @@ public class AnimatedPngReader : MediaReader
             if (frame.fcTLChunk == null)
                 continue;
 
-            long delayDen = frame.fcTLChunk.DelayDen == 0 ? 100 : frame.fcTLChunk.DelayDen;
-            duration += frame.fcTLChunk.DelayNum == 0
-                ? new Rational(1, 1000)
-                : new Rational(frame.fcTLChunk.DelayNum, delayDen);
+            duration += FrameDelay(frame.fcTLChunk);
         }
 
         VideoInfo = new VideoStreamInfo(
@@ -52,6 +49,88 @@ public class AnimatedPngReader : MediaReader
 
     public override bool HasAudio => false;
 
+    // A zero numerator plays the frame as fast as possible, timed here as 1 ms; a zero denominator means
+    // hundredths of a second, as the APNG specification defines.
+    private static Rational FrameDelay(fcTLChunk chunk)
+    {
+        long delayDen = chunk.DelayDen == 0 ? 100 : chunk.DelayDen;
+        return chunk.DelayNum == 0
+            ? new Rational(1, 1000)
+            : new Rational(chunk.DelayNum, delayDen);
+    }
+
+    // Returns the frame shown at the given time, or -1 when there is none.
+    private int FindFrameIndex(Rational seconds)
+    {
+        // APNG 仕様で NumPlays == 0 は無限ループ再生。元コードは
+        // `for (rp; rp < NumPlays || NumPlays == 0; rp++)` で外側を永久ループに
+        // していたため、要求時間がコンテンツ全体の duration を超えるとレンダリ
+        // ングスレッドがハングしていた。
+        //
+        // 1巡分の duration を先に計算し、無限ループ素材は seconds をその範囲に
+        // wrap してフレーム検出する。これでハングを防ぎつつ、playhead が 1 巡分
+        // を超えても正しいフレームが返るので「再生が止まる」回帰も起きない。
+        Rational cycleDuration = new Rational(0, 1);
+        for (int i = 0; i < _frameCount; i++)
+        {
+            var f = _apng.Frames[i];
+            if (f.fcTLChunk == null) continue;
+
+            cycleDuration += FrameDelay(f.fcTLChunk);
+        }
+
+        if (cycleDuration <= new Rational(0, 1))
+        {
+            // 進行する frame chunk が一つも無い。元のロジックなら無限ループだったケース。
+            return -1;
+        }
+
+        uint numPlays = _apng.acTLChunk!.NumPlays;
+        Rational effective = seconds;
+
+        if (numPlays != 0)
+        {
+            Rational fullDuration = cycleDuration * (long)numPlays;
+            if (effective >= fullDuration)
+            {
+                // 最終再生分の最後を超えた要求は元コードでは detectedFrame=-1 のまま。
+                return -1;
+            }
+        }
+
+        // wrap effective into [0, cycleDuration) for both finite and infinite loops.
+        while (effective >= cycleDuration)
+        {
+            effective -= cycleDuration;
+        }
+
+        Rational accumulated = new Rational(0, 1);
+        for (int i = 0; i < _frameCount; i++)
+        {
+            var f = _apng.Frames[i];
+            if (f.fcTLChunk == null) continue;
+
+            if (effective <= accumulated)
+            {
+                return i;
+            }
+
+            accumulated += FrameDelay(f.fcTLChunk);
+        }
+
+        // wrap 後でもヒットしない（端数などで最終フレーム超えと判定された）場合は
+        // 1 巡の最終 fcTL フレームを返す。
+        for (int i = _frameCount - 1; i >= 0; i--)
+        {
+            if (_apng.Frames[i].fcTLChunk != null)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
@@ -59,91 +138,13 @@ public class AnimatedPngReader : MediaReader
         // frameを秒数に変換
         var seconds = new Rational(frame * VideoInfo.FrameRate.Denominator, VideoInfo.FrameRate.Numerator);
 
-        int detectedFrame = -1;
         if (_defaultImage != null)
         {
             image = Ref<Bitmap>.Create(_defaultImage.Clone());
             return true;
         }
-        else
-        {
-            // APNG 仕様で NumPlays == 0 は無限ループ再生。元コードは
-            // `for (rp; rp < NumPlays || NumPlays == 0; rp++)` で外側を永久ループに
-            // していたため、要求時間がコンテンツ全体の duration を超えるとレンダリ
-            // ングスレッドがハングしていた。
-            //
-            // 1巡分の duration を先に計算し、無限ループ素材は seconds をその範囲に
-            // wrap してフレーム検出する。これでハングを防ぎつつ、playhead が 1 巡分
-            // を超えても正しいフレームが返るので「再生が止まる」回帰も起きない。
-            Rational cycleDuration = new Rational(0, 1);
-            for (int i = 0; i < _frameCount; i++)
-            {
-                var f = _apng.Frames[i];
-                if (f.fcTLChunk == null) continue;
 
-                long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
-                cycleDuration += f.fcTLChunk.DelayNum == 0
-                    ? new Rational(1, 1000)
-                    : new Rational(f.fcTLChunk.DelayNum, delayDen);
-            }
-
-            if (cycleDuration <= new Rational(0, 1))
-            {
-                // 進行する frame chunk が一つも無い。元のロジックなら無限ループだったケース。
-                return false;
-            }
-
-            uint numPlays = _apng.acTLChunk!.NumPlays;
-            Rational effective = seconds;
-
-            if (numPlays != 0)
-            {
-                Rational fullDuration = cycleDuration * (long)numPlays;
-                if (effective >= fullDuration)
-                {
-                    // 最終再生分の最後を超えた要求は元コードでは detectedFrame=-1 のまま。
-                    return false;
-                }
-            }
-
-            // wrap effective into [0, cycleDuration) for both finite and infinite loops.
-            while (effective >= cycleDuration)
-            {
-                effective -= cycleDuration;
-            }
-
-            Rational accumulated = new Rational(0, 1);
-            for (int i = 0; i < _frameCount; i++)
-            {
-                var f = _apng.Frames[i];
-                if (f.fcTLChunk == null) continue;
-
-                if (effective <= accumulated)
-                {
-                    detectedFrame = i;
-                    goto BreakNestedLoop;
-                }
-
-                long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
-                accumulated += f.fcTLChunk.DelayNum == 0
-                    ? new Rational(1, 1000)
-                    : new Rational(f.fcTLChunk.DelayNum, delayDen);
-            }
-
-            // wrap 後でもヒットしない（端数などで最終フレーム超えと判定された）場合は
-            // 1 巡の最終 fcTL フレームを返す。
-            for (int i = _frameCount - 1; i >= 0; i--)
-            {
-                if (_apng.Frames[i].fcTLChunk != null)
-                {
-                    detectedFrame = i;
-                    break;
-                }
-            }
-
-        BreakNestedLoop:;
-        }
-
+        int detectedFrame = FindFrameIndex(seconds);
         if (detectedFrame == -1)
             return false;
 

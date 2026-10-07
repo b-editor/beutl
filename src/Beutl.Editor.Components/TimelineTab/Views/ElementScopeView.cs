@@ -1,6 +1,4 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -55,35 +53,17 @@ public sealed class ElementScopeView : Rectangle
     {
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var animation = new Avalonia.Animation.Animation
-            {
-                Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                Duration = TimeSpan.FromSeconds(0.25),
-                FillMode = FillMode.Forward,
-                Children =
-                {
-                    new KeyFrame()
-                    {
-                        Cue = new Cue(0),
-                        Setters =
-                        {
-                            new Setter(MarginProperty, Margin),
-                            new Setter(WidthProperty, Width),
-                            new Setter(HeightProperty, Height),
-                        }
-                    },
-                    new KeyFrame()
-                    {
-                        Cue = new Cue(1),
-                        Setters =
-                        {
-                            new Setter(MarginProperty, args.Margin),
-                            new Setter(WidthProperty, args.Width),
-                            new Setter(HeightProperty, args.Height),
-                        }
-                    }
-                }
-            };
+            var animation = TimelineSettleAnimation.Create(
+                [
+                    new Setter(MarginProperty, Margin),
+                    new Setter(WidthProperty, Width),
+                    new Setter(HeightProperty, Height),
+                ],
+                [
+                    new Setter(MarginProperty, args.Margin),
+                    new Setter(WidthProperty, args.Width),
+                    new Setter(HeightProperty, args.Height),
+                ]);
 
             await animation.RunAsync(this, token);
         });

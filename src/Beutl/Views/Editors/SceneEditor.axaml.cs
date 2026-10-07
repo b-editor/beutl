@@ -22,23 +22,11 @@ public partial class SceneEditor : UserControl
         try
         {
             _flyoutOpen = true;
-            var targets = vm.GetAvailableScenes();
-            var pickerVm = new TargetPickerFlyoutViewModel();
-            pickerVm.Initialize(targets);
-
-            var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this, true);
-
-            var tcs = new TaskCompletionSource<Scene?>();
-            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Scene);
-
-            var result = await tcs.Task;
-            if (result != null)
-            {
-                vm.SetTarget(result);
-            }
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<SceneEditorViewModel, Scene>(
+                this,
+                vm,
+                viewModel => viewModel.GetAvailableScenes(),
+                (viewModel, target) => viewModel.SetTarget(target));
         }
         finally
         {

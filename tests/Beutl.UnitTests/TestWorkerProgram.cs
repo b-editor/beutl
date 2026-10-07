@@ -9,6 +9,7 @@ internal static class TestWorkerProgram
     public const string ProjectFontWorkerArgument = "--project-font-worker";
     public const string XAudioLifetimeWorkerArgument = "--xaudio-lifetime-worker";
     public const string FFmpegLifetimeWorkerArgument = "--ffmpeg-lifetime-worker";
+    public const string SwiftShaderLifetimeWorkerArgument = "--swiftshader-lifetime-worker";
 
     private static async Task<int> Main(string[] args)
     {
@@ -27,6 +28,9 @@ internal static class TestWorkerProgram
                     break;
                 case [XAudioLifetimeWorkerArgument, var action]:
                     Engine.Audio.XAudioLifetimeTests.RunWorker(action);
+                    break;
+                case [SwiftShaderLifetimeWorkerArgument, var action]:
+                    Engine.Graphics.Backend.SwiftShaderLifetimeTests.RunWorker(action);
                     break;
                 case [FFmpegLifetimeWorkerArgument, "--test", var testAction]:
                     await Extensions.FFmpeg.FFmpegWorkerProcessLifetimeTests.RunHostAsync(testAction);
@@ -47,7 +51,12 @@ internal static class TestWorkerProgram
         }
     }
 
-    internal static async Task RunAsync(params string[] arguments)
+    internal static Task RunAsync(params string[] arguments)
+        => RunAsync(null, arguments);
+
+    internal static async Task RunAsync(
+        Action<System.Diagnostics.ProcessStartInfo>? configureStartInfo,
+        params string[] arguments)
     {
         var start = new System.Diagnostics.ProcessStartInfo("dotnet")
         {
@@ -58,6 +67,7 @@ internal static class TestWorkerProgram
         start.ArgumentList.Add("exec");
         start.ArgumentList.Add(typeof(TestWorkerProgram).Assembly.Location);
         foreach (string argument in arguments) start.ArgumentList.Add(argument);
+        configureStartInfo?.Invoke(start);
         using var process = System.Diagnostics.Process.Start(start)!;
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();

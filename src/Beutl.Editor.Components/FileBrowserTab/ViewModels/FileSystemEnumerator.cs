@@ -41,14 +41,20 @@ internal static class FileSystemEnumerator
         }
     }
 
-    // コレクションをクリアして指定ディレクトリの内容で再構築する。
-    public static void PopulateCollection(ObservableCollection<FileSystemItemViewModel> collection, string path)
+    // Items own their thumbnail and metadata loads, so they are disposed before they are dropped.
+    internal static void DisposeAndClear(ObservableCollection<FileSystemItemViewModel> collection)
     {
         foreach (var item in collection)
         {
             item.Dispose();
         }
         collection.Clear();
+    }
+
+    // コレクションをクリアして指定ディレクトリの内容で再構築する。
+    public static void PopulateCollection(ObservableCollection<FileSystemItemViewModel> collection, string path)
+    {
+        DisposeAndClear(collection);
 
         foreach (var item in EnumerateDirectory(path))
         {

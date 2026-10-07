@@ -1,11 +1,7 @@
-﻿using System.Text.Json;
-
-using Avalonia.Controls;
-using Avalonia.Input;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -71,22 +67,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         WebBrowserTabViewModel? previousViewModel = _viewModel;
-        _adBlockSession?.Dispose();
-        _adBlockSession = null;
-        _downloadCancellation?.Cancel();
-        ClearDeferredNativeDownloads();
-        ResetPageDownloadRequests();
-        CloseBrowserPanel();
-        _pageRevision++;
-        _findRequest?.Cancel();
-        AddressTextBox.CancelSearchSuggestions();
-        if (_viewModel != null)
-        {
-            _viewModel.Disposing -= Dispose;
-            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
-            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
-            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
-        }
+        ResetPageStateForRebind();
+        UnsubscribeFromViewModel();
         _viewModel = viewModel;
         if (viewModel == null)
         {
@@ -103,6 +85,36 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             // Source may be a provisional URL; the previous model knows the last loaded page.
             viewModel.AdoptCommittedPage(previousViewModel);
         }
+        AttachToViewModel(viewModel);
+    }
+
+    // Work, offers and panels that belong to the page the previous context was showing.
+    private void ResetPageStateForRebind()
+    {
+        _adBlockSession?.Dispose();
+        _adBlockSession = null;
+        _downloadCancellation?.Cancel();
+        ClearDeferredNativeDownloads();
+        ResetPageDownloadRequests();
+        CloseBrowserPanel();
+        _pageRevision++;
+        _findRequest?.Cancel();
+        AddressTextBox.CancelSearchSuggestions();
+    }
+
+    private void UnsubscribeFromViewModel()
+    {
+        if (_viewModel != null)
+        {
+            _viewModel.Disposing -= Dispose;
+            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
+            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
+            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
+        }
+    }
+
+    private void AttachToViewModel(WebBrowserTabViewModel viewModel)
+    {
         viewModel.Disposing += Dispose;
         viewModel.Profile.SettingsChanged += OnProfileChanged;
         viewModel.Profile.Bookmarks.CollectionChanged += OnBookmarksChanged;
@@ -194,12 +206,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         UpdateHistoryState();
-        _nativeDownloadHandlerVersion++;
-        int handlerVersion = _nativeDownloadHandlerVersion;
+        int handlerVersion = InvalidateNativeDownloads();
         NativeWebView webView = _webView;
-        _nativeDownloadFailures.Clear();
-        _latestNavigationRequest = null;
-        ClearDeferredNativeDownloads();
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         void OnDownload(Uri uri, string name, IBrowserDownloadSource source)
@@ -227,23 +235,21 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private void OnAdapterDestroyed(object? sender, WebViewAdapterEventArgs e)
     {
         if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
-        _nativeDownloadHandlerVersion++;
-        _nativeDownloadFailures.Clear();
-        _latestNavigationRequest = null;
-        ClearDeferredNativeDownloads();
+        InvalidateNativeDownloads();
         if (_pendingPageDownloadRequest?.Source != null) ClearPageDownloadRequest();
         _nativeDownloadHandler?.Dispose();
         _nativeDownloadHandler = null;
     }
 
-    internal void OnNativeNavigationCommitted(Uri uri)
+    // A native download callback checks the returned version, so callbacks of the previous adapter or
+    // web view are ignored; failures and deferred offers recorded for it are dropped with it.
+    private int InvalidateNativeDownloads()
     {
-        if (!_disposed) _viewModel?.CommitNavigation(uri);
-    }
-
-    internal void OnNativeNavigationStarted()
-    {
-        if (!_disposed) InvalidatePageDownloadRequests();
+        _nativeDownloadHandlerVersion++;
+        _nativeDownloadFailures.Clear();
+        _latestNavigationRequest = null;
+        ClearDeferredNativeDownloads();
+        return _nativeDownloadHandlerVersion;
     }
 
     private void ScheduleLinuxSizeRefresh(NativeWebView webView)
@@ -270,232 +276,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         bool wasVisible = webView.IsVisible;
         webView.IsVisible = !wasVisible;
         webView.IsVisible = wasVisible;
-    }
-
-    internal void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
-    {
-        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
-        if (e.Cancel) return;
-        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
-            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
-        {
-            e.Cancel = true;
-            if (!_navigationStartedIncludesSubframes) _viewModel?.BeginNavigation(unsupportedRequest);
-            return;
-        }
-
-        _latestNavigationRequest = e.Request;
-
-        // The macOS WebView adapter forwards policy decisions for every target frame through this event,
-        // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
-        // App-initiated navigation and explicit download links are handled separately.
-        if (_navigationStartedIncludesSubframes)
-        {
-            // Script offers expire without treating a frame as a new page. Captured native
-            // responses survive iframe activity; the WK delegate reports their main-frame starts.
-            if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
-            return;
-        }
-
-        _pageRevision++;
-        _findRequest?.Cancel();
-        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri)
-            && _nativeDownloadHandler is not WindowsBrowserDownloadHandler)
-        {
-            e.Cancel = true;
-            _latestNavigationRequest = null;
-            // A redirect can turn an in-flight page navigation into a download. Its document
-            // origin is no longer confirmed, and cancellation must release the request gate.
-            if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
-            else InvalidatePageDownloadRequests();
-            _mediaNavigationIntercepted = true;
-            _viewModel?.StopNavigation();
-            QueuePageDownloadRequest(mediaUri, null);
-            return;
-        }
-
-        if (e.Request is { } request)
-        {
-            PreservePendingNativeDownload();
-            InvalidatePageDownloadRequests(navigationStarted: true);
-            _viewModel?.BeginNavigation(request);
-        }
-    }
-
-    internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
-    {
-        if (sender is NativeWebView webView && !ReferenceEquals(webView, _webView)) return;
-        if (_adBlockSession?.IsPreparing == true) return;
-        if (_viewModel == null || _webView == null)
-        {
-            return;
-        }
-
-        // The canceled media never replaced the document. Its failure may arrive even after
-        // the offer is dismissed or downloaded, so track it independently of the confirmation UI.
-        Uri uri = e.Request ?? _webView.Source;
-        if (!e.IsSuccess && ConsumeNativeDownloadFailure(e.Request, uri))
-        {
-            return;
-        }
-        if (e.IsSuccess)
-        {
-            // An iframe download can overlap this page load without producing a top-level failure.
-            _nativeDownloadFailures.RemoveAll(item => item.Navigation == uri);
-        }
-        if (uri == _latestNavigationRequest) _latestNavigationRequest = null;
-        if (!e.IsSuccess && _mediaNavigationIntercepted) return;
-
-        if (e.IsSuccess) ResetPageDownloadRequests();
-        else SettleAbortedPageNavigation();
-        _pageRevision++;
-        _findRequest?.Cancel();
-        _viewModel.CompleteNavigation(uri, e.IsSuccess, _webView.CanGoBack, _webView.CanGoForward);
-        UpdateBlankPageState();
-        OfferNextDeferredNativeDownload();
-        if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage)
-        {
-            _ = UpdatePageTitleAsync(uri);
-            _ = InstallDownloadLinkHandlerAsync(_webView);
-            _ = SetPageZoomAsync(_zoomPercent);
-            if (FindPanel.IsVisible) _ = FindInPageAsync(0);
-            // WebView2 handles attachment responses itself; an inline media page still offers a download.
-            if (_nativeDownloadHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
-                QueuePageDownloadRequest(uri, null);
-        }
-    }
-
-    internal async Task UpdatePageTitleAsync(Uri uri)
-    {
-        NativeWebView? webView = _webView;
-        WebBrowserTabViewModel? viewModel = _viewModel;
-        int revision = _pageRevision;
-        if (webView == null || viewModel == null)
-        {
-            return;
-        }
-
-        string? result;
-        try
-        {
-            result = await _getPageTitle(webView);
-        }
-        catch
-        {
-            return;
-        }
-
-        string? title = NormalizePageTitle(result);
-        try
-        {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (!_disposed && revision == _pageRevision
-                    && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
-                {
-                    viewModel.SetPageTitle(uri, title);
-                }
-            });
-        }
-        catch
-        {
-            // The dispatcher can be shutting down while a tab is being closed.
-        }
-    }
-
-    internal static string? NormalizePageTitle(string? result)
-    {
-        if (string.IsNullOrWhiteSpace(result))
-        {
-            return null;
-        }
-
-        string title = result.Trim();
-        if (title.StartsWith('"') && title.EndsWith('"'))
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<string>(title)?.Trim();
-            }
-            catch (JsonException)
-            {
-                // Non-JSON WebKit titles can legitimately start and end with quotation marks.
-            }
-        }
-
-        return title;
-    }
-
-    internal void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
-    {
-        if (e.Request is { } unsupportedRequest && unsupportedRequest != WebBrowserTabViewModel.BlankPage
-            && !BrowserMediaDownload.IsHttpUri(unsupportedRequest))
-        {
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Request is { } mediaUri && BrowserMediaDownload.IsMediaLink(mediaUri))
-        {
-            e.Handled = true;
-            QueuePageDownloadRequest(mediaUri, null);
-            return;
-        }
-
-        if (e.Request is { } request && _viewModel?.TryOpenNewTab(request) == true)
-        {
-            e.Handled = true;
-        }
-    }
-
-    private void OnBackClick(object? sender, RoutedEventArgs e)
-    {
-        CloseBrowserPanel();
-        if (_webView != null && StartNativePageNavigation(_webView.GoBack)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
-        UpdateHistoryState();
-    }
-
-    private void OnForwardClick(object? sender, RoutedEventArgs e)
-    {
-        CloseBrowserPanel();
-        if (_webView != null && StartNativePageNavigation(_webView.GoForward)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
-        UpdateHistoryState();
-    }
-
-    private void OnRefreshClick(object? sender, RoutedEventArgs e)
-    {
-        CloseBrowserPanel();
-        if (_webView != null && StartNativePageNavigation(_webView.Refresh)) _viewModel?.BeginNavigation(_viewModel.CurrentUri);
-    }
-
-    private bool StartNativePageNavigation(Func<bool> navigate)
-    {
-        bool wasPending = _pageDownloadNavigationPending;
-        bool wasIntercepted = _mediaNavigationIntercepted;
-        InvalidatePageDownloadRequests(navigationStarted: true);
-        bool started = navigate();
-        if (!started)
-        {
-            _pageDownloadNavigationPending = wasPending;
-            _mediaNavigationIntercepted = wasIntercepted;
-        }
-        return started;
-    }
-
-    private void OnStopClick(object? sender, RoutedEventArgs e)
-    {
-        if (_webView?.Stop() == true) OnNavigationStopped();
-    }
-
-    internal void OnNavigationStopped()
-    {
-        _viewModel?.StopNavigation();
-        SettleAbortedPageNavigation();
-    }
-
-    private void OnNewTabClick(object? sender, RoutedEventArgs e)
-    {
-        _viewModel?.TryOpenNewTab(WebBrowserTabViewModel.BlankPage);
     }
 
     private async void OnOpenInDefaultBrowserClick(object? sender, RoutedEventArgs e)
@@ -555,106 +335,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
     }
 
-    private void OnAddressKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (SearchSuggestionsPopup.IsOpen)
-        {
-            int count = SearchSuggestionsList.ItemCount;
-            if (e.Key is Key.Down or Key.Up && count > 0)
-            {
-                int index = SearchSuggestionsList.SelectedIndex;
-                SearchSuggestionsList.SelectedIndex = e.Key == Key.Down
-                    ? (index + 1) % count
-                    : (index <= 0 ? count - 1 : index - 1);
-                SearchSuggestionsList.ScrollIntoView(SearchSuggestionsList.SelectedItem!);
-                e.Handled = true;
-                return;
-            }
-
-            if (e.Key == Key.Enter && SearchSuggestionsList.SelectedItem is string query)
-            {
-                SearchForSuggestion(query);
-                e.Handled = true;
-                return;
-            }
-        }
-
-        if (e.Key == Key.Escape)
-        {
-            AddressTextBox.CancelSearchSuggestions();
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == Key.Enter)
-        {
-            AddressTextBox.CancelSearchSuggestions();
-            NavigateFromAddress();
-            e.Handled = true;
-        }
-    }
-
-    private void OnSearchSuggestionsChanged(IReadOnlyList<string> suggestions)
-    {
-        SearchSuggestionsList.ItemsSource = suggestions;
-        SearchSuggestionsList.SelectedIndex = -1;
-        SearchSuggestionsPopup.IsOpen = !_disposed && suggestions.Count > 0 && AddressTextBox.IsFocused
-            && TopLevel.GetTopLevel(this) != null;
-    }
-
-    private void OnSearchSuggestionsPopupClosed(object? sender, EventArgs e) => AddressTextBox.CancelSearchSuggestions();
-
-    private void OnSearchSuggestionPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (e.InitialPressMouseButton == MouseButton.Left && e.Source is Avalonia.Visual visual
-            && visual.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault()?.DataContext is string query)
-        {
-            SearchForSuggestion(query);
-            e.Handled = true;
-        }
-    }
-
-    private void SearchForSuggestion(string query)
-    {
-        AddressTextBox.CancelSearchSuggestions();
-        if (_viewModel != null)
-        {
-            _viewModel.Address.Value = WebSearchSuggestions.CreateSearchUri(query, _viewModel.Profile.Engine).AbsoluteUri;
-            NavigateFromAddress();
-        }
-    }
-
-    internal void NavigateFromAddress()
-    {
-        EnsureWebView();
-        if (_webView == null) return;
-        if (_viewModel?.TryCreateNavigationUri(out Uri uri) == true)
-        {
-            Beutl.Editor.Services.UsageTelemetry.Current?.Record("tool.command", "WebBrowser", "Navigate");
-            CloseBrowserPanel();
-            if (BrowserMediaDownload.IsMediaLink(uri))
-            {
-                // Downloading does not replace the page hosted by the WebView.
-                _viewModel.Address.Value = WebBrowserTabViewModel.FormatAddress(_viewModel.CurrentUri);
-                _ = DownloadMediaAsync(uri, null);
-                return;
-            }
-            InvalidatePageDownloadRequests(navigationStarted: true);
-            _viewModel.BeginNavigation(uri);
-            _webView.Navigate(uri);
-        }
-    }
-
-    private void UpdateHistoryState()
-    {
-        if (_viewModel == null || _webView == null)
-        {
-            return;
-        }
-
-        _viewModel.UpdateHistoryState(_webView.CanGoBack, _webView.CanGoForward);
-    }
-
     IDisposable? IWebViewReparentingContent.BeginReparenting()
     {
         NativeWebView? webView = _webView;
@@ -712,13 +392,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _downloadCancellation?.Cancel();
         AddressTextBox.CancelSearchSuggestions();
         Loaded -= OnLoaded;
-        if (_viewModel != null)
-        {
-            _viewModel.Disposing -= Dispose;
-            _viewModel.Profile.SettingsChanged -= OnProfileChanged;
-            _viewModel.Profile.Bookmarks.CollectionChanged -= OnBookmarksChanged;
-            _viewModel.Profile.Downloads.CollectionChanged -= OnDownloadHistoryChanged;
-        }
+        UnsubscribeFromViewModel();
         _viewModel = null;
         BookmarkItems.ItemsSource = null;
         DisposeWebView();
@@ -726,10 +400,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     private void DisposeWebView()
     {
-        _nativeDownloadHandlerVersion++;
-        _nativeDownloadFailures.Clear();
-        _latestNavigationRequest = null;
-        ClearDeferredNativeDownloads();
+        InvalidateNativeDownloads();
         _adBlockSession?.Dispose();
         _adBlockSession = null;
         if (_webView == null)

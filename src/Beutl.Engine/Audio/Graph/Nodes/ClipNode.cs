@@ -32,7 +32,6 @@ public class ClipNode : AudioNode
         }
         else
         {
-            // throw new Exception("Unknown time range.");
             // 本来なら時間範囲外のノードは処理されないはずだが...
             return RecordProcessedOutput(new AudioBuffer(
                 context.SampleRate,

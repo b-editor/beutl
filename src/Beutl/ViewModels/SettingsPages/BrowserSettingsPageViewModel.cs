@@ -121,7 +121,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
             }
             else ClearSupersededFilterFeedback();
         }
-        catch (OperationCanceledException) when (_disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request)))
+        catch (OperationCanceledException) when (IsAbandonedRequest(request))
         {
             ClearSupersededFilterFeedback();
         }
@@ -130,6 +130,12 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
             if (!_disposed) FilterFeedback.Value = string.Format(Strings.BrowserAdBlockUpdateFailed, ex.Message);
         }
         finally { if (!_disposed) IsUpdatingFilters.Value = false; }
+    }
+
+    // Cancelled because the page went away or a newer filter request replaced this one.
+    private bool IsAbandonedRequest(Task<BrowserAdBlockRules>? request)
+    {
+        return _disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request));
     }
 
     private async Task LoadFiltersAsync()
@@ -144,7 +150,7 @@ public sealed class BrowserSettingsPageViewModel : IDisposable, INotifyPropertyC
             await request;
             if (!_disposed) RefreshFilterStatus();
         }
-        catch (OperationCanceledException) when (_disposed || (request != null && _profile.AdBlockFilters.IsSuperseded(request)))
+        catch (OperationCanceledException) when (IsAbandonedRequest(request))
         {
             ClearSupersededFilterFeedback();
         }

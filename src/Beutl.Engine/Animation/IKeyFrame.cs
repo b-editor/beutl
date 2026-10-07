@@ -13,8 +13,6 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
 
     TimeSpan KeyTime { get; set; }
 
-    //TimeSpan Duration { get; }
-
     object? Value { get; set; }
 
     /// <summary>
@@ -24,6 +22,4 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
     void ReplaceValue(object? value);
 
     Easing Easing { get; set; }
-
-    //void SetDuration(TimeSpan timeSpan);
 }

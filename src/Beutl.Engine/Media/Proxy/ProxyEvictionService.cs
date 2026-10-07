@@ -131,31 +131,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         IReadOnlySet<string> protectedSources = ResolveProtectedSources();
         long initialBytes = _store.GetTotalBytes();
 
-        List<Candidate> candidates = [];
-        foreach (ProxyEntry entry in _store.Enumerate()
-                     .Where(static e => e.State is ProxyState.Ready or ProxyState.Stale or ProxyState.Failed))
-        {
-            if (!ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, entry.ProxyFileRelative, out string absolutePath))
-                continue;
-
-            if (_resolver?.IsPinned(absolutePath) == true)
-                continue;
-
-            // A proxy queued for regeneration must not be deleted before its replacement is
-            // registered; if that generation is later canceled or fails the user would lose the
-            // still-usable proxy for nothing.
-            if (_isGenerationActive?.Invoke(entry.Source, entry.Preset) == true)
-                continue;
-
-            // Cap accounting must use the recorded size, because capOverage / GetTotalBytes sum
-            // ProxyFileSizeBytes — crediting a larger on-disk length here could stop the sweep while
-            // the store is still over MaxTotalBytes. Disk accounting uses the actual on-disk length
-            // (0 when the file is already gone, so a missing file frees no disk headroom).
-            long onDiskBytes = TryGetFileLength(absolutePath) ?? 0;
-
-            bool isProtected = protectedSources.Contains(entry.Source.AbsolutePath);
-            candidates.Add(new Candidate(entry, onDiskBytes, isProtected));
-        }
+        List<Candidate> candidates = CollectCandidates(protectedSources);
 
         // Non-protected LRU candidates first; open-project proxies only as a last resort.
         candidates.Sort(static (a, b) =>
@@ -184,30 +160,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             if (reclaimedCap >= capTarget && reclaimedDisk >= diskTarget)
                 break;
 
-            // Re-check the pin immediately before deleting: a ProxyMediaReader may have pinned this
-            // proxy after candidate collection, and the collection-time snapshot would miss it.
-            if (_resolver != null
-                && ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, candidate.Entry.ProxyFileRelative, out string pinnedPath)
-                && _resolver.IsPinned(pinnedPath))
-                continue;
-
-            // Test the active generation immediately before each delete, mirroring the pin re-check
-            // above: a regenerate for this key may have been queued while the sweep deleted earlier
-            // candidates, so a check taken once before the loop would miss it and this delete would drop
-            // a proxy whose replacement is still in flight (losing the usable fallback if that generation
-            // later fails). The predicate is a cheap per-key membership test, not a per-candidate rebuild
-            // of the whole active set.
-            // Delete keys on (Source, Preset), so a regenerate that ran since collection would make this
-            // remove the current (possibly freshly Ready) entry rather than the ranked one. Skip unless the
-            // current entry is still the ranked proxy and no generation for the key is active. Compare only
-            // identity fields (proxy file + generation time), not the whole record: ProxyStore.Touch
-            // replaces the entry to bump LastUsedUtc, so a full-record check would read a normal playback
-            // touch between collection and here as a regenerate and starve eviction while over cap.
-            ProxyEntry? current = _store.TryGet(candidate.Entry.Source, candidate.Entry.Preset);
-            if (current is null
-                || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
-                || current.GeneratedAtUtc != candidate.Entry.GeneratedAtUtc
-                || _isGenerationActive?.Invoke(candidate.Entry.Source, candidate.Entry.Preset) == true)
+            if (!IsStillEvictable(candidate))
                 continue;
 
             if (_store.Delete(candidate.Entry.Source, candidate.Entry.Preset))
@@ -221,9 +174,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
                 // violation / permission error leaves an orphan). Credit disk reclamation only once the
                 // file is confirmed gone, or a disk-pressure sweep stops early believing it freed space
                 // the orphan still occupies — and the orphan is now untracked, so no later sweep reclaims it.
-                if (candidate.OnDiskBytes > 0
-                    && ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, candidate.Entry.ProxyFileRelative, out string deletedPath)
-                    && !File.Exists(deletedPath))
+                if (candidate.OnDiskBytes > 0 && IsProxyFileGone(candidate))
                 {
                     reclaimedDisk += candidate.OnDiskBytes;
                 }
@@ -231,6 +182,74 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         }
 
         return new ProxyEvictionResult(removed, reclaimedDisk);
+    }
+
+    private List<Candidate> CollectCandidates(IReadOnlySet<string> protectedSources)
+    {
+        List<Candidate> candidates = [];
+        foreach (ProxyEntry entry in _store.Enumerate()
+                     .Where(static e => ProxyEntryChecks.CountsTowardStoreSize(e.State)))
+        {
+            if (!ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, entry.ProxyFileRelative, out string absolutePath))
+                continue;
+
+            if (_resolver?.IsPinned(absolutePath) == true)
+                continue;
+
+            // A proxy queued for regeneration must not be deleted before its replacement is
+            // registered; if that generation is later canceled or fails the user would lose the
+            // still-usable proxy for nothing.
+            if (_isGenerationActive?.Invoke(entry.Source, entry.Preset) == true)
+                continue;
+
+            // Cap accounting must use the recorded size, because capOverage / GetTotalBytes sum
+            // ProxyFileSizeBytes — crediting a larger on-disk length here could stop the sweep while
+            // the store is still over MaxTotalBytes. Disk accounting uses the actual on-disk length
+            // (0 when the file is already gone, so a missing file frees no disk headroom).
+            long onDiskBytes = ProxyEntryChecks.TryGetFileLength(absolutePath) ?? 0;
+
+            bool isProtected = protectedSources.Contains(entry.Source.AbsolutePath);
+            candidates.Add(new Candidate(entry, onDiskBytes, isProtected));
+        }
+
+        return candidates;
+    }
+
+    private bool IsStillEvictable(Candidate candidate)
+    {
+        // Re-check the pin immediately before deleting: a ProxyMediaReader may have pinned this
+        // proxy after candidate collection, and the collection-time snapshot would miss it.
+        if (_resolver != null
+            && ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, candidate.Entry.ProxyFileRelative, out string pinnedPath)
+            && _resolver.IsPinned(pinnedPath))
+            return false;
+
+        // Test the active generation immediately before each delete, mirroring the pin re-check
+        // above: a regenerate for this key may have been queued while the sweep deleted earlier
+        // candidates, so a check taken once before the loop would miss it and this delete would drop
+        // a proxy whose replacement is still in flight (losing the usable fallback if that generation
+        // later fails). The predicate is a cheap per-key membership test, not a per-candidate rebuild
+        // of the whole active set.
+        // Delete keys on (Source, Preset), so a regenerate that ran since collection would make this
+        // remove the current (possibly freshly Ready) entry rather than the ranked one. Skip unless the
+        // current entry is still the ranked proxy and no generation for the key is active. Compare only
+        // identity fields (proxy file + generation time), not the whole record: ProxyStore.Touch
+        // replaces the entry to bump LastUsedUtc, so a full-record check would read a normal playback
+        // touch between collection and here as a regenerate and starve eviction while over cap.
+        ProxyEntry? current = _store.TryGet(candidate.Entry.Source, candidate.Entry.Preset);
+        if (current is null
+            || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
+            || current.GeneratedAtUtc != candidate.Entry.GeneratedAtUtc
+            || _isGenerationActive?.Invoke(candidate.Entry.Source, candidate.Entry.Preset) == true)
+            return false;
+
+        return true;
+    }
+
+    private bool IsProxyFileGone(Candidate candidate)
+    {
+        return ProxyPathUtilities.TryResolveRelativePath(_store.StoreRootPath, candidate.Entry.ProxyFileRelative, out string deletedPath)
+            && !File.Exists(deletedPath);
     }
 
     private IReadOnlySet<string> ResolveProtectedSources()
@@ -268,19 +287,6 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         }
 
         return normalized;
-    }
-
-    private static long? TryGetFileLength(string path)
-    {
-        try
-        {
-            var info = new FileInfo(path);
-            return info.Exists ? info.Length : null;
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private static string ResolveComparablePath(string path)

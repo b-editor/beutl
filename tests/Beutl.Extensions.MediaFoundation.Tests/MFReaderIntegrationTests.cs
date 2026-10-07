@@ -1,5 +1,5 @@
-﻿using System.Runtime.Versioning;
-
+﻿using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Embedding.MediaFoundation.Decoding;
@@ -9,6 +9,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
+using NAudio.Wave;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
 
@@ -110,6 +111,46 @@ public class MFReaderIntegrationTests
         using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.Video));
 
         Assert.That(reader, Is.Null);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AudioOnlyOpen_WhenOptionalVideoProbeFails_KeepsUsableAudio(bool nativeFailure)
+    {
+        string wav = WriteSineWav();
+        using var reader = MFThread.Dispatcher.Invoke(() => new MFReader(
+            wav,
+            new MediaOptions(MediaMode.Audio),
+            new MFDecodingExtension(),
+            static (_, _, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
+            static (file, settings) => new MediaFoundationReader(file, settings),
+            getFirstVideoTimestamp: _ => nativeFailure
+                ? MFStreamProbe.GetFirstVideoTimestamp(Path.Combine(_workDir, "missing-video.mp4"))
+                : throw new COMException("Damaged video stream", unchecked((int)0xC00D36C4))));
+
+        Assert.That(reader.HasAudio, Is.True);
+        Assert.That(reader.HasVideo, Is.False);
+        Assert.That(reader.AudioInfo.Duration.ToDouble(), Is.EqualTo(0.2).Within(1d / 44100));
+        Assert.That(reader.ReadAudio(0, 1024, out var pcm), Is.True);
+        using (pcm)
+        {
+            Assert.That(pcm!.Value.NumSamples, Is.EqualTo(1024));
+            Assert.That(((Pcm<Stereo32BitFloat>)pcm.Value).DataSpan.ToArray()
+                .Any(sample => Math.Abs(sample.Left) > 1e-4f), Is.True);
+        }
+    }
+
+    [Test]
+    public void AudioOnlyOpen_WhenOptionalVideoProbeHasProgrammingError_Propagates()
+    {
+        string wav = WriteSineWav();
+        MFThread.Dispatcher.Invoke(() => Assert.Throws<InvalidOperationException>(() => new MFReader(
+            wav,
+            new MediaOptions(MediaMode.Audio),
+            new MFDecodingExtension(),
+            static (_, _, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
+            static (file, settings) => new MediaFoundationReader(file, settings),
+            getFirstVideoTimestamp: static _ => throw new InvalidOperationException("Unexpected probe failure"))));
     }
 
     [TestCase(1, 8820)]

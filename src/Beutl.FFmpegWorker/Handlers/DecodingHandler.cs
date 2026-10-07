@@ -18,12 +18,9 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleOpen(IpcMessage msg)
     {
-        var request = msg.GetPayload<OpenFileRequest>()
-            ?? throw new InvalidOperationException("Missing payload for OpenFile");
+        var request = msg.RequirePayload<OpenFileRequest>(MessageType.OpenFile);
         var settings = new FFmpegDecodingSettings();
-        settings.ThreadCount = request.ThreadCount;
-        settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)request.Acceleration;
-        settings.ForceSrgbGamma = request.ForceSrgbGamma;
+        ApplySettings(settings, request.ThreadCount, request.Acceleration, request.ForceSrgbGamma);
 
         var options = new MediaOptions((MediaMode)request.StreamsToLoad);
         var reader = new FFmpegReader(request.FilePath, options, settings);
@@ -60,11 +57,19 @@ internal sealed partial class DecodingHandler : IDisposable
             long totalSize = slotSize * slotCount;
             videoShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{id}";
             var videoBuffer = SharedMemoryBuffer.Create(videoShmName, totalSize);
-
-            state.RingBuffer = new VideoRingBuffer(
-                slotCount, slotSize, videoBuffer,
-                reader, id, state.ReaderLock,
-                () => Interlocked.Increment(ref _shmGeneration));
+            try
+            {
+                state.RingBuffer = new VideoRingBuffer(
+                    slotCount, slotSize, videoBuffer,
+                    reader, id, state.ReaderLock,
+                    () => Interlocked.Increment(ref _shmGeneration));
+            }
+            catch
+            {
+                // Not yet owned by the state, so ReaderState.Dispose would not release it.
+                videoBuffer.Dispose();
+                throw;
+            }
         }
 
         if (reader.HasAudio)
@@ -74,6 +79,12 @@ internal sealed partial class DecodingHandler : IDisposable
             state.AudioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
         }
 
+        return CreateOpenResponse(id, reader, state, videoShmName, slotCount, slotSize);
+    }
+
+    private static OpenFileResponse CreateOpenResponse(
+        int id, FFmpegReader reader, ReaderState state, string? videoShmName, int slotCount, long slotSize)
+    {
         var response = new OpenFileResponse
         {
             ReaderId = id,
@@ -113,8 +124,7 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleReadVideo(IpcMessage msg)
     {
-        var request = msg.GetPayload<ReadVideoRequest>()
-            ?? throw new InvalidOperationException("Missing payload for ReadVideo");
+        var request = msg.RequirePayload<ReadVideoRequest>(MessageType.ReadVideo);
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
@@ -158,8 +168,7 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public unsafe IpcMessage HandleReadAudio(IpcMessage msg)
     {
-        var request = msg.GetPayload<ReadAudioRequest>()
-            ?? throw new InvalidOperationException("Missing payload for ReadAudio");
+        var request = msg.RequirePayload<ReadAudioRequest>(MessageType.ReadAudio);
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
@@ -212,16 +221,10 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleClose(IpcMessage msg)
     {
-        var request = msg.GetPayload<CloseReaderRequest>()
-            ?? throw new InvalidOperationException("Missing payload for CloseReader");
+        var request = msg.RequirePayload<CloseReaderRequest>(MessageType.CloseReader);
         if (_readers.TryRemove(request.ReaderId, out var state))
         {
-            // プリフェッチ停止（ReaderLock の外で行う — プリフェッチタスクがロックを取得するためデッドロック防止）
-            state.RingBuffer?.StopPrefetch();
-            // 進行中の ReadVideo/ReadAudio が完了するのを待ってから Dispose する
-            state.ReaderLock.Wait();
-            // TryRemove 済みなので新規操作は来ない。Dispose で ReaderLock も破棄されるため Release 不要。
-            state.Dispose();
+            RetireReader(state);
         }
 
         return IpcMessage.CreateSimple(msg.Id, MessageType.CloseReaderResult);
@@ -229,8 +232,7 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleUpdateDecoderSettings(IpcMessage msg)
     {
-        var request = msg.GetPayload<UpdateDecoderSettingsRequest>()
-            ?? throw new InvalidOperationException("Missing payload for UpdateDecoderSettings");
+        var request = msg.RequirePayload<UpdateDecoderSettingsRequest>(MessageType.UpdateDecoderSettings);
 
         foreach (KeyValuePair<int, ReaderState> kvp in _readers)
         {
@@ -247,9 +249,7 @@ internal sealed partial class DecodingHandler : IDisposable
                     state.RingBuffer.InvalidateAllSlots();
                 }
 
-                state.Reader.Settings.ThreadCount = request.ThreadCount;
-                state.Reader.Settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)request.Acceleration;
-                state.Reader.Settings.ForceSrgbGamma = request.ForceSrgbGamma;
+                ApplySettings(state.Reader.Settings, request.ThreadCount, request.Acceleration, request.ForceSrgbGamma);
             }
             finally
             {
@@ -266,10 +266,26 @@ internal sealed partial class DecodingHandler : IDisposable
         {
             if (_readers.TryRemove(readerId, out var state))
             {
-                state.RingBuffer?.StopPrefetch();
-                state.ReaderLock.Wait();
-                state.Dispose();
+                RetireReader(state);
             }
         }
+    }
+
+    private static void RetireReader(ReaderState state)
+    {
+        // プリフェッチ停止（ReaderLock の外で行う — プリフェッチタスクがロックを取得するためデッドロック防止）
+        state.RingBuffer?.StopPrefetch();
+        // 進行中の ReadVideo/ReadAudio が完了するのを待ってから Dispose する
+        state.ReaderLock.Wait();
+        // TryRemove 済みなので新規操作は来ない。Dispose で ReaderLock も破棄されるため Release 不要。
+        state.Dispose();
+    }
+
+    private static void ApplySettings(
+        FFmpegDecodingSettings settings, int threadCount, int acceleration, bool forceSrgbGamma)
+    {
+        settings.ThreadCount = threadCount;
+        settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)acceleration;
+        settings.ForceSrgbGamma = forceSrgbGamma;
     }
 }

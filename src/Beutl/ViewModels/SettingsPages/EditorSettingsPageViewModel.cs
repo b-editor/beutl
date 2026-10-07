@@ -22,113 +22,79 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         _proxyStoreConfig = GlobalConfiguration.Instance.ProxyStoreConfig;
         _versionControlConfig = GlobalConfiguration.Instance.VersionControlConfig;
 
-        AutoAdjustSceneDuration = _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        AutoAdjustSceneDuration.Subscribe(b => _editorConfig.AutoAdjustSceneDuration = b)
-            .DisposeWith(_disposables);
+        AutoAdjustSceneDuration = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty),
+            b => _editorConfig.AutoAdjustSceneDuration = b);
 
-        ShowExactBoundaries = _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        ShowExactBoundaries.Subscribe(b => _viewConfig.ShowExactBoundaries = b)
-            .DisposeWith(_disposables);
+        ShowExactBoundaries = CreateSetting(
+            _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty),
+            b => _viewConfig.ShowExactBoundaries = b);
 
-        IsFrameCacheEnabled = _editorConfig.GetObservable(EditorConfig.IsFrameCacheEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        IsFrameCacheEnabled.Subscribe(b => _editorConfig.IsFrameCacheEnabled = b)
-            .DisposeWith(_disposables);
+        IsFrameCacheEnabled = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.IsFrameCacheEnabledProperty),
+            b => _editorConfig.IsFrameCacheEnabled = b);
 
-        FrameCacheMaxSize = _editorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        FrameCacheMaxSize.Subscribe(b => _editorConfig.FrameCacheMaxSize = b)
-            .DisposeWith(_disposables);
+        FrameCacheMaxSize = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty),
+            b => _editorConfig.FrameCacheMaxSize = b);
 
-        FrameCacheScale = _editorConfig.GetObservable(EditorConfig.FrameCacheScaleProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        FrameCacheScale.Subscribe(b => _editorConfig.FrameCacheScale = (FrameCacheConfigScale)b)
-            .DisposeWith(_disposables);
+        FrameCacheScale = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.FrameCacheScaleProperty)
+                .Select(v => (int)v),
+            b => _editorConfig.FrameCacheScale = (FrameCacheConfigScale)b);
 
-        FrameCacheColorType = _editorConfig.GetObservable(EditorConfig.FrameCacheColorTypeProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        FrameCacheColorType.Subscribe(b => _editorConfig.FrameCacheColorType = (FrameCacheConfigColorType)b)
-            .DisposeWith(_disposables);
+        FrameCacheColorType = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.FrameCacheColorTypeProperty)
+                .Select(v => (int)v),
+            b => _editorConfig.FrameCacheColorType = (FrameCacheConfigColorType)b);
 
-        IsNodeCacheEnabled = _editorConfig.GetObservable(EditorConfig.IsNodeCacheEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        IsNodeCacheEnabled.Subscribe(b => _editorConfig.IsNodeCacheEnabled = b)
-            .DisposeWith(_disposables);
+        IsNodeCacheEnabled = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.IsNodeCacheEnabledProperty),
+            b => _editorConfig.IsNodeCacheEnabled = b);
 
-        NodeCacheMaxPixels = _editorConfig.GetObservable(EditorConfig.NodeCacheMaxPixelsProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        NodeCacheMaxPixels.Subscribe(b => _editorConfig.NodeCacheMaxPixels = b)
-            .DisposeWith(_disposables);
+        NodeCacheMaxPixels = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.NodeCacheMaxPixelsProperty),
+            b => _editorConfig.NodeCacheMaxPixels = b);
 
-        NodeCacheMinPixels = _editorConfig.GetObservable(EditorConfig.NodeCacheMinPixelsProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        NodeCacheMinPixels.Subscribe(b => _editorConfig.NodeCacheMinPixels = b)
-            .DisposeWith(_disposables);
+        NodeCacheMinPixels = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.NodeCacheMinPixelsProperty),
+            b => _editorConfig.NodeCacheMinPixels = b);
 
-        EnablePointerLockInProperty = _editorConfig.GetObservable(EditorConfig.EnablePointerLockInPropertyProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        EnablePointerLockInProperty.Subscribe(b => _editorConfig.EnablePointerLockInProperty = b)
-            .DisposeWith(_disposables);
+        EnablePointerLockInProperty = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.EnablePointerLockInPropertyProperty),
+            b => _editorConfig.EnablePointerLockInProperty = b);
 
-        SwapTimelineScrollDirection = _editorConfig.GetObservable(EditorConfig.SwapTimelineScrollDirectionProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        SwapTimelineScrollDirection.Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b)
-            .DisposeWith(_disposables);
+        SwapTimelineScrollDirection = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.SwapTimelineScrollDirectionProperty),
+            b => _editorConfig.SwapTimelineScrollDirection = b);
 
-        ClampResizeToOriginalLength = _editorConfig.GetObservable(EditorConfig.ClampResizeToOriginalLengthProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        ClampResizeToOriginalLength.Subscribe(b => _editorConfig.ClampResizeToOriginalLength = b)
-            .DisposeWith(_disposables);
+        ClampResizeToOriginalLength = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.ClampResizeToOriginalLengthProperty),
+            b => _editorConfig.ClampResizeToOriginalLength = b);
 
-        TimelineAutoScrollMode = _editorConfig.GetObservable(EditorConfig.TimelineAutoScrollModeProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        TimelineAutoScrollMode.Subscribe(b => _editorConfig.TimelineAutoScrollMode = (TimelineAutoScrollMode)b)
-            .DisposeWith(_disposables);
+        TimelineAutoScrollMode = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.TimelineAutoScrollModeProperty)
+                .Select(v => (int)v),
+            b => _editorConfig.TimelineAutoScrollMode = (TimelineAutoScrollMode)b);
 
-        ToneMappingMode = _editorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        ToneMappingMode.Subscribe(b => _editorConfig.ToneMappingMode = (UIToneMappingOperator)b)
-            .DisposeWith(_disposables);
+        ToneMappingMode = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
+                .Select(v => (int)v),
+            b => _editorConfig.ToneMappingMode = (UIToneMappingOperator)b);
 
-        ToneMappingExposure = _editorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
-            .Select(v => (double)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        ToneMappingExposure.Subscribe(b => _editorConfig.ToneMappingExposure = (float)b)
-            .DisposeWith(_disposables);
+        ToneMappingExposure = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
+                .Select(v => (double)v),
+            b => _editorConfig.ToneMappingExposure = (float)b);
 
-        UseHdrPreview = _editorConfig.GetObservable(EditorConfig.UseHdrPreviewProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        UseHdrPreview.Subscribe(b => _editorConfig.UseHdrPreview = b)
-            .DisposeWith(_disposables);
+        UseHdrPreview = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.UseHdrPreviewProperty),
+            b => _editorConfig.UseHdrPreview = b);
 
-        PreviewSourceMode = _editorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        PreviewSourceMode.Subscribe(_editorConfig.SetPreviewSourceModeFromIndex)
-            .DisposeWith(_disposables);
+        PreviewSourceMode = CreateSetting(
+            _editorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
+                .Select(v => (int)v),
+            _editorConfig.SetPreviewSourceModeFromIndex);
 
         ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath)
             .DisposeWith(_disposables);
@@ -173,36 +139,27 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             })
             .DisposeWith(_disposables);
 
-        ProxyDefaultPreset = _proxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
-            .Select(static value => Enum.IsDefined(typeof(ProxyPreset), value)
-                ? (ProxyPreset)value
-                : ProxyPreset.Quarter)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        ProxyDefaultPreset.Subscribe(preset => _proxyStoreConfig.DefaultPreset = (int)preset)
-            .DisposeWith(_disposables);
+        ProxyDefaultPreset = CreateSetting(
+            _proxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+                .Select(static value => Enum.IsDefined(typeof(ProxyPreset), value)
+                    ? (ProxyPreset)value
+                    : ProxyPreset.Quarter),
+            preset => _proxyStoreConfig.DefaultPreset = (int)preset);
 
-        EnableVersionControlForNewProjects = _versionControlConfig
-            .GetObservable(VersionControlConfig.EnableForNewProjectsProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        EnableVersionControlForNewProjects.Subscribe(
-                value => _versionControlConfig.EnableForNewProjects = value)
-            .DisposeWith(_disposables);
+        EnableVersionControlForNewProjects = CreateSetting(
+            _versionControlConfig
+                .GetObservable(VersionControlConfig.EnableForNewProjectsProperty),
+            value => _versionControlConfig.EnableForNewProjects = value);
 
-        AutoCommitOnSave = _versionControlConfig
-            .GetObservable(VersionControlConfig.AutoCommitOnSaveProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        AutoCommitOnSave.Subscribe(value => _versionControlConfig.AutoCommitOnSave = value)
-            .DisposeWith(_disposables);
+        AutoCommitOnSave = CreateSetting(
+            _versionControlConfig
+                .GetObservable(VersionControlConfig.AutoCommitOnSaveProperty),
+            value => _versionControlConfig.AutoCommitOnSave = value);
 
-        AutoCommitOnClose = _versionControlConfig
-            .GetObservable(VersionControlConfig.AutoCommitOnCloseProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        AutoCommitOnClose.Subscribe(value => _versionControlConfig.AutoCommitOnClose = value)
-            .DisposeWith(_disposables);
+        AutoCommitOnClose = CreateSetting(
+            _versionControlConfig
+                .GetObservable(VersionControlConfig.AutoCommitOnCloseProperty),
+            value => _versionControlConfig.AutoCommitOnClose = value);
 
         GitExecutablePath = _versionControlConfig
             .GetObservable(VersionControlConfig.GitExecutablePathProperty)
@@ -219,12 +176,10 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             })
             .DisposeWith(_disposables);
 
-        UseLfsWhenAvailable = _versionControlConfig
-            .GetObservable(VersionControlConfig.UseLfsWhenAvailableProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        UseLfsWhenAvailable.Subscribe(value => _versionControlConfig.UseLfsWhenAvailable = value)
-            .DisposeWith(_disposables);
+        UseLfsWhenAvailable = CreateSetting(
+            _versionControlConfig
+                .GetObservable(VersionControlConfig.UseLfsWhenAvailableProperty),
+            value => _versionControlConfig.UseLfsWhenAvailable = value);
 
         LargeMediaWarningThresholdMb = _versionControlConfig
             .GetObservable(VersionControlConfig.LargeMediaWarningThresholdMbProperty)
@@ -247,6 +202,17 @@ public sealed class EditorSettingsPageViewModel : IDisposable
 
         // GPU selection
         InitializeGpuSelection();
+    }
+
+    private ReactiveProperty<T> CreateSetting<T>(IObservable<T> source, Action<T> write)
+        where T : struct
+    {
+        ReactiveProperty<T> property = source
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        property.Subscribe(write)
+            .DisposeWith(_disposables);
+        return property;
     }
 
     private void InitializeGpuSelection()

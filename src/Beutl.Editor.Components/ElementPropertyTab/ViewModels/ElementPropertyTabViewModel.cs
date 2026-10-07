@@ -33,76 +33,81 @@ public sealed class ElementPropertyTabViewModel : IToolContext
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 
-        _disposable0 = Element.Subscribe(element =>
+        _disposable0 = Element.Subscribe(OnElementChanged);
+    }
+
+    private void OnElementChanged(Element? element)
+    {
+        if (_oldElement != null)
         {
-            if (_oldElement != null)
-            {
-                SaveState(_oldElement);
-            }
-            _oldElement = element;
+            SaveState(_oldElement);
+        }
+        _oldElement = element;
 
-            _disposable1?.Dispose();
-            _disposable1 = null;
-            ClearItems();
-            if (element != null)
-            {
-                Items.AddRange(element.Objects.Select(x => new EngineObjectPropertyViewModel(x, this)));
-                _disposable1 = element.Objects.CollectionChangedAsObservable()
-                    .Subscribe(e =>
-                    {
-                        void RemoveItems(CoreList<EngineObjectPropertyViewModel> items, int index, int count)
-                        {
-                            foreach (EngineObjectPropertyViewModel item in items.GetMarshal().Value.Slice(index, count))
-                            {
-                                item?.Dispose();
-                            }
-                            items.RemoveRange(index, count);
-                        }
+        _disposable1?.Dispose();
+        _disposable1 = null;
+        ClearItems();
+        if (element != null)
+        {
+            Items.AddRange(CreateItems(element.Objects));
+            _disposable1 = element.Objects.CollectionChangedAsObservable()
+                .Subscribe(OnObjectsChanged);
 
-                        switch (e.Action)
-                        {
-                            case NotifyCollectionChangedAction.Add:
-                                Items.InsertRange(e.NewStartingIndex, e.NewItems!
-                                    .Cast<EngineObject>()
-                                    .Select(x => new EngineObjectPropertyViewModel(x, this)));
-                                break;
+            RestoreState(element);
+        }
+    }
 
-                            case NotifyCollectionChangedAction.Move:
-                                int newIndex = e.NewStartingIndex;
-                                if (newIndex > e.OldStartingIndex)
-                                {
-                                    newIndex += e.OldItems!.Count;
-                                }
+    private void OnObjectsChanged(NotifyCollectionChangedEventArgs e)
+    {
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                Items.InsertRange(e.NewStartingIndex, CreateItems(e.NewItems!.Cast<EngineObject>()));
+                break;
 
-                                Items.MoveRange(e.OldStartingIndex, e.OldItems!.Count, newIndex);
-                                break;
+            case NotifyCollectionChangedAction.Move:
+                int newIndex = e.NewStartingIndex;
+                if (newIndex > e.OldStartingIndex)
+                {
+                    newIndex += e.OldItems!.Count;
+                }
 
-                            case NotifyCollectionChangedAction.Replace:
-                                RemoveItems(Items, e.OldStartingIndex, e.OldItems!.Count);
-                                newIndex = e.NewStartingIndex;
-                                if (newIndex > e.OldStartingIndex)
-                                {
-                                    newIndex -= e.OldItems!.Count;
-                                }
+                Items.MoveRange(e.OldStartingIndex, e.OldItems!.Count, newIndex);
+                break;
 
-                                Items.InsertRange(newIndex, e.NewItems!
-                                    .Cast<EngineObject>()
-                                    .Select(x => new EngineObjectPropertyViewModel(x, this)));
-                                break;
+            case NotifyCollectionChangedAction.Replace:
+                RemoveItems(e.OldStartingIndex, e.OldItems!.Count);
+                newIndex = e.NewStartingIndex;
+                if (newIndex > e.OldStartingIndex)
+                {
+                    newIndex -= e.OldItems!.Count;
+                }
 
-                            case NotifyCollectionChangedAction.Remove:
-                                RemoveItems(Items, e.OldStartingIndex, e.OldItems!.Count);
-                                break;
+                Items.InsertRange(newIndex, CreateItems(e.NewItems!.Cast<EngineObject>()));
+                break;
 
-                            case NotifyCollectionChangedAction.Reset:
-                                ClearItems();
-                                break;
-                        }
-                    });
+            case NotifyCollectionChangedAction.Remove:
+                RemoveItems(e.OldStartingIndex, e.OldItems!.Count);
+                break;
 
-                RestoreState(element);
-            }
-        });
+            case NotifyCollectionChangedAction.Reset:
+                ClearItems();
+                break;
+        }
+    }
+
+    private IEnumerable<EngineObjectPropertyViewModel> CreateItems(IEnumerable<EngineObject> objects)
+    {
+        return objects.Select(x => new EngineObjectPropertyViewModel(x, this));
+    }
+
+    private void RemoveItems(int index, int count)
+    {
+        foreach (EngineObjectPropertyViewModel item in Items.GetMarshal().Value.Slice(index, count))
+        {
+            item?.Dispose();
+        }
+        Items.RemoveRange(index, count);
     }
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ElementProperty);
@@ -158,24 +163,29 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         return directory;
     }
 
-    private void SaveState(Element element)
+    // Creates the view-state directory when it is missing.
+    private static string ViewStateFile(Element element)
     {
         string viewStateDir = ViewStateDirectory(element);
+        string name = Path.GetFileNameWithoutExtension(element.Uri!.LocalPath);
+        return Path.Combine(viewStateDir, $"{name}.property.config");
+    }
+
+    private void SaveState(Element element)
+    {
+        string viewStateFile = ViewStateFile(element);
         var json = new JsonArray();
         foreach (EngineObjectPropertyViewModel? item in Items)
         {
             json.Add(item?.SaveState());
         }
 
-        string name = Path.GetFileNameWithoutExtension(element.Uri!.LocalPath);
-        json.JsonSave(Path.Combine(viewStateDir, $"{name}.property.config"));
+        json.JsonSave(viewStateFile);
     }
 
     private void RestoreState(Element element)
     {
-        string viewStateDir = ViewStateDirectory(element);
-        string name = Path.GetFileNameWithoutExtension(element.Uri!.LocalPath);
-        string viewStateFile = Path.Combine(viewStateDir, $"{name}.property.config");
+        string viewStateFile = ViewStateFile(element);
 
         if (File.Exists(viewStateFile))
         {

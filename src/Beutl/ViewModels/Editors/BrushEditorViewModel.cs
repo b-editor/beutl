@@ -1,10 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Animation;
-using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -70,39 +68,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
-            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
-            .DisposeWith(Disposables);
-
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
-            .DisposeWith(Disposables);
-
-        var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<Brush> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<Brush>?)null, (IExpression<Brush?>?)null))
-            })
-            .Switch();
-        IsPresenter = expressionObservable
-            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Brush> or null })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<Brush>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<Brush>(Value, Disposables);
     }
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
@@ -288,16 +256,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         if (!IsElementEditable) return;
         if (Value.Value is IPresenter<Brush> presenter)
         {
-
-            if (target != null)
-            {
-                presenter.Target.Expression = Expression.CreateReference<Brush>(target.Id);
-            }
-            else
-            {
-                presenter.Target.Expression = null;
-                presenter.Target.CurrentValue = null;
-            }
+            PresenterEditorHelper.AssignTarget(presenter, target);
             CompleteElementRepair();
             Commit();
         }
@@ -320,15 +279,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             drawableBrush.Drawable.CurrentValue = presenter;
         }
 
-        if (target != null)
-        {
-            presenter.Target.Expression = Expression.CreateReference<Drawable>(target.Id);
-        }
-        else
-        {
-            presenter.Target.Expression = null;
-            presenter.Target.CurrentValue = null;
-        }
+        PresenterEditorHelper.AssignTarget(presenter, target);
 
         CompleteElementRepair();
         Commit();

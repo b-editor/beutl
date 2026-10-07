@@ -7,7 +7,6 @@ using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using BtlBitmap = Beutl.Media.Bitmap;
-using PixelSize = Avalonia.PixelSize;
 using SysVector = System.Numerics.Vector;
 using VectorF = System.Numerics.Vector<float>;
 
@@ -95,14 +94,7 @@ public class WaveformControl : HdrScopeControlBase
         int targetHeight,
         WriteableBitmap? existingBitmap)
     {
-        WriteableBitmap result =
-            existingBitmap?.PixelSize.Width == targetWidth && existingBitmap.PixelSize.Height == targetHeight
-                ? existingBitmap
-                : new WriteableBitmap(
-                    new PixelSize(targetWidth, targetHeight),
-                    new Vector(96, 96),
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
+        WriteableBitmap result = ScopeBitmaps.ReuseOrCreate(existingBitmap, targetWidth, targetHeight);
 
         int sourceWidth = sourceBitmap.Width;
         int sourceHeight = sourceBitmap.Height;
@@ -119,58 +111,17 @@ public class WaveformControl : HdrScopeControlBase
         float[]? gridStrength = showGrid ? GetGridStrength(targetHeight, hdrRange) : null;
         int sampleCount = (int)Math.Clamp(sourceBitmap.Height * 0.25f, 32f, 1024f);
         float invSamplesGain = gain / Math.Max(sampleCount, 1);
-        float invTargetWidth = 1f / targetWidth;
         float invHdr = 1f / MathF.Max(hdrRange, 1e-6f);
 
-        // Pre-compute Gaussian kernel LUT (shared across all samples since thickness is constant per frame)
-        int kernelRadius = Math.Max((int)MathF.Ceiling(thickness * 3f), 1);
-        int kernelSize = 2 * kernelRadius + 1;
-        float[] kernelArr = new float[kernelSize];
-        float invKernelDenom = 1f / MathF.Max(thickness, 1e-3f);
-        for (int k = 0; k < kernelSize; k++)
-        {
-            float dv = (k - kernelRadius) * invKernelDenom;
-            float dSq = dv * dv;
-            kernelArr[k] = 1f / (1f + dSq + 0.5f * dSq * dSq);
-        }
-
-        // Pre-compute srcY indices (shared across all columns)
-        float invSampleCount = 1f / sampleCount;
-        int[] srcYArr = new int[sampleCount];
-        for (int i = 0; i < sampleCount; i++)
-            srcYArr[i] = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
-
-        // Pre-compute srcX and parade band per column
-        int[] srcXArr = new int[targetWidth];
-        int[]? paradeBandArr = mode == WaveformMode.RgbParade ? new int[targetWidth] : null;
-        for (int x = 0; x < targetWidth; x++)
-        {
-            float x01 = (x + 0.5f) * invTargetWidth;
-            if (paradeBandArr != null)
-            {
-                float x3 = x01 * 3f;
-                int band = Math.Min(2, (int)MathF.Floor(x3));
-                paradeBandArr[x] = band;
-                x01 = x3 - band;
-            }
-            srcXArr[x] = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
-        }
+        float[] kernelArr = CreateKernel(thickness, out int kernelRadius);
+        int[] srcYArr = CreateSourceRows(sampleCount, sourceHeight);
+        int[] srcXArr = CreateSourceColumns(
+            targetWidth, sourceWidth, mode == WaveformMode.RgbParade, out int[]? paradeBandArr);
 
         using ILockedFramebuffer fb = result.Lock();
-        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
-            ? BitmapColorSpace.LinearSrgb
-            : BitmapColorSpace.Srgb;
-        BtlBitmap rgbaConverted;
-        bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
-        {
-            rgbaConverted = sourceBitmap;
-        }
-        else
-        {
-            rgbaConverted = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, targetColorSpace);
-            requireDispose = true;
-        }
+        BitmapColorSpace targetColorSpace = ScopeBitmaps.ToBitmapColorSpace(ColorSpace);
+        BtlBitmap rgbaConverted = ScopeBitmaps.ToRgbaF16(
+            sourceBitmap, targetColorSpace, BitmapAlphaType.Unpremul, out bool requireDispose);
 
         try
         {
@@ -238,6 +189,58 @@ public class WaveformControl : HdrScopeControlBase
         return result;
     }
 
+    // Pre-compute Gaussian kernel LUT (shared across all samples since thickness is constant per frame)
+    private static float[] CreateKernel(float thickness, out int radius)
+    {
+        int kernelRadius = Math.Max((int)MathF.Ceiling(thickness * 3f), 1);
+        int kernelSize = 2 * kernelRadius + 1;
+        float[] kernelArr = new float[kernelSize];
+        float invKernelDenom = 1f / MathF.Max(thickness, 1e-3f);
+        for (int k = 0; k < kernelSize; k++)
+        {
+            float dv = (k - kernelRadius) * invKernelDenom;
+            float dSq = dv * dv;
+            kernelArr[k] = 1f / (1f + dSq + 0.5f * dSq * dSq);
+        }
+
+        radius = kernelRadius;
+        return kernelArr;
+    }
+
+    // Pre-compute srcY indices (shared across all columns)
+    private static int[] CreateSourceRows(int sampleCount, int sourceHeight)
+    {
+        float invSampleCount = 1f / sampleCount;
+        int[] srcYArr = new int[sampleCount];
+        for (int i = 0; i < sampleCount; i++)
+            srcYArr[i] = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
+
+        return srcYArr;
+    }
+
+    // Pre-compute srcX and parade band per column
+    private static int[] CreateSourceColumns(int targetWidth, int sourceWidth, bool parade, out int[]? paradeBands)
+    {
+        float invTargetWidth = 1f / targetWidth;
+        int[] srcXArr = new int[targetWidth];
+        int[]? paradeBandArr = parade ? new int[targetWidth] : null;
+        for (int x = 0; x < targetWidth; x++)
+        {
+            float x01 = (x + 0.5f) * invTargetWidth;
+            if (paradeBandArr != null)
+            {
+                float x3 = x01 * 3f;
+                int band = Math.Min(2, (int)MathF.Floor(x3));
+                paradeBandArr[x] = band;
+                x01 = x3 - band;
+            }
+            srcXArr[x] = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
+        }
+
+        paradeBands = paradeBandArr;
+        return srcXArr;
+    }
+
     private static unsafe void SampleLuma(
         byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
         float[] yBuf, int height, float invHdr, float[] kernel, int radius)
@@ -245,23 +248,9 @@ public class WaveformControl : HdrScopeControlBase
         for (int i = 0; i < sampleCount; i++)
         {
             RgbaF16* pixel = (RgbaF16*)(srcData + (long)srcYArr[i] * srcRowBytes) + srcX;
-            float r = (float)pixel->R;
-            float g = (float)pixel->G;
-            float b = (float)pixel->B;
+            ScopeBitmaps.ReadUnpremultiplied(in *pixel, premul, out float r, out float g, out float b);
 
-            if (premul)
-            {
-                float a = (float)pixel->A;
-                if (a > 0f && a < 1f)
-                {
-                    float invA = 1f / a;
-                    r *= invA;
-                    g *= invA;
-                    b *= invA;
-                }
-            }
-
-            float y = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+            float y = ScopeBitmaps.Luma(r, g, b);
             AddContribution(yBuf, y, height, invHdr, kernel, radius);
         }
     }
@@ -274,21 +263,7 @@ public class WaveformControl : HdrScopeControlBase
         for (int i = 0; i < sampleCount; i++)
         {
             RgbaF16* pixel = (RgbaF16*)(srcData + (long)srcYArr[i] * srcRowBytes) + srcX;
-            float r = (float)pixel->R;
-            float g = (float)pixel->G;
-            float b = (float)pixel->B;
-
-            if (premul)
-            {
-                float a = (float)pixel->A;
-                if (a > 0f && a < 1f)
-                {
-                    float invA = 1f / a;
-                    r *= invA;
-                    g *= invA;
-                    b *= invA;
-                }
-            }
+            ScopeBitmaps.ReadUnpremultiplied(in *pixel, premul, out float r, out float g, out float b);
 
             AddContributionRgb(rBuf, gBuf, bBuf, r, g, b, height, invHdr, kernel, radius);
         }
@@ -301,21 +276,7 @@ public class WaveformControl : HdrScopeControlBase
         for (int i = 0; i < sampleCount; i++)
         {
             RgbaF16* pixel = (RgbaF16*)(srcData + (long)srcYArr[i] * srcRowBytes) + srcX;
-            float r = (float)pixel->R;
-            float g = (float)pixel->G;
-            float b = (float)pixel->B;
-
-            if (premul)
-            {
-                float a = (float)pixel->A;
-                if (a > 0f && a < 1f)
-                {
-                    float invA = 1f / a;
-                    r *= invA;
-                    g *= invA;
-                    b *= invA;
-                }
-            }
+            ScopeBitmaps.ReadUnpremultiplied(in *pixel, premul, out float r, out float g, out float b);
 
             float channel = band == 0 ? r : band == 1 ? g : b;
             AddContribution(target, channel, height, invHdr, kernel, radius);
@@ -461,10 +422,7 @@ public class WaveformControl : HdrScopeControlBase
             colB = MathF.Sqrt(valB) * (0.65f + 0.35f * valB);
 
             int destIndex = (y * destRowBytes) + (x * 4);
-            destPtr[destIndex + 0] = (byte)(Math.Clamp(colB, 0f, 1f) * 255f);
-            destPtr[destIndex + 1] = (byte)(Math.Clamp(colG, 0f, 1f) * 255f);
-            destPtr[destIndex + 2] = (byte)(Math.Clamp(colR, 0f, 1f) * 255f);
-            destPtr[destIndex + 3] = 255;
+            ScopeBitmaps.WriteBgra(destPtr + destIndex, colR, colG, colB);
         }
     }
 
@@ -489,30 +447,9 @@ public class WaveformControl : HdrScopeControlBase
         float r, float g, float b,
         int height, float invHdr, float[] kernel, int radius)
     {
-        float rNorm = Math.Clamp(r * invHdr, 0f, 1f);
-        float gNorm = Math.Clamp(g * invHdr, 0f, 1f);
-        float bNorm = Math.Clamp(b * invHdr, 0f, 1f);
-        int rCenter = (int)MathF.Round((1f - rNorm) * height);
-        int gCenter = (int)MathF.Round((1f - gNorm) * height);
-        int bCenter = (int)MathF.Round((1f - bNorm) * height);
-
-        int rStart = Math.Max(0, rCenter - radius);
-        int rEnd = Math.Min(height - 1, rCenter + radius);
-        int rKOffset = rStart - (rCenter - radius);
-        for (int y = rStart, k = rKOffset; y <= rEnd; y++, k++)
-            rBuf[y] += kernel[k];
-
-        int gStart = Math.Max(0, gCenter - radius);
-        int gEnd = Math.Min(height - 1, gCenter + radius);
-        int gKOffset = gStart - (gCenter - radius);
-        for (int y = gStart, k = gKOffset; y <= gEnd; y++, k++)
-            gBuf[y] += kernel[k];
-
-        int bStart = Math.Max(0, bCenter - radius);
-        int bEnd = Math.Min(height - 1, bCenter + radius);
-        int bKOffset = bStart - (bCenter - radius);
-        for (int y = bStart, k = bKOffset; y <= bEnd; y++, k++)
-            bBuf[y] += kernel[k];
+        AddContribution(rBuf, r, height, invHdr, kernel, radius);
+        AddContribution(gBuf, g, height, invHdr, kernel, radius);
+        AddContribution(bBuf, b, height, invHdr, kernel, radius);
     }
 
     private float[] GetGridStrength(int height, float hdrRange)

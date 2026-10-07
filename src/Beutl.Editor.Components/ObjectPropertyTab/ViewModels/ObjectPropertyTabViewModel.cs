@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,12 +10,14 @@ namespace Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 
 public sealed class ObjectPropertyTabViewModel : IToolContext
 {
+    private const int MaxCachedEditors = 7;
+    private const int MaxBackStackLength = 31;
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly IPropertiesEditorFactory _factory;
     // インデックスが大きい方が新しい
-    private readonly List<IPropertiesEditorViewModel> _cache = new(8);
-    private readonly List<WeakReference<ICoreObject>> _backStack = new(32);
+    private readonly List<IPropertiesEditorViewModel> _cache = new(MaxCachedEditors + 1);
+    private readonly List<WeakReference<ICoreObject>> _backStack = new(MaxBackStackLength + 1);
     private readonly ConditionalWeakTable<ICoreObject, IServiceProvider> _providers = new();
     private readonly ReactivePropertySlim<bool> _canBack = new();
 
@@ -67,36 +70,50 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
 
         if (obj != null)
         {
-            IPropertiesEditorViewModel? result = _cache.Find(x => ReferenceEquals(x.Target, obj));
-
-            if (result != null)
-            {
-                ChildContext.Value = result;
-                _cache.Remove(result);
-                _cache.Add(result);
-            }
-            else
-            {
-                ChildContext.Value = _factory.Create(obj);
-                if (provider != null)
-                {
-                    _providers.AddOrUpdate(obj, provider);
-                }
-                AcceptChildren(ChildContext.Value, provider);
-                _cache.Add(ChildContext.Value);
-            }
-
-            if (_cache.Count > 7)
-            {
-                int count = _cache.Count - 7;
-                for (int i = 0; i < count; i++)
-                {
-                    _cache[i].Dispose();
-                }
-                _cache.RemoveRange(0, count);
-            }
+            ShowEditor(obj, provider);
+            TrimEditorCache();
         }
 
+        RecordNavigation(weakRef, obj, back);
+    }
+
+    private void ShowEditor(ICoreObject obj, IServiceProvider? provider)
+    {
+        IPropertiesEditorViewModel? result = _cache.Find(x => ReferenceEquals(x.Target, obj));
+
+        if (result != null)
+        {
+            ChildContext.Value = result;
+            _cache.Remove(result);
+            _cache.Add(result);
+        }
+        else
+        {
+            ChildContext.Value = _factory.Create(obj);
+            if (provider != null)
+            {
+                _providers.AddOrUpdate(obj, provider);
+            }
+            AcceptChildren(ChildContext.Value, provider);
+            _cache.Add(ChildContext.Value);
+        }
+    }
+
+    private void TrimEditorCache()
+    {
+        if (_cache.Count > MaxCachedEditors)
+        {
+            int count = _cache.Count - MaxCachedEditors;
+            for (int i = 0; i < count; i++)
+            {
+                _cache[i].Dispose();
+            }
+            _cache.RemoveRange(0, count);
+        }
+    }
+
+    private void RecordNavigation(WeakReference<ICoreObject> weakRef, ICoreObject? obj, bool back)
+    {
         if (!back)
         {
             _backStack.Add(weakRef);
@@ -119,9 +136,9 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
         }
 
         _backStack.RemoveAll(x => !x.TryGetTarget(out _));
-        if (_backStack.Count > 31)
+        if (_backStack.Count > MaxBackStackLength)
         {
-            _backStack.RemoveRange(0, _backStack.Count - 31);
+            _backStack.RemoveRange(0, _backStack.Count - MaxBackStackLength);
         }
 
         _canBack.Value = _backStack.Count > 0;
@@ -153,23 +170,11 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
     {
         if (obj != null)
         {
-            var visitor = new Visitor(provider ?? this);
+            var visitor = new ChildVisitor(provider ?? this);
             foreach (IPropertyEditorContext item in obj.Properties)
             {
                 item.Accept(visitor);
             }
-        }
-    }
-
-    private sealed record Visitor(IServiceProvider Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
         }
     }
 }

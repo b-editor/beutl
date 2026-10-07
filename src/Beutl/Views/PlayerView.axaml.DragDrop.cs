@@ -22,7 +22,6 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    // Todo: Refactor
     private async void OnFrameDrop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -37,27 +36,7 @@ public partial class PlayerView
 
         if (storage != null)
         {
-            e.Handled = true;
-            using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();
-            if (fileWrite == null)
-            {
-                NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
-                return;
-            }
-            try
-            {
-                using var import = await storage.ImportToSceneAsync(scene);
-                foreach (string path in import.Paths)
-                {
-                    int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
-                    ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
-                        new ElementSource.File(path), Position: centeredPosition));
-                    if (result is { IsSuccess: true }) import.Retain(path);
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (ObjectDisposedException) { }
-            catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+            await DropStorageItemsAsync(e, storage, scene, editViewModel, frame, centeredPosition);
             return;
         }
 
@@ -65,88 +44,146 @@ public partial class PlayerView
         bool containsTra = e.DataTransfer.Contains(BeutlDataFormats.Transform);
         if (containsFe || containsTra)
         {
-            Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                var compositor = editViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(frame);
-                return editViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPosition.X, (float)scaledPosition.Y));
-            });
-
-            if (drawable != null)
-            {
-                // TODO: DrawableGroup以下のDrawableを拾った場合の対応
-                int zindex = drawable.ZIndex;
-
-                Element? element = scene.Children.FirstOrDefault(v =>
-                    v.IsEnabled
-                    && v.ZIndex == zindex
-                    && v.Start <= frame
-                    && frame < v.Range.End);
-
-                if (element != null)
-                {
-                    var editorSelection = editViewModel.GetService<IEditorSelection>();
-                    editorSelection?.SelectedObject.Value = element;
-                }
-
-                if (containsFe
-                    && e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is { } feTypeName
-                    && TypeFormat.ToType(feTypeName) is { } feType
-                    && Activator.CreateInstance(feType) is FilterEffect newFe)
-                {
-                    FilterEffect? fe = drawable.FilterEffect.CurrentValue;
-                    AddOrSetHelper.AddOrSet(ref fe, newFe);
-                    drawable.FilterEffect.CurrentValue = fe;
-                }
-                else if (containsTra
-                         && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
-                         && TypeFormat.ToType(traTypeName) is { } traType
-                         && Activator.CreateInstance(traType) is Transform newTra)
-                {
-                    Transform? tra = drawable.Transform.CurrentValue;
-                    AddOrSetHelper.AddOrSet(ref tra, newTra);
-                    drawable.Transform.CurrentValue = tra;
-                }
-
-                e.Handled = true;
-            }
+            await DropEffectOntoHitDrawableAsync(e, scene, editViewModel, frame, scaledPosition, containsFe, containsTra);
         }
         else
         {
-            int CalculateZIndex(Scene scene)
+            await DropNewElementAsync(e, scene, editViewModel, frame, centeredPosition);
+        }
+    }
+
+    private async Task DropStorageItemsAsync(
+        DragEventArgs e,
+        StorageDragData storage,
+        Scene scene,
+        EditViewModel editViewModel,
+        TimeSpan frame,
+        Point centeredPosition)
+    {
+        e.Handled = true;
+        using var fileWrite = HostProjectFileWriteAdmission.Resolve(editViewModel)?.TryBeginProjectFileWrite();
+        if (fileWrite == null)
+        {
+            NotificationService.ShowWarning(Strings.CloudStorage, Strings.FileBrowser_WorkspaceBusy);
+            return;
+        }
+        try
+        {
+            using var import = await storage.ImportToSceneAsync(scene);
+            foreach (string path in import.Paths)
             {
-                Element[] elements = scene.Children
-                    .Where(item => item.Start <= frame && frame < item.Range.End)
-                    .ToArray();
-                return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
-            }
-
-            if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
-                && TypeFormat.ToType(typeName) is { } type)
-            {
-                e.Handled = true;
-
-                int zindex = CalculateZIndex(scene);
-
-                await AddElement(editViewModel, new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex,
-                    new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!),
-                    Position: centeredPosition));
-            }
-            else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
-            {
-                int zindex = CalculateZIndex(scene);
-
-                await AddElement(editViewModel, new ElementDescription(
-                    frame,
-                    TimeSpan.FromSeconds(5),
-                    zindex,
-                    new ElementSource.File(fileName),
-                    Position: centeredPosition));
-
-                e.Handled = true;
+                int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
+                ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
+                    new ElementSource.File(path), Position: centeredPosition));
+                if (result is { IsSuccess: true }) import.Retain(path);
             }
         }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+        catch (Exception) { NotificationService.ShowError(Strings.CloudStorage, Strings.CloudStorageActionFailed); }
+    }
+
+    private async Task DropEffectOntoHitDrawableAsync(
+        DragEventArgs e,
+        Scene scene,
+        EditViewModel editViewModel,
+        TimeSpan frame,
+        Point scaledPosition,
+        bool containsFe,
+        bool containsTra)
+    {
+        Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            var compositor = editViewModel.Renderer.Value.Compositor;
+            var compositionFrame = compositor.EvaluateGraphics(frame);
+            return editViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPosition.X, (float)scaledPosition.Y));
+        });
+
+        if (drawable != null)
+        {
+            // TODO: DrawableGroup以下のDrawableを拾った場合の対応
+            int zindex = drawable.ZIndex;
+
+            Element? element = FindEnabledElementAt(scene, zindex, frame);
+
+            if (element != null)
+            {
+                var editorSelection = editViewModel.GetService<IEditorSelection>();
+                editorSelection?.SelectedObject.Value = element;
+            }
+
+            if (containsFe
+                && e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is { } feTypeName
+                && TypeFormat.ToType(feTypeName) is { } feType
+                && Activator.CreateInstance(feType) is FilterEffect newFe)
+            {
+                FilterEffect? fe = drawable.FilterEffect.CurrentValue;
+                AddOrSetHelper.AddOrSet(ref fe, newFe);
+                drawable.FilterEffect.CurrentValue = fe;
+            }
+            else if (containsTra
+                     && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
+                     && TypeFormat.ToType(traTypeName) is { } traType
+                     && Activator.CreateInstance(traType) is Transform newTra)
+            {
+                Transform? tra = drawable.Transform.CurrentValue;
+                AddOrSetHelper.AddOrSet(ref tra, newTra);
+                drawable.Transform.CurrentValue = tra;
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private async Task DropNewElementAsync(
+        DragEventArgs e,
+        Scene scene,
+        EditViewModel editViewModel,
+        TimeSpan frame,
+        Point centeredPosition)
+    {
+        int CalculateZIndex(Scene scene)
+        {
+            Element[] elements = scene.Children
+                .Where(item => item.Start <= frame && frame < item.Range.End)
+                .ToArray();
+            return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
+        }
+
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+            && TypeFormat.ToType(typeName) is { } type)
+        {
+            e.Handled = true;
+
+            int zindex = CalculateZIndex(scene);
+
+            await AddElement(editViewModel, new ElementDescription(
+                frame, TimeSpan.FromSeconds(5), zindex,
+                new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!),
+                Position: centeredPosition));
+        }
+        else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
+        {
+            int zindex = CalculateZIndex(scene);
+
+            await AddElement(editViewModel, new ElementDescription(
+                frame,
+                TimeSpan.FromSeconds(5),
+                zindex,
+                new ElementSource.File(fileName),
+                Position: centeredPosition));
+
+            e.Handled = true;
+        }
+    }
+
+    private static Element? FindEnabledElementAt(Scene scene, int zIndex, TimeSpan time)
+    {
+        return scene.Children.FirstOrDefault(v =>
+            v.IsEnabled
+            && v.ZIndex == zIndex
+            && v.Start <= time
+            && time < v.Range.End);
     }
 
     internal async Task<ElementAddResult?> AddElement(EditViewModel editViewModel, ElementDescription description)

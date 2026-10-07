@@ -5,6 +5,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -30,13 +31,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
         {
             TimeSpan originalKeyTime = keyTime;
             keyTime = ConvertKeyTime(originalKeyTime, kfAnimation);
-            Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
-            int rate = proj?.GetFrameRate() ?? 30;
-
-            TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
-
-            IKeyFrame? keyFrame =
-                kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+            IKeyFrame? keyFrame = KeyFrameClipboardCommands.FindEasingDropTarget(kfAnimation, keyTime, Timeline.Scene);
             if (keyFrame != null)
             {
                 HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
@@ -132,54 +127,56 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Property.ObserveAnimation.CombineWithPrevious()
-            .Subscribe(t =>
-            {
-                if (t.OldValue != null)
-                {
-                    t.OldValue.Edited -= OnAnimationEdited;
-                    _innerDisposables.Clear();
-                    ClearItems();
-                }
-
-                if (t.NewValue != null)
-                {
-                    t.NewValue.Edited += OnAnimationEdited;
-                    if (t.NewValue is IKeyFrameAnimation kfAnimation)
-                    {
-                        kfAnimation.KeyFrames.ForEachItem(
-                                (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
-                                (idx, _) =>
-                                {
-                                    InlineKeyFrameViewModel item = Items[idx];
-                                    item.Dispose();
-                                    Items.RemoveAt(idx);
-                                },
-                                ClearItems)
-                            .DisposeWith(_innerDisposables);
-                        kfAnimation.KeyFrames.CollectionChangedAsObservable()
-                            .Subscribe(_ => UpdateWidth()).DisposeWith(_innerDisposables);
-                    }
-
-                    ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
-                        .Subscribe(v => _useGlobalClock.Value = v)
-                        .DisposeWith(_innerDisposables);
-
-                    // アニメーションの DetachedFromHierarchy を購読
-                    if (t.NewValue is IHierarchical hierarchical)
-                    {
-                        hierarchical.DetachedFromHierarchy += OnAnimationDetached;
-                        Disposable.Create(hierarchical, h => h.DetachedFromHierarchy -= OnAnimationDetached)
-                            .DisposeWith(_innerDisposables);
-                    }
-                }
-
-                // nullが代入されたときDetachedFromHierarchyより先に_innerDisposables.Disposeが呼び出されるので、手動でDetachInlineを呼び出す
-                if (t.OldValue != null && t.NewValue == null)
-                {
-                    Timeline.DetachInline(this);
-                }
-            })
+            .Subscribe(OnAnimationChanged)
             .DisposeWith(_disposables);
+    }
+
+    private void OnAnimationChanged((IAnimation? OldValue, IAnimation? NewValue) t)
+    {
+        if (t.OldValue != null)
+        {
+            t.OldValue.Edited -= OnAnimationEdited;
+            _innerDisposables.Clear();
+            ClearItems();
+        }
+
+        if (t.NewValue != null)
+        {
+            t.NewValue.Edited += OnAnimationEdited;
+            if (t.NewValue is IKeyFrameAnimation kfAnimation)
+            {
+                kfAnimation.KeyFrames.ForEachItem(
+                        (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
+                        (idx, _) =>
+                        {
+                            InlineKeyFrameViewModel item = Items[idx];
+                            item.Dispose();
+                            Items.RemoveAt(idx);
+                        },
+                        ClearItems)
+                    .DisposeWith(_innerDisposables);
+                kfAnimation.KeyFrames.CollectionChangedAsObservable()
+                    .Subscribe(_ => UpdateWidth()).DisposeWith(_innerDisposables);
+            }
+
+            ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+                .Subscribe(v => _useGlobalClock.Value = v)
+                .DisposeWith(_innerDisposables);
+
+            // アニメーションの DetachedFromHierarchy を購読
+            if (t.NewValue is IHierarchical hierarchical)
+            {
+                hierarchical.DetachedFromHierarchy += OnAnimationDetached;
+                Disposable.Create(hierarchical, h => h.DetachedFromHierarchy -= OnAnimationDetached)
+                    .DisposeWith(_innerDisposables);
+            }
+        }
+
+        // nullが代入されたときDetachedFromHierarchyより先に_innerDisposables.Disposeが呼び出されるので、手動でDetachInlineを呼び出す
+        if (t.OldValue != null && t.NewValue == null)
+        {
+            Timeline.DetachInline(this);
+        }
     }
 
     public Func<Thickness, Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
@@ -242,32 +239,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         IKeyFrameClipboardService service = Timeline.EditorContext.GetRequiredService<IKeyFrameClipboardService>();
         KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(animation, json);
 
-        switch (outcome)
-        {
-            case KeyFrameAnimationPasteOutcome.Pasted:
-                break;
-            case KeyFrameAnimationPasteOutcome.InvalidJson:
-                _logger.LogError("Invalid JSON");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
-                break;
-            case KeyFrameAnimationPasteOutcome.MissingType:
-                _logger.LogError("Invalid JSON: missing $type");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
-                break;
-            case KeyFrameAnimationPasteOutcome.TypeIsNotKeyFrameAnimation:
-                _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
-                break;
-            case KeyFrameAnimationPasteOutcome.GenericTypeMismatch:
-                _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(
-                    Strings.GraphEditor,
-                    string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, "?"));
-                break;
-            case KeyFrameAnimationPasteOutcome.UnexpectedError:
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
-                break;
-        }
+        KeyFrameClipboardCommands.ReportAnimationPaste(outcome, animation, _logger);
     }
 
     private void PasteKeyFrame(string json, TimeSpan pointerPosition)
@@ -279,33 +251,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         IKeyFrameClipboardService service = Timeline.EditorContext.GetRequiredService<IKeyFrameClipboardService>();
         KeyFramePasteResult result = service.PasteKeyFrame(animation, json, keyTime);
 
-        switch (result.Outcome)
-        {
-            case KeyFramePasteOutcome.Inserted:
-                break;
-            case KeyFramePasteOutcome.ReplacedExisting:
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
-                break;
-            case KeyFramePasteOutcome.GenericTypeMismatch when result.EasingForFallback is { } easing:
-                InsertKeyFrame(easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
-                break;
-            case KeyFramePasteOutcome.InvalidJson:
-                _logger.LogError("Invalid JSON");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
-                break;
-            case KeyFramePasteOutcome.MissingType:
-                _logger.LogError("Invalid JSON: missing $type");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
-                break;
-            case KeyFramePasteOutcome.TypeIsNotKeyFrame:
-                _logger.LogError("Invalid JSON: $type is not a KeyFrame");
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
-                break;
-            case KeyFramePasteOutcome.UnexpectedError:
-                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
-                break;
-        }
+        KeyFrameClipboardCommands.ReportKeyFramePaste(result, _logger, easing => InsertKeyFrame(easing, pointerPosition));
     }
 
     public void DeleteAnimation()
@@ -319,24 +265,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     private async Task CopyAllKeyFramesAsync()
     {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-
-        try
-        {
-            ObjectRegenerator.Regenerate(Property.Animation!, out string json);
-
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateText(json));
-            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrameAnimation, json));
-
-            await clipboard.SetDataAsync(data);
-        }
-        catch (Exception ex)
+        await KeyFrameClipboardCommands.CopyAsync(Property.Animation!, BeutlDataFormats.KeyFrameAnimation, ex =>
         {
             _logger.LogError(ex, "Failed to copy all keyframes");
             NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
-        }
+        });
     }
 
     internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)

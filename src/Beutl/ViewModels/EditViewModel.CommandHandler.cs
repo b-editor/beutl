@@ -23,11 +23,15 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     // 通知 Subject へ流す。これによりパレット表示中の再生状態遷移にも CanExecute が追従する。
     private void HookCommandStateNotifier()
     {
-        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged += OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Next).CanExecuteChanged += OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged += OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged += OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.End).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        foreach (System.Windows.Input.ICommand command in PlayerCommands())
+        {
+            command.CanExecuteChanged += OnPlayerCanExecuteChanged;
+        }
+    }
+
+    private System.Windows.Input.ICommand[] PlayerCommands()
+    {
+        return [Player.PlayPause, Player.Next, Player.Previous, Player.Start, Player.End];
     }
 
     private void OnPlayerCanExecuteChanged(object? sender, EventArgs e)
@@ -41,11 +45,11 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     private void DisposeCommandStateNotifier()
     {
         _commandStateNotifierDisposed = true;
-        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Next).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.End).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        foreach (System.Windows.Input.ICommand command in PlayerCommands())
+        {
+            command.CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        }
+
         _commandStateChangedSubject.Dispose();
     }
 
@@ -253,7 +257,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         SeekAndScroll(target.Value);
     }
 
-    private void SeekAndScroll(TimeSpan time)
+    internal void SeekAndScroll(TimeSpan time)
     {
         _editorClock.CurrentTime.Value = time;
 

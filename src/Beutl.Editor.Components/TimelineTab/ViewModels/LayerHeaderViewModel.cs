@@ -37,22 +37,10 @@ public sealed class LayerHeaderViewModel : IDisposable
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty(Colors.Transparent);
 
-        IsLocked = _model.Select(i =>
-                i?.GetObservable(TimelineLayer.IsLockedProperty) ?? Observable.ReturnThenNever(false))
-            .Switch()
-            .ToReactiveProperty(false);
-        IsAudioMuted = _model.Select(i =>
-                i?.GetObservable(TimelineLayer.IsAudioMutedProperty) ?? Observable.ReturnThenNever(false))
-            .Switch()
-            .ToReactiveProperty(false);
-        IsVideoMuted = _model.Select(i =>
-                i?.GetObservable(TimelineLayer.IsVideoMutedProperty) ?? Observable.ReturnThenNever(false))
-            .Switch()
-            .ToReactiveProperty(false);
-        IsSolo = _model.Select(i =>
-                i?.GetObservable(TimelineLayer.IsSoloProperty) ?? Observable.ReturnThenNever(false))
-            .Switch()
-            .ToReactiveProperty(false);
+        IsLocked = ObserveLayerFlag(TimelineLayer.IsLockedProperty);
+        IsAudioMuted = ObserveLayerFlag(TimelineLayer.IsAudioMutedProperty);
+        IsVideoMuted = ObserveLayerFlag(TimelineLayer.IsVideoMutedProperty);
+        IsSolo = ObserveLayerFlag(TimelineLayer.IsSoloProperty);
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
@@ -91,39 +79,30 @@ public sealed class LayerHeaderViewModel : IDisposable
         // Scene.Layers (e.g. restoring a pruned model), which no command-side
         // resync covers — track the collection so the header rebinds.
         Timeline.Scene.Layers.CollectionChangedAsObservable()
-            .Subscribe(_ => _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value))
+            .Subscribe(_ => ResyncModel())
             .AddTo(_disposables);
+    }
+
+    // A missing model reads as false: the flag is off until a TimelineLayer exists for this row.
+    private ReactiveProperty<bool> ObserveLayerFlag(CoreProperty<bool> property)
+    {
+        return _model.Select(i =>
+                i?.GetObservable(property) ?? Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty(false);
     }
 
     private void OnInlinesCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
-        void OnAdded()
-        {
-            for (int i = e.NewStartingIndex; i < Inlines.Count; i++)
-            {
-                InlineAnimationLayerViewModel item = Inlines[i];
-                item.Index.Value = i;
-            }
-        }
-
-        void OnRemoved()
-        {
-            for (int i = e.OldStartingIndex; i < Inlines.Count; i++)
-            {
-                InlineAnimationLayerViewModel item = Inlines[i];
-                item.Index.Value = i;
-            }
-        }
-
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
-                OnAdded();
+                ReindexInlines(e.NewStartingIndex);
                 break;
 
             case NotifyCollectionChangedAction.Move:
-                OnRemoved();
-                OnAdded();
+                ReindexInlines(e.OldStartingIndex);
+                ReindexInlines(e.NewStartingIndex);
                 break;
 
             case NotifyCollectionChangedAction.Replace:
@@ -131,8 +110,17 @@ public sealed class LayerHeaderViewModel : IDisposable
                 throw new Exception("Not supported action (Move, Replace, Reset).");
 
             case NotifyCollectionChangedAction.Remove:
-                OnRemoved();
+                ReindexInlines(e.OldStartingIndex);
                 break;
+        }
+    }
+
+    private void ReindexInlines(int start)
+    {
+        for (int i = start; i < Inlines.Count; i++)
+        {
+            InlineAnimationLayerViewModel item = Inlines[i];
+            item.Index.Value = i;
         }
     }
 
@@ -221,7 +209,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         // Re-sync the local TimelineLayer from the scene so Name/Color bindings track
         // the model the service just created or updated.
-        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
+        ResyncModel();
     }
 
     private void ToggleLayerFlag(ReactiveProperty<bool> flag, Func<ILayerAttributeService, Scene, int, bool, bool> apply)
@@ -232,6 +220,11 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         // The service may have materialized or pruned the TimelineLayer; re-sync so
         // the flag's source observable tracks the current model.
+        ResyncModel();
+    }
+
+    private void ResyncModel()
+    {
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }
 

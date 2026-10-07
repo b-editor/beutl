@@ -198,8 +198,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
         // SendAndReceiveAsync surfaces a closed connection as IOException, an error response as
         // FFmpegWorkerException, and a host CancelEncode as OperationCanceledException, so the response here
         // is always a live ProvideSample for this request.
-        var sampleInfo = response.GetPayload<ProvideSampleMessage>()
-            ?? throw new InvalidOperationException("Missing payload for ProvideSample");
+        var sampleInfo = response.RequirePayload<ProvideSampleMessage>(MessageType.ProvideSample);
 
         // SharedMemoryBuffer.Read copies the worker-reported DataLength bytes into the native Pcm, whose
         // capacity is NumSamples * Stereo32BitFloatBytesPerSample. Validate the reported size against that

@@ -112,16 +112,8 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
 
     public int IndexAt(TimeSpan timeSpan)
     {
-        for (int i = 0; i < Count; i++)
-        {
-            IKeyFrame next = this[i];
-            if (timeSpan <= next.KeyTime)
-            {
-                return i;
-            }
-        }
-
-        return Count - 1;
+        // Past the last keyframe this is the last index, and -1 on an empty list.
+        return Math.Min(IndexAtOrCount(timeSpan), Count - 1);
     }
 
     public int IndexAtOrCount(TimeSpan timeSpan)

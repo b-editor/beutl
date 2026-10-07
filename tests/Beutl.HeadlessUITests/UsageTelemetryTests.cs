@@ -18,6 +18,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -266,6 +267,52 @@ public sealed class UsageTelemetryTests
         Assert.That(edit.Count, Is.EqualTo(1));
         Assert.That(edit.Key.Feature, Is.EqualTo("PropertyEdit"));
         Assert.That(EditorUsageTracker.GetCommandId("CommandNames.SplitElement"), Is.EqualTo("SplitElement"));
+    }
+
+    [TestCase(nameof(Element.Start))]
+    [TestCase(nameof(Element.Length))]
+    public void Timeline_edits_exclude_propagated_engine_time_ranges(string property)
+    {
+        var scene = new Scene(640, 480, "usage-test");
+        var video = new SourceVideo();
+        video.Source.CurrentValue = new VideoSource();
+        var sound = new Beutl.Audio.SourceSound();
+        sound.Source.CurrentValue = new SoundSource();
+        var element = new Element { Length = TimeSpan.FromSeconds(5) };
+        element.Objects.Add(video);
+        element.Objects.Add(sound);
+        scene.Children.Add(element);
+        var application = new BeutlApplication();
+        application.Items.Add(scene);
+        TimeRange originalRange = element.Range;
+        var sequence = new OperationSequenceGenerator();
+        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
+        using var history = new HistoryManager(scene, sequence);
+        using var subscription = history.Subscribe(observer);
+        using var tracker = new EditorUsageTracker(scene, history);
+        tracker.ActivateTool(new object(), "Timeline");
+
+        if (property == nameof(Element.Start)) element.Start = TimeSpan.FromSeconds(1);
+        else element.Length = TimeSpan.FromSeconds(10);
+        history.Commit();
+        _usage.Flush();
+
+        Assert.That(_summaries.Where(s => s.Key.Event == "editor.property").Select(s => s.Key.Feature),
+            Is.EquivalentTo(new[] { "Element." + property }));
+        UsageSummary edit = _summaries.Single(s => s.Key.Event == "editor.edit");
+        Assert.That(edit.Key.Tool, Is.EqualTo("Timeline"));
+        Assert.That(edit.Count, Is.EqualTo(1));
+        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
+            Is.All.EqualTo(element.Range));
+
+        history.Undo();
+        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
+            Is.All.EqualTo(originalRange));
+        history.Redo();
+        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
+            Is.All.EqualTo(element.Range));
+        _usage.Flush();
+        Assert.That(_summaries.Single(s => s.Key.Event == "editor.edit").Count, Is.EqualTo(1));
     }
 
     [TestCase(false)]

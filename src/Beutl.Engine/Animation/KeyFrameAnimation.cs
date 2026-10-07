@@ -43,17 +43,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         int index = KeyFrames.IndexOf(keyframe);
         (IKeyFrame? prev, IKeyFrame? next) = GetPreviousAndNextKeyFrame(keyframe);
 
-        bool invalid = false;
-        if (prev != null && prev.KeyTime > keyframe.KeyTime)
-        {
-            invalid = true;
-        }
-        else if (next != null && keyframe.KeyTime > next.KeyTime)
-        {
-            invalid = true;
-        }
-
-        if (invalid)
+        if (IsOutOfOrder(prev, keyframe, next))
         {
             for (int i = 0; i < KeyFrames.Count; i++)
             {
@@ -79,6 +69,12 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
                 }
             }
         }
+    }
+
+    private static bool IsOutOfOrder(IKeyFrame? prev, IKeyFrame keyframe, IKeyFrame? next)
+    {
+        return (prev != null && prev.KeyTime > keyframe.KeyTime)
+            || (next != null && keyframe.KeyTime > next.KeyTime);
     }
 
     private void OnKeyFrameEdited(object? sender, EventArgs e)

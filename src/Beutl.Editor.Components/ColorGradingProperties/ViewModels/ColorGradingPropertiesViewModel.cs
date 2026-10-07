@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Effects;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,7 +56,7 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
 
     private void AcceptChildren()
     {
-        var visitor = new Visitor(this);
+        var visitor = new ChildVisitor(this);
         foreach (IPropertyEditorContext item in Properties)
         {
             item.Accept(visitor);
@@ -125,18 +126,6 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
         foreach (IPropertyEditorContext item in Properties)
         {
             item.Dispose();
-        }
-    }
-
-    private sealed record Visitor(ColorGradingPropertiesViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj._parentServices?.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
         }
     }
 }

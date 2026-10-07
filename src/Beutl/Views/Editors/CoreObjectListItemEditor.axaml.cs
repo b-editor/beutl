@@ -63,23 +63,11 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
         try
         {
             _flyoutOpen = true;
-            var targets = vm.GetAvailableTargets();
-            var pickerVm = new TargetPickerFlyoutViewModel();
-            pickerVm.Initialize(targets);
-
-            var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this, true);
-
-            var tcs = new TaskCompletionSource<CoreObject?>();
-            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object);
-
-            var result = await tcs.Task;
-            if (result != null)
-            {
-                vm.SetTarget(result);
-            }
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
+                this,
+                vm,
+                viewModel => viewModel.GetAvailableTargets(),
+                (viewModel, target) => viewModel.SetTarget(target));
         }
         finally
         {

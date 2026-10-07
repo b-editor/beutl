@@ -138,10 +138,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         {
             return;
         }
-        catch (Exception ex) when (ex is IOException
-            or UnauthorizedAccessException
-            or InvalidDataException
-            or NotSupportedException)
+        catch (Exception ex) when (IsStorageFailure(ex))
         {
             Error.Value = Strings.AiResultUnavailable;
             System.Diagnostics.Trace.TraceWarning(
@@ -266,10 +263,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         {
             Error.Value = Strings.AiAuthenticationRequired;
         }
-        catch (Exception ex) when (ex is IOException
-            or UnauthorizedAccessException
-            or InvalidDataException
-            or NotSupportedException)
+        catch (Exception ex) when (IsStorageFailure(ex))
         {
             Error.Value = Strings.AiResultUnavailable;
             System.Diagnostics.Trace.TraceWarning(
@@ -369,9 +363,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
                     or UnauthorizedAccessException)
                 {
                     ClearPromptChoices();
-                    Error.Value = ex is AuthenticationRequiredException
-                        ? Strings.AiAuthenticationRequired
-                        : Strings.AiResultUnavailable;
+                    Error.Value = ToErrorMessage(ex);
                 }
             }
         }
@@ -418,10 +410,24 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
             or IOException
             or UnauthorizedAccessException)
         {
-            Error.Value = ex is AuthenticationRequiredException
-                ? Strings.AiAuthenticationRequired
-                : Strings.AiResultUnavailable;
+            Error.Value = ToErrorMessage(ex);
         }
+    }
+
+    // Failures of the local prompt store that leave the library usable once the cause is fixed.
+    private static bool IsStorageFailure(Exception ex)
+    {
+        return ex is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or NotSupportedException;
+    }
+
+    private static string ToErrorMessage(Exception ex)
+    {
+        return ex is AuthenticationRequiredException
+            ? Strings.AiAuthenticationRequired
+            : Strings.AiResultUnavailable;
     }
 
     private void ClearPromptChoices()

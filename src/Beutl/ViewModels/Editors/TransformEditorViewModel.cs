@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
-using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics.Transformation;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
@@ -79,17 +77,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
-            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
-            .DisposeWith(Disposables);
-
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
-            .DisposeWith(Disposables);
+        (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
 
         TransformType = Value.Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
@@ -156,27 +144,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             })
             .DisposeWith(Disposables);
 
-        var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<Transform> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<Transform>?)null, (IExpression<Transform?>?)null))
-            })
-            .Switch();
-        IsPresenter = expressionObservable
-            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Transform> or null })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<Transform>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<Transform>(Value, Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
@@ -302,17 +270,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         if (!IsElementEditable) return;
         if (Value.Value is IPresenter<Transform> presenter)
         {
-
-            if (target != null)
-            {
-                var expression = Expression.CreateReference<Transform>(target.Id);
-                presenter.Target.Expression = expression;
-            }
-            else
-            {
-                presenter.Target.Expression = null;
-                presenter.Target.CurrentValue = null;
-            }
+            PresenterEditorHelper.AssignTarget(presenter, target);
             CompleteElementRepair();
             Commit();
         }

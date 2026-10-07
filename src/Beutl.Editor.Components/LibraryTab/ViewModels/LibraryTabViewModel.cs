@@ -163,19 +163,23 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     {
         void Publish()
         {
-            if (Volatile.Read(ref _disposed) != 0 || cancellationToken.IsCancellationRequested
-                || searchVersion != Volatile.Read(ref _searchVersion))
+            if (IsStale())
                 return;
 
             SearchResult.Clear();
             foreach (KeyValuePair<int, LibraryItemViewModel> item in results)
             {
-                if (Volatile.Read(ref _disposed) != 0 || cancellationToken.IsCancellationRequested
-                    || searchVersion != Volatile.Read(ref _searchVersion))
+                if (IsStale())
                     return;
 
                 SearchResult.Add(item);
             }
+        }
+
+        bool IsStale()
+        {
+            return Volatile.Read(ref _disposed) != 0 || cancellationToken.IsCancellationRequested
+                || searchVersion != Volatile.Read(ref _searchVersion);
         }
 
         if (Dispatcher.UIThread.CheckAccess())

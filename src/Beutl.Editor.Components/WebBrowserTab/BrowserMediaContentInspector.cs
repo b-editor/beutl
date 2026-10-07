@@ -77,22 +77,7 @@ internal sealed class BrowserMediaContentInspector
         {
             if (_state is State.Comment or State.Instruction)
             {
-                string delimiter = _state == State.Comment ? "-->" : "?>";
-                int end = _pending.IndexOf(delimiter, StringComparison.Ordinal);
-                if (end < 0)
-                {
-                    if (isFinal) Finish(_state == State.Comment);
-                    else
-                    {
-                        // Only a delimiter's overlapping suffix is needed across reads.
-                        // Long comments and declarations never accumulate in memory.
-                        int keep = Math.Min(_pending.Length, delimiter.Length - 1);
-                        _pending = _pending[^keep..];
-                    }
-                    return;
-                }
-                _pending = _pending[(end + delimiter.Length)..];
-                _state = State.Preamble;
+                if (!TrySkipDelimitedSection(isFinal)) return;
                 continue;
             }
 
@@ -118,22 +103,51 @@ internal sealed class BrowserMediaContentInspector
             if (!isFinal && ("<!--".StartsWith(_pending, StringComparison.Ordinal)
                 || "<?xml".StartsWith(_pending, StringComparison.OrdinalIgnoreCase))) return;
 
-            foreach (string tag in s_htmlTags)
-            {
-                if (_pending.StartsWith(tag, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (_pending.Length == tag.Length && !isFinal) return;
-                    if (_pending.Length == tag.Length || char.IsWhiteSpace(_pending[tag.Length]) || _pending[tag.Length] is '>' or '/')
-                    {
-                        Finish(true);
-                        return;
-                    }
-                }
-                else if (!isFinal && tag.StartsWith(_pending, StringComparison.OrdinalIgnoreCase)) return;
-            }
-            Finish(false);
+            MatchHtmlTag(isFinal);
             return;
         }
+    }
+
+    // Skips past the end of the current comment or processing instruction. False ends this read: the
+    // delimiter has not arrived yet, or the stream ended inside the section.
+    private bool TrySkipDelimitedSection(bool isFinal)
+    {
+        string delimiter = _state == State.Comment ? "-->" : "?>";
+        int end = _pending.IndexOf(delimiter, StringComparison.Ordinal);
+        if (end < 0)
+        {
+            if (isFinal) Finish(_state == State.Comment);
+            else
+            {
+                // Only a delimiter's overlapping suffix is needed across reads.
+                // Long comments and declarations never accumulate in memory.
+                int keep = Math.Min(_pending.Length, delimiter.Length - 1);
+                _pending = _pending[^keep..];
+            }
+            return false;
+        }
+        _pending = _pending[(end + delimiter.Length)..];
+        _state = State.Preamble;
+        return true;
+    }
+
+    // Every path ends this read: the first tag is HTML, may still become an HTML tag, or is not HTML.
+    private void MatchHtmlTag(bool isFinal)
+    {
+        foreach (string tag in s_htmlTags)
+        {
+            if (_pending.StartsWith(tag, StringComparison.OrdinalIgnoreCase))
+            {
+                if (_pending.Length == tag.Length && !isFinal) return;
+                if (_pending.Length == tag.Length || char.IsWhiteSpace(_pending[tag.Length]) || _pending[tag.Length] is '>' or '/')
+                {
+                    Finish(true);
+                    return;
+                }
+            }
+            else if (!isFinal && tag.StartsWith(_pending, StringComparison.OrdinalIgnoreCase)) return;
+        }
+        Finish(false);
     }
 
     private void Finish(bool isHtml)

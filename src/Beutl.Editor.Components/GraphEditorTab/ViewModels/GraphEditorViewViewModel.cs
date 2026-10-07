@@ -206,101 +206,104 @@ public sealed class GraphEditorViewViewModel : IDisposable
         int index = 0;
         foreach (IKeyFrame item in Parent.Animation.KeyFrames)
         {
-            var viewModel = new GraphEditorKeyFrameViewModel(item, this);
-            viewModel.EndY.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-            viewModel.ControlPoint1.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-            viewModel.ControlPoint2.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
+            GraphEditorKeyFrameViewModel viewModel = CreateKeyFrameViewModel(item);
             viewModel.SetPrevious(prev);
             KeyFrames.Insert(index++, viewModel);
             prev = viewModel;
         }
     }
 
+    private GraphEditorKeyFrameViewModel CreateKeyFrameViewModel(IKeyFrame item)
+    {
+        var viewModel = new GraphEditorKeyFrameViewModel(item, this);
+        viewModel.EndY.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
+        viewModel.ControlPoint1.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
+        viewModel.ControlPoint2.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
+        return viewModel;
+    }
+
+    private GraphEditorKeyFrameViewModel? TryGetKeyFrame(int index)
+    {
+        if (0 <= index && index < KeyFrames.Count)
+        {
+            return KeyFrames[index];
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private void UpdateLast()
+    {
+        if (KeyFrames.Count > 0)
+        {
+            KeyFrames[^1].SetLast();
+        }
+    }
+
+    // | NewItem 1 | NewItem 2 | NewItem 3 | Existing | ...
+    //          ^     /     ^     /     ^     /
+    //           \---/       \---/       \---/
+    private void InsertKeyFrames(int index, IList items)
+    {
+        foreach (IKeyFrame item in items)
+        {
+            GraphEditorKeyFrameViewModel viewModel = CreateKeyFrameViewModel(item);
+            viewModel.SetPrevious(TryGetKeyFrame(index - 1));
+            KeyFrames.Insert(index, viewModel);
+            index++;
+        }
+
+        GraphEditorKeyFrameViewModel? existing = TryGetKeyFrame(index);
+        existing?.SetPrevious(TryGetKeyFrame(index - 1));
+        UpdateLast();
+    }
+
+    // |  Existing | OldItem 1 | OldItem 2 | Existing | ...
+    //          ^                             /
+    //           \---------------------------/
+    private void RemoveKeyFrames(int index, int count)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            KeyFrames[index + i].Dispose();
+        }
+
+        KeyFrames.RemoveRange(index, count);
+
+        GraphEditorKeyFrameViewModel? existing = TryGetKeyFrame(index);
+        existing?.SetPrevious(TryGetKeyFrame(index - 1));
+        UpdateLast();
+    }
+
     private void OnKeyFramesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        GraphEditorKeyFrameViewModel? TryGet(int index)
-        {
-            if (0 <= index && index < KeyFrames.Count)
-            {
-                return KeyFrames[index];
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        void UpdateLast()
-        {
-            if (KeyFrames.Count > 0)
-            {
-                KeyFrames[^1].SetLast();
-            }
-        }
-
-        // | NewItem 1 | NewItem 2 | NewItem 3 | Existing | ...
-        //          ^     /     ^     /     ^     /
-        //           \---/       \---/       \---/
-        void Add(int index, IList items)
-        {
-            foreach (IKeyFrame item in items)
-            {
-                var viewModel = new GraphEditorKeyFrameViewModel(item, this);
-                viewModel.EndY.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-                viewModel.ControlPoint1.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-                viewModel.ControlPoint2.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-                viewModel.SetPrevious(TryGet(index - 1));
-                KeyFrames.Insert(index, viewModel);
-                index++;
-            }
-
-            GraphEditorKeyFrameViewModel? existing = TryGet(index);
-            existing?.SetPrevious(TryGet(index - 1));
-            UpdateLast();
-        }
-
-        // |  Existing | OldItem 1 | OldItem 2 | Existing | ...
-        //          ^                             /
-        //           \---------------------------/
-        void Remove(int index, int count)
-        {
-            for (int i = 0; i < count; ++i)
-            {
-                KeyFrames[index + i].Dispose();
-            }
-
-            KeyFrames.RemoveRange(index, count);
-
-            GraphEditorKeyFrameViewModel? existing = TryGet(index);
-            existing?.SetPrevious(TryGet(index - 1));
-            UpdateLast();
-        }
-
         bool selectionChanged = false;
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
-                Add(e.NewStartingIndex, e.NewItems!);
+                InsertKeyFrames(e.NewStartingIndex, e.NewItems!);
                 break;
 
             case NotifyCollectionChangedAction.Move:
             case NotifyCollectionChangedAction.Replace:
                 if (e.Action == NotifyCollectionChangedAction.Replace)
                     foreach (IKeyFrame item in e.OldItems!) selectionChanged |= _selectedKeyFrames.Remove(item);
-                Remove(e.OldStartingIndex, e.OldItems!.Count);
-                Add(e.NewStartingIndex, e.NewItems!);
+                RemoveKeyFrames(e.OldStartingIndex, e.OldItems!.Count);
+                InsertKeyFrames(e.NewStartingIndex, e.NewItems!);
                 break;
 
             case NotifyCollectionChangedAction.Remove:
                 foreach (IKeyFrame item in e.OldItems!)
                     selectionChanged |= _selectedKeyFrames.Remove(item);
-                Remove(e.OldStartingIndex, e.OldItems!.Count);
+                RemoveKeyFrames(e.OldStartingIndex, e.OldItems!.Count);
                 break;
 
             case NotifyCollectionChangedAction.Reset:
                 selectionChanged = _selectedKeyFrames.Count > 0;
                 _selectedKeyFrames.Clear();
-                Remove(0, KeyFrames.Count);
+                RemoveKeyFrames(0, KeyFrames.Count);
                 AddKeyFrames();
                 UpdateLast();
                 break;

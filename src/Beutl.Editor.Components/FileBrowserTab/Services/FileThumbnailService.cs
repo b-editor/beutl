@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Media.Imaging;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
@@ -8,79 +9,6 @@ using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Editor.Components.FileBrowserTab.Services;
-
-public sealed record MediaFileInfo(
-    int? Width,
-    int? Height,
-    TimeSpan? Duration,
-    double? FrameRate,
-    string? VideoCodec,
-    string? AudioCodec,
-    int? SampleRate,
-    int? NumChannels,
-    long FileSize)
-{
-    public string ToDisplayString()
-    {
-        var parts = new List<string>();
-
-        if (Width.HasValue && Height.HasValue)
-        {
-            parts.Add($"{Width}×{Height}");
-        }
-
-        if (FrameRate.HasValue)
-        {
-            parts.Add($"{FrameRate.Value:0.##}fps");
-        }
-
-        if (VideoCodec != null)
-        {
-            parts.Add(VideoCodec);
-        }
-        else if (AudioCodec != null)
-        {
-            parts.Add(AudioCodec);
-        }
-
-        if (SampleRate.HasValue)
-        {
-            parts.Add($"{SampleRate.Value}Hz");
-        }
-
-        if (NumChannels.HasValue)
-        {
-            parts.Add(NumChannels.Value switch
-            {
-                1 => "Mono",
-                2 => "Stereo",
-                _ => $"{NumChannels.Value}ch"
-            });
-        }
-
-        if (Duration.HasValue)
-        {
-            parts.Add(Duration.Value.TotalHours >= 1
-                ? Duration.Value.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
-                : Duration.Value.ToString(@"m\:ss", CultureInfo.InvariantCulture));
-        }
-
-        parts.Add(FormatFileSize(FileSize));
-
-        return string.Join(" · ", parts);
-    }
-
-    public static string FormatFileSize(long bytes)
-    {
-        return bytes switch
-        {
-            >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:0.#} GB",
-            >= 1_048_576 => $"{bytes / 1_048_576.0:0.#} MB",
-            >= 1024 => $"{bytes / 1024.0:0.#} KB",
-            _ => $"{bytes} B"
-        };
-    }
-}
 
 public sealed class FileThumbnailService : IDisposable
 {
@@ -170,12 +98,8 @@ public sealed class FileThumbnailService : IDisposable
         if (_disposed)
             return null;
 
-        if (_mediaInfoCache.TryGetValue(filePath, out var entry))
-        {
-            // LRU: 最終アクセス時刻を更新
-            _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64), entry);
-            return entry.Info;
-        }
+        if (TryGetCachedMediaInfo(filePath, out MediaFileInfo? cached))
+            return cached;
 
         MediaFileKind kind = DecoderFileExtensions.Classify(filePath);
         if (kind is not (MediaFileKind.Video or MediaFileKind.Audio))
@@ -184,58 +108,13 @@ public sealed class FileThumbnailService : IDisposable
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            if (_mediaInfoCache.TryGetValue(filePath, out entry))
-            {
-                _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64), entry);
-                return entry.Info;
-            }
+            if (TryGetCachedMediaInfo(filePath, out cached))
+                return cached;
 
             var info = await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    long fileSize = new FileInfo(filePath).Length;
-                    using MediaReader? reader = OpenForProbe(filePath, kind);
-                    if (reader == null)
-                        return new MediaFileInfo(null, null, null, null, null, null, null, null, fileSize);
-
-                    int? width = null, height = null;
-                    double? frameRate = null;
-                    string? videoCodec = null;
-                    TimeSpan? duration = null;
-
-                    if (reader.HasVideo)
-                    {
-                        var vi = reader.VideoInfo;
-                        width = vi.FrameSize.Width;
-                        height = vi.FrameSize.Height;
-                        frameRate = vi.FrameRate.ToDouble();
-                        videoCodec = vi.CodecName;
-                        duration = TimeSpan.FromSeconds(vi.Duration.ToDouble());
-                    }
-
-                    string? audioCodec = null;
-                    int? sampleRate = null;
-                    int? numChannels = null;
-
-                    if (reader.HasAudio)
-                    {
-                        var ai = reader.AudioInfo;
-                        audioCodec = ai.CodecName;
-                        sampleRate = ai.SampleRate;
-                        numChannels = ai.NumChannels;
-                        duration ??= TimeSpan.FromSeconds(ai.Duration.ToDouble());
-                    }
-
-                    return new MediaFileInfo(width, height, duration, frameRate, videoCodec, audioCodec, sampleRate, numChannels, fileSize);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed to get media info for {FilePath}", filePath);
-                    return null;
-                }
+                return ProbeMediaInfo(filePath, kind);
             }, cancellationToken);
 
             if (info != null)
@@ -258,6 +137,66 @@ public sealed class FileThumbnailService : IDisposable
         finally
         {
             _semaphore.Release();
+        }
+    }
+
+    private bool TryGetCachedMediaInfo(string filePath, [NotNullWhen(true)] out MediaFileInfo? info)
+    {
+        if (_mediaInfoCache.TryGetValue(filePath, out var entry))
+        {
+            // LRU: 最終アクセス時刻を更新
+            _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64), entry);
+            info = entry.Info;
+            return true;
+        }
+
+        info = null;
+        return false;
+    }
+
+    private MediaFileInfo? ProbeMediaInfo(string filePath, MediaFileKind kind)
+    {
+        try
+        {
+            long fileSize = new FileInfo(filePath).Length;
+            using MediaReader? reader = OpenForProbe(filePath, kind);
+            if (reader == null)
+                return new MediaFileInfo(null, null, null, null, null, null, null, null, fileSize);
+
+            int? width = null, height = null;
+            double? frameRate = null;
+            string? videoCodec = null;
+            TimeSpan? duration = null;
+
+            if (reader.HasVideo)
+            {
+                var vi = reader.VideoInfo;
+                width = vi.FrameSize.Width;
+                height = vi.FrameSize.Height;
+                frameRate = vi.FrameRate.ToDouble();
+                videoCodec = vi.CodecName;
+                duration = TimeSpan.FromSeconds(vi.Duration.ToDouble());
+            }
+
+            string? audioCodec = null;
+            int? sampleRate = null;
+            int? numChannels = null;
+
+            if (reader.HasAudio)
+            {
+                var ai = reader.AudioInfo;
+                audioCodec = ai.CodecName;
+                sampleRate = ai.SampleRate;
+                numChannels = ai.NumChannels;
+                duration ??= TimeSpan.FromSeconds(ai.Duration.ToDouble());
+            }
+
+            return new MediaFileInfo(width, height, duration, frameRate, videoCodec, audioCodec, sampleRate, numChannels, fileSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to get media info for {FilePath}", filePath);
+            return null;
         }
     }
 

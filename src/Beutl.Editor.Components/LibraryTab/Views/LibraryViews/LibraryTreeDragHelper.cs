@@ -50,17 +50,22 @@ internal static class LibraryTreeDragHelper
 
         if (item != null)
         {
-            (DataFormat<string>, Type)[] arr = item.TryDragDrop().ToArray();
-            if (arr.Length > 0)
-            {
-                var data = new DataTransfer();
-                foreach ((DataFormat<string> format, Type type) in arr)
-                {
-                    data.Add(DataTransferItem.Create(format, TypeFormat.ToString(type)));
-                }
+            await StartDragAsync(e, item);
+        }
+    }
 
-                await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
+    internal static async Task StartDragAsync(PointerPressedEventArgs e, LibraryItemViewModel item)
+    {
+        (DataFormat<string>, Type)[] arr = item.TryDragDrop().ToArray();
+        if (arr.Length > 0)
+        {
+            var data = new DataTransfer();
+            foreach ((DataFormat<string> format, Type type) in arr)
+            {
+                data.Add(DataTransferItem.Create(format, TypeFormat.ToString(type)));
             }
+
+            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
         }
     }
 }

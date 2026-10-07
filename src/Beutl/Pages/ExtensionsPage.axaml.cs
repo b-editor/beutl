@@ -18,6 +18,9 @@ namespace Beutl.Pages;
 
 public sealed partial class ExtensionsPage : Window
 {
+    // How far a page slides in horizontally when the store navigates to it.
+    private const double EntranceOffset = 28;
+
     private readonly ILogger _logger = Log.CreateLogger<ExtensionsPage>();
     private PackageDetailsNavigation? _pendingPackage;
 
@@ -143,28 +146,34 @@ public sealed partial class ExtensionsPage : Window
 
         if (e.NavigationTransitionInfo is FAEntranceNavigationTransitionInfo entrance)
         {
-            if (e.NavigationMode is FANavigationMode.Back)
+            entrance.FromHorizontalOffset = ComputeEntranceOffset(e.NavigationMode, type1, type2);
+            entrance.FromVerticalOffset = 0;
+        }
+    }
+
+    // Slides the new page in from the side it sits on relative to the page it replaces.
+    private static double ComputeEntranceOffset(FANavigationMode mode, Type type1, Type type2)
+    {
+        if (mode is FANavigationMode.Back)
+        {
+            return -EntranceOffset;
+        }
+        else if (mode is FANavigationMode.Forward or FANavigationMode.Refresh)
+        {
+            return EntranceOffset;
+        }
+        else
+        {
+            int num1 = ToNumber(type1);
+            int num2 = ToNumber(type2);
+            if (num1 > num2)
             {
-                entrance.FromHorizontalOffset = -28;
-            }
-            else if (e.NavigationMode is FANavigationMode.Forward or FANavigationMode.Refresh)
-            {
-                entrance.FromHorizontalOffset = 28;
+                return -EntranceOffset;
             }
             else
             {
-                int num1 = ToNumber(type1);
-                int num2 = ToNumber(type2);
-                if (num1 > num2)
-                {
-                    entrance.FromHorizontalOffset = -28;
-                }
-                else
-                {
-                    entrance.FromHorizontalOffset = 28;
-                }
+                return EntranceOffset;
             }
-            entrance.FromVerticalOffset = 0;
         }
     }
 

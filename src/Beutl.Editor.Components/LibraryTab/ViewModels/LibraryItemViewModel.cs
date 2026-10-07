@@ -46,9 +46,7 @@ public class LibraryItemViewModel
             Description = description,
             Data = data,
             Type = Strings.NodeGraph,
-            FullDisplayName = parentFullName != null
-                ? $"{parentFullName} / {registryItem.DisplayName}"
-                : registryItem.DisplayName
+            FullDisplayName = ComposeFullName(parentFullName, registryItem.DisplayName)
         };
 
         if (registryItem is GraphNodeRegistry.GroupableRegistryItem group)
@@ -68,9 +66,7 @@ public class LibraryItemViewModel
             Description = registryItem.Description,
             Data = registryItem,
             Type = CreateTypeString(registryItem),
-            FullDisplayName = parentFullName != null
-                ? $"{parentFullName} / {registryItem.DisplayName}"
-                : registryItem.DisplayName
+            FullDisplayName = ComposeFullName(parentFullName, registryItem.DisplayName)
         };
 
         if (registryItem is GroupLibraryItem group)
@@ -79,6 +75,13 @@ public class LibraryItemViewModel
         }
 
         return obj;
+    }
+
+    private static string ComposeFullName(string? parentFullName, string displayName)
+    {
+        return parentFullName != null
+            ? $"{parentFullName} / {displayName}"
+            : displayName;
     }
 
     public IEnumerable<(DataFormat<string>, Type)> TryDragDrop()

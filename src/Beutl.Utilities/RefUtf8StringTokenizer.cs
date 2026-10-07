@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Globalization;
+using System.Numerics;
 using System.Text;
 
 namespace Beutl.Utilities;
@@ -39,8 +40,7 @@ public ref struct RefUtf8StringTokenizer
             index += bytesConsumed;
             if (status == OperationStatus.Done)
             {
-                UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                if (category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator)
+                if (IsWhitespace(rune))
                 {
                     _index = index;
                 }
@@ -83,32 +83,7 @@ public ref struct RefUtf8StringTokenizer
     }
 
     public bool TryReadInt32(out int result, char? separator = null)
-    {
-        if (!TryReadString(out ReadOnlySpan<byte> stringResult, separator))
-        {
-            result = default;
-            return false;
-        }
-        else
-        {
-            if (IsMax(stringResult))
-            {
-                result = int.MaxValue;
-                return true;
-            }
-            else if (IsMin(stringResult))
-            {
-                result = int.MinValue;
-                return true;
-            }
-            else if (int.TryParse(stringResult, NumberStyles.Integer, _formatProvider, out result))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        => TryReadNumber(out result, NumberStyles.Integer, separator);
 
     public int ReadInt32(char? separator = null)
     {
@@ -121,32 +96,7 @@ public ref struct RefUtf8StringTokenizer
     }
 
     public bool TryReadDouble(out double result, char? separator = null)
-    {
-        if (!TryReadString(out ReadOnlySpan<byte> stringResult, separator))
-        {
-            result = default;
-            return false;
-        }
-        else
-        {
-            if (IsMax(stringResult))
-            {
-                result = double.MaxValue;
-                return true;
-            }
-            else if (IsMin(stringResult))
-            {
-                result = double.MinValue;
-                return true;
-            }
-            else if (double.TryParse(stringResult, NumberStyles.Float, _formatProvider, out result))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        => TryReadNumber(out result, NumberStyles.Float, separator);
 
     public double ReadDouble(char? separator = null)
     {
@@ -159,32 +109,7 @@ public ref struct RefUtf8StringTokenizer
     }
 
     public bool TryReadSingle(out float result, char? separator = null)
-    {
-        if (!TryReadString(out ReadOnlySpan<byte> stringResult, separator))
-        {
-            result = default;
-            return false;
-        }
-        else
-        {
-            if (IsMax(stringResult))
-            {
-                result = float.MaxValue;
-                return true;
-            }
-            else if (IsMin(stringResult))
-            {
-                result = float.MinValue;
-                return true;
-            }
-            else if (float.TryParse(stringResult, NumberStyles.Float, _formatProvider, out result))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        => TryReadNumber(out result, NumberStyles.Float, separator);
 
     public float ReadSingle(char? separator = null)
     {
@@ -194,6 +119,30 @@ public ref struct RefUtf8StringTokenizer
         }
 
         return result;
+    }
+
+    private bool TryReadNumber<T>(out T result, NumberStyles style, char? separator)
+        where T : struct, INumberBase<T>, IMinMaxValue<T>
+    {
+        if (!TryReadString(out ReadOnlySpan<byte> stringResult, separator))
+        {
+            result = default;
+            return false;
+        }
+
+        if (IsMax(stringResult))
+        {
+            result = T.MaxValue;
+            return true;
+        }
+
+        if (IsMin(stringResult))
+        {
+            result = T.MinValue;
+            return true;
+        }
+
+        return T.TryParse(stringResult, style, _formatProvider, out result);
     }
 
     public bool TryReadString(out ReadOnlySpan<byte> result, char? separator = null)
@@ -240,9 +189,7 @@ public ref struct RefUtf8StringTokenizer
             OperationStatus status = Rune.DecodeFromUtf8(_s.Slice(_index), out Rune rune, out int bytesConsumed);
             if (status == OperationStatus.Done)
             {
-                UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                if (category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator
-                    || rune == separatorRune)
+                if (IsWhitespace(rune) || rune == separatorRune)
                 {
                     break;
                 }
@@ -268,62 +215,63 @@ public ref struct RefUtf8StringTokenizer
     private void SkipToNextToken(char separator)
     {
         Rune separatorRune = new(separator);
-        if (_index < _length)
+        if (_index >= _length)
         {
-            OperationStatus status = Rune.DecodeFromUtf8(_s.Slice(_index), out Rune rune, out int bytesConsumed);
-            if (status == OperationStatus.Done)
+            return;
+        }
+
+        OperationStatus status = Rune.DecodeFromUtf8(_s.Slice(_index), out Rune rune, out int bytesConsumed);
+        if (status != OperationStatus.Done)
+        {
+            throw GetFormatException();
+        }
+
+        if (!(IsWhitespace(rune) || rune == separatorRune))
+        {
+            throw GetFormatException();
+        }
+
+        int length = 0;
+
+        while (_index < _length)
+        {
+            status = Rune.DecodeFromUtf8(_s.Slice(_index), out rune, out bytesConsumed);
+            if (status != OperationStatus.Done)
             {
-                UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                if (!(category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator
-                    || rune == separatorRune))
-                {
-                    throw GetFormatException();
-                }
+                throw GetFormatException();
+            }
 
-                int length = 0;
+            if (rune == separatorRune)
+            {
+                length += bytesConsumed;
+                _index += bytesConsumed;
 
-                while (_index < _length)
-                {
-                    status = Rune.DecodeFromUtf8(_s.Slice(_index), out rune, out bytesConsumed);
-                    if (status == OperationStatus.Done)
-                    {
-                        if (rune == separatorRune)
-                        {
-                            length += bytesConsumed;
-                            _index += bytesConsumed;
-
-                            if (length > 1)
-                            {
-                                throw GetFormatException();
-                            }
-                        }
-                        else
-                        {
-                            category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                            if (!(category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator))
-                            {
-                                break;
-                            }
-
-                            _index += bytesConsumed;
-                        }
-                    }
-                    else
-                    {
-                        throw GetFormatException();
-                    }
-                }
-
-                if (length > 0 && _index >= _length)
+                if (length > 1)
                 {
                     throw GetFormatException();
                 }
             }
             else
             {
-                throw GetFormatException();
+                if (!IsWhitespace(rune))
+                {
+                    break;
+                }
+
+                _index += bytesConsumed;
             }
         }
+
+        if (length > 0 && _index >= _length)
+        {
+            throw GetFormatException();
+        }
+    }
+
+    private static bool IsWhitespace(Rune rune)
+    {
+        UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
+        return category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator;
     }
 
     private FormatException GetFormatException() =>

@@ -2,7 +2,6 @@
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
-using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 using static Beutl.Audio.Effects.LimiterParameters;
@@ -169,59 +168,23 @@ public sealed class LimiterNode : AudioNode
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
-        int upstream = 0;
-        foreach (AudioNode input in Inputs)
-        {
-            int inputTotal = input.GetDrainLatencySamples(sampleRate);
-            if (inputTotal < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{input.GetType().Name} returned negative drain latency {inputTotal}.");
-            }
-
-            upstream = Math.Max(upstream, inputTotal);
-        }
-
+        int upstream = GetMaxInputLatency(sampleRate, drain: true);
         int ownLatency = Lookahead.Animation != null
             && _hasLastDerived
             && _lastSampleRate == sampleRate
             ? _lastDerived.LookaheadSamples
             : GetLatencySamples(sampleRate);
-        if (ownLatency < 0)
-        {
-            throw new InvalidOperationException(
-                $"{GetType().Name} returned negative latency {ownLatency}.");
-        }
-
-        if (upstream == int.MaxValue || ownLatency == int.MaxValue)
-            return int.MaxValue;
-
-        long total = (long)upstream + ownLatency;
-        return total >= int.MaxValue ? int.MaxValue : (int)total;
+        AudioLatency.ThrowIfNegative(this, ownLatency, "latency");
+        return AudioLatency.SaturatingAdd(upstream, ownLatency);
     }
 
     private void InitializeBuffers(int sampleRate, int channelCount)
     {
         // Null the fields up front so a throw in the construction loop below can't leave us
         // referencing half-initialized buffers.
-        if (_delayLines != null)
-        {
-            foreach (var line in _delayLines)
-            {
-                line.Dispose();
-            }
+        ReleaseBuffers();
 
-            _delayLines = null;
-        }
-
-        _peakBuffer?.Dispose();
-        _peakBuffer = null;
-
-        // +1 because CircularBuffer.Read(samplesBack) returns silence when samplesBack >= length,
-        // so length must exceed the maximum lookaheadSamples we ever clamp to (MaxLookaheadMs ·
-        // sampleRate). The buffer rounds up to a power of two internally; the +1 is for the
-        // read-bounds check, not the rounding.
-        int max = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
+        int max = MaxLookaheadSampleCapacity(sampleRate);
 
         var lines = new CircularBuffer<float>[channelCount];
         try
@@ -395,9 +358,7 @@ public sealed class LimiterNode : AudioNode
             {
                 int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
 
-                var chunkStart = context.GetTimeForSample(processed);
-                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+                var chunkRange = context.GetChunkRange(processed, chunkSize);
 
                 context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
@@ -460,9 +421,7 @@ public sealed class LimiterNode : AudioNode
             while (processed < sampleCount)
             {
                 int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
-                var chunkStart = context.GetTimeForSample(processed);
-                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+                var chunkRange = context.GetChunkRange(processed, chunkSize);
 
                 context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
@@ -708,20 +667,25 @@ public sealed class LimiterNode : AudioNode
     {
         if (disposing)
         {
-            if (_delayLines != null)
-            {
-                foreach (var line in _delayLines)
-                {
-                    line.Dispose();
-                }
-
-                _delayLines = null;
-            }
-
-            _peakBuffer?.Dispose();
-            _peakBuffer = null;
+            ReleaseBuffers();
         }
 
         base.Dispose(disposing);
+    }
+
+    private void ReleaseBuffers()
+    {
+        if (_delayLines != null)
+        {
+            foreach (var line in _delayLines)
+            {
+                line.Dispose();
+            }
+
+            _delayLines = null;
+        }
+
+        _peakBuffer?.Dispose();
+        _peakBuffer = null;
     }
 }

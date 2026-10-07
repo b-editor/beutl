@@ -106,47 +106,7 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
                 return;
             }
 
-            if (_timerQueue.Next is { } next)
-            {
-                DateTimeOffset now = timeProvider.GetUtcNow();
-                TimeSpan delay = next - now;
-                if (delay <= TimeSpan.Zero)
-                {
-                    // The deadline has already passed; wake immediately without arming a timer.
-                    cts = new CancellationTokenSource();
-                    cts.Cancel();
-                }
-                else
-                {
-                    TimeSpan waitDelay = delay < s_maxWaitDelay ? delay : s_maxWaitDelay;
-                    cts = new CancellationTokenSource(waitDelay, timeProvider);
-                    DateTimeOffset wakeAt = now + waitDelay;
-                    DateTimeOffset armedAt = now;
-                    while (!cts.IsCancellationRequested)
-                    {
-                        DateTimeOffset currentTime = timeProvider.GetUtcNow();
-                        if (wakeAt <= currentTime)
-                        {
-                            cts.Cancel();
-                            break;
-                        }
-                        // Cancellation timers have millisecond precision. Do not chase the
-                        // sub-millisecond cost of reading a continuously advancing system clock.
-                        if (currentTime - armedAt < TimeSpan.FromMilliseconds(1))
-                            break;
-
-                        // Timer creation and Change both start a relative delay. Recheck after
-                        // each arm so a clock advance in either operation cannot extend the deadline.
-                        armedAt = currentTime;
-                        cts.CancelAfter(wakeAt - currentTime);
-                    }
-                }
-            }
-            else
-            {
-                cts = new CancellationTokenSource();
-            }
-
+            cts = CreateWaitTokenSource();
             _waitToken = cts;
         }
 
@@ -159,6 +119,54 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
         // Dispose after clearing _waitToken: other threads see null and won't cancel it.
         cts.Dispose();
+    }
+
+    // Called with the lock on this held.
+    private CancellationTokenSource CreateWaitTokenSource()
+    {
+        CancellationTokenSource cts;
+        if (_timerQueue.Next is { } next)
+        {
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            TimeSpan delay = next - now;
+            if (delay <= TimeSpan.Zero)
+            {
+                // The deadline has already passed; wake immediately without arming a timer.
+                cts = new CancellationTokenSource();
+                cts.Cancel();
+            }
+            else
+            {
+                TimeSpan waitDelay = delay < s_maxWaitDelay ? delay : s_maxWaitDelay;
+                cts = new CancellationTokenSource(waitDelay, timeProvider);
+                DateTimeOffset wakeAt = now + waitDelay;
+                DateTimeOffset armedAt = now;
+                while (!cts.IsCancellationRequested)
+                {
+                    DateTimeOffset currentTime = timeProvider.GetUtcNow();
+                    if (wakeAt <= currentTime)
+                    {
+                        cts.Cancel();
+                        break;
+                    }
+                    // Cancellation timers have millisecond precision. Do not chase the
+                    // sub-millisecond cost of reading a continuously advancing system clock.
+                    if (currentTime - armedAt < TimeSpan.FromMilliseconds(1))
+                        break;
+
+                    // Timer creation and Change both start a relative delay. Recheck after
+                    // each arm so a clock advance in either operation cannot extend the deadline.
+                    armedAt = currentTime;
+                    cts.CancelAfter(wakeAt - currentTime);
+                }
+            }
+        }
+        else
+        {
+            cts = new CancellationTokenSource();
+        }
+
+        return cts;
     }
 
     public override void Send(SendOrPostCallback d, object? state)
@@ -207,24 +215,23 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     internal void Post(DispatchPriority priority, Action operation, CancellationToken ct)
     {
         _operationQueue.Enqueue(new(operation, priority, ct));
-        lock (this)
-        {
-            _waitToken?.Cancel();
-        }
+        WakeDispatcher();
     }
 
     internal void Post(DispatcherOperation operation)
     {
         _operationQueue.Enqueue(operation);
-        lock (this)
-        {
-            _waitToken?.Cancel();
-        }
+        WakeDispatcher();
     }
 
     internal void PostDelayed(DateTimeOffset dateTime, DispatchPriority priority, Action action, CancellationToken ct)
     {
         _timerQueue.Enqueue(dateTime, priority, action, ct);
+        WakeDispatcher();
+    }
+
+    private void WakeDispatcher()
+    {
         lock (this)
         {
             _waitToken?.Cancel();

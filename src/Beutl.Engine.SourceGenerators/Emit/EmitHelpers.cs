@@ -138,6 +138,9 @@ public static class EmitHelpers
     }
 
     public static string GetHintName(INamedTypeSymbol symbol)
+        => BuildHintName(symbol, "_Resource.g.cs");
+
+    internal static string BuildHintName(INamedTypeSymbol symbol, string suffix)
     {
         string name = symbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
         var sb = new StringBuilder(name.Length + 32);
@@ -150,7 +153,12 @@ public static class EmitHelpers
             });
         }
 
-        sb.Append("_Resource.g.cs");
+        sb.Append(suffix);
         return sb.ToString();
     }
+
+    internal static string? GetNamespaceName(INamedTypeSymbol symbol)
+        => symbol.ContainingNamespace is { IsGlobalNamespace: false } ns
+            ? ns.ToDisplayString()
+            : null;
 }
