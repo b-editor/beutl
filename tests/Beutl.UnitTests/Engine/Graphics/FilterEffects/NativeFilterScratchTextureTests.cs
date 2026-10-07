@@ -130,7 +130,7 @@ public sealed class NativeFilterScratchTextureTests
 
         public byte[] DownloadPixels() => throw new NotSupportedException();
 
-        public SKSurface CreateSkiaSurface() => throw new NotSupportedException();
+        public SKSurface CreateSkiaSurface(SKColorSpace colorSpace) => throw new NotSupportedException();
 
         public void PrepareForRender() => throw new NotSupportedException();
 

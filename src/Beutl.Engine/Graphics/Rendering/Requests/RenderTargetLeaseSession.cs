@@ -84,10 +84,11 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         return count == 0 ? [] : _cleanupFailures!.GetRange(checkpoint.FailureCount, count);
     }
 
-    public RenderTargetLease Acquire(PixelSize deviceSize)
+    public RenderTargetLease Acquire(PixelSize deviceSize,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _pool.Acquire(this, deviceSize);
+        return _pool.Acquire(this, deviceSize, pixelFormat);
     }
 
     /// <summary>
@@ -98,10 +99,11 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     /// Whether the target must arrive transparent. Pass <see langword="false"/> only when every pixel is
     /// defined before any is read.
     /// </param>
-    public RenderTargetLease? TryAcquire(PixelSize deviceSize, bool clearContents = true)
+    public RenderTargetLease? TryAcquire(PixelSize deviceSize, bool clearContents = true,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        if (_pool.TryAcquire(this, deviceSize, out RenderTargetLease? lease, clearContents))
+        if (_pool.TryAcquire(this, deviceSize, out RenderTargetLease? lease, clearContents, pixelFormat))
             return lease;
 
         s_logger.LogWarning(

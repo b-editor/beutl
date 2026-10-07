@@ -178,14 +178,14 @@ public sealed class PixelSortEffectSynchronizationTests
             {
                 Assert.That(
                     firstAllocations.Count(static format => format == TextureFormat.RGBA16Float),
-                    Is.EqualTo(3),
-                    "PixelSort must warm one destination and two scratch slots.");
+                    Is.EqualTo(4),
+                    "PixelSort must warm its linear input conversion, destination, and two scratch slots.");
                 Assert.That(
                     secondAllocations,
                     Has.None.EqualTo(TextureFormat.RGBA16Float),
                     "The warmed PixelSort invocation must allocate no additional native targets.");
-                Assert.That(registry.Statistics.Creates, Is.EqualTo(3));
-                Assert.That(registry.Statistics.Reuses, Is.EqualTo(3));
+                Assert.That(registry.Statistics.Creates, Is.EqualTo(4));
+                Assert.That(registry.Statistics.Reuses, Is.EqualTo(4));
             });
             GpuResourceReclaimQueue.FlushAndDrain();
         });

@@ -71,6 +71,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                             if (frameReq.BufferIndex is not (0 or 1))
                                 throw new InvalidOperationException($"Invalid BufferIndex: {frameReq.BufferIndex}");
                             using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
+                            var transfer = bitmap.ColorSpace.GetNumericalTransferFunction();
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
                             var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
@@ -87,7 +88,9 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                                     BytesPerPixel = bitmap.BytesPerPixel,
                                     DataLength = bitmap.ByteCount,
                                     Premul = bitmap.AlphaType == BitmapAlphaType.Premul,
-                                    ColorType = (int)bitmap.ColorType
+                                    ColorType = (int)bitmap.ColorType,
+                                    TransferFn = [transfer.G, transfer.A, transfer.B, transfer.C, transfer.D, transfer.E, transfer.F],
+                                    ToXyzD50 = bitmap.ColorSpace.ToColorSpaceXyz().Values.ToArray(),
                                 }), cancellationToken);
                             break;
                         }

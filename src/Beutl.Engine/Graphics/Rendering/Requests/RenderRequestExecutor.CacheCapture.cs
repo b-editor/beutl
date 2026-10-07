@@ -186,7 +186,10 @@ internal sealed partial class RenderRequestExecutor
                     source.DeviceBounds,
                     source.DeviceGridOffset,
                     physicalDeviceBoundsAreAligned: true,
-                    allowPreviewDrop: true);
+                    allowPreviewDrop: true,
+                    pixelFormat: source.Target.ColorSpace == Beutl.Media.BitmapColorSpace.LinearSrgb
+                        ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                        : RenderTargetPixelFormat.SrgbPremultipliedRgba16Float);
             }
             catch (PreviewAllocationDropException)
             {

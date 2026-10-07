@@ -22,6 +22,6 @@ internal record FEItem_SKColorFilter<T>(
 
     public bool SupportsDirectReplay => false;
 
-    public void AcceptsDirect(SKImageFilterBuilder builder)
+    public void AcceptsDirect(SKImageFilterBuilder builder, bool linearNumericSpace = false)
         => throw new InvalidOperationException("This color filter has no direct-replay factory.");
 }

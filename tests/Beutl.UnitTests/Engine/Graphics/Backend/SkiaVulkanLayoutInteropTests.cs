@@ -26,7 +26,7 @@ public class SkiaVulkanLayoutInteropTests
             using ITexture2D texture = context.CreateTexture2D(4, 4, TextureFormat.RGBA8Unorm);
             byte[] red = Enumerable.Repeat(new byte[] { 255, 0, 0, 255 }, 16).SelectMany(x => x).ToArray();
             texture.Upload(red);
-            using SKSurface surface = texture.CreateSkiaSurface();
+            using SKSurface surface = texture.CreateSkiaSurface(SKColorSpace.CreateSrgbLinear());
             var events = new List<VulkanCommandPoolEvent>();
             using (VulkanCommandPool.Observe(events.Add))
             {
@@ -106,7 +106,7 @@ public class SkiaVulkanLayoutInteropTests
                 byte[] pixels = Enumerable.Repeat(new byte[] { value, 0, 0, 255 }, 16).SelectMany(x => x).ToArray();
                 texture.Upload(pixels);
                 texture.PrepareForSkiaSampling(requireCompletion: false);
-                using SKSurface surface = texture.CreateSkiaSurface();
+                using SKSurface surface = texture.CreateSkiaSurface(SKColorSpace.CreateSrgbLinear());
                 using SKImage snapshot = surface.Snapshot();
                 using var actual = new SKBitmap(new SKImageInfo(4, 4, SKColorType.Rgba8888, SKAlphaType.Premul,
                     SKColorSpace.CreateSrgbLinear()));

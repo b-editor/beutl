@@ -251,7 +251,7 @@ public sealed class PixelSortSpecializationTests
         IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height)
+            using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height, RenderTargetPixelFormat.LinearPremultipliedRgba16Float)
                 ?? throw new InvalidOperationException("Could not create the pixel-sort specialization source.");
             DrawDistinctPixels(source);
 
@@ -275,7 +275,7 @@ public sealed class PixelSortSpecializationTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height)
+            using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height, RenderTargetPixelFormat.LinearPremultipliedRgba16Float)
                 ?? throw new InvalidOperationException("Could not create the pixel-sort specialization source.");
             DrawDistinctPixels(source);
 

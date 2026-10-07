@@ -165,10 +165,10 @@ public sealed class RenderTargetCreateClearFailureTests
 
         public int DisposeCount { get; private set; }
 
-        public SKSurface CreateSkiaSurface()
+        public SKSurface CreateSkiaSurface(SKColorSpace colorSpace)
         {
             CreatedSurface = SKSurface.Create(new SKImageInfo(
-                Width, Height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+                Width, Height, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace));
             return CreatedSurface;
         }
 

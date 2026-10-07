@@ -1049,7 +1049,7 @@ public sealed class RendererWideRecordingTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
     }
 
     private sealed class CacheMutationHierarchyRoot : Hierarchical, IHierarchicalRoot
@@ -1079,14 +1079,14 @@ public sealed class RendererWideRecordingTests
         }
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
+    private sealed class CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 width,
                 height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             width,
             height);
 

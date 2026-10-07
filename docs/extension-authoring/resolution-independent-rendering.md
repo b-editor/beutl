@@ -5,7 +5,39 @@ preview at a reduced scale and export at a supersampled one. At scale 1.0, unsca
 **byte-identical** to pre-feature output, but this is no longer a *universal* guarantee — a scaled bitmap
 feeding an effect is rendered at its coherent supply density instead (see
 [*The scale-1.0 guarantee*](#the-scale-10-guarantee)). This guide is for authors of drawables,
-filter effects, brushes, and shaders.
+filter effects, brushes, and shaders. The color-space policy below supersedes the historical
+pixel-output guarantee; it does not change the scale or rounding contracts.
+
+## Composition and effect color spaces
+
+Geometry, text, gradients, opacity, and layer compositing use **sRGB premultiplied RGBA16F**.
+`RenderTarget.Create(width, height)` creates that composition format. Floating-point precision is
+retained for gradient dithering and extended HDR values; sRGB here does not mean an 8-bit buffer.
+
+Filter operations use **linear-sRGB premultiplied RGBA16F**. The renderer first rasterizes the input
+in sRGB, copies it into a linear target without a filter, and evaluates Skia filters, fused SkSL,
+SPIR-V, and custom effects there. The direct Skia fast path decodes RGB before its filter chain
+and encodes it afterwards; its authored color constants are also linearized. This keeps its original
+CTM, sampling bounds, and thin-feature coverage without adding a rasterization boundary.
+Consecutive materialized effects retain linear buffers. Drawing their tagged
+output into an sRGB layer converts RGB before coverage and alpha blending; do not add another gamma
+filter. `CustomFilterEffectContext.CreateTarget` and native replacement/scratch allocations request
+the linear format. Standalone `FilterEffectExecutor` also imports its input targets into linear sRGB.
+
+An `IRenderTargetFactory` must honor **both** values of `allocation.PixelFormat`; use
+`RenderTarget.Create(width, height, allocation.PixelFormat)` or create an equivalent Skia surface.
+The target pool separates equal-sized allocations by format. Snapshots preserve the actual target's
+color space, including `CreateSnapshotBitmap`, `SnapshotInto`, and `SnapshotAsync`.
+
+`ITexture2D.CreateSkiaSurface(SKColorSpace colorSpace)` now requires an explicit color space.
+3D texture output still uses linear sRGB; composition surfaces use sRGB. Custom backend implementations
+must pass the requested space into their Skia surface creation. This is a breaking CLR signature change.
+
+Encoding IPC transmits the RGB transfer function and gamut independently of pixel precision.
+SDR output quantizes sRGB F16 to 8-bit with dithering; HDR output converts tagged F16 directly to PQ/HLG
+without an intervening 8-bit clamp. Preview tone mapping decodes sRGB before applying exposure and its
+operator. Golden-frame payloads are now sRGB RGBA16F, while effect buffers and their cached values
+retain linear tags. Regenerate output baselines when adopting this color-space policy.
 
 ## The three scales
 

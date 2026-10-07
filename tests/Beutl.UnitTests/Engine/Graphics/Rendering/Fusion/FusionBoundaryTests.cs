@@ -43,7 +43,7 @@ public sealed class FusionBoundaryTests
                 Assert.That(maximum.Maximum, Is.LessThanOrEqualTo(0.02));
                 Assert.That(enabled.Statistics.ShaderRunExecutions, Is.EqualTo(1));
                 Assert.That(enabled.Statistics.FusedShaderRunExecutions, Is.Zero);
-                Assert.That(enabled.Statistics.IntermediateTargetAcquisitions, Is.EqualTo(1));
+                Assert.That(enabled.Statistics.IntermediateTargetAcquisitions, Is.EqualTo(3));
             });
         });
     }

@@ -55,7 +55,7 @@ public interface ITexture2D : IDisposable
     /// wrapping alone does not submit a pending backend batch.
     /// </remarks>
     /// <returns>A SkiaSharp surface.</returns>
-    SKSurface CreateSkiaSurface();
+    SKSurface CreateSkiaSurface(SKColorSpace colorSpace);
 
     /// <summary>
     /// Prepares the texture for rendering (transitions to color attachment layout).

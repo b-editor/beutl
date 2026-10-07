@@ -95,7 +95,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
     }
 
     // The encoding IPC accepts the two formats produced by Beutl's frame providers:
-    // SDR decoded frames are BGRA8888, while render-target frames are linear RgbaF16.
+    // SDR decoded frames are BGRA8888, while render-target frames are RgbaF16.
     private const int Bgra8888BytesPerPixel = 4;
     private const int RgbaF16BytesPerPixel = 8;
 
@@ -164,19 +164,48 @@ internal sealed class IpcFrameProvider : IFrameProvider
             // Derive bytes-per-pixel from the color type itself, never the payload: trusting the
             // payload's BytesPerPixel here would let a peer underreport it, pass the DataLength /
             // Capacity guards, yet allocate/read a wider BitmapColorType.
-            return (colorType, ColorSpaceFor(colorType), BytesPerPixelOf(colorType));
+            return (colorType, ReadColorSpace(frameInfo, ColorSpaceFor(colorType)), BytesPerPixelOf(colorType));
         }
 
         return frameInfo.BytesPerPixel switch
         {
-            Bgra8888BytesPerPixel => (BitmapColorType.Bgra8888, BitmapColorSpace.Srgb, Bgra8888BytesPerPixel),
-            RgbaF16BytesPerPixel => (BitmapColorType.RgbaF16, BitmapColorSpace.LinearSrgb, RgbaF16BytesPerPixel),
+            Bgra8888BytesPerPixel => (BitmapColorType.Bgra8888, ReadColorSpace(frameInfo, BitmapColorSpace.Srgb), Bgra8888BytesPerPixel),
+            RgbaF16BytesPerPixel => (BitmapColorType.RgbaF16, ReadColorSpace(frameInfo, BitmapColorSpace.LinearSrgb), RgbaF16BytesPerPixel),
             _ => throw new InvalidOperationException(
                 $"Unsupported frame BytesPerPixel {frameInfo.BytesPerPixel}."),
         };
     }
 
     private static readonly ConcurrentDictionary<BitmapColorType, int> s_bytesPerPixelCache = new();
+
+    private static BitmapColorSpace ReadColorSpace(ProvideFrameMessage frame, BitmapColorSpace legacyColorSpace)
+    {
+        if (frame.TransferFn is null && frame.ToXyzD50 is null)
+            return legacyColorSpace;
+        if (frame.TransferFn is not { Length: 7 } transfer || frame.ToXyzD50 is not { Length: 9 } gamut
+            || transfer.Any(value => !float.IsFinite(value)) || gamut.Any(value => !float.IsFinite(value)))
+        {
+            throw new InvalidOperationException("Frame has invalid color-space metadata.");
+        }
+
+        try
+        {
+            return BitmapColorSpace.CreateRgb(new BitmapColorSpaceTransferFn
+            {
+                G = transfer[0],
+                A = transfer[1],
+                B = transfer[2],
+                C = transfer[3],
+                D = transfer[4],
+                E = transfer[5],
+                F = transfer[6],
+            }, BitmapColorSpaceXyz.Create(gamut));
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidOperationException("Frame has invalid color-space metadata.", exception);
+        }
+    }
 
     private static int BytesPerPixelOf(BitmapColorType colorType)
         => s_bytesPerPixelCache.GetOrAdd(colorType, static ct =>
@@ -187,7 +216,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     private static BitmapColorSpace ColorSpaceFor(BitmapColorType colorType)
     {
-        // Beutl's render-target frames are linear float; integer formats (SDR and 16-bit integer
+        // Legacy render-target frames were linear float; integer formats (SDR and 16-bit integer
         // HDR alike) are sRGB-encoded.
         return colorType is BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
             or BitmapColorType.RgbaF32 or BitmapColorType.AlphaF16 or BitmapColorType.RgF16

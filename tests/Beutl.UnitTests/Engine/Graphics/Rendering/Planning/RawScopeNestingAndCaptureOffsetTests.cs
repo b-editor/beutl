@@ -483,7 +483,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                     deviceSize.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
+                    (allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb())))
                 ?? throw new InvalidOperationException("Could not create the CPU capture test surface.");
             return new CpuRenderTarget(surface, deviceSize);
         }

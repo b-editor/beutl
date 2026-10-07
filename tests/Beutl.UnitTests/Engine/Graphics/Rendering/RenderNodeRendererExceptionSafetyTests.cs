@@ -518,7 +518,7 @@ public class RenderNodeRendererExceptionSafetyTests
             var target = new FakeRenderTarget(
                 deviceSize.Width,
                 deviceSize.Height,
-                shouldThrowOnDispose(CreatedTargets.Count));
+                shouldThrowOnDispose(CreatedTargets.Count), allocation.PixelFormat);
             CreatedTargets.Add(target);
             return target;
         }
@@ -560,18 +560,19 @@ public class RenderNodeRendererExceptionSafetyTests
         }
     }
 
-    private sealed class FakeRenderTarget(int width, int height, bool throwOnDispose)
-        : RenderTarget(CreateReadbackSurface(width, height), width, height)
+    private sealed class FakeRenderTarget(int width, int height, bool throwOnDispose,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+        : RenderTarget(CreateReadbackSurface(width, height, pixelFormat), width, height)
     {
         public bool DisposeWasCalled { get; private set; }
 
-        private static SKSurface CreateReadbackSurface(int width, int height)
+        private static SKSurface CreateReadbackSurface(int width, int height, RenderTargetPixelFormat pixelFormat)
             => SKSurface.Create(new SKImageInfo(
                 width,
                 height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear()));
+                pixelFormat.GetColorSpace().SKColorSpace));
 
         protected override void Dispose(bool disposing)
         {

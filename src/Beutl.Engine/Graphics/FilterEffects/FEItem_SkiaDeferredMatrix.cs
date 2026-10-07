@@ -42,6 +42,6 @@ internal sealed record FEItem_SkiaDeferredMatrix<T>(
         => throw new InvalidOperationException(
             "A deferred-bound item runs only through the resolution of one activation.");
 
-    public void AcceptsDirect(SKImageFilterBuilder builder)
+    public void AcceptsDirect(SKImageFilterBuilder builder, bool linearNumericSpace = false)
         => throw new InvalidOperationException("A deferred-bound matrix item has no direct-replay factory.");
 }

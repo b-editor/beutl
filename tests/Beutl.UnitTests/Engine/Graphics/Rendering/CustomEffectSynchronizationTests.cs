@@ -215,9 +215,10 @@ public sealed class CustomEffectSynchronizationTests
                         {
                             ImmediateCanvasFlushKind.CanvasSubmit,
                             ImmediateCanvasFlushKind.CanvasSubmit,
+                            ImmediateCanvasFlushKind.CanvasSubmit,
                             ImmediateCanvasFlushKind.SourceSurface,
                         }),
-                        "Each executor-owned GPU canvas submits its queued work; only the final caller-owned draw flushes a source.");
+                        "Linear input conversion and executor-owned GPU canvases submit their queued work; the final draw flushes a source.");
                     Assert.That(callerCloseFlushes,
                         Is.EqualTo(new[] { ImmediateCanvasFlushKind.CanvasClose }),
                         "The caller-owned canvas retains its explicit close-time synchronization.");
@@ -227,7 +228,7 @@ public sealed class CustomEffectSynchronizationTests
                 });
                 AssertFlushCounts(
                     executionFlushes,
-                    canvasSubmit: 2,
+                    canvasSubmit: 3,
                     canvasClose: 0,
                     sourceSurface: 1,
                     prepareForSampling: 0);
@@ -524,17 +525,17 @@ public sealed class CustomEffectSynchronizationTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
+            => new CpuRenderTarget(allocation.DeviceSize, allocation.PixelFormat);
     }
 
-    private sealed class CpuRenderTarget(PixelSize size)
+    private sealed class CpuRenderTarget(PixelSize size, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.LinearPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                     size.Width,
                     size.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
+                    pixelFormat.GetColorSpace().SKColorSpace))
                 ?? throw new InvalidOperationException("Could not create a CPU custom-effect test surface."),
             size.Width,
             size.Height);

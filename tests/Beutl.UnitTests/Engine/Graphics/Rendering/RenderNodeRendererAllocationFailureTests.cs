@@ -53,7 +53,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
                 FailureConsumed = true;
                 return null;
             }
-            return CreateTarget(allocation.DeviceSize);
+            return CreateTarget(allocation.DeviceSize, allocation.PixelFormat);
         }
     }
 
@@ -293,7 +293,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
                 return null;
             }
 
-            return CreateTarget(deviceSize);
+            return CreateTarget(deviceSize, allocation.PixelFormat);
         }
     }
 
@@ -314,7 +314,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
                 return null;
             }
 
-            return CreateTarget(deviceSize);
+            return CreateTarget(deviceSize, allocation.PixelFormat);
         }
     }
 
@@ -369,17 +369,18 @@ public sealed class RenderNodeRendererAllocationFailureTests
         {
             PixelSize deviceSize = allocation.DeviceSize;
             CreateCalls++;
-            return CreateTarget(deviceSize);
+            return CreateTarget(deviceSize, allocation.PixelFormat);
         }
 
-        internal static RenderTarget CreateTarget(PixelSize deviceSize)
+        internal static RenderTarget CreateTarget(PixelSize deviceSize,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         {
             SKSurface surface = SKSurface.Create(new SKImageInfo(
                     deviceSize.Width,
                     deviceSize.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
+                    pixelFormat.GetColorSpace().SKColorSpace))
                 ?? throw new InvalidOperationException("Could not create the CPU allocation-failure test surface.");
             return new CpuRenderTarget(surface, deviceSize);
         }

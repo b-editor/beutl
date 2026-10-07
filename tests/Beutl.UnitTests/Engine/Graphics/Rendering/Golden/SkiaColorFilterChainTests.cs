@@ -55,7 +55,8 @@ public sealed class SkiaColorFilterChainTests
         shape.FilterEffect.CurrentValue = effect;
 
         using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
-        return GoldenImageHarness.RenderAtScale(resource, s_frame, 1f);
+        using Bitmap frame = GoldenImageHarness.RenderAtScale(resource, s_frame, 1f);
+        return frame.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
     }
 
     // The centre of a uniform rect is far enough from every edge that the blur cannot reach it, so any

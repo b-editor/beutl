@@ -1131,7 +1131,7 @@ public sealed class DeviceBufferBudgetTests
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
             Requests.Add(allocation.DeviceSize);
-            return new CpuRenderTarget(allocation.DeviceSize);
+            return new CpuRenderTarget(allocation.DeviceSize, allocation.PixelFormat);
         }
     }
 
@@ -1183,14 +1183,14 @@ public sealed class DeviceBufferBudgetTests
         public new sealed class Resource : FilterEffect.Resource;
     }
 
-    private sealed class CpuRenderTarget(PixelSize size)
+    private sealed class CpuRenderTarget(PixelSize size, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                     size.Width,
                     size.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
+                    pixelFormat.GetColorSpace().SKColorSpace))
                 ?? throw new InvalidOperationException("Could not create a CPU device-budget test surface."),
             size.Width,
             size.Height);

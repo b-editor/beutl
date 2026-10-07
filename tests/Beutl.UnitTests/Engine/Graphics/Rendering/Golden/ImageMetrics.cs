@@ -16,17 +16,17 @@ internal readonly record struct RgbaMaximumError(double Red, double Green, doubl
     };
 }
 
-// Image-quality metrics over linear-premultiplied RgbaF16 bitmaps. Pure CPU math.
+// Image-quality metrics over premultiplied RgbaF16 bitmaps in the same color space. Pure CPU math.
 internal static class ImageMetrics
 {
     private const int ChannelCount = 4;
 
-    // ITU-R BT.709 luma weights, applied in linear light.
+    // ITU-R BT.709 luma weights applied to the stored RGB components.
     private const float LumaR = 0.2126f;
     private const float LumaG = 0.7152f;
     private const float LumaB = 0.0722f;
 
-    /// <summary>Mean absolute error over the RGB channels of two same-size RgbaF16 bitmaps (linear).</summary>
+    /// <summary>Mean absolute error over stored RGB channels of two same-size RgbaF16 bitmaps.</summary>
     public static double MeanAbsoluteError(Bitmap a, Bitmap b)
     {
         EnsureComparable(a, b);
@@ -232,7 +232,7 @@ internal static class ImageMetrics
         return new RgbaMaximumError(red, green, blue, alpha);
     }
 
-    /// <summary>Global SSIM over linear luminance. Returns 1.0 for identical inputs.</summary>
+    /// <summary>Global SSIM over weighted RGB components. Returns 1.0 for identical inputs.</summary>
     public static double Ssim(Bitmap a, Bitmap b)
     {
         EnsureComparable(a, b);
@@ -477,6 +477,8 @@ internal static class ImageMetrics
 
         EnsureSupported(a, nameof(a));
         EnsureSupported(b, nameof(b));
+        if (a.ColorSpace != b.ColorSpace)
+            throw new ArgumentException("ImageMetrics requires matching color spaces.");
     }
 
     private static void EnsureSupported(Bitmap bitmap, string parameterName)
@@ -484,10 +486,10 @@ internal static class ImageMetrics
         ArgumentNullException.ThrowIfNull(bitmap);
         if (bitmap.ColorType != BitmapColorType.RgbaF16
             || bitmap.AlphaType != BitmapAlphaType.Premul
-            || bitmap.ColorSpace != BitmapColorSpace.LinearSrgb)
+            || (bitmap.ColorSpace != BitmapColorSpace.LinearSrgb && bitmap.ColorSpace != BitmapColorSpace.Srgb))
         {
             throw new ArgumentException(
-                "ImageMetrics expects linear-sRGB, premultiplied RgbaF16 bitmaps.",
+                "ImageMetrics expects sRGB or linear-sRGB, premultiplied RgbaF16 bitmaps.",
                 parameterName);
         }
     }

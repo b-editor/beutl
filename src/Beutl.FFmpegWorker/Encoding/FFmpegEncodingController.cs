@@ -432,9 +432,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
 
         using (var converted = _isHdr && _targetColorSpace != null
-            // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
+            // Convert the frame's tagged working space to the HDR transfer and gamut.
             ? bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace)
-            // Skia: LinearSrgb → Bgra8888/Srgb
+            // sRGB composition already has the SDR transfer; retain the F16-to-8-bit dither.
             : bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb))
         {
             unsafe
@@ -444,7 +444,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
         }
 
-        // AVFilter: ゲイン補正(HDRのみ) + PixFmt変換
+        // AVFilter: resize and pixel-format conversion.
         const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
         _bufferSrcCtx!.WriteFrame(srcFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
 

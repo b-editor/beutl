@@ -33,7 +33,7 @@ public sealed class Rgba16fGoldenStoreTests
             height,
             BitmapColorType.RgbaF16,
             BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+            BitmapColorSpace.Srgb);
 
         for (int y = 0; y < height; y++)
         {
@@ -55,7 +55,7 @@ public sealed class Rgba16fGoldenStoreTests
             Assert.That(restored.Height, Is.EqualTo(height));
             Assert.That(restored.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
             Assert.That(restored.AlphaType, Is.EqualTo(BitmapAlphaType.Premul));
-            Assert.That(restored.ColorSpace, Is.EqualTo(BitmapColorSpace.LinearSrgb));
+            Assert.That(restored.ColorSpace, Is.EqualTo(BitmapColorSpace.Srgb));
         });
 
         for (int y = 0; y < height; y++)
@@ -72,7 +72,7 @@ public sealed class Rgba16fGoldenStoreTests
             1,
             BitmapColorType.RgbaF16,
             BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+            BitmapColorSpace.Srgb);
         Span<ushort> pixel = source.GetRow<ushort>(0);
         pixel[0] = BitConverter.HalfToUInt16Bits((Half)0.5f);
         pixel[1] = BitConverter.HalfToUInt16Bits((Half)0.25f);
@@ -126,7 +126,7 @@ public sealed class Rgba16fGoldenStoreTests
             1,
             BitmapColorType.RgbaF16,
             BitmapAlphaType.Unpremul,
-            BitmapColorSpace.LinearSrgb);
+            BitmapColorSpace.Srgb);
         string path = Path.Combine(_temporaryDirectory, "invalid" + Rgba16fGoldenStore.Extension);
 
         Assert.That(
@@ -144,7 +144,7 @@ public sealed class Rgba16fGoldenStoreTests
             height,
             BitmapColorType.RgbaF16,
             BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+            BitmapColorSpace.Srgb);
         string path = Path.Combine(_temporaryDirectory, "empty" + Rgba16fGoldenStore.Extension);
 
         Assert.That(
@@ -164,7 +164,7 @@ public sealed class Rgba16fGoldenStoreTests
             1,
             BitmapColorType.RgbaF16,
             BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+            BitmapColorSpace.Srgb);
         bitmap.GetRow<ushort>(0).Fill(BitConverter.HalfToUInt16Bits((Half)value));
         return bitmap;
     }

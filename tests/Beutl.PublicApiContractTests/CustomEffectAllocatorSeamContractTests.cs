@@ -151,7 +151,7 @@ public sealed class CustomEffectAllocatorSeamContractTests
 
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
-            RenderTarget? target = RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            RenderTarget? target = RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
             if (target is not null)
                 Created.Add(target);
 

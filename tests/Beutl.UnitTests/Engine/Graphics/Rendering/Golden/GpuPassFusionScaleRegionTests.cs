@@ -456,8 +456,10 @@ public sealed class GpuPassFusionScaleRegionTests
                     Is.LessThanOrEqualTo(GpuPassFusionSameProcessParityHarness.MaximumAaEdgeMeanError));
                 Assert.That(result.AaEdge.Value.MaximumError.Maximum,
                     Is.LessThanOrEqualTo(GpuPassFusionSameProcessParityHarness.MaximumAaEdgeChannelError));
-                using Bitmap shaderFree = RenderThinStroke(node.SourceWithoutShader, FusionMode.Disabled);
-                using Bitmap shaderApplied = RenderThinStroke(node, FusionMode.Disabled);
+                using Bitmap shaderFreeFrame = RenderThinStroke(node.SourceWithoutShader, FusionMode.Disabled);
+                using Bitmap shaderAppliedFrame = RenderThinStroke(node, FusionMode.Disabled);
+                using Bitmap shaderFree = shaderFreeFrame.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+                using Bitmap shaderApplied = shaderAppliedFrame.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
                 Assert.That(
                     ImageMetrics.FirstNonFinite(("shader-free", shaderFree), ("shader-applied", shaderApplied)),
                     Is.Null,
@@ -1038,17 +1040,17 @@ public sealed class GpuPassFusionScaleRegionTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
+    private sealed class CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 width,
                 height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             width,
             height);
 }

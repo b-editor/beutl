@@ -104,7 +104,7 @@ public sealed class LosslessCompositeCoverageTests
 
     [TestCase(0.25f)]
     [TestCase(0.75f)]
-    public void IdentityTypedShader_AtFractionalDevicePosition_IsByteIdenticalToUnfiltered(float density)
+    public void IdentityTypedShader_AtFractionalDevicePosition_PreservesCoverageAndColor(float density)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -120,7 +120,7 @@ public sealed class LosslessCompositeCoverageTests
             using Bitmap expected = RenderThroughPipeline(plain, density, s_fractionalFrame);
             using Bitmap actual = RenderThroughPipeline(filtered, density, s_fractionalFrame);
 
-            AssertByteIdentical(
+            AssertColorRoundTrip(
                 expected,
                 actual,
                 $"identity typed shader at fractional device position and density {density}");
@@ -325,7 +325,9 @@ public sealed class LosslessCompositeCoverageTests
                     int pixelOffset = ((y * actual.Width) + x) * 4;
                     for (int channel = 0; channel < 4; channel++)
                     {
-                        if (actualPixels[pixelOffset + channel] != expectedPixels[pixelOffset + channel])
+                        if (channel == 3
+                            ? actualPixels[pixelOffset + channel] != expectedPixels[pixelOffset + channel]
+                            : Math.Abs(actualPixels[pixelOffset + channel] - expectedPixels[pixelOffset + channel]) > 2)
                             differingChannels++;
                     }
 
@@ -443,6 +445,12 @@ public sealed class LosslessCompositeCoverageTests
         Assert.That(right, Is.GreaterThan(left), "The footprint fixture must render non-transparent pixels.");
         Assert.That(bottom, Is.GreaterThan(top), "The footprint fixture must render non-transparent pixels.");
         return new PixelRect(left, top, right - left, bottom - top);
+    }
+
+    private static void AssertColorRoundTrip(Bitmap expected, Bitmap actual, string scenario)
+    {
+        Assert.That(F16ColorRoundTrip.Equal(expected, actual), Is.True,
+            $"{scenario}: RGB exceeds two F16 codes or coverage alpha changed.");
     }
 
     private static void AssertByteIdentical(Bitmap expected, Bitmap actual, string scenario)

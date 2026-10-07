@@ -102,7 +102,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
                                    deviceSize.Height,
                                    SKColorType.RgbaF16,
                                    SKAlphaType.Premul,
-                                   SKColorSpace.CreateSrgbLinear()))
+                                   (allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb())))
                                ?? throw new InvalidOperationException(
                                    "Could not create the CPU device-bounds test surface.");
             return new CpuRenderTarget(surface, deviceSize);
@@ -112,14 +112,14 @@ public sealed class RenderNodeRendererDeviceBoundsTests
             : RenderTarget(surface, size.Width, size.Height);
     }
 
-    private sealed class DeviceBoundsRenderTarget(PixelSize size)
+    private sealed class DeviceBoundsRenderTarget(PixelSize size, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 size.Width,
                 size.Height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             size.Width,
             size.Height);
 

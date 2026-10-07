@@ -482,7 +482,7 @@ public sealed class ShaderAndAllocationFailureTests
             if (index == failAt)
                 return null;
 
-            var target = new TrackingRenderTarget(deviceSize, disposeFailureAt?.Invoke(index));
+            var target = new TrackingRenderTarget(deviceSize, disposeFailureAt?.Invoke(index), allocation.PixelFormat);
             Targets.Add(target);
             return target;
         }
@@ -492,14 +492,15 @@ public sealed class ShaderAndAllocationFailureTests
     {
         private readonly Exception? _disposeFailure;
 
-        public TrackingRenderTarget(PixelSize size, Exception? disposeFailure = null)
+        public TrackingRenderTarget(PixelSize size, Exception? disposeFailure = null,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
             : base(
                 SKSurface.Create(new SKImageInfo(
                     size.Width,
                     size.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear())),
+                    pixelFormat.GetColorSpace().SKColorSpace)),
                 size.Width,
                 size.Height)
         {

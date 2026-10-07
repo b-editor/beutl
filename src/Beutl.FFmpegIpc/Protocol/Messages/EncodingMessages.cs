@@ -72,6 +72,10 @@ public sealed class ProvideFrameMessage
     // two 8-byte formats (half-float RgbaF16 vs integer Rgba16161616), so an explicit color type is
     // required to reconstruct the bitmap without reinterpreting integer channels as floats.
     public int ColorType { get; set; } = -1;
+
+    // Null in older peers. Pixel precision does not identify the transfer function or gamut.
+    public float[]? TransferFn { get; set; }
+    public float[]? ToXyzD50 { get; set; }
 }
 
 public sealed class RequestSampleMessage

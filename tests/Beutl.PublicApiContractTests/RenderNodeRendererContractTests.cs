@@ -182,7 +182,7 @@ public sealed class RenderNodeRendererContractTests
     [Test]
     public void Operations_AcceptCompletePerCallRequestsOnOnePersistentRenderer()
     {
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
         using DelegateNode root = SourceNode(new Rect(0, 0, 8, 6));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
@@ -229,7 +229,7 @@ public sealed class RenderNodeRendererContractTests
         float executionMaxWorkingScale = 0;
         RenderRequestPurpose executionPurpose = default;
         RenderIntent executionIntent = default;
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
 
         using var root = new DelegateNode(context =>
         {
@@ -310,7 +310,7 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(destinationTarget.IsDisposed, Is.False);
             Assert.That(factory.Allocations, Is.Not.Empty);
             Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-                allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                allocation.PixelFormat == RenderTargetPixelFormat.SrgbPremultipliedRgba16Float
                 && allocation.GraphicsContext is null
                 && allocation.GraphicsContextHandle == 0
                 && allocation.GraphicsBackend is null));
@@ -358,7 +358,7 @@ public sealed class RenderNodeRendererContractTests
         var bounds = new Rect(0, 0, 10, 10);
         int recordings = 0;
         int executions = 0;
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
         using var root = new DelegateNode(context =>
         {
             recordings++;
@@ -395,7 +395,7 @@ public sealed class RenderNodeRendererContractTests
     public void Render_SingularDestinationTransformRejectsAFullTargetAccess()
     {
         int executions = 0;
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
         using var root = new DelegateNode(context =>
         {
             RenderFragmentHandle command = context.TargetCommand(
@@ -436,7 +436,7 @@ public sealed class RenderNodeRendererContractTests
     public void Render_SingularDestinationTransformPreservesAnEmptyTargetCommand()
     {
         int executions = 0;
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
         using var root = new DelegateNode(context =>
         {
             RenderFragmentHandle command = context.TargetCommand(
@@ -547,7 +547,7 @@ public sealed class RenderNodeRendererContractTests
     {
         var bounds = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
         PixelRect expectedDeviceBounds = PixelRect.FromRect(bounds, 2);
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
 
         using var root = SourceNode(bounds);
         var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -570,7 +570,7 @@ public sealed class RenderNodeRendererContractTests
             Assert.That(bitmap.Height, Is.EqualTo(expectedDeviceBounds.Height));
             Assert.That(factory.Requests, Does.Contain(expectedDeviceBounds.Size));
             Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-                allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                allocation.PixelFormat == RenderTargetPixelFormat.SrgbPremultipliedRgba16Float
                 && allocation.GraphicsContext is null
                 && allocation.GraphicsContextHandle is null or 0
                 && allocation.GraphicsBackend is null));
@@ -589,7 +589,7 @@ public sealed class RenderNodeRendererContractTests
     [Test]
     public void Rasterize_ReturnsNormalEmptyResultsWithoutAllocatingOrExecuting()
     {
-        var factory = new TrackingTargetFactory(static size => new TrackingRenderTarget(size));
+        var factory = new TrackingTargetFactory(static (size, format) => new TrackingRenderTarget(size, pixelFormat: format));
         int executions = 0;
 
         using var emptyRoot = new DelegateNode(static _ => { });
@@ -642,7 +642,7 @@ public sealed class RenderNodeRendererContractTests
     {
         var bounds = new Rect(0, 0, 4, 3);
         TrackingRenderTarget? invalid = null;
-        var factory = new TrackingTargetFactory(size =>
+        var factory = new TrackingTargetFactory((size, _) =>
         {
             invalid = new TrackingRenderTarget(new PixelSize(size.Width + 1, size.Height));
             return invalid;
@@ -669,7 +669,7 @@ public sealed class RenderNodeRendererContractTests
     {
         var bounds = new Rect(0, 0, 4, 3);
         var shared = new TrackingRenderTarget(new PixelSize(4, 3));
-        var factory = new TrackingTargetFactory(_ => shared);
+        var factory = new TrackingTargetFactory((_, _) => shared);
 
         using var root = SourceNode(bounds);
         var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -695,7 +695,7 @@ public sealed class RenderNodeRendererContractTests
         var bounds = new Rect(0, 0, 4, 3);
         using var destinationTarget = new TrackingRenderTarget(new PixelSize(4, 3));
         using var destination = new ImmediateCanvas(destinationTarget, RenderIntent.Preview);
-        var factory = new TrackingTargetFactory(_ => destinationTarget);
+        var factory = new TrackingTargetFactory((_, _) => destinationTarget);
 
         using var root = SourceNode(bounds);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -717,7 +717,7 @@ public sealed class RenderNodeRendererContractTests
     {
         var bounds = new Rect(0, 0, 4, 3);
         TrackingRenderTarget? incompatible = null;
-        var factory = new TrackingTargetFactory(size =>
+        var factory = new TrackingTargetFactory((size, _) =>
         {
             incompatible = new TrackingRenderTarget(size, SKColorType.Rgba8888);
             return incompatible;
@@ -858,7 +858,7 @@ public sealed class RenderNodeRendererContractTests
         public override void Process(RenderNodeContext context) => process(context);
     }
 
-    private sealed class TrackingTargetFactory(Func<PixelSize, RenderTarget?> create) : IRenderTargetFactory
+    private sealed class TrackingTargetFactory(Func<PixelSize, RenderTargetPixelFormat, RenderTarget?> create) : IRenderTargetFactory
     {
         public List<PixelSize> Requests { get; } = [];
 
@@ -871,7 +871,7 @@ public sealed class RenderNodeRendererContractTests
             PixelSize deviceSize = allocation.DeviceSize;
             Allocations.Add(allocation);
             Requests.Add(deviceSize);
-            RenderTarget? result = create(deviceSize);
+            RenderTarget? result = create(deviceSize, allocation.PixelFormat);
             if (result is TrackingRenderTarget tracking)
             {
                 Targets.Add(tracking);
@@ -883,10 +883,9 @@ public sealed class RenderNodeRendererContractTests
 
     private sealed class TrackingRenderTarget : RenderTarget
     {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public TrackingRenderTarget(PixelSize size, SKColorType colorType = SKColorType.RgbaF16)
-            : base(CreateSurface(size, colorType), size.Width, size.Height)
+        public TrackingRenderTarget(PixelSize size, SKColorType colorType = SKColorType.RgbaF16,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+            : base(CreateSurface(size, colorType, pixelFormat), size.Width, size.Height)
         {
         }
 
@@ -902,14 +901,15 @@ public sealed class RenderNodeRendererContractTests
             base.Dispose(disposing);
         }
 
-        private static SKSurface CreateSurface(PixelSize size, SKColorType colorType)
+        private static SKSurface CreateSurface(PixelSize size, SKColorType colorType, RenderTargetPixelFormat pixelFormat)
         {
             return SKSurface.Create(new SKImageInfo(
                        size.Width,
                        size.Height,
                        colorType,
                        SKAlphaType.Premul,
-                       s_colorSpace))
+                       pixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                           ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb()))
                    ?? throw new InvalidOperationException("Could not create the contract-test render target.");
         }
     }

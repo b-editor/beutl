@@ -310,24 +310,24 @@ public sealed class EffectItemRequiredRegionTests
             requestedSizes?.Add(deviceSize);
             return deviceSize.Width > maximumDimension || deviceSize.Height > maximumDimension
                 ? null
-                : new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
+                : new CpuRenderTarget(deviceSize.Width, deviceSize.Height, allocation.PixelFormat);
         }
     }
 
     private sealed class CpuRenderTarget : RenderTarget
     {
-        public CpuRenderTarget(int width, int height)
-            : base(CreateSurface(width, height), width, height)
+        public CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+            : base(CreateSurface(width, height, pixelFormat), width, height)
         {
         }
 
-        private static SKSurface CreateSurface(int width, int height)
+        private static SKSurface CreateSurface(int width, int height, RenderTargetPixelFormat pixelFormat)
             => SKSurface.Create(new SKImageInfo(
                    width,
                    height,
                    SKColorType.RgbaF16,
                    SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
+                   pixelFormat.GetColorSpace().SKColorSpace))
                ?? throw new InvalidOperationException("Failed to create a CPU surface.");
     }
 }

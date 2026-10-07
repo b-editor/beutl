@@ -30,12 +30,15 @@ internal static class GpuPassFusionSameProcessParityHarness
     {
         ArgumentNullException.ThrowIfNull(render);
 
-        using Bitmap disabled = render(FusionMode.Disabled)
+        using Bitmap disabledFrame = render(FusionMode.Disabled)
             ?? throw new InvalidOperationException("The fusion-disabled render returned null.");
-        using Bitmap enabled = render(FusionMode.Enabled)
+        using Bitmap enabledFrame = render(FusionMode.Enabled)
             ?? throw new InvalidOperationException("The fusion-enabled render returned null.");
-        if (ReferenceEquals(disabled, enabled))
+        if (ReferenceEquals(disabledFrame, enabledFrame))
             throw new InvalidOperationException("Fusion-disabled and enabled runs must return independently owned images.");
+        // Keep the published linear-RGB metrics comparable when final composition uses sRGB.
+        using Bitmap disabled = disabledFrame.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        using Bitmap enabled = enabledFrame.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
         string? nonFinite = ImageMetrics.FirstNonFinite(
             ("fusion-disabled", disabled),

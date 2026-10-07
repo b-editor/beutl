@@ -76,7 +76,7 @@ public class SkiaVulkanImageInitializationTests
                 Is.EqualTo(ImageLayout.Undefined),
                 "A fresh image starts undefined; what matters is how it is described, not how it is found.");
 
-            using SKSurface surface = vulkanTexture.CreateSkiaSurface();
+            using SKSurface surface = vulkanTexture.CreateSkiaSurface(SKColorSpace.CreateSrgbLinear());
             ((ITransparentClearableTexture)vulkanTexture).ClearToTransparent();
             vulkanTexture.PrepareForSkiaSampling(requireCompletion: true);
 

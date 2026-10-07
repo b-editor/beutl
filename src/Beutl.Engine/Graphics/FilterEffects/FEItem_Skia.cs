@@ -8,6 +8,8 @@ internal record FEItem_Skia<T>(
 {
     public Func<T, SKImageFilter?, SKImageFilter?>? DirectFactory { get; init; }
 
+    public Func<T, SKImageFilter?, SKImageFilter?>? LinearNumericFactory { get; init; }
+
     /// <summary>
     /// Always <see langword="false"/>: this item's mapping is fixed at construction. Deferral is
     /// <see cref="IFEItem_DeferredBounds"/>, which hands each activation its own resolution instead of
@@ -40,8 +42,8 @@ internal record FEItem_Skia<T>(
 
     public bool SupportsDirectReplay => DirectFactory is not null;
 
-    public void AcceptsDirect(SKImageFilterBuilder builder)
+    public void AcceptsDirect(SKImageFilterBuilder builder, bool linearNumericSpace = false)
     {
-        builder.AppendSkiaFilter(Data, DirectFactory!);
+        builder.AppendSkiaFilter(Data, linearNumericSpace ? LinearNumericFactory ?? DirectFactory! : DirectFactory!);
     }
 }

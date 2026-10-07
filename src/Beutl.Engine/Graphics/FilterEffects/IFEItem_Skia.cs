@@ -8,7 +8,7 @@ internal interface IFEItem_Skia : IFEItem
 
     bool SupportsDirectReplay { get; }
 
-    void AcceptsDirect(SKImageFilterBuilder builder);
+    void AcceptsDirect(SKImageFilterBuilder builder, bool linearNumericSpace = false);
 
     /// <summary>
     /// When true, the bounds mapping is resolved from the combined execution-time target

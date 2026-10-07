@@ -16,7 +16,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class RenderTargetSnapshotTests
 {
     private static Bitmap NewScratch(int width, int height) =>
-        new(width, height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        new(width, height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
 
     [Test]
     public void SnapshotIntoDestination_MatchesAllocatingSnapshot()
@@ -103,7 +103,7 @@ public class RenderTargetSnapshotTests
         {
             using var target = RenderTarget.Create(64, 48)!;
             // sRGB instead of the surface's LinearSrgb (wrong gamma) must be rejected.
-            using var wrongColorSpace = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            using var wrongColorSpace = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
             Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongColorSpace));
         });
@@ -163,7 +163,7 @@ public class RenderTargetSnapshotTests
             Assert.That(scratch.Height, Is.EqualTo(48));
             Assert.That(scratch.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
             Assert.That(scratch.AlphaType, Is.EqualTo(BitmapAlphaType.Premul));
-            Assert.That(scratch.ColorSpace.Equals(BitmapColorSpace.LinearSrgb), Is.True);
+            Assert.That(scratch.ColorSpace.Equals(BitmapColorSpace.Srgb), Is.True);
 
             // The factory's bitmap must satisfy SnapshotInto's format validation.
             Assert.DoesNotThrow(() => target.SnapshotInto(scratch));
@@ -225,7 +225,7 @@ public class RenderTargetSnapshotTests
     {
         using Bitmap content = NewScratch(40, 24);
         IRenderer renderer = new FakeSnapshotRenderer(content);
-        using var wrongFormat = new Bitmap(40, 24, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        using var wrongFormat = new Bitmap(40, 24, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
         Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongFormat));
     }

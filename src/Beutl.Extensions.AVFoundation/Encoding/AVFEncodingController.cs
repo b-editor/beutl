@@ -100,7 +100,7 @@ public class AVFEncodingController : EncodingController
         long ptsNum = frame * frameRateDen;
 
         using var converted = hdrTargetColorSpace is not null
-            // Skia converts the renderer's LinearSrgb working space to the HDR target
+            // Skia converts the frame's tagged working space to the HDR target
             // (e.g. Rec.2020 + PQ with luminance scaling baked into the gamut matrix),
             // emitting 16-bit-per-channel unpremultiplied RGBA for the Writer input.
             ? image.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace)

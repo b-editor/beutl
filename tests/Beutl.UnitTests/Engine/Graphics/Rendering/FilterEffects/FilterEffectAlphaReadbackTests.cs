@@ -30,7 +30,7 @@ public sealed class FilterEffectAlphaReadbackTests
             {
                 Assert.That(actual.ColorType, Is.EqualTo(BitmapColorType.Alpha8));
                 Assert.That(actual.AlphaType, Is.EqualTo(BitmapAlphaType.Premul));
-                Assert.That(actual.ColorSpace.Equals(BitmapColorSpace.LinearSrgb), Is.True);
+                Assert.That(actual.ColorSpace.Equals(BitmapColorSpace.Srgb), Is.True);
                 Assert.That(actual.BytesPerPixel, Is.EqualTo(1));
                 Assert.That(actual.RowBytes, Is.EqualTo(actual.Width));
                 Assert.That(actual.ByteCount, Is.EqualTo(actual.Width * actual.Height));

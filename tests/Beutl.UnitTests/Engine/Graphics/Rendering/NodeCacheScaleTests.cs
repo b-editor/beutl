@@ -303,21 +303,20 @@ public class NodeCacheScaleTests
 
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
+            => new CpuRenderTarget(allocation.DeviceSize, allocation.PixelFormat);
 
         private sealed class CpuRenderTarget : RenderTarget
         {
-            public CpuRenderTarget(PixelSize size)
+            public CpuRenderTarget(PixelSize size, RenderTargetPixelFormat pixelFormat)
                 : base(
                     SKSurface.Create(new SKImageInfo(
                         size.Width,
                         size.Height,
                         SKColorType.RgbaF16,
                         SKAlphaType.Premul,
-                        s_colorSpace))
+                        pixelFormat.GetColorSpace().SKColorSpace))
                     ?? throw new InvalidOperationException("Could not create a CPU cache-scale test target."),
                     size.Width,
                     size.Height)

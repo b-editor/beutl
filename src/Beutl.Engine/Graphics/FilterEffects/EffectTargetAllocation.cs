@@ -27,7 +27,8 @@ internal static class EffectTargetAllocation
     {
         if (leaseSession is not null && (leaseSession.HasTargetFactory || preferLease))
         {
-            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size, clearContents);
+            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size, clearContents,
+                RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
             if (lease is null)
                 return null;
 
@@ -48,7 +49,8 @@ internal static class EffectTargetAllocation
             }
         }
 
-        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
+        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height,
+            RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
         return renderTarget is null
             ? null
             : new EffectTarget(

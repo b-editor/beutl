@@ -64,13 +64,16 @@ internal sealed partial class RenderRequestExecutor
                         requiredRegion,
                         outputScale,
                         outputBounds,
-                        allowPreviewDrop: true);
+                        allowPreviewDrop: true,
+                        pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
                     bool succeeded = false;
                     try
                     {
-                        MaterializedRenderValue shaderInput = NormalizeSemanticShaderInput(input);
+                        MaterializedRenderValue normalizedInput = NormalizeSemanticShaderInput(input);
+                        MaterializedRenderValue shaderInput = normalizedInput;
                         try
                         {
+                            shaderInput = LinearShaderInput(normalizedInput);
                             ExecuteShaderElement(
                                 description,
                                 shaderInput,
@@ -82,6 +85,8 @@ internal sealed partial class RenderRequestExecutor
                         {
                             if (!ReferenceEquals(shaderInput, input))
                                 ReleaseUnpublished(shaderInput);
+                            if (!ReferenceEquals(normalizedInput, input) && !ReferenceEquals(normalizedInput, shaderInput))
+                                ReleaseUnpublished(normalizedInput);
                         }
 
                         results.Add(output);
@@ -149,7 +154,10 @@ internal sealed partial class RenderRequestExecutor
                 input.CompleteBounds,
                 physicalDeviceBounds: normalizedDeviceBounds,
                 deviceGridOffset: input.DeviceGridOffset,
-                allowPreviewDrop: true);
+                allowPreviewDrop: true,
+                pixelFormat: input.Target.ColorSpace == BitmapColorSpace.LinearSrgb
+                    ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                    : RenderTargetPixelFormat.SrgbPremultipliedRgba16Float);
             bool succeeded = false;
             try
             {

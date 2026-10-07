@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-/// <summary>Creates fresh linear-premultiplied RGBA16F targets requested by a renderer.</summary>
+/// <summary>Creates fresh premultiplied RGBA16F composition and effect targets requested by a renderer.</summary>
 public interface IRenderTargetFactory
 {
     /// <summary>Creates a target satisfying the exact allocation requirements.</summary>

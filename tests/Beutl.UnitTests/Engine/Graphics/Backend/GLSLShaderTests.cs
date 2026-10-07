@@ -864,7 +864,7 @@ public class GLSLShaderTests
             if (index == failAt)
                 return null;
 
-            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height)
+            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat)
                 ?? throw new InvalidOperationException("Could not create a GLSL scratch target.");
         }
     }

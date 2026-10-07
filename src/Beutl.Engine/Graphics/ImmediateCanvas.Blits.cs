@@ -15,7 +15,9 @@ public partial class ImmediateCanvas
         VerifyNativeTargetOperation();
         PrepareBlitPaint(antialias: true);
 
-        Canvas.DrawSurface(surface, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
+        using (SKImage image = surface.Snapshot())
+            DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
+                SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
 
         if (!CanConsumeWithoutFlush(surface))
         {
@@ -33,7 +35,9 @@ public partial class ImmediateCanvas
         renderTarget.PrepareBackendForSkiaSampling();
         PrepareBlitPaint(antialias: true);
 
-        Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
+        using (SKImage image = renderTarget.Value.Snapshot())
+            DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
+                SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
 
         if (!CanConsumeWithoutFlush(renderTarget))
         {
@@ -192,12 +196,11 @@ public partial class ImmediateCanvas
         var destination = SKRect.Create(x, y, image.Width, image.Height);
         using (PushDeviceSpace())
         {
-            Canvas.DrawImage(
+            DrawTransferredImage(
                 image,
                 source,
                 destination,
-                new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None),
-                _sharedFillPaint);
+                new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None));
         }
     }
 
@@ -265,7 +268,7 @@ public partial class ImmediateCanvas
         PrepareBlitPaint(antialias: true);
 
         var src = SKRect.Create(image.Width, image.Height);
-        Canvas.DrawImage(image, src, dest.ToSKRect(), s_compositeSampling, _sharedFillPaint);
+        DrawTransferredImage(image, src, dest.ToSKRect(), s_compositeSampling);
     }
 
     // Draw a surface into its own logical footprint (pixel size / density) at the given origin.
@@ -278,7 +281,7 @@ public partial class ImmediateCanvas
         using SKImage image = surface.Snapshot();
         var src = SKRect.Create(image.Width, image.Height);
         var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
-        Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
+        DrawTransferredImage(image, src, dest, s_compositeSampling);
 
         if (!CanConsumeWithoutFlush(surface))
         {

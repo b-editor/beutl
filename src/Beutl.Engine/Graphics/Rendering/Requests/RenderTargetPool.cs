@@ -9,7 +9,7 @@ using SkiaSharp;
 namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Renderer-lifetime owner for exact-size, linear-premultiplied RGBA16F intermediate targets.
+/// Renderer-lifetime owner for exact-size, premultiplied RGBA16F composition and effect targets.
 /// </summary>
 internal sealed partial class RenderTargetPool : IDisposable
 {
@@ -41,7 +41,7 @@ internal sealed partial class RenderTargetPool : IDisposable
 
     private readonly IRenderTargetFactory? _factory;
     private readonly RenderTargetPoolOptions _options;
-    private readonly Dictionary<PixelSize, LinkedList<TargetSlot>> _availableBuckets = [];
+    private readonly Dictionary<(PixelSize Size, RenderTargetPixelFormat Format), LinkedList<TargetSlot>> _availableBuckets = [];
     private readonly LinkedList<TargetSlot> _availableLru = [];
     private readonly HashSet<TargetSlot> _ownedSlots = [];
     private readonly HashSet<RenderTarget> _knownTargets = new(ReferenceEqualityComparer.Instance);
@@ -274,9 +274,10 @@ internal sealed partial class RenderTargetPool : IDisposable
 
     internal RenderTargetLease Acquire(
         RenderTargetLeaseSession request,
-        PixelSize deviceSize)
+        PixelSize deviceSize,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
-        if (TryAcquire(request, deviceSize, out RenderTargetLease? lease))
+        if (TryAcquire(request, deviceSize, out RenderTargetLease? lease, pixelFormat: pixelFormat))
             return lease;
         throw ExceedsBufferBudget(request, deviceSize, out int maxDimension)
             ? CreateAllocationFailure(deviceSize, maxDimension)
@@ -375,9 +376,11 @@ internal sealed partial class RenderTargetPool : IDisposable
         RenderTargetLeaseSession request,
         PixelSize deviceSize,
         [NotNullWhen(true)] out RenderTargetLease? lease,
-        bool clearContents = true)
+        bool clearContents = true,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
         VerifyActive(request);
+        _ = pixelFormat.GetColorSpace();
         if (deviceSize.Width <= 0 || deviceSize.Height <= 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -396,18 +399,18 @@ internal sealed partial class RenderTargetPool : IDisposable
             return false;
         }
 
-        if (TryTakeAvailable(deviceSize, out TargetSlot? slot))
+        if (TryTakeAvailable(deviceSize, pixelFormat, out TargetSlot? slot))
         {
             lease = LeaseReusedSlot(slot!, request, clearContents);
             return true;
         }
 
         _misses++;
-        RenderTarget? target = CreateTarget(deviceSize, request);
+        RenderTarget? target = CreateTarget(deviceSize, request, pixelFormat);
         if (target is null && _retainedBytes > 0)
         {
             EvictAllAvailable(request, failures: null);
-            target = CreateTarget(deviceSize, request);
+            target = CreateTarget(deviceSize, request, pixelFormat);
         }
 
         if (target is null)
@@ -416,7 +419,7 @@ internal sealed partial class RenderTargetPool : IDisposable
             return false;
         }
 
-        lease = AdoptCreatedTarget(target, deviceSize, request, clearContents);
+        lease = AdoptCreatedTarget(target, deviceSize, request, clearContents, pixelFormat);
         return true;
     }
 
@@ -446,19 +449,20 @@ internal sealed partial class RenderTargetPool : IDisposable
         RenderTarget target,
         PixelSize deviceSize,
         RenderTargetLeaseSession request,
-        bool clearContents)
+        bool clearContents,
+        RenderTargetPixelFormat pixelFormat)
     {
         bool accepted = false;
         bool targetIsForeign = ReferenceEquals(target, request.ExternalTarget) || _knownTargets.Contains(target);
         bool targetSharesLiveSurface = !targetIsForeign && SharesLiveSurface(target, request);
         try
         {
-            SKSurface surface = ValidateFactoryTarget(target, deviceSize, request);
+            SKSurface surface = ValidateFactoryTarget(target, deviceSize, request, pixelFormat);
             if (clearContents && !target.HasTransparentContents)
                 target.ClearToTransparent();
             long byteSize = GetByteSize(deviceSize);
             long nextOwnedBytes = checked(_ownedBytes + byteSize);
-            var slot = new TargetSlot(target, surface, deviceSize, byteSize);
+            var slot = new TargetSlot(target, surface, deviceSize, byteSize, pixelFormat);
             try
             {
                 _ownedSlots.Add(slot);
@@ -700,20 +704,22 @@ internal sealed partial class RenderTargetPool : IDisposable
         }
     }
 
-    private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetLeaseSession request)
+    private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetLeaseSession request, RenderTargetPixelFormat pixelFormat)
         => _factory is null
-            ? CreateDefaultTarget(deviceSize, ResolveAllocationContextHandle(request))
-            : _factory.Create(GetAllocationDescriptor(deviceSize, request));
+            ? CreateDefaultTarget(deviceSize, ResolveAllocationContextHandle(request), pixelFormat)
+            : _factory.Create(GetAllocationDescriptor(deviceSize, request, pixelFormat));
 
     internal RenderTargetAllocationDescriptor GetAllocationDescriptor(
         PixelSize deviceSize,
-        RenderTargetLeaseSession request)
+        RenderTargetLeaseSession request,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
         VerifyActive(request);
         return new RenderTargetAllocationDescriptor(
             deviceSize,
             _graphicsContext,
-            ResolveAllocationContextHandle(request));
+            ResolveAllocationContextHandle(request),
+            pixelFormat);
     }
 
     // Only a request rendering into a caller-owned destination carries a handle of its own. A
@@ -724,7 +730,8 @@ internal sealed partial class RenderTargetPool : IDisposable
 
     private static RenderTarget? CreateDefaultTarget(
         PixelSize deviceSize,
-        nint? contextHandle)
+        nint? contextHandle,
+        RenderTargetPixelFormat pixelFormat)
     {
         if (contextHandle == 0)
         {
@@ -733,13 +740,13 @@ internal sealed partial class RenderTargetPool : IDisposable
                 deviceSize.Height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear()));
+                pixelFormat.GetColorSpace().SKColorSpace));
             return surface is null
                 ? null
                 : new CpuRenderTarget(surface, deviceSize);
         }
 
-        return RenderTarget.Create(deviceSize.Width, deviceSize.Height);
+        return RenderTarget.Create(deviceSize.Width, deviceSize.Height, pixelFormat);
     }
 
     private static void ThrowCleanupFailures(List<Exception> failures)

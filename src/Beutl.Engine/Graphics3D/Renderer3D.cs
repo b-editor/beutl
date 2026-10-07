@@ -552,7 +552,7 @@ internal sealed class Renderer3D : IRenderer3D
     public SKSurface? CreateSkiaSurface()
     {
         _outputTexture?.PrepareForSkiaSampling(requireCompletion: false);
-        return _outputTexture?.CreateSkiaSurface();
+        return _outputTexture?.CreateSkiaSurface(BitmapColorSpace.LinearSrgb.SKColorSpace);
     }
 
     public byte[] DownloadPixels()

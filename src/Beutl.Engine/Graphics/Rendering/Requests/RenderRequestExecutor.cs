@@ -799,7 +799,8 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
             Vector deviceGridOffset = default,
-            Rect? completeBounds = null)
+            Rect? completeBounds = null,
+            bool preserveImperativeRasterPlacement = false)
         {
             ArgumentNullException.ThrowIfNull(lease);
             ValidatePhysicalFootprint(
@@ -807,7 +808,8 @@ internal sealed partial class RenderRequestExecutor
                 bounds,
                 effectiveScale,
                 deviceBounds,
-                deviceGridOffset);
+                deviceGridOffset,
+                preserveImperativeRasterPlacement);
             _lease = lease;
             Target = lease.Target;
             Bounds = bounds;
@@ -816,6 +818,7 @@ internal sealed partial class RenderRequestExecutor
             DeviceBounds = deviceBounds;
             DeviceGridOffset = deviceGridOffset;
             OwnsTarget = true;
+            PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
         }
 
         public MaterializedRenderValue(

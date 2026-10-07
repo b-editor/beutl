@@ -17,7 +17,8 @@ public sealed partial class FilterEffectContext
                 .Inflate(BlurExtent(t.sigma)),
             transformSamplingBounds: static (t, region) => region
                 .Translate(-t.position)
-                .Inflate(BlurExtent(t.sigma)));
+                .Inflate(BlurExtent(t.sigma)),
+            linearNumericFactory: static (t, input) => CreateLinearNumericShadow(t.position, t.sigma, t.color, input, false));
     }
 
     public void DropShadow(Point position, Size sigma, Color color)
@@ -31,7 +32,30 @@ public sealed partial class FilterEffectContext
                 .Inflate(BlurExtent(t.sigma))),
             transformSamplingBounds: static (t, region) => region.Union(region
                 .Translate(-t.position)
-                .Inflate(BlurExtent(t.sigma))));
+                .Inflate(BlurExtent(t.sigma))),
+            linearNumericFactory: static (t, input) => CreateLinearNumericShadow(t.position, t.sigma, t.color, input, true));
+    }
+
+    private static SKImageFilter? CreateLinearNumericShadow(Point position, Size sigma, Color color,
+        SKImageFilter? input, bool includeOriginal)
+    {
+        // Direct replay stores linear RGB numerically between its gamma filters. Skia would
+        // otherwise interpret a shadow's SKColor in the sRGB destination instead of linear RGB.
+        var rgb = color.ToLinear();
+        using var mask = SKImageFilter.CreateDropShadowOnly(position.X, position.Y, sigma.Width, sigma.Height,
+            new SKColor(255, 255, 255, color.A), input);
+        using var tint = SKColorFilter.CreateColorMatrix(
+        [
+            rgb.X, 0, 0, 0, 0,
+            0, rgb.Y, 0, 0, 0,
+            0, 0, rgb.Z, 0, 0,
+            0, 0, 0, 1, 0,
+        ]);
+        SKImageFilter? shadow = SKImageFilter.CreateColorFilter(tint, mask);
+        if (!includeOriginal)
+            return shadow;
+        using (shadow)
+            return SKImageFilter.CreateMerge([shadow!, input!]);
     }
 
     public void Blur(Size sigma)

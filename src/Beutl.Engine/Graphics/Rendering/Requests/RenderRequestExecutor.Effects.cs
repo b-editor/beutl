@@ -392,60 +392,47 @@ internal sealed partial class RenderRequestExecutor
                 return [];
             }
 
-            // The output is the value the plan compiled for this segment, so it is rasterized at the demand
-            // Materialize resolved, not at the density of the target it happens to be drawn onto: a cache
-            // capture of this value is checked against that planned density.
             float requestedDensity = requestedScale?.Value
-                ?? (fragment.EffectiveScale.IsUnbounded
-                    ? currentTarget.Density
-                    : fragment.EffectiveScale.Value);
-            EffectiveScale scale = ClampToActiveDeviceGrid(
-                fragment.Bounds,
-                EffectiveScale.At(requestedDensity));
-            // The plan gave the replayed input this segment's demand, not the density of the buffer it is
-            // drawn into, so the nested replay is checked against the former.
+                ?? (fragment.EffectiveScale.IsUnbounded ? currentTarget.Density : fragment.EffectiveScale.Value);
+            EffectiveScale scale = ClampToActiveDeviceGrid(fragment.Bounds, EffectiveScale.At(requestedDensity));
             EffectiveScale inputCallerScale = requestedScale ?? scale;
             MaterializedRenderValue? output = null;
+            var linearInputs = new List<MaterializedRenderValue>();
+            var temporaryInputs = new List<MaterializedRenderValue>();
             bool succeeded = false;
-            bool replayStarted = false;
             try
             {
+                // Rasterize the source in the composition space first. Replaying a vector or a
+                // gradient inside the linear layer would change its AA and interpolation policy.
+                IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
+                    input, currentTarget, input.EffectiveScale.IsUnbounded ? inputCallerScale : null);
+                foreach (MaterializedRenderValue value in inputs)
+                {
+                    MaterializedRenderValue linear = ConvertColorSpace(value, RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
+                    linearInputs.Add(linear);
+                    if (!ReferenceEquals(linear, value))
+                        temporaryInputs.Add(linear);
+                }
                 output = CreateOwnedValue(
                     requiredRegion,
                     scale,
                     fragment.Bounds,
-                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment));
+                    allowPreviewDrop: _previewDropEligibleMaterializations.Contains(fragment),
+                    pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
                 using var builder = new SKImageFilterBuilder();
                 foreach (IFEItem item in payload.BoundsItems)
                     ((IFEItem_Skia)item).AcceptsDirect(builder);
-
-                using var paint = builder.HasFilter()
-                    ? new SKPaint { ImageFilter = builder.GetFilter() }
-                    : null;
+                using var paint = builder.HasFilter() ? new SKPaint { ImageFilter = builder.GetFilter() } : null;
                 using var canvas = CreateValueCanvas(output);
                 using (canvas.PushTransform(output.RasterAlignmentTransform))
                 {
-                    if (paint is not null)
-                    {
-                        Rect replayedInputBounds = ResolveFragmentRequirement(input, input.Bounds);
-                        Rect layerContentBounds = GetDirectFilterLayerBounds(
-                            input.Bounds,
-                            replayedInputBounds);
-                        using (canvas.PushBlendMode(BlendMode.SrcOver))
-                        using (canvas.PushTransform(Matrix.Identity))
-                        // The filter layer must match the region Replay writes, not the input's full
-                        // semantic bounds. A wider layer exposes unwritten pixels to spatial filters.
-                        using (canvas.PushFilterLayer(paint, layerContentBounds))
-                        {
-                            replayStarted = true;
-                            Replay(input, canvas, inputCallerScale);
-                        }
-                    }
-                    else
-                    {
-                        replayStarted = true;
-                        Replay(input, canvas, inputCallerScale);
-                    }
+                    Rect replayedInputBounds = ResolveFragmentRequirement(input, input.Bounds);
+                    Rect layerContentBounds = GetDirectFilterLayerBounds(
+                        input.Bounds,
+                        replayedInputBounds,
+                        linearInputs.Count == 1 ? linearInputs[0].RasterBounds : null);
+                    using (paint is not null ? canvas.PushFilterLayer(paint, layerContentBounds) : default)
+                        DrawValues(linearInputs, canvas);
                 }
 
                 succeeded = true;
@@ -453,8 +440,9 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                if (!replayStarted)
-                    CompleteFragmentUse(input);
+                foreach (MaterializedRenderValue value in temporaryInputs)
+                    ReleaseUnpublished(value);
+                CompleteFragmentUse(input);
                 if (!succeeded && output is not null)
                     ReleaseUnpublished(output);
             }
@@ -512,7 +500,8 @@ internal sealed partial class RenderRequestExecutor
                 completeBounds,
                 physicalDeviceBounds: normalizedDeviceBounds,
                 deviceGridOffset: target.DeviceGridOffset,
-                allowPreviewDrop: true);
+                allowPreviewDrop: true,
+                pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
             bool succeeded = false;
             try
             {

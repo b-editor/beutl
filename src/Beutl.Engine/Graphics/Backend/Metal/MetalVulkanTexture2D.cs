@@ -58,7 +58,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         return ptr;
     }
 
-    public override SKSurface CreateSkiaSurface()
+    public override SKSurface CreateSkiaSurface(SKColorSpace colorSpace)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -78,7 +78,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             GRSurfaceOrigin.TopLeft,
             1,
             _format.ToSkiaColorType(),
-            SKColorSpace.CreateSrgbLinear());
+            colorSpace);
         return surface;
     }
 

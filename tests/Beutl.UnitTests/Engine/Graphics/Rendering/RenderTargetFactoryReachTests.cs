@@ -243,7 +243,7 @@ public sealed class RenderTargetFactoryReachTests
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             Requests.Add(allocation.DeviceSize);
-            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
         }
     }
 }

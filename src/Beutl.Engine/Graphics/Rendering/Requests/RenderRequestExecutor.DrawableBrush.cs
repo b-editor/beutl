@@ -73,7 +73,7 @@ internal sealed partial class RenderRequestExecutor
                 }
 
                 var cacheContext = new RenderCacheResolutionContext(
-                    RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
+                    RenderCacheFormatIdentity.SrgbCompositionWithLinearEffects,
                     _targets.CacheDeviceContextIdentity,
                     allowPersistentLookup: false,
                     allowCapturePublication: false);

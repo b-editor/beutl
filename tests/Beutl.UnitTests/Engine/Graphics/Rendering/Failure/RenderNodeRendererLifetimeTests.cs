@@ -232,7 +232,7 @@ public sealed class RenderNodeRendererLifetimeTests
             PixelSize deviceSize = allocation.DeviceSize;
             var target = new TrackingRenderTarget(
                 deviceSize,
-                disposeFailureAt?.Invoke(Targets.Count));
+                disposeFailureAt?.Invoke(Targets.Count), allocation.PixelFormat);
             Targets.Add(target);
             return target;
         }
@@ -245,11 +245,11 @@ public sealed class RenderNodeRendererLifetimeTests
 
     private sealed class TrackingRenderTarget : RenderTarget
     {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
         private readonly Exception? _disposeFailure;
 
-        public TrackingRenderTarget(PixelSize size, Exception? disposeFailure = null)
-            : base(CreateSurface(size), size.Width, size.Height)
+        public TrackingRenderTarget(PixelSize size, Exception? disposeFailure = null,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+            : base(CreateSurface(size, pixelFormat), size.Width, size.Height)
         {
             _disposeFailure = disposeFailure;
         }
@@ -267,13 +267,13 @@ public sealed class RenderNodeRendererLifetimeTests
                 throw _disposeFailure!;
         }
 
-        private static SKSurface CreateSurface(PixelSize size)
+        private static SKSurface CreateSurface(PixelSize size, RenderTargetPixelFormat pixelFormat)
             => SKSurface.Create(new SKImageInfo(
                    size.Width,
                    size.Height,
                    SKColorType.RgbaF16,
                    SKAlphaType.Premul,
-                   s_colorSpace))
+                   pixelFormat.GetColorSpace().SKColorSpace))
                ?? throw new InvalidOperationException("Could not create the lifetime-test render target.");
     }
 }

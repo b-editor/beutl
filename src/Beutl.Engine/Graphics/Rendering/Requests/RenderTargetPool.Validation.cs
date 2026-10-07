@@ -32,7 +32,8 @@ internal sealed partial class RenderTargetPool
     private SKSurface ValidateFactoryTarget(
         RenderTarget target,
         PixelSize size,
-        RenderTargetLeaseSession request)
+        RenderTargetLeaseSession request,
+        RenderTargetPixelFormat pixelFormat)
     {
         if (ReferenceEquals(target, request.ExternalTarget))
         {
@@ -45,7 +46,7 @@ internal sealed partial class RenderTargetPool
                 "The render-target factory returned a target instance already owned by this pool.");
         }
 
-        SKSurface surface = ValidateNewSurface(target, size);
+        SKSurface surface = ValidateNewSurface(target, size, pixelFormat);
         if (ReferenceEquals(surface, request.ExternalSurface) || _knownSurfaces.Contains(surface))
         {
             throw new InvalidOperationException(
@@ -71,17 +72,17 @@ internal sealed partial class RenderTargetPool
         ValidateContext(surface, request);
     }
 
-    private static SKSurface ValidateNewSurface(RenderTarget target, PixelSize size)
+    private static SKSurface ValidateNewSurface(RenderTarget target, PixelSize size, RenderTargetPixelFormat pixelFormat)
     {
         SKSurface surface = ValidateSurfaceIdentityAndViewport(target, size);
         // Snapshot is a GPU read, not a metadata query: on Vulkan it changes Skia's private image
         // layout before a native pass writes the target. Trust the engine's recorded creation format;
         // retain inspection for caller-supplied surfaces whose format is not known.
-        if (target.KnownPixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float)
+        if (target.KnownPixelFormat == pixelFormat)
             return surface;
 
         using SKImage? image = surface.Snapshot();
-        using SKColorSpace expectedColorSpace = SKColorSpace.CreateSrgbLinear();
+        SKColorSpace expectedColorSpace = pixelFormat.GetColorSpace().SKColorSpace;
         using SKColorSpace? actualColorSpace = image?.ColorSpace;
         if (image is null
             || image.Width != size.Width
@@ -92,7 +93,7 @@ internal sealed partial class RenderTargetPool
             || !SKColorSpace.Equal(actualColorSpace, expectedColorSpace))
         {
             throw new InvalidOperationException(
-                "Pooled render targets must be linear-premultiplied RGBA16F surfaces.");
+                $"Pooled render targets must use premultiplied RGBA16F in {pixelFormat.GetColorSpace()}.");
         }
 
         return surface;

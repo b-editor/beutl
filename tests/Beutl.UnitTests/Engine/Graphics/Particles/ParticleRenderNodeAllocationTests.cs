@@ -310,20 +310,21 @@ public sealed class ParticleRenderNodeAllocationTests
             PixelSize size = allocation.DeviceSize;
             Requests.Add(size);
             return size.Width <= MaximumDimension && size.Height <= MaximumDimension
-                ? new CpuRenderTarget(size.Width, size.Height)
+                ? new CpuRenderTarget(size.Width, size.Height, allocation.PixelFormat)
                 : null;
         }
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height);
+    private sealed class CpuRenderTarget(int width, int height,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+        : RenderTarget(CreateSurface(width, height, pixelFormat), width, height);
 
-    private static SKSurface CreateSurface(int width, int height)
+    private static SKSurface CreateSurface(int width, int height, RenderTargetPixelFormat pixelFormat)
         => SKSurface.Create(new SKImageInfo(
                width,
                height,
                SKColorType.RgbaF16,
                SKAlphaType.Premul,
-               SKColorSpace.CreateSrgbLinear()))
+               pixelFormat.GetColorSpace().SKColorSpace))
            ?? throw new InvalidOperationException("Could not create a CPU render target.");
 }

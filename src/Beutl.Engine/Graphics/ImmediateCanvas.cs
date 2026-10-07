@@ -326,6 +326,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
+    internal BitmapColorSpace WorkingColorSpace => _renderTargetValue.ColorSpace;
+
     public void Clear()
     {
         VerifyPixelOperation(isClear: true);

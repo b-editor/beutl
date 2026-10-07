@@ -6,7 +6,7 @@ using Beutl.Media;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 /// <summary>
-/// Reads and writes immutable, row-packed, linear-premultiplied RGBA16F golden images.
+/// Reads and writes immutable, row-packed, sRGB-premultiplied RGBA16F golden images.
 /// </summary>
 /// <remarks>
 /// The artifact is the raw payload required by the evidence contract: row-major RGBA half-float bit patterns
@@ -61,7 +61,7 @@ internal static class Rgba16fGoldenStore
     }
 
     /// <summary>
-    /// Reads a raw golden artifact into an owned linear-premultiplied RGBA16F bitmap.
+    /// Reads a raw golden artifact into an owned sRGB-premultiplied RGBA16F bitmap.
     /// </summary>
     public static Bitmap Read(string path, int width, int height)
     {
@@ -101,7 +101,7 @@ internal static class Rgba16fGoldenStore
             height,
             BitmapColorType.RgbaF16,
             BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+            BitmapColorSpace.Srgb);
 
         try
         {
@@ -180,10 +180,10 @@ internal static class Rgba16fGoldenStore
 
         if (bitmap.ColorType != BitmapColorType.RgbaF16
             || bitmap.AlphaType != BitmapAlphaType.Premul
-            || bitmap.ColorSpace != BitmapColorSpace.LinearSrgb)
+            || bitmap.ColorSpace != BitmapColorSpace.Srgb)
         {
             throw new ArgumentException(
-                "Golden images must use linear-sRGB, premultiplied RgbaF16 pixels.",
+                "Golden images must use sRGB, premultiplied RgbaF16 pixels.",
                 parameterName);
         }
     }

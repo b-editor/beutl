@@ -17,6 +17,7 @@ public sealed partial class FilterEffectExecutor
 
     public void Flush(bool force = true)
     {
+        EnsureLinearTargets();
         bool hasFilter = Builder.HasFilter();
         if (!force && !hasFilter)
         {

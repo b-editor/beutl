@@ -201,7 +201,7 @@ public sealed class OpaqueSourceCoverageTests
         PixelRect expectedExtent = GetNonBlackExtent(expected);
         int fractionalReferencePixels = CountFractionalAlphaPixels(expected);
         TestContext.WriteLine(
-            $"{scenario}: extent={GetNonBlackExtent(actual)}, max={maximum.Maximum:F6}, edge-max={edgeMaximum.Maximum:F6}");
+            $"{scenario}: extent={GetNonBlackExtent(actual)}, max={maximum}, edge-max={edgeMaximum}");
 
         Assert.Multiple(() =>
         {

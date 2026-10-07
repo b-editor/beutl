@@ -194,7 +194,8 @@ public class DelayAnimationNestedBrushTimeTests
     {
         int x0 = (quadrant & 1) == 0 ? 0 : bitmap.Width / 2;
         int y0 = quadrant < 2 ? 0 : bitmap.Height / 2;
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        using Bitmap linear = bitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        ReadOnlySpan<ushort> pixels = linear.GetPixelSpan<ushort>();
         var samples = new List<(double R, double G, double B)>();
         for (int y = y0; y < y0 + (bitmap.Height / 2); y++)
         {

@@ -60,14 +60,17 @@ internal sealed partial class RenderRequestExecutor
                         requiredRegion,
                         outputScale,
                         outputBounds,
-                        allowPreviewDrop: true);
+                        allowPreviewDrop: true,
+                        pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
                     bool keepOutput = false;
+                    MaterializedRenderValue geometryInput = input;
                     try
                     {
+                        geometryInput = ConvertColorSpace(input, RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
                         Rect? finalBounds = ExecuteGeometryElement(
                             fragment,
                             description,
-                            input,
+                            geometryInput,
                             output,
                             outputBounds,
                             requiredRegion);
@@ -89,6 +92,8 @@ internal sealed partial class RenderRequestExecutor
                     }
                     finally
                     {
+                        if (!ReferenceEquals(geometryInput, input))
+                            ReleaseUnpublished(geometryInput);
                         if (!keepOutput)
                             ReleaseUnpublished(output);
                     }
@@ -182,7 +187,10 @@ internal sealed partial class RenderRequestExecutor
                 source.EffectiveScale,
                 source.CompleteBounds,
                 deviceGridOffset: source.DeviceGridOffset,
-                allowPreviewDrop: allowPreviewDrop);
+                allowPreviewDrop: allowPreviewDrop,
+                pixelFormat: source.Target.ColorSpace == BitmapColorSpace.LinearSrgb
+                    ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                    : RenderTargetPixelFormat.SrgbPremultipliedRgba16Float);
             bool succeeded = false;
             try
             {

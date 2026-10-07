@@ -635,7 +635,7 @@ internal sealed class FailureTestTargetFactory(
         if (index == failAt)
             return null;
 
-        var target = new FailureTestRenderTarget(deviceSize, disposeFailure?.Invoke(index));
+        var target = new FailureTestRenderTarget(deviceSize, disposeFailure?.Invoke(index), allocation.PixelFormat);
         Targets.Add(target);
         return target;
     }
@@ -645,14 +645,15 @@ internal sealed class FailureTestRenderTarget : RenderTarget
 {
     private readonly Exception? _disposeFailure;
 
-    public FailureTestRenderTarget(PixelSize size, Exception? disposeFailure = null)
+    public FailureTestRenderTarget(PixelSize size, Exception? disposeFailure = null,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : base(
             SKSurface.Create(new SKImageInfo(
                 size.Width,
                 size.Height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             size.Width,
             size.Height)
     {

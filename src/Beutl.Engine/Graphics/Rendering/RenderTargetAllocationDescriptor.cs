@@ -9,19 +9,20 @@ public readonly record struct RenderTargetAllocationDescriptor
     internal RenderTargetAllocationDescriptor(
         PixelSize deviceSize,
         GRRecordingContext? graphicsContext,
-        nint? graphicsContextHandle)
+        nint? graphicsContextHandle,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
         DeviceSize = deviceSize;
         GraphicsContext = graphicsContext;
         GraphicsContextHandle = graphicsContextHandle;
+        PixelFormat = pixelFormat;
     }
 
     /// <summary>Gets the exact positive device-pixel size.</summary>
     public PixelSize DeviceSize { get; }
 
     /// <summary>Gets the required pixel format.</summary>
-    public RenderTargetPixelFormat PixelFormat =>
-        RenderTargetPixelFormat.LinearPremultipliedRgba16Float;
+    public RenderTargetPixelFormat PixelFormat { get; }
 
     /// <summary>
     /// Gets the borrowed Skia context for a context-bound GPU request, or <see langword="null"/> for a

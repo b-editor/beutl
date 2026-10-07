@@ -288,7 +288,8 @@ public sealed partial class FilterEffectContext : IDisposable
         T data,
         Func<T, SKImageFilter?, SKImageFilter?> factory,
         Func<T, Rect, Rect> transformBounds,
-        Func<T, Rect, Rect>? transformSamplingBounds = null)
+        Func<T, Rect, Rect>? transformSamplingBounds = null,
+        Func<T, SKImageFilter?, SKImageFilter?>? linearNumericFactory = null)
         where T : IEquatable<T>
     {
         AppendDescription(new FEItem_Skia<T>(
@@ -301,6 +302,7 @@ public sealed partial class FilterEffectContext : IDisposable
             (value, bounds) => bounds.IsEmpty ? bounds : transformBounds(value, bounds))
         {
             DirectFactory = factory,
+            LinearNumericFactory = linearNumericFactory,
             TransformSamplingBounds = transformSamplingBounds,
         });
     }

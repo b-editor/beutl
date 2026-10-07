@@ -70,7 +70,7 @@ public sealed class RenderTargetSharedSurfaceTests
     {
         public override bool HasTransparentContents => false;
 
-        public override SKSurface CreateSkiaSurface() => null!;
+        public override SKSurface CreateSkiaSurface(SKColorSpace colorSpace) => null!;
 
         public override void ClearToTransparent()
             => throw new InvalidOperationException("A declined wrap must not reach the clear.");
@@ -107,7 +107,7 @@ public sealed class RenderTargetSharedSurfaceTests
 
         public byte[] DownloadPixels() => throw new NotSupportedException();
 
-        public abstract SKSurface CreateSkiaSurface();
+        public abstract SKSurface CreateSkiaSurface(SKColorSpace colorSpace);
 
         public void PrepareForRender() => throw new NotSupportedException();
 
@@ -131,7 +131,7 @@ public sealed class RenderTargetSharedSurfaceTests
     {
         public override bool HasTransparentContents => false;
 
-        public override SKSurface CreateSkiaSurface()
+        public override SKSurface CreateSkiaSurface(SKColorSpace colorSpace)
             => failOnSurfaceCreation
                 ? throw new InvalidOperationException("surface creation failed")
                 : CreateRasterSurface();
@@ -146,7 +146,7 @@ public sealed class RenderTargetSharedSurfaceTests
 
         public int ClearCount { get; private set; }
 
-        public override SKSurface CreateSkiaSurface() => CreateRasterSurface();
+        public override SKSurface CreateSkiaSurface(SKColorSpace colorSpace) => CreateRasterSurface();
 
         public override void ClearToTransparent() => ClearCount++;
     }

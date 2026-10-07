@@ -375,9 +375,9 @@ public sealed class FilterEffectCompatibilityContractTests
 
         Assert.That(
             maximumChannelError,
-            Is.LessThanOrEqualTo(0.0025f),
-            "Identity Skia filters may round RGBA16F channels while crossing effectItem custom-effect buffers, "
-            + "but must remain within a strict sub-visual-error bound.");
+            Is.LessThanOrEqualTo(3f / 1024),
+            "Identity Skia filters and the sRGB/linear boundary may round RGBA16F RGB channels, "
+            + "but must remain below one 8-bit code of error.");
         Assert.That(maximumAlphaError, Is.Zero,
             "Identity effectItem operations must preserve premultiplied alpha exactly.");
     }
@@ -616,26 +616,27 @@ public sealed class FilterEffectCompatibilityContractTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation) =>
-            new CpuRenderTarget(allocation.DeviceSize);
+            new CpuRenderTarget(allocation.DeviceSize, allocation.PixelFormat);
     }
 
     private sealed class CpuRenderTarget : RenderTarget
     {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
-        public CpuRenderTarget(PixelSize size)
-            : base(CreateSurface(size), size.Width, size.Height)
+        public CpuRenderTarget(PixelSize size,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+            : base(CreateSurface(size, pixelFormat), size.Width, size.Height)
         {
         }
 
-        private static SKSurface CreateSurface(PixelSize size)
+        private static SKSurface CreateSurface(PixelSize size, RenderTargetPixelFormat pixelFormat)
         {
             return SKSurface.Create(new SKImageInfo(
                        size.Width,
                        size.Height,
                        SKColorType.RgbaF16,
                        SKAlphaType.Premul,
-                       s_colorSpace))
+                       (pixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                       ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb())))
                    ?? throw new InvalidOperationException("Could not create a CPU contract-test surface.");
         }
     }

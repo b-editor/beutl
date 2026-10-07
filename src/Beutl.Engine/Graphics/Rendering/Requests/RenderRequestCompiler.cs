@@ -224,7 +224,7 @@ internal sealed class RenderRequestCompiler
         request.TransitionTo(RenderRequestState.RegionsResolved);
         RenderCacheResolutionContext cacheContext = _renderCacheContext
             ?? new RenderCacheResolutionContext(
-                RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
+                RenderCacheFormatIdentity.SrgbCompositionWithLinearEffects,
                 new RenderCacheDeviceContextIdentity(request, request),
                 allowPersistentLookup: false,
                 allowCapturePublication: false);

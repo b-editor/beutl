@@ -138,8 +138,9 @@ public sealed class GpuPassFusion3DBoundaryTests
 
     private static Vector4 ReadLinearPixel(Bitmap bitmap, int x, int y)
     {
+        using Bitmap linear = bitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
         int offset = ((y * bitmap.Width) + x) * 4;
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        ReadOnlySpan<ushort> pixels = linear.GetPixelSpan<ushort>();
         return new Vector4(
             (float)BitConverter.UInt16BitsToHalf(pixels[offset]),
             (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]),

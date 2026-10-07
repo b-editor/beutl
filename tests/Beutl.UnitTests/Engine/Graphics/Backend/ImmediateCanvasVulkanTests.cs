@@ -83,7 +83,7 @@ public class ImmediateCanvasVulkanTests
     {
         // RgbaF16 は 4ch×2byte のハーフフロート。SnapshotはLinearSrgb。
         Assert.That(snapshot.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-        Assert.That(snapshot.ColorSpace, Is.EqualTo(BitmapColorSpace.LinearSrgb));
+        Assert.That(snapshot.ColorSpace, Is.EqualTo(BitmapColorSpace.Srgb));
 
         var span = snapshot.GetPixelSpan();
         for (int i = 0; i < span.Length; i += 8)

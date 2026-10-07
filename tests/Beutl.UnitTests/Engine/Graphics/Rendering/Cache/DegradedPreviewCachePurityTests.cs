@@ -388,7 +388,7 @@ public sealed class DegradedPreviewCachePurityTests
                 return null;
             }
 
-            return new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            return new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
         }
     }
 
@@ -407,18 +407,18 @@ public sealed class DegradedPreviewCachePurityTests
             }
 
             _granted++;
-            return new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            return new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
         }
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
+    private sealed class CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 width,
                 height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             width,
             height);
 }

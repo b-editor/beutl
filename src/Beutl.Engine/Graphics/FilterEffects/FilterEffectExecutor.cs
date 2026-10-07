@@ -300,6 +300,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
 
         foreach (IFEItem item in context._items)
         {
+            EnsureLinearTargets();
             switch (item)
             {
                 case IFEItem_Skia skia:

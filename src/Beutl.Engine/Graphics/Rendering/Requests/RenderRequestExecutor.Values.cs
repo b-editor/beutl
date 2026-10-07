@@ -105,7 +105,8 @@ internal sealed partial class RenderRequestExecutor
             Vector? deviceGridOffset = null,
             bool physicalDeviceBoundsAreAligned = false,
             bool allowPreviewDrop = false,
-            bool initializeTarget = true)
+            bool initializeTarget = true,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         {
             if (scale.IsUnbounded)
                 throw new InvalidOperationException("An allocated render value requires a concrete density.");
@@ -150,8 +151,8 @@ internal sealed partial class RenderRequestExecutor
             // ever attach the buffer - so the render intent decides it instead: the session drops the
             // contribution under Preview and still fails naming the limit under Delivery.
             RenderTargetLease? lease = allowPreviewDrop || _targets.ExceedsBufferBudget(deviceBounds.Size)
-                ? _targets.TryAcquire(deviceBounds.Size)
-                : _targets.Acquire(deviceBounds.Size);
+                ? _targets.TryAcquire(deviceBounds.Size, pixelFormat: pixelFormat)
+                : _targets.Acquire(deviceBounds.Size, pixelFormat);
             if (lease is null)
                 throw new PreviewAllocationDropException();
             _intermediateTargetAcquisitions++;

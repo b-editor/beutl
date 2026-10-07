@@ -498,21 +498,22 @@ public sealed class ShaderAuthoringContractTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
+            => new CpuRenderTarget(allocation.DeviceSize, allocation.PixelFormat);
     }
 
     private sealed class CpuRenderTarget : RenderTarget
     {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
 
-        public CpuRenderTarget(PixelSize size)
+        public CpuRenderTarget(PixelSize size,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
             : base(
                 SKSurface.Create(new SKImageInfo(
                     size.Width,
                     size.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    s_colorSpace))
+                    (pixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                       ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb())))
                 ?? throw new InvalidOperationException("Could not create a CPU shader contract-test surface."),
                 size.Width,
                 size.Height)

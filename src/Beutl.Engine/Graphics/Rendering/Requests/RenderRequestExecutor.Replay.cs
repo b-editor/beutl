@@ -107,7 +107,7 @@ internal sealed partial class RenderRequestExecutor
         {
             // The Vulkan-native path consumes and produces pooled RGBA16F textures. Keep it behind the ordinary
             // materialization boundary instead of recording GPU work directly into a Skia replay destination.
-            if (ShouldDeferDirectReplayToSpirv(run))
+            if (destination.WorkingColorSpace != BitmapColorSpace.LinearSrgb || ShouldDeferDirectReplayToSpirv(run))
                 return false;
 
             RenderFragmentReference output = run.GetOutput(_graph);
@@ -174,6 +174,10 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas destination,
             EffectiveScale callerScale)
         {
+            if (destination.WorkingColorSpace != BitmapColorSpace.Srgb
+                && destination.WorkingColorSpace != BitmapColorSpace.LinearSrgb)
+                return false;
+
             var chain = new List<(
                 RenderFragmentReference Fragment,
                 FilterEffectSegmentRenderFragmentPayload Payload)>();
@@ -227,11 +231,18 @@ internal sealed partial class RenderRequestExecutor
             }
 
             using var builder = new SKImageFilterBuilder();
+            // Keep the native CTM and clip for vector filters. Only their RGB arithmetic crosses
+            // the transfer function; coverage is resolved by the sRGB layer after encoding.
+            bool linearNumericSpace = !destination.WorkingColorSpace.GammaIsLinear;
+            if (linearNumericSpace)
+                AppendGammaFilter(builder, toLinear: true);
             for (int segmentIndex = chain.Count - 1; segmentIndex >= 0; segmentIndex--)
             {
                 foreach (IFEItem item in chain[segmentIndex].Payload.BoundsItems)
-                    ((IFEItem_Skia)item).AcceptsDirect(builder);
+                    ((IFEItem_Skia)item).AcceptsDirect(builder, linearNumericSpace);
             }
+            if (linearNumericSpace)
+                AppendGammaFilter(builder, toLinear: false);
 
             using var paint = builder.HasFilter()
                 ? new SKPaint { ImageFilter = builder.GetFilter() }
@@ -287,6 +298,15 @@ internal sealed partial class RenderRequestExecutor
                     DrawValues(materializedInput, destination);
                 CompleteFragmentUse(input);
             }
+        }
+
+        private static void AppendGammaFilter(SKImageFilterBuilder builder, bool toLinear)
+        {
+            builder.AppendSkiaFilter(toLinear, static (decode, input) =>
+            {
+                using var gamma = decode ? SKColorFilter.CreateSrgbToLinearGamma() : SKColorFilter.CreateLinearToSrgbGamma();
+                return SKImageFilter.CreateColorFilter(gamma, input);
+            });
         }
 
         private bool TryGetDirectSkiaFilterSegment(

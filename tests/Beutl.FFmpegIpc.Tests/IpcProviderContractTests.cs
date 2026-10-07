@@ -141,7 +141,8 @@ public class IpcProviderContractTests
     // provider's frame-validation guards with specific Width/Height/DataLength values.
     private static Task RunMalformedFrameHost(
         NamedPipeServerStream server, int width, int height, int dataLength, CancellationToken ct,
-        int bytesPerPixel = RgbaF16BytesPerPixel, int colorType = -1)
+        int bytesPerPixel = RgbaF16BytesPerPixel, int colorType = -1,
+        float[]? transferFn = null, float[]? toXyzD50 = null)
     {
         return Task.Run(async () =>
         {
@@ -159,10 +160,96 @@ public class IpcProviderContractTests
                     DataLength = dataLength,
                     Premul = false,
                     ColorType = colorType,
+                    TransferFn = transferFn,
+                    ToXyzD50 = toXyzD50,
                 });
                 await MessageSerializer.WriteMessageAsync(server, resp, ct);
             }
         }, ct);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task RenderFrame_ExplicitColorSpaceOverridesFloatFormatInference(bool linear)
+    {
+        BitmapColorSpace colorSpace = linear ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb;
+        BitmapColorSpaceTransferFn transfer = colorSpace.GetNumericalTransferFunction();
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(server, 1, 1, 8, hostCts.Token,
+            colorType: (int)BitmapColorType.RgbaF16,
+            transferFn: [transfer.G, transfer.A, transfer.B, transfer.C, transfer.D, transfer.E, transfer.F],
+            toXyzD50: colorSpace.ToColorSpaceXyz().Values.ToArray());
+        using var connection = new IpcConnection(client);
+        using var provider = new IpcFrameProvider(connection, buffers, 1, new Rational(30, 1), 1, 1);
+        try
+        {
+            using Bitmap bitmap = await provider.RenderFrame(0);
+            Assert.That(bitmap.ColorSpace, Is.EqualTo(colorSpace));
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_IncompleteColorSpaceMetadataIsRejected()
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(server, 1, 1, 8, hostCts.Token,
+            colorType: (int)BitmapColorType.RgbaF16, transferFn: [1, 1, 0, 0, 0, 0, 0]);
+        using var connection = new IpcConnection(client);
+        using var provider = new IpcFrameProvider(connection, buffers, 1, new Rational(30, 1), 1, 1);
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contains("color-space metadata"));
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_SrgbF16PixelsReachTheEncoderWithoutAnotherGammaTransform()
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        Half[] channels = [(Half)0.2f, (Half)0.2f, (Half)0.2f, (Half)1f];
+        buffers[0].Write(MemoryMarshal.AsBytes(channels.AsSpan()));
+        BitmapColorSpaceTransferFn transfer = BitmapColorSpace.Srgb.GetNumericalTransferFunction();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(server, 1, 1, 8, hostCts.Token,
+            colorType: (int)BitmapColorType.RgbaF16,
+            transferFn: [transfer.G, transfer.A, transfer.B, transfer.C, transfer.D, transfer.E, transfer.F],
+            toXyzD50: BitmapColorSpace.Srgb.ToColorSpaceXyz().Values.ToArray());
+        using var connection = new IpcConnection(client);
+        using var provider = new IpcFrameProvider(connection, buffers, 1, new Rational(30, 1), 1, 1);
+        try
+        {
+            using Bitmap frame = await provider.RenderFrame(0);
+            using Bitmap encoded = frame.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            byte[] pixel = new byte[4];
+            Marshal.Copy(encoded.Data, pixel, 0, 4);
+            // The 1x1 conversion lands on a dither phase; it may choose a neighboring 8-bit level.
+            Assert.Multiple(() =>
+            {
+                Assert.That(pixel.Take(3), Has.All.InRange(50, 52));
+                Assert.That(pixel[3], Is.EqualTo(255));
+            });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
     }
 
     // Fake host that serves frame 0 with a mismatched DataLength (failing the destination-size guard)

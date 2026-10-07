@@ -202,14 +202,14 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         SharingMode = (uint)SharingMode.Exclusive
     };
 
-    public virtual SKSurface CreateSkiaSurface()
+    public virtual SKSurface CreateSkiaSurface(SKColorSpace colorSpace)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // On macOS, use raster surface (Metal interop handles rendering separately)
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
+            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul, colorSpace);
             MarkSkiaAccess();
             return SKSurface.Create(info);
         }
@@ -220,7 +220,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
         var grContext = _context.SkiaContext;
         var surface = SKSurface.Create(grContext, _skiaBackendRenderTarget, GRSurfaceOrigin.TopLeft,
-            _format.ToSkiaColorType(), SKColorSpace.CreateSrgbLinear());
+            _format.ToSkiaColorType(), colorSpace);
 
         if (surface == null)
         {

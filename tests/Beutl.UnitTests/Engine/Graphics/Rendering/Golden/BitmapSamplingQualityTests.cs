@@ -55,8 +55,8 @@ public sealed class BitmapSamplingQualityTests
             using Bitmap rendered = GoldenImageHarness.RenderAtScale(source, new PixelSize(64, 64), 0.5f);
 
             float[] observed = ReadInteriorRedValues(rendered);
-            float low = Color.FromRgb(96, 96, 96).ToLinear().X;
-            float high = Color.FromRgb(176, 176, 176).ToLinear().X;
+            float low = 96f / 255f;
+            float high = 176f / 255f;
             TestContext.WriteLine($"Exact mid-tone reduction values: {string.Join(", ", observed)}");
             Assert.Multiple(() =>
             {
@@ -79,7 +79,8 @@ public sealed class BitmapSamplingQualityTests
                 static (x, y) => ((x + y) & 1) == 0 ? byte.MinValue : byte.MaxValue);
             using Bitmap rendered = GoldenImageHarness.RenderAtScale(source, new PixelSize(64, 64), 0.75f);
 
-            float[] observed = ReadInteriorRedValues(rendered);
+            using Bitmap linear = rendered.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+            float[] observed = ReadInteriorRedValues(linear);
             float spread = observed[^1] - observed[0];
             TestContext.WriteLine($"0.75x checker values: {string.Join(", ", observed)}; spread={spread:R}");
             Assert.That(spread, Is.LessThanOrEqualTo(0.26f),

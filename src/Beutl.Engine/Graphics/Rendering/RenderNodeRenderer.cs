@@ -668,7 +668,7 @@ public sealed class RenderNodeRenderer : IDisposable
             bool allowCapturePublication = allowPersistentLookup
                                            && purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup;
             var cacheContext = new RenderCacheResolutionContext(
-                RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
+                RenderCacheFormatIdentity.SrgbCompositionWithLinearEffects,
                 targets.CacheDeviceContextIdentity,
                 allowPersistentLookup,
                 allowCapturePublication,

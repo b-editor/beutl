@@ -161,12 +161,34 @@ public class BitmapView : Avalonia.Controls.Control
 
     /// <summary>
     /// Builds a paint for drawing a preview frame onto the screen surface. Dithering is mandatory:
-    /// the surface is 8-bit while frames are linear RgbaF16, and this path never passes through
+    /// the surface is 8-bit while frames are RgbaF16, and this path never passes through
     /// <see cref="BtlBitmap.Convert"/>, so without it gradients band on screen.
     /// </summary>
     internal static SKPaint CreatePreviewPaint(SKColorFilter? colorFilter)
     {
         return new SKPaint { ColorFilter = colorFilter, IsDither = true };
+    }
+
+    internal static SKShader? CreateToneMappingShader(
+        SKImage image,
+        SKSamplingOptions sampling,
+        SKMatrix localMatrix,
+        float exposure,
+        UIToneMappingOperator toneMapping)
+    {
+        SKRuntimeEffect? effect = BitmapDrawOperation.ToneMappingEffect;
+        if (effect is null)
+            return null;
+
+        // Sample the stored values without an implicit destination-space transform; the shader
+        // decodes sRGB explicitly before exposure and tone mapping, preserving extended F16 values.
+        using var imageShader = image.ToRawShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, sampling, localMatrix);
+        var builder = new SKRuntimeShaderBuilder(effect);
+        builder.Children["src"] = imageShader;
+        builder.Uniforms["exposure"] = exposure;
+        builder.Uniforms["tmOperator"] = (int)toneMapping;
+        builder.Uniforms["sourceIsLinear"] = image.ColorSpace?.GammaIsLinear == true ? 1 : 0;
+        return builder.Build();
     }
 
     private sealed class BitmapDrawOperation(
@@ -184,7 +206,7 @@ public class BitmapView : Avalonia.Controls.Control
 
         private static readonly SKPaint s_gammaPaint = CreatePreviewPaint(null);
 
-        private static readonly SKRuntimeEffect? s_toneMappingEffect;
+        internal static readonly SKRuntimeEffect? ToneMappingEffect;
 
         static BitmapDrawOperation()
         {
@@ -192,6 +214,13 @@ public class BitmapView : Avalonia.Controls.Control
                 uniform shader src;
                 uniform float exposure;
                 uniform int tmOperator;
+                uniform int sourceIsLinear;
+
+                float3 srgbToLinear(float3 c) {
+                    float3 lo = c / 12.92;
+                    float3 hi = pow(max((c + 0.055) / 1.055, float3(0.0)), float3(2.4));
+                    return mix(lo, hi, step(float3(0.04045), c));
+                }
 
                 float3 linearToSrgb(float3 c) {
                     float3 lo = c * 12.92;
@@ -233,6 +262,7 @@ public class BitmapView : Avalonia.Controls.Control
                     if (alpha <= 0.0001) return half4(0.0);
 
                     float3 rgb = c.rgb / alpha;
+                    if (sourceIsLinear == 0) rgb = srgbToLinear(rgb);
                     rgb *= exp2(exposure);
 
                     if (tmOperator == 1) {
@@ -250,7 +280,7 @@ public class BitmapView : Avalonia.Controls.Control
                 }
                 """;
 
-            s_toneMappingEffect = SKRuntimeEffect.CreateShader(sksl, out _);
+            ToneMappingEffect = SKRuntimeEffect.CreateShader(sksl, out _);
         }
 
         public Rect Bounds { get; } = bounds;
@@ -291,7 +321,7 @@ public class BitmapView : Avalonia.Controls.Control
             };
 
             bool isLinear = image.ColorSpace?.GammaIsLinear == true;
-            bool needsToneMapping = isLinear && tmOperator != UIToneMappingOperator.None && s_toneMappingEffect != null;
+            bool needsToneMapping = tmOperator != UIToneMappingOperator.None && ToneMappingEffect != null;
 
             if (needsToneMapping)
             {
@@ -302,15 +332,7 @@ public class BitmapView : Avalonia.Controls.Control
                 float transY = sourceRect.Top - destRect.Top * scaleY;
                 var localMatrix = SKMatrix.CreateScaleTranslation(1 / scaleX, 1 / scaleY, transX, transY);
 
-                using var imageShader = image.ToShader(
-                    SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
-                    sampling, localMatrix);
-                var builder = new SKRuntimeShaderBuilder(s_toneMappingEffect!);
-                builder.Children["src"] = imageShader;
-                builder.Uniforms["exposure"] = tmExposure;
-                builder.Uniforms["tmOperator"] = (int)tmOperator;
-
-                using var finalShader = builder.Build();
+                using var finalShader = CreateToneMappingShader(image, sampling, localMatrix, tmExposure, tmOperator);
                 using var paint = CreatePreviewPaint(null);
                 paint.Shader = finalShader;
                 canvas.DrawRect(destRect, paint);

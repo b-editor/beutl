@@ -400,19 +400,19 @@ public sealed class SKSLScriptEffectShaderTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
+    private sealed class CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
+        : RenderTarget(CreateSurface(width, height, pixelFormat), width, height)
     {
-        private static SKSurface CreateSurface(int width, int height)
+        private static SKSurface CreateSurface(int width, int height, RenderTargetPixelFormat pixelFormat)
             => SKSurface.Create(new SKImageInfo(
                    width,
                    height,
                    SKColorType.RgbaF16,
                    SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
+                   pixelFormat.GetColorSpace().SKColorSpace))
                ?? throw new InvalidOperationException("Failed to create the CPU test surface.");
     }
 }

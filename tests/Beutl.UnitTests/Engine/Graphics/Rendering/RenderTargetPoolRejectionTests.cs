@@ -107,7 +107,7 @@ public sealed class RenderTargetPoolRejectionTests
                size.Height,
                SKColorType.RgbaF16,
                SKAlphaType.Premul,
-               SKColorSpace.CreateSrgbLinear()))
+               SKColorSpace.CreateSrgb()))
            ?? throw new InvalidOperationException("Could not create a CPU render target.");
 
     private sealed class SurfaceSharingFactory : IRenderTargetFactory

@@ -208,7 +208,7 @@ public sealed class DeliveryIntentDeclarationContractTests
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
             => _createCalls++ == 1
                 ? null
-                : RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+                : RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
     }
 
     private static ParameterInfo RequireParameter(Type type, string name)

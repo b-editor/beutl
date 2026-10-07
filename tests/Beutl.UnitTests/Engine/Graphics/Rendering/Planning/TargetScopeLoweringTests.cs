@@ -820,14 +820,14 @@ public sealed class TargetScopeLoweringTests
         }
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
+    private sealed class CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 width,
                 height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             width,
             height);
 }

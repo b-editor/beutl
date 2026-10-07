@@ -567,13 +567,13 @@ public sealed class DrawableGroupIsolationTests
                 Assert.That(center.Alpha, Is.EqualTo(expectedAlpha).Within(0.003f));
                 Assert.That(
                     center.Red,
-                    Is.EqualTo(Color.SrgbToLinear(sourceColor.R / 255f) * expectedAlpha).Within(0.001f));
+                    Is.EqualTo((sourceColor.R / 255f) * expectedAlpha).Within(0.001f));
                 Assert.That(
                     center.Green,
-                    Is.EqualTo(Color.SrgbToLinear(sourceColor.G / 255f) * expectedAlpha).Within(0.001f));
+                    Is.EqualTo((sourceColor.G / 255f) * expectedAlpha).Within(0.001f));
                 Assert.That(
                     center.Blue,
-                    Is.EqualTo(Color.SrgbToLinear(sourceColor.B / 255f) * expectedAlpha).Within(0.001f));
+                    Is.EqualTo((sourceColor.B / 255f) * expectedAlpha).Within(0.001f));
             });
         });
     }

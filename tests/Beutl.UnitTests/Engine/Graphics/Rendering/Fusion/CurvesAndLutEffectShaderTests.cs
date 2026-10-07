@@ -509,16 +509,17 @@ public sealed class CurvesAndLutEffectShaderTests
             => CreateCore(deviceSize);
 
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => CreateCore(allocation.DeviceSize);
+            => CreateCore(allocation.DeviceSize, allocation.PixelFormat);
 
-        private static RenderTarget CreateCore(PixelSize deviceSize)
+        private static RenderTarget CreateCore(PixelSize deviceSize,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         {
             SKSurface surface = SKSurface.Create(new SKImageInfo(
                     deviceSize.Width,
                     deviceSize.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
+                    pixelFormat.GetColorSpace().SKColorSpace))
                 ?? throw new InvalidOperationException("Could not create the CPU filter-effect test surface.");
             return new CpuRenderTarget(surface, deviceSize);
         }

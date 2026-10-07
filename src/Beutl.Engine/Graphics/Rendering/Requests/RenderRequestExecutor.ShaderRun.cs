@@ -71,15 +71,18 @@ internal sealed partial class RenderRequestExecutor
                 EffectiveScale.At(density),
                 outputBounds,
                 allowPreviewDrop: true,
-                initializeTarget: !ShouldMaterializeForSpirv(run));
+                initializeTarget: !ShouldMaterializeForSpirv(run),
+                pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
             bool succeeded = false;
             try
             {
-                MaterializedRenderValue shaderInput = wholeSourceHead is null
+                MaterializedRenderValue normalizedInput = wholeSourceHead is null
                     ? input
                     : NormalizeSemanticShaderInput(input);
+                MaterializedRenderValue shaderInput = normalizedInput;
                 try
                 {
+                    shaderInput = LinearShaderInput(normalizedInput);
                     ExecuteCompiledShaderRunElement(
                         run,
                         shaderInput,
@@ -91,6 +94,8 @@ internal sealed partial class RenderRequestExecutor
                 {
                     if (!ReferenceEquals(shaderInput, input))
                         ReleaseUnpublished(shaderInput);
+                    if (!ReferenceEquals(normalizedInput, input) && !ReferenceEquals(normalizedInput, shaderInput))
+                        ReleaseUnpublished(normalizedInput);
                 }
 
                 succeeded = true;

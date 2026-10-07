@@ -7,7 +7,7 @@ namespace Beutl.UnitTests.Engine;
 /// <summary>
 /// Characterizes the dithering <see cref="Bitmap.Convert"/> applies when the destination has less
 /// precision than the source, which is what keeps gradients from banding on the way out of the
-/// linear RgbaF16 render target.
+/// RgbaF16 render target.
 /// </summary>
 [TestFixture]
 public class BitmapConvertDitherTests
@@ -15,11 +15,11 @@ public class BitmapConvertDitherTests
     private const int Width = 1024;
     private const int Height = 8;
 
-    /// <summary>Builds a black-to-white ramp in the render target's format (linear RgbaF16).</summary>
-    private static Bitmap CreateLinearRamp()
+    /// <summary>Builds a black-to-white F16 ramp in either working color space.</summary>
+    private static Bitmap CreateRamp(bool linear)
     {
         var info = new SKImageInfo(Width, Height, SKColorType.RgbaF16, SKAlphaType.Premul,
-            SKColorSpace.CreateSrgbLinear());
+            linear ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb());
         var skBitmap = new SKBitmap(info);
         using (var canvas = new SKCanvas(skBitmap))
         using (var shader = SKShader.CreateLinearGradient(
@@ -69,10 +69,11 @@ public class BitmapConvertDitherTests
         return new Bitmap(destBitmap);
     }
 
-    [Test]
-    public void Convert_LinearF16ToSrgb8_NarrowsBandsVersusUndithered()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Convert_F16ToSrgb8_NarrowsBandsVersusUndithered(bool linear)
     {
-        using Bitmap ramp = CreateLinearRamp();
+        using Bitmap ramp = CreateRamp(linear);
         using Bitmap dithered = ramp.Convert(
             BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
         using Bitmap undithered = ConvertWithoutDither(ramp);
@@ -80,10 +81,11 @@ public class BitmapConvertDitherTests
         Assert.That(WidestFlatBand(dithered), Is.LessThan(WidestFlatBand(undithered)));
     }
 
-    [Test]
-    public void Convert_LinearF16ToSrgb8_RowsDifferFromDitherPattern()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Convert_F16ToSrgb8_RowsDifferFromDitherPattern(bool linear)
     {
-        using Bitmap ramp = CreateLinearRamp();
+        using Bitmap ramp = CreateRamp(linear);
         using Bitmap converted = ramp.Convert(
             BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
 
@@ -174,7 +176,7 @@ public class BitmapConvertDitherTests
     [TestCase(BitmapColorType.Rgba16161616, false)]
     public void Convert_WithoutPrecisionLoss_IsUnaffectedByDither(BitmapColorType colorType, bool linear)
     {
-        using Bitmap ramp = CreateLinearRamp();
+        using Bitmap ramp = CreateRamp(linear);
         using Bitmap converted = ramp.Convert(colorType, BitmapAlphaType.Premul,
             linear ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb);
 

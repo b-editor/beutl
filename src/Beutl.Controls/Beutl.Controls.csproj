@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Beutl.E2ETests" />
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>

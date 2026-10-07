@@ -335,7 +335,8 @@ public class CustomFilterEffectContext
     {
         if (leaseSession is not null)
         {
-            RenderTargetLease? lease = leaseSession.TryAcquire(source.DeviceBounds.Size, clearContents);
+            RenderTargetLease? lease = leaseSession.TryAcquire(source.DeviceBounds.Size, clearContents,
+                RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
             if (lease is null)
                 return null;
 
@@ -352,7 +353,8 @@ public class CustomFilterEffectContext
 
         using RenderTarget? renderTarget = RenderTarget.Create(
             source.DeviceBounds.Width,
-            source.DeviceBounds.Height);
+            source.DeviceBounds.Height,
+            RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
         return renderTarget is null ? null : source.CreateReplacement(renderTarget);
     }
 
@@ -371,7 +373,8 @@ public class CustomFilterEffectContext
         else
         {
             var size = new PixelSize(width, height);
-            RenderTargetLease? renderTargetLease = _renderTargetLeaseSession.TryAcquire(size);
+            RenderTargetLease? renderTargetLease = _renderTargetLeaseSession.TryAcquire(size,
+                pixelFormat: RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
             if (renderTargetLease is null)
             {
                 _renderTargetLeaseSession.MarkContentDropped();

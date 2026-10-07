@@ -34,6 +34,8 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
     public static BitmapColorSpace CreateRgb(BitmapColorSpaceTransferFn transferFn, BitmapColorSpaceXyz toXyzD50)
     {
         var skCs = SKColorSpace.CreateRgb(transferFn.ToSKTransferFn(), toXyzD50.ToSKXyz());
+        if (skCs is null)
+            throw new ArgumentException("The transfer function and gamut do not define a valid RGB color space.");
         return new BitmapColorSpace(skCs);
     }
 

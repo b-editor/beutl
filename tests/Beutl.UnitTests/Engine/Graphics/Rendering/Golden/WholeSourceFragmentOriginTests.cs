@@ -155,7 +155,8 @@ public sealed class WholeSourceFragmentOriginTests
             renderer.Render(canvas);
         }
 
-        return target.Snapshot();
+        using Bitmap snapshot = target.Snapshot();
+        return snapshot.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
     }
 
     // Both renders place identical content, one shifted by a whole number of texels, so the window offset is an

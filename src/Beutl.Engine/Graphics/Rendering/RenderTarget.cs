@@ -14,17 +14,20 @@ public partial class RenderTarget : IDisposable
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
+    private BitmapColorSpace? _colorSpace;
     private bool _hasTransparentContents;
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
         SKSurfaceCounter<ITexture2D>? texture = null,
-        RenderTargetPixelFormat? knownPixelFormat = null)
+        RenderTargetPixelFormat? knownPixelFormat = null,
+        BitmapColorSpace? colorSpace = null)
     {
         _surface = surface;
         Width = width;
         Height = height;
         _texture = texture;
         KnownPixelFormat = knownPixelFormat;
+        _colorSpace = colorSpace;
     }
 
     /// <summary>
@@ -65,6 +68,22 @@ public partial class RenderTarget : IDisposable
     public int Width { get; }
 
     public int Height { get; }
+
+    /// <summary>Gets the color space of this target's pixels.</summary>
+    public BitmapColorSpace ColorSpace
+    {
+        get
+        {
+            VerifyAccess();
+            if (_colorSpace is null)
+            {
+                using SKImage? image = RawValue.Snapshot();
+                _colorSpace = BitmapColorSpace.FromSKColorSpace(image?.ColorSpace);
+            }
+
+            return _colorSpace;
+        }
+    }
 
     private int _disposeState;
     public bool IsDisposed
@@ -157,7 +176,12 @@ public partial class RenderTarget : IDisposable
     /// target to carry on with instead of unwinding.
     /// </exception>
     public static RenderTarget? Create(int width, int height)
+        => Create(width, height, RenderTargetPixelFormat.SrgbPremultipliedRgba16Float);
+
+    /// <summary>Allocates an F16 target in the requested composition or effect color space.</summary>
+    public static RenderTarget? Create(int width, int height, RenderTargetPixelFormat pixelFormat)
     {
+        BitmapColorSpace colorSpace = pixelFormat.GetColorSpace();
         try
         {
             ITexture2D? sharedTexture = null;
@@ -178,12 +202,12 @@ public partial class RenderTarget : IDisposable
                 if (!BufferDimensionBudget.ForDevice(context).Fits(deviceSize))
                     return null;
 
-                surface = CreateSharedSurface(context, width, height, out sharedTexture);
+                surface = CreateSharedSurface(context, width, height, out sharedTexture, pixelFormat);
             }
             else
             {
                 surface = SKSurface.Create(new SKImageInfo(
-                    width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+                    width, height, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace.SKColorSpace));
             }
 
             if (surface == null)
@@ -204,8 +228,9 @@ public partial class RenderTarget : IDisposable
                 height,
                 textureRef,
                 context is null or VulkanContext or CompositeContext
-                    ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-                    : null);
+                    ? pixelFormat
+                    : null,
+                colorSpace);
             try
             {
                 if (!result.HasTransparentContents)
@@ -248,14 +273,15 @@ public partial class RenderTarget : IDisposable
         IGraphicsContext context,
         int width,
         int height,
-        out ITexture2D? texture)
+        out ITexture2D? texture,
+        RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
     {
         ITexture2D createdTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         texture = createdTexture;
         SKSurface? surface = null;
         try
         {
-            surface = createdTexture.CreateSkiaSurface();
+            surface = createdTexture.CreateSkiaSurface(pixelFormat.GetColorSpace().SKColorSpace);
             if (surface is null)
             {
                 // The backend texture is the one resource here that outlives its last managed reference, so
@@ -326,7 +352,7 @@ public partial class RenderTarget : IDisposable
             Height,
             BitmapColorType.Alpha8,
             BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+            ColorSpace);
         return ReadInto(result);
     }
 
@@ -356,18 +382,18 @@ public partial class RenderTarget : IDisposable
 
     /// <summary>
     /// Allocates a bitmap in the exact format <see cref="Snapshot()"/> produces
-    /// (RgbaF16/Premul/LinearSrgb at the render target size). The single source of truth for that
+    /// (RgbaF16/Premul in this target's color space at the render target size). The single source of truth for that
     /// format — callers pre-allocating a destination for <see cref="SnapshotInto(Bitmap)"/> should use
     /// this instead of hardcoding it, so the destination cannot drift out of sync with the surface.
     /// </summary>
     public Bitmap CreateSnapshotBitmap() =>
-        new(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        new(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, ColorSpace);
 
     /// <summary>
     /// Reads the current surface into an existing <paramref name="destination"/> bitmap so
     /// repeat-snapshot callers (e.g. onion-skin compositing) can reuse one scratch bitmap and avoid
     /// Large Object Heap churn. The destination must match the render target size and be in the same
-    /// RgbaF16/Premul/LinearSrgb format produced by <see cref="Snapshot()"/>.
+    /// RgbaF16/Premul format and color space produced by <see cref="Snapshot()"/>.
     /// </summary>
     public void SnapshotInto(Bitmap destination)
     {
@@ -384,10 +410,10 @@ public partial class RenderTarget : IDisposable
         // ReadPixels; alpha-only callers use SnapshotAlpha instead.
         if (destination.ColorType != BitmapColorType.RgbaF16
             || destination.AlphaType != BitmapAlphaType.Premul
-            || !destination.ColorSpace.Equals(BitmapColorSpace.LinearSrgb))
+            || !destination.ColorSpace.Equals(ColorSpace))
         {
             throw new ArgumentException(
-                "Destination bitmap must be RgbaF16/Premul/LinearSrgb to match the render target surface format.",
+                "Destination bitmap must be RgbaF16/Premul in the render target's color space.",
                 nameof(destination));
         }
 
@@ -400,7 +426,7 @@ public partial class RenderTarget : IDisposable
     /// </summary>
     /// <returns>
     /// A task that completes with the pixels <see cref="Snapshot()"/> would have returned when this was called, in the
-    /// same RgbaF16/Premul/LinearSrgb format.
+    /// same RgbaF16/Premul format and color space.
     /// </returns>
     /// <remarks>
     /// The read is queued behind the rendering submitted so far, so drawing into this target afterwards does not change
@@ -470,7 +496,7 @@ public partial class RenderTarget : IDisposable
     {
         _surface.AddRef();
         _texture?.AddRef();
-        return new RenderTarget(_surface, Width, Height, _texture, KnownPixelFormat)
+        return new RenderTarget(_surface, Width, Height, _texture, KnownPixelFormat, _colorSpace)
         {
             _hasTransparentContents = _hasTransparentContents,
         };

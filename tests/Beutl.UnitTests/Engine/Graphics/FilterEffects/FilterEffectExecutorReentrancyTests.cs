@@ -55,7 +55,7 @@ public sealed class FilterEffectExecutorReentrancyTests
             _ = executor.Activate(Reentrant);
         }
 
-        public void AcceptsDirect(SKImageFilterBuilder builder)
+        public void AcceptsDirect(SKImageFilterBuilder builder, bool linearNumericSpace = false)
             => throw new InvalidOperationException("The reentrancy fixture has no direct-replay factory.");
     }
 

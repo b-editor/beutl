@@ -533,15 +533,15 @@ public sealed class GraphicsContextShutdownTests
     private sealed class RetirementObservingTargetFactory(Action onRelease) : IRenderTargetFactory
     {
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-            => new ObservedRenderTarget(allocation.DeviceSize, onRelease);
+            => new ObservedRenderTarget(allocation.DeviceSize, onRelease, allocation.PixelFormat);
 
-        private sealed class ObservedRenderTarget(PixelSize size, Action onRelease) : RenderTarget(
+        private sealed class ObservedRenderTarget(PixelSize size, Action onRelease, RenderTargetPixelFormat pixelFormat) : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 size.Width,
                 size.Height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             size.Width,
             size.Height)
         {

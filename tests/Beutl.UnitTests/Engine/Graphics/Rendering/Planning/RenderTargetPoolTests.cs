@@ -980,7 +980,7 @@ public sealed class RenderTargetPoolTests
 
         Assert.That(factory.Allocations, Has.Count.EqualTo(2));
         Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-            allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+            allocation.PixelFormat == RenderTargetPixelFormat.SrgbPremultipliedRgba16Float
             && allocation.GraphicsContext is null
             && allocation.GraphicsContextHandle == 0
             && allocation.GraphicsBackend is null));
@@ -1021,7 +1021,7 @@ public sealed class RenderTargetPoolTests
             {
                 Assert.That(factory.Observations, Has.Count.EqualTo(3));
                 Assert.That(factory.Observations, Has.All.Matches<AllocationObservation>(observation =>
-                    observation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                    observation.PixelFormat == RenderTargetPixelFormat.SrgbPremultipliedRgba16Float
                     && observation.ContextMatchedExpectation));
                 Assert.That(factory.Observations[0].HasGraphicsContext, Is.False);
                 Assert.That(factory.Observations[0].GraphicsContextHandle, Is.Null);
@@ -1224,7 +1224,7 @@ public sealed class RenderTargetPoolTests
             PixelSize deviceSize = allocation.DeviceSize;
             Allocations.Add(allocation);
             RenderTarget target = create?.Invoke(deviceSize, Created.Count)
-                ?? new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
+                ?? new TrackingRenderTarget(deviceSize.Width, deviceSize.Height, pixelFormat: allocation.PixelFormat);
             Created.Add(target);
             return target;
         }
@@ -1247,7 +1247,7 @@ public sealed class RenderTargetPoolTests
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
             => allocation.DeviceSize.Width == rejectedWidth
                 ? null
-                : new TrackingRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+                : new TrackingRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, pixelFormat: allocation.PixelFormat);
     }
 
     private sealed class BudgetedTargetFactory(long budgetBytes) : IRenderTargetFactory
@@ -1268,7 +1268,7 @@ public sealed class RenderTargetPoolTests
                 return null;
             }
 
-            var created = new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
+            var created = new TrackingRenderTarget(deviceSize.Width, deviceSize.Height, pixelFormat: allocation.PixelFormat);
             _live.Add(created);
             return created;
         }
@@ -1290,7 +1290,7 @@ public sealed class RenderTargetPoolTests
                 ReferenceEquals(allocation.GraphicsContext, ExpectedContext)));
             PixelSize size = allocation.DeviceSize;
             if (allocation.GraphicsContext is null)
-                return RenderTarget.Create(size.Width, size.Height);
+                return RenderTarget.Create(size.Width, size.Height, allocation.PixelFormat);
 
             SKSurface? surface = SKSurface.Create(
                 allocation.GraphicsContext,
@@ -1300,7 +1300,7 @@ public sealed class RenderTargetPoolTests
                     size.Height,
                     SKColorType.RgbaF16,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()));
+                    (allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb())));
             return surface is null ? null : new TrackingRenderTarget(surface, size.Width, size.Height);
         }
     }
@@ -1325,14 +1325,15 @@ public sealed class RenderTargetPoolTests
             int width,
             int height,
             SKColorType colorType = SKColorType.RgbaF16,
-            Exception? disposeFailure = null)
+            Exception? disposeFailure = null,
+            RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
             : base(
                 SKSurface.Create(new SKImageInfo(
                     width,
                     height,
                     colorType,
                     SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear())),
+                    pixelFormat.GetColorSpace().SKColorSpace)),
                 width,
                 height)
         {

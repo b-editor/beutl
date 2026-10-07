@@ -6,9 +6,9 @@ namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RenderTargetPool
 {
-    private bool TryTakeAvailable(PixelSize size, out TargetSlot? slot)
+    private bool TryTakeAvailable(PixelSize size, RenderTargetPixelFormat pixelFormat, out TargetSlot? slot)
     {
-        if (_availableBuckets.TryGetValue(size, out LinkedList<TargetSlot>? bucket)
+        if (_availableBuckets.TryGetValue((size, pixelFormat), out LinkedList<TargetSlot>? bucket)
             && bucket.Last is { } node)
         {
             slot = node.Value;
@@ -22,10 +22,10 @@ internal sealed partial class RenderTargetPool
 
     private void AddAvailable(TargetSlot slot)
     {
-        if (!_availableBuckets.TryGetValue(slot.Size, out LinkedList<TargetSlot>? bucket))
+        if (!_availableBuckets.TryGetValue((slot.Size, slot.PixelFormat), out LinkedList<TargetSlot>? bucket))
         {
             bucket = [];
-            _availableBuckets.Add(slot.Size, bucket);
+            _availableBuckets.Add((slot.Size, slot.PixelFormat), bucket);
         }
 
         slot.BucketNode = bucket.AddLast(slot);
@@ -36,11 +36,11 @@ internal sealed partial class RenderTargetPool
     private void RemoveAvailable(TargetSlot slot)
     {
         if (slot.BucketNode is { } bucketNode
-            && _availableBuckets.TryGetValue(slot.Size, out LinkedList<TargetSlot>? bucket))
+            && _availableBuckets.TryGetValue((slot.Size, slot.PixelFormat), out LinkedList<TargetSlot>? bucket))
         {
             bucket.Remove(bucketNode);
             if (bucket.Count == 0)
-                _availableBuckets.Remove(slot.Size);
+                _availableBuckets.Remove((slot.Size, slot.PixelFormat));
         }
 
         if (slot.LruNode is { } lruNode)
@@ -135,13 +135,16 @@ internal sealed partial class RenderTargetPool
         RenderTarget target,
         SKSurface surface,
         PixelSize size,
-        long byteSize)
+        long byteSize,
+        RenderTargetPixelFormat pixelFormat)
     {
         public RenderTarget Target { get; } = target;
 
         public SKSurface Surface { get; } = surface;
 
         public PixelSize Size { get; } = size;
+
+        public RenderTargetPixelFormat PixelFormat { get; } = pixelFormat;
 
         public long ByteSize { get; } = byteSize;
 

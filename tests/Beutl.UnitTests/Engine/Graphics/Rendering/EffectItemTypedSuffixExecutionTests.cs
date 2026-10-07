@@ -665,7 +665,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             renderer.Render(actualCanvas);
         }
 
-        using var localTarget = new CpuRenderTarget(9, 7);
+        using var localTarget = new CpuRenderTarget(9, 7, RenderTargetPixelFormat.LinearPremultipliedRgba16Float);
         using (var localCanvas = new ImmediateCanvas(localTarget, RenderIntent.Preview, logicalSize: effectItemBounds.Size))
         {
             DrawEffectItemPattern(localCanvas);
@@ -681,7 +681,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using Bitmap actual = actualTarget.Snapshot();
         using Bitmap expected = expectedTarget.Snapshot();
         Assert.That(
-            actual.GetPixelSpan<ushort>().SequenceEqual(expected.GetPixelSpan<ushort>()),
+            actual.GetPixelSpan().SequenceEqual(expected.GetPixelSpan()),
             Is.True,
             $"{customCount} effectItem CustomEffect boundary/boundaries changed direct point-blit pixels");
     }
@@ -980,17 +980,17 @@ public sealed class EffectItemTypedSuffixExecutionTests
     private sealed class CpuTargetFactory : IRenderTargetFactory
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height, allocation.PixelFormat);
     }
 
-    private sealed class CpuRenderTarget(int width, int height)
+    private sealed class CpuRenderTarget(int width, int height, RenderTargetPixelFormat pixelFormat = RenderTargetPixelFormat.SrgbPremultipliedRgba16Float)
         : RenderTarget(
             SKSurface.Create(new SKImageInfo(
                 width,
                 height,
                 SKColorType.RgbaF16,
                 SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
+                pixelFormat.GetColorSpace().SKColorSpace)),
             width,
             height);
 
