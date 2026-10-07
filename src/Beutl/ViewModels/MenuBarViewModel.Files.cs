@@ -140,6 +140,7 @@ public partial class MenuBarViewModel
         using Activity? activity = Telemetry.StartActivity("SaveAll");
         int itemsCount = 0;
         bool allRequestedSavesSucceeded = true;
+        var savedSceneEditors = new List<EditViewModel>();
 
         try
         {
@@ -164,6 +165,7 @@ public partial class MenuBarViewModel
                     if (await editor.SaveAsync())
                     {
                         itemsCount++;
+                        if (editor is EditViewModel sceneEditor) savedSceneEditors.Add(sceneEditor);
                     }
                     else
                     {
@@ -184,6 +186,8 @@ public partial class MenuBarViewModel
             if (allRequestedSavesSucceeded)
             {
                 await _versionControlSession.NotifySavedAsync(fileWrite);
+                foreach (EditViewModel editor in savedSceneEditors)
+                    editor.ScheduleMediaFingerprints(finishSaveSnapshot: true);
             }
         }
         catch (Exception ex)
@@ -219,6 +223,7 @@ public partial class MenuBarViewModel
                 return;
             }
 
+            EditViewModel? savedSceneEditor = item.Context.Value as EditViewModel;
             bool result = item.Context.Value is ISavableEditorContext editor && await editor.SaveAsync();
             if (result)
             {
@@ -230,6 +235,7 @@ public partial class MenuBarViewModel
                 }
 
                 await _versionControlSession.NotifySavedAsync(fileWrite);
+                savedSceneEditor?.ScheduleMediaFingerprints(finishSaveSnapshot: true);
             }
             else
             {

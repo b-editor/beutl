@@ -1,8 +1,11 @@
 ﻿using Avalonia.Controls;
 using Beutl.Editor;
+using Beutl.Graphics3D.Models;
+using Beutl.IO;
 using Beutl.Media.Source;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -26,9 +29,32 @@ public sealed partial class EditViewModel
             using var suspension = EditorService.SuspendEditor(this);
             await Player.Pause();
             if (_disposed) return;
-            foreach (MediaSource source in new Beutl.Editor.Services.ObjectSearcher(Scene,
-                         value => value is MediaSource { HasUri: true }).SearchAll().OfType<MediaSource>())
-                if (source.Uri.IsFile && File.Exists(source.Uri.LocalPath)) source.InvalidateResourceCache();
+            foreach (IFileSource source in new Beutl.Editor.Services.ObjectSearcher(Scene,
+                         value => value is MediaSource { HasUri: true } or ModelSource { HasUri: true, MeshCount: 0 })
+                         .SearchAll().OfType<IFileSource>())
+            {
+                if (!source.Uri.IsFile || !File.Exists(source.Uri.LocalPath)) continue;
+                if (source is MediaSource media) media.InvalidateResourceCache();
+                else if (source is ModelSource)
+                {
+                    try
+                    {
+                        Uri uri = source.Uri;
+                        var loaded = await Task.Run(() =>
+                        {
+                            var model = new ModelSource(); model.ReadFrom(uri); return model;
+                        }, MediaRepairCancellationToken);
+                        if (_disposed) return;
+                        using (HistoryManager.SuppressRecording())
+                            ResourceRelocationService.RelinkFileSource(source, uri, loaded);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                    {
+                        _logger.LogWarning(ex, "Could not reload restored model {Uri}.", source.Uri);
+                    }
+                }
+            }
+            ScheduleMediaFingerprints();
             Renderer.Value.ClearAllCaches();
             FrameCacheManager.Value.Clear();
             Player.QueuePreviewRender();

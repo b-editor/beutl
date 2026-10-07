@@ -198,7 +198,10 @@ public sealed class MissingMediaDialogViewModel : IDisposable
 
             await _editor.SaveAsync();
             if (_editor.EditorService.ProjectVersionControlSession is { } session)
+            {
                 await session.NotifySavedAsync(write, _token);
+                _editor.ScheduleMediaFingerprints(finishSaveSnapshot: true);
+            }
             _editor.Renderer.Value.ClearAllCaches();
             _editor.FrameCacheManager.Value.Clear();
             _editor.Player.QueuePreviewRender();

@@ -139,6 +139,8 @@ public sealed partial class EditorService
         foreach (EditorTabItem item in tabItems)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (item.Context.Value is EditViewModel sceneEditor)
+                await sceneEditor.FlushMediaFingerprintsAsync();
             if (item.Context.Value is ISavableEditorContext editor && !await editor.SaveAsync())
             {
                 return false;
@@ -227,6 +229,7 @@ public sealed partial class EditorService
 
                 editor.HistoryManager.FlushPendingMutations();
                 editor.HistoryManager.Commit();
+                await editor.FlushMediaFingerprintsAsync();
                 if (!await editor.SaveAsync())
                     throw new IOException(MessageStrings.FileSaveException);
             }

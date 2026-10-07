@@ -89,6 +89,7 @@ public sealed partial class Model3D : Group3D
     {
         if (Source.CurrentValue is not { } source) return;
         MeshObject3D[] previous = Children.OfType<MeshObject3D>().ToArray();
+        // Matching by position is best-effort when the saved children were reordered.
         for (int i = 0; i < source.MeshCount; i++)
         {
             var data = source.GetMeshData(i);
@@ -109,7 +110,7 @@ public sealed partial class Model3D : Group3D
             mesh.Vertices.CurrentValue = data.Vertices;
             mesh.Indices.CurrentValue = data.Indices;
         }
-        foreach (MeshObject3D child in previous.Skip(source.MeshCount)) Children.Remove(child);
+        // Surplus children can be user-added; leave their geometry and edits intact.
     }
 
     private static PBRMaterial CreateMaterial(MaterialData materialData)

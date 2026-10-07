@@ -29,10 +29,19 @@ public sealed record MissingMedia(
 public sealed class MissingMediaService
 {
     private readonly Func<FontFamily, bool> _fontExists;
+    private readonly Func<string, IEnumerable<string>> _enumerateEntries;
 
     public MissingMediaService() : this(font => FontManager.Instance.IsRegistered(font)) { }
 
-    internal MissingMediaService(Func<FontFamily, bool> fontExists) => _fontExists = fontExists;
+    internal MissingMediaService(Func<FontFamily, bool> fontExists, Func<string, IEnumerable<string>>? enumerateEntries = null)
+    {
+        _fontExists = fontExists;
+        _enumerateEntries = enumerateEntries ?? (directory => Directory.EnumerateFileSystemEntries(directory, "*", new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        }));
+    }
 
     public IReadOnlyList<MissingMedia> FindMissing(Scene scene)
     {
@@ -109,18 +118,11 @@ public sealed class MissingMediaService
         return await Task.Run(async () =>
         {
             if (!Directory.Exists(directory)) throw new DirectoryNotFoundException(directory);
-            // Scan once, skip inaccessible subtrees and symlink loops.
-            var options = new EnumerationOptions
-            {
-                RecurseSubdirectories = true,
-                IgnoreInaccessible = true,
-                AttributesToSkip = FileAttributes.ReparsePoint
-            };
             var byName = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var bySize = new Dictionary<long, List<string>>();
             var fonts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             bool findFonts = items.Any(item => item.Kind == MissingMediaKind.Font);
-            foreach (string path in Directory.EnumerateFiles(directory, "*", options))
+            foreach (string path in EnumerateMediaFiles(directory, token))
             {
                 token.ThrowIfCancellationRequested();
                 try
@@ -181,6 +183,43 @@ public sealed class MissingMediaService
             }
             return (IReadOnlyDictionary<MissingMedia, string>)matches;
         }, token);
+    }
+
+    private IEnumerable<string> EnumerateMediaFiles(string root, CancellationToken token)
+    {
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.TryPop(out string? directory))
+        {
+            foreach (string entry in EnumerateReadableEntries(directory, token))
+            {
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(entry); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+                if ((attributes & FileAttributes.ReparsePoint) != 0) continue;
+                if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
+                else yield return entry;
+            }
+        }
+    }
+
+    private IEnumerable<string> EnumerateReadableEntries(string directory, CancellationToken token)
+    {
+        IEnumerator<string> entries;
+        try { entries = _enumerateEntries(directory).GetEnumerator(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { yield break; }
+        using (entries)
+        {
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                bool hasNext;
+                try { hasNext = entries.MoveNext(); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { yield break; }
+                if (!hasNext) yield break;
+                yield return entries.Current;
+            }
+        }
     }
 
     private static void Add<TKey>(Dictionary<TKey, List<string>> index, TKey key, string path) where TKey : notnull

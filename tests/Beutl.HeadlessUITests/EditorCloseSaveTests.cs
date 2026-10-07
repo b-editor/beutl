@@ -16,6 +16,44 @@ public class EditorCloseSaveTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
+    public async Task Closing_waits_for_a_pending_media_hash_and_persists_it(bool closeProject)
+    {
+        EditViewModel editor = await OpenEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string media = Path.Combine(BeutlHomeIsolation.CurrentHome!, "close-media.png");
+        File.WriteAllBytes(media, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="));
+        Uri sceneUri = editor.Scene.Uri!;
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
+            var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(sceneUri.LocalPath)!, "media.belm")) };
+            element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+            editor.Scene.Children.Add(element);
+        }
+        var entered = new TaskCompletionSource(); var release = new TaskCompletionSource();
+        editor.CaptureMediaFingerprints = async (scene, token) =>
+        {
+            entered.TrySetResult(); await release.Task.WaitAsync(token);
+            await new Beutl.Editor.MissingMediaService().UpdateFingerprintsAsync(scene, token);
+        };
+        try
+        {
+            editor.ScheduleMediaFingerprints();
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task close = closeProject ? TestShell.Project.CloseProjectAsync()
+                : TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!).AsTask();
+            Assert.That(close.IsCompleted, Is.False);
+            release.SetResult();
+            await close.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(sceneUri).MediaFingerprints.ContainsKey(new Uri(media).AbsoluteUri), Is.True);
+        }
+        finally { release.TrySetResult(); await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task Closing_flushes_a_pending_nudge(bool closeProject)
     {
         EditViewModel editor = await OpenEditorAsync();

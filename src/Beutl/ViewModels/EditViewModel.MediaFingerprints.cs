@@ -10,20 +10,39 @@ public sealed partial class EditViewModel
 {
     private bool _fingerprintScanRequested;
     private Task _fingerprintScanTask = Task.CompletedTask;
+    private Task _fingerprintCaptureTask = Task.CompletedTask;
+    private bool _finishFingerprintSaveSnapshot;
     private HashSet<string> _savedMediaUris = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MediaFileFingerprint> _savedMediaFingerprints = new(StringComparer.Ordinal);
     internal Func<Scene, CancellationToken, Task> CaptureMediaFingerprints { get; set; }
         = static (scene, token) => new MissingMediaService().UpdateFingerprintsAsync(scene, token);
 
-    internal void ScheduleMediaFingerprints()
+    internal void ScheduleMediaFingerprints(bool finishSaveSnapshot = false)
     {
         if (_disposed) return;
+        // Opening, edits and auto-save must never create a Git save snapshot.
+        _finishFingerprintSaveSnapshot = finishSaveSnapshot;
         _fingerprintScanRequested = true;
         if (_fingerprintScanTask.IsCompleted)
             _fingerprintScanTask = UpdateMediaFingerprintsInBackgroundAsync();
     }
 
     internal Task WaitForMediaFingerprintsAsync() => _fingerprintScanTask;
+
+    private Task CaptureMediaFingerprintsAsync(Scene scene)
+    {
+        if (_fingerprintCaptureTask.IsCompleted)
+            _fingerprintCaptureTask = CaptureMediaFingerprints(scene, _autoSaveCancellation.Token);
+        return _fingerprintCaptureTask;
+    }
+
+    internal async Task FlushMediaFingerprintsAsync()
+    {
+        // Lifecycle saves reserve the workspace. Wait only for hashing, never
+        // for the background metadata writer queued behind that reservation.
+        if (!_fingerprintCaptureTask.IsCompleted) await _fingerprintCaptureTask;
+        await CaptureMediaFingerprintsAsync(Scene);
+    }
 
     private void CaptureSavedMediaUris()
     {
@@ -49,23 +68,29 @@ public sealed partial class EditViewModel
         {
             do
             {
+                if (_disposed) return;
                 _fingerprintScanRequested = false;
                 Scene scene = Scene;
                 Uri[] before = MissingMediaService.GetFileUris(scene);
-                await CaptureMediaFingerprints(scene, _autoSaveCancellation.Token);
+                await CaptureMediaFingerprintsAsync(scene);
                 if (_disposed) return;
                 Uri[] after = MissingMediaService.GetFileUris(scene);
                 if (!before.ToHashSet().SetEquals(after)) _fingerprintScanRequested = true;
 
                 using var write = await EditorService.BeginProjectFileWriteAsync(_autoSaveCancellation.Token);
                 if (_disposed || EditorService.IsWorktreeMutationActive || scene.Uri is not { IsFile: true } uri) return;
+                // A save or edit can request another scan while hashing or waiting
+                // for admission. Keep its save intent until the final stable scan.
+                if (_fingerprintScanRequested) continue;
                 MergeSavedMediaFingerprints(scene);
                 var saved = _savedMediaFingerprints
                     .ToDictionary(pair => UriHelper.ToSerializedUri(new Uri(pair.Key), uri).ToString(), pair => pair.Value);
                 // Patch advisory metadata only; never serialize unsaved scene or element edits.
                 bool changed = CoreSerializer.UpdateStoredMetadata(uri, scene.Id, nameof(Scene.MediaFingerprints),
                     saved.Count == 0 ? null : JsonSerializer.SerializeToNode(saved));
-                if (changed && EditorService.ProjectVersionControlSession is { } session)
+                bool finishSaveSnapshot = _finishFingerprintSaveSnapshot;
+                _finishFingerprintSaveSnapshot = false;
+                if (changed && finishSaveSnapshot && EditorService.ProjectVersionControlSession is { } session)
                     await session.NotifySavedAsync(write, _autoSaveCancellation.Token);
             }
             while (_fingerprintScanRequested);

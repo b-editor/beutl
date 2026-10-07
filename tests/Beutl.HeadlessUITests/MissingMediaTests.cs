@@ -468,6 +468,32 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
+    public async Task A_subtree_io_failure_keeps_matches_from_the_remaining_directories()
+    {
+        string directory = NewDirectory();
+        string broken = Directory.CreateDirectory(Path.Combine(directory, "broken")).FullName;
+        string healthy = Directory.CreateDirectory(Path.Combine(directory, "healthy")).FullName;
+        string partial = Path.Combine(broken, "partial.png");
+        string first = Path.Combine(healthy, "first.png");
+        string second = Path.Combine(directory, "second.png");
+        foreach (string path in new[] { partial, first, second }) File.WriteAllBytes(path, s_png);
+        IEnumerable<string> Entries(string path)
+        {
+            if (path == broken)
+            {
+                yield return partial;
+                throw new IOException("Subtree disconnected during MoveNext.");
+            }
+            foreach (string entry in Directory.EnumerateFileSystemEntries(path)) yield return entry;
+        }
+        var scene = new Scene();
+        foreach (string path in new[] { partial, first, second }) AddImage(scene, Path.Combine(NewDirectory(), Path.GetFileName(path)));
+        var service = new MissingMediaService(_ => true, Entries);
+        var matches = await service.FindMatchesAsync(service.FindMissing(scene), directory);
+        Assert.That(matches.Values, Is.EquivalentTo(new[] { partial, first, second }));
+    }
+
+    [AvaloniaTest]
     public async Task Fingerprinted_files_match_after_their_extension_is_changed()
     {
         string directory = NewDirectory();
@@ -679,6 +705,14 @@ public class MissingMediaTests
         child.Name = "User mesh"; var material = child.Material.CurrentValue;
         var mesh = (ModelMesh)child.Mesh.CurrentValue!;
         var oldVertices = mesh.Vertices.CurrentValue;
+        var extra = new MeshObject3D
+        {
+            Name = "Added mesh",
+            Mesh = { CurrentValue = new ModelMesh
+        { Vertices = { CurrentValue = oldVertices }, Indices = { CurrentValue = mesh.Indices.CurrentValue } } }
+        };
+        model.Children.Add(extra);
+        string extraJson = CoreSerializer.SerializeToJsonObject(extra).ToJsonString();
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
@@ -691,12 +725,60 @@ public class MissingMediaTests
             using var vm = new MissingMediaDialogViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-            Assert.That(model.Children.Single(), Is.SameAs(child));
+            Assert.That(model.Children, Is.EqualTo(new[] { child, extra }));
             Assert.That(child.Name, Is.EqualTo("User mesh"));
             Assert.That(child.Material.CurrentValue, Is.SameAs(material));
             Assert.That(((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue, Is.Not.EqualTo(oldVertices));
+            Assert.That(CoreSerializer.SerializeToJsonObject(extra).ToJsonString(), Is.EqualTo(extraJson));
+            var persisted = (Model3D)CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Single().Objects.Single();
+            Assert.That(CoreSerializer.SerializeToJsonObject(persisted.Children[1]).ToJsonString(), Is.EqualTo(extraJson));
         }
         finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    public async Task Explicit_relink_reloads_a_model_restored_at_its_original_path_and_keeps_saved_children()
+    {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string directory = NewDirectory(); string path = Path.Combine(directory, "triangle.obj");
+        File.WriteAllText(Path.Combine(directory, "surface.mtl"), "newmtl surface\nKd 0.2 0.4 0.6\n");
+        File.WriteAllText(path, "mtllib surface.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl surface\nf 1 2 3\n");
+        var source = new ModelSource(); source.ReadFrom(new Uri(path));
+        var model = new Model3D { Source = { CurrentValue = source } };
+        model.Children[0].Name = "Saved edit";
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
+            element.Objects.Add(model);
+        }
+        await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
+        string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+        string backup = Path.Combine(directory, "backup.obj"); File.Move(path, backup);
+        await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
+        Project project = TestShell.Project.CurrentProject.Value!;
+        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+        editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        model = (Model3D)editor.Scene.Children.Single().Objects.Single();
+        source = model.Source.CurrentValue!;
+        Assert.That(source.MeshCount, Is.Zero);
+        string savedChild = CoreSerializer.SerializeToJsonObject(model.Children.Single()).ToJsonString();
+        File.Move(backup, path);
+        var owner = new Window(); owner.Show();
+        try
+        {
+            await editor.ShowMissingMediaAsync(owner);
+            Assert.That(source.MeshCount, Is.EqualTo(1));
+            Assert.That(CoreSerializer.SerializeToJsonObject(model.Children.Single()).ToJsonString(), Is.EqualTo(savedChild));
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                var result = await new ResourceRelocationService().RelocateFileSourcesAsync(
+                    [(model.Id, nameof(Model3D.Source), source.Uri)], project, NewDirectory());
+                Assert.That(result.FailedResources, Is.Empty);
+            }
+            Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(source.Uri.LocalPath)!, "surface.mtl")), Is.True);
+        }
+        finally { owner.Close(); await TestReset.ResetShellAsync(); }
     }
 
     [AvaloniaTest]
