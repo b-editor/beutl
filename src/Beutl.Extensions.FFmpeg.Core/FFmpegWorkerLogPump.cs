@@ -10,11 +10,14 @@ namespace Beutl.Extensions.FFmpeg;
 internal sealed class FFmpegWorkerLogPump : IDisposable
 {
     private const int DefaultCapacity = 1024;
+    private const int StandardErrorTailCapacity = 4096;
 
     private readonly ILogger _logger = Log.CreateLogger("FFmpegWorker");
     private readonly Channel<(string Channel, string Data)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _consumer;
+    private readonly StringBuilder _standardErrorTail = new(StandardErrorTailCapacity);
+    private readonly object _standardErrorGate = new();
     private int _disposed;
 
     public FFmpegWorkerLogPump(int capacity = DefaultCapacity)
@@ -43,11 +46,28 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
         // ハンドラから例外を漏らすとホストプロセスが UnhandledException で落ちるため握りつぶす。
         try
         {
+            // Capture before enqueueing so dropped log events cannot hide a startup failure.
+            if (channel == "stderr")
+            {
+                lock (_standardErrorGate)
+                {
+                    int maxLineLength = StandardErrorTailCapacity - Environment.NewLine.Length;
+                    _standardErrorTail.AppendLine(data.Length > maxLineLength ? data[^maxLineLength..] : data);
+                    if (_standardErrorTail.Length > StandardErrorTailCapacity)
+                        _standardErrorTail.Remove(0, _standardErrorTail.Length - StandardErrorTailCapacity);
+                }
+            }
             _channel.Writer.TryWrite((channel, data));
         }
         catch
         {
         }
+    }
+
+    public string GetStandardErrorTail()
+    {
+        lock (_standardErrorGate)
+            return _standardErrorTail.ToString().Trim();
     }
 
     private async Task ConsumeAsync()

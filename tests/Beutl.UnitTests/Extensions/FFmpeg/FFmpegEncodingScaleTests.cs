@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
@@ -17,6 +18,9 @@ public sealed class FFmpegEncodingScaleTests
     [Test]
     public async Task Encode_WhenDestinationSizeDiffers_ScalesInsteadOfCropping()
     {
+        if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+            Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
+
         string outputPath = Path.Combine(
             TestContext.CurrentContext.WorkDirectory,
             $"{Guid.NewGuid():N}.mp4");
