@@ -1,8 +1,12 @@
 ﻿using System.Globalization;
+using System.Reactive.Disposables;
+using System.Reflection;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
+using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests.Controls;
 
@@ -105,5 +109,43 @@ public class VectorEditorTests
         Assert.That(editor.SecondValue, Is.EqualTo(20f));
         Assert.That(confirmed, Is.Not.Empty);
         Assert.That(confirmed[^1], Is.EqualTo(new RelativePoint(10, 20, RelativeUnit.Absolute)));
+    }
+
+    [AvaloniaTest]
+    public void Reapplying_the_template_releases_the_old_parts_subscriptions()
+    {
+        AssertTemplateReappliesWithoutLeftovers(new Vector2Editor<float> { Header = "XY" });
+        AssertTemplateReappliesWithoutLeftovers(new Vector3Editor<float> { Header = "XYZ" });
+        AssertTemplateReappliesWithoutLeftovers(new Vector4Editor<float> { Header = "XYZW" });
+    }
+
+    private static void AssertTemplateReappliesWithoutLeftovers<TEditor>(TEditor editor)
+        where TEditor : PropertyEditor
+    {
+        using var host = new EditorTestHost<TEditor>(editor);
+        int[] applied = PartSubscriptionCounts(editor);
+
+        var template = editor.Template;
+        editor.Template = null;
+        editor.ApplyTemplate();
+        editor.Template = template;
+        editor.ApplyTemplate();
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(PartSubscriptionCounts(editor), Is.EqualTo(applied), typeof(TEditor).Name);
+    }
+
+    // Each class in the editor's hierarchy keeps its template-part subscriptions in its own _disposables.
+    private static int[] PartSubscriptionCounts(TemplatedControl editor)
+    {
+        var counts = new List<int>();
+        for (Type? type = editor.GetType(); type != null; type = type.BaseType)
+        {
+            FieldInfo? field = type.GetField("_disposables", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            if (field?.GetValue(editor) is CompositeDisposable disposables)
+                counts.Add(disposables.Count);
+        }
+
+        return [.. counts];
     }
 }
