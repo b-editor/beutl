@@ -103,7 +103,6 @@ internal static partial class AtomicFileExchange
                 throw new AtomicFileExchangeException(
                     $"Could not restore '{target}' after a partial atomic exchange. The displaced target was retained at '{displacedPath}'.",
                     error,
-                    displacedPath,
                     recoveryFailure);
             }
         }
@@ -154,10 +153,7 @@ internal static partial class AtomicFileExchange
 internal sealed class AtomicFileExchangeException(
     string message,
     int nativeError,
-    string displacedPath,
     Exception innerException) : IOException(message, innerException)
 {
     internal int NativeError { get; } = nativeError;
-
-    internal string DisplacedPath { get; } = displacedPath;
 }

@@ -31,17 +31,6 @@ internal sealed partial class GitCliVersionControlService
             CancellationToken cancellationToken)
             => _service.CreateProjectCheckpointCoreAsync(message, cancellationToken);
 
-        public Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
-            ProjectCheckpoint checkpoint,
-            CheckedOutBranchTip targetTip,
-            string projectFile,
-            CancellationToken cancellationToken)
-            => _service.PersistPendingPullRecoveryCoreAsync(
-                checkpoint,
-                targetTip,
-                projectFile,
-                cancellationToken);
-
         public Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
             CancellationToken cancellationToken)
             => _service.GetPendingPullRecoveriesCoreAsync(cancellationToken);

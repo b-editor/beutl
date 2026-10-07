@@ -65,7 +65,7 @@ public sealed class AtomicFileExchangeTests
         Assert.Multiple(() =>
         {
             Assert.That(exception!.NativeError, Is.EqualTo(1177));
-            Assert.That(exception.DisplacedPath, Is.EqualTo(displaced));
+            Assert.That(exception.Message, Does.Contain(displaced));
             Assert.That(File.ReadAllText(target), Is.EqualTo("later edit\n"));
             Assert.That(File.ReadAllText(replacement), Is.EqualTo("replacement\n"));
             Assert.That(File.ReadAllText(displaced), Is.EqualTo("original\n"));

@@ -1301,11 +1301,6 @@ public class VersionControlTabViewTests
         public Task SetRemoteAsync(string url, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
-        public Task SetLocalIdentityAsync(
-            GitIdentity identity,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-
         public Task<RemoteOpResult> PushAsync(
             IProgress<string>? progress,
             CancellationToken cancellationToken)

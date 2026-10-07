@@ -487,36 +487,6 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task<CheckedOutBranchTip> GetCheckedOutBranchTipAsync(CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        return RunSerializedAsync(
-            () => GetCheckedOutBranchTipCoreAsync(cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<PullPreflightResult> PreflightPullAsync(
-        CheckedOutBranchTip expectedCurrent,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(expectedCurrent);
-        return RunSerializedAsync(
-            () => PreflightPullCoreAsync(expectedCurrent, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
-        string message,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return RunSerializedAsync(
-            () => CreateProjectCheckpointCoreAsync(message, cancellationToken),
-            cancellationToken);
-    }
-
     public Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
         ProjectCheckpoint checkpoint,
         CheckedOutBranchTip targetTip,
@@ -533,106 +503,6 @@ internal sealed partial class GitCliVersionControlService :
                 targetTip,
                 projectFile,
                 cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        return RunSerializedAsync(
-            () => GetPendingPullRecoveriesCoreAsync(cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryAsync(
-        PendingPullRecovery recovery,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(recovery);
-        return RunSerializedAsync(
-            () => RecoverPendingPullRecoveryCoreAsync(recovery, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task CompletePendingPullRecoveryAsync(
-        PendingPullRecovery recovery,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(recovery);
-        return RunSerializedAsync(
-            () => CompletePendingPullRecoveryCoreAsync(recovery, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task RestoreProjectCheckpointAsync(
-        ProjectCheckpoint checkpoint,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(checkpoint);
-        return RunSerializedAsync(
-            () => RestoreProjectCheckpointCoreAsync(checkpoint, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<CommitResult> CommitProjectTreeAsync(
-        CheckedOutBranchTip expectedCurrent,
-        string sourceCommit,
-        string message,
-        SnapshotKind kind,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(expectedCurrent);
-        GitRevisionValidator.ValidateCommitId(sourceCommit, nameof(sourceCommit));
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return RunSerializedAsync(
-            () => CommitProjectTreeCoreAsync(
-                expectedCurrent,
-                sourceCommit,
-                message,
-                kind,
-                cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<bool> RevisionContainsProjectFileAsync(
-        string sha,
-        string projectFile,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
-        return RunSerializedAsync(
-            () => RevisionContainsProjectFileCoreAsync(sha, projectFile, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
-        CheckedOutBranchTip expectedCurrent,
-        CheckedOutBranchTip target,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(expectedCurrent);
-        ArgumentNullException.ThrowIfNull(target);
-        return RunSerializedAsync(
-            () => TryRollbackBranchTipCoreAsync(expectedCurrent, target, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<bool> DeleteProjectCheckpointAsync(
-        ProjectCheckpoint checkpoint,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(checkpoint);
-        return RunSerializedAsync(
-            () => DeleteProjectCheckpointCoreAsync(checkpoint, cancellationToken),
             cancellationToken);
     }
 
@@ -692,31 +562,6 @@ internal sealed partial class GitCliVersionControlService :
             cancellationToken);
     }
 
-    public Task CreateBranchAsync(
-        string name,
-        string startPoint,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        GitRevisionValidator.ValidateCommitId(startPoint, nameof(startPoint));
-        return RunSerializedAsync(
-            () => CreateBranchCoreAsync(name, startPoint, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task SwitchBranchAsync(
-        string name,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ValidateSwitchBranchName(name);
-
-        return RunSerializedAsync(
-            () => SwitchBranchCoreAsync(name, cancellationToken),
-            cancellationToken);
-    }
-
     public Task<IReadOnlyList<RemoteInfo>> GetRemotesAsync(
         CancellationToken cancellationToken)
     {
@@ -745,24 +590,6 @@ internal sealed partial class GitCliVersionControlService :
         ThrowIfDisposed();
         return RunSerializedAsync(
             () => PushCoreAsync(progress, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<FastForwardPullResult> PullFastForwardAsync(
-        CheckedOutBranchTip expectedCurrent,
-        ProjectCheckpoint? checkpoint,
-        string projectFile,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(expectedCurrent);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
-        return RunSerializedAsync(
-            () => PullFastForwardCoreAsync(
-                expectedCurrent,
-                checkpoint,
-                projectFile,
-                cancellationToken),
             cancellationToken);
     }
 
