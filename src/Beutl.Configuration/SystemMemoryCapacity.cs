@@ -7,7 +7,11 @@ namespace Beutl.Configuration;
 
 internal static partial class SystemMemoryCapacity
 {
-    private const ulong FallbackBytes = 4L * 1024 * 1024 * 1024;
+    internal const ulong FallbackBytes = 4L * 1024 * 1024 * 1024;
+
+    // memory_pressure answers at once; the bound only keeps a hung child from stalling startup, where
+    // EditorConfig's static initializer asks for the capacity.
+    private static readonly TimeSpan s_macQueryTimeout = TimeSpan.FromSeconds(5);
 
     public static ulong GetTotalBytes()
     {
@@ -66,20 +70,38 @@ internal static partial class SystemMemoryCapacity
 
     private static ulong GetMacMemoryCapacity()
     {
-        var startInfo = new ProcessStartInfo("/usr/bin/memory_pressure", "-Q")
+        return QueryMacMemoryCapacity(new ProcessStartInfo("/usr/bin/memory_pressure", "-Q"), s_macQueryTimeout);
+    }
+
+    internal static ulong QueryMacMemoryCapacity(ProcessStartInfo startInfo, TimeSpan timeout)
+    {
+        startInfo.RedirectStandardOutput = true;
+        using Process? proc = Process.Start(startInfo);
+        if (proc == null)
+            return FallbackBytes;
+
+        // Drain stdout before waiting for the exit: a child blocked on a full pipe never exits.
+        Task<string> output = proc.StandardOutput.ReadToEndAsync();
+        if (!output.Wait(timeout) || !proc.WaitForExit(timeout))
         {
-            RedirectStandardOutput = true
-        };
-        var proc = Process.Start(startInfo);
-        if (proc != null)
-        {
-            proc.WaitForExit();
-            string? str = proc.StandardOutput.ReadLine();
-            Regex regex = NumberRegex();
-            if (str != null && regex.Match(str) is { Success: true } match)
+            try
             {
-                return ulong.Parse(match.Value);
+                proc.Kill(entireProcessTree: true);
             }
+            catch
+            {
+                // Already exited or not ours to kill; the fallback stands either way.
+            }
+
+            return FallbackBytes;
+        }
+
+        using var reader = new StringReader(output.Result);
+        string? str = reader.ReadLine();
+        Regex regex = NumberRegex();
+        if (str != null && regex.Match(str) is { Success: true } match)
+        {
+            return ulong.Parse(match.Value);
         }
 
         return FallbackBytes;
