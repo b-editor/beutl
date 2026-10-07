@@ -1,4 +1,5 @@
-﻿using System.Collections.Frozen;
+﻿using System.Buffers.Binary;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -176,8 +177,9 @@ public sealed class FontManager
             {
                 foreach (string file in EnumerateFontCandidates(directory))
                 {
-                    if (LoadFont(file, copyToMemory: true) is { } typeface)
-                        fonts.Add(typeface);
+                    for (int index = 0; index < GetFontFaceCount(file); index++)
+                        if (LoadFont(file, copyToMemory: true, index) is { } typeface)
+                            fonts.Add(typeface);
                 }
             }
         }
@@ -321,26 +323,45 @@ public sealed class FontManager
         }
     }
 
-    private SKTypeface? LoadFont(string file, bool copyToMemory = false)
+    public static IEnumerable<SKTypeface> OpenFontFaces(string file)
+    {
+        for (int index = 0; index < GetFontFaceCount(file); index++)
+            if (SKTypeface.FromFile(file, index) is { } face) yield return face;
+    }
+
+    private static int GetFontFaceCount(string file)
+    {
+        try
+        {
+            using var stream = File.OpenRead(file);
+            Span<byte> header = stackalloc byte[12];
+            if (stream.Read(header) != header.Length || !header[..4].SequenceEqual("ttcf"u8)) return 1;
+            uint count = BinaryPrimitives.ReadUInt32BigEndian(header[8..]);
+            return count > 0 && count <= 1024 && 12L + count * 4 <= stream.Length ? (int)count : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+    }
+
+    private SKTypeface? LoadFont(string file, bool copyToMemory = false, int index = 0)
     {
         try
         {
             if (copyToMemory)
             {
                 byte[] bytes = File.ReadAllBytes(file);
-                string hash = Convert.ToHexString(SHA256.HashData(bytes));
+                string hash = Convert.ToHexString(SHA256.HashData(bytes)) + ":" + index;
                 lock (_gate)
                 {
                     // Registered faces can still be held by renderers. Cache immutable font
                     // bytes across project switches instead of disposing or duplicating them.
                     if (_projectFontCache.TryGetValue(hash, out SKTypeface? cached)) return cached;
                     using var stream = new MemoryStream(bytes, writable: false);
-                    SKTypeface? face = SKTypeface.FromStream(stream);
+                    SKTypeface? face = SKTypeface.FromStream(stream, index);
                     if (face is not null) _projectFontCache.Add(hash, face);
                     return face;
                 }
             }
-            return SKTypeface.FromFile(file);
+            return SKTypeface.FromFile(file, index);
         }
         catch (Exception ex)
         {

@@ -134,6 +134,8 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             if (!_disposed)
             {
                 // Leave the original reference intact. The row can be retried or kept offline.
+                row.ValidatedSource = null;
+                row.ReplacementPath.Value = null;
                 row.Status.Value = MissingMediaStrings.Unrecognized;
                 Error.Value = $"{row.Name}: {MissingMediaStrings.Unrecognized}";
             }
@@ -165,7 +167,8 @@ public sealed class MissingMediaDialogViewModel : IDisposable
                     var uri = new Uri(row.ReplacementPath.Value!);
                     foreach (IFileSource source in row.Media.References.Select(reference => reference.Source)
                                  .OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance))
-                        ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource);
+                        ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
+                            synchronizeModelGeometry: row.Media.Kind == MissingMediaKind.Model);
                 }
             }
             _editor.HasMediaRepairs.Value = true;
@@ -185,6 +188,8 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             }
 
             await _editor.SaveAsync();
+            if (_editor.EditorService.ProjectVersionControlSession is { } session)
+                await session.NotifySavedAsync(write, _token);
             _editor.Renderer.Value.ClearAllCaches();
             _editor.FrameCacheManager.Value.Clear();
             _editor.Player.QueuePreviewRender();

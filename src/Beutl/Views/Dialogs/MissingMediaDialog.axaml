@@ -53,7 +53,7 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <TextBlock Name="ErrorText" Grid.Row="4" Text="{Binding Error.Value}" TextWrapping="Wrap" MaxHeight="72" Foreground="#DF5454" />
+        <TextBlock Name="ErrorText" Grid.Row="4" Text="{Binding Error.Value}" TextWrapping="Wrap" MaxHeight="72" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
         <Grid Grid.Row="5" ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <TextBlock Name="SummaryText" Text="{Binding Summary.Value}" TextWrapping="Wrap" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">

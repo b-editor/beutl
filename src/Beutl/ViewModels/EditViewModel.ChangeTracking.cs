@@ -186,6 +186,7 @@ public partial class EditViewModel
         }
 
         // 影響を受けるタイムレンジを取得
+        ScheduleMediaFingerprints();
         List<TimeRange> affectedRanges = GetAffectedTimeRanges(list);
 
         // フレームキャッシュを更新

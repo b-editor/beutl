@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>重新链接缺失媒体</value></data>
+  <data name="Description" xml:space="preserve"><value>选择媒体文件夹以查找所有缺失文件。未解决的文件将保留原始引用，并保持离线状态。</value></data>
+  <data name="SearchDirectory" xml:space="preserve"><value>媒体文件夹</value></data>
+  <data name="Search" xml:space="preserve"><value>搜索</value></data>
+  <data name="FindInFolder" xml:space="preserve"><value>在文件夹中查找…</value></data>
+  <data name="Replace" xml:space="preserve"><value>替换…</value></data>
+  <data name="MatchFolder" xml:space="preserve"><value>匹配同一文件夹…</value></data>
+  <data name="KeepOffline" xml:space="preserve"><value>保持离线</value></data>
+  <data name="ContinueOffline" xml:space="preserve"><value>以离线状态继续</value></data>
+  <data name="ApplyAndSave" xml:space="preserve"><value>应用并保存</value></data>
+  <data name="Summary" xml:space="preserve"><value>缺失 {0} 个 · 可重新链接 {1} 个 · 已忽略 {2} 个</value></data>
+  <data name="Missing" xml:space="preserve"><value>缺失</value></data>
+  <data name="Ready" xml:space="preserve"><value>可重新链接</value></data>
+  <data name="Unrecognized" xml:space="preserve"><value>无法读取文件，请选择其他文件或保持离线。</value></data>
+  <data name="NoUniqueMatch" xml:space="preserve"><value>无法确定唯一匹配，请选择文件或保持离线。</value></data>
+  <data name="FontCopyFailed" xml:space="preserve"><value>无法将所选字体保存到项目中。</value></data>
+  <data name="Video" xml:space="preserve"><value>视频</value></data>
+  <data name="Sound" xml:space="preserve"><value>音频</value></data>
+  <data name="Image" xml:space="preserve"><value>图像</value></data>
+  <data name="Model" xml:space="preserve"><value>3D 模型</value></data>
+  <data name="Cube" xml:space="preserve"><value>LUT</value></data>
+  <data name="Font" xml:space="preserve"><value>字体</value></data>
+</root>

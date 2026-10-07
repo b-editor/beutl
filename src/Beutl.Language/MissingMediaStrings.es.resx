@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Volver a vincular medios faltantes</value></data>
+  <data name="Description" xml:space="preserve"><value>Selecciona una carpeta para buscar los archivos faltantes. Los archivos sin resolver conservarán sus referencias originales y permanecerán sin conexión.</value></data>
+  <data name="SearchDirectory" xml:space="preserve"><value>Carpeta de medios</value></data>
+  <data name="Search" xml:space="preserve"><value>Buscar</value></data>
+  <data name="FindInFolder" xml:space="preserve"><value>Buscar en carpeta…</value></data>
+  <data name="Replace" xml:space="preserve"><value>Reemplazar…</value></data>
+  <data name="MatchFolder" xml:space="preserve"><value>Buscar en la misma carpeta…</value></data>
+  <data name="KeepOffline" xml:space="preserve"><value>Mantener sin conexión</value></data>
+  <data name="ContinueOffline" xml:space="preserve"><value>Continuar sin conexión</value></data>
+  <data name="ApplyAndSave" xml:space="preserve"><value>Aplicar y guardar</value></data>
+  <data name="Summary" xml:space="preserve"><value>{0} faltantes · {1} listos · {2} ignorados</value></data>
+  <data name="Missing" xml:space="preserve"><value>Faltante</value></data>
+  <data name="Ready" xml:space="preserve"><value>Listo para vincular</value></data>
+  <data name="Unrecognized" xml:space="preserve"><value>No se puede leer el archivo. Selecciona otro o mantenlo sin conexión.</value></data>
+  <data name="NoUniqueMatch" xml:space="preserve"><value>No hay una coincidencia única. Selecciona un archivo o mantenlo sin conexión.</value></data>
+  <data name="FontCopyFailed" xml:space="preserve"><value>No se pudo guardar la fuente seleccionada en el proyecto.</value></data>
+  <data name="Video" xml:space="preserve"><value>Vídeo</value></data>
+  <data name="Sound" xml:space="preserve"><value>Audio</value></data>
+  <data name="Image" xml:space="preserve"><value>Imagen</value></data>
+  <data name="Model" xml:space="preserve"><value>Modelo 3D</value></data>
+  <data name="Cube" xml:space="preserve"><value>LUT</value></data>
+  <data name="Font" xml:space="preserve"><value>Fuente</value></data>
+</root>

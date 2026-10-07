@@ -85,6 +85,33 @@ public sealed partial class Model3D : Group3D
         }
     }
 
+    internal void SynchronizeSourceGeometry()
+    {
+        if (Source.CurrentValue is not { } source) return;
+        MeshObject3D[] previous = Children.OfType<MeshObject3D>().ToArray();
+        for (int i = 0; i < source.MeshCount; i++)
+        {
+            var data = source.GetMeshData(i);
+            MeshObject3D child;
+            if (i < previous.Length) child = previous[i];
+            else
+            {
+                child = new MeshObject3D();
+                if (data.MaterialIndex >= 0 && data.MaterialIndex < source.MaterialCount)
+                    child.Material.CurrentValue = CreateMaterial(source.GetMaterialData(data.MaterialIndex));
+                Children.Add(child);
+            }
+            if (child.Mesh.CurrentValue is not ModelMesh mesh)
+            {
+                mesh = new ModelMesh();
+                child.Mesh.CurrentValue = mesh;
+            }
+            mesh.Vertices.CurrentValue = data.Vertices;
+            mesh.Indices.CurrentValue = data.Indices;
+        }
+        foreach (MeshObject3D child in previous.Skip(source.MeshCount)) Children.Remove(child);
+    }
+
     private static PBRMaterial CreateMaterial(MaterialData materialData)
     {
         var material = new PBRMaterial();

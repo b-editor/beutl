@@ -81,6 +81,9 @@ public sealed class MissingMediaService
         }).OrderBy(item => item.Kind).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
+    internal static Uri[] GetFileUris(Scene scene) => new ObjectSearcher(scene, value => GetUri(value) is { IsFile: true })
+        .SearchAll().Select(value => GetUri(value)!).Distinct().ToArray();
+
     private static Uri? GetUri(object value) => value switch
     {
         MediaSource { HasUri: true } source => source.Uri,
@@ -126,8 +129,10 @@ public sealed class MissingMediaService
                     Add(bySize, new FileInfo(path).Length, path);
                     if (findFonts && IsFontFile(path))
                     {
-                        using var face = SKTypeface.FromFile(path);
-                        if (face != null) Add(fonts, face.FamilyName, path);
+                        foreach (var face in FontManager.OpenFontFaces(path))
+                            using (face)
+                                if (!fonts.TryGetValue(face.FamilyName, out var paths) || !paths.Contains(path))
+                                    Add(fonts, face.FamilyName, path);
                     }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
@@ -155,8 +160,7 @@ public sealed class MissingMediaService
                 // With a saved fingerprint, even a unique name must have the right content.
                 // Size-indexed fallback also finds files that have been renamed.
                 if (!bySize.TryGetValue(fingerprint.Length, out var sameSize)) continue;
-                var candidates = sameSize.Where(path => string.Equals(Path.GetExtension(path),
-                    Path.GetExtension(item.Name), StringComparison.OrdinalIgnoreCase)).ToArray();
+                var candidates = sameSize;
                 var matchingHashes = new List<string>();
                 foreach (string path in candidates)
                 {
@@ -213,9 +217,11 @@ public sealed class MissingMediaService
                     using (var stream = File.OpenRead(path)) CubeFile.FromStream(stream);
                     break;
                 case MissingMediaKind.Font:
-                    using (var face = SKTypeface.FromFile(path))
-                        if (face == null || !string.Equals(face.FamilyName, item.FontFamily!.Name, StringComparison.OrdinalIgnoreCase))
-                            throw new InvalidDataException("Choose a font file belonging to the missing font family.");
+                    bool found = false;
+                    foreach (var face in FontManager.OpenFontFaces(path))
+                        using (face)
+                            if (string.Equals(face.FamilyName, item.FontFamily!.Name, StringComparison.OrdinalIgnoreCase)) found = true;
+                    if (!found) throw new InvalidDataException("Choose a font file belonging to the missing font family.");
                     break;
             }
             return null;
@@ -223,8 +229,7 @@ public sealed class MissingMediaService
 
     public async Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default)
     {
-        Uri[] uris = new ObjectSearcher(scene, value => GetUri(value) is { IsFile: true })
-            .SearchAll().Select(value => GetUri(value)!).Distinct().ToArray();
+        Uri[] uris = GetFileUris(scene);
         var previous = new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints);
         var updated = await Task.Run(async () =>
         {
@@ -245,8 +250,18 @@ public sealed class MissingMediaService
             }
             return result;
         }, token);
-        scene.MediaFingerprints.Clear();
-        foreach (var pair in updated) scene.MediaFingerprints.Add(pair.Key, pair.Value);
+        token.ThrowIfCancellationRequested();
+        // Edits can occur while hashing. Merge only references still in the live graph
+        // and preserve newer entries, including fingerprints for offline sources.
+        var current = GetFileUris(scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        foreach (string key in scene.MediaFingerprints.Keys.Where(key => !current.Contains(key)).ToArray())
+            scene.MediaFingerprints.Remove(key);
+        foreach (var pair in updated)
+        {
+            if (current.Contains(pair.Key) && (!scene.MediaFingerprints.TryGetValue(pair.Key, out var existing)
+                || previous.TryGetValue(pair.Key, out var old) && existing == old))
+                scene.MediaFingerprints[pair.Key] = pair.Value;
+        }
     }
 
     private static async Task<string> HashFileAsync(string path, CancellationToken token)

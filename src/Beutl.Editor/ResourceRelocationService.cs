@@ -254,7 +254,8 @@ public class ResourceRelocationService
     }
 
     /// <summary>Reopens a source in place, preserving the owning object's edits.</summary>
-    public static void RelinkFileSource(IFileSource source, Uri newUri, IFileSource? validatedSource = null)
+    public static void RelinkFileSource(IFileSource source, Uri newUri, IFileSource? validatedSource = null,
+        bool synchronizeModelGeometry = false)
     {
         ArgumentNullException.ThrowIfNull(source);
         Uri originalUri = source.Uri;
@@ -262,13 +263,17 @@ public class ResourceRelocationService
             model.RelinkFrom(loaded);
         else
             source.ReadFrom(newUri);
+        if (synchronizeModelGeometry && source is ModelSource relocatedModel
+            && relocatedModel.FindHierarchicalParent<Model3D>() is { } owner)
+            owner.SynchronizeSourceGeometry();
         if (originalUri == newUri && source is MediaSource media)
             media.InvalidateResourceCache();
-        if (source is EngineObject obj && obj.FindHierarchicalParent<Scene>() is { } scene
-            && scene.MediaFingerprints.TryGetValue(originalUri.AbsoluteUri, out var fingerprint))
+        if (source is EngineObject obj && obj.FindHierarchicalParent<Scene>() is { } scene)
         {
-            scene.MediaFingerprints.Remove(originalUri.AbsoluteUri);
-            scene.MediaFingerprints[newUri.AbsoluteUri] = fingerprint;
+            // A replacement can have different content despite identical size/timestamps.
+            // Keep the original fingerprint until the whole scene graph is pruned;
+            // other media kinds can still refer to the old URI while remaining offline.
+            scene.MediaFingerprints.Remove(newUri.AbsoluteUri);
         }
     }
 

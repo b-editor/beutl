@@ -1,4 +1,6 @@
 ﻿using Avalonia.Controls;
+using Beutl.Editor;
+using Beutl.Media.Source;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Reactive.Bindings;
@@ -19,6 +21,18 @@ public sealed partial class EditViewModel
     internal async Task ShowMissingMediaAsync(Window owner, bool onlyOnFirstOpen = false)
     {
         if (_disposed || _missingMediaDialog != null || (onlyOnFirstOpen && _checkedMissingMedia)) return;
+        if (!onlyOnFirstOpen)
+        {
+            using var suspension = EditorService.SuspendEditor(this);
+            await Player.Pause();
+            if (_disposed) return;
+            foreach (MediaSource source in new Beutl.Editor.Services.ObjectSearcher(Scene,
+                         value => value is MediaSource { HasUri: true }).SearchAll().OfType<MediaSource>())
+                if (source.Uri.IsFile && File.Exists(source.Uri.LocalPath)) source.InvalidateResourceCache();
+            Renderer.Value.ClearAllCaches();
+            FrameCacheManager.Value.Clear();
+            Player.QueuePreviewRender();
+        }
         _checkedMissingMedia = true;
         using var vm = new MissingMediaDialogViewModel(this);
         if (vm.Rows.Count == 0) return;

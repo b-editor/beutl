@@ -100,6 +100,30 @@ public class EditorSwitchMenuTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Switching_editors_holds_the_shared_write_gate_until_the_context_is_replaced()
+    {
+        await TestReset.ResetShellAsync();
+        var document = new Scene { Uri = new Uri("file:///switch.scene") };
+        var original = new SavingEditorContext(document);
+        var tab = new EditorTabItem(original);
+        var replacement = new ReplacementEditorExtension();
+        TestShell.Editor.TabItems.Add(tab);
+        Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, replacement);
+        Assert.That(original.SaveCalls, Is.EqualTo(1));
+        var waiting = TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None).AsTask();
+        Assert.That(waiting.IsCompleted, Is.False);
+        try
+        {
+            original.SaveCompletion.SetResult(true);
+            await switching.WaitAsync(TimeSpan.FromSeconds(5));
+            using var lease = await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(tab.Context.Value, Is.SameAs(replacement.CreatedContext));
+            Assert.That(original.DisposeCalls, Is.EqualTo(1));
+        }
+        finally { original.SaveCompletion.TrySetResult(false); await TestReset.ResetShellAsync(); }
+    }
+
     private static void CaptureFailureNotification(Notification notification, bool nativeMenu)
     {
         if (Environment.GetEnvironmentVariable("BEUTL_EDITOR_SWITCH_CAPTURE") is not { Length: > 0 } directory)

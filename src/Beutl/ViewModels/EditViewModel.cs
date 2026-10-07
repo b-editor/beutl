@@ -182,6 +182,8 @@ public sealed partial class EditViewModel
         _autoSaveService.DisposeWith(_disposables);
 
         RestoreState();
+        CaptureSavedMediaUris();
+        ScheduleMediaFingerprints();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
@@ -474,7 +476,7 @@ public sealed partial class EditViewModel
         }
     }
 
-    public async ValueTask<bool> SaveAsync()
+    public ValueTask<bool> SaveAsync()
     {
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
@@ -492,7 +494,6 @@ public sealed partial class EditViewModel
                 CoreSerializer.PersistProjectMigrationMetadata([scene]);
 
                 relocation.Apply();
-                await new MissingMediaService().UpdateFingerprintsAsync(scene, _autoSaveCancellation.Token);
                 Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
                 // The scene is the commit record for every child/resource URI. Persist it only
                 // after every referenced file is durable at its new location.
@@ -514,6 +515,8 @@ public sealed partial class EditViewModel
         usage?.Complete();
 
         HasMediaRepairs.Value = false;
-        return true;
+        CaptureSavedMediaUris();
+        ScheduleMediaFingerprints();
+        return ValueTask.FromResult(true);
     }
 }
