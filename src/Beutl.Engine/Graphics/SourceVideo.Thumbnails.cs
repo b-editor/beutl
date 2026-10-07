@@ -11,6 +11,11 @@ namespace Beutl.Graphics;
 
 public partial class SourceVideo : IThumbnailsProvider
 {
+    // A strip opens its own decoder unless the preview already holds one for the source, and every
+    // element of a timeline requests its strip at once (e.g. on project load). The strips render on the
+    // single render thread anyway, so running more of them concurrently only multiplies open decoders.
+    internal static ThumbnailStripGate StripGate { get; } = new(2);
+
     private EventHandler? _thumbnailHandler;
 
     public ThumbnailsKind ThumbnailsKind => ThumbnailsKind.Video;
@@ -92,6 +97,9 @@ public partial class SourceVideo : IThumbnailsProvider
         bool preferProxy,
         ProxyPreset preferredProxyPreset = ProxyPreset.Quarter)
     {
+        if (!await StripGate.TryEnterAsync(cancellationToken))
+            yield break;
+
         Resource? resource = null;
         DrawableRenderNode? node = null;
         RenderNodeRenderer? renderer = null;
@@ -198,7 +206,14 @@ public partial class SourceVideo : IThumbnailsProvider
         }
         finally
         {
-            await DisposeThumbnailRenderResourcesAsync(renderer, node, resource);
+            try
+            {
+                await DisposeThumbnailRenderResourcesAsync(renderer, node, resource);
+            }
+            finally
+            {
+                StripGate.Release();
+            }
         }
     }
 

@@ -27,7 +27,22 @@ internal sealed partial class DecodingHandler : IDisposable
         int id = Interlocked.Increment(ref _nextReaderId);
 
         var state = new ReaderState { Reader = reader };
+        try
+        {
+            var response = CreateReaderBuffers(id, state);
+            _readers[id] = state;
+            return IpcMessage.Create(msg.Id, MessageType.OpenFileResult, response);
+        }
+        catch
+        {
+            state.Dispose();
+            throw;
+        }
+    }
 
+    private OpenFileResponse CreateReaderBuffers(int id, ReaderState state)
+    {
+        var reader = state.Reader;
         int slotCount = DefaultSlotCount;
         long slotSize = 0;
         string? videoShmName = null;
@@ -37,16 +52,24 @@ internal sealed partial class DecodingHandler : IDisposable
         {
             int videoWidth = reader.VideoInfo.FrameSize.Width;
             int videoHeight = reader.VideoInfo.FrameSize.Height;
-            slotSize = (long)videoWidth * videoHeight * 8 + 64; // RGBA64LE max
+            slotSize = FFmpegVideoSlotSizing.GetSlotSize(videoWidth, videoHeight, reader.IsHdr);
 
             long totalSize = slotSize * slotCount;
             videoShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{id}";
             var videoBuffer = SharedMemoryBuffer.Create(videoShmName, totalSize);
-
-            state.RingBuffer = new VideoRingBuffer(
-                slotCount, slotSize, videoBuffer,
-                reader, id, state.ReaderLock,
-                () => Interlocked.Increment(ref _shmGeneration));
+            try
+            {
+                state.RingBuffer = new VideoRingBuffer(
+                    slotCount, slotSize, videoBuffer,
+                    reader, id, state.ReaderLock,
+                    () => Interlocked.Increment(ref _shmGeneration));
+            }
+            catch
+            {
+                // Not yet owned by the state, so ReaderState.Dispose would not release it.
+                videoBuffer.Dispose();
+                throw;
+            }
         }
 
         if (reader.HasAudio)
@@ -56,10 +79,7 @@ internal sealed partial class DecodingHandler : IDisposable
             state.AudioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
         }
 
-        _readers[id] = state;
-
-        OpenFileResponse response = CreateOpenResponse(id, reader, state, videoShmName, slotCount, slotSize);
-        return IpcMessage.Create(msg.Id, MessageType.OpenFileResult, response);
+        return CreateOpenResponse(id, reader, state, videoShmName, slotCount, slotSize);
     }
 
     private static OpenFileResponse CreateOpenResponse(

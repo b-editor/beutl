@@ -18,6 +18,10 @@ public sealed class FFmpegReader : MediaReader
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
 
+    // Every reader lives in the same worker process, and frame threading keeps a decoded frame and
+    // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
+    private const int AutoThreadCountLimit = 8;
+
 #pragma warning disable IDE1006 // 命名スタイル
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
 #pragma warning restore IDE1006 // 命名スタイル
@@ -37,6 +41,9 @@ public sealed class FFmpegReader : MediaReader
     private MediaFrame? _currentVideoFrame;
     private MediaFrame? _currentAudioFrame;
     private MediaPacket? _packet;
+    // A video packet avcodec_send_packet rejected with EAGAIN; it must be resent before any later packet.
+    private MediaPacket? _pendingVideoPacket;
+    private bool _hasPendingVideoPacket;
     private SampleConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
@@ -146,6 +153,8 @@ public sealed class FFmpegReader : MediaReader
     public override bool HasVideo => _hasVideo;
 
     public override bool HasAudio => _hasAudio;
+
+    public bool IsHdr => _isHdr;
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
     {
@@ -359,7 +368,7 @@ public sealed class FFmpegReader : MediaReader
     }
 
     // RGBA64LE (HDR) or BGRA (SDR), matching the format filter InitFilterGraph builds.
-    private int BytesPerPixel => _isHdr ? 8 : 4;
+    private int BytesPerPixel => FFmpegVideoSlotSizing.GetBytesPerPixel(_isHdr);
 
     private BitmapColorSpace ResolveFrameColorSpace(MediaFrame frame)
         => (!Settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(frame) : BitmapColorSpace.Srgb;
@@ -504,6 +513,9 @@ public sealed class FFmpegReader : MediaReader
             _packet?.Dispose();
             _packet = null;
 
+            _pendingVideoPacket?.Dispose();
+            _pendingVideoPacket = null;
+
             _demuxer?.Dispose();
             _demuxer = null;
         }
@@ -581,26 +593,122 @@ public sealed class FFmpegReader : MediaReader
         if (_demuxer == null || _videoDecoder == null || _packet == null || _videoStream == null)
             return false;
 
+        if (DecodePendingVideoPacket())
+        {
+            _videoNowFrame = GetNowFrame();
+            return true;
+        }
+
         foreach (var packet in _demuxer.ReadPackets(_packet))
         {
-            if (packet.StreamIndex == _videoStream.Index)
+            if (packet.StreamIndex == _videoStream.Index
+                && (DecodeVideoPacket(packet) || DecodePendingVideoPacket()))
             {
-                foreach (var _ in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
-                {
-                    _videoNowFrame = GetNowFrame();
-                    return true;
-                }
+                _videoNowFrame = GetNowFrame();
+                return true;
             }
         }
 
         // フラッシュ：残りのフレームを取り出す
-        foreach (var _ in _videoDecoder.DecodePacket(null, _currentVideoFrame, _swVideoFrame))
+        if (DecodeVideoPacket(null))
         {
             _videoNowFrame = GetNowFrame();
             return true;
         }
 
         return false;
+    }
+
+    // Unlike MediaDecoder.DecodePacket, keeps a packet that avcodec_send_packet rejects with EAGAIN (the
+    // decoder still holds output) so it can be resent instead of being lost when the demuxer reuses its
+    // buffer, and copies the props of hardware frames after the transfer: DecodePacket copies them before,
+    // so the reused _swVideoFrame accumulated side data on every frame (av_frame_copy_props appends) and
+    // the first transfer, which allocates, dropped them.
+    private unsafe bool DecodeVideoPacket(MediaPacket? packet)
+    {
+        int ret = _videoDecoder!.SendPacket(packet);
+        if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN) && packet != null)
+        {
+            KeepPendingVideoPacket(packet);
+        }
+        else
+        {
+            if (packet != null && ReferenceEquals(packet, _pendingVideoPacket))
+                DiscardPendingVideoPacket();
+
+            if (ret < 0 && ret != ffmpeg.AVERROR(ffmpeg.EAGAIN) && ret != ffmpeg.AVERROR_EOF)
+                ret.ThrowIfError();
+        }
+
+        // Like DecodePacket, a receive error ends this packet without throwing.
+        if (_videoDecoder.ReceiveFrame(_currentVideoFrame) < 0)
+            return false;
+
+        if (_isHWDecoding)
+            TransferHardwareFrame(_currentVideoFrame!, _swVideoFrame!);
+
+        return true;
+    }
+
+    // Resends the rejected packet before anything read after it. Receiving the pending output makes the
+    // decoder accept the resend, so a second attempt only fails if the decoder breaks that contract.
+    private bool DecodePendingVideoPacket()
+    {
+        for (int attempt = 0; _hasPendingVideoPacket && attempt < 2; attempt++)
+        {
+            if (DecodeVideoPacket(_pendingVideoPacket))
+                return true;
+        }
+
+        DiscardPendingVideoPacket();
+        return false;
+    }
+
+    private unsafe void KeepPendingVideoPacket(MediaPacket packet)
+    {
+        if (!ReferenceEquals(packet, _pendingVideoPacket))
+        {
+            _pendingVideoPacket ??= new MediaPacket();
+            _pendingVideoPacket.Unref();
+            ffmpeg.av_packet_ref(_pendingVideoPacket, packet).ThrowIfError();
+        }
+
+        _hasPendingVideoPacket = true;
+    }
+
+    private void DiscardPendingVideoPacket()
+    {
+        _pendingVideoPacket?.Unref();
+        _hasPendingVideoPacket = false;
+    }
+
+    private static unsafe void TransferHardwareFrame(AVFrame* hwFrame, AVFrame* swFrame)
+    {
+        if (hwFrame->hw_frames_ctx == null)
+        {
+            // The decoder produced a software frame despite the device context.
+            ffmpeg.av_frame_unref(swFrame);
+            ffmpeg.av_frame_ref(swFrame, hwFrame).ThrowIfError();
+            return;
+        }
+
+        // Downloading into the previous frame's buffers avoids a full-frame allocation per decode, which is
+        // only valid while nothing else references them and the downloaded geometry is unchanged.
+        var framesContext = (AVHWFramesContext*)hwFrame->hw_frames_ctx->data;
+        if (swFrame->buf[0] != null
+            && (ffmpeg.av_frame_is_writable(swFrame) == 0
+                || swFrame->width != hwFrame->width
+                || swFrame->height != hwFrame->height
+                || (AVPixelFormat)swFrame->format != framesContext->sw_format))
+        {
+            ffmpeg.av_frame_unref(swFrame);
+        }
+
+        ffmpeg.av_frame_side_data_free(&swFrame->side_data, &swFrame->nb_side_data);
+        ffmpeg.av_dict_free(&swFrame->metadata);
+
+        ffmpeg.av_hwframe_transfer_data(swFrame, hwFrame, 0).ThrowIfError();
+        ffmpeg.av_frame_copy_props(swFrame, hwFrame).ThrowIfError();
     }
 
     private unsafe void SeekVideo(int frame)
@@ -613,6 +721,7 @@ public sealed class FFmpegReader : MediaReader
                 MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
+            DiscardPendingVideoPacket();
             GrabVideo();
         }
 
@@ -703,7 +812,7 @@ public sealed class FFmpegReader : MediaReader
         {
             ctx.ThreadCount = Math.Min(
                 Environment.ProcessorCount,
-                Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
+                Settings.ThreadCount > 0 ? Settings.ThreadCount : AutoThreadCountLimit);
         }
         else
         {
