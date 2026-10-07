@@ -1,14 +1,20 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.ExceptionServices;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class RenderRequestOwner : IDisposable
 {
+    private static ILogger? s_logger;
     private List<Exception>? _secondaryFailures;
+    private int _reportedSecondaryFailureCount;
     private List<Exception>? _cleanupFailures;
     private Dictionary<object, RenderFragmentReference>? _builtInBackdropBindings;
     private ExceptionDispatchInfo? _primaryFailure;
+
+    private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(RenderRequestOwner));
 
     public ExceptionDispatchInfo? PrimaryFailure => _primaryFailure;
 
@@ -93,6 +99,22 @@ internal sealed class RenderRequestOwner : IDisposable
     public void ThrowIfFailed()
     {
         _primaryFailure?.Throw();
+    }
+
+    // Only the primary failure reaches the caller, so log the failures it masks before it is thrown.
+    public void ReportSecondaryFailures()
+    {
+        if (_secondaryFailures is null)
+        {
+            return;
+        }
+
+        for (; _reportedSecondaryFailureCount < _secondaryFailures.Count; _reportedSecondaryFailureCount++)
+        {
+            Logger.LogWarning(
+                _secondaryFailures[_reportedSecondaryFailureCount],
+                "A render request failure was suppressed by an earlier failure.");
+        }
     }
 
     public void Dispose()

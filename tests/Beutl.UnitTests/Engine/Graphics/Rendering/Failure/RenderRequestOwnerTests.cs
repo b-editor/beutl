@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
@@ -32,6 +33,40 @@ public sealed class RenderRequestOwnerTests
             Assert.That(cleanupAggregate.InnerExceptions, Is.EqualTo(new[] { cleanup }));
             Assert.That(cleanupResource.DisposeCount, Is.EqualTo(1));
         });
+    }
+
+    [Test]
+    public void ReportSecondaryFailures_LogsEachMaskedFailureOnce()
+    {
+        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start();
+        var first = new InvalidOperationException("render-secondary-1");
+        var second = new InvalidOperationException("render-secondary-2");
+        using var owner = new RenderRequestOwner();
+
+        owner.RecordPrimaryFailure(new ApplicationException("render-primary"));
+        owner.RecordPrimaryFailure(first);
+        owner.ReportSecondaryFailures();
+        owner.RecordPrimaryFailure(second);
+        owner.ReportSecondaryFailures();
+        owner.ReportSecondaryFailures();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { first, second }));
+            Assert.That(logs.Entries.Select(entry => entry.Level), Is.All.EqualTo(LogLevel.Warning));
+        });
+    }
+
+    [Test]
+    public void ReportSecondaryFailures_LogsNothingWhenOnlyThePrimaryFailed()
+    {
+        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start();
+        using var owner = new RenderRequestOwner();
+
+        owner.RecordPrimaryFailure(new ApplicationException("render-primary"));
+        owner.ReportSecondaryFailures();
+
+        Assert.That(logs.Entries, Is.Empty);
     }
 
     private sealed class TrackedDisposable(Exception? failure = null) : IDisposable
