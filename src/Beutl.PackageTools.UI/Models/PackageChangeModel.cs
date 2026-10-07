@@ -29,8 +29,6 @@ public record PackageChangeModel(
 
     public string? Publisher { get; init; }
 
-    public bool AlreadyInstalled { get; init; }
-
     public bool Conflict { get; init; }
 
     private static string GetLocalNupkgPath(PackageIdentity package)
@@ -46,7 +44,6 @@ public record PackageChangeModel(
 
     private static async Task<PackageChangeModel?> ReadLocalSource(
         PackageIdentity package,
-        bool alreadyInstalled,
         PackageChangeAction action,
         CancellationToken cancellationToken)
     {
@@ -62,8 +59,7 @@ public record PackageChangeModel(
                 return new PackageChangeModel(package.Id, package.Version, nuspec.GetTitle() ?? package.Id, false, action)
                 {
                     Description = nuspec.GetDescription(),
-                    Publisher = nuspec.GetAuthors(),
-                    AlreadyInstalled = alreadyInstalled
+                    Publisher = nuspec.GetAuthors()
                 };
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -90,17 +86,16 @@ public record PackageChangeModel(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        InstalledPackageRepository repos = apiApp.GetResource<InstalledPackageRepository>();
         DiscoverService discover = apiApp.GetResource<DiscoverService>();
         string[] splited = s.Split('/');
 
         if (splited.Length == 2)
         {
-            return await ResolveVersionedAsync(repos, discover, splited[0], splited[1], action, cancellationToken);
+            return await ResolveVersionedAsync(discover, splited[0], splited[1], action, cancellationToken);
         }
         else if (splited.Length == 1)
         {
-            return await ResolveLatestAsync(repos, discover, s, action, cancellationToken);
+            return await ResolveLatestAsync(discover, s, action, cancellationToken);
         }
         else
         {
@@ -112,7 +107,6 @@ public record PackageChangeModel(
 
     // "<id>/<version>": the remote package, or the local nupkg / an uninstall-only entry when discovery fails.
     private static async ValueTask<PackageChangeModel?> ResolveVersionedAsync(
-        InstalledPackageRepository repos,
         DiscoverService discover,
         string id,
         string version,
@@ -120,7 +114,6 @@ public record PackageChangeModel(
         CancellationToken cancellationToken)
     {
         var pkg = new PackageIdentity(id, new NuGetVersion(version));
-        bool alreadyInstalled = repos.ExistsPackage(pkg);
         PackageChangeModel? item = null;
 
         try
@@ -130,7 +123,6 @@ public record PackageChangeModel(
             s_logger.LogInformation("Successfully discovered package {PackageId}", pkg.Id);
             item = new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
             {
-                AlreadyInstalled = alreadyInstalled,
                 LogoUrl = package.LogoUrl.Value,
                 Publisher = package.Owner.Name,
                 Description = package.ShortDescription.Value,
@@ -150,7 +142,7 @@ public record PackageChangeModel(
             }
             else if (CheckLocalSource(pkg))
             {
-                item = await ReadLocalSource(pkg, alreadyInstalled, action, cancellationToken);
+                item = await ReadLocalSource(pkg, action, cancellationToken);
             }
         }
 
@@ -159,7 +151,6 @@ public record PackageChangeModel(
 
     // "<id>": the latest release of the remote package.
     private static async ValueTask<PackageChangeModel?> ResolveLatestAsync(
-        InstalledPackageRepository repos,
         DiscoverService discover,
         string s,
         PackageChangeAction action,
@@ -175,12 +166,10 @@ public record PackageChangeModel(
             {
                 Release release = releases[0];
                 var pkg = new PackageIdentity(package.Name, new NuGetVersion(release.Version.Value));
-                bool alreadyInstalled = repos.ExistsPackage(pkg);
                 s_logger.LogInformation("Successfully discovered package {PackageId} with release version {Version}", package.Name, release.Version.Value);
 
                 return new PackageChangeModel(pkg.Id, pkg.Version, package.DisplayName.Value ?? pkg.Id, true, action)
                 {
-                    AlreadyInstalled = alreadyInstalled,
                     LogoUrl = package.LogoUrl.Value,
                     Publisher = package.Owner.Name,
                     Description = package.ShortDescription.Value
