@@ -78,7 +78,7 @@ internal sealed class EncoderOptionsEditor : UserControl
 
     private static ToggleButton Disclosure(string header, Control content, bool expanded, string name)
     {
-        var toggle = new ToggleButton { Name = name, Content = header, Margin = new Thickness(8, 4), IsChecked = expanded };
+        var toggle = new ToggleButton { Name = name, Content = header, Margin = new Thickness(8, 4, 4, 4), IsChecked = expanded };
         toggle.Bind(ThemeProperty, new DynamicResourceExtension("PropertyEditorMiniExpanderToggleButton"));
         content.IsVisible = expanded;
         toggle.IsCheckedChanged += (_, _) => content.IsVisible = toggle.IsChecked == true;
@@ -170,6 +170,7 @@ internal sealed class EncoderOptionsEditor : UserControl
                     else _model.SetValue(option, value);
                 }, _advancedRefreshers);
             input.Header = Strings.EncoderOptionsValue;
+            input.MenuContent = new Border { Width = 24, Height = 24, IsHitTestVisible = false };
             _advancedRows.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 4), Children = { name, renameWarning, input } });
         }
         _optionName.ItemsSource = _model.Descriptors.Select(d => d.Name)
