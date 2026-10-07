@@ -213,6 +213,9 @@
   <data name="EncoderOptionsOptionName" xml:space="preserve">
     <value>オプション名</value>
   </data>
+  <data name="EncoderOptionsEmptyName" xml:space="preserve">
+    <value>オプション名を入力してください。</value>
+  </data>
   <data name="EncoderOptionsAdd" xml:space="preserve">
     <value>追加</value>
   </data>

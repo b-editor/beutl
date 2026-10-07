@@ -94,7 +94,10 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
 
     public void RenameOption(AdditionalOption option, string name)
     {
-        if (!_disposed && !IsReadOnly) option.Name = name.Trim();
+        if (_disposed || IsReadOnly) return;
+        name = name.Trim();
+        if (Options.Any(o => o != option && o.Name == name)) return;
+        option.Name = name;
     }
 
     public void SetValue(AdditionalOption option, string value)
@@ -124,7 +127,7 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     }
 
     public static bool Matches(EncoderOptionChoiceInfo choice, string value)
-        => choice.Value.Equals(value, StringComparison.OrdinalIgnoreCase)
+        => choice.Value.Equals(value, StringComparison.Ordinal)
             || decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal number)
                 && (choice.NumericValue == number
                     || decimal.TryParse(choice.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal namedNumber)

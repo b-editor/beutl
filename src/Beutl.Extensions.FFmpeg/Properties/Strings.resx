@@ -213,6 +213,9 @@
   <data name="EncoderOptionsOptionName" xml:space="preserve">
     <value>Option name</value>
   </data>
+  <data name="EncoderOptionsEmptyName" xml:space="preserve">
+    <value>Option name cannot be empty.</value>
+  </data>
   <data name="EncoderOptionsAdd" xml:space="preserve">
     <value>Add</value>
   </data>

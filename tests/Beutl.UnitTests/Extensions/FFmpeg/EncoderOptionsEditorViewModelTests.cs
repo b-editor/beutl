@@ -123,6 +123,65 @@ public sealed class EncoderOptionsEditorViewModelTests
         Assert.That(notifications, Is.EqualTo(afterDispose));
     }
 
+    [Test]
+    public async Task RenamingToAnExistingNamePreservesBothOptionsAndExportDictionary()
+    {
+        var settings = CreateSettings();
+        await Cache(settings, Schema("high"));
+        using var model = CreateModel(settings);
+        AdditionalOption option = settings.Options.Single(o => o.Name == "profile");
+        string originalValue = option.Value;
+        string quality = model.GetValue("crf")!;
+
+        model.RenameOption(option, " crf ");
+
+        Assert.That(option.Name, Is.EqualTo("profile"));
+        Assert.That(option.Value, Is.EqualTo(originalValue));
+        Assert.That(model.GetValue("crf"), Is.EqualTo(quality));
+        Assert.DoesNotThrow(() => settings.Options.ToDictionary(o => o.Name, o => o.Value));
+
+        model.RenameOption(option, " custom-option ");
+        Assert.That(option.Name, Is.EqualTo("custom-option"));
+        model.SetValue(option, "custom-value");
+        Assert.That(model.GetValue("custom-option"), Is.EqualTo("custom-value"));
+        model.RemoveOption(option);
+        Assert.That(model.GetValue("custom-option"), Is.Null);
+    }
+
+    [TestCase(EncoderOptionKind.Choice, "p4", true)]
+    [TestCase(EncoderOptionKind.Choice, "P4", false)]
+    [TestCase(EncoderOptionKind.Choice, "4", true)]
+    [TestCase(EncoderOptionKind.Integer, "1.5", false)]
+    [TestCase(EncoderOptionKind.Integer, "2", true)]
+    [TestCase(EncoderOptionKind.Integer, "invalid", false)]
+    [TestCase(EncoderOptionKind.Number, "2.5", true)]
+    [TestCase(EncoderOptionKind.Number, "-1", false)]
+    [TestCase(EncoderOptionKind.Number, "101", false)]
+    [TestCase(EncoderOptionKind.Boolean, "true", true)]
+    [TestCase(EncoderOptionKind.Boolean, "off", true)]
+    [TestCase(EncoderOptionKind.Boolean, "-1", false)]
+    [TestCase(EncoderOptionKind.Boolean, "2", false)]
+    [TestCase(EncoderOptionKind.Text, "unlisted", true)]
+    public async Task ValidatesNativeOptionConstraintsWithoutRewritingValues(EncoderOptionKind kind, string value, bool valid)
+    {
+        var settings = CreateSettings();
+        var descriptor = new EncoderOptionInfo
+        {
+            Name = "custom-option",
+            Kind = kind,
+            Minimum = 0,
+            Maximum = 100,
+            Choices = [new() { Value = "p4", NumericValue = 4 }],
+        };
+        await Cache(settings, [descriptor]);
+        using var model = CreateModel(settings);
+        model.SetValue(descriptor.Name, value);
+
+        Assert.That(model.GetWarning(descriptor, value) == null, Is.EqualTo(valid));
+        Assert.That(model.GetValue(descriptor.Name), Is.EqualTo(value));
+        Assert.That(model.GetWarning(descriptor, null), Is.Null);
+    }
+
     private static FFmpegVideoEncoderSettings CreateSettings() => new()
     {
         Codec = new CodecRecord("libx264", "H.264"),

@@ -1,6 +1,6 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
@@ -20,6 +20,121 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class EncoderOptionsEditorTests
 {
+    [AvaloniaTest]
+    [TestCase(10, 100, "2", "0", false, "20")]
+    [TestCase(0, 63, "100", "", true, "10")]
+    public async Task NumericTypingKeepsFocusUntilTheEditIsConfirmed(
+        int minimum, int maximum, string prefix, string suffix, bool backspace, string expected)
+    {
+        var settings = new FFmpegVideoEncoderSettings
+        {
+            Codec = new CodecRecord("libvpx-vp9", "VP9"),
+            OutputFile = "out.webm",
+            Options = [new("crf", "22")],
+        };
+        EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = minimum, Maximum = maximum }];
+        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
+        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
+        using var model = new EncoderOptionsEditorViewModel(
+            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+            new FFmpegEncoderSpecializedPropertyExtension());
+        var view = new EncoderOptionsEditor(model);
+        var confirm = new Button { Content = "Confirm" };
+        var window = new Window { Content = new StackPanel { Children = { view, confirm } }, Width = 440, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+            var number = view.GetVisualDescendants().OfType<NumberEditor<decimal>>().Single(c => c.Name == "EncoderOption_crf");
+            var input = number.GetVisualDescendants().OfType<TextBox>().Single();
+            Assert.That(input.Focus(), Is.True);
+            input.SelectAll();
+            window.KeyTextInput(prefix);
+            HeadlessTestHelpers.Render(2);
+
+            Assert.That(input.IsFocused, Is.True);
+            Assert.That(view.GetVisualDescendants().OfType<NumberEditor<decimal>>().Single(c => c.Name == number.Name), Is.SameAs(number));
+            Assert.That(model.GetValue("crf"), Is.EqualTo("22"));
+            if (backspace)
+                window.KeyPress(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null);
+            else
+                window.KeyTextInput(suffix);
+            HeadlessTestHelpers.Render(2);
+            Assert.That(input.IsFocused, Is.True);
+            Assert.That(confirm.Focus(), Is.True);
+            HeadlessTestHelpers.Render(2);
+            Assert.That(model.GetValue("crf"), Is.EqualTo(expected));
+        }
+        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+    }
+
+    [AvaloniaTest]
+    public async Task AdvancedRenameRejectsDuplicatesAndRestoresTheNameField()
+    {
+        var settings = new FFmpegVideoEncoderSettings
+        {
+            Codec = new CodecRecord("libx264", "H.264"),
+            OutputFile = "out.mp4",
+            Options = [new("first", "one"), new("second", "two")],
+        };
+        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
+        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>([], false)));
+        using var model = new EncoderOptionsEditorViewModel(
+            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+            new FFmpegEncoderSpecializedPropertyExtension());
+        var view = new EncoderOptionsEditor(model);
+        var window = new Window { Content = view, Width = 440, Height = 640 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+            view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
+            HeadlessTestHelpers.Render(2);
+            var name = view.GetVisualDescendants().OfType<StringEditor>().Single(c => c.Text == "first");
+            name.Text = "second";
+            name.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Assert.That(name.Text, Is.EqualTo("first"));
+            Assert.DoesNotThrow(() => settings.Options.ToDictionary(o => o.Name, o => o.Value));
+            Assert.That(model.GetValue("first"), Is.EqualTo("one"));
+            Assert.That(model.GetValue("second"), Is.EqualTo("two"));
+        }
+        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("en", "Option name cannot be empty.")]
+    [TestCase("ja", "オプション名を入力してください。")]
+    public async Task EmptyOptionNamesDisplayAnExplanatoryWarning(string culture, string warning)
+    {
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+        var settings = new FFmpegVideoEncoderSettings
+        {
+            Codec = new CodecRecord("libx264", "H.264"),
+            OutputFile = "out.mp4",
+            Options = [new(" ", "value")],
+        };
+        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
+        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>([], false)));
+        using var model = new EncoderOptionsEditorViewModel(
+            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+            new FFmpegEncoderSpecializedPropertyExtension());
+        var view = new EncoderOptionsEditor(model);
+        var window = new Window { Content = view, Width = 440, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+            Assert.That(view.GetVisualDescendants().OfType<TextBlock>().Any(c => c.IsEffectivelyVisible && c.Text == warning), Is.True);
+        }
+        finally
+        {
+            window.Close();
+            FFmpegOptionsCaches.ClearAll();
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
     [AvaloniaTest]
     public async Task NativeOptionNamesAndConstantsSupportTypedControlsAndCustomNumericValues()
     {

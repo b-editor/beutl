@@ -146,7 +146,16 @@ internal sealed class EncoderOptionsEditor : UserControl
         {
             EncoderOptionInfo? descriptor = _model.Descriptors.FirstOrDefault(d => d.Name == option.Name);
             var name = new StringEditor { Header = Strings.EncoderOptionsOptionName, Text = option.Name };
-            CommitText(name, () => option.Name, value => _model.RenameOption(option, value));
+            CommitText(name, () => option.Name, value =>
+            {
+                _model.RenameOption(option, value);
+                name.Text = option.Name;
+                if (option.Name != value.Trim())
+                {
+                    _warning.Text = Strings.EncoderOptionsDuplicate;
+                    _warning.IsVisible = true;
+                }
+            });
             var remove = IconButton(Icon.Delete, Strings.EncoderOptionsRemove);
             remove.Click += (_, _) => _model.RemoveOption(option);
             name.MenuContent = remove;
@@ -182,7 +191,7 @@ internal sealed class EncoderOptionsEditor : UserControl
                 _model.Descriptors.FirstOrDefault(d => d.Name == option.Name) is { } descriptor
                     ? _model.GetWarning(descriptor, option.Value) : null).OfType<string>().Distinct().ToList();
             if (_model.Options.GroupBy(o => o.Name).Any(g => g.Count() > 1)) warnings.Add(Strings.EncoderOptionsDuplicate);
-            if (_model.Options.Any(o => string.IsNullOrWhiteSpace(o.Name))) warnings.Add(Strings.EncoderOptionsOptionName);
+            if (_model.Options.Any(o => string.IsNullOrWhiteSpace(o.Name))) warnings.Add(Strings.EncoderOptionsEmptyName);
             _warning.Text = string.Join("\n", warnings);
             _warning.IsVisible = warnings.Count > 0;
             UpdateAddButton();
@@ -262,7 +271,6 @@ internal sealed class EncoderOptionsEditor : UserControl
                 decimal value = descriptor.Kind == EncoderOptionKind.Integer ? decimal.Truncate(args.NewValue) : args.NewValue;
                 write(value.ToString(CultureInfo.InvariantCulture));
             }
-            editor.ValueChanged += WriteNumber;
             editor.ValueConfirmed += WriteNumber;
             result = editor;
         }
