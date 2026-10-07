@@ -33,8 +33,8 @@ public class ProgressRing : RangeBase
         MinimumProperty.Changed.AddClassHandler<ProgressRing>(OnMinimumPropertyChanged);
         MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnMaximumPropertyChanged);
         ValueProperty.Changed.AddClassHandler<ProgressRing>(OnValuePropertyChanged);
-        MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnStartAnglePropertyChanged);
-        MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnEndAnglePropertyChanged);
+        StartAngleProperty.Changed.AddClassHandler<ProgressRing>(OnStartAnglePropertyChanged);
+        EndAngleProperty.Changed.AddClassHandler<ProgressRing>(OnEndAnglePropertyChanged);
     }
 
     public ProgressRing()
