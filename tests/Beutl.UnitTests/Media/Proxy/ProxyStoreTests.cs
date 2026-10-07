@@ -1083,8 +1083,11 @@ public sealed class ProxyStoreTests
                     try
                     {
                         store.Delete(entry.Source, entry.Preset);
-                        File.WriteAllBytes(Path.Combine(root, entry.ProxyFileRelative), [5, 6, 7]);
-                        store.Register(entry);
+                        // A concurrent flush may still be reclaiming the old file.
+                        // Publish a new generation, as the proxy generator does.
+                        string relative = Path.ChangeExtension(entry.ProxyFileRelative, $"{Guid.NewGuid():N}.mp4");
+                        File.WriteAllBytes(Path.Combine(root, relative), [5, 6, 7]);
+                        store.Register(entry with { ProxyFileRelative = relative });
                     }
                     catch (Exception ex)
                     {

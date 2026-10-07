@@ -23,6 +23,42 @@ internal static class MFStreamProbe
     public static int FindVideoStreamIndex(IMFSourceReader sourceReader)
         => FindStreamIndex(sourceReader, MediaTypeGuids.Video);
 
+    public static long GetFirstVideoTimestamp(string file)
+    {
+        using var attributes = MediaFactory.MFCreateAttributes(1u);
+        using var sourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, attributes);
+        int stream = FindVideoStreamIndex(sourceReader);
+        if (stream == -1)
+            return 0;
+
+        sourceReader.SetStreamSelection(SourceReaderIndex.AllStreams, false);
+        sourceReader.SetStreamSelection(stream, true);
+        return ReadFirstVideoTimestamp(() =>
+        {
+            // Read the compressed sample: an Audio-only open does not need to
+            // initialize a video decoder just to use the same time origin.
+            using var sample = sourceReader.ReadSample(stream, SourceReaderControlFlag.None,
+                out _, out var flags, out long timestamp);
+            return (sample != null, flags, timestamp);
+        });
+    }
+
+    internal static long ReadFirstVideoTimestamp(Func<(bool HasSample, SourceReaderFlag Flags, long Timestamp)> readSample)
+    {
+        while (true)
+        {
+            var (hasSample, flags, timestamp) = readSample();
+            // MF can return success with an error flag. Its reader must not be
+            // called again after that, even when this result includes a sample.
+            if (flags.HasFlag(SourceReaderFlag.Error))
+                return 0;
+            if (hasSample)
+                return timestamp;
+            if (flags.HasFlag(SourceReaderFlag.EndOfStream))
+                return 0;
+        }
+    }
+
     private static int FindStreamIndex(IMFSourceReader sourceReader, Guid majorType)
     {
         foreach ((int streamIndex, Guid streamMajorType) in EnumerateSelectedStreams(sourceReader))

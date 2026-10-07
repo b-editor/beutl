@@ -27,7 +27,7 @@ public class MFDecoderLifecycleTests
         // SharpGen's Configuration is a process-global that becomes immutable on first use (the first
         // COM wrapper / ObjectTracker access). Enable tracking here, before this fixture creates any
         // Media Foundation COM object, so the baseline count sees the wrappers the MFDecoder ctor
-        // creates — the ctor sets the same flags, but too late to count its own wrappers. These flags
+        // creates. MFThread sets the same flags for opens on the application's dispatcher. These flags
         // are one-way switches that cannot be restored afterwards, so OneTimeTearDown leaves them as-is.
         SharpGen.Runtime.Configuration.EnableObjectTracking = true;
         SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
