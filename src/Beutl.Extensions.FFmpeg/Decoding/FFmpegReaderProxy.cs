@@ -13,23 +13,40 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
-public sealed class FFmpegReaderProxy : MediaReader
+public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
-    private readonly IpcConnection _connection;
-    private readonly int _readerId;
     private readonly OpenFileResponse _openResponse;
+    private readonly Func<(IpcConnection Connection, OpenFileResponse Response)>? _reopen;
+    private readonly FFmpegReaderIdleTracker? _idleTracker;
+    // Serializes reads with suspension and disposal, which replace the worker reader and its buffers.
+    private readonly Lock _gate = new();
+    private IpcConnection _connection;
+    private int _readerId;
+    private string? _videoShmName;
+    private string? _audioShmName;
     private SharedMemoryBuffer? _videoBuffer;
     private SharedMemoryBuffer? _audioBuffer;
     private BitmapColorSpace? _colorSpace;
     private int _ringSlotCount;
     private long _ringSlotSize;
+    private volatile bool _suspended;
+    private bool _closed;
+    private long _lastAccessTicks = Environment.TickCount64;
 
-    internal FFmpegReaderProxy(IpcConnection connection, int readerId, OpenFileResponse openResponse)
+    internal FFmpegReaderProxy(
+        IpcConnection connection,
+        int readerId,
+        OpenFileResponse openResponse,
+        Func<(IpcConnection Connection, OpenFileResponse Response)>? reopen = null,
+        FFmpegReaderIdleTracker? idleTracker = null)
     {
         _connection = connection;
         _readerId = readerId;
         _openResponse = openResponse;
+        _reopen = reopen;
+        _videoShmName = openResponse.VideoSharedMemoryName;
+        _audioShmName = openResponse.AudioSharedMemoryName;
 
         if (openResponse.HasVideo)
         {
@@ -60,6 +77,13 @@ public sealed class FFmpegReaderProxy : MediaReader
                 ai.AudioSampleRate,
                 ai.AudioNumChannels);
         }
+
+        // Only video readers hold a decoder and ring buffer worth releasing while idle.
+        if (openResponse.HasVideo && reopen != null && idleTracker != null)
+        {
+            _idleTracker = idleTracker;
+            idleTracker.Track(this);
+        }
     }
 
     public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
@@ -70,7 +94,58 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override bool HasAudio => _openResponse.HasAudio;
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    internal bool IsSuspended => _suspended;
+
+    internal int ReaderId => _readerId;
+
+    long IIdleSuspendableReader.LastAccessTicks => Volatile.Read(ref _lastAccessTicks);
+
+    long IIdleSuspendableReader.PixelCount => (long)_openResponse.VideoWidth * _openResponse.VideoHeight;
+
+    bool IIdleSuspendableReader.IsSuspended => _suspended;
+
+    bool IIdleSuspendableReader.TrySuspend(long expectedLastAccessTicks)
+    {
+        if (_reopen == null || !_gate.TryEnter())
+            return false;
+
+        try
+        {
+            if (_closed || _suspended || Volatile.Read(ref _lastAccessTicks) != expectedLastAccessTicks)
+                return false;
+
+            CloseWorkerReader(_connection, _readerId);
+            _videoBuffer?.Dispose();
+            _videoBuffer = null;
+            _audioBuffer?.Dispose();
+            _audioBuffer = null;
+            _suspended = true;
+            _logger.LogDebug("Suspended idle FFmpeg reader {ReaderId}", _readerId);
+            return true;
+        }
+        finally
+        {
+            _gate.Exit();
+        }
+    }
+
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
+        lock (_gate)
+        {
+            try
+            {
+                ResumeIfSuspended();
+                return ReadVideoCore(frame, out image);
+            }
+            finally
+            {
+                MarkAccessed();
+            }
+        }
+    }
+
+    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
         var response = _connection.RequestAsync<ReadVideoRequest, ReadVideoResponse>(
@@ -124,15 +199,27 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
-        int sampleRate = AudioInfo.SampleRate;
-
-        // SampleRate(1秒分)を超える場合はリクエストを分割
-        if (length > sampleRate)
+        lock (_gate)
         {
-            return ReadAudioChunked(start, length, sampleRate, out sound);
-        }
+            try
+            {
+                ResumeIfSuspended();
 
-        return ReadAudioCore(start, length, out sound);
+                int sampleRate = AudioInfo.SampleRate;
+
+                // SampleRate(1秒分)を超える場合はリクエストを分割
+                if (length > sampleRate)
+                {
+                    return ReadAudioChunked(start, length, sampleRate, out sound);
+                }
+
+                return ReadAudioCore(start, length, out sound);
+            }
+            finally
+            {
+                MarkAccessed();
+            }
+        }
     }
 
     private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
@@ -222,32 +309,90 @@ public sealed class FFmpegReaderProxy : MediaReader
     {
         if (disposing)
         {
-            // fire-and-forget: UIスレッドからの呼び出しでデッドロックしないよう
-            // 同期ブロックを避けて非同期で送信
-            _ = Task.Run(async () =>
+            lock (_gate)
             {
-                try
+                if (!_closed)
                 {
-                    await _connection.SendAndReceiveAsync(
-                        IpcMessage.Create(_connection.NextId(), MessageType.CloseReader,
-                            new CloseReaderRequest { ReaderId = _readerId }));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to close FFmpeg reader {ReaderId} on worker", _readerId);
-                }
-            });
+                    _closed = true;
+                    if (!_suspended)
+                        CloseWorkerReader(_connection, _readerId);
 
-            _videoBuffer?.Dispose();
-            _audioBuffer?.Dispose();
+                    _videoBuffer?.Dispose();
+                    _videoBuffer = null;
+                    _audioBuffer?.Dispose();
+                    _audioBuffer = null;
+                }
+            }
+
+            // After _closed is set, so a read resuming concurrently cannot register this reader again.
+            _idleTracker?.Untrack(this);
         }
 
         base.Dispose(disposing);
     }
 
+    private void MarkAccessed()
+    {
+        Volatile.Write(ref _lastAccessTicks, Environment.TickCount64);
+    }
+
+    // Opens a fresh worker reader for a suspended proxy. The stream info captured at the first open is
+    // kept, so the reopened file must expose the same streams.
+    private void ResumeIfSuspended()
+    {
+        if (!_suspended)
+            return;
+
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        var (connection, response) = _reopen!();
+        if (response.HasVideo != _openResponse.HasVideo || response.HasAudio != _openResponse.HasAudio)
+        {
+            CloseWorkerReader(connection, response.ReaderId);
+            throw new InvalidOperationException("The media file no longer has the streams it was opened with.");
+        }
+
+        _connection = connection;
+        _readerId = response.ReaderId;
+        _videoShmName = response.VideoSharedMemoryName;
+        _audioShmName = response.AudioSharedMemoryName;
+        if (response.HasVideo)
+        {
+            _colorSpace = BuildColorSpace(response);
+            _ringSlotCount = response.VideoRingBufferSlotCount;
+            _ringSlotSize = response.VideoRingBufferSlotSize;
+        }
+
+        // The tracker drops suspended readers, so clear the flag before registering again.
+        _suspended = false;
+        _idleTracker?.Track(this);
+        _logger.LogDebug("Resumed FFmpeg reader as {ReaderId}", _readerId);
+    }
+
+    private void CloseWorkerReader(IpcConnection connection, int readerId)
+    {
+        // fire-and-forget: UIスレッドからの呼び出しでデッドロックしないよう
+        // 同期ブロックを避けて非同期で送信
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await connection.SendAndReceiveAsync(
+                    IpcMessage.Create(connection.NextId(), MessageType.CloseReader,
+                        new CloseReaderRequest { ReaderId = readerId }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to close FFmpeg reader {ReaderId} on worker", readerId);
+            }
+        });
+    }
+
     private void EnsureVideoBuffer(ReadVideoResponse response, string? newShmName)
     {
         bool nameChanged = newShmName != null;
+        if (nameChanged)
+            _videoShmName = newShmName;
 
         // リングバッファの場合: 全体サイズで確保
         long requiredCapacity = _ringSlotCount > 0
@@ -258,8 +403,7 @@ public sealed class FFmpegReaderProxy : MediaReader
             return;
 
         _videoBuffer?.Dispose();
-        string shmName = newShmName
-            ?? _openResponse.VideoSharedMemoryName
+        string shmName = _videoShmName
             ?? throw new InvalidOperationException("Video shared memory name not provided");
         _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredCapacity);
     }
@@ -267,12 +411,14 @@ public sealed class FFmpegReaderProxy : MediaReader
     private void EnsureAudioBuffer(int requiredSize, string? newShmName)
     {
         bool nameChanged = newShmName != null;
+        if (nameChanged)
+            _audioShmName = newShmName;
+
         if (!nameChanged && _audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
             return;
 
         _audioBuffer?.Dispose();
-        string shmName = newShmName
-            ?? _openResponse.AudioSharedMemoryName
+        string shmName = _audioShmName
             ?? throw new InvalidOperationException("Audio shared memory name not provided");
         _audioBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
     }

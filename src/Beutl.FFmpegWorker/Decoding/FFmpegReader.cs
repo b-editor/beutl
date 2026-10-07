@@ -18,6 +18,10 @@ public sealed class FFmpegReader : MediaReader
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
 
+    // Every reader lives in the same worker process, and frame threading keeps a decoded frame and
+    // decoder state alive per thread, so the automatic count stays below FFmpeg's own limit of 16.
+    private const int AutoThreadCountLimit = 8;
+
 #pragma warning disable IDE1006 // 命名スタイル
     private static readonly AVChannelLayout AV_CHANNEL_LAYOUT_STEREO = new()
 #pragma warning restore IDE1006 // 命名スタイル
@@ -146,6 +150,8 @@ public sealed class FFmpegReader : MediaReader
     public override bool HasVideo => _hasVideo;
 
     public override bool HasAudio => _hasAudio;
+
+    public bool IsHdr => _isHdr;
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
     {
@@ -281,7 +287,7 @@ public sealed class FFmpegReader : MediaReader
         int width = filterFrame.Width;
         int height = filterFrame.Height;
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
-        int bytesPerPixel = _isHdr ? 8 : 4;
+        int bytesPerPixel = FFmpegVideoSlotSizing.GetBytesPerPixel(_isHdr);
         var bmp = new Bitmap(width, height, colorType, BitmapAlphaType.Unpremul, colorSpace);
 
         try
@@ -326,7 +332,7 @@ public sealed class FFmpegReader : MediaReader
                 : BitmapColorSpace.Srgb;
             int width = filterFrame.Width;
             int height = filterFrame.Height;
-            int bytesPerPixel = _isHdr ? 8 : 4;
+            int bytesPerPixel = FFmpegVideoSlotSizing.GetBytesPerPixel(_isHdr);
             int byteCount = width * height * bytesPerPixel;
 
             info = new VideoFrameInfo
@@ -586,24 +592,69 @@ public sealed class FFmpegReader : MediaReader
 
         foreach (var packet in _demuxer.ReadPackets(_packet))
         {
-            if (packet.StreamIndex == _videoStream.Index)
+            if (packet.StreamIndex == _videoStream.Index && DecodeVideoPacket(packet))
             {
-                foreach (var _ in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
-                {
-                    _videoNowFrame = GetNowFrame();
-                    return true;
-                }
+                _videoNowFrame = GetNowFrame();
+                return true;
             }
         }
 
         // フラッシュ：残りのフレームを取り出す
-        foreach (var _ in _videoDecoder.DecodePacket(null, _currentVideoFrame, _swVideoFrame))
+        if (DecodeVideoPacket(null))
         {
             _videoNowFrame = GetNowFrame();
             return true;
         }
 
         return false;
+    }
+
+    // Same contract as the first iteration of MediaDecoder.DecodePacket, except for hardware frames:
+    // DecodePacket copies props before the transfer, so the reused _swVideoFrame accumulates side data on
+    // every frame (av_frame_copy_props appends) and the first transfer, which allocates, drops the props.
+    private unsafe bool DecodeVideoPacket(MediaPacket? packet)
+    {
+        int ret = _videoDecoder!.SendPacket(packet);
+        if (ret < 0 && ret != ffmpeg.AVERROR(ffmpeg.EAGAIN) && ret != ffmpeg.AVERROR_EOF)
+            ret.ThrowIfError();
+
+        // Like DecodePacket, a receive error ends this packet without throwing.
+        if (_videoDecoder.ReceiveFrame(_currentVideoFrame) < 0)
+            return false;
+
+        if (_isHWDecoding)
+            TransferHardwareFrame(_currentVideoFrame!, _swVideoFrame!);
+
+        return true;
+    }
+
+    private static unsafe void TransferHardwareFrame(AVFrame* hwFrame, AVFrame* swFrame)
+    {
+        if (hwFrame->hw_frames_ctx == null)
+        {
+            // The decoder produced a software frame despite the device context.
+            ffmpeg.av_frame_unref(swFrame);
+            ffmpeg.av_frame_ref(swFrame, hwFrame).ThrowIfError();
+            return;
+        }
+
+        // Downloading into the previous frame's buffers avoids a full-frame allocation per decode, which is
+        // only valid while nothing else references them and the downloaded geometry is unchanged.
+        var framesContext = (AVHWFramesContext*)hwFrame->hw_frames_ctx->data;
+        if (swFrame->buf[0] != null
+            && (ffmpeg.av_frame_is_writable(swFrame) == 0
+                || swFrame->width != hwFrame->width
+                || swFrame->height != hwFrame->height
+                || (AVPixelFormat)swFrame->format != framesContext->sw_format))
+        {
+            ffmpeg.av_frame_unref(swFrame);
+        }
+
+        ffmpeg.av_frame_side_data_free(&swFrame->side_data, &swFrame->nb_side_data);
+        ffmpeg.av_dict_free(&swFrame->metadata);
+
+        ffmpeg.av_hwframe_transfer_data(swFrame, hwFrame, 0).ThrowIfError();
+        ffmpeg.av_frame_copy_props(swFrame, hwFrame).ThrowIfError();
     }
 
     private unsafe void SeekVideo(int frame)
@@ -660,7 +711,7 @@ public sealed class FFmpegReader : MediaReader
                     {
                         ctx.ThreadCount = Math.Min(
                             Environment.ProcessorCount,
-                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
+                            Settings.ThreadCount > 0 ? Settings.ThreadCount : AutoThreadCountLimit);
                     }
                     else
                     {
@@ -744,7 +795,7 @@ public sealed class FFmpegReader : MediaReader
                     {
                         ctx.ThreadCount = Math.Min(
                             Environment.ProcessorCount,
-                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
+                            Settings.ThreadCount > 0 ? Settings.ThreadCount : AutoThreadCountLimit);
                     }
                     else
                     {

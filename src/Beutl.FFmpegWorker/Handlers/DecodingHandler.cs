@@ -30,7 +30,22 @@ internal sealed partial class DecodingHandler : IDisposable
         int id = Interlocked.Increment(ref _nextReaderId);
 
         var state = new ReaderState { Reader = reader };
+        try
+        {
+            var response = CreateReaderBuffers(id, state);
+            _readers[id] = state;
+            return IpcMessage.Create(msg.Id, MessageType.OpenFileResult, response);
+        }
+        catch
+        {
+            state.Dispose();
+            throw;
+        }
+    }
 
+    private OpenFileResponse CreateReaderBuffers(int id, ReaderState state)
+    {
+        var reader = state.Reader;
         int slotCount = DefaultSlotCount;
         long slotSize = 0;
         string? videoShmName = null;
@@ -40,7 +55,7 @@ internal sealed partial class DecodingHandler : IDisposable
         {
             int videoWidth = reader.VideoInfo.FrameSize.Width;
             int videoHeight = reader.VideoInfo.FrameSize.Height;
-            slotSize = (long)videoWidth * videoHeight * 8 + 64; // RGBA64LE max
+            slotSize = FFmpegVideoSlotSizing.GetSlotSize(videoWidth, videoHeight, reader.IsHdr);
 
             long totalSize = slotSize * slotCount;
             videoShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{id}";
@@ -58,8 +73,6 @@ internal sealed partial class DecodingHandler : IDisposable
             string audioShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{id}";
             state.AudioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
         }
-
-        _readers[id] = state;
 
         var response = new OpenFileResponse
         {
@@ -95,7 +108,7 @@ internal sealed partial class DecodingHandler : IDisposable
             response.AudioNumChannels = ai.NumChannels;
         }
 
-        return IpcMessage.Create(msg.Id, MessageType.OpenFileResult, response);
+        return response;
     }
 
     public IpcMessage HandleReadVideo(IpcMessage msg)

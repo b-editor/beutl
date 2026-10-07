@@ -1,6 +1,7 @@
 ﻿using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.FFmpegIpc.Transport;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
@@ -30,22 +31,12 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
     {
         try
         {
-            var worker = FFmpegWorkerProcess.DecodingInstance;
-            var connection = worker.EnsureStarted();
+            var (connection, response) = OpenOnWorker(file, options);
 
-            var request = new OpenFileRequest
-            {
-                FilePath = file,
-                StreamsToLoad = (int)options.StreamsToLoad,
-                ThreadCount = settings.ThreadCount,
-                Acceleration = (int)settings.Acceleration,
-                ForceSrgbGamma = settings.ForceSrgbGamma,
-            };
-
-            var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
-                MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
-
-            return new FFmpegReaderProxy(connection, response.ReaderId, response);
+            return new FFmpegReaderProxy(
+                connection, response.ReaderId, response,
+                () => OpenOnWorker(file, options),
+                FFmpegReaderIdleTracker.Shared);
         }
         catch (FFmpegLibrariesNotFoundException)
         {
@@ -62,6 +53,26 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
             _logger.LogError(ex, "Failed to open media file '{File}'", file);
             return null;
         }
+    }
+
+    // Also used to reopen a suspended reader, so it reads the current decoding settings.
+    private (IpcConnection Connection, OpenFileResponse Response) OpenOnWorker(string file, MediaOptions options)
+    {
+        var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
+
+        var request = new OpenFileRequest
+        {
+            FilePath = file,
+            StreamsToLoad = (int)options.StreamsToLoad,
+            ThreadCount = settings.ThreadCount,
+            Acceleration = (int)settings.Acceleration,
+            ForceSrgbGamma = settings.ForceSrgbGamma,
+        };
+
+        var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
+            MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
+
+        return (connection, response);
     }
 
     public IEnumerable<string> VideoExtensions()
