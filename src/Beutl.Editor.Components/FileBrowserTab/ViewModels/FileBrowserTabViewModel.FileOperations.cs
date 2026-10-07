@@ -302,32 +302,39 @@ public sealed partial class FileBrowserTabViewModel
         string targetDir)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
+        // バッチ全体で1つのコンテキストを使い、正規化で読むディレクトリ一覧を使い回す
+        FilePathComparison.ResolutionContext paths = FilePathComparison.CreateResolutionContext();
+        string? canonicalTargetDir = null;
 
         foreach (var (localPath, isDir) in files)
         {
             string normalizedSource = Path.GetFullPath(localPath);
-
-            // 同じ親ディレクトリ内での自己ドロップはスキップ（大文字小文字の区別はファイルシステムに従う）
-            string? sourceParent = Path.GetDirectoryName(normalizedSource);
-            if (sourceParent != null
-                && FilePathComparison.AreSameCanonicalPath(
-                    sourceParent, Path.TrimEndingDirectorySeparator(normalizedTargetDir)))
-            {
-                continue;
-            }
-
-            // ディレクトリを自身または子孫に移動することはできない
-            if (isDir && FilePathComparison.IsSameOrDescendant(normalizedSource, normalizedTargetDir))
-            {
-                _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
-                NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
-                continue;
-            }
-
             string destPath = Path.Combine(normalizedTargetDir, Path.GetFileName(normalizedSource));
 
             try
             {
+                canonicalTargetDir ??= paths.ResolveCanonicalPath(normalizedTargetDir);
+
+                // 同じ親ディレクトリ内での自己ドロップはスキップ（大文字小文字の区別はファイルシステムに従う）
+                string? sourceParent = Path.GetDirectoryName(normalizedSource);
+                if (sourceParent != null
+                    && string.Equals(paths.ResolveCanonicalPath(sourceParent), canonicalTargetDir, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // ディレクトリを自身または子孫に移動することはできない。
+                // Directory.Move はリンクそのものを移動するので、リンクはリンク先の中にも移動できる
+                if (isDir
+                    && new DirectoryInfo(normalizedSource).LinkTarget == null
+                    && FilePathComparison.IsSameOrDescendantCanonicalPath(
+                        paths.ResolveCanonicalPath(normalizedSource), canonicalTargetDir))
+                {
+                    _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
+                    NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
+                    continue;
+                }
+
                 if (!isDir)
                 {
                     if (!File.Exists(destPath))
