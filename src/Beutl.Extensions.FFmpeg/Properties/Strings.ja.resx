@@ -192,4 +192,58 @@
   <data name="FFmpegDecoder" xml:space="preserve">
     <value>FFmpeg デコーダー</value>
   </data>
+  <data name="EncoderOptionsHeader" xml:space="preserve">
+    <value>エンコードオプション</value>
+  </data>
+  <data name="EncoderOptionsLoading" xml:space="preserve">
+    <value>対応オプションを読み込み中…</value>
+  </data>
+  <data name="EncoderOptionsUnavailable" xml:space="preserve">
+    <value>対応オプションを取得できません。詳細設定で編集できます。</value>
+  </data>
+  <data name="EncoderOptionInvalidValue" xml:space="preserve">
+    <value>{0}: 「{1}」は現在のコーデックまたはピクセル形式に対応していません。</value>
+  </data>
+  <data name="EncoderOptionsDuplicate" xml:space="preserve">
+    <value>同じ名前のオプションが重複しています。</value>
+  </data>
+  <data name="EncoderOptionsAdvanced" xml:space="preserve">
+    <value>詳細設定</value>
+  </data>
+  <data name="EncoderOptionsOptionName" xml:space="preserve">
+    <value>オプション名</value>
+  </data>
+  <data name="EncoderOptionsAdd" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="EncoderOptionsRemove" xml:space="preserve">
+    <value>オプションを削除</value>
+  </data>
+  <data name="EncoderOptionsAutomatic" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="EncoderOptionsPreset" xml:space="preserve">
+    <value>速度プリセット</value>
+  </data>
+  <data name="EncoderOptionsProfile" xml:space="preserve">
+    <value>プロファイル</value>
+  </data>
+  <data name="EncoderOptionsQuality" xml:space="preserve">
+    <value>品質</value>
+  </data>
+  <data name="EncoderOptionsLevel" xml:space="preserve">
+    <value>レベル</value>
+  </data>
+  <data name="EncoderOptionsTune" xml:space="preserve">
+    <value>チューニング</value>
+  </data>
+  <data name="EncoderOptionsEnabled" xml:space="preserve">
+    <value>有効</value>
+  </data>
+  <data name="EncoderOptionsDisabled" xml:space="preserve">
+    <value>無効</value>
+  </data>
+  <data name="EncoderOptionsValue" xml:space="preserve">
+    <value>値</value>
+  </data>
 </root>
