@@ -124,7 +124,7 @@ public partial class GroupNode : GraphNode
 
         void Remove(int index, IList items)
         {
-            for (int i = index; i < items.Count; i++)
+            for (int i = index; i < index + items.Count; i++)
             {
                 _outputNodePortDisposable[i].Dispose();
             }
@@ -199,7 +199,7 @@ public partial class GroupNode : GraphNode
 
         void Remove(int index, IList items)
         {
-            for (int i = index; i < items.Count; i++)
+            for (int i = index; i < index + items.Count; i++)
             {
                 _inputNodePortDisposable[i].Dispose();
             }
