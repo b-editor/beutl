@@ -33,6 +33,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     private volatile bool _suspended;
     private bool _closed;
     private bool _streamsChanged;
+    private bool _reopenFailing;
     private long _lastAccessTicks = Environment.TickCount64;
 
     internal FFmpegReaderProxy(
@@ -346,9 +347,9 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         Volatile.Write(ref _lastAccessTicks, Environment.TickCount64);
     }
 
-    // Returns false when the reader cannot produce media: it was disposed, or the file was replaced while
-    // suspended (callers keep VideoInfo/AudioInfo from the first open, so frames of a file with other stream
-    // properties would be read at the wrong positions). Otherwise reopens a suspended worker reader.
+    // Returns false when the reader cannot produce media: it was disposed, a suspended reader cannot be
+    // reopened, or the file was replaced while suspended (callers keep VideoInfo/AudioInfo from the first
+    // open, so frames of a file with other stream properties would be read at the wrong positions).
     private bool TryResume()
     {
         if (_closed || _streamsChanged)
@@ -357,7 +358,24 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         if (!_suspended)
             return true;
 
-        var (connection, response) = _reopen!();
+        IpcConnection connection;
+        OpenFileResponse response;
+        try
+        {
+            (connection, response) = _reopen!();
+        }
+        catch (Exception ex)
+        {
+            // Stay suspended so a later read retries (e.g. once a moved file is back); a read runs every
+            // frame, so only the first failure in a row is logged.
+            if (!_reopenFailing)
+                _logger.LogWarning(ex, "Failed to reopen suspended FFmpeg reader {ReaderId}", _readerId);
+
+            _reopenFailing = true;
+            return false;
+        }
+
+        _reopenFailing = false;
         if (!HasSameStreams(_openResponse, response))
         {
             CloseWorkerReader(connection, response.ReaderId);

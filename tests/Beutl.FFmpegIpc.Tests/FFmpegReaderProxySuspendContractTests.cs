@@ -123,7 +123,75 @@ public class FFmpegReaderProxySuspendContractTests
         }
         finally
         {
-            File.Delete(path);
+            DeleteWhenReleased(path);
+        }
+    }
+
+    [Test]
+    public void ReopenFailure_ReturnsFalse_AndRetriesOnTheNextRead()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-ffmpeg-suspend-{Guid.NewGuid():N}.flv");
+        string movedPath = path + ".moved";
+        File.Copy(FixturePath, path);
+        try
+        {
+            using var reader = OpenFixture(path);
+            byte[] before = ReadFramePixels(reader, 0);
+            var suspendable = (IIdleSuspendableReader)reader;
+            int suspendedReaderId = reader.ReaderId;
+            Assert.That(suspendable.TrySuspend(suspendable.LastAccessTicks), Is.True);
+            AssertWorkerReaderClosed(suspendedReaderId);
+
+            MoveWhenReleased(path, movedPath);
+            Assert.Multiple(() =>
+            {
+                Assert.That(() => reader.ReadVideo(0, out _), Throws.Nothing);
+                Assert.That(reader.ReadVideo(0, out var image), Is.False);
+                Assert.That(image, Is.Null);
+                Assert.That(reader.IsSuspended, Is.True, "a failed reopen must leave the reader suspended");
+            });
+
+            File.Move(movedPath, path);
+            Assert.That(ReadFramePixels(reader, 0), Is.EqualTo(before), "the reader must recover once the file is back");
+        }
+        finally
+        {
+            DeleteWhenReleased(path);
+            DeleteWhenReleased(movedPath);
+        }
+    }
+
+    // The worker forgets the reader ID before it finishes disposing the reader, and FFmpeg opens files
+    // without delete sharing, so a move or delete right after the close can still hit the open handle.
+    private static void MoveWhenReleased(string source, string destination)
+        => RetryWhileLocked(() => File.Move(source, destination));
+
+    private static void DeleteWhenReleased(string path)
+    {
+        try
+        {
+            RetryWhileLocked(() => File.Delete(path));
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup of a temp file; it must not hide the test's own outcome.
+        }
+    }
+
+    private static void RetryWhileLocked(Action action)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (true)
+        {
+            try
+            {
+                action();
+                return;
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(50);
+            }
         }
     }
 
