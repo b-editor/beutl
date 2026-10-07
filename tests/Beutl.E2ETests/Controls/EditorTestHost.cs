@@ -91,9 +91,12 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
 
     public void DragHorizontally(Control control, double deltaX)
     {
+        // Lay out first so the center is real, and let the hover settle before the press.
+        HeadlessTestHelpers.Settle();
         Point start = Center(control);
         Point end = start + new Vector(deltaX, 0);
         Window.MouseMove(start);
+        HeadlessTestHelpers.Settle();
         Window.MouseDown(start, MouseButton.Left);
         HeadlessTestHelpers.Settle();
         Window.MouseMove(end, RawInputModifiers.LeftMouseButton);

@@ -89,7 +89,9 @@ public class VectorEditorTests
         Assert.That(editor.FourthValue, Is.EqualTo(4f));
     }
 
+    // Switches the global pointer-lock setting while it runs.
     [AvaloniaTest]
+    [NonParallelizable]
     public void Vector4_header_drag_confirms_all_four_components()
     {
         // Pointer lock reads the real mouse on macOS and Windows, which a headless drag never moves.
@@ -98,19 +100,28 @@ public class VectorEditorTests
         config.EnablePointerLockInProperty = false;
         try
         {
-            var editor = new Vector4Editor<float> { Header = "XYZW" };
+            // Distinct, nonzero starting values: the old third and fourth values must be recorded at the press,
+            // not left at their zero defaults.
+            var editor = new Vector4Editor<float>
+            {
+                Header = "XYZW",
+                FirstValue = 1,
+                SecondValue = 2,
+                ThirdValue = 3,
+                FourthValue = 4
+            };
             using var host = new EditorTestHost<Vector4Editor<float>>(editor);
             var confirmed = new List<object>();
             editor.ValueConfirmed += (_, e) => confirmed.Add(e);
 
             host.DragHorizontally(host.Require<TextBlock>("PART_HeaderTextBlock"), 40);
 
-            Assert.That(editor.FirstValue, Is.Not.Zero, "The drag did not change the value.");
+            Assert.That(editor.FirstValue, Is.Not.EqualTo(1f), "The drag did not change the value.");
             Assert.That(confirmed, Has.Count.EqualTo(1));
             var args = confirmed[0] as PropertyEditorValueChangedEventArgs<(float, float, float, float)>;
             Assert.That(args, Is.Not.Null, $"Confirmed with {confirmed[0].GetType()}, which the view models ignore.");
             Assert.That(args!.NewValue, Is.EqualTo((editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue)));
-            Assert.That(args.OldValue, Is.EqualTo((0f, 0f, 0f, 0f)));
+            Assert.That(args.OldValue, Is.EqualTo((1f, 2f, 3f, 4f)));
         }
         finally
         {
