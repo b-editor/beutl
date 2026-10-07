@@ -18,7 +18,7 @@ internal interface IIdleSuspendableReader
 // Every decoding reader lives in the single FFmpeg worker process, and the scene compositor keeps the
 // readers of all elements it has rendered, so readers the timeline has moved past are suspended here
 // (worker decoder and shared memory released) and reopen on their next read.
-internal sealed class FFmpegReaderIdleTracker
+internal sealed class FFmpegReaderIdleTracker : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<FFmpegReaderIdleTracker>();
 
@@ -29,6 +29,7 @@ internal sealed class FFmpegReaderIdleTracker
     private readonly FFmpegReaderIdlePolicy.Limits _limits;
     private readonly TimeSpan? _sweepInterval;
     private Timer? _timer;
+    private bool _disposed;
     private int _sweeping;
 
     // A null interval disables the periodic sweep; Sweep can then be called directly.
@@ -54,7 +55,7 @@ internal sealed class FFmpegReaderIdleTracker
         lock (_lock)
         {
             _readers.Add(reader);
-            if (_sweepInterval is { } interval)
+            if (_sweepInterval is { } interval && !_disposed)
             {
                 _timer ??= new Timer(
                     static state => ((FFmpegReaderIdleTracker)state!).OnTimer(),
@@ -67,6 +68,17 @@ internal sealed class FFmpegReaderIdleTracker
     {
         lock (_lock)
             _readers.Remove(reader);
+    }
+
+    // Stops the periodic sweep. Shared lives for the process; this is for trackers with a shorter lifetime.
+    public void Dispose()
+    {
+        lock (_lock)
+        {
+            _disposed = true;
+            _timer?.Dispose();
+            _timer = null;
+        }
     }
 
     internal void Sweep(long nowTicks)

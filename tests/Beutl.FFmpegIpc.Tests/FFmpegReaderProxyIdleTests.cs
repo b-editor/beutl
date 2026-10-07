@@ -28,6 +28,7 @@ public class FFmpegReaderProxyIdleTests
     [TearDown]
     public void TearDown()
     {
+        _tracker.Dispose();
         _worker.Dispose();
     }
 
@@ -67,6 +68,22 @@ public class FFmpegReaderProxyIdleTests
             Assert.That(reader.IsSuspended, Is.False);
             Assert.That(reopenCount, Is.EqualTo(1));
             Assert.That(_tracker.TrackedCount, Is.EqualTo(1), "a resumed reader is tracked again");
+        });
+    }
+
+    // Reopening starts a new worker when the old one exited, which comes with a new connection.
+    [Test]
+    public void Resume_ReadsOverTheConnectionReturnedByReopen()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        using var reader = CreateVideoProxy(() => (restartedWorker.Connection, restartedWorker.OpenVideo()));
+        Suspend(reader);
+
+        // The original worker does not know reader 9, so a read over the stale connection would fail.
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(reader.ReaderId, Is.EqualTo(9));
         });
     }
 
@@ -218,8 +235,9 @@ public class FFmpegReaderProxyIdleTests
         private readonly Task _loop;
         private int _nextReaderId;
 
-        public FakeWorker()
+        public FakeWorker(int firstReaderId = 1)
         {
+            _nextReaderId = firstReaderId - 1;
             string name = "beutl-fake-worker-" + Guid.NewGuid().ToString("N")[..8];
             _server = new NamedPipeServerStream(
                 name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);

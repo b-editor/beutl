@@ -15,7 +15,7 @@ public class FFmpegReaderIdleTrackerTests
     [Test]
     public void PeriodicSweep_SuspendsIdleReaders()
     {
-        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        using var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
         var reader = new FakeReader(Environment.TickCount64);
         tracker.Track(reader);
 
@@ -26,12 +26,25 @@ public class FFmpegReaderIdleTrackerTests
     [Test]
     public void PeriodicSweep_KeepsRunningAfterASweepThrows()
     {
-        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        using var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
         var reader = new FakeReader(Environment.TickCount64) { ThrowOnFirstSuspend = true };
         tracker.Track(reader);
 
         Assert.That(() => reader.IsSuspended, Is.True.After(5000, 10));
         Assert.That(reader.SuspendAttempts, Is.GreaterThanOrEqualTo(2));
+    }
+
+    [Test]
+    public void Dispose_StopsThePeriodicSweep()
+    {
+        var tracker = new FFmpegReaderIdleTracker(s_suspendImmediately, TimeSpan.FromMilliseconds(10));
+        tracker.Dispose();
+        var reader = new FakeReader(Environment.TickCount64);
+        tracker.Track(reader);
+
+        Thread.Sleep(100);
+
+        Assert.That(reader.SuspendAttempts, Is.Zero);
     }
 
     [Test]
