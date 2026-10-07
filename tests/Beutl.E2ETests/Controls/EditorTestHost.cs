@@ -89,6 +89,19 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         HeadlessTestHelpers.Settle();
     }
 
+    public void DragHorizontally(Control control, double deltaX)
+    {
+        Point start = Center(control);
+        Point end = start + new Vector(deltaX, 0);
+        Window.MouseMove(start);
+        Window.MouseDown(start, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+        Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        HeadlessTestHelpers.Settle();
+        Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+    }
+
     public void MoveFocusToSink()
     {
         Sink.Focus();

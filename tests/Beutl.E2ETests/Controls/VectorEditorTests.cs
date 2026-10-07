@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 
@@ -86,6 +87,35 @@ public class VectorEditorTests
         Assert.That(editor.SecondValue, Is.EqualTo(2f));
         Assert.That(editor.ThirdValue, Is.EqualTo(3f));
         Assert.That(editor.FourthValue, Is.EqualTo(4f));
+    }
+
+    [AvaloniaTest]
+    public void Vector4_header_drag_confirms_all_four_components()
+    {
+        // Pointer lock reads the real mouse on macOS and Windows, which a headless drag never moves.
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        bool pointerLock = config.EnablePointerLockInProperty;
+        config.EnablePointerLockInProperty = false;
+        try
+        {
+            var editor = new Vector4Editor<float> { Header = "XYZW" };
+            using var host = new EditorTestHost<Vector4Editor<float>>(editor);
+            var confirmed = new List<object>();
+            editor.ValueConfirmed += (_, e) => confirmed.Add(e);
+
+            host.DragHorizontally(host.Require<TextBlock>("PART_HeaderTextBlock"), 40);
+
+            Assert.That(editor.FirstValue, Is.Not.Zero, "The drag did not change the value.");
+            Assert.That(confirmed, Has.Count.EqualTo(1));
+            var args = confirmed[0] as PropertyEditorValueChangedEventArgs<(float, float, float, float)>;
+            Assert.That(args, Is.Not.Null, $"Confirmed with {confirmed[0].GetType()}, which the view models ignore.");
+            Assert.That(args!.NewValue, Is.EqualTo((editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue)));
+            Assert.That(args.OldValue, Is.EqualTo((0f, 0f, 0f, 0f)));
+        }
+        finally
+        {
+            config.EnablePointerLockInProperty = pointerLock;
+        }
     }
 
     [AvaloniaTest]

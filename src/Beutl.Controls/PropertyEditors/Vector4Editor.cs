@@ -191,11 +191,13 @@ public class Vector4Editor<TElement> : Vector4Editor
         if (_scrub.IsActive)
         {
             if (FirstValue != _oldFirstValue
-                || SecondValue != _oldSecondValue)
+                || SecondValue != _oldSecondValue
+                || ThirdValue != _oldThirdValue
+                || FourthValue != _oldFourthValue)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                    (FirstValue, SecondValue),
-                    (_oldFirstValue, _oldSecondValue),
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+                    (FirstValue, SecondValue, ThirdValue, FourthValue),
+                    (_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue),
                     ValueConfirmedEvent));
             }
 
@@ -213,6 +215,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             _oldFirstValue = FirstValue;
             _oldSecondValue = SecondValue;
+            _oldThirdValue = ThirdValue;
+            _oldFourthValue = FourthValue;
             _scrub.Begin(headerText, pointerPoint.Position);
             e.Handled = true;
         }
