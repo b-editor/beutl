@@ -2,13 +2,15 @@
 
 // Chooses which open readers to suspend. Readers used within the grace period are left alone so the
 // sources of the frame being rendered never reopen; among the rest, the most recently used are kept
-// warm within a reader and pixel budget (decoder and ring buffer memory scale with the frame size).
+// warm within a reader and memory budget (decoder memory grows with the ring buffer's frame size).
 internal static class FFmpegReaderIdlePolicy
 {
+    // Four 4K SDR readers, each holding four BGRA ring buffer slots with 64 bytes of padding. Spelled out
+    // instead of using FFmpegVideoSlotSizing, which the benchmarks compile into another namespace.
     public static Limits DefaultLimits { get; } = new(
         IdleGraceMilliseconds: 5000,
         MaxIdleReaders: 8,
-        MaxIdlePixels: 4L * 3840 * 2160);
+        MaxIdleBytes: 4L * 4 * (3840L * 2160 * 4 + 64));
 
     public static List<int> SelectForSuspension(ReadOnlySpan<Candidate> readers, long nowTicks, Limits limits)
     {
@@ -24,14 +26,14 @@ internal static class FFmpegReaderIdlePolicy
 
         var suspend = new List<int>();
         int keptReaders = 0;
-        long keptPixels = 0;
+        long keptBytes = 0;
         foreach (int index in idle)
         {
-            long pixels = snapshot[index].PixelCount;
-            if (keptReaders < limits.MaxIdleReaders && keptPixels + pixels <= limits.MaxIdlePixels)
+            long bytes = snapshot[index].MemoryBytes;
+            if (keptReaders < limits.MaxIdleReaders && keptBytes + bytes <= limits.MaxIdleBytes)
             {
                 keptReaders++;
-                keptPixels += pixels;
+                keptBytes += bytes;
             }
             else
             {
@@ -42,7 +44,7 @@ internal static class FFmpegReaderIdlePolicy
         return suspend;
     }
 
-    public readonly record struct Candidate(long LastAccessTicks, long PixelCount);
+    public readonly record struct Candidate(long LastAccessTicks, long MemoryBytes);
 
-    public sealed record Limits(long IdleGraceMilliseconds, int MaxIdleReaders, long MaxIdlePixels);
+    public sealed record Limits(long IdleGraceMilliseconds, int MaxIdleReaders, long MaxIdleBytes);
 }

@@ -342,24 +342,74 @@ public class FFmpegReaderProxyIdleTests
         Assert.That(reopenRequest!.ThreadCount, Is.EqualTo(6));
     }
 
-    // The worker grows the ring buffer for larger frames and never shrinks it, so the idle budget must
-    // count the largest decoded frame rather than the size reported at open.
+    // The idle budget counts the ring buffer the worker allocated: HDR slots take 8 bytes per pixel, and
+    // the worker grows the buffer for larger frames without ever shrinking it.
     [Test]
-    public void IdleBudgetCost_FollowsTheLargestDecodedFrame()
+    public void MemoryBytes_IsTheRingBufferTheWorkerAllocated()
+    {
+        OpenFileResponse hdr = _worker.OpenVideo(slotCount: 4, bytesPerPixel: 8);
+        using var hdrReader = new FFmpegReaderProxy(_worker.Connection, hdr.ReaderId, hdr);
+
+        Assert.That(((IIdleSuspendableReader)hdrReader).MemoryBytes, Is.EqualTo(4 * (4 * 4 * 8 + 64)));
+    }
+
+    [Test]
+    public void MemoryBytes_FollowsTheRingBufferAcrossResizeAndReopen()
     {
         using var reader = CreateVideoProxy();
         var suspendable = (IIdleSuspendableReader)reader;
-        Assert.That(suspendable.PixelCount, Is.EqualTo(16));
+        long opened = suspendable.MemoryBytes;
+        Assert.That(opened, Is.EqualTo(4 * 4 * 4 + 64));
 
         _worker.ResizeVideoOnNextRead(reader.ReaderId, 8, 8);
         Assert.That(reader.ReadVideo(0, out var image), Is.True);
         using (image)
             Assert.That(image!.Value.Width, Is.EqualTo(8));
-        Assert.That(suspendable.PixelCount, Is.EqualTo(64));
+        Assert.That(suspendable.MemoryBytes, Is.EqualTo(_worker.SlotSizeOf(reader.ReaderId)).And.GreaterThan(opened));
 
         Suspend(reader);
         ReadFirstByte(reader, 0);
-        Assert.That(suspendable.PixelCount, Is.EqualTo(16), "a reopened reader starts with a fresh ring buffer");
+        Assert.That(suspendable.MemoryBytes, Is.EqualTo(opened), "a reopened reader starts with a fresh ring buffer");
+    }
+
+    // A close stuck behind a long decode must not lead to a second decoder next to the old one.
+    [Test]
+    public void Resume_StaysSuspended_WhenTheCloseOutlastsTheTimeout()
+    {
+        int reopenCount = 0;
+        OpenFileResponse response = _worker.OpenVideo();
+        using var reader = new FFmpegReaderProxy(
+            _worker.Connection, response.ReaderId, response,
+            () =>
+            {
+                reopenCount++;
+                return (_worker.Connection, _worker.OpenVideo());
+            },
+            _tracker)
+        {
+            CloseTimeout = TimeSpan.FromMilliseconds(100),
+        };
+
+        _worker.ReleaseCloses.Reset();
+        try
+        {
+            Assert.That(TrySuspend(reader), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(reader.ReadVideo(0, out var image), Is.False);
+                Assert.That(image, Is.Null);
+                Assert.That(reader.IsSuspended, Is.True);
+                Assert.That(reopenCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            _worker.ReleaseCloses.Set();
+        }
+
+        _worker.WaitForClose(response.ReaderId);
+        Assert.That(ReadFirstByte(reader, 0), Is.EqualTo(FakeWorker.PixelValue(reader.ReaderId, 0)));
+        Assert.That(reopenCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -487,12 +537,12 @@ public class FFmpegReaderProxyIdleTests
 
         public static byte PixelValue(int readerId, int frame) => (byte)(readerId * 16 + frame);
 
-        public OpenFileResponse OpenVideo(int frameRateNum = 30)
+        public OpenFileResponse OpenVideo(int frameRateNum = 30, int slotCount = 1, int bytesPerPixel = BytesPerPixel)
         {
             int id = Interlocked.Increment(ref _nextReaderId);
-            long slotSize = Width * Height * BytesPerPixel + 64;
+            long slotSize = Width * Height * bytesPerPixel + 64;
             string name = $"beutl-fake-video-{Guid.NewGuid():N}";
-            _buffers[id] = SharedMemoryBuffer.Create(name, slotSize);
+            _buffers[id] = SharedMemoryBuffer.Create(name, slotSize * slotCount);
             return new OpenFileResponse
             {
                 ReaderId = id,
@@ -506,7 +556,7 @@ public class FFmpegReaderProxyIdleTests
                 DurationNum = 1,
                 DurationDen = 1,
                 VideoSharedMemoryName = name,
-                VideoRingBufferSlotCount = 1,
+                VideoRingBufferSlotCount = slotCount,
                 VideoRingBufferSlotSize = slotSize,
             };
         }
@@ -539,6 +589,8 @@ public class FFmpegReaderProxyIdleTests
         }
 
         public bool IsClosed(int readerId) => _closed.ContainsKey(readerId);
+
+        public long SlotSizeOf(int readerId) => _buffers[readerId].Capacity;
 
         public void WaitForClose(int readerId)
         {

@@ -15,8 +15,6 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 {
-    private static readonly TimeSpan s_closeTimeout = TimeSpan.FromSeconds(5);
-
     private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
     private readonly OpenFileResponse _openResponse;
     private readonly Func<(IpcConnection Connection, OpenFileResponse Response)>? _reopen;
@@ -37,7 +35,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
     private bool _streamsChanged;
     private bool _reopenFailing;
     private Task? _pendingClose;
-    private long _pixelCount;
+    private long _memoryBytes;
     private long _lastAccessTicks = Environment.TickCount64;
 
     internal FFmpegReaderProxy(
@@ -53,7 +51,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _reopen = reopen;
         _videoShmName = openResponse.VideoSharedMemoryName;
         _audioShmName = openResponse.AudioSharedMemoryName;
-        _pixelCount = (long)openResponse.VideoWidth * openResponse.VideoHeight;
+        _memoryBytes = openResponse.VideoRingBufferSlotSize * openResponse.VideoRingBufferSlotCount;
 
         if (openResponse.HasVideo)
         {
@@ -105,9 +103,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
 
     internal int ReaderId => _readerId;
 
+    // How long a read waits for the worker to close a suspended reader before trying again on a later read.
+    internal TimeSpan CloseTimeout { get; init; } = TimeSpan.FromSeconds(5);
+
     long IIdleSuspendableReader.LastAccessTicks => Volatile.Read(ref _lastAccessTicks);
 
-    long IIdleSuspendableReader.PixelCount => Volatile.Read(ref _pixelCount);
+    long IIdleSuspendableReader.MemoryBytes => Volatile.Read(ref _memoryBytes);
 
     bool IIdleSuspendableReader.IsSuspended => _suspended;
 
@@ -169,17 +170,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             return false;
         }
 
-        // The worker only grows its ring buffer when the stream's frames get larger, so the largest frame
-        // decoded so far is what this reader holds in the idle budget.
-        long pixels = (long)response.Width * response.Height;
-        if (pixels > Volatile.Read(ref _pixelCount))
-            Volatile.Write(ref _pixelCount, pixels);
-
         // リサイズによりスロットサイズが変更された場合は更新
         if (response.RingBufferSlotSize.HasValue)
             _ringSlotSize = response.RingBufferSlotSize.Value;
         if (response.RingBufferSlotCount.HasValue)
             _ringSlotCount = response.RingBufferSlotCount.Value;
+        Volatile.Write(ref _memoryBytes, _ringSlotSize * _ringSlotCount);
 
         // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
         EnsureVideoBuffer(response, response.SharedMemoryName);
@@ -373,8 +369,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         // the old one, the very allocation suspension exists to avoid under memory pressure.
         if (_pendingClose is { } close)
         {
-            if (!close.Wait(s_closeTimeout))
-                _logger.LogWarning("FFmpeg reader {ReaderId} was not closed in time; reopening anyway", _readerId);
+            // Still closing (e.g. behind a long decode): a later read retries instead of reopening now.
+            if (!close.Wait(CloseTimeout))
+            {
+                _logger.LogDebug("FFmpeg reader {ReaderId} is still closing; not reopening yet", _readerId);
+                return false;
+            }
 
             _pendingClose = null;
         }
@@ -411,12 +411,12 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _readerId = response.ReaderId;
         _videoShmName = response.VideoSharedMemoryName;
         _audioShmName = response.AudioSharedMemoryName;
-        Volatile.Write(ref _pixelCount, (long)response.VideoWidth * response.VideoHeight);
         if (response.HasVideo)
         {
             _colorSpace = BuildColorSpace(response);
             _ringSlotCount = response.VideoRingBufferSlotCount;
             _ringSlotSize = response.VideoRingBufferSlotSize;
+            Volatile.Write(ref _memoryBytes, _ringSlotSize * _ringSlotCount);
         }
 
         // The tracker drops suspended readers, so clear the flag before registering again.

@@ -7,7 +7,8 @@ internal interface IIdleSuspendableReader
 {
     long LastAccessTicks { get; }
 
-    long PixelCount { get; }
+    // Shared memory the reader holds in the worker (its ring buffer), which its decoder memory scales with.
+    long MemoryBytes { get; }
 
     bool IsSuspended { get; }
 
@@ -102,7 +103,7 @@ internal sealed class FFmpegReaderIdleTracker : IDisposable
 
         var candidates = new FFmpegReaderIdlePolicy.Candidate[readers.Length];
         for (int i = 0; i < readers.Length; i++)
-            candidates[i] = new(readers[i].LastAccessTicks, readers[i].PixelCount);
+            candidates[i] = new(readers[i].LastAccessTicks, readers[i].MemoryBytes);
 
         int suspended = 0;
         foreach (int index in FFmpegReaderIdlePolicy.SelectForSuspension(candidates, nowTicks, _limits))

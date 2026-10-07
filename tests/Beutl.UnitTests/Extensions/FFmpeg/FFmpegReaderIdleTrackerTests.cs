@@ -169,7 +169,7 @@ public class FFmpegReaderIdleTrackerTests
 
         public long LastAccessTicks { get; private set; } = lastAccessTicks;
 
-        public long PixelCount => 1920L * 1080;
+        public long MemoryBytes => 1920L * 1080 * 4;
 
         public bool IsSuspended => _isSuspended;
 
