@@ -198,6 +198,7 @@ public class BitmapView : Avalonia.Controls.Control
         builder.Uniforms["exposure"] = exposure;
         builder.Uniforms["tmOperator"] = (int)toneMapping;
         builder.Uniforms["sourceIsLinear"] = image.ColorSpace?.GammaIsLinear == true ? 1 : 0;
+        builder.Uniforms["sourceIsPremul"] = image.AlphaType == SKAlphaType.Unpremul ? 0 : 1;
         return builder.Build();
     }
 
@@ -225,6 +226,7 @@ public class BitmapView : Avalonia.Controls.Control
                 uniform float exposure;
                 uniform int tmOperator;
                 uniform int sourceIsLinear;
+                uniform int sourceIsPremul;
 
                 float3 srgbToLinear(float3 c) {
                     float3 lo = c / 12.92;
@@ -271,7 +273,8 @@ public class BitmapView : Avalonia.Controls.Control
                     float alpha = c.a;
                     if (alpha <= 0.0001) return half4(0.0);
 
-                    float3 rgb = c.rgb / alpha;
+                    // A raw shader leaves an unpremultiplied image's samples straight.
+                    float3 rgb = sourceIsPremul != 0 ? c.rgb / alpha : c.rgb;
                     if (sourceIsLinear == 0) rgb = srgbToLinear(rgb);
                     rgb *= exp2(exposure);
 

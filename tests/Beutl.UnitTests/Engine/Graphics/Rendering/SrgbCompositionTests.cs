@@ -352,6 +352,23 @@ public sealed class SrgbCompositionTests
     }
 
     [Test]
+    public void ToneMappedPreview_TreatsUnpremultipliedSourcesLikePremultipliedOnes()
+    {
+        using SKImage unpremul = TranslucentGray(SKAlphaType.Unpremul);
+        using SKImage premul = TranslucentGray(SKAlphaType.Premul);
+
+        Assert.That(ToneMappedRed(unpremul), Is.EqualTo(ToneMappedRed(premul)).Within(1));
+
+        static SKImage TranslucentGray(SKAlphaType alphaType)
+        {
+            using var bitmap = new SKBitmap(new SKImageInfo(4, 4, SKColorType.RgbaF16, alphaType,
+                BitmapColorSpace.Srgb.SKColorSpace));
+            bitmap.Erase(new SKColor(128, 128, 128, 128));
+            return SKImage.FromBitmap(bitmap);
+        }
+    }
+
+    [Test]
     public void ToneMappedPreview_LeavesPqSourcesToColorManagement()
     {
         SKColorSpace pq = BitmapColorSpaceMapping.BuildHdrColorSpace(
