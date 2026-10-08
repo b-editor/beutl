@@ -14,6 +14,7 @@ public sealed class CubeSource : MediaSource
 
     public override void ReadFrom(Uri uri)
     {
+        if (HasUri && Uri != uri) Volatile.Write(ref _cubeRef, null);
         Uri = uri;
     }
 
@@ -23,6 +24,12 @@ public sealed class CubeSource : MediaSource
         bool updateOnly = true;
         resource.Update(this, context, ref updateOnly);
         return resource;
+    }
+
+    internal override void InvalidateResourceCache()
+    {
+        Volatile.Write(ref _cubeRef, null);
+        base.InvalidateResourceCache();
     }
 
     public new sealed class Resource : MediaSource.Resource
@@ -37,7 +44,7 @@ public sealed class CubeSource : MediaSource
             base.Update(obj, context, ref updateOnly);
             var cubeSource = (CubeSource)obj;
 
-            if (_loadedUri != cubeSource.Uri && cubeSource.HasUri)
+            if (cubeSource.HasUri && (_loadedUri != cubeSource.Uri || ReloadRequested))
             {
                 _cube = null;
                 var localRef = Volatile.Read(ref cubeSource._cubeRef);

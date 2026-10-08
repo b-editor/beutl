@@ -18,6 +18,27 @@ public class StorageWriteTransactionTests
     public void TearDown() => Directory.Delete(_directory, true);
 
     [Test]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Updating_unchanged_metadata_does_not_rewrite_the_stored_file(bool hasMetadata)
+    {
+        var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(PathOf("main.scene")) };
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        System.Text.Json.Nodes.JsonNode? value = hasMetadata
+            ? System.Text.Json.Nodes.JsonNode.Parse("{\"media.png\":{\"Sha256\":\"abc\"}}") : null;
+        if (hasMetadata)
+            Assert.That(CoreSerializer.UpdateStoredMetadata(scene.Uri, scene.Id, nameof(scene.MediaFingerprints), value), Is.True);
+        byte[] bytes = File.ReadAllBytes(scene.Uri.LocalPath);
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step == StorageWriteStep.Replace && path == scene.Uri.LocalPath)
+                Assert.Fail("Unchanged metadata must not be published again.");
+        });
+        Assert.That(CoreSerializer.UpdateStoredMetadata(scene.Uri, scene.Id, nameof(scene.MediaFingerprints), value?.DeepClone()), Is.False);
+        Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(bytes));
+    }
+
+    [Test]
     public void Commit_KeepsEveryReplacementAndCreatedFile()
     {
         string existing = CreateFile("existing.json", "before");

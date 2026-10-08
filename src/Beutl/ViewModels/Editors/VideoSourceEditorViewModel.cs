@@ -8,7 +8,7 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<VideoSourc
     public VideoSourceEditorViewModel(IPropertyAdapter<VideoSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.HasUri == true ? x.Uri.LocalPath : null)
+        FullName = Value.ObserveLocalPath()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 

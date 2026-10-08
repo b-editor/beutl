@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>欠損メディアを再リンク</value></data>
+  <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} 件の素材が見つかりません。修復ツールから再リンクできます。</value></data>
+  <data name="OpenRepairTool" xml:space="preserve"><value>修復ツールを開く</value></data>
+  <data name="NoMissingMedia" xml:space="preserve"><value>欠損メディアはありません。</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>素材を移動してファイルが見つからなくなった場合は、ここで参照先を修復できます。</value></data>
+  <data name="PanelTitle" xml:space="preserve"><value>欠損メディア</value></data>
+  <data name="Candidate" xml:space="preserve"><value>候補あり</value></data>
+  <data name="FoundCandidate" xml:space="preserve"><value>見つかった候補</value></data>
+  <data name="UseCandidate" xml:space="preserve"><value>この候補を使用</value></data>
+  <data name="UseAllCandidates" xml:space="preserve"><value>候補をすべて使用</value></data>
+  <data name="CandidateSummary" xml:space="preserve"><value>欠損 {0} 件・準備済み {1} 件・候補 {2} 件・無視 {3} 件</value></data>
+  <data name="MediaActions" xml:space="preserve"><value>素材の操作</value></data>
+  <data name="Offline" xml:space="preserve"><value>オフライン</value></data>
+  <data name="NeedsAttention" xml:space="preserve"><value>要確認</value></data>
+  <data name="OriginalReference" xml:space="preserve"><value>元の参照</value></data>
+  <data name="ReplacementFile" xml:space="preserve"><value>新しいファイル</value></data>
+  <data name="UsedBy" xml:space="preserve"><value>参照元</value></data>
+  <data name="Replace" xml:space="preserve"><value>差し替え…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>差し替え</value></data>
+  <data name="KeepOffline" xml:space="preserve"><value>無視（オフライン）</value></data>
+  <data name="ApplyAndSave" xml:space="preserve"><value>適用して保存</value></data>
+  <data name="Missing" xml:space="preserve"><value>欠損</value></data>
+  <data name="Ready" xml:space="preserve"><value>再リンク可能</value></data>
+  <data name="Unrecognized" xml:space="preserve"><value>読み込めません。別のファイルを指定するか、無視してください。</value></data>
+  <data name="NoUniqueMatch" xml:space="preserve"><value>一致するファイルを特定できません。個別指定または無視してください。</value></data>
+  <data name="FontCopyFailed" xml:space="preserve"><value>選択したフォントをプロジェクトに保存できませんでした。</value></data>
+  <data name="Video" xml:space="preserve"><value>動画</value></data>
+  <data name="Sound" xml:space="preserve"><value>音声</value></data>
+  <data name="Image" xml:space="preserve"><value>画像</value></data>
+  <data name="Model" xml:space="preserve"><value>3Dモデル</value></data>
+  <data name="Cube" xml:space="preserve"><value>LUT</value></data>
+  <data name="Font" xml:space="preserve"><value>フォント</value></data>
+</root>

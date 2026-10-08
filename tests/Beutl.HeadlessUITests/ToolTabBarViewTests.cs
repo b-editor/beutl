@@ -18,6 +18,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
+using FluentIcons.Avalonia.Fluent;
 
 namespace Beutl.HeadlessUITests;
 
@@ -43,9 +44,11 @@ public class ToolTabBarViewTests
         using var files = new FileBrowserTabViewModel(editor);
         using var layouts = new DockLayoutViewModel(editor, new DockLayoutPresetService(Path.Combine(root, "layouts.json")));
         using var proxies = new ProxiesTabViewModel(editor);
+        using var missing = new MissingMediaViewModel(editor);
         var fileView = new FileBrowserTabView { DataContext = files };
         var layoutView = new DockLayoutView { DataContext = layouts };
         var proxyView = new ProxiesTabView { DataContext = proxies };
+        var missingView = new MissingMediaView { DataContext = missing };
         var window = new Window
         {
             Width = width,
@@ -78,6 +81,14 @@ public class ToolTabBarViewTests
 
             window.Content = proxyView;
             CheckBar(proxyView, "proxies");
+            var proxyIcon = (FluentIcon)proxyView.FindControl<Button>("RefreshButton")!.Content!;
+            window.Content = missingView;
+            CheckBar(missingView, "missing-media-empty");
+            var repairIcon = (FluentIcon)missingView.FindControl<Button>("RefreshButton")!.Content!;
+            Assert.That(proxyIcon.Icon, Is.EqualTo(repairIcon.Icon));
+            Assert.That(proxyIcon.FontSize, Is.EqualTo(repairIcon.FontSize));
+            Assert.That(proxyIcon.Bounds.Size, Is.EqualTo(repairIcon.Bounds.Size));
+            window.Content = proxyView;
             string longSummary = string.Join(" ", Enumerable.Repeat(Strings.ProxyQueueIdle, 20));
             proxies.ClipSummary.Value = longSummary;
             CheckBar(proxyView, "proxies-long-summary");

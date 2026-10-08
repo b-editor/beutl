@@ -149,6 +149,8 @@ public partial class CubeFile : IEquatable<CubeFile>
         while (i < length)
         {
             string? line = reader.ReadLine();
+            if (line == null)
+                throw new InvalidDataException("The LUT does not contain the declared number of entries.");
             if (line is not null && !line.StartsWith('#'))
             {
                 string[] values = line.Split(' ');
@@ -237,7 +239,10 @@ public partial class CubeFile : IEquatable<CubeFile>
             }
         }
 
+        if (!lutSizeFound)
+            throw new InvalidDataException("The file does not declare a LUT size.");
         reader.BaseStream.Position = 0;
+        reader.DiscardBufferedData();
     }
 
     /// <summary>Reads the red, green and blue bounds a <c>DOMAIN_MIN</c> or <c>DOMAIN_MAX</c> line declares.</summary>

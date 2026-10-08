@@ -72,6 +72,8 @@ public sealed partial class Model3D : Group3D
             // Create MeshObject3D wrapper
             var meshObject = new MeshObject3D();
             meshObject.Mesh.CurrentValue = modelMesh;
+            modelMesh.SourceChildId = meshObject.Id;
+            modelMesh.SourceMeshIndex = i;
 
             // Set material if available
             if (meshData.MaterialIndex >= 0 && meshData.MaterialIndex < source.MaterialCount)
@@ -83,6 +85,72 @@ public sealed partial class Model3D : Group3D
 
             Children.Add(meshObject);
         }
+    }
+
+    internal void SynchronizeSourceGeometry()
+    {
+        if (Source.CurrentValue is not { } source) return;
+        MeshObject3D[] previous = Children.OfType<MeshObject3D>().ToArray();
+        static int Origin(MeshObject3D child) => child.Mesh.CurrentValue is ModelMesh mesh && mesh.SourceChildId == child.Id
+            ? mesh.SourceMeshIndex : -1;
+        bool hasOrigins = previous.Any(child => Origin(child) >= 0);
+        // Legacy scenes have no provenance. Position matching is best-effort;
+        // keep unmarked surplus children rather than deleting possible user edits.
+        for (int i = 0; i < source.MeshCount; i++)
+        {
+            var data = source.GetMeshData(i);
+            MeshObject3D child;
+            MeshObject3D? imported = previous.FirstOrDefault(child => Origin(child) == i);
+            if (imported != null) child = imported;
+            else if (!hasOrigins && i < previous.Length) child = previous[i];
+            else
+            {
+                child = new MeshObject3D();
+                if (data.MaterialIndex >= 0 && data.MaterialIndex < source.MaterialCount)
+                    child.Material.CurrentValue = CreateMaterial(source.GetMaterialData(data.MaterialIndex));
+                Children.Add(child);
+            }
+            if (child.Mesh.CurrentValue is not ModelMesh mesh)
+            {
+                mesh = new ModelMesh();
+                child.Mesh.CurrentValue = mesh;
+            }
+            mesh.Vertices.CurrentValue = data.Vertices;
+            mesh.Indices.CurrentValue = data.Indices;
+            mesh.SourceChildId = child.Id;
+            mesh.SourceMeshIndex = i;
+        }
+        foreach (var child in previous.Where(child => Origin(child) >= source.MeshCount))
+        {
+            Children.Remove(child);
+        }
+    }
+
+    internal Action CaptureGeometryRollback()
+    {
+        var children = Children.ToArray();
+        var meshes = children.OfType<MeshObject3D>().Select(child =>
+            (Child: child, Mesh: child.Mesh.CurrentValue,
+                Vertices: (child.Mesh.CurrentValue as ModelMesh)?.Vertices.CurrentValue,
+                Indices: (child.Mesh.CurrentValue as ModelMesh)?.Indices.CurrentValue,
+                Origin: (child.Mesh.CurrentValue as ModelMesh)?.SourceChildId,
+                Index: (child.Mesh.CurrentValue as ModelMesh)?.SourceMeshIndex)).ToArray();
+        return () =>
+        {
+            Children.Clear();
+            foreach (var child in children) Children.Add(child);
+            foreach (var state in meshes)
+            {
+                state.Child.Mesh.CurrentValue = state.Mesh;
+                if (state.Mesh is ModelMesh mesh)
+                {
+                    mesh.Vertices.CurrentValue = state.Vertices!.Value;
+                    mesh.Indices.CurrentValue = state.Indices!.Value;
+                    mesh.SourceChildId = state.Origin!.Value;
+                    mesh.SourceMeshIndex = state.Index!.Value;
+                }
+            }
+        };
     }
 
     private static PBRMaterial CreateMaterial(MaterialData materialData)

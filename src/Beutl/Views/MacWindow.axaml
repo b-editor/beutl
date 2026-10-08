@@ -141,6 +141,7 @@
                     <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.RelinkMedia}" Header="{x:Static lang:MissingMediaStrings.Title}" />
                     <!--  要素  -->
                     <NativeMenuItem Header="{x:Static lang:Strings.Element}">
                         <NativeMenu>

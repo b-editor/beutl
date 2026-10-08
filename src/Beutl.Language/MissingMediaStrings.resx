@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Relink missing media</value></data>
+  <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} media references could not be found. Open the repair tool to relink them.</value></data>
+  <data name="OpenRepairTool" xml:space="preserve"><value>Open repair tool</value></data>
+  <data name="NoMissingMedia" xml:space="preserve"><value>No missing media.</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>When media is moved and files cannot be found, you can repair their references here.</value></data>
+  <data name="PanelTitle" xml:space="preserve"><value>Missing media</value></data>
+  <data name="Candidate" xml:space="preserve"><value>Candidate</value></data>
+  <data name="FoundCandidate" xml:space="preserve"><value>Matching file found</value></data>
+  <data name="UseCandidate" xml:space="preserve"><value>Use this candidate</value></data>
+  <data name="UseAllCandidates" xml:space="preserve"><value>Use all candidates</value></data>
+  <data name="CandidateSummary" xml:space="preserve"><value>{0} missing · {1} ready · {2} candidates · {3} ignored</value></data>
+  <data name="MediaActions" xml:space="preserve"><value>Media actions</value></data>
+  <data name="Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="NeedsAttention" xml:space="preserve"><value>Check file</value></data>
+  <data name="OriginalReference" xml:space="preserve"><value>Original reference</value></data>
+  <data name="ReplacementFile" xml:space="preserve"><value>Replacement file</value></data>
+  <data name="UsedBy" xml:space="preserve"><value>Used by</value></data>
+  <data name="Replace" xml:space="preserve"><value>Replace…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>Replace file</value></data>
+  <data name="KeepOffline" xml:space="preserve"><value>Keep offline</value></data>
+  <data name="ApplyAndSave" xml:space="preserve"><value>Apply and save</value></data>
+  <data name="Missing" xml:space="preserve"><value>Missing</value></data>
+  <data name="Ready" xml:space="preserve"><value>Ready to relink</value></data>
+  <data name="Unrecognized" xml:space="preserve"><value>Cannot read file — choose another file or keep offline.</value></data>
+  <data name="NoUniqueMatch" xml:space="preserve"><value>No unique match — choose a file or keep offline.</value></data>
+  <data name="FontCopyFailed" xml:space="preserve"><value>Could not save the selected font in the project.</value></data>
+  <data name="Video" xml:space="preserve"><value>Video</value></data>
+  <data name="Sound" xml:space="preserve"><value>Audio</value></data>
+  <data name="Image" xml:space="preserve"><value>Image</value></data>
+  <data name="Model" xml:space="preserve"><value>3D model</value></data>
+  <data name="Cube" xml:space="preserve"><value>LUT</value></data>
+  <data name="Font" xml:space="preserve"><value>Font</value></data>
+</root>

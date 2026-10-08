@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Services;
+using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
@@ -11,6 +12,47 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class StartupNotificationServiceTests
 {
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Canceling_a_notification_removes_it_from_visible_and_hidden_panels(bool persistent)
+    {
+        var mainView = new MainView();
+        using var cancellation = new CancellationTokenSource();
+        int closed = 0;
+        int failed = 0;
+        var notification = new Notification("Title", "Message",
+            Expiration: persistent ? Timeout.InfiniteTimeSpan : TimeSpan.Zero,
+            OnClose: () => closed++, OnShowFailed: () => failed++)
+        {
+            CancellationToken = cancellation.Token
+        };
+        Task showing = new NotificationServiceHandler(() => mainView).ShowCoreAsync(notification);
+        try
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+            while ((persistent ? mainView.NotificationPanel : mainView.HiddenNotificationPanel).Children.Count == 0
+                   && !showing.IsCompleted && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            Assert.That((persistent ? mainView.NotificationPanel : mainView.HiddenNotificationPanel).Children, Has.Count.EqualTo(1));
+            Assert.That(showing.IsCompleted, Is.False);
+            cancellation.Cancel();
+            await showing.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(mainView.NotificationPanel.Children, Is.Empty);
+                Assert.That(mainView.HiddenNotificationPanel.Children, Is.Empty);
+                Assert.That(closed, Is.Zero);
+                Assert.That(failed, Is.Zero);
+            });
+        }
+        finally
+        {
+            cancellation.Cancel();
+            await showing.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
     [Test]
     public void ShowTelemetryConsent_WhenUnset_ShowsPersistentNotificationAndAccepts()
     {

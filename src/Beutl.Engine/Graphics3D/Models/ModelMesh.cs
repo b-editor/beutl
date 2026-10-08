@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Language;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics3D.Models;
 
@@ -12,6 +13,26 @@ namespace Beutl.Graphics3D.Models;
 [Display(Name = nameof(GraphicsStrings.ModelMesh), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ModelMesh : Mesh
 {
+    internal Guid SourceChildId { get; set; }
+    internal int SourceMeshIndex { get; set; } = -1;
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        if (SourceChildId != Guid.Empty)
+        {
+            context.SetValue(nameof(SourceChildId), SourceChildId);
+            context.SetValue(nameof(SourceMeshIndex), SourceMeshIndex);
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        SourceChildId = context.GetValue<Guid>(nameof(SourceChildId));
+        SourceMeshIndex = context.GetValue<Optional<int>>(nameof(SourceMeshIndex)).GetValueOrDefault(-1);
+    }
+
     public ModelMesh()
     {
         ScanProperties<ModelMesh>();

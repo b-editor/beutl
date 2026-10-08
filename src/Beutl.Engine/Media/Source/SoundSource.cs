@@ -40,6 +40,12 @@ public sealed class SoundSource : MediaSource
         return resource;
     }
 
+    internal override void InvalidateResourceCache()
+    {
+        Volatile.Write(ref _mediaReaderRef, null);
+        base.InvalidateResourceCache();
+    }
+
     public new sealed class Resource : MediaSource.Resource
     {
         private Counter<MediaReader>? _counter;
@@ -110,8 +116,8 @@ public sealed class SoundSource : MediaSource
             base.Update(obj, context, ref updateOnly);
             var soundSource = (SoundSource)obj;
 
-            // Load media reader if URI changed
-            if (_loadedUri != soundSource.Uri && soundSource.HasUri)
+            // A relink can restore the file at its original URI.
+            if (soundSource.HasUri && (_loadedUri != soundSource.Uri || ReloadRequested))
             {
                 _counter?.Release();
                 _counter = null;

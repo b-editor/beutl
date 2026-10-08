@@ -134,6 +134,145 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Opening_and_auto_save_hash_updates_leave_pending_files_uncommitted()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+            EditViewModel.IsAutoSaveSuppressedForTesting = false;
+            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "version-control-background-media");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "tracked", location))!;
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=");
+            void AddMedia(string name)
+            {
+                string media = Path.Combine(projectRoot, name + ".png"); File.WriteAllBytes(media, png);
+                var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
+                var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, name + ".belm")) };
+                element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+                scene.Children.Add(element);
+            }
+            AddMedia("old");
+            CoreSerializer.StoreToUri(scene, scene.Uri!);
+            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(project,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))), Is.True);
+            int initialCommits = await CountCommitsAsync(gitPath, projectRoot);
+            File.WriteAllText(Path.Combine(projectRoot, "pending.txt"), "Work the user has not committed.");
+            TestShell.Editor.ActivateTabItem(scene);
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            await editor.WaitForMediaFingerprintsAsync();
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).MediaFingerprints, Has.Count.EqualTo(1));
+            Assert.That(await CountCommitsAsync(gitPath, projectRoot), Is.EqualTo(initialCommits));
+
+            AddMedia("new"); editor.HistoryManager.Commit("Add media");
+            HeadlessTestHelpers.Settle(); await editor.WaitForMediaFingerprintsAsync();
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).MediaFingerprints, Has.Count.EqualTo(2));
+            Assert.That(await CountCommitsAsync(gitPath, projectRoot), Is.EqualTo(initialCommits));
+            Assert.That(await CountSaveSnapshotsAsync(gitPath, projectRoot), Is.Zero);
+            Assert.That(await RunGitAsync(gitPath, projectRoot, "ls-tree", "-r", "--name-only", "HEAD"), Does.Not.Contain("pending.txt"));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+            EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Delayed_media_fingerprints_are_recorded_in_save_snapshots(bool saveAll)
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+        var release = new TaskCompletionSource();
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"version-control-delayed-media-{saveAll}");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "tracked", location))!;
+            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(project,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))), Is.True);
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            await editor.WaitForMediaFingerprintsAsync();
+            string media = Path.Combine(projectRoot, "image.png");
+            File.WriteAllBytes(media, Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="));
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "media.belm")) };
+                var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
+                element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+                scene.Children.Add(element);
+            }
+            var entered = new TaskCompletionSource();
+            editor.CaptureMediaFingerprints = async (value, token) =>
+            {
+                entered.TrySetResult();
+                await release.Task.WaitAsync(token);
+                await new Beutl.Editor.MissingMediaService().UpdateFingerprintsAsync(value, token);
+            };
+            if (saveAll) await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+            else await TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(await CountSaveSnapshotsAsync(gitPath, projectRoot), Is.EqualTo(1));
+            // An ordinary auto-save must not cancel the explicit save that is
+            // waiting for its media hash, nor request a snapshot of its own.
+            scene.Duration += TimeSpan.FromSeconds(1);
+            editor.HistoryManager.Commit("Edit while hashing");
+            HeadlessTestHelpers.Settle();
+            release.SetResult();
+            await editor.WaitForMediaFingerprintsAsync();
+            string relativeScene = Path.GetRelativePath(projectRoot, scene.Uri!.LocalPath).Replace('\\', '/');
+            string committedScene = await RunGitAsync(gitPath, projectRoot, "show", $"HEAD:{relativeScene}");
+            var saved = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+            Assert.That(committedScene, Does.Contain(saved.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256));
+            Assert.That(await CountSaveSnapshotsAsync(gitPath, projectRoot), Is.EqualTo(2));
+            Assert.That((await TestShell.VersionControl.CurrentService!.GetStatusAsync(CancellationToken.None)).IsClean, Is.True);
+        }
+        finally
+        {
+            release.TrySetResult();
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Explicit_save_persists_element_edits_when_auto_save_is_disabled()
     {
         await TestReset.ResetShellAsync();

@@ -177,11 +177,17 @@ public sealed partial class EditViewModel
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
-                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException))
+            {
+                _autoSaveFailed = true;
+                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException);
+            })
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
 
         RestoreState();
+        CaptureSavedMediaUris();
+        ScheduleMediaFingerprints();
+        NotifyMissingMedia();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
@@ -294,6 +300,8 @@ public sealed partial class EditViewModel
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
         Cleanup(_autoSaveCancellation.Cancel);
+        Cleanup(DismissMissingMediaNotification);
+        Cleanup(HasMediaRepairs.Dispose);
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         try
         {
@@ -528,6 +536,10 @@ public sealed partial class EditViewModel
         _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
         usage?.Complete();
 
+        HasMediaRepairs.Value = false;
+        CaptureSavedMediaUris();
+        ScheduleMediaFingerprints(force: !_fingerprintsFlushedForSave);
+        _fingerprintsFlushedForSave = false;
         return ValueTask.FromResult(true);
     }
 }

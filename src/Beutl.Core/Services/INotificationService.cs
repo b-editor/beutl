@@ -147,4 +147,8 @@ public record Notification(
     Action? OnClose = null,
     IReadOnlyList<NotificationAction>? Actions = null,
     bool IsClosable = true,
-    Action? OnShowFailed = null);
+    Action? OnShowFailed = null)
+{
+    /// <summary>Dismisses the notification when its owner cancels this token.</summary>
+    public CancellationToken CancellationToken { get; init; }
+}

@@ -9,12 +9,20 @@ internal static class ExtensionMenuActions
     public static async Task SwitchEditorAsync(
         MainViewModel viewModel, EditorTabItem selectedTab, EditorExtension editorExtension)
     {
-        if (selectedTab.Context.Value is ISavableEditorContext editor
+        using var write = await viewModel.EditorService.BeginProjectFileWriteAsync(CancellationToken.None);
+        if (!viewModel.EditorService.TabItems.Contains(selectedTab)) return;
+        IEditorContext original = selectedTab.Context.Value;
+        using var suspension = viewModel.EditorService.SuspendEditor(original);
+        if (original is EditViewModel sceneEditor)
+            await sceneEditor.FlushMediaFingerprintsAsync();
+        if (original is ISavableEditorContext editor
             && !await editor.SaveAsync())
         {
             NotificationService.ShowError(MessageStrings.UnableToSaveFile, selectedTab.FileName.Value);
             return;
         }
+
+        if (!ReferenceEquals(selectedTab.Context.Value, original)) return;
 
         if (editorExtension.TryCreateContext(
                 selectedTab.Context.Value.Object,

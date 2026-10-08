@@ -46,9 +46,16 @@ public sealed class VideoSource : MediaSource
         return resource;
     }
 
+    internal override void InvalidateResourceCache()
+    {
+        Volatile.Write(ref _mediaReaderRef, null);
+        base.InvalidateResourceCache();
+    }
+
     public new sealed class Resource : MediaSource.Resource
     {
         private Counter<MediaReader>? _counter;
+        private Ref<Bitmap>? _offlineBitmap;
         private Uri? _loadedUri;
         private bool _loadedPreferProxy;
         private ProxyPreset _loadedPreferredProxyPreset;
@@ -72,8 +79,15 @@ public sealed class VideoSource : MediaSource
 
         public MediaReader? MediaReader => _counter?.Value;
 
+        public bool IsOffline => _offlineBitmap != null;
+
         public bool Read(TimeSpan frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
+            if (!IsDisposed && _offlineBitmap is { } offline)
+            {
+                bitmap = offline.Clone();
+                return true;
+            }
             if (IsDisposed || _counter == null)
             {
                 bitmap = null;
@@ -87,6 +101,11 @@ public sealed class VideoSource : MediaSource
 
         public bool Read(int frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
+            if (!IsDisposed && _offlineBitmap is { } offline)
+            {
+                bitmap = offline.Clone();
+                return true;
+            }
             if (IsDisposed || _counter == null)
             {
                 bitmap = null;
@@ -111,6 +130,8 @@ public sealed class VideoSource : MediaSource
                 _counter?.Release();
                 _counter = null;
                 ProxyResolution = null;
+                _offlineBitmap?.Dispose();
+                _offlineBitmap = null;
 
                 // Refresh the per-source key for the current URI, then re-read this source's version so
                 // the reload baseline matches the new source. A missing original cannot be fingerprinted,
@@ -155,6 +176,7 @@ public sealed class VideoSource : MediaSource
         private bool NeedsReload(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
         {
             return (_loadedUri != videoSource.Uri
+                    || ReloadRequested
                     || _loadedPreferProxy != context.PreferProxy
                     || _loadedPreferredProxyPreset != context.PreferredProxyPreset
                     || _loadedProxyResolverVersion != proxyResolverVersion)
@@ -243,6 +265,11 @@ public sealed class VideoSource : MediaSource
             catch
             {
                 _counter = null;
+                _offlineBitmap = Ref<Bitmap>.Create(OfflineMediaPlaceholder.CreateBitmap());
+                FrameSize = LogicalFrameSize = OfflineMediaPlaceholder.Size;
+                Duration = TimeSpan.Zero;
+                FrameRate = new Rational(30, 1);
+                Version++;
                 RecordLoadedState(videoSource, context, proxyResolverVersion);
                 return false;
             }
@@ -263,6 +290,8 @@ public sealed class VideoSource : MediaSource
             base.Dispose(disposing);
             _counter?.Release();
             _counter = null;
+            _offlineBitmap?.Dispose();
+            _offlineBitmap = null;
         }
     }
 }

@@ -198,6 +198,7 @@ public partial class TextBlock : Drawable
         private (Brush.Resource Resource, int Version)? _fillCache;
         private TextElements? _elements;
         private bool _isDirty = true;
+        private long _fontRevision;
 
         public FontStyle FontStyle { get; private set; }
 
@@ -251,6 +252,12 @@ public partial class TextBlock : Drawable
 
         partial void PreUpdate(TextBlock obj, CompositionContext context)
         {
+            long revision = FontManager.Instance.Revision;
+            if (_fontRevision != revision)
+            {
+                _fontRevision = revision;
+                _isDirty = true;
+            }
             var fontStyle = context.Get(obj.FontStyle);
             if (FontStyle != fontStyle)
             {

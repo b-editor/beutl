@@ -16,6 +16,8 @@ namespace Beutl.ViewModels;
 
 public partial class EditViewModel
 {
+    private bool _autoSaveFailed;
+
     private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is EditorConfig config)
@@ -186,6 +188,11 @@ public partial class EditViewModel
         }
 
         // 影響を受けるタイムレンジを取得
+        if (MediaReferencesChanged())
+        {
+            ScheduleMediaFingerprints();
+            NotifyMissingMedia();
+        }
         List<TimeRange> affectedRanges = GetAffectedTimeRanges(list);
 
         // フレームキャッシュを更新
@@ -220,7 +227,13 @@ public partial class EditViewModel
                     return;
                 }
 
+                _autoSaveFailed = false;
                 _autoSaveService.AutoSave(list);
+                if (!_autoSaveFailed)
+                {
+                    CaptureSavedMediaUris();
+                    ScheduleMediaFingerprints();
+                }
                 SaveState();
             }
             catch (OperationCanceledException)

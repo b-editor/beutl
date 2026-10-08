@@ -3,6 +3,7 @@ using System.IO.Compression;
 using Beutl.IO;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
@@ -123,6 +124,11 @@ public sealed class ProjectPackageService
 
             // Step 7: Save the project
             progress?.Report((Strings.ExportingProject, 0.8));
+            // Rebase and relocation are complete. Persist hashes for the packaged
+            // URIs, including internal assets, instead of the original machine's paths.
+            var fingerprintService = new MissingMediaService();
+            foreach (Scene scene in ExternalResourceCollector.EnumerateObjects(tempProject).OfType<Scene>())
+                await fingerprintService.UpdateFingerprintsAsync(scene, cancellationToken);
             foreach (CoreObject obj in ExternalResourceCollector.EnumerateObjects(tempProject))
             {
                 if (obj.Uri is { IsFile: true } uri

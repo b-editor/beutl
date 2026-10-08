@@ -25,6 +25,51 @@ namespace Beutl.HeadlessUITests;
 public class EditorSwitchMenuTests
 {
     [AvaloniaTest]
+    public async Task Switching_scene_editors_flushes_pending_fingerprints_before_context_replacement()
+    {
+        await TestReset.ResetShellAsync();
+        string name = "switch-fingerprints-" + Guid.NewGuid().ToString("N");
+        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
+        Directory.CreateDirectory(directory);
+        var project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
+        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+        var tab = TestShell.Editor.SelectedTabItem.Value!;
+        var editor = (Beutl.ViewModels.EditViewModel)tab.Context.Value;
+        await editor.WaitForMediaFingerprintsAsync();
+        string path = Path.Combine(directory, "large-image.png");
+        var imageSource = new Beutl.Media.Source.ImageSource(); imageSource.ReadFrom(new Uri(path));
+        var started = new TaskCompletionSource(); var release = new TaskCompletionSource();
+        using (editor.HistoryManager.SuppressRecording())
+            editor.Scene.Children.Add(new Element
+            {
+                Uri = new Uri(Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "image.belm")),
+                Objects = { new Beutl.Graphics.SourceImage { Source = { CurrentValue = imageSource } } }
+            });
+        editor.CaptureMediaFingerprints = async (scene, token) =>
+        {
+            started.TrySetResult(); await release.Task.WaitAsync(token);
+            scene.MediaFingerprints[new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, 123, "captured-before-dispose");
+        };
+        try
+        {
+            editor.ScheduleMediaFingerprints(); await started.Task;
+            Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, new ReplacementEditorExtension());
+            Assert.That(switching.IsCompleted, Is.False);
+            Assert.That(editor.IsDisposingOrDisposed, Is.False);
+            release.SetResult(); await switching;
+            Assert.That(tab.Context.Value, Is.Not.SameAs(editor));
+            var saved = Beutl.Serialization.CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
+            Assert.That(saved.MediaFingerprints[new Uri(path).AbsoluteUri].Sha256, Is.EqualTo("captured-before-dispose"));
+        }
+        finally
+        {
+            release.TrySetResult();
+            if (!editor.IsDisposingOrDisposed) await editor.DisposeAsync();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]
@@ -98,6 +143,30 @@ public class EditorSwitchMenuTests
             await TestReset.ResetShellAsync();
             TestShell.Extensions.RemoveExtensions(packageId);
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Switching_editors_holds_the_shared_write_gate_until_the_context_is_replaced()
+    {
+        await TestReset.ResetShellAsync();
+        var document = new Scene { Uri = new Uri("file:///switch.scene") };
+        var original = new SavingEditorContext(document);
+        var tab = new EditorTabItem(original);
+        var replacement = new ReplacementEditorExtension();
+        TestShell.Editor.TabItems.Add(tab);
+        Task switching = ExtensionMenuActions.SwitchEditorAsync(TestShell.MainViewModel, tab, replacement);
+        Assert.That(original.SaveCalls, Is.EqualTo(1));
+        var waiting = TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None).AsTask();
+        Assert.That(waiting.IsCompleted, Is.False);
+        try
+        {
+            original.SaveCompletion.SetResult(true);
+            await switching.WaitAsync(TimeSpan.FromSeconds(5));
+            using var lease = await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(tab.Context.Value, Is.SameAs(replacement.CreatedContext));
+            Assert.That(original.DisposeCalls, Is.EqualTo(1));
+        }
+        finally { original.SaveCompletion.TrySetResult(false); await TestReset.ResetShellAsync(); }
     }
 
     private static void CaptureFailureNotification(Notification notification, bool nativeMenu)

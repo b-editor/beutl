@@ -1,0 +1,219 @@
+<UserControl x:Class="Beutl.Views.Tools.MissingMediaView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:converters="using:Beutl.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
+             x:DataType="vm:MissingMediaViewModel"
+             x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.mediaRow">
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.mediaRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.mediaRow.offline">
+            <Setter Property="Opacity" Value="0.65" />
+        </Style>
+        <Style Selector="Border.statePill">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.ready">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.ready TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.candidate">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.candidate TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.issue">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.issue TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.offline">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.offline TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="8,*,8" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <controls:ToolTabBar Name="ToolBar" Grid.ColumnSpan="3">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <TextBlock Text="{x:Static lang:MissingMediaStrings.PanelTitle}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                <Border Grid.Column="1" Padding="7,2" CornerRadius="4" VerticalAlignment="Center"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                    <TextBlock FontSize="11" Text="{Binding Rows.Count}" />
+                </Border>
+                <Button Name="RefreshButton" Grid.Column="2" IsEnabled="{Binding CanEdit.Value}"
+                        AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                        ToolTip.Tip="{x:Static lang:Strings.Refresh}" Click="RefreshClick"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                </Button>
+            </Grid>
+        </controls:ToolTabBar>
+
+        <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
+
+        <ScrollViewer Name="MediaScrollViewer" Grid.Row="2" Grid.Column="1" Margin="0,10,0,4"
+                      HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsEmpty.Value}">
+            <Border Name="MediaGroup" Classes="options-group" Padding="0" VerticalAlignment="Top">
+                <ItemsRepeater Name="MissingMediaItems" ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
+                            <Border Name="MediaRow" Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}"
+                                    BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
+                                                Background="{DynamicResource SubtleFillColorSecondaryBrush}" ToolTip.Tip="{Binding Kind}">
+                                            <icons:FluentIcon Icon="{Binding MediaIcon}" FontSize="18"
+                                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Name="MediaNameText" Text="{Binding Name}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                            <TextBlock Name="MediaKindText" Classes="secondary" Text="{Binding Kind}" />
+                                        </StackPanel>
+                                        <Border Grid.Column="2" VerticalAlignment="Top" Classes="statePill"
+                                                Classes.ready="{Binding IsReady.Value}" Classes.issue="{Binding HasIssue.Value}"
+                                                Classes.candidate="{Binding HasCandidate.Value}"
+                                                Classes.offline="{Binding IsOffline.Value}" ToolTip.Tip="{Binding Status.Value}">
+                                            <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
+                                        </Border>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                                        <Button Name="ReplaceButton" HorizontalAlignment="Left" FontSize="12" Padding="8,4" Click="ReplaceClick">
+                                            <TextBlock Name="ReplaceButtonText" Text="{x:Static lang:MissingMediaStrings.ReplaceAction}"
+                                                       TextTrimming="None" TextWrapping="Wrap" />
+                                        </Button>
+                                        <ToggleButton Name="DetailsToggle" Grid.Column="1" Padding="6"
+                                                      Theme="{StaticResource TransparentButton}" IsChecked="{Binding IsExpanded.Value, Mode=TwoWay}"
+                                                      AutomationProperties.Name="{x:Static lang:Strings.ShowDetails}"
+                                                      ToolTip.Tip="{x:Static lang:Strings.ShowDetails}">
+                                            <Panel>
+                                                <icons:FluentIcon FontSize="14" Icon="ChevronDown" IsVisible="{Binding !IsExpanded.Value}" />
+                                                <icons:FluentIcon FontSize="14" Icon="ChevronUp" IsVisible="{Binding IsExpanded.Value}" />
+                                            </Panel>
+                                        </ToggleButton>
+                                        <Button Name="MoreButton" Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                                AutomationProperties.Name="{x:Static lang:MissingMediaStrings.MediaActions}"
+                                                ToolTip.Tip="{x:Static lang:MissingMediaStrings.MediaActions}">
+                                            <Button.Flyout>
+                                                <MenuFlyout>
+                                                    <MenuItem Name="KeepOfflineMenuItem" Header="{x:Static lang:MissingMediaStrings.KeepOffline}"
+                                                              ToggleType="CheckBox" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
+                                                </MenuFlyout>
+                                            </Button.Flyout>
+                                            <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
+                                        </Button>
+                                    </Grid>
+                                    <Border Name="CandidatePanel" Padding="8" CornerRadius="4"
+                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}" IsVisible="{Binding HasCandidate.Value}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.FoundCandidate}" />
+                                            <TextBlock Name="CandidatePathText" FontSize="12" FontWeight="SemiBold"
+                                                       Text="{Binding CandidatePath.Value, Converter={x:Static converters:FileNameConverter.Instance}}"
+                                                       TextWrapping="Wrap" ToolTip.Tip="{Binding CandidatePath.Value}" />
+                                            <Button Name="UseCandidateButton" FontSize="12" Padding="8,4" HorizontalAlignment="Left" Click="UseCandidateClick">
+                                                <TextBlock Text="{x:Static lang:MissingMediaStrings.UseCandidate}" TextWrapping="Wrap" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Name="DetailsPanel" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
+                                            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.OriginalReference}" />
+                                            <SelectableTextBlock Name="ExpectedPathText" Text="{Binding ExpectedLocation}" Background="Transparent"
+                                                                 FontSize="11" TextWrapping="Wrap" />
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.UsedBy}"
+                                                       IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock FontSize="11" Text="{Binding Elements}" TextWrapping="Wrap"
+                                                       IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.ReplacementFile}"
+                                                       IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <SelectableTextBlock FontSize="11" Text="{Binding ReplacementPath.Value}" TextWrapping="Wrap" Background="Transparent"
+                                                                 IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock FontSize="11" Text="{Binding Status.Value}" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" IsVisible="{Binding HasIssue.Value}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </Border>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Row="2" Grid.ColumnSpan="3" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsEmpty.Value}">
+            <Border Name="EmptyState" Margin="24" VerticalAlignment="Center">
+                <StackPanel MaxWidth="320" Spacing="12">
+                    <Border Width="56" Height="56" CornerRadius="16" HorizontalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                        <icons:FluentIcon FontSize="24" Icon="Link" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                    </Border>
+                    <TextBlock Name="EmptyText" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
+                               FontSize="16" TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Name="EmptyDescription" Classes="secondary" FontSize="12"
+                               Text="{x:Static lang:MissingMediaStrings.EmptyDescription}" TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <Border Name="ErrorBanner" Grid.Row="3" Grid.Column="1" Margin="0,4" Padding="8" CornerRadius="6"
+                Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <ScrollViewer MaxHeight="68" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock Name="ErrorText" Text="{Binding Error.Value}" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                </ScrollViewer>
+                <Button Grid.Column="1" Name="DismissErrorButton" VerticalAlignment="Top" Click="DismissErrorClick"
+                        AutomationProperties.Name="{x:Static lang:Strings.Close}" ToolTip.Tip="{x:Static lang:Strings.Close}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}">
+                    <icons:FluentIcon FontSize="12" Icon="Dismiss" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Border Name="FooterBorder" Grid.Row="4" Grid.ColumnSpan="3" Padding="8,10" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !IsEmpty.Value}">
+            <StackPanel Spacing="8">
+                <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"
+                           TextWrapping="Wrap" ToolTip.Tip="{Binding Summary.Value}" />
+                <Button Name="UseAllCandidatesButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        IsVisible="{Binding CanUseCandidates.Value}" IsEnabled="{Binding CanUseCandidates.Value}" Click="UseAllCandidatesClick">
+                    <TextBlock Text="{x:Static lang:MissingMediaStrings.UseAllCandidates}" TextWrapping="Wrap" />
+                </Button>
+                <Button Name="ApplyButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Classes="accent"
+                        Content="{x:Static lang:MissingMediaStrings.ApplyAndSave}" IsEnabled="{Binding CanApply.Value}" Click="ApplyClick" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

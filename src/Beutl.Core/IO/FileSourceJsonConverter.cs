@@ -48,7 +48,7 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
                 throw new JsonException($"Could not create instance of type {typeToConvert.FullName}.");
             }
 
-            instance.ReadFrom(uri);
+            ReadFrom(instance, uri);
             return instance;
         }
         else
@@ -56,6 +56,8 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
             throw new JsonException();
         }
     }
+
+    protected virtual void ReadFrom(IFileSource instance, Uri uri) => instance.ReadFrom(uri);
 
     public override void Write(Utf8JsonWriter writer, IFileSource value, JsonSerializerOptions options)
     {
