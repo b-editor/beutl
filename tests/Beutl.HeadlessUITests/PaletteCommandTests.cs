@@ -404,6 +404,36 @@ public class PaletteCommandTests
         }
     }
 
+    // The open timeline's own commands are in the palette, so its selection changes refresh every entry,
+    // Split included.
+    [AvaloniaTest]
+    public async Task The_open_palette_follows_the_timeline_multi_selection_for_split()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-split-timeline-selection");
+        Element first = await AddRectAsync(editor, 0, 4, 0);
+        Element second = await AddRectAsync(editor, 5, 4, 1);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.SelectElement(timeline.GetViewModelFor(first)!);
+        editor.GetService<IEditorSelection>()!.SelectedObject.Value = first;
+        SetPlayhead(editor, 6);
+        CommandPaletteViewModel palette = TestShell.MainViewModel.CommandPalette;
+        try
+        {
+            palette.Open();
+            // The notifiers replay their current values on subscription; let that refresh pass first.
+            await Task.Delay(200);
+            HeadlessTestHelpers.Settle();
+            Assert.That(PaletteSplit(palette).IsEnabled, Is.False, "The selected clip ends before the playhead.");
+
+            timeline.SwitchSelectedElement(timeline.GetViewModelFor(second)!);
+            await UntilAsync(() => PaletteSplit(palette).IsEnabled, "Split did not follow the added clip.");
+        }
+        finally
+        {
+            palette.Close();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Add_element_puts_the_picked_library_item_at_the_playhead_above_the_visible_clips()
     {
