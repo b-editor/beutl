@@ -320,6 +320,23 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Split_is_unavailable_when_a_half_would_be_shorter_than_a_frame()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-split-subframe");
+        Element element = await AddRectAsync(editor, 0, 4, 0);
+        CloseTimeline(editor);
+        editor.GetService<IEditorSelection>()!.SelectedObject.Value = element;
+        // Off the 30 fps grid, so the playhead's frame 31 lands inside the clip but under a frame from its start.
+        element.Start = TimeSpan.FromSeconds(1.01);
+        SetPlayhead(editor, 31 / 30d);
+
+        Assert.That(TimelineTabExtension.Instance.CanExecute(Execution("Split", editor)), Is.False);
+
+        SetPlayhead(editor, 2);
+        Assert.That(TimelineTabExtension.Instance.CanExecute(Execution("Split", editor)), Is.True);
+    }
+
+    [AvaloniaTest]
     public async Task Split_is_available_when_another_selected_clip_crosses_the_playhead()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-split-staggered");

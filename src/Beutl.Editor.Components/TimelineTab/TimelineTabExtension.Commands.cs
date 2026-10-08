@@ -73,11 +73,14 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler
             .Split(scene, targets, GetSplitTime(editorContext, scene));
     }
 
-    // Split is available when any clip it would act on crosses the playhead, not only the selected one.
+    // Split is available when any clip it would act on can be split at the playhead, not only the selected
+    // one. Like IElementStructureService.Split, both halves have to be at least one frame long.
     private static bool CanSplit(IEditorContext editorContext, Scene scene, Element element)
     {
         TimeSpan time = GetSplitTime(editorContext, scene);
-        return GetSplitTargets(editorContext, scene, element).Any(e => IsInside(e, time));
+        TimeSpan frame = SceneTimeRangeService.GetFrameDuration(scene);
+        return GetSplitTargets(editorContext, scene, element)
+            .Any(e => time - e.Start >= frame && e.Range.End - time >= frame);
     }
 
     // The editable clips a split acts on. An open timeline uses the clip's own rule (its selection and
@@ -155,10 +158,5 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler
     {
         TimeSpan time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
         return time.RoundToRate(scene.FindHierarchicalParent<Project>().GetFrameRate());
-    }
-
-    private static bool IsInside(Element element, TimeSpan time)
-    {
-        return element.Start < time && time < element.Range.End;
     }
 }
