@@ -152,6 +152,87 @@ public class EncodingCancellationTests
         Assert.That(new FileInfo(outputPath).Length, Is.InRange(1, previous.Length - 1));
     }
 
+    // The sample provider is always stereo; other channel counts are remixed into the encoder's layout.
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(6)]
+    public async Task Encode_WritesTheConfiguredAudioChannelCount(int channels)
+    {
+        if (!s_ffmpegAvailable.Value)
+            Assert.Ignore("FFmpeg native libraries are not available.");
+
+        string outputPath = Path.Combine(_workDir, $"channels-{channels}.mp4");
+        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = new Rational(30, 1);
+        controller.AudioSettings.SampleRate = 44100;
+        controller.AudioSettings.Channels = channels;
+        using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
+        // A quieter right side tells the channels apart, so a swapped or dropped one changes the levels.
+        using var samples = new SineSampleProvider(4410, 44100, rightGain: 0.25f);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using MediaDemuxer demuxer = MediaDemuxer.Open(outputPath);
+        MediaStream audio = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO);
+        Assert.That(audio.CodecparRef.ch_layout.nb_channels, Is.EqualTo(channels));
+
+        Dictionary<AVChannel, double> levels = MeasureChannelLevels(demuxer, audio);
+        if (channels == 1)
+        {
+            Assert.That(levels[AVChannel.AV_CHAN_FRONT_CENTER], Is.GreaterThan(0.05));
+        }
+        else
+        {
+            Assert.That(levels[AVChannel.AV_CHAN_FRONT_RIGHT], Is.GreaterThan(0.01));
+            Assert.That(levels[AVChannel.AV_CHAN_FRONT_LEFT] / levels[AVChannel.AV_CHAN_FRONT_RIGHT], Is.InRange(3.0, 5.0));
+        }
+    }
+
+    // Decodes the audio stream and returns the RMS level of each channel, keyed by speaker position.
+    private static unsafe Dictionary<AVChannel, double> MeasureChannelLevels(MediaDemuxer demuxer, MediaStream stream)
+    {
+        AVChannelLayout layout = stream.CodecparRef.ch_layout;
+        var sumsOfSquares = new double[layout.nb_channels];
+        long sampleCount = 0;
+        using MediaDecoder decoder = MediaDecoder.CreateDecoder(stream.CodecparRef);
+        using var frame = new MediaFrame();
+
+        foreach (MediaPacket packet in demuxer.ReadPackets())
+        {
+            if (packet.StreamIndex == stream.Index)
+                Accumulate(decoder.DecodePacket(packet, frame));
+        }
+
+        // A null packet drains the frames the decoder still holds.
+        Accumulate(decoder.DecodePacket(null, frame));
+
+        var levels = new Dictionary<AVChannel, double>();
+        for (int ch = 0; ch < sumsOfSquares.Length; ch++)
+        {
+            levels[ffmpeg.av_channel_layout_channel_from_index(&layout, (uint)ch)] = Math.Sqrt(sumsOfSquares[ch] / sampleCount);
+        }
+
+        return levels;
+
+        void Accumulate(IEnumerable<MediaFrame> decoded)
+        {
+            foreach (MediaFrame f in decoded)
+            {
+                Assert.That((AVSampleFormat)f.Format, Is.EqualTo(AVSampleFormat.AV_SAMPLE_FMT_FLTP));
+                for (int ch = 0; ch < sumsOfSquares.Length; ch++)
+                {
+                    float* plane = (float*)f.Data[(uint)ch];
+                    for (int i = 0; i < f.NbSamples; i++)
+                        sumsOfSquares[ch] += plane[i] * plane[i];
+                }
+
+                sampleCount += f.NbSamples;
+            }
+        }
+    }
+
     private sealed class CancelAfterFirstFrameProvider(
         CancellationTokenSource cts, long frameCount, Rational frameRate, int width, int height)
         : IFrameProvider
@@ -207,8 +288,8 @@ public class EncodingCancellationTests
         }
     }
 
-    // 440 Hz sine wave, Stereo 32-bit float interleaved.
-    private sealed class SineSampleProvider(long sampleCount, long sampleRate) : ISampleProvider
+    // 440 Hz sine wave, Stereo 32-bit float interleaved; the right channel is scaled by rightGain.
+    private sealed class SineSampleProvider(long sampleCount, long sampleRate, float rightGain = 1) : ISampleProvider
     {
         public long SampleCount { get; } = sampleCount;
 
@@ -223,7 +304,7 @@ public class EncodingCancellationTests
             for (int i = 0; i < length; i++)
             {
                 float t = MathF.Sin((offset + i) * twoPiFOverSr) * 0.25f;
-                span[i] = new Stereo32BitFloat(t, t);
+                span[i] = new Stereo32BitFloat(t, t * rightGain);
             }
             return ValueTask.FromResult(pcm);
         }
