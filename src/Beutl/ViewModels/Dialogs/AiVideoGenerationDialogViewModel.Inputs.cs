@@ -172,8 +172,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     {
         using var operation = TryEnterIdentityOperation();
         if (operation is null) return;
-        // Browse and drops share this version so a slower probe cannot replace a newer choice.
-        int selectionRevision = role == "source" ? Interlocked.Increment(ref _sourceVideoSelectionRevision) : 0;
+        int selectionRevision = Volatile.Read(ref _sourceVideoSelectionRevision);
         bool IsCurrentSelection() => role != "source" || selectionRevision == Volatile.Read(ref _sourceVideoSelectionRevision);
         try
         {
@@ -192,7 +191,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 paths = files.Select(file => file.TryGetLocalPath()).OfType<string>().ToArray();
                 foreach (var file in files) file.Dispose();
             }
-            if (paths.Count == 0 || !IsCurrentSelection()) return;
+            if (paths.Count == 0) return;
+            // Only an actual choice supersedes pending probes; canceling Browse leaves them valid.
+            if (role == "source") selectionRevision = Interlocked.Increment(ref _sourceVideoSelectionRevision);
             string kind = InputKind(role);
             foreach (string path in paths) AiVideoInputLimits.Validate(Describe(path), kind, PickLimitBytes(kind));
             double? duration = role == "source" ? await ReadVideoDurationAsync(paths[0], operation.CancellationToken) : null;

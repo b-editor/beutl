@@ -13,12 +13,14 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed partial class AiSubtitleDialogViewModel
 {
+    private int _captionImportRevision;
+
     private Task ImportCaptionsCore() => ImportCaptionsCore(null);
 
     internal bool CanImportCaptionFile(string name)
         => !_disposed && _captionCodecs.TryGetByFileName(name, out CaptionCodecInfo? codec) && codec.CanDecode;
 
-    internal async Task ImportCaptionsCore(string? droppedPath)
+    internal async Task ImportCaptionsCore(string? droppedPath, Func<Stream>? openDroppedFile = null)
     {
         using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
         if (operationLifetime is null)
@@ -39,6 +41,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 return;
         }
         using IDisposable fileOwnership = SharedFilePickerOptions.OwnStorageFiles(files);
+        int importRevision = Interlocked.Increment(ref _captionImportRevision);
 
         try
         {
@@ -51,10 +54,14 @@ public sealed partial class AiSubtitleDialogViewModel
             }
             await using Stream stream = droppedPath is null
                 ? await files[0].OpenReadAsync()
-                : File.OpenRead(droppedPath);
+                : openDroppedFile?.Invoke() ?? File.OpenRead(droppedPath);
             using var memory = new SizeLimitedMemoryStream(AiCaptionHistoryResultParser.MaximumResultBytes);
             await stream.CopyToAsync(memory, operationLifetime.CancellationToken);
-            operationLifetime.TryPublish(() => ImportCaptionBytes(memory.ToArray(), codec.Format));
+            operationLifetime.TryPublish(() =>
+            {
+                if (importRevision == Volatile.Read(ref _captionImportRevision))
+                    ImportCaptionBytes(memory.ToArray(), codec.Format);
+            });
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -62,7 +69,11 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to import captions.");
-            operationLifetime.TryPublish(() => Error.Value = Strings.AiSubtitle_ImportFailed);
+            operationLifetime.TryPublish(() =>
+            {
+                if (importRevision == Volatile.Read(ref _captionImportRevision))
+                    Error.Value = Strings.AiSubtitle_ImportFailed;
+            });
         }
     }
 

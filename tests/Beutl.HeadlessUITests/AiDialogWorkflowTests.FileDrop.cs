@@ -326,9 +326,10 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task FileDrop_EarlierVideoProbeCannotReplaceANewerBrowseSelection(bool earlierFails)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task FileDrop_EarlierVideoProbeCannotReplaceANewerBrowseSelection(bool earlierFails, bool browseCanceled)
     {
         await TestReset.ResetShellAsync();
         await using var scope = new FileDropScope();
@@ -350,7 +351,7 @@ public sealed partial class AiDialogWorkflowTests
             }
             return TimeSpan.FromSeconds(4);
         };
-        video.InputPicker = (_, _) => Task.FromResult<IReadOnlyList<string>>([newer]);
+        video.InputPicker = (_, _) => Task.FromResult<IReadOnlyList<string>>(browseCanceled ? [] : [newer]);
         var view = new AiVideoEditingView { DataContext = tasks };
         var window = ShowFileDropView(view);
         Control target = FindFileDropTarget(view, AiFileDropTarget.SourceVideo);
@@ -361,12 +362,12 @@ public sealed partial class AiDialogWorkflowTests
             await probeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(target.Classes, Does.Contain("filedropping"));
             await video.SelectSourceVideo.ExecuteAsync();
-            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(newer));
-            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(browseCanceled ? null : newer));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(browseCanceled ? null : (double?)4));
             releaseProbe.Set();
             await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
-            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(newer));
-            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(browseCanceled ? earlier : newer));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(browseCanceled ? 8 : 4));
             Assert.That(video.Error.Value, Is.Null);
         }
         finally
@@ -374,6 +375,76 @@ public sealed partial class AiDialogWorkflowTests
             releaseProbe.Set();
             await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
             window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task FileDrop_RejectedCaptureRemovesItsUnpublishedTemporaryFile()
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        var editor = await OpenEditor("file-drop-rejected-capture");
+        await using var video = CreateVideoGenerationDialog(scope.Clients, editor);
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+        video.CurrentFrameRenderer = _ => Task.FromResult(new Beutl.Media.Bitmap(2, 2));
+        await video.CaptureCurrentFrame.ExecuteAsync();
+        string previous = video.FirstFramePath.Value!;
+        var previousPreview = video.FirstFramePreview.Value;
+        string directory = Path.GetDirectoryName(previous)!;
+        string[] before = Directory.GetFiles(directory, "frame-*.png");
+        // Just above the decoded-pixel limit, with a compressible PNG below the upload-size limit.
+        video.CurrentFrameRenderer = _ => Task.FromResult(new Beutl.Media.Bitmap(8192, 2049));
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            await video.CaptureCurrentFrame.ExecuteAsync();
+            Assert.That(video.FirstFramePath.Value, Is.EqualTo(previous));
+            Assert.That(video.FirstFramePreview.Value, Is.SameAs(previousPreview));
+            Assert.That(video.Error.Value, Is.Not.Null);
+            Assert.That(Directory.GetFiles(directory, "frame-*.png"), Is.EquivalentTo(before));
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FileDrop_EarlierCaptionReadCannotReplaceANewerImport(bool earlierFails)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var subtitles = CreateSubtitleDialog(scope.Clients);
+        byte[] earlierBytes = Encoding.UTF8.GetBytes("1\n00:00:01,000 --> 00:00:02,000\nEarlier caption\n");
+        string earlier = scope.File("earlier.srt", earlierBytes);
+        string newer = scope.File("newer.srt", Encoding.UTF8.GetBytes("1\n00:00:03,000 --> 00:00:04,000\nNewer caption\n"));
+        using var blocked = new BlockedCaptionReadStream(earlierBytes, earlierFails);
+        Task earlierImport = subtitles.ImportCaptionsCore(earlier, () => blocked);
+        try
+        {
+            await blocked.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await subtitles.ImportCaptionsCore(newer);
+            Assert.That(subtitles.Cues.Single().Text, Is.EqualTo("Newer caption"));
+            blocked.Release.TrySetResult();
+            await earlierImport;
+            Assert.That(subtitles.Cues.Single().Text, Is.EqualTo("Newer caption"));
+            Assert.That(subtitles.Error.Value, Is.Null);
+        }
+        finally
+        {
+            blocked.Release.TrySetResult();
+            await earlierImport;
+        }
+    }
+
+    private sealed class BlockedCaptionReadStream(byte[] bytes, bool fails) : MemoryStream(bytes)
+    {
+        public TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
+        {
+            ReadStarted.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            if (fails) throw new InvalidDataException("Earlier caption read failed.");
+            await base.CopyToAsync(destination, bufferSize, cancellationToken);
         }
     }
 
