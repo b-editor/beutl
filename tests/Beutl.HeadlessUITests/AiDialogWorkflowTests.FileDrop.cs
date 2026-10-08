@@ -452,6 +452,95 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task FileDrop_SourceVideoWaitsForModelCapabilities()
+    {
+        await TestReset.ResetShellAsync();
+        var capabilitiesReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var scope = new FileDropScope(maximumSourceVideoBytes: 128, capabilitiesReady: capabilitiesReady.Task);
+        await using var tasks = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(scope.Clients, sourceMode: mode));
+        var video = tasks.ActiveContent.Value!;
+        video.VideoDurationReader = _ => TimeSpan.FromSeconds(4);
+        string previous = scope.File("previous.webm", s_png);
+        video.SourceVideoPath.Value = previous;
+        video.SourceDuration.Value = 4;
+        string candidate = scope.File("candidate.webm", s_png, 129);
+        var view = new AiVideoEditingView { DataContext = tasks };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Assert.That(video.ModelPicker.IsLoaded.Value, Is.False);
+            Control target = FindFileDropTarget(view, AiFileDropTarget.SourceVideo);
+            using var data = FileDropTransfer(candidate);
+            Assert.That(RaiseFileDrag(target, DragDrop.DragOverEvent, data).DragEffects, Is.EqualTo(DragDropEffects.None));
+            Assert.That(RaiseFileDrag(target, DragDrop.DropEvent, data).DragEffects, Is.EqualTo(DragDropEffects.None));
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            await video.PickInputAsync("source", [candidate]);
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(previous));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            capabilitiesReady.TrySetResult();
+            await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(previous));
+            Assert.That(video.InputError.Value, Is.Null);
+            string valid = scope.File("valid.webm", s_png, 128);
+            using var validData = FileDropTransfer(valid);
+            await DropFiles(window, target, validData);
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(valid));
+            Assert.That(video.InputError.Value, Is.Null);
+        }
+        finally { capabilitiesReady.TrySetResult(); window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task FileDrop_FirstFrameWaitsForCaptureButLastFrameRemainsAvailable(bool first)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        var editor = await OpenEditor("file-drop-active-capture");
+        await using var video = CreateVideoGenerationDialog(scope.Clients, editor);
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+        string previous = scope.File("previous.png", s_png);
+        await video.SelectFrameAsync(first, previous);
+        var previousPreview = first ? video.FirstFramePreview.Value : video.LastFramePreview.Value;
+        var frameReady = new TaskCompletionSource<Beutl.Media.Bitmap>(TaskCreationOptions.RunContinuationsAsynchronously);
+        video.CurrentFrameRenderer = _ => frameReady.Task;
+        Task capture = video.CaptureCurrentFrame.ExecuteAsync();
+        Assert.That(video.CaptureCurrentFrame.CanExecute(), Is.False);
+        string dropped = scope.File("dropped.png", s_png);
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Control target = FindFileDropTarget(view, first ? AiFileDropTarget.FirstFrame : AiFileDropTarget.LastFrame);
+            using var data = FileDropTransfer(dropped);
+            if (first)
+            {
+                Assert.That(RaiseFileDrag(target, DragDrop.DragEnterEvent, data).DragEffects, Is.EqualTo(DragDropEffects.None));
+                Assert.That(RaiseFileDrag(target, DragDrop.DropEvent, data).DragEffects, Is.EqualTo(DragDropEffects.None));
+                Assert.That(video.FirstFramePath.Value, Is.EqualTo(previous));
+                Assert.That(video.FirstFramePreview.Value, Is.SameAs(previousPreview));
+            }
+            else
+            {
+                await DropFiles(window, target, data);
+                Assert.That(video.LastFramePath.Value, Is.EqualTo(dropped));
+            }
+            frameReady.TrySetResult(new Beutl.Media.Bitmap(2, 2));
+            await capture;
+            Assert.That(video.CaptureCurrentFrame.CanExecute(), Is.True);
+            await DropFiles(window, target, data);
+            Assert.That(first ? video.FirstFramePath.Value : video.LastFramePath.Value, Is.EqualTo(dropped));
+        }
+        finally
+        {
+            if (!frameReady.Task.IsCompleted) frameReady.TrySetResult(new Beutl.Media.Bitmap(2, 2));
+            await capture;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task FileDrop_SourceVideoAndCharacterImageUseTheActiveEditingTask()
     {
         await TestReset.ResetShellAsync();
@@ -937,7 +1026,7 @@ public sealed partial class AiDialogWorkflowTests
         public string DirectoryPath { get; } = Path.Combine(BeutlHomeIsolation.CurrentHome!, "file-drop-" + Guid.NewGuid().ToString("N"));
         public BeutlApiApplication Clients { get; }
 
-        public FileDropScope(long? maximumReferenceBytes = null, long? maximumSourceVideoBytes = null)
+        public FileDropScope(long? maximumReferenceBytes = null, long? maximumSourceVideoBytes = null, Task? capabilitiesReady = null)
         {
             Directory.CreateDirectory(DirectoryPath);
             var capabilities = JsonNode.Parse(ProviderVideoCapabilities)!;
@@ -952,12 +1041,17 @@ public sealed partial class AiDialogWorkflowTests
                     operations["video.generate"]!["models"]![0]![field] = maximum;
             if (maximumSourceVideoBytes is { } sourceMaximum)
                 operations["video.edit"]!["models"]![0]!["maxSourceVideoBytes"] = sourceMaximum;
-            _handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+            _handler = new StubHandler(async (request, token) =>
             {
-                "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-                "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, capabilities.ToJsonString()),
-                "/api/v3/user/ai-availability" => JsonResponse(HttpStatusCode.OK, "{\"available\":true}"),
-                _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+                if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities" && capabilitiesReady is not null)
+                    await capabilitiesReady.WaitAsync(token);
+                return request.RequestUri?.AbsolutePath switch
+                {
+                    "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+                    "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, capabilities.ToJsonString()),
+                    "/api/v3/user/ai-availability" => JsonResponse(HttpStatusCode.OK, "{\"available\":true}"),
+                    _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+                };
             });
             _http = new HttpClient(_handler);
             Clients = new BeutlApiApplication(_http, new ExtensionProvider());

@@ -122,12 +122,14 @@ internal static class AiFileDrop
                 when FindContext<AiVideoGenerationDialogViewModel>(control) is { } video && !video.IsGenerating.Value:
                 bool first = GetTarget(control) == AiFileDropTarget.FirstFrame;
                 if (!(first ? video.SupportsFirstFrame.Value : video.SupportsLastFrame.Value)) return null;
+                if (first && !video.CaptureCurrentFrame.CanExecute()) return null;
                 return Request(first ? video.SelectFirstFrame : video.SelectLastFrame,
                     SharedFilePickerOptions.OpenAiVideoFrame(), false, paths => video.SelectFrameAsync(first, paths[0]));
             case AiFileDropTarget.SourceVideo or AiFileDropTarget.CharacterImage
                 when FindContext<AiVideoGenerationDialogViewModel>(control) is { } source && !source.IsGenerating.Value:
                 string role = GetTarget(control) == AiFileDropTarget.SourceVideo ? "source" : "character";
                 if (!(role == "source" ? source.IsSourceVideo : source.IsMotionControl)) return null;
+                if (role == "source" && !source.ModelPicker.IsLoaded.Value) return null;
                 return Request(role == "source" ? source.SelectSourceVideo : source.SelectCharacterImage,
                     AiVideoGenerationDialogViewModel.GetInputFilePatterns(role), false,
                     paths => source.PickInputAsync(role, paths));

@@ -200,7 +200,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         if (operation is null) return;
         int selectionRevision = Volatile.Read(ref _sourceVideoSelectionRevision);
         bool IsCurrentSelection() => role != "source" || selectionRevision == Volatile.Read(ref _sourceVideoSelectionRevision);
-        bool CanPublishSelection() => IsCurrentSelection() && (droppedPaths is null || !IsGenerating.Value);
+        bool CanPublishSelection() => IsCurrentSelection()
+            && (droppedPaths is null || (!IsGenerating.Value && (role != "source" || ModelPicker.IsLoaded.Value)));
         try
         {
             IReadOnlyList<string> paths;
