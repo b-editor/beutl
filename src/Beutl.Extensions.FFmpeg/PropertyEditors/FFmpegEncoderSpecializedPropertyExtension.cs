@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
@@ -8,8 +9,14 @@ using Beutl.PropertyAdapters;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
+[Export]
 public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorExtension
 {
+    private static bool IsVideoOptionsProperty(IPropertyAdapter prop)
+        => prop is CorePropertyAdapter<CoreList<AdditionalOption>> cpa
+            && cpa.Property.Id == FFmpegVideoEncoderSettings.OptionsProperty.Id
+            && cpa.Object is FFmpegVideoEncoderSettings;
+
     private static bool IsSampleRateProperty(IPropertyAdapter prop)
     {
         return prop is CorePropertyAdapter<int> cpa
@@ -35,7 +42,7 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
     {
         foreach (var prop in properties)
         {
-            if (IsAudioFormatProperty(prop) || IsPixelFormatProperty(prop) || IsSampleRateProperty(prop))
+            if (IsVideoOptionsProperty(prop) || IsAudioFormatProperty(prop) || IsPixelFormatProperty(prop) || IsSampleRateProperty(prop))
             {
                 return [prop];
             }
@@ -55,7 +62,11 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
         }
 
         var prop = properties[0];
-        if (IsSampleRateProperty(prop))
+        if (IsVideoOptionsProperty(prop))
+        {
+            context = new EncoderOptionsEditorViewModel((CorePropertyAdapter<CoreList<AdditionalOption>>)prop, this);
+        }
+        else if (IsSampleRateProperty(prop))
         {
             context = new SampleRateEditorViewModel((IPropertyAdapter<int>)prop, this);
         }
@@ -76,6 +87,12 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
         IPropertyEditorContext context,
         [NotNullWhen(true)] out Control? control)
     {
+        if (context is EncoderOptionsEditorViewModel options)
+        {
+            control = new EncoderOptionsEditor(options);
+            return true;
+        }
+
         if (context is SampleRateEditorViewModel)
         {
             var editor = new AutoCompleteStringEditor();

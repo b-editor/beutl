@@ -4,7 +4,9 @@
     <DataCollectors>
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
-          <ExcludeByFile>**/*Exception.cs,**/*EventArgs.cs,</ExcludeByFile>
+          <!-- Include production sources linked into test assemblies, while excluding test code. -->
+          <IncludeTestAssembly>true</IncludeTestAssembly>
+          <ExcludeByFile>**/*Exception.cs,**/*EventArgs.cs,**/tests/**/*.cs</ExcludeByFile>
         </Configuration>
       </DataCollector>
     </DataCollectors>

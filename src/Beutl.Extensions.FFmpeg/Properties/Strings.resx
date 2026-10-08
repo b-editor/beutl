@@ -192,4 +192,61 @@
   <data name="FFmpegDecoder" xml:space="preserve">
     <value>FFmpeg Decoder</value>
   </data>
+  <data name="EncoderOptionsHeader" xml:space="preserve">
+    <value>Encoding options</value>
+  </data>
+  <data name="EncoderOptionsLoading" xml:space="preserve">
+    <value>Loading available options…</value>
+  </data>
+  <data name="EncoderOptionsUnavailable" xml:space="preserve">
+    <value>Encoder options could not be loaded. You can still edit advanced options.</value>
+  </data>
+  <data name="EncoderOptionInvalidValue" xml:space="preserve">
+    <value>{0}: “{1}” is not supported by the current encoder or pixel format.</value>
+  </data>
+  <data name="EncoderOptionsDuplicate" xml:space="preserve">
+    <value>Option names must be unique.</value>
+  </data>
+  <data name="EncoderOptionsAdvanced" xml:space="preserve">
+    <value>Advanced options</value>
+  </data>
+  <data name="EncoderOptionsOptionName" xml:space="preserve">
+    <value>Option name</value>
+  </data>
+  <data name="EncoderOptionsEmptyName" xml:space="preserve">
+    <value>Option name cannot be empty.</value>
+  </data>
+  <data name="EncoderOptionsAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="EncoderOptionsRemove" xml:space="preserve">
+    <value>Remove option</value>
+  </data>
+  <data name="EncoderOptionsAutomatic" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="EncoderOptionsPreset" xml:space="preserve">
+    <value>Speed preset</value>
+  </data>
+  <data name="EncoderOptionsProfile" xml:space="preserve">
+    <value>Profile</value>
+  </data>
+  <data name="EncoderOptionsQuality" xml:space="preserve">
+    <value>Quality</value>
+  </data>
+  <data name="EncoderOptionsLevel" xml:space="preserve">
+    <value>Level</value>
+  </data>
+  <data name="EncoderOptionsTune" xml:space="preserve">
+    <value>Content tuning</value>
+  </data>
+  <data name="EncoderOptionsEnabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="EncoderOptionsDisabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="EncoderOptionsValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
 </root>

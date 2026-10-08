@@ -31,6 +31,7 @@ public class FFmpegOptionsCachesTests
         Assert.That(ReferenceEquals(FFmpegOptionsCaches.AudioFormats, FFmpegOptionsCaches.AudioFormats), Is.True);
         Assert.That(ReferenceEquals(FFmpegOptionsCaches.PixelFormats, FFmpegOptionsCaches.PixelFormats), Is.True);
         Assert.That(ReferenceEquals(FFmpegOptionsCaches.SampleRates, FFmpegOptionsCaches.SampleRates), Is.True);
+        Assert.That(ReferenceEquals(FFmpegOptionsCaches.EncoderOptions, FFmpegOptionsCaches.EncoderOptions), Is.True);
     }
 
     [Test]
@@ -81,18 +82,20 @@ public class FFmpegOptionsCachesTests
     }
 
     [Test]
-    public async Task ClearAll_EmptiesAllThreeCaches()
+    public async Task ClearAll_EmptiesEveryOptionCache()
     {
         await FFmpegOptionsCaches.AudioFormats.GetOrQueryAsync(
             "aac\0out.mp4", () => Ok(FFmpegAudioEncoderSettings.AudioFormat.Default));
         await FFmpegOptionsCaches.PixelFormats.GetOrQueryAsync(
             "h264\0out.mp4", () => Ok(new PixelFormatInfo()));
         await FFmpegOptionsCaches.SampleRates.GetOrQueryAsync("aac\0out.mp4", () => Ok(48000));
+        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync("libx264\0out.mp4\00", () => Ok(new EncoderOptionInfo()));
 
         FFmpegOptionsCaches.ClearAll();
 
         Assert.That(FFmpegOptionsCaches.AudioFormats.TryGetCached("aac\0out.mp4", out _), Is.False);
         Assert.That(FFmpegOptionsCaches.PixelFormats.TryGetCached("h264\0out.mp4", out _), Is.False);
         Assert.That(FFmpegOptionsCaches.SampleRates.TryGetCached("aac\0out.mp4", out _), Is.False);
+        Assert.That(FFmpegOptionsCaches.EncoderOptions.TryGetCached("libx264\0out.mp4\00", out _), Is.False);
     }
 }

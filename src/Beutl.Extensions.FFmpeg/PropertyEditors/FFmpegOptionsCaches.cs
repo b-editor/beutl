@@ -17,11 +17,14 @@ internal static class FFmpegOptionsCaches
 
     public static FFmpegOptionsCache<int> SampleRates { get; } = new();
 
+    public static FFmpegOptionsCache<EncoderOptionInfo> EncoderOptions { get; } = new();
+
     /// <summary>Clears all caches. Used by tests and, eventually, a worker-restart hook.</summary>
     public static void ClearAll()
     {
         AudioFormats.Clear();
         PixelFormats.Clear();
         SampleRates.Clear();
+        EncoderOptions.Clear();
     }
 }
