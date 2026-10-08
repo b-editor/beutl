@@ -25,6 +25,85 @@ namespace Beutl.HeadlessUITests;
 public class GraphEditorContextMenuTests
 {
     [AvaloniaTest]
+    [TestCase(KeyModifiers.Control)]
+    [TestCase(KeyModifiers.Meta)]
+    public async Task ContextMenu_ShowsEveryShortcutWithThePlatformCommandModifier(KeyModifiers command)
+    {
+        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
+        KeyModifiers previous = hotkeys.CommandModifiers;
+        hotkeys.CommandModifiers = command;
+        try
+        {
+            using var graph = await GraphScope.CreateAsync();
+            graph.RightClick(new Point(500, 200));
+            Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
+            var expected = new Dictionary<string, (Key Key, KeyModifiers Modifiers)>
+            {
+                ["Ease"] = (Key.F9, KeyModifiers.None),
+                ["EaseIn"] = (Key.F9, KeyModifiers.Shift),
+                ["EaseOut"] = (Key.F9, command),
+                ["Velocity"] = (Key.K, command | KeyModifiers.Shift),
+                ["DistributeEvenly"] = (Key.D, KeyModifiers.Alt),
+                ["Reverse"] = (Key.R, KeyModifiers.Alt)
+            };
+            Assert.Multiple(() =>
+            {
+                foreach (var (tag, gesture) in expected)
+                {
+                    MenuItem item = graph.BackgroundMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, tag));
+                    Assert.That(item.InputGesture, Is.Not.Null, tag);
+                    Assert.That(item.InputGesture?.Key, Is.EqualTo(gesture.Key), tag);
+                    Assert.That(item.InputGesture?.KeyModifiers, Is.EqualTo(gesture.Modifiers), tag);
+                    Assert.That(item.Header?.ToString(), Does.Not.Contain("(").And.Not.Contain(")"), tag);
+                }
+            });
+            graph.Capture($"shortcuts-{command}");
+        }
+        finally
+        {
+            hotkeys.CommandModifiers = previous;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase("FitAll", "F", false)]
+    [TestCase("FitSelection", "Shift+F", false)]
+    [TestCase("FitAll", "F", true)]
+    [TestCase("FitSelection", "Shift+F", true)]
+    public async Task FitButtons_KeepShortcutHintsSeparateFromLabels(string tag, string shortcut, bool light)
+    {
+        using var graph = await GraphScope.CreateAsync(light);
+        Button button = graph.View.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Tag, tag));
+        string label = tag == "FitAll" ? Strings.GraphFitAll : Strings.GraphFitSelection;
+        Assert.That(label, Does.Not.Contain("(").And.Not.Contain(")"));
+        ToolTip.SetIsOpen(button, true);
+        try
+        {
+            HeadlessTestHelpers.Render(3);
+            Assert.That(ToolTip.GetTip(button), Is.InstanceOf<Control>(),
+                "The localized label and shortcut must be displayed separately in the tooltip.");
+            var content = (Control)ToolTip.GetTip(button)!;
+            TextBlock[] text = content.GetVisualDescendants().OfType<TextBlock>().ToArray();
+            Assert.That(text.Select(block => block.Text), Is.EqualTo(new[] { label, shortcut }));
+            foreach (TextBlock block in text)
+            {
+                Assert.That(block.IsEffectivelyVisible, Is.True);
+                Assert.That(block.Bounds.Width, Is.GreaterThan(0));
+            }
+            if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var frame = TopLevel.GetTopLevel(content)?.CaptureRenderedFrame();
+                frame?.Save(Path.Combine(directory, $"fit-tooltip-{tag}-{light}.png"), PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally
+        {
+            ToolTip.SetIsOpen(button, false);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("ControlPoint1", false)]
     [TestCase("ControlPoint2", false)]
     [TestCase("ControlPoint1", true)]

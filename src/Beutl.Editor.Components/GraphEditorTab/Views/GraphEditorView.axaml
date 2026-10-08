@@ -345,16 +345,26 @@
                     <Button usage:UsageTracking.Feature="GraphEditor.FitAll"
                             AutomationProperties.Name="{x:Static lang:Strings.GraphFitAll}"
                             Click="GraphActionClick"
-                            Tag="FitAll"
-                            ToolTip.Tip="{x:Static lang:Strings.GraphFitAll}">
+                            Tag="FitAll">
+                        <ToolTip.Tip>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{x:Static lang:Strings.GraphFitAll}" />
+                                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="F" />
+                            </StackPanel>
+                        </ToolTip.Tip>
                         <Path Data="M1,6 L1,1 6,1 M10,1 L15,1 15,6 M15,10 L15,15 10,15 M6,15 L1,15 1,10 M4,11 C8,11 8,5 12,5" />
                     </Button>
                     <Button usage:UsageTracking.Feature="GraphEditor.FitSelection"
                             AutomationProperties.Name="{x:Static lang:Strings.GraphFitSelection}"
                             Click="GraphActionClick"
                             IsEnabled="{Binding HasSelection.Value}"
-                            Tag="FitSelection"
-                            ToolTip.Tip="{x:Static lang:Strings.GraphFitSelection}">
+                            Tag="FitSelection">
+                        <ToolTip.Tip>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{x:Static lang:Strings.GraphFitSelection}" />
+                                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Shift+F" />
+                            </StackPanel>
+                        </ToolTip.Tip>
                         <Path Data="M1,5 L1,1 5,1 M11,1 L15,1 15,5 M15,11 L15,15 11,15 M5,15 L1,15 1,11 M8,4 L12,8 8,12 4,8 Z" />
                     </Button>
                 </StackPanel>
