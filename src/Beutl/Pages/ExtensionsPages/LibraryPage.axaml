@@ -125,22 +125,22 @@
                                 <Button Grid.Column="6"
                                         Click="Overflow_Click"
                                         Theme="{StaticResource TransparentButton}">
-                                    <Button.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Command="{Binding Install}"
-                                                      Header="{x:Static lang:ExtensionsStrings.Install}"
-                                                      IsEnabled="{Binding IsInstallButtonVisible.Value}" />
-                                            <MenuItem Command="{Binding Uninstall}"
-                                                      Header="{x:Static lang:ExtensionsStrings.Uninstall}"
-                                                      IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
-                                            <MenuItem Command="{Binding Update}"
-                                                      Header="{x:Static lang:ExtensionsStrings.Update}"
-                                                      IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
-                                            <MenuItem Command="{ReflectionBinding RemoveFromLibrary}"
-                                                      Header="{x:Static lang:ExtensionsStrings.RemoveFromLibrary}"
-                                                      IsVisible="{Binding IsRemote}" />
-                                        </ContextMenu>
-                                    </Button.ContextMenu>
+                                    <Button.ContextFlyout>
+                                        <ui:FAMenuFlyout>
+                                            <ui:FAMenuFlyoutItem Command="{Binding Install}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.Install}"
+                                                                 IsEnabled="{Binding IsInstallButtonVisible.Value}" />
+                                            <ui:FAMenuFlyoutItem Command="{Binding Uninstall}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.Uninstall}"
+                                                                 IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
+                                            <ui:FAMenuFlyoutItem Command="{Binding Update}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.Update}"
+                                                                 IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
+                                            <ui:FAMenuFlyoutItem Command="{ReflectionBinding RemoveFromLibrary}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.RemoveFromLibrary}"
+                                                                 IsVisible="{Binding IsRemote}" />
+                                        </ui:FAMenuFlyout>
+                                    </Button.ContextFlyout>
                                     <icons:FluentIcon FontSize="20" Icon="MoreHorizontal" />
                                 </Button>
                             </Grid>

@@ -15,6 +15,7 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -141,13 +142,13 @@ public sealed class FileBrowserFileManagerTests
                 window.MouseUp(point, MouseButton.Right);
                 HeadlessTestHelpers.Render();
 
-                ContextMenu menu = border.ContextMenu!;
+                FAMenuFlyout menu = (FAMenuFlyout)border.ContextFlyout!;
                 Assert.That(menu.IsOpen, Is.True);
-                MenuItem action = menu.Items.OfType<MenuItem>()
+                FAMenuFlyoutItem action = menu.Items.OfType<FAMenuFlyoutItem>()
                     .Single(x => Equals(x.Tag, "OpenInFileManager"));
                 Assert.Multiple(() =>
                 {
-                    Assert.That(action.Header, Is.EqualTo(FileManagerLauncher.MenuHeader));
+                    Assert.That(action.Text, Is.EqualTo(FileManagerLauncher.MenuHeader));
                     Assert.That(action.Bounds.Height, Is.GreaterThan(0));
                     Assert.That(action.GetVisualDescendants().OfType<TextBlock>()
                         .Any(x => x.Text == FileManagerLauncher.MenuHeader), Is.True);
@@ -156,12 +157,12 @@ public sealed class FileBrowserFileManagerTests
                 if (Environment.GetEnvironmentVariable("BEUTL_FILE_MANAGER_MENU_CAPTURE") is { Length: > 0 } capture)
                 {
                     Directory.CreateDirectory(capture);
-                    using var image = TopLevel.GetTopLevel(menu)?.CaptureRenderedFrame();
+                    using var image = TopLevel.GetTopLevel(menu.Popup.Child!)?.CaptureRenderedFrame();
                     image?.Save(Path.Combine(capture, item.IsDirectory ? "folder-menu.png" : "file-menu.png"),
                         PngBitmapEncoderOptions.Default);
                 }
 
-                action.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                action.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                 HeadlessTestHelpers.Settle();
                 ProcessStartInfo expected = FileManagerLauncher.CreateStartInfo(path, item.IsDirectory);
                 Assert.Multiple(() =>
@@ -174,7 +175,7 @@ public sealed class FileBrowserFileManagerTests
                     Assert.That(notifications.Notifications[^1].Message, Is.EqualTo(MessageStrings.OperationFailed));
                 });
 
-                menu.Close();
+                menu.Hide();
                 HeadlessTestHelpers.Render();
             }
         }

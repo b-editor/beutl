@@ -72,131 +72,143 @@
                    HorizontalAlignment="Left"
                    VerticalAlignment="Stretch"
                    Background="{DynamicResource GraphEditorBackgroundBrush}">
-                <Panel.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ValueGraph"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphValueGraph}"
-                                  IsChecked="{Binding !IsSpeedGraph.Value, Mode=OneWay}"
-                                  Tag="ValueGraph"
-                                  ToggleType="Radio" />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.SpeedGraph"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphSpeedGraph}"
-                                  IsChecked="{Binding IsSpeedGraph.Value, Mode=OneWay}"
-                                  Tag="SpeedGraph"
-                                  ToggleType="Radio" />
-                        <Separator />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Ease"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphEasyEase}"
-                                  Tag="Ease" />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.EaseIn"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphEasyEaseIn}"
-                                  Tag="EaseIn" />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.EaseOut"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphEasyEaseOut}"
-                                  Tag="EaseOut" />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Velocity"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphVelocity}"
-                                  Tag="Velocity" />
-                        <Separator />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.DistributeEvenly"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphDistributeEvenly}"
-                                  IsEnabled="{Binding CanDistributeSelection.Value}"
-                                  Tag="DistributeEvenly" />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Reverse"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphReverse}"
-                                  IsEnabled="{Binding CanReverseSelection.Value}"
-                                  Tag="Reverse" />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ScaleValues"
-                                  Click="GraphActionClick"
-                                  Header="{x:Static lang:Strings.GraphScaleValues}"
-                                  IsEnabled="{Binding HasSelection.Value}"
-                                  Tag="ScaleValues" />
-                        <Separator />
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.CopyAllKeyFramesCommand"
-                                  Command="{Binding CopyAllKeyFramesCommand}"
-                                  Header="{x:Static lang:Strings.CopyAll}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="DocumentCopy" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.PasteKeyFrameAtCurrentPositionCommand"
-                                  Command="{Binding PasteKeyFrameAtCurrentPositionCommand}"
-                                  Header="{x:Static lang:Strings.Paste}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="ClipboardPaste" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Zoom"
-                                  Header="{x:Static lang:Strings.TimelineZoom}"
-                                  MenuItem.Click="ZoomClick">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="ZoomIn" />
-                            </MenuItem.Icon>
-                            <MenuItem CommandParameter="8.75" Header="875%" />
-                            <MenuItem CommandParameter="7.0" Header="700%" />
-                            <MenuItem CommandParameter="3.5" Header="350%" />
-                            <MenuItem CommandParameter="2.0" Header="200%" />
-                            <MenuItem CommandParameter="1.7" Header="170%" />
-                            <MenuItem CommandParameter="1.5" Header="150%" />
-                            <MenuItem CommandParameter="1.2" Header="120%" />
-                            <MenuItem CommandParameter="1.0" Header="100%" />
-                            <MenuItem CommandParameter="0.7" Header="70%" />
-                            <MenuItem CommandParameter="0.5" Header="50%" />
-                            <MenuItem CommandParameter="0.2" Header="20%" />
-                            <MenuItem CommandParameter="0.1" Header="10%" />
-                            <MenuItem CommandParameter="0.05" Header="5%" />
-                            <MenuItem CommandParameter="0.01" Header="1%" />
-                        </MenuItem>
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.SelectedView"
-                                  Header="{x:Static lang:Strings.View}"
-                                  IsEnabled="{Binding !!Views.Length}"
-                                  ItemsSource="{Binding Views}"
-                                  MenuItem.Click="SelectedView_Click">
-                            <!--  https://github.com/AvaloniaUI/Avalonia/issues/9696
-                            <MenuItem.ItemTemplate>
-                                <DataTemplate x:DataType="viewModel:GraphEditorViewViewModel">
-                                    ...
-                                </DataTemplate>
-                            </MenuItem.ItemTemplate>
-                            -->
-
-                            <MenuItem.DataTemplates>
-                                <DataTemplate x:DataType="viewModel:GraphEditorViewViewModel">
-                                    <Grid ColumnDefinitions="Auto,*">
-                                        <ui:FAPathIcon Margin="6,0,16,0"
-                                                       VerticalAlignment="Center"
-                                                       Classes.transparent="{Binding !IsSelected.Value}"
-                                                       Data="M0,2a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"
-                                                       Foreground="{DynamicResource MenuFlyoutSubItemChevron}"
-                                                       UseLayoutRounding="False" />
-
-                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </MenuItem.DataTemplates>
-                        </MenuItem>
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ShowBpmGridFlyout"
-                                  Click="ShowBpmGridFlyout"
-                                  Header="{x:Static lang:Strings.BpmGrid}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="MusicNote1" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ToggleUseGlobalClock"
-                                  Command="{Binding ToggleUseGlobalClock}"
-                                  Header="{x:Static lang:Strings.UseGlobalClock}"
-                                  IsChecked="{Binding UseGlobalClock.Value, Mode=OneWay}"
-                                  ToggleType="CheckBox" />
-                    </ContextMenu>
-                </Panel.ContextMenu>
+                <Panel.ContextFlyout>
+                    <ui:FAMenuFlyout>
+                        <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ValueGraph"
+                                                  Click="GraphActionClick"
+                                                  Text="{x:Static lang:Strings.GraphValueGraph}"
+                                                  IsChecked="{Binding !IsSpeedGraph.Value, Mode=OneWay}"
+                                                  Tag="ValueGraph" />
+                        <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.SpeedGraph"
+                                                  Click="GraphActionClick"
+                                                  Text="{x:Static lang:Strings.GraphSpeedGraph}"
+                                                  IsChecked="{Binding IsSpeedGraph.Value, Mode=OneWay}"
+                                                  Tag="SpeedGraph" />
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Ease"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphEasyEase}"
+                                             Tag="Ease" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.EaseIn"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphEasyEaseIn}"
+                                             Tag="EaseIn" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.EaseOut"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphEasyEaseOut}"
+                                             Tag="EaseOut" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Velocity"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphVelocity}"
+                                             Tag="Velocity" />
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.DistributeEvenly"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphDistributeEvenly}"
+                                             IsEnabled="{Binding CanDistributeSelection.Value}"
+                                             Tag="DistributeEvenly" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Reverse"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphReverse}"
+                                             IsEnabled="{Binding CanReverseSelection.Value}"
+                                             Tag="Reverse" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ScaleValues"
+                                             Click="GraphActionClick"
+                                             Text="{x:Static lang:Strings.GraphScaleValues}"
+                                             IsEnabled="{Binding HasSelection.Value}"
+                                             Tag="ScaleValues" />
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.CopyAllKeyFramesCommand"
+                                             Command="{Binding CopyAllKeyFramesCommand}"
+                                             Text="{x:Static lang:Strings.CopyAll}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="DocumentCopy" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.PasteKeyFrameAtCurrentPositionCommand"
+                                             Command="{Binding PasteKeyFrameAtCurrentPositionCommand}"
+                                             Text="{x:Static lang:Strings.Paste}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="ClipboardPaste" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
+                            <ui:FAMenuFlyoutSubItem.IconSource>
+                                <icons:FluentIconSource Icon="ZoomIn" />
+                            </ui:FAMenuFlyoutSubItem.IconSource>
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="8.75"
+                                                 Text="875%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="7.0"
+                                                 Text="700%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="3.5"
+                                                 Text="350%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="2.0"
+                                                 Text="200%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="1.7"
+                                                 Text="170%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="1.5"
+                                                 Text="150%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="1.2"
+                                                 Text="120%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="1.0"
+                                                 Text="100%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="0.7"
+                                                 Text="70%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="0.5"
+                                                 Text="50%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="0.2"
+                                                 Text="20%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="0.1"
+                                                 Text="10%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="0.05"
+                                                 Text="5%" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Zoom"
+                                                 Click="ZoomClick"
+                                                 CommandParameter="0.01"
+                                                 Text="1%" />
+                        </ui:FAMenuFlyoutSubItem>
+                        <ui:FAMenuFlyoutSubItem x:Name="SelectedViewMenu"
+                                                Text="{x:Static lang:Strings.View}"
+                                                IsEnabled="{Binding !!Views.Length}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ShowBpmGridFlyout"
+                                             Click="ShowBpmGridFlyout"
+                                             Text="{x:Static lang:Strings.BpmGrid}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="MusicNote1" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAToggleMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ToggleUseGlobalClock"
+                                                   Command="{Binding ToggleUseGlobalClock}"
+                                                   Text="{x:Static lang:Strings.UseGlobalClock}"
+                                                   IsChecked="{Binding UseGlobalClock.Value, Mode=OneWay}" />
+                    </ui:FAMenuFlyout>
+                </Panel.ContextFlyout>
 
                 <local:GraphEditorBackground x:Name="background" IsSpeedGraph="{Binding IsSpeedGraph.Value}"
                                              HorizontalAlignment="Stretch"
@@ -425,26 +437,23 @@
                     <Button Tag="TangentMode" ToolTip.Tip="{x:Static lang:Strings.GraphHandleMode}" AutomationProperties.Name="{x:Static lang:Strings.GraphHandleMode}">
                         <Path Data="M1,12 L15,4 M1,10 L1,14 M15,2 L15,6 M8,6 L10,8 8,10 6,8 Z" />
                         <Button.Flyout>
-                            <MenuFlyout>
-                                <MenuItem usage:UsageTracking.Feature="GraphEditor.Symmetry"
-                                          Click="GraphActionClick"
-                                          Header="{x:Static lang:Strings.Symmetry}"
-                                          IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
-                                          Tag="Symmetry"
-                                          ToggleType="Radio" />
-                                <MenuItem usage:UsageTracking.Feature="GraphEditor.Asymmetry"
-                                          Click="GraphActionClick"
-                                          Header="{x:Static lang:Strings.Asymmetry}"
-                                          IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
-                                          Tag="Asymmetry"
-                                          ToggleType="Radio" />
-                                <MenuItem usage:UsageTracking.Feature="GraphEditor.Separately"
-                                          Click="GraphActionClick"
-                                          Header="{x:Static lang:Strings.Separately}"
-                                          IsChecked="{Binding Separately.Value, Mode=OneWay}"
-                                          Tag="Separately"
-                                          ToggleType="Radio" />
-                            </MenuFlyout>
+                            <ui:FAMenuFlyout>
+                                <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Symmetry"
+                                                          Click="GraphActionClick"
+                                                          Text="{x:Static lang:Strings.Symmetry}"
+                                                          IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                                          Tag="Symmetry" />
+                                <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Asymmetry"
+                                                          Click="GraphActionClick"
+                                                          Text="{x:Static lang:Strings.Asymmetry}"
+                                                          IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                                          Tag="Asymmetry" />
+                                <ui:FARadioMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Separately"
+                                                          Click="GraphActionClick"
+                                                          Text="{x:Static lang:Strings.Separately}"
+                                                          IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                                          Tag="Separately" />
+                            </ui:FAMenuFlyout>
                         </Button.Flyout>
                     </Button>
                 </StackPanel>

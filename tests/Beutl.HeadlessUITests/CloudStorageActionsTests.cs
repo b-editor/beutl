@@ -13,6 +13,7 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.CloudStorageTests;
 using StorageScope = Beutl.HeadlessUITests.CloudStorageIncrementalTests.StorageScope;
 
@@ -51,7 +52,7 @@ public sealed class CloudStorageActionsTests
                 _ => ["open", "download", "move", "details"],
             };
             Assert.That(ActionIds(view), Is.EqualTo(expected));
-            Capture(view.StorageMenu!, $"menu-{mode}-{visibility}");
+            Capture(view.StorageMenu!.Popup.Child!, $"menu-{mode}-{visibility}");
         }
         finally { window.Close(); }
     }
@@ -70,7 +71,7 @@ public sealed class CloudStorageActionsTests
             var list = view.FindControl<ListBox>("StorageItems")!;
             RightClick(window, list.ContainerFromIndex(0)!);
             Assert.That(ActionIds(view), Is.EqualTo(new[] { "open", "rename", "move", "delete" }));
-            view.StorageMenu!.Close();
+            view.StorageMenu!.Hide();
             HeadlessTestHelpers.Settle();
             list.SelectedIndex = 1;
             list.ContainerFromIndex(1)!.Focus();
@@ -79,7 +80,7 @@ public sealed class CloudStorageActionsTests
             HeadlessTestHelpers.Settle();
             Assert.That(view.StorageMenu?.IsOpen, Is.True);
             Assert.That(ActionIds(view), Does.Contain("download"));
-            view.StorageMenu!.Close();
+            view.StorageMenu!.Hide();
             window.MouseDown(new Point(400, 400), MouseButton.Right);
             window.MouseUp(new Point(400, 400), MouseButton.Right);
             HeadlessTestHelpers.Settle();
@@ -250,7 +251,7 @@ public sealed class CloudStorageActionsTests
             RightClick(window, list.ContainerFromIndex(1)!);
             Assert.That(list.SelectedItems, Has.Count.EqualTo(2));
             Assert.That(ActionIds(view), Is.EqualTo(new[] { "move", "setPublic", "delete" }));
-            view.StorageMenu!.Close();
+            view.StorageMenu!.Hide();
             HeadlessTestHelpers.Settle();
             RightClick(window, list.ContainerFromIndex(0)!);
             Assert.That(list.SelectedItems, Has.Count.EqualTo(1));
@@ -377,7 +378,7 @@ public sealed class CloudStorageActionsTests
         Assert.That(scope.Handler.UsageAuthorizations, Has.Count.EqualTo(1));
     }
 
-    private static string[] ActionIds(CloudStorageView view) => view.StorageMenu!.Items.OfType<MenuItem>()
+    private static string[] ActionIds(CloudStorageView view) => view.StorageMenu!.Items.OfType<FAMenuFlyoutItem>()
         .Where(x => x.Name?.StartsWith("StorageAction_", StringComparison.Ordinal) == true)
         .Select(x => x.Name!["StorageAction_".Length..]).ToArray();
 
@@ -390,8 +391,8 @@ public sealed class CloudStorageActionsTests
         image?.Save(Path.Combine(path, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 
-    private static void ClickAction(CloudStorageView view, string action) => view.StorageMenu!.Items.OfType<MenuItem>()
-        .Single(x => x.Name == $"StorageAction_{action}").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+    private static void ClickAction(CloudStorageView view, string action) => view.StorageMenu!.Items.OfType<FAMenuFlyoutItem>()
+        .Single(x => x.Name == $"StorageAction_{action}").RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
 
     private static void RightClick(Window window, Control item)
     {

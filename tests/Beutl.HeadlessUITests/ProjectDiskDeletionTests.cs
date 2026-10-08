@@ -1036,20 +1036,20 @@ public class ProjectDiskDeletionTests
             var offered = new Dictionary<string, bool>();
             foreach (ListBoxItem item in recentList.GetRealizedContainers().OfType<ListBoxItem>())
             {
-                ContextMenu menu = item.ContextMenu!;
-                menu.Open(item);
+                FAMenuFlyout menu = (FAMenuFlyout)item.ContextFlyout!;
+                menu.ShowAt(item);
                 HeadlessTestHelpers.Render();
                 try
                 {
-                    MenuItem delete = menu.Items.OfType<MenuItem>()
-                        .Single(menuItem => Equals(menuItem.Header, Strings.DeleteFromDisk));
-                    Separator separator = menu.Items.OfType<Separator>().Single();
+                    FAMenuFlyoutItem delete = menu.Items.OfType<FAMenuFlyoutItem>()
+                        .Single(menuItem => Equals(menuItem.Text, Strings.DeleteFromDisk));
+                    FAMenuFlyoutSeparator separator = menu.Items.OfType<FAMenuFlyoutSeparator>().Single();
                     Assert.That(separator.IsVisible, Is.EqualTo(delete.IsVisible));
                     offered[((FileInfo)item.DataContext!).FullName] = delete.IsVisible;
                 }
                 finally
                 {
-                    menu.Close();
+                    menu.Hide();
                     HeadlessTestHelpers.Render();
                 }
             }

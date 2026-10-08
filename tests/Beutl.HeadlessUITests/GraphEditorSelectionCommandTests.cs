@@ -13,6 +13,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using GraphicsPoint = Beutl.Graphics.Point;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 
@@ -333,9 +334,9 @@ public class GraphEditorSelectionCommandTests
     public async Task Selection_menu_disables_operations_without_enough_keys()
     {
         using var graph = await GraphScope.CreateAsync(selectAll: false);
-        graph.BackgroundMenu.Open(graph.View.FindControl<Panel>("graphPanel")!);
+        graph.BackgroundMenu.ShowAt(graph.View.FindControl<Panel>("graphPanel")!);
         HeadlessTestHelpers.Render();
-        var menu = graph.BackgroundMenu.Items.OfType<MenuItem>().Where(item => item.Tag is string)
+        var menu = graph.BackgroundMenu.Items.OfType<FAMenuFlyoutItem>().Where(item => item.Tag is string)
             .ToDictionary(item => (string)item.Tag!);
         Assert.That(menu["DistributeEvenly"].IsEnabled, Is.False);
         Assert.That(menu["Reverse"].IsEnabled, Is.False);
@@ -361,11 +362,11 @@ public class GraphEditorSelectionCommandTests
         }
         else
         {
-            graph.BackgroundMenu.Open(graph.View.FindControl<Panel>("graphPanel")!);
+            graph.BackgroundMenu.ShowAt(graph.View.FindControl<Panel>("graphPanel")!);
             HeadlessTestHelpers.Render();
-            graph.BackgroundMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, action))
-                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-            graph.BackgroundMenu.Close();
+            graph.BackgroundMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Tag, action))
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            graph.BackgroundMenu.Hide();
         }
         HeadlessTestHelpers.Render(3);
     }

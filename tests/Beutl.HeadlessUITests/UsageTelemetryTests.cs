@@ -1,9 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Configuration;
@@ -592,14 +596,49 @@ public sealed class UsageTelemetryTests
     }
 
     [AvaloniaTest]
+    [TestCase("Zoom", false)]
+    [TestCase("Zoom", true)]
+    [TestCase("SelectedView", false)]
+    [TestCase("SelectedView", true)]
+    public async Task Graph_flyout_submenus_execute_and_record_the_clicked_action(string feature, bool light)
+    {
+        using var graph = await GraphEditorContextMenuTests.GraphScope.CreateAsync(light);
+        bool zoom = feature == "Zoom";
+        var expectedView = graph.Model.Views.First();
+        if (!zoom) graph.Model.SelectedView.Value = null;
+        graph.BackgroundMenu.ShowAt(graph.View.FindControl<Panel>("graphPanel")!);
+        HeadlessTestHelpers.Render();
+        FAMenuFlyoutSubItem parent = graph.BackgroundMenu.Items.OfType<FAMenuFlyoutSubItem>()
+            .Single(item => item.Text == (zoom ? Beutl.Language.Strings.TimelineZoom : Beutl.Language.Strings.View));
+        Assert.That(parent.Focus(), Is.True);
+        TopLevel.GetTopLevel(parent)!.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
+        HeadlessTestHelpers.Render();
+        FAMenuFlyoutItem child = parent.GetLogicalDescendants().OfType<FAMenuFlyoutItem>()
+            .Single(item => zoom ? item.Text == "200%" : ReferenceEquals(item.DataContext, expectedView));
+        TopLevel popup = TopLevel.GetTopLevel(child)!;
+        Avalonia.Point center = child.TranslatePoint(new Avalonia.Point(child.Bounds.Width / 2, child.Bounds.Height / 2), popup)!.Value;
+        popup.MouseMove(center);
+        popup.MouseDown(center, MouseButton.Left);
+        popup.MouseUp(center, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
+        if (zoom) Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(2));
+        else Assert.That(graph.Model.SelectedView.Value, Is.SameAs(expectedView));
+        Assert.That(graph.BackgroundMenu.IsOpen, Is.False);
+        _usage.Flush();
+        UsageSummary action = _summaries.Single(summary => summary.Key.Event == "tool.action"
+            && summary.Key.Tool == "GraphEditor" && summary.Key.Feature == feature);
+        Assert.That(action.Count, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
     public void Graph_actions_keep_distinct_feature_names()
     {
         var view = new GraphEditorView();
         Panel panel = view.FindControl<Panel>("graphPanel")!;
-        MenuItem[] items = panel.ContextMenu!.Items.OfType<MenuItem>()
+        FAMenuFlyoutItem[] items = ((FAMenuFlyout)panel.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>()
             .Where(item => item.Tag is "ValueGraph" or "SpeedGraph" or "Ease" or "EaseIn" or "EaseOut").ToArray();
         Assert.That(items, Has.Length.EqualTo(5));
-        foreach (MenuItem item in items) item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        foreach (FAMenuFlyoutItem item in items) item.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
         _usage.Flush();
         UsageSummary[] actions = _summaries.Where(s => s.Key.Event == "tool.action").ToArray();
         Assert.That(actions.Select(action => action.Key.Feature),

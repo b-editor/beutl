@@ -2,6 +2,8 @@
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
 
+using FluentAvalonia.UI.Controls;
+
 namespace Beutl.Views.Dock;
 
 public sealed class ToolTabAddButton : Button
@@ -10,12 +12,12 @@ public sealed class ToolTabAddButton : Button
     {
         base.OnClick();
 
-        ContextMenu?.Close();
-        ContextMenu = CreateContextMenu();
-        ContextMenu?.Open();
+        ContextFlyout?.Hide();
+        ContextFlyout = CreateContextFlyout();
+        ContextFlyout?.ShowAt(this);
     }
 
-    internal ContextMenu? CreateContextMenu()
+    internal FAMenuFlyout? CreateContextFlyout()
     {
         if (DataContext is not IToolDock target
             || target.Factory is not BeutlDockFactory factory)
@@ -23,30 +25,32 @@ public sealed class ToolTabAddButton : Button
             return null;
         }
 
-        MenuItem[] CreateItems()
+        FAMenuFlyoutItem[] CreateItems()
         {
             return factory.EnumerateToolTabExtensions()
                 .Select(extension => CreateMenuItem(factory, target, extension))
                 .ToArray();
         }
 
-        var menu = new ContextMenu
+        var menu = new FAMenuFlyout();
+        foreach (var item in CreateItems()) menu.Items.Add(item);
+        menu.Opening += (_, _) =>
         {
-            ItemsSource = CreateItems(),
+            menu.Items.Clear();
+            foreach (var item in CreateItems()) menu.Items.Add(item);
         };
-        menu.Opening += (_, _) => menu.ItemsSource = CreateItems();
         return menu;
     }
 
-    private static MenuItem CreateMenuItem(
+    private static FAMenuFlyoutItem CreateMenuItem(
         BeutlDockFactory factory,
         IToolDock target,
         ToolTabExtension extension)
     {
-        var item = new MenuItem
+        var item = new FAMenuFlyoutItem
         {
             DataContext = extension,
-            Header = extension.Header,
+            Text = extension.Header,
             IsEnabled = extension.CanMultiple || !factory.IsToolTabOpen(extension),
         };
 

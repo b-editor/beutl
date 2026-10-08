@@ -42,11 +42,11 @@ public class NodeGraphGenerativeMenuTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             var zoom = view.FindControl<ZoomBorder>("zoomBorder")!;
-            ContextMenu menu = zoom.ContextMenu!;
-            menu.Open(zoom);
+            FAMenuFlyout menu = (FAMenuFlyout)zoom.ContextFlyout!;
+            menu.ShowAt(zoom);
             HeadlessTestHelpers.Render(3);
-            MenuItem run = FindItem(menu, NodeGraphStrings.Generative_RunQueue);
-            MenuItem stop = FindItem(menu, NodeGraphStrings.Generative_StopQueue);
+            FAMenuFlyoutItem run = FindItem(menu, NodeGraphStrings.Generative_RunQueue);
+            FAMenuFlyoutItem stop = FindItem(menu, NodeGraphStrings.Generative_StopQueue);
             Assert.That(run.IsEnabled, Is.False, "No AI node, nothing to run.");
             Assert.That(stop.IsVisible, Is.False);
 
@@ -58,7 +58,7 @@ public class NodeGraphGenerativeMenuTests
             graph.Nodes.Remove(node);
             HeadlessTestHelpers.Render(3);
             Assert.That(run.IsEnabled, Is.False);
-            menu.Close();
+            menu.Hide();
         }
         finally
         {
@@ -285,15 +285,15 @@ public class NodeGraphGenerativeMenuTests
                 Assert.That(groupVm.SaveAsTemplate("Prompt kit"), Is.Not.Null);
 
                 ZoomBorder zoom = view.FindControl<ZoomBorder>("zoomBorder")!;
-                ContextMenu menu = zoom.ContextMenu!;
-                menu.Open(zoom);
+                FAMenuFlyout menu = (FAMenuFlyout)zoom.ContextFlyout!;
+                menu.ShowAt(zoom);
                 HeadlessTestHelpers.Render(3);
-                MenuItem templates = menu.Items.OfType<MenuItem>()
-                    .Single(item => Equals(item.Header, NodeGraphStrings.Template_Templates));
-                MenuItem entry = templates.ItemsSource!.Cast<MenuItem>().Single();
-                Assert.That(entry.Header, Is.EqualTo("Prompt kit"));
-                entry.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
-                menu.Close();
+                FAMenuFlyoutSubItem templates = menu.Items.OfType<FAMenuFlyoutSubItem>()
+                    .Single(item => Equals(item.Text, NodeGraphStrings.Template_Templates));
+                FAMenuFlyoutItem entry = templates.Items.Cast<FAMenuFlyoutItem>().Single();
+                Assert.That(entry.Text, Is.EqualTo("Prompt kit"));
+                entry.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+                menu.Hide();
 
                 Assert.That(graph.Nodes.OfType<Beutl.NodeGraph.Nodes.Group.GroupNode>().Count(), Is.EqualTo(2));
                 GroupNodeCopyHasItsOwnPrompt(graph);
@@ -361,6 +361,6 @@ public class NodeGraphGenerativeMenuTests
         return editor;
     }
 
-    private static MenuItem FindItem(ContextMenu menu, string header)
-        => menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, header));
+    private static FAMenuFlyoutItem FindItem(FAMenuFlyout menu, string header)
+        => menu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, header));
 }

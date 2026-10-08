@@ -17,6 +17,8 @@ using Beutl.Views.Dock;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 
+using FluentAvalonia.UI.Controls;
+
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
@@ -248,14 +250,14 @@ public class DockTabAddButtonTests
             window.MouseUp(buttonCenter, MouseButton.Left);
             HeadlessTestHelpers.Settle();
 
-            ContextMenu? menu = button.ContextMenu;
+            FAMenuFlyout? menu = button.ContextFlyout as FAMenuFlyout;
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu!.IsOpen, Is.True);
-            MenuItem[] items = menu.ItemsSource!.Cast<MenuItem>().ToArray();
+            FAMenuFlyoutItem[] items = menu.Items.Cast<FAMenuFlyoutItem>().ToArray();
 
-            MenuItem timelineItem = items.Single(
+            FAMenuFlyoutItem timelineItem = items.Single(
                 item => ReferenceEquals(item.DataContext, TimelineTabExtension.Instance));
-            MenuItem historyItem = items.Single(
+            FAMenuFlyoutItem historyItem = items.Single(
                 item => ReferenceEquals(item.DataContext, HistoryTabExtension.Instance));
 
             Assert.Multiple(() =>
@@ -264,7 +266,7 @@ public class DockTabAddButtonTests
                 Assert.That(historyItem.IsEnabled, Is.True);
             });
 
-            historyItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            historyItem.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
             HeadlessTestHelpers.Settle();
 
             BeutlToolDockable? added = target.VisibleDockables?
@@ -277,7 +279,7 @@ public class DockTabAddButtonTests
                 Assert.That(target.ActiveDockable, Is.SameAs(added));
             });
 
-            menu.Close();
+            menu.Hide();
             HeadlessTestHelpers.Settle();
             // The button follows the last tab, so it moved when the new tab was added.
             buttonCenter = Center(button, window);
@@ -285,8 +287,8 @@ public class DockTabAddButtonTests
             window.MouseUp(buttonCenter, MouseButton.Right);
             HeadlessTestHelpers.Settle();
 
-            MenuItem refreshedHistoryItem = menu.ItemsSource!
-                .Cast<MenuItem>()
+            FAMenuFlyoutItem refreshedHistoryItem = menu.Items
+                .Cast<FAMenuFlyoutItem>()
                 .Single(item => ReferenceEquals(item.DataContext, HistoryTabExtension.Instance));
             Assert.That(refreshedHistoryItem.IsEnabled, Is.False);
         }

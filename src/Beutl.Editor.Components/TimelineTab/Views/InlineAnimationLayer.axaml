@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.TimelineTab.Views.InlineAnimationLayer"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:convert="using:Beutl.Editor.Components.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -18,31 +19,31 @@
              x:DataType="vm:InlineAnimationLayerViewModel"
              Background="Transparent"
              mc:Ignorable="d">
-    <UserControl.ContextMenu>
-        <ContextMenu>
-            <MenuItem usage:UsageTracking.Feature="Timeline.CopyAllKeyFramesCommand"
-                      Command="{Binding CopyAllKeyFramesCommand}"
-                      Header="{x:Static lang:Strings.CopyAll}">
-                <MenuItem.Icon>
-                    <icons:FluentIcon Icon="Copy" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem usage:UsageTracking.Feature="Timeline.PasteKeyFrameAtCurrentPositionCommand"
-                      Command="{Binding PasteKeyFrameAtCurrentPositionCommand}"
-                      Header="{x:Static lang:Strings.Paste}">
-                <MenuItem.Icon>
-                    <icons:FluentIcon Icon="ClipboardPaste" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem usage:UsageTracking.Feature="Timeline.DeleteCurrentAnimationCommand"
-                      Command="{Binding DeleteCurrentAnimationCommand}"
-                      Header="{x:Static lang:Strings.Delete}">
-                <MenuItem.Icon>
-                    <icons:FluentIcon Icon="Delete" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
-    </UserControl.ContextMenu>
+    <UserControl.ContextFlyout>
+        <ui:FAMenuFlyout>
+            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.CopyAllKeyFramesCommand"
+                                 Command="{Binding CopyAllKeyFramesCommand}"
+                                 Text="{x:Static lang:Strings.CopyAll}">
+                <ui:FAMenuFlyoutItem.IconSource>
+                    <icons:FluentIconSource Icon="Copy" />
+                </ui:FAMenuFlyoutItem.IconSource>
+            </ui:FAMenuFlyoutItem>
+            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.PasteKeyFrameAtCurrentPositionCommand"
+                                 Command="{Binding PasteKeyFrameAtCurrentPositionCommand}"
+                                 Text="{x:Static lang:Strings.Paste}">
+                <ui:FAMenuFlyoutItem.IconSource>
+                    <icons:FluentIconSource Icon="ClipboardPaste" />
+                </ui:FAMenuFlyoutItem.IconSource>
+            </ui:FAMenuFlyoutItem>
+            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.DeleteCurrentAnimationCommand"
+                                 Command="{Binding DeleteCurrentAnimationCommand}"
+                                 Text="{x:Static lang:Strings.Delete}">
+                <ui:FAMenuFlyoutItem.IconSource>
+                    <icons:FluentIconSource Icon="Delete" />
+                </ui:FAMenuFlyoutItem.IconSource>
+            </ui:FAMenuFlyoutItem>
+        </ui:FAMenuFlyout>
+    </UserControl.ContextFlyout>
     <Panel>
         <Border x:Name="border"
                 Width="{CompiledBinding Element.Width.Value,
@@ -80,31 +81,31 @@
                           HorizontalAlignment="Left"
                           VerticalAlignment="Center"
                           Fill="{DynamicResource SystemFillColorCaution}">
-                        <Path.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem usage:UsageTracking.Feature="Timeline.CopyCommand"
-                                          Command="{Binding CopyCommand}"
-                                          Header="{x:Static lang:Strings.Copy}">
-                                    <MenuItem.Icon>
-                                        <icons:FluentIcon Icon="Copy" />
-                                    </MenuItem.Icon>
-                                </MenuItem>
-                                <MenuItem usage:UsageTracking.Feature="Timeline.PasteCommand"
-                                          Command="{Binding PasteCommand}"
-                                          Header="{x:Static lang:Strings.Paste}">
-                                    <MenuItem.Icon>
-                                        <icons:FluentIcon Icon="ClipboardPaste" />
-                                    </MenuItem.Icon>
-                                </MenuItem>
-                                <MenuItem usage:UsageTracking.Feature="Timeline.RemoveCommand"
-                                          Command="{Binding RemoveCommand}"
-                                          Header="{x:Static lang:Strings.Delete}">
-                                    <MenuItem.Icon>
-                                        <icons:FluentIcon Icon="Delete" />
-                                    </MenuItem.Icon>
-                                </MenuItem>
-                            </ContextMenu>
-                        </Path.ContextMenu>
+                        <Path.ContextFlyout>
+                            <ui:FAMenuFlyout>
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.CopyCommand"
+                                                     Command="{Binding CopyCommand}"
+                                                     Text="{x:Static lang:Strings.Copy}">
+                                    <ui:FAMenuFlyoutItem.IconSource>
+                                        <icons:FluentIconSource Icon="Copy" />
+                                    </ui:FAMenuFlyoutItem.IconSource>
+                                </ui:FAMenuFlyoutItem>
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.PasteCommand"
+                                                     Command="{Binding PasteCommand}"
+                                                     Text="{x:Static lang:Strings.Paste}">
+                                    <ui:FAMenuFlyoutItem.IconSource>
+                                        <icons:FluentIconSource Icon="ClipboardPaste" />
+                                    </ui:FAMenuFlyoutItem.IconSource>
+                                </ui:FAMenuFlyoutItem>
+                                <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.RemoveCommand"
+                                                     Command="{Binding RemoveCommand}"
+                                                     Text="{x:Static lang:Strings.Delete}">
+                                    <ui:FAMenuFlyoutItem.IconSource>
+                                        <icons:FluentIconSource Icon="Delete" />
+                                    </ui:FAMenuFlyoutItem.IconSource>
+                                </ui:FAMenuFlyoutItem>
+                            </ui:FAMenuFlyout>
+                        </Path.ContextFlyout>
                         <Path.Data>
                             <PathGeometry>
                                 <PathFigure StartPoint="0,0">

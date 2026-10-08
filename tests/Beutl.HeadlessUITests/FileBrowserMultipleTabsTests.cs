@@ -12,6 +12,7 @@ using Beutl.ViewModels.Dock;
 using Beutl.Views;
 using Beutl.Views.Dock;
 using Dock.Model.Controls;
+using FluentAvalonia.UI.Controls;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -211,9 +212,9 @@ public class FileBrowserMultipleTabsTests
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
 
         var button = new ToolTabAddButton { DataContext = left };
-        ContextMenu menu = button.CreateContextMenu()!;
-        MenuItem item = menu.ItemsSource!
-            .Cast<MenuItem>()
+        FAMenuFlyout menu = button.CreateContextFlyout()!;
+        FAMenuFlyoutItem item = menu.Items
+            .Cast<FAMenuFlyoutItem>()
             .Single(i => ReferenceEquals(i.DataContext, FileBrowserTabExtension.Instance));
 
         Assert.That(item.IsEnabled, Is.True);

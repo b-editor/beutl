@@ -183,22 +183,22 @@ public partial class FileBrowserTabView : UserControl
         }
     }
 
-    private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
+    private void OnContextFlyoutOpened(object? sender, EventArgs e)
     {
-        if (sender is ContextMenu contextMenu &&
-            contextMenu.DataContext is FileSystemItemViewModel item &&
+        if (sender is FAMenuFlyout contextMenu &&
+            contextMenu.Target?.DataContext is FileSystemItemViewModel item &&
             ViewModel != null)
         {
-            foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
+            foreach (var menuItem in contextMenu.Items.OfType<FAMenuFlyoutItem>())
             {
                 if (menuItem.Tag is "FavoriteToggle")
                 {
                     bool isFavorite = ViewModel.Favorites.Contains(item.FullPath);
-                    menuItem.Header = isFavorite ? Strings.RemoveFromFavorites : Strings.AddToFavorites;
+                    menuItem.Text = isFavorite ? Strings.RemoveFromFavorites : Strings.AddToFavorites;
                 }
                 else if (menuItem.Tag is "OpenInFileManager")
                 {
-                    menuItem.Header = FileManagerLauncher.MenuHeader;
+                    menuItem.Text = FileManagerLauncher.MenuHeader;
                 }
             }
         }
@@ -214,17 +214,7 @@ public partial class FileBrowserTabView : UserControl
 
     private FileSystemItemViewModel? GetItemFromMenuItem(object? sender)
     {
-        if (sender is MenuItem menuItem)
-        {
-            // ContextMenuの親要素からDataContextを取得
-            var contextMenu = menuItem.GetLogicalAncestors().OfType<ContextMenu>().FirstOrDefault();
-            if (contextMenu?.DataContext is FileSystemItemViewModel item)
-            {
-                return item;
-            }
-        }
-
-        return null;
+        return (sender as FAMenuFlyoutItem)?.DataContext as FileSystemItemViewModel;
     }
 
     private async void StartRename(FileSystemItemViewModel item, Control? sourceControl)

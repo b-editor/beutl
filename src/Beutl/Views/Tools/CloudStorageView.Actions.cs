@@ -12,6 +12,7 @@ using Beutl.Language;
 using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Views.Tools;
@@ -20,10 +21,10 @@ internal sealed record StorageDestination(string? Id);
 
 public sealed partial class CloudStorageView
 {
-    private ContextMenu? _storageMenu;
+    private FAMenuFlyout? _storageMenu;
     private FAContentDialog? _storageDialog;
     private CancellationTokenSource? _downloadCancellation;
-    internal ContextMenu? StorageMenu => _storageMenu;
+    internal FAMenuFlyout? StorageMenu => _storageMenu;
     internal FAContentDialog? StorageDialog => _storageDialog;
     internal Func<string, string, bool, Task<string?>>? NamePrompt { get; set; }
     internal Func<string, Task<bool>>? DeletePrompt { get; set; }
@@ -33,7 +34,7 @@ public sealed partial class CloudStorageView
     private void CloseStorageInteractions()
     {
         _downloadCancellation?.Cancel();
-        _storageMenu?.Close();
+        _storageMenu?.Hide();
         _storageMenu = null;
         _storageDialog?.Hide();
         _storageDialog = null;
@@ -47,12 +48,11 @@ public sealed partial class CloudStorageView
         e.Handled = true;
         if (context == null) return;
         CancelPrefetchIntent();
-        _storageMenu?.Close();
+        _storageMenu?.Hide();
         var menu = CreateStorageMenu(targets, context);
         _storageMenu = menu;
         menu.Placement = pointer ? PlacementMode.Pointer : PlacementMode.Bottom;
-        menu.PlacementTarget = (Control?)container ?? StorageItems;
-        menu.Open(StorageItems);
+        menu.ShowAt((Control?)container ?? StorageItems, pointer);
     }
 
     // What the menu acts on: the clicked folder, or the selected files when a file is clicked,
@@ -78,15 +78,15 @@ public sealed partial class CloudStorageView
         return targets;
     }
 
-    private ContextMenu CreateStorageMenu(CloudStorageItem[] targets, StorageActionContext context)
+    private FAMenuFlyout CreateStorageMenu(CloudStorageItem[] targets, StorageActionContext context)
     {
-        var menu = new ContextMenu { Name = "StorageContextMenu" };
+        var menu = new FAMenuFlyout();
         int lastGroup = -1;
         void Add(string id, string label, Icon icon, int group)
         {
-            if (lastGroup != -1 && lastGroup != group) menu.Items.Add(new Separator());
+            if (lastGroup != -1 && lastGroup != group) menu.Items.Add(new FAMenuFlyoutSeparator());
             lastGroup = group;
-            var item = new MenuItem { Name = $"StorageAction_{id}", Header = label, Icon = new FluentIcon { Icon = icon, FontSize = 16 } };
+            var item = new FAMenuFlyoutItem { Name = $"StorageAction_{id}", Text = label, IconSource = new FluentIconSource { Icon = icon, FontSize = 16 } };
             if (id == "delete") item.Classes.Add("storage-destructive");
             item.Click += async (_, _) => await ExecuteStorageActionAsync(id, context);
             menu.Items.Add(item);
@@ -117,8 +117,8 @@ public sealed partial class CloudStorageView
             if (targets.Any(x => x.Can("delete"))) Add("delete", Strings.Delete, Icon.Delete, 3);
             if (targets.All(x => x.Entry?.Visibility == "DEDICATED"))
             {
-                menu.Items.Add(new Separator());
-                menu.Items.Add(new MenuItem { IsEnabled = false, Header = new TextBlock { Text = Strings.CloudStorageDedicatedHint, Width = 230, TextWrapping = TextWrapping.Wrap } });
+                menu.Items.Add(new FAMenuFlyoutSeparator());
+                menu.Items.Add(new FAMenuFlyoutItem { IsEnabled = false, Text = Strings.CloudStorageDedicatedHint, Classes = { "storage-hint" } });
             }
         }
         return menu;
@@ -126,7 +126,7 @@ public sealed partial class CloudStorageView
 
     internal async Task ExecuteStorageActionAsync(string action, StorageActionContext context)
     {
-        _storageMenu?.Close();
+        _storageMenu?.Hide();
         if (DataContext is not CloudStorageViewModel vm || !vm.IsActionCurrent(context)) return;
         int affected = action == "move" ? context.Items.Length : context.Items.Count(x => x.Can(action));
         if (affected > 200 && action is "delete" or "move" or "setPublic" or "setPrivate")

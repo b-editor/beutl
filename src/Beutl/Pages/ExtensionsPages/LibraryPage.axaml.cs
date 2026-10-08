@@ -94,9 +94,9 @@ public sealed partial class LibraryPage : UserControl
 
     public void Overflow_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { ContextMenu: { } menu })
+        if (sender is Button { ContextFlyout: { } menu } button)
         {
-            menu.Open();
+            menu.ShowAt(button);
             e.Handled = true;
         }
     }

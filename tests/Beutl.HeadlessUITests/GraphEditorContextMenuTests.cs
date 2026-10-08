@@ -16,6 +16,7 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
 using AvaloniaPath = Avalonia.Controls.Shapes.Path;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
@@ -50,11 +51,11 @@ public class GraphEditorContextMenuTests
             {
                 foreach (var (tag, gesture) in expected)
                 {
-                    MenuItem item = graph.BackgroundMenu.Items.OfType<MenuItem>().Single(item => Equals(item.Tag, tag));
+                    FAMenuFlyoutItem item = graph.BackgroundMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Tag, tag));
                     Assert.That(item.InputGesture, Is.Not.Null, tag);
                     Assert.That(item.InputGesture?.Key, Is.EqualTo(gesture.Key), tag);
                     Assert.That(item.InputGesture?.KeyModifiers, Is.EqualTo(gesture.Modifiers), tag);
-                    Assert.That(item.Header?.ToString(), Does.Not.Contain("(").And.Not.Contain(")"), tag);
+                    Assert.That(item.Text?.ToString(), Does.Not.Contain("(").And.Not.Contain(")"), tag);
                 }
             });
             graph.Capture($"shortcuts-{command}");
@@ -125,17 +126,17 @@ public class GraphEditorContextMenuTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.ContextMenu!.IsOpen, Is.True);
+            Assert.That(keyFrame.ContextFlyout!.IsOpen, Is.True);
             Assert.That(graph.BackgroundMenu.IsOpen, Is.False);
             Assert.That(graph.View.ControlPointMoveState, Is.Null);
             Assert.That(graph.View.KeyTimeMoveState, Is.Null);
         });
 
-        ContextMenu menu = keyFrame.ContextMenu!;
+        FAMenuFlyout menu = (FAMenuFlyout)keyFrame.ContextFlyout!;
         var model = (GraphEditorKeyFrameViewModel)keyFrame.DataContext!;
-        Assert.That(menu.Items.OfType<MenuItem>().Select(item => item.Header),
+        Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Text),
             Is.EqualTo(new[] { Strings.Copy, Strings.Paste, Strings.Delete }));
-        MenuItem delete = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Delete));
+        FAMenuFlyoutItem delete = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.Delete));
         Assert.That(delete.Command, Is.SameAs(model.RemoveCommand));
         delete.Command!.Execute(delete.CommandParameter);
         HeadlessTestHelpers.Render();
@@ -154,18 +155,18 @@ public class GraphEditorContextMenuTests
         Assert.That(graph.HitTest(position), Is.SameAs(handle));
         graph.RightClick(position);
         Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
-        Assert.That(graph.KeyFrame(graph.Second).ContextMenu!.IsOpen, Is.False);
-        graph.BackgroundMenu.Close();
+        Assert.That(graph.KeyFrame(graph.Second).ContextFlyout!.IsOpen, Is.False);
+        graph.BackgroundMenu.Hide();
 
         graph.RightClick(new Point(500, 200));
         Assert.That(graph.BackgroundMenu.IsOpen, Is.True);
-        graph.BackgroundMenu.Close();
+        graph.BackgroundMenu.Hide();
 
         AvaloniaPath keyFrame = graph.KeyFrame(graph.Second);
         position = keyFrame.TranslatePoint(default, graph.Window)!.Value;
         Assert.That(graph.HitTest(position), Is.SameAs(keyFrame));
         graph.RightClick(position);
-        Assert.That(keyFrame.ContextMenu!.IsOpen, Is.True);
+        Assert.That(keyFrame.ContextFlyout!.IsOpen, Is.True);
         Assert.That(graph.BackgroundMenu.IsOpen, Is.False);
     }
 
@@ -213,7 +214,7 @@ public class GraphEditorContextMenuTests
         public required GraphEditorViewModel Model { get; init; }
         public required GraphEditorView View { get; init; }
         public required Window Window { get; init; }
-        public ContextMenu BackgroundMenu => View.FindControl<Panel>("graphPanel")!.ContextMenu!;
+        public FAMenuFlyout BackgroundMenu => (FAMenuFlyout)View.FindControl<Panel>("graphPanel")!.ContextFlyout!;
 
         public static async Task<GraphScope> CreateAsync(bool light = false, bool separateHandles = false, bool selectAll = true)
         {
@@ -303,19 +304,19 @@ public class GraphEditorContextMenuTests
             Directory.CreateDirectory(directory);
             using var frame = Window.CaptureRenderedFrame();
             frame?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-            ContextMenu? menu = View.GetVisualDescendants().OfType<Control>()
-                .Select(control => control.ContextMenu).FirstOrDefault(menu => menu?.IsOpen == true);
+            FAMenuFlyout? menu = View.GetVisualDescendants().OfType<Control>()
+                .Select(control => control.ContextFlyout).OfType<FAMenuFlyout>().FirstOrDefault(menu => menu.IsOpen);
             if (menu is null) return;
-            using var popup = TopLevel.GetTopLevel(menu)?.CaptureRenderedFrame();
+            using var popup = TopLevel.GetTopLevel(menu.Popup.Child!)?.CaptureRenderedFrame();
             popup?.Save(Path.Combine(directory, name + "-menu.png"), PngBitmapEncoderOptions.Default);
         }
 
         public void Dispose()
         {
-            BackgroundMenu.Close();
-            foreach (ContextMenu menu in View.GetVisualDescendants().OfType<Control>()
-                         .Select(control => control.ContextMenu).OfType<ContextMenu>())
-                menu.Close();
+            BackgroundMenu.Hide();
+            foreach (FAMenuFlyout menu in View.GetVisualDescendants().OfType<Control>()
+                         .Select(control => control.ContextFlyout).OfType<FAMenuFlyout>())
+                menu.Hide();
             View.DataContext = null;
             Window.Close();
             Model.Dispose();

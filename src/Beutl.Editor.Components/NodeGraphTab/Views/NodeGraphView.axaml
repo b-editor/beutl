@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.NodeGraphTab.Views.NodeGraphView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.NodeGraphTab.Views"
@@ -33,24 +34,24 @@
                             Stretch="None"
                             EnableDoubleClickZoom="False"
                             ZoomSpeed="1.2">
-                <paz:ZoomBorder.ContextMenu>
-                    <ContextMenu Opened="CanvasMenuOpened">
-                        <MenuItem x:Name="addNode" Header="{x:Static lang:Strings.AddNode}" />
-                        <MenuItem x:Name="templatesMenu" Header="{x:Static lang:NodeGraphStrings.Template_Templates}" />
-                        <MenuItem usage:UsageTracking.Feature="NodeGraph.ResetZoom"
-                                  Click="ResetZoomClick"
-                                  Header="{x:Static lang:Strings.ResetZoom}" />
-                        <Separator />
-                        <MenuItem usage:UsageTracking.Feature="NodeGraph.RunGenerative"
-                                  Click="RunGenerativeClick"
-                                  Header="{x:Static lang:NodeGraphStrings.Generative_RunQueue}"
-                                  IsEnabled="{Binding CanRunGenerative.Value}" />
-                        <MenuItem usage:UsageTracking.Feature="NodeGraph.StopGenerative"
-                                  Click="StopGenerativeClick"
-                                  Header="{x:Static lang:NodeGraphStrings.Generative_StopQueue}"
-                                  IsVisible="{Binding IsGenerating.Value}" />
-                    </ContextMenu>
-                </paz:ZoomBorder.ContextMenu>
+                <paz:ZoomBorder.ContextFlyout>
+                    <ui:FAMenuFlyout Opened="CanvasMenuOpened">
+                        <ui:FAMenuFlyoutSubItem x:Name="addNode" Text="{x:Static lang:Strings.AddNode}" />
+                        <ui:FAMenuFlyoutSubItem x:Name="templatesMenu" Text="{x:Static lang:NodeGraphStrings.Template_Templates}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.ResetZoom"
+                                             Click="ResetZoomClick"
+                                             Text="{x:Static lang:Strings.ResetZoom}" />
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.RunGenerative"
+                                             Click="RunGenerativeClick"
+                                             Text="{x:Static lang:NodeGraphStrings.Generative_RunQueue}"
+                                             IsEnabled="{Binding CanRunGenerative.Value}" />
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.StopGenerative"
+                                             Click="StopGenerativeClick"
+                                             Text="{x:Static lang:NodeGraphStrings.Generative_StopQueue}"
+                                             IsVisible="{Binding IsGenerating.Value}" />
+                    </ui:FAMenuFlyout>
+                </paz:ZoomBorder.ContextFlyout>
                 <Canvas x:Name="canvas" />
             </paz:ZoomBorder>
 

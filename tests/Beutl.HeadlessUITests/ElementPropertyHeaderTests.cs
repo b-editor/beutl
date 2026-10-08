@@ -18,6 +18,7 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
 using TextBlock = Avalonia.Controls.TextBlock;
 
 namespace Beutl.HeadlessUITests;
@@ -123,12 +124,12 @@ public class ElementPropertyHeaderTests
             title.Text = originalTitle;
             HeadlessTestHelpers.Render();
 
-            ContextMenu menu = first.FindControl<Grid>("headerPanel")!.ContextMenu!;
+            FAMenuFlyout menu = (FAMenuFlyout)first.FindControl<Grid>("headerPanel")!.ContextFlyout!;
             Click(title, MouseButton.Right);
             Assert.That(menu.IsOpen, Is.True);
-            Assert.That(menu.Items.OfType<MenuItem>().Select(item => item.Header),
+            Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Text),
                 Does.Contain(Strings.Remove).And.Contain(Strings.SaveAsTemplate));
-            menu.Close();
+            menu.Hide();
             HeadlessTestHelpers.Settle();
 
             Border grip = first.FindControl<Border>("dragBorder")!;

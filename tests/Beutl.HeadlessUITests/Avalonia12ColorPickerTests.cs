@@ -1,6 +1,9 @@
 ﻿using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Testing.Headless;
@@ -13,6 +16,44 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class Avalonia12ColorPickerTests
 {
+    [AvaloniaTest]
+    [TestCase("#RRGGBB", ColorTextType.Hex)]
+    [TestCase("#AARRGGBB", ColorTextType.HexAlpha)]
+    [TestCase("rgb( r, g, b )", ColorTextType.RGB)]
+    [TestCase("rgba( r, g, b, a )", ColorTextType.RGBA)]
+    public void Hex_context_flyout_changes_the_format_and_preserves_the_color(string format, ColorTextType expected)
+    {
+        var picker = new FAColorPicker { Color = AvaColors.Red, IsCompact = false };
+        var window = new Window { Content = picker, Width = 800, Height = 800 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TextBox hex = picker.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "HexBox");
+            var menu = (FAMenuFlyout)hex.ContextFlyout!;
+            menu.ShowAt(hex);
+            HeadlessTestHelpers.Render();
+            FAMenuFlyoutItem item = menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == format);
+            TopLevel popup = TopLevel.GetTopLevel(item)!;
+            Point center = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), popup)!.Value;
+            popup.MouseMove(center);
+            popup.MouseDown(center, MouseButton.Left);
+            popup.MouseUp(center, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(picker.ColorTextType, Is.EqualTo(expected));
+                Assert.That((Avalonia.Media.Color)picker.Color, Is.EqualTo(AvaColors.Red));
+                Assert.That(menu.IsOpen, Is.False);
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     [AvaloniaTest]
     public void Numeric_components_update_the_color_and_follow_programmatic_changes()
     {

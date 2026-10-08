@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Primitives;
@@ -10,6 +9,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Extensibility;
 using Beutl.NodeGraph;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
@@ -27,9 +27,9 @@ public partial class NodeGraphView : UserControl
     private bool _rangeSelectionPressed;
     private readonly List<(GraphNodeView GraphNode, bool IsSelectedOriginal)> _rangeSelection = [];
     private bool _matrixUpdating;
-    private ContextMenu? _portDropMenu;
+    private FAMenuFlyout? _portDropMenu;
 
-    internal ContextMenu? PortDropMenu => _portDropMenu;
+    internal FAMenuFlyout? PortDropMenu => _portDropMenu;
 
     public NodeGraphView()
         : this(NativeScrollInput.UsesGestureAxes)
@@ -242,20 +242,25 @@ public partial class NodeGraphView : UserControl
 
     private void InitializeMenuItems()
     {
-        var menulist = new AvaloniaList<MenuItem>();
-        addNode.ItemsSource = menulist;
-
         foreach (GraphNodeRegistry.BaseRegistryItem item in GraphNodeRegistry.GetRegistered())
         {
-            var menuItem = new MenuItem { Header = item.DisplayName, DataContext = item, };
-            menuItem.Click += AddNodeClick;
-            menulist.Add(menuItem);
-
-            if (item is GraphNodeRegistry.GroupableRegistryItem groupable)
-            {
-                Add(menuItem, groupable);
-            }
+            addNode.Items.Add(CreateNodeMenuItem(item));
         }
+    }
+
+    private Control CreateNodeMenuItem(GraphNodeRegistry.BaseRegistryItem item)
+    {
+        if (item is GraphNodeRegistry.GroupableRegistryItem group)
+        {
+            var subMenu = new FAMenuFlyoutSubItem { Text = item.DisplayName };
+            foreach (GraphNodeRegistry.BaseRegistryItem child in group.Items)
+                subMenu.Items.Add(CreateNodeMenuItem(child));
+            return subMenu;
+        }
+
+        var menuItem = new FAMenuFlyoutItem { Text = item.DisplayName, DataContext = item };
+        menuItem.Click += AddNodeClick;
+        return menuItem;
     }
 
     internal void ShowCompatibleNodeMenu(NodePortViewModel source, Point canvasPoint)
@@ -268,63 +273,63 @@ public partial class NodeGraphView : UserControl
             || !new Rect(zoomBorder.Bounds.Size).Contains(viewportPoint))
             return;
 
-        _portDropMenu?.Close();
+        _portDropMenu?.Hide();
         IList<GraphNodeRegistry.BaseRegistryItem> registered = GraphNodeRegistry.GetRegistered();
         var candidates = CompatibleNodeFinder.Find(viewModel.NodeGraph, sourcePort, registered);
-        ContextMenu? menu = null;
-        var items = new List<MenuItem>();
+        FAMenuFlyout? menu = null;
+        var items = new List<Control>();
         foreach (GraphNodeRegistry.BaseRegistryItem registry in registered)
         {
             if (CreateMenuItem(registry) is { } item) items.Add(item);
         }
         if (items.Count == 0) return;
 
-        menu = new ContextMenu { ItemsSource = items, Placement = PlacementMode.Pointer };
+        menu = new FAMenuFlyout { Placement = PlacementMode.Pointer };
+        foreach (var item in items) menu.Items.Add(item);
         menu.Closed += (_, _) =>
         {
             if (ReferenceEquals(_portDropMenu, menu)) _portDropMenu = null;
         };
         _portDropMenu = menu;
-        menu.Open(canvas);
+        menu.ShowAt(canvas, true);
 
-        MenuItem? CreateMenuItem(GraphNodeRegistry.BaseRegistryItem registry)
+        Control? CreateMenuItem(GraphNodeRegistry.BaseRegistryItem registry)
         {
             if (registry is GraphNodeRegistry.GroupableRegistryItem group)
             {
-                var children = new List<MenuItem>();
+                var children = new List<Control>();
                 foreach (GraphNodeRegistry.BaseRegistryItem child in group.Items)
                 {
                     if (CreateMenuItem(child) is { } item) children.Add(item);
                 }
-                return children.Count == 0 ? null : new MenuItem
-                {
-                    Header = group.DisplayName,
-                    ItemsSource = children
-                };
+                if (children.Count == 0) return null;
+                var subMenu = new FAMenuFlyoutSubItem { Text = group.DisplayName };
+                foreach (var item in children) subMenu.Items.Add(item);
+                return subMenu;
             }
 
             if (registry is not GraphNodeRegistry.RegistryItem nodeRegistry
                 || !candidates.TryGetValue(nodeRegistry, out CompatibleNodeFinder.Candidate? candidate))
                 return null;
 
-            var nodeItem = new MenuItem { Header = nodeRegistry.DisplayName };
             if (candidate.Ports.Count == 1)
             {
+                var nodeItem = new FAMenuFlyoutItem { Text = nodeRegistry.DisplayName };
                 CompatibleNodeFinder.PortChoice? port = candidate.Ports[0];
                 nodeItem.Click += (_, _) => AddConnectedNode(candidate, port);
+                return nodeItem;
             }
             else
             {
-                var ports = new List<MenuItem>(candidate.Ports.Count);
+                var nodeItem = new FAMenuFlyoutSubItem { Text = nodeRegistry.DisplayName };
                 foreach (CompatibleNodeFinder.PortChoice? port in candidate.Ports)
                 {
-                    var portItem = new MenuItem { Header = port!.DisplayName };
+                    var portItem = new FAMenuFlyoutItem { Text = port!.DisplayName };
                     portItem.Click += (_, _) => AddConnectedNode(candidate, port);
-                    ports.Add(portItem);
+                    nodeItem.Items.Add(portItem);
                 }
-                nodeItem.ItemsSource = ports;
+                return nodeItem;
             }
-            return nodeItem;
         }
 
         void AddConnectedNode(CompatibleNodeFinder.Candidate candidate, CompatibleNodeFinder.PortChoice? choice)
@@ -337,58 +342,36 @@ public partial class NodeGraphView : UserControl
             }
             finally
             {
-                menu?.Close();
+                menu?.Hide();
             }
-        }
-    }
-
-    private void Add(MenuItem menuItem, GraphNodeRegistry.GroupableRegistryItem list)
-    {
-        var alist = new AvaloniaList<MenuItem>();
-        menuItem.ItemsSource = alist;
-        foreach (GraphNodeRegistry.BaseRegistryItem item in list.Items)
-        {
-            var menuItem2 = new MenuItem { Header = item.DisplayName, DataContext = item, };
-
-            if (item is GraphNodeRegistry.GroupableRegistryItem inner)
-            {
-                Add(menuItem2, inner);
-            }
-            else
-            {
-                menuItem2.Click += AddNodeClick;
-            }
-
-            alist.Add(menuItem2);
         }
     }
 
     private void AddNodeClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is NodeGraphViewModel viewModel
-            && sender is MenuItem { DataContext: GraphNodeRegistry.RegistryItem item })
+            && sender is FAMenuFlyoutItem { DataContext: GraphNodeRegistry.RegistryItem item })
         {
             viewModel.AddNodePort(item.Type, _rightClickedPosition);
         }
     }
 
     // Listed each time the menu opens, however it is opened: templates are files, saved from any graph.
-    private void CanvasMenuOpened(object? sender, RoutedEventArgs e)
+    private void CanvasMenuOpened(object? sender, EventArgs e)
     {
         if (DataContext is not NodeGraphViewModel viewModel)
             return;
 
-        var items = new List<MenuItem>();
+        templatesMenu.Items.Clear();
         foreach (Beutl.NodeGraph.Nodes.Group.GroupNodeTemplate template in viewModel.Templates.List())
         {
-            var item = new MenuItem { Header = template.Name };
+            var item = new FAMenuFlyoutItem { Text = template.Name };
             item.Click += (_, _) => viewModel.AddTemplate(template, _rightClickedPosition);
-            items.Add(item);
+            templatesMenu.Items.Add(item);
         }
 
-        if (items.Count == 0)
-            items.Add(new MenuItem { Header = NodeGraphStrings.Template_None, IsEnabled = false });
-        templatesMenu.ItemsSource = items;
+        if (templatesMenu.Items.Count == 0)
+            templatesMenu.Items.Add(new FAMenuFlyoutItem { Text = NodeGraphStrings.Template_None, IsEnabled = false });
     }
 
     private void RunGenerativeClick(object? sender, RoutedEventArgs e)
@@ -498,7 +481,7 @@ public partial class NodeGraphView : UserControl
 
     private void OnDataContextDetached(NodeGraphViewModel obj)
     {
-        _portDropMenu?.Close();
+        _portDropMenu?.Hide();
         _portDropMenu = null;
         _disposables.Clear();
         canvas.Children.Clear();
