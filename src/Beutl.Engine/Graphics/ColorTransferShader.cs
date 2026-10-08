@@ -33,6 +33,11 @@ internal static class ColorTransferShader
             }
             """, out string error) ?? throw new InvalidOperationException(error));
 
+    /// <summary>Reports whether drawing <paramref name="source"/> pixels into <paramref name="destination"/> crosses the transfer.</summary>
+    public static bool IsRequired(BitmapColorSpace source, BitmapColorSpace destination)
+        => (destination == BitmapColorSpace.LinearSrgb && source.SKColorSpace.IsSrgb)
+           || (destination == BitmapColorSpace.Srgb && source == BitmapColorSpace.LinearSrgb);
+
     /// <summary>
     /// Creates a shader that samples <paramref name="image"/> into <paramref name="destination"/>, or
     /// <see langword="null"/> when Skia's own conversion already preserves every pixel.

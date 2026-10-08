@@ -35,9 +35,18 @@ public partial class ImmediateCanvas
         renderTarget.PrepareBackendForSkiaSampling();
         PrepareBlitPaint(antialias: true);
 
-        using (SKImage image = renderTarget.Value.Snapshot())
-            DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
-                SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
+        if (ColorTransferShader.IsRequired(renderTarget.ColorSpace, WorkingColorSpace))
+        {
+            using (SKImage image = renderTarget.Value.Snapshot())
+                DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
+                    SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
+        }
+        else
+        {
+            // A snapshot of a surface that wraps a backend texture adds a copy task to Skia's graph,
+            // which keeps it from merging render passes. Drawing the surface samples its texture directly.
+            Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
+        }
 
         if (!CanConsumeWithoutFlush(renderTarget))
         {
