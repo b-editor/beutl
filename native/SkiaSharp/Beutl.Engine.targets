@@ -5,6 +5,10 @@
     <_BeutlSkiaSharpRid Condition="'$(_BeutlSkiaSharpRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_BeutlSkiaSharpRid>
     <_BeutlSkiaSharpFile Condition="$(_BeutlSkiaSharpRid.StartsWith('linux-'))">libSkiaSharp.so</_BeutlSkiaSharpFile>
     <_BeutlSkiaSharpFile Condition="$(_BeutlSkiaSharpRid.StartsWith('win-'))">libSkiaSharp.dll</_BeutlSkiaSharpFile>
+    <_BeutlSkiaSharpFile Condition="$(_BeutlSkiaSharpRid.StartsWith('osx'))">libSkiaSharp.dylib</_BeutlSkiaSharpFile>
+    <!-- SkiaSharp ships one universal macOS library under runtimes/osx, whatever the RID's architecture. -->
+    <_BeutlSkiaSharpRuntimeDirectory>$(_BeutlSkiaSharpRid)</_BeutlSkiaSharpRuntimeDirectory>
+    <_BeutlSkiaSharpRuntimeDirectory Condition="$(_BeutlSkiaSharpRid.StartsWith('osx'))">osx</_BeutlSkiaSharpRuntimeDirectory>
   </PropertyGroup>
 
   <!-- Replace the source of the SDK's native assets, preserving their runtime/deps.json metadata.
@@ -19,19 +23,19 @@
     </ItemGroup>
     <ItemGroup Condition="'$(MSBuildProjectName)' == 'Beutl.Engine' Or '@(_BeutlEngineReference)' != ''">
       <_BeutlSkiaRuntime Include="@(RuntimeTargetsCopyLocalItems)"
-                         Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll')" />
+                         Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll' Or '%(Extension)' == '.dylib')" />
       <_BeutlSkiaNative Include="@(NativeCopyLocalItems)"
-                        Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll')" />
-      <_BeutlSkiaSharpNotice Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE"
-                            Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.LICENSE')"
+                        Condition="'%(Filename)' == 'libSkiaSharp' And ('%(Extension)' == '.so' Or '%(Extension)' == '.dll' Or '%(Extension)' == '.dylib')" />
+      <_BeutlSkiaSharpNotice Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRuntimeDirectory)/native/Skia.LICENSE"
+                            Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRuntimeDirectory)/native/Skia.LICENSE')"
                             TargetPath="licenses/SkiaSharp/Skia.LICENSE" />
-      <_BeutlSkiaSharpNotice Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES"
-                            Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/Skia.NOTICES')"
+      <_BeutlSkiaSharpNotice Include="$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRuntimeDirectory)/native/Skia.NOTICES"
+                            Condition="'$(_BeutlSkiaSharpFile)' != '' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRuntimeDirectory)/native/Skia.NOTICES')"
                             TargetPath="licenses/SkiaSharp/Skia.NOTICES" />
       <ContentWithTargetPath Include="@(_BeutlSkiaSharpNotice)"
                              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" Pack="false" Visible="false" />
     </ItemGroup>
-    <Error Condition="'$(_BeutlSkiaSharpFile)' != '' And ('@(_BeutlSkiaRuntime)' != '' Or '@(_BeutlSkiaNative)' != '') And !Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/$(_BeutlSkiaSharpFile)')"
+    <Error Condition="'$(_BeutlSkiaSharpFile)' != '' And ('@(_BeutlSkiaRuntime)' != '' Or '@(_BeutlSkiaNative)' != '') And !Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRuntimeDirectory)/native/$(_BeutlSkiaSharpFile)')"
            Text="Beutl requires its patched libSkiaSharp for $(_BeutlSkiaSharpRid). Restore the committed files in src/Beutl.Engine/runtimes, or set BeutlSkiaSharpNativeRoot to the native runtime directory." />
     <Error Condition="'%(_BeutlSkiaRuntime.NuGetPackageVersion)' != '' And '%(_BeutlSkiaRuntime.NuGetPackageVersion)' != '4.152.1'"
            Text="Update native/SkiaSharp/source.json and rebuild libSkiaSharp together with the SkiaSharp packages." />
@@ -48,7 +52,7 @@
       <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)"
           Condition="'%(Filename)' == 'libSkiaSharp' And '%(Extension)' == '.pdb' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/%(RuntimeIdentifier)/native/libSkiaSharp.dll')" />
       <NativeCopyLocalItems Remove="@(NativeCopyLocalItems)"
-          Condition="'%(Filename)' == 'libSkiaSharp' And '%(Extension)' == '.pdb' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRid)/native/libSkiaSharp.dll')" />
+          Condition="'%(Filename)' == 'libSkiaSharp' And '%(Extension)' == '.pdb' And Exists('$(BeutlSkiaSharpNativeRoot)runtimes/$(_BeutlSkiaSharpRuntimeDirectory)/native/libSkiaSharp.dll')" />
     </ItemGroup>
   </Target>
 

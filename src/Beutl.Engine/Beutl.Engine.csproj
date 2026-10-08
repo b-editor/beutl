@@ -9,7 +9,7 @@
   </ItemGroup>
   <Target Name="RequireSkiaSharpForPackage" BeforeTargets="GenerateNuspec">
     <ItemGroup>
-      <_RequiredSkiaSharp Include="linux-x64/native/libSkiaSharp.so;linux-arm64/native/libSkiaSharp.so;win-x64/native/libSkiaSharp.dll;win-arm64/native/libSkiaSharp.dll" />
+      <_RequiredSkiaSharp Include="linux-x64/native/libSkiaSharp.so;linux-arm64/native/libSkiaSharp.so;win-x64/native/libSkiaSharp.dll;win-arm64/native/libSkiaSharp.dll;osx/native/libSkiaSharp.dylib" />
     </ItemGroup>
     <Error Condition="!Exists('$(BeutlSkiaSharpNativeRoot)runtimes/%(_RequiredSkiaSharp.Identity)')"
            Text="Packing Beutl.Engine requires all supported libSkiaSharp binaries from src/Beutl.Engine/runtimes. Restore the committed files, or set BeutlSkiaSharpNativeRoot to a complete native runtime directory." />
