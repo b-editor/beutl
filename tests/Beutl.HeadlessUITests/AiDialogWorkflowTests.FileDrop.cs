@@ -115,6 +115,14 @@ public sealed partial class AiDialogWorkflowTests
             Assert.That(edit.SelectedComparisonMode.Value, Is.SameAs(previousComparison));
             Assert.That(edit.CanEdit.Value, Is.EqualTo(hasSource));
             Assert.That(edit.Error.Value, Is.Not.Null);
+
+            string valid = scope.File("valid.png", s_png);
+            using var validData = FileDropTransfer(valid);
+            await DropFiles(window, FindFileDropTarget(view, AiFileDropTarget.SourceImage), validData);
+            Assert.That(edit.SourceFilePath.Value, Is.EqualTo(valid));
+            Assert.That(edit.OriginalImage.Value, Is.Not.Null);
+            Assert.That(edit.CanEdit.Value, Is.True);
+            Assert.That(edit.Error.Value, Is.Null);
         }
         finally { window.Close(); }
     }

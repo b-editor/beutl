@@ -549,6 +549,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             operation.TryPublish(() =>
             {
                 _sourceElementId = null;
+                Error.Value = null;
                 SourceFilePath.Value = droppedPath;
             });
             return;
