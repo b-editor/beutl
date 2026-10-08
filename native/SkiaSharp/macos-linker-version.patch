@@ -1,0 +1,13 @@
+diff --git a/gn/skia/BUILD.gn b/gn/skia/BUILD.gn
+index 238472d..d74a906 100644
+--- a/gn/skia/BUILD.gn
++++ b/gn/skia/BUILD.gn
+@@ -379,7 +379,7 @@ config("default") {
+       ldflags += [
+         "-isysroot",
+         xcode_sysroot,
+-        "-Wl,macosx_version_min=$min_macos_version",
++        "-mmacosx-version-min=$min_macos_version",
+       ]
+     }
+ 

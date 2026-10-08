@@ -16,7 +16,12 @@ class NativeBinaryVerificationTests(unittest.TestCase):
 
     @staticmethod
     def filename(rid):
-        return "libSkiaSharp.so" if rid.startswith("linux-") else "libSkiaSharp.dll"
+        return verify.library_name(rid)
+
+    @staticmethod
+    def macho_slices(data):
+        count = struct.unpack_from(">I", data, 4)[0]
+        return [(8 + index * 20,) + struct.unpack_from(">iiII", data, 8 + index * 20) for index in range(count)]
 
     def binary(self, rid):
         return (self.native_root / "runtimes" / rid / "native" / self.filename(rid)).read_bytes()
@@ -58,24 +63,60 @@ class NativeBinaryVerificationTests(unittest.TestCase):
 
     def test_swapped_architectures_fail_even_with_a_matching_hash(self):
         for rid in verify.RIDS:
+            if rid == "osx":
+                continue
             other = rid.replace("x64", "arm64") if rid.endswith("x64") else rid.replace("arm64", "x64")
             with self.subTest(rid=rid):
                 self.assert_rejected_with_updated_hash(rid, self.binary(other), "architecture mismatch")
 
+    def test_macos_runtime_requires_both_slices(self):
+        for architecture, cpu in (("arm64", 0x0100000C), ("x86_64", 0x01000007)):
+            with self.subTest(architecture=architecture):
+                data = bytearray(self.binary("osx"))
+                for header, slice_cpu, *_ in self.macho_slices(data):
+                    if slice_cpu == cpu:
+                        struct.pack_into(">i", data, header, 7)  # Relabel the slice as i386.
+                self.assert_rejected_with_updated_hash("osx", bytes(data), f"architecture mismatch.*{architecture}")
+
+    def test_macos_runtime_requires_the_surface_and_linker_patch_hashes(self):
+        for key in ("surfaceContentChangePatchSha256", "macosLinkerPatchSha256"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                directory = root / "runtimes" / "osx" / "native"
+                shutil.copytree(self.native_root / "runtimes" / "osx" / "native", directory)
+                manifest_path = directory / "build.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest.pop(key, None)
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, key):
+                    verify.verify(root, ["osx"])
+
     def test_each_required_export_is_checked(self):
         for rid in verify.RIDS:
-            for export in verify.REQUIRED_EXPORTS:
+            for export in verify.required_exports(rid):
                 with self.subTest(rid=rid, export=export):
                     original = self.binary(rid)
                     renamed = original.replace(export + b"\0", b"x" + export[1:] + b"\0")
                     self.assertNotEqual(renamed, original)
-                    self.assert_rejected_with_updated_hash(rid, renamed, "missing required Vulkan exports")
+                    self.assert_rejected_with_updated_hash(rid, renamed, "missing required exports")
 
     def test_export_names_without_definitions_do_not_pass(self):
         for rid in verify.RIDS:
             with self.subTest(rid=rid):
                 data = bytearray(self.binary(rid))
-                if rid.startswith("linux-"):
+                if rid == "osx":
+                    # Leave all names intact, but mark every symbol of every slice undefined.
+                    for _, _, _, start, _ in self.macho_slices(data):
+                        command_count = struct.unpack_from("<I", data, start + 16)[0]
+                        offset = start + 32
+                        for _ in range(command_count):
+                            command, command_size = struct.unpack_from("<II", data, offset)
+                            if command == 0x2:  # LC_SYMTAB
+                                symbols, symbol_count = struct.unpack_from("<II", data, offset + 8)
+                                for position in range(start + symbols, start + symbols + symbol_count * 16, 16):
+                                    data[position + 4] = 0x01  # N_UNDF | N_EXT
+                            offset += command_size
+                elif rid.startswith("linux-"):
                     section_offset = struct.unpack_from("<Q", data, 40)[0]
                     section_size, section_count = struct.unpack_from("<HH", data, 58)
                     for index in range(section_count):
@@ -87,13 +128,13 @@ class NativeBinaryVerificationTests(unittest.TestCase):
                     header = struct.unpack_from("<I", data, 60)[0]
                     # Removing the export directory does not remove the name strings from the DLL.
                     struct.pack_into("<II", data, header + 24 + 112, 0, 0)
-                self.assertTrue(all(export + b"\0" in data for export in verify.REQUIRED_EXPORTS))
-                self.assert_rejected_with_updated_hash(rid, data, "missing required Vulkan exports")
+                self.assertTrue(all(export + b"\0" in data for export in verify.required_exports(rid)))
+                self.assert_rejected_with_updated_hash(rid, bytes(data), "missing required exports")
 
     def test_truncated_binaries_fail_even_with_a_matching_hash(self):
         for rid in verify.RIDS:
             with self.subTest(rid=rid):
-                self.assert_rejected_with_updated_hash(rid, self.binary(rid)[:64], "ELF|PE|truncated")
+                self.assert_rejected_with_updated_hash(rid, self.binary(rid)[:64], "ELF|PE|Mach-O|truncated")
 
 
 if __name__ == "__main__":

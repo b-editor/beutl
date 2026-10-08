@@ -3,7 +3,8 @@
 
 Linux needs git, Python 3, clang, lld, ninja-build and libfontconfig1-dev.
 Windows needs Python 3, Git, Ninja and a VS C++ developer shell for the target
-architecture (including the Windows 11 SDK). macOS uses the upstream Metal binary.
+architecture (including the Windows 11 SDK). macOS needs Python 3, Git, Ninja and
+Xcode, and builds one universal (arm64 + x86_64) library for the "osx" runtime.
 """
 
 import argparse
@@ -23,18 +24,86 @@ from patches import patch_hashes, patches_for
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SOURCE = json.loads((HERE / "source.json").read_text())
-EXPORTS = (
+VULKAN_EXPORTS = (
     "gr_beutl_backendrendertarget_get_vk_image_layout",
     "gr_beutl_backendrendertarget_set_vk_image_layout",
 )
+SURFACE_EXPORTS = ("sk_beutl_surface_notify_content_will_change",)
+# The macOS deployment targets upstream SkiaSharp uses for each slice.
+MACOS_MIN_VERSIONS = {"arm64": "11.0", "x64": "10.13"}
+
+
+def exports_for(rid):
+    return VULKAN_EXPORTS + (SURFACE_EXPORTS if rid == "osx" else ())
 
 
 def run(*args, cwd=None, **kwargs):
     return subprocess.run([str(arg) for arg in args], cwd=cwd, check=True, **kwargs)
 
 
+def build_slice(source, args, target_os, arch):
+    settings = {
+        "is_official_build": True,
+        "skia_enable_tools": False,
+        "target_os": "mac" if target_os == "osx" else target_os,
+        "target_cpu": arch,
+        "skia_enable_ganesh": True,
+        "skia_use_vulkan": True,
+        "skia_enable_graphite": True,
+        "skia_use_harfbuzz": False,
+        "skia_use_icu": False,
+        "skia_use_partition_alloc": False,
+        "skia_use_piex": True,
+        "skia_use_system_expat": False,
+        "skia_use_system_freetype2": False,
+        "skia_use_system_libjpeg_turbo": False,
+        "skia_use_system_libpng": False,
+        "skia_use_system_libwebp": False,
+        "skia_use_system_zlib": False,
+        "skia_enable_skottie": True,
+        "extra_cflags": ["-DSKIA_C_DLL", "-DSK_AVOID_SLOW_RASTER_PIPELINE_BLURS",
+                         "-DSK_ENABLE_LEGACY_SHADERCONTEXT"],
+    }
+    if target_os == "osx":
+        # Match upstream SkiaSharp's macOS slices: Metal and CoreText, no Vulkan or FreeType.
+        del settings["skia_use_vulkan"], settings["skia_use_system_freetype2"]
+        settings.update(skia_use_metal=True, min_macos_version=MACOS_MIN_VERSIONS[arch])
+        settings["extra_cflags"] += ["-DHAVE_ARC4RANDOM_BUF", "-stdlib=libc++"]
+        settings["extra_ldflags"] = ["-stdlib=libc++"]
+        filename = "libSkiaSharp.dylib"
+    elif target_os == "linux":
+        settings.update(cc="clang", cxx="clang++")
+        settings["linux_soname_version"] = SOURCE["nativeVersion"]
+        settings["extra_cflags"][1:1] = ["-DHAVE_SYSCALL_GETRANDOM", "-DXML_DEV_URANDOM"]
+        settings["extra_cflags"].append("-mretpoline" if arch == "x64" else "-mharden-sls=all")
+        settings["extra_ldflags"] = [
+            "-fuse-ld=lld", "-static-libstdc++", "-static-libgcc",
+            f"-Wl,--version-script={(HERE / 'libSkiaSharp.map').as_posix()}",
+        ]
+        filename = "libSkiaSharp.so"
+    else:
+        if "VCINSTALLDIR" in os.environ:
+            settings["win_vc"] = Path(os.environ["VCINSTALLDIR"]).as_posix().rstrip("/")
+        if "VCToolsVersion" in os.environ:
+            settings["win_toolchain_version"] = os.environ["VCToolsVersion"]
+        settings.update(skia_enable_fontmgr_win_gdi=False, skia_use_direct3d=True,
+                        skia_use_freetype=False, skia_enable_fontmgr_win=True)
+        settings["extra_cflags"] += ["/MT", "/EHsc", "/guard:cf", "-D_HAS_AUTO_PTR_ETC=1"]
+        settings["extra_ldflags"] = ["/guard:cf", "/DELAYLOAD:d3d12.dll", "/DELAYLOAD:dxgi.dll",
+                                     "/DELAYLOAD:D3DCOMPILER_47.dll", "/DEFAULTLIB:delayimp"]
+        filename = "libSkiaSharp.dll"
+
+    output = source / "out" / (f"{args.rid}-{arch}" if target_os == "osx" else args.rid)
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "args.gn").write_text("".join(f"{k} = {json.dumps(v)}\n" for k, v in settings.items()))
+    run(source / "bin" / ("gn.exe" if os.name == "nt" else "gn"), "gen", output,
+        f"--script-executable={sys.executable}", cwd=source)
+    run("ninja", "-C", output, "-j", args.jobs, "SkiaSharp", cwd=source)
+    return output / (filename + "." + SOURCE["nativeVersion"] if target_os == "linux" else filename)
+
+
 def build(args):
-    target_os, arch = args.rid.split("-")
+    target_os, arch = args.rid.split("-") if "-" in args.rid else (args.rid, None)
     host_os = "win" if os.name == "nt" else "linux" if sys.platform == "linux" else "osx"
     host_arch = "arm64" if platform.machine().lower() in ("aarch64", "arm64") else "x64"
     if target_os != host_os or (target_os == "linux" and arch != host_arch):
@@ -68,60 +137,20 @@ def build(args):
             env={**os.environ, "GIT_SYNC_DEPS_SKIP_EMSDK": "1"})
         stamp.write_text(commit)
 
-    settings = {
-        "is_official_build": True,
-        "skia_enable_tools": False,
-        "target_os": target_os,
-        "target_cpu": arch,
-        "skia_enable_ganesh": True,
-        "skia_use_vulkan": True,
-        "skia_enable_graphite": True,
-        "skia_use_harfbuzz": False,
-        "skia_use_icu": False,
-        "skia_use_partition_alloc": False,
-        "skia_use_piex": True,
-        "skia_use_system_expat": False,
-        "skia_use_system_freetype2": False,
-        "skia_use_system_libjpeg_turbo": False,
-        "skia_use_system_libpng": False,
-        "skia_use_system_libwebp": False,
-        "skia_use_system_zlib": False,
-        "skia_enable_skottie": True,
-        "extra_cflags": ["-DSKIA_C_DLL", "-DSK_AVOID_SLOW_RASTER_PIPELINE_BLURS",
-                         "-DSK_ENABLE_LEGACY_SHADERCONTEXT"],
-    }
-    if target_os == "linux":
-        settings.update(cc="clang", cxx="clang++")
-        settings["linux_soname_version"] = SOURCE["nativeVersion"]
-        settings["extra_cflags"][1:1] = ["-DHAVE_SYSCALL_GETRANDOM", "-DXML_DEV_URANDOM"]
-        settings["extra_cflags"].append("-mretpoline" if arch == "x64" else "-mharden-sls=all")
-        settings["extra_ldflags"] = [
-            "-fuse-ld=lld", "-static-libstdc++", "-static-libgcc",
-            f"-Wl,--version-script={(HERE / 'libSkiaSharp.map').as_posix()}",
-        ]
-        filename = "libSkiaSharp.so"
+    if target_os == "osx":
+        slices = [build_slice(source, args, target_os, slice_arch) for slice_arch in ("arm64", "x64")]
+        library = source / "out" / args.rid / "libSkiaSharp.dylib"
+        library.parent.mkdir(parents=True, exist_ok=True)
+        run("lipo", "-create", *slices, "-output", library)
+        filename = "libSkiaSharp.dylib"
     else:
-        if "VCINSTALLDIR" in os.environ:
-            settings["win_vc"] = Path(os.environ["VCINSTALLDIR"]).as_posix().rstrip("/")
-        if "VCToolsVersion" in os.environ:
-            settings["win_toolchain_version"] = os.environ["VCToolsVersion"]
-        settings.update(skia_enable_fontmgr_win_gdi=False, skia_use_direct3d=True,
-                        skia_use_freetype=False, skia_enable_fontmgr_win=True)
-        settings["extra_cflags"] += ["/MT", "/EHsc", "/guard:cf", "-D_HAS_AUTO_PTR_ETC=1"]
-        settings["extra_ldflags"] = ["/guard:cf", "/DELAYLOAD:d3d12.dll", "/DELAYLOAD:dxgi.dll",
-                                     "/DELAYLOAD:D3DCOMPILER_47.dll", "/DEFAULTLIB:delayimp"]
-        filename = "libSkiaSharp.dll"
+        library = build_slice(source, args, target_os, arch)
+        filename = library.name.split(".so.")[0] + ".so" if target_os == "linux" else library.name
 
-    output = source / "out" / args.rid
-    output.mkdir(parents=True, exist_ok=True)
-    (output / "args.gn").write_text("".join(f"{k} = {json.dumps(v)}\n" for k, v in settings.items()))
-    run(gn, "gen", output, f"--script-executable={sys.executable}", cwd=source)
-    run("ninja", "-C", output, "-j", args.jobs, "SkiaSharp", cwd=source)
-
-    library = output / (filename + "." + SOURCE["nativeVersion"] if target_os == "linux" else filename)
-    if arch == host_arch:
+    exports = exports_for(args.rid)
+    if target_os == "osx" or arch == host_arch:
         native = ctypes.CDLL(str(library))
-        for export in EXPORTS:
+        for export in exports:
             getattr(native, export)
         native.sk_version_get_milestone.restype = ctypes.c_int
         native.sk_version_get_increment.restype = ctypes.c_int
@@ -129,9 +158,9 @@ def build(args):
         if (native.sk_version_get_milestone(), native.sk_version_get_increment()) != expected:
             raise SystemExit("Built libSkiaSharp has an unexpected native ABI version.")
     else:
-        exports = run("dumpbin", "/exports", library, capture_output=True, text=True).stdout
-        if any(export not in exports for export in EXPORTS):
-            raise SystemExit("Built libSkiaSharp is missing the Vulkan interop exports.")
+        dumped = run("dumpbin", "/exports", library, capture_output=True, text=True).stdout
+        if any(export not in dumped for export in exports):
+            raise SystemExit("Built libSkiaSharp is missing Beutl's exports.")
 
     destination = args.output_dir.resolve() / "runtimes" / args.rid / "native"
     destination.mkdir(parents=True, exist_ok=True)
@@ -159,7 +188,7 @@ def build(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rid", required=True, choices=("linux-x64", "linux-arm64", "win-x64", "win-arm64"))
+    parser.add_argument("--rid", required=True, choices=("linux-x64", "linux-arm64", "win-x64", "win-arm64", "osx"))
     parser.add_argument("--source-dir", type=Path, default=ROOT / "artifacts/skia-source")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "src" / "Beutl.Engine")
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 2, 8))
