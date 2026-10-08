@@ -30,6 +30,8 @@ public sealed class FontManager
     // Variable typefaces moved to another weight, keyed by the typeface they were cloned from and the wght
     // value. Like the registered typefaces, they live as long as the manager.
     private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
+    // The faces that draw matched typefaces, keyed by reference; see FreeTypeFonts.
+    private readonly Dictionary<SKTypeface, SKTypeface> _renderFaces = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -407,7 +409,7 @@ public sealed class FontManager
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
             if (TryGetTypefaces(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
             {
-                return InstantiateWeight(typefaces.Get(typeface), typeface.Weight);
+                return InstantiateWeight(ToRenderFace(typefaces.Get(typeface)), typeface.Weight);
             }
 
             // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
@@ -421,9 +423,31 @@ public sealed class FontManager
             }
 
             return TryGetTypefaces(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
-                ? InstantiateWeight(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight)), typeface.Weight)
-                : SKTypeface.Default;
+                ? InstantiateWeight(ToRenderFace(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))), typeface.Weight)
+                : ToRenderFace(SKTypeface.Default);
         }
+    }
+
+    internal SKTypeface GetRenderFace(SKTypeface typeface)
+    {
+        lock (_gate) return ToRenderFace(typeface);
+    }
+
+    // On Windows, text draws with FreeType from the matched face's font data. Callers hold _gate.
+    private SKTypeface ToRenderFace(SKTypeface typeface)
+    {
+        if (FreeTypeFonts.Manager is null)
+        {
+            return typeface;
+        }
+
+        if (!_renderFaces.TryGetValue(typeface, out SKTypeface? face))
+        {
+            face = FreeTypeFonts.CreateRenderFace(typeface) ?? typeface;
+            _renderFaces.Add(typeface, face);
+        }
+
+        return face;
     }
 
     private bool TryGetTypefaces(FontFamily family, out FrozenDictionary<Typeface, SKTypeface> typefaces)
