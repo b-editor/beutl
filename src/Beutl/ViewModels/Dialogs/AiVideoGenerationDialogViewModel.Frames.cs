@@ -12,14 +12,18 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiVideoGenerationDialogViewModel
 {
-    private async Task SelectFrameAsync(bool isFirstFrame)
+    internal async Task SelectFrameAsync(bool isFirstFrame, string? droppedPath = null)
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         string? path;
         IDisposable? selectedFilesOwnership = null;
-        if (FramePicker is { } picker)
+        if (droppedPath is not null)
+        {
+            path = droppedPath;
+        }
+        else if (FramePicker is { } picker)
         {
             path = await picker(operation.CancellationToken);
         }
@@ -73,6 +77,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 throw new AiFileTooLargeException();
             lifetimeToken.ThrowIfCancellationRequested();
 
+            bool accepted = false;
             bool published = operation.TryPublish(() =>
             {
                 lock (_lifetimeGate)
@@ -80,7 +85,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                     _temporaryFiles.Add(unpublishedPath);
                     try
                     {
-                        SetFrameCore(isFirstFrame: true, unpublishedPath, sourceElementId: null);
+                        accepted = SetFrameCore(isFirstFrame: true, unpublishedPath, sourceElementId: null);
+                        if (!accepted) _temporaryFiles.Remove(unpublishedPath);
                     }
                     catch
                     {
@@ -89,7 +95,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                     }
                 }
             });
-            if (!published)
+            if (!published || !accepted)
                 return;
 
             unpublishedPath = null;
@@ -121,14 +127,31 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         operation?.TryPublish(() => SetFrameCore(isFirstFrame, path, sourceElementId));
     }
 
-    private void SetFrameCore(bool isFirstFrame, string? path, string? sourceElementId)
+    private bool SetFrameCore(bool isFirstFrame, string? path, string? sourceElementId)
     {
         if (!string.IsNullOrEmpty(path)
             && File.Exists(path)
             && new FileInfo(path).Length > AiRequestLimits.MaxFrameUploadBytes)
         {
             Error.Value = Strings.AiFileTooLarge;
-            return;
+            return false;
+        }
+
+        // Decode before replacing the selection or releasing its temporary frame.
+        Ref<Bitmap>? preview = null;
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+        {
+            try
+            {
+                preview = Ref<Bitmap>.Create(
+                    AiImageDecodeValidator.LoadValidatedBitmap(path, AiRequestLimits.MaxFrameUploadBytes));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load an AI video frame preview from {Path}", path);
+                Error.Value = Strings.AiEditSourcePreviewFailed;
+                return false;
+            }
         }
 
         // Preserve a user-selected frame when model constraints merely hide it, so restoring the
@@ -168,21 +191,8 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             RequestTemporaryFileDeletion(previousPath);
         }
 
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return;
-
-        try
-        {
-            previewProperty.Value = Ref<Bitmap>.Create(
-                AiImageDecodeValidator.LoadValidatedBitmap(
-                    path,
-                    AiRequestLimits.MaxFrameUploadBytes));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load an AI video frame preview from {Path}", path);
-            Error.Value = Strings.AiEditSourcePreviewFailed;
-        }
+        previewProperty.Value = preview;
+        return true;
     }
 
     // Build the upload and its name from the same read. Reading twice could make the dispatched

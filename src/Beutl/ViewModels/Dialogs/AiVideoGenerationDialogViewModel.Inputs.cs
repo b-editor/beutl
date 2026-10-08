@@ -14,6 +14,8 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiVideoGenerationDialogViewModel
 {
+    private int _sourceVideoSelectionRevision;
+
     internal AiSourceVideoMode? SourceMode { get; }
     private AiOperationId Operation => SourceMode switch
     {
@@ -62,6 +64,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             group.DisposeWith(_disposables);
             ReferenceGroups.Add(group);
         }
+        // A probe started before generation stays stale after generation finishes.
+        IsGenerating.Where(value => value)
+            .Subscribe(_ => Interlocked.Increment(ref _sourceVideoSelectionRevision))
+            .DisposeWith(_disposables);
         SelectSourceVideo = new AsyncReactiveCommand(IsGenerating.Select(value => !value))
             .WithSubscribe(() => PickInputAsync("source")).DisposeWith(_disposables);
         SelectCharacterImage = new AsyncReactiveCommand(IsGenerating.Select(value => !value))
@@ -137,12 +143,38 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
     }
 
-    private void ValidateSourceInputs(AiUploadSource source, AiUploadSource? character, double? duration, AiVideoModelCapabilities limits)
+    internal bool CanAddDroppedReference(AiVideoInputGroup group, string path, IReadOnlyList<string> acceptedPaths)
+    {
+        if (group.Files.Any(file => file.Path == path)) return false;
+        try
+        {
+            AiUploadSource candidate = Describe(path);
+            AiVideoInputLimits.Validate(candidate, group.Kind, group.MaximumBytes);
+            AiVideoInputLimits.ValidateReferences([
+                .. ReferenceGroups.SelectMany(group => group.Files).Select(file => Describe(file.Path, file.Name)),
+                .. acceptedPaths.Select(path => Describe(path)),
+                candidate,
+            ]);
+            return true;
+        }
+        catch (AiFileTooLargeException) { return false; }
+        catch (VideoInputException) { return false; }
+        catch (ArgumentException) { return false; }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
+    private void ValidateSourceVideo(AiUploadSource source, double? duration, AiVideoModelCapabilities limits)
     {
         AiVideoInputLimits.Validate(source, "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
         if (duration is not { } seconds || !double.IsFinite(seconds) || seconds <= 0 || seconds > 60
             || (_selectedRecovery is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
             throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
+    }
+
+    private void ValidateSourceInputs(AiUploadSource source, AiUploadSource? character, double? duration, AiVideoModelCapabilities limits)
+    {
+        ValidateSourceVideo(source, duration, limits);
         if (IsMotionControl)
         {
             if (character is null) throw new VideoInputException(Strings.AiChooseCharacterImage);
@@ -166,18 +198,23 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             token => { token.ThrowIfCancellationRequested(); return ValueTask.FromResult<Stream>(File.OpenRead(path)); },
             new FileInfo(path).Length);
 
-    private async Task PickInputAsync(string role)
+    internal async Task PickInputAsync(string role, IReadOnlyList<string>? droppedPaths = null)
     {
         using var operation = TryEnterIdentityOperation();
         if (operation is null) return;
+        int selectionRevision = Volatile.Read(ref _sourceVideoSelectionRevision);
+        bool IsCurrentSelection() => role != "source" || selectionRevision == Volatile.Read(ref _sourceVideoSelectionRevision);
+        bool CanPublishSelection() => IsCurrentSelection()
+            && (droppedPaths is null || (!IsGenerating.Value && (role != "source" || ModelPicker.IsLoaded.Value)));
         try
         {
             IReadOnlyList<string> paths;
-            if (InputPicker is { } picker) paths = await picker(role, operation.CancellationToken);
+            if (droppedPaths is not null) paths = droppedPaths;
+            else if (InputPicker is { } picker) paths = await picker(role, operation.CancellationToken);
             else
             {
                 if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }) return;
-                var patterns = role switch { "source" or "video" => new[] { "*.mp4", "*.webm" }, "audio" => ["*.wav", "*.wave", "*.mp3"], _ => ["*.png", "*.jpg", "*.jpeg", "*.webp"] };
+                string[] patterns = GetInputFilePatterns(role);
                 var files = await window.StorageProvider.OpenFilePickerAsync(new()
                 {
                     AllowMultiple = role is "image" or "video" or "audio",
@@ -187,12 +224,21 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 foreach (var file in files) file.Dispose();
             }
             if (paths.Count == 0) return;
+            // Only an actual choice supersedes pending probes; canceling Browse leaves them valid.
+            if (role == "source") selectionRevision = Interlocked.Increment(ref _sourceVideoSelectionRevision);
             string kind = InputKind(role);
             foreach (string path in paths) AiVideoInputLimits.Validate(Describe(path), kind, PickLimitBytes(kind));
             double? duration = role == "source" ? await ReadVideoDurationAsync(paths[0], operation.CancellationToken) : null;
             operation.TryPublish(() =>
             {
-                if (role == "source") { SourceVideoPath.Value = paths[0]; SourceDuration.Value = duration; }
+                if (!CanPublishSelection()) return;
+                if (role == "source")
+                {
+                    if (droppedPaths is not null)
+                        ValidateSourceVideo(Describe(paths[0]), duration, ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted);
+                    SourceVideoPath.Value = paths[0];
+                    SourceDuration.Value = duration;
+                }
                 else if (role == "character") CharacterImagePath.Value = paths[0];
                 else
                 {
@@ -204,8 +250,27 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             });
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
-        catch (Exception ex) { operation.TryPublish(() => Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable); }
+        catch (Exception ex)
+        {
+            operation.TryPublish(() =>
+            {
+                if (CanPublishSelection())
+                    Error.Value = ex switch
+                    {
+                        AiFileTooLargeException => Strings.AiFileTooLarge,
+                        VideoInputException => ex.Message,
+                        _ => Strings.AiVideoInputUnavailable,
+                    };
+            });
+        }
     }
+
+    internal static string[] GetInputFilePatterns(string role) => role switch
+    {
+        "source" or "video" => ["*.mp4", "*.webm"],
+        "audio" => ["*.wav", "*.wave", "*.mp3"],
+        _ => ["*.png", "*.jpg", "*.jpeg", "*.webp"],
+    };
 
     // What a picker for role chooses: the source and video references are videos, audio is audio,
     // and the rest are images.

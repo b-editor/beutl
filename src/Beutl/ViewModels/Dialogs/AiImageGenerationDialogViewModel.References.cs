@@ -103,14 +103,20 @@ internal sealed partial class AiImageGenerationDialogViewModel
         return within.ToArray();
     }
 
-    private async Task SelectReferenceImageAsync()
+    private Task SelectReferenceImageAsync() => SelectReferenceImageAsync(null);
+
+    internal async Task SelectReferenceImageAsync(IReadOnlyList<string>? droppedPaths)
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         IReadOnlyList<string> paths;
         IDisposable? selectedFilesOwnership = null;
-        if (ReferenceImagePicker is { } picker)
+        if (droppedPaths is not null)
+        {
+            paths = droppedPaths;
+        }
+        else if (ReferenceImagePicker is { } picker)
         {
             paths = await picker(operation.CancellationToken);
         }

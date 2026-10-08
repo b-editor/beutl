@@ -16,6 +16,9 @@
              x:CompileBindings="True"
              x:DataType="vm:AiImageEditDialogViewModel"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
+    </UserControl.Styles>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
             <Border Padding="8"
@@ -44,7 +47,7 @@
                     </WrapPanel>
                 </StackPanel>
             </Border>
-            <StackPanel Spacing="4">
+            <StackPanel x:Name="SourceImageInput" tools:AiFileDrop.Target="SourceImage" Spacing="4">
                 <TextBlock Text="{x:Static lang:Strings.AiEditSourceImage}" />
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiEditSourceImage}"

@@ -16,6 +16,9 @@
              x:CompileBindings="True"
              x:DataType="vm:AiSubtitleDialogViewModel"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
+    </UserControl.Styles>
     <UserControl.Resources>
         <!--  A caption set runs to hundreds of cues, so a row is the two things
               needed to find one; the row that is selected turns into the editor.  -->
@@ -277,7 +280,7 @@
                 <!--  Reading a file in or out is about the whole set; the icons below
                       act on the one cue that is selected. Keeping them apart is what
                       says which is which.  -->
-                <StackPanel Spacing="4">
+                <StackPanel x:Name="CaptionFileInput" tools:AiFileDrop.Target="Captions" Spacing="4">
                     <TextBlock Text="{x:Static lang:Strings.AiSubtitle_CaptionsFile}" />
                     <WrapPanel Orientation="Horizontal">
                         <Button Margin="0,0,6,0"
