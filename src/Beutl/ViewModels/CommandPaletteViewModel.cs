@@ -149,7 +149,10 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                 _ =>
                 {
                     if (Interlocked.Exchange(ref pending, 1) != 0) return;
-                    timer.Disposable = Scheduler.Default.Schedule(s_stateChangeThrottle, () =>
+                    // 予約より先に器を差し替え、予約の代入が窓より遅れても次の窓のタイマーを取り消さないようにする。
+                    var window = new SingleAssignmentDisposable();
+                    timer.Disposable = window;
+                    window.Disposable = Scheduler.Default.Schedule(s_stateChangeThrottle, () =>
                     {
                         // 流す前に解除し、解除後の通知が次の窓を開くようにする。解除前の変化はこの後の再評価が読む。
                         Volatile.Write(ref pending, 0);
@@ -157,7 +160,9 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                     });
                 },
                 observer.OnError,
-                observer.OnCompleted);
+                // 完了は流さない。流すとタイマーごと購読が破棄され、窓の途中の再評価が落ちる。
+                // 購読は RebuildSnapshot と ReleaseCommands で破棄される。
+                () => { });
             return new CompositeDisposable(subscription, timer);
         });
     }

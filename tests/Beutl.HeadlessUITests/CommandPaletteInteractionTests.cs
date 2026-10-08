@@ -462,6 +462,27 @@ public sealed class CommandPaletteInteractionTests
     }
 
     [AvaloniaTest]
+    public async Task A_notifier_that_completes_right_after_its_last_change_still_refreshes_availability()
+    {
+        var provider = new ExtensionProvider();
+        var editor = new EditorService(provider);
+        var extension = new ClosedToolExtension { Enabled = false };
+        provider.AddExtensions(-43006, [extension]);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        manager.Register(extension);
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
+        using var palette = new CommandPaletteViewModel(service, editor);
+        palette.Open();
+        Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
+
+        extension.Enabled = true;
+        extension.NotifyStateChanged();
+        extension.CompleteStateChanges();
+
+        await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
+    }
+
+    [AvaloniaTest]
     public async Task An_answered_prompt_hides_the_palette_while_the_command_works_and_a_later_step_reopens_it()
     {
         var work = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -537,6 +558,8 @@ public sealed class CommandPaletteInteractionTests
         public IObservable<Unit> CanExecuteChanged => _stateChanged;
 
         public void NotifyStateChanged() => _stateChanged.OnNext(Unit.Default);
+
+        public void CompleteStateChanges() => _stateChanged.OnCompleted();
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [
