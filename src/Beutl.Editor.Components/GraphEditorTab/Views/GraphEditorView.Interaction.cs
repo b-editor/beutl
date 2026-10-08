@@ -353,7 +353,7 @@ public partial class GraphEditorView
 
     private async void OnGraphKeyDown(object? sender, KeyEventArgs e)
     {
-        if (VelocityFlyout?.IsOpen == true) return;
+        if (VelocityFlyout?.IsOpen == true || ValueScaleFlyout?.IsOpen == true) return;
         if (e.Source is TextBox || DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
         var command = KeyGestureHelper.GetCommandModifier();
         if (e.Key == Key.Space) { _spacePressed = true; e.Handled = true; return; }
@@ -387,6 +387,8 @@ public partial class GraphEditorView
         }
         else if (e.Key == Key.F9) ApplyEasing(e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? "EaseIn"
             : e.KeyModifiers.HasFlag(command) ? "EaseOut" : "Ease");
+        else if (e.Key == Key.D && e.KeyModifiers == KeyModifiers.Alt) DistributeSelectionEvenly();
+        else if (e.Key == Key.R && e.KeyModifiers == KeyModifiers.Alt) ReverseSelection();
         else if (e.Key is Key.Left or Key.Right && e.KeyModifiers.HasFlag(KeyModifiers.Alt))
         {
             NudgeSelection(model, channel, e);
@@ -510,6 +512,11 @@ public partial class GraphEditorView
             else ShowVelocityFlyout();
             return;
         }
+        else if (action == "ScaleValues")
+        {
+            Dispatcher.UIThread.Post(ShowValueScaleFlyout);
+            return;
+        }
         else if (action is "Symmetry" or "Asymmetry" or "Separately" && DataContext is GraphEditorViewModel model)
         {
             model.Symmetry.Value = action == "Symmetry";
@@ -519,6 +526,8 @@ public partial class GraphEditorView
         else if (action == "FitAll") FitGraph(false);
         else if (action == "FitSelection") FitGraph(true);
         else if (action == "Delete") DeleteSelection();
+        else if (action == "DistributeEvenly") DistributeSelectionEvenly();
+        else if (action == "Reverse") ReverseSelection();
         else if (action is "Ease" or "EaseIn" or "EaseOut" or "Linear" or "Hold") ApplyEasing(action);
         Focus();
     }

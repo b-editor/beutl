@@ -156,8 +156,10 @@ public abstract partial class GraphEditorViewModel : IDisposable
 
         SelectedView.Value = Views.FirstOrDefault();
         SelectedView.Skip(1).Subscribe(_ => _clipboardContextVersion++).DisposeWith(_disposables);
-        HasSelection = SelectedView.Select(view => (IObservable<int>?)view?.SelectionCount ?? Observable.ReturnThenNever(0))
-            .Switch().Select(count => count > 0).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        var selectionCount = SelectedView.Select(view => (IObservable<int>?)view?.SelectionCount ?? Observable.ReturnThenNever(0)).Switch();
+        HasSelection = selectionCount.Select(count => count > 0).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        CanDistributeSelection = selectionCount.Select(count => count >= 3).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        CanReverseSelection = selectionCount.Select(count => count >= 2).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
         CalculateMaxHeight();
 
@@ -211,6 +213,10 @@ public abstract partial class GraphEditorViewModel : IDisposable
     public ReactivePropertySlim<GraphEditorViewViewModel?> SelectedView { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> HasSelection { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanDistributeSelection { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanReverseSelection { get; }
 
     public IKeyFrameAnimation Animation { get; }
 

@@ -490,4 +490,7 @@ Do you want to restart the application?</value>
   <data name="ProjectFilesBeingChanged" xml:space="preserve">
     <value>Project files are being changed by another operation. Wait for it to finish, then try again.</value>
   </data>
+  <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
+    <value>Keyframe times would overlap, or the selection contains easing that cannot be reversed.</value>
+  </data>
 </root>

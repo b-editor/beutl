@@ -3307,6 +3307,18 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="GraphAlpha" xml:space="preserve">
     <value>アルファ</value>
   </data>
+  <data name="GraphDistributeEvenly" xml:space="preserve">
+    <value>等間隔に配置 (Alt+D)</value>
+  </data>
+  <data name="GraphReverse" xml:space="preserve">
+    <value>キーフレームの時間を反転 (Alt+R)</value>
+  </data>
+  <data name="GraphScaleValues" xml:space="preserve">
+    <value>値をスケール</value>
+  </data>
+  <data name="GraphScaleFactor" xml:space="preserve">
+    <value>倍率</value>
+  </data>
   <data name="EnableAnimation" xml:space="preserve">
     <value>アニメーションを有効にする</value>
   </data>

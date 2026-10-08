@@ -84,6 +84,7 @@ public partial class GraphEditorView : UserControl
         _contextVersion++;
         obj.SetClipboardViewContext(null);
         VelocityFlyout?.Hide();
+        ValueScaleFlyout?.Hide();
         FinishInteraction(obj, cancel: true);
         _disposables.Clear();
     }
