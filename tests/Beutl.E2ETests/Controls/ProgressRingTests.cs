@@ -45,4 +45,25 @@ public class ProgressRingTests
             Assert.That(ring.ValueAngle, Is.EqualTo(30));
         });
     }
+
+    [AvaloniaTest]
+    public void Changing_the_range_after_the_value_redraws_the_arc()
+    {
+        var ring = new ProgressRing { IsIndeterminate = false, Value = 50 };
+        Assert.That(ring.ValueAngle, Is.EqualTo(180));
+
+        ring.Maximum = 200;
+
+        Assert.That(ring.ValueAngle, Is.EqualTo(90));
+    }
+
+    [AvaloniaTest]
+    public void An_empty_range_draws_no_arc()
+    {
+        var ring = new ProgressRing { IsIndeterminate = false, Maximum = 0 };
+
+        ring.EndAngle = 180;
+
+        Assert.That(ring.ValueAngle, Is.EqualTo(0));
+    }
 }

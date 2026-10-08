@@ -105,21 +105,30 @@ public class ProgressRing : RangeBase
     static void OnMinimumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
         sender.Minimum = e.GetNewValue<double>();
+        sender.UpdateValueAngle();
     }
 
     static void OnMaximumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
         sender.Maximum = e.GetNewValue<double>();
+        sender.UpdateValueAngle();
     }
 
     static void OnValuePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.ValueAngle = (e.GetNewValue<double>() - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
+        sender.UpdateValueAngle();
     }
 
     // Redraws the arc for the new angles instead of writing the angle back, which could replace a binding.
     static void OnAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.ValueAngle = (sender.Value - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
+        sender.UpdateValueAngle();
+    }
+
+    // An empty range has no progress to show, so it draws no arc instead of a NaN sweep.
+    private void UpdateValueAngle()
+    {
+        double range = Maximum - Minimum;
+        ValueAngle = range == 0 ? 0 : (Value - Minimum) * (EndAngle - StartAngle) / range;
     }
 }
