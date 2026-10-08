@@ -9,17 +9,22 @@ public partial class EditViewModel
 {
     private async Task GotoTimecodeAsync(IContextCommandInteraction interaction)
     {
+        string initial = CommandPaletteInput.FormatTimecode(Player.CurrentFrame.Value);
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Prompt = Strings.GotoTimecode_Description,
             Placeholder = Strings.GotoTimecode_InputHint,
-            Value = CommandPaletteInput.FormatTimecode(Player.CurrentFrame.Value),
+            Value = initial,
             Validate = value => Player.TryParseTimecode(value, out _, out GotoTimecodeError error)
                 ? null
                 : PlayerViewModel.GetTimecodeErrorMessage(error)
         });
+        // Accepting the prefilled text keeps the playhead, as the inline editor does: milliseconds cannot
+        // name every frame of a very high frame rate, so re-parsing it could land on a neighboring frame.
+        if (input is null || string.Equals(input, initial, StringComparison.Ordinal)) return;
+
         // Relative input resolves against the playhead when it is confirmed, not when it was last validated.
-        if (input is null || !Player.TryParseTimecode(input, out TimeSpan target, out _)) return;
+        if (!Player.TryParseTimecode(input, out TimeSpan target, out _)) return;
 
         await SeekFromPaletteAsync(target, interaction.CancellationToken);
     }

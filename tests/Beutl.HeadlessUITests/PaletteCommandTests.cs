@@ -125,6 +125,28 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Accepting_the_prefilled_timecode_keeps_a_frame_milliseconds_cannot_name()
+    {
+        await TestReset.ResetShellAsync();
+        Project project = (await TestShell.Project.CreateProject(
+            640, 480, 999, 44100, "palette-goto-999fps", NewWorkspace("palette-goto-999fps")))!;
+        HeadlessTestHelpers.Settle();
+        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
+        HeadlessTestHelpers.Settle();
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
+        // 501 / 999 s prints as 00:00:00.501, which snaps back to frame 500.
+        TimeSpan frame501 = TimeSpan.FromSeconds(501 / 999d).RoundToRate(999);
+        editor.GetService<IEditorClock>()!.CurrentTime.Value = frame501;
+        HeadlessTestHelpers.Settle();
+        string? prefilled = null;
+
+        await editor.ExecuteAsync(Execution("GotoTimecode", editor,
+            new ScriptedInteraction().Input(options => prefilled = options.Value)));
+
+        Assert.That((prefilled, Playhead(editor)), Is.EqualTo(("00:00:00.501", frame501)));
+    }
+
+    [AvaloniaTest]
     public async Task Goto_timecode_from_a_key_still_opens_the_inline_editor()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-goto-timecode-key");
