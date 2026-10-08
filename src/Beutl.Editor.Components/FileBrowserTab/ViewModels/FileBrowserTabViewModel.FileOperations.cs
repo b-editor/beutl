@@ -302,39 +302,39 @@ public sealed partial class FileBrowserTabViewModel
         string targetDir)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
-        string targetDirWithSep = normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        // バッチ全体で1つのコンテキストを使い、正規化で読むディレクトリ一覧を使い回す
+        FilePathComparison.ResolutionContext paths = FilePathComparison.CreateResolutionContext();
+        string? canonicalTargetDir = null;
 
         foreach (var (localPath, isDir) in files)
         {
             string normalizedSource = Path.GetFullPath(localPath);
+            string destPath = Path.Combine(normalizedTargetDir, Path.GetFileName(normalizedSource));
 
-            // 同じ親ディレクトリ内での自己ドロップはスキップ
-            string? sourceParent = Path.GetDirectoryName(normalizedSource);
-            if (sourceParent != null
-                && string.Equals(
-                    Path.GetFullPath(sourceParent).TrimEnd(Path.DirectorySeparatorChar),
-                    normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar),
-                    StringComparison.OrdinalIgnoreCase))
+            try
             {
-                continue;
-            }
+                canonicalTargetDir ??= paths.ResolveCanonicalPath(normalizedTargetDir);
 
-            // ディレクトリを自身または子孫に移動することはできない
-            if (isDir)
-            {
-                string sourceWithSep = normalizedSource.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-                if (targetDirWithSep.StartsWith(sourceWithSep, StringComparison.OrdinalIgnoreCase))
+                // 同じ親ディレクトリ内での自己ドロップはスキップ（大文字小文字の区別はファイルシステムに従う）
+                string? sourceParent = Path.GetDirectoryName(normalizedSource);
+                if (sourceParent != null
+                    && string.Equals(paths.ResolveCanonicalPath(sourceParent), canonicalTargetDir, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // ディレクトリを自身または子孫に移動することはできない。
+                // Directory.Move はリンクそのものを移動するので、リンクはリンク先の中にも移動できる
+                if (isDir
+                    && new DirectoryInfo(normalizedSource).LinkTarget == null
+                    && FilePathComparison.IsSameOrDescendantCanonicalPath(
+                        paths.ResolveCanonicalPath(normalizedSource), canonicalTargetDir))
                 {
                     _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
                     NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
                     continue;
                 }
-            }
 
-            string destPath = Path.Combine(normalizedTargetDir, Path.GetFileName(normalizedSource));
-
-            try
-            {
                 if (!isDir)
                 {
                     if (!File.Exists(destPath))
