@@ -183,7 +183,7 @@ public class GradientStopsSlider : TemplatedControl
                 stop.PropertyChanged -= OnGradientStopPropertyChanged;
             }
 
-            presenter.PropertyChanged += OnContentPresenterPropertyChanged;
+            presenter.PropertyChanged -= OnContentPresenterPropertyChanged;
         }
     }
 
@@ -526,7 +526,9 @@ public class GradientStopsSlider : TemplatedControl
 
     private static Color Interpolate(GradientStop prev, GradientStop next, double offset)
     {
-        double progress = (offset - prev.Offset) / next.Offset - prev.Offset;
+        // Two stops at the same offset leave no span to interpolate across; take the earlier stop's color.
+        double span = next.Offset - prev.Offset;
+        double progress = span > 0 ? (offset - prev.Offset) / span : 0;
         return InterpolateCore(progress, prev.Color, next.Color);
     }
 
