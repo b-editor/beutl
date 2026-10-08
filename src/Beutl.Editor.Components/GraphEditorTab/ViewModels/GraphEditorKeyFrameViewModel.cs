@@ -213,10 +213,6 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         _previous.Value = previous;
     }
 
-    public void SetLast()
-    {
-    }
-
     public void Dispose()
     {
         _previous.Value = null;
@@ -275,56 +271,6 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 splineEasing.Y2 = (float)y;
             }
         }
-    }
-
-    public void UpdateKeyTime(TimeSpan timeSpan)
-    {
-        int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        Model.KeyTime = timeSpan.RoundToRate(rate);
-    }
-
-    public void CommitKeyTimeAndValue()
-    {
-        GraphEditorViewModel parent2 = Parent.Parent;
-        HistoryManager history = parent2.HistoryManager;
-        WriteDraggedValueAndKeyTime(parent2);
-
-        history.Commit(CommandNames.EditKeyFrame);
-
-        EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
-        Right.Value = Model.KeyTime.TimeToPixel(Parent.Parent.Options.Value.Scale);
-    }
-
-    public void UpdateKeyTimeAndValue()
-    {
-        GraphEditorViewModel parent2 = Parent.Parent;
-        if (WriteDraggedValueAndKeyTime(parent2))
-        {
-            EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
-        }
-
-        Right.Value = Model.KeyTime.TimeToPixel(Parent.Parent.Options.Value.Scale);
-    }
-
-    // Writes the dragged value (when it converts to the animation's type) and the frame-rounded
-    // key time to the model; returns whether the value was written.
-    private bool WriteDraggedValueAndKeyTime(GraphEditorViewModel editor)
-    {
-        IKeyFrameAnimation animation = editor.Animation;
-
-        float scale = editor.Options.Value.Scale;
-        int rate = editor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / editor.ScaleY.Value, animation.ValueType,
-                out object? obj))
-        {
-            Model.Value = obj;
-            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-            return true;
-        }
-
-        Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-        return false;
     }
 
     private async Task CopyAsync()

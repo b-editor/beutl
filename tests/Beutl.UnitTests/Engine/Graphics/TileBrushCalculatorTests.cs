@@ -58,22 +58,6 @@ public class TileBrushCalculatorTests
     }
 
     [Test]
-    public void NeedsIntermediate_SameAspectAndSize_ReturnsFalse()
-    {
-        var calc = new TileBrushCalculator(
-            TileMode.None,
-            Stretch.Fill,
-            AlignmentX.Left,
-            AlignmentY.Top,
-            FullRect,
-            FullRect,
-            new Size(100, 100),
-            new Size(100, 100));
-
-        Assert.That(calc.NeedsIntermediate, Is.False);
-    }
-
-    [Test]
     public void CalculateTranslate_LeftTop_ReturnsZero()
     {
         Vector v = TileBrushCalculator.CalculateTranslate(

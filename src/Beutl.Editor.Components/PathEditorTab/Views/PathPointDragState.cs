@@ -16,13 +16,10 @@ public sealed class PathPointDragState
         IProperty<BtlPoint> property,
         PathSegment target,
         KeyFrame<BtlPoint>? previous,
-        KeyFrame<BtlPoint>? next,
-        // このThumbがControlPointの時、点線でつながっているポイントを指定する
-        PathSegment? anchor = null)
+        KeyFrame<BtlPoint>? next)
     {
         Previous = previous;
         Next = next;
-        Anchor = anchor;
         Property = property;
         Target = target;
         OldPreviousValue = previous?.Value ?? default;
@@ -42,8 +39,6 @@ public sealed class PathPointDragState
     public IProperty<BtlPoint> Property { get; }
 
     public PathSegment Target { get; }
-
-    public PathSegment? Anchor { get; set; }
 
     public BtlPoint OldPreviousValue { get; }
 

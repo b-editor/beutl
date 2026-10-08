@@ -590,7 +590,7 @@ public class TrimSpeedTests
         element.Objects.Add(sound);
         TimeSpan? maximum = null;
 
-        Assert.DoesNotThrow(() => maximum = SlippableMedia.GetMaximumDuration(element));
+        Assert.DoesNotThrow(() => maximum = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration());
         TestContext.WriteLine($"Speed interpolations: {easing.Calls}; maximum timeline seconds: {maximum?.TotalSeconds}");
         Assert.Multiple(() =>
         {

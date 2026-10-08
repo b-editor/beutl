@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Beutl.Api;
 using Beutl.Api.Objects;
-using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -21,7 +20,6 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
     private readonly PackageOperationHandler _handler;
     private readonly BeutlApiApplication _app;
     private readonly LibraryService _library;
-    private readonly DiscoverService _discover;
 
     public RemoteUserPackageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
@@ -29,7 +27,6 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
         _app = app;
         _handler = new PackageOperationHandler(app, editorService, projectService);
         _library = app.GetResource<LibraryService>();
-        _discover = app.GetResource<DiscoverService>();
 
         (CanCancel, IsInstallButtonVisible, IsUpdateButtonVisible, IsUninstallButtonVisible) = PackageButtonStates.Create(
             _handler, package.Name, IsBusy, LatestRelease, _disposables);

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Proxy;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -26,6 +27,9 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task GenerateAsync_WritesProxyFileAndMetadata()
     {
+        if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+            Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
+
         string root = CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);

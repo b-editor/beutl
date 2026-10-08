@@ -37,19 +37,31 @@ public sealed partial class LutEffect : FilterEffect
             }
             """;
 
-    private const string ShaderSource3D =
+    private const string LutSamplingSource =
         """
             uniform shader lut;
-            uniform int lutSize;
-            uniform float strength;
+            uniform int lutWidth;
 
             int modInt(int a, int b) {
                 return a - b * (a / b);
             }
 
             float3 sampleLut(int index) {
-                return float3(lut.eval(float2(float(index) + 0.5, 0.5)).rgb);
+                int x = modInt(index, lutWidth);
+                int y = index / lutWidth;
+                return float3(lut.eval(float2(float(x) + 0.5, float(y) + 0.5)).rgb);
             }
+
+
+            """;
+
+    private const string ShaderSource3D =
+        LutSamplingSource
+        + """
+
+
+            uniform int lutSize;
+            uniform float strength;
 
             float3 trilinear_interpolate(float3 inputColor)
             {
@@ -127,8 +139,10 @@ public sealed partial class LutEffect : FilterEffect
             """;
 
     private const string ShaderSource1D =
-        """
-            uniform shader lut;
+        LutSamplingSource
+        + """
+
+
             uniform int lutSize;
             uniform float strength;
 
@@ -153,16 +167,16 @@ public sealed partial class LutEffect : FilterEffect
                 float bIdx = clamp(srgbColor.b, 0.0, 1.0) * maxIdx;
 
                 float rResult = mix(
-                    lut.eval(float2(floor(rIdx) + 0.5, 0.5)).r,
-                    lut.eval(float2(min(floor(rIdx) + 1.0, maxIdx) + 0.5, 0.5)).r,
+                    sampleLut(int(floor(rIdx))).r,
+                    sampleLut(int(min(floor(rIdx) + 1.0, maxIdx))).r,
                     fract(rIdx));
                 float gResult = mix(
-                    lut.eval(float2(floor(gIdx) + 0.5, 0.5)).g,
-                    lut.eval(float2(min(floor(gIdx) + 1.0, maxIdx) + 0.5, 0.5)).g,
+                    sampleLut(int(floor(gIdx))).g,
+                    sampleLut(int(min(floor(gIdx) + 1.0, maxIdx))).g,
                     fract(gIdx));
                 float bResult = mix(
-                    lut.eval(float2(floor(bIdx) + 0.5, 0.5)).b,
-                    lut.eval(float2(min(floor(bIdx) + 1.0, maxIdx) + 0.5, 0.5)).b,
+                    sampleLut(int(floor(bIdx))).b,
+                    sampleLut(int(min(floor(bIdx) + 1.0, maxIdx))).b,
                     fract(bIdx));
 
                 float3 lutResult = srgbToLinear(float3(rResult, gResult, bResult));
@@ -213,6 +227,7 @@ public sealed partial class LutEffect : FilterEffect
             bindings =>
             {
                 bindings.Uniform("lutSize", cube.Size);
+                bindings.Uniform("lutWidth", lutSnapshot.Width);
                 bindings.Uniform("strength", r.Strength / 100f);
                 bindings.Resource(
                     "lut",
@@ -243,11 +258,17 @@ public sealed partial class LutEffect : FilterEffect
     private sealed class LutShaderResource
     {
         private readonly Vector3[] _data;
+        private readonly int _height;
 
         private LutShaderResource(Vector3[] data)
         {
             _data = data;
+            // A single row for a 33-point 3D LUT is 35,937 pixels wide, past common GPU limits.
+            Width = (int)Math.Ceiling(Math.Sqrt(data.Length));
+            _height = (data.Length + Width - 1) / Width;
         }
+
+        public int Width { get; }
 
         public static LutShaderResource Create(ReadOnlySpan<Vector3> data)
             => new(data.ToArray());
@@ -260,10 +281,11 @@ public sealed partial class LutEffect : FilterEffect
         {
             using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
             using SKImage image = SKImage.Create(
-                new SKImageInfo(_data.Length, 1, SKColorType.RgbaF32, SKAlphaType.Premul, colorSpace));
+                new SKImageInfo(Width, _height, SKColorType.RgbaF32, SKAlphaType.Premul, colorSpace));
             using (SKPixmap pixmap = image.PeekPixels())
             {
                 Span<Vector4> pixels = pixmap.GetPixelSpan<Vector4>();
+                pixels[_data.Length..].Clear();
                 for (int i = 0; i < _data.Length; i++)
                 {
                     pixels[i] = new Vector4(_data[i], 1);

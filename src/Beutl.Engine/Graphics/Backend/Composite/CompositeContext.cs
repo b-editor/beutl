@@ -59,7 +59,7 @@ internal sealed class CompositeContext : IGraphicsContext
             // the refusal cannot be left to the Vulkan path this shares its limits with.
             Vulkan.ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
 
-            var texture = new MetalVulkanTexture2D(Metal, Timeline, Vulkan, width, height, format);
+            var texture = MetalVulkanTexture2D.Create(Metal, Timeline, Vulkan, width, height, format);
             VulkanContext.RecordTextureAllocation(format);
             return texture;
         }

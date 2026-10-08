@@ -377,6 +377,10 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         private EngineObject? _original;
 
+        internal virtual IReadOnlyList<FlowNode> FlowInputs => [];
+
+        internal FlowNode? CapturedFlow { get; set; }
+
         /// <summary>
         /// The number every cache over this resource keys on.
         /// </summary>
@@ -571,6 +575,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             if (IsDisposed) return;
 
             Dispose(true);
+            CapturedFlow = null;
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }

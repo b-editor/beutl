@@ -31,8 +31,8 @@ public sealed class RegionAnalyzerTests
                 Is.EqualTo(RequiredRegion.Region(new Rect(5, 5, 15, 15))));
             Assert.That(result.GetFragmentRequirement(source),
                 Is.EqualTo(RequiredRegion.Region(new Rect(10, 10, 15, 15))));
-            Assert.That(result.GetMetadata(source).EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(result.GetMetadata(output).EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(result.Metadata[source.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(result.Metadata[output.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
         });
     }
 
@@ -54,12 +54,10 @@ public sealed class RegionAnalyzerTests
         {
             Assert.That(result.Measurement.OutputBounds, Is.EqualTo(new Rect(10, 10, 80, 80)));
             Assert.That(result.FinalCommitBounds, Is.EqualTo(result.Measurement.OutputBounds));
-            Assert.That(result.FinalCommitRegion,
-                Is.EqualTo(RequiredRegion.Region(new Rect(10, 10, 80, 80))));
             Assert.That(result.GetFragmentRequirement(source),
                 Is.EqualTo(RequiredRegion.Region(new Rect(0, 0, 100, 100))));
             Assert.That(result.GetFragmentRequirement(source), Is.Not.EqualTo(RequiredRegion.Full));
-            Assert.That(result.GetMetadata(output).EffectiveScale, Is.EqualTo(EffectiveScale.At(3)));
+            Assert.That(result.Metadata[output.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(3)));
         });
     }
 
@@ -80,10 +78,8 @@ public sealed class RegionAnalyzerTests
         Assert.Multiple(() =>
         {
             Assert.That(outside.FinalCommitBounds, Is.EqualTo(Rect.Empty));
-            Assert.That(outside.FinalCommitRegion, Is.EqualTo(RequiredRegion.Empty));
             Assert.That(outside.GetFragmentRequirement(source), Is.EqualTo(RequiredRegion.Empty));
             Assert.That(empty.FinalCommitBounds, Is.EqualTo(new Rect(70, 80, 0, 10)));
-            Assert.That(empty.FinalCommitRegion, Is.EqualTo(RequiredRegion.Empty));
             Assert.That(empty.GetFragmentRequirement(source), Is.EqualTo(RequiredRegion.Empty));
         });
     }
@@ -159,8 +155,8 @@ public sealed class RegionAnalyzerTests
                 Is.EqualTo(RequiredRegion.Region(new Rect(30, 30, 30, 30))));
             Assert.That(result.GetTargetAccessRequirement(capture),
                 Is.EqualTo(RequiredRegion.Region(new Rect(30, 30, 30, 30))));
-            Assert.That(result.GetMetadata(capture).EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(result.GetMetadata(output).EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(result.Metadata[capture.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
+            Assert.That(result.Metadata[output.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
         });
     }
 
@@ -338,10 +334,10 @@ public sealed class RegionAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.GetMetadata(source).Bounds, Is.EqualTo(domain),
+            Assert.That(result.Metadata[source.Id!.Value].Bounds, Is.EqualTo(domain),
                 "The symbolic input must resolve away from its recorded placeholder.");
-            Assert.That(result.GetMetadata(output).Bounds, Is.EqualTo(domain.Inflate(new Thickness(4))));
-            Assert.That(result.GetMetadata(output).EffectiveScale, Is.EqualTo(EffectiveScale.At(0.5f)));
+            Assert.That(result.Metadata[output.Id!.Value].Bounds, Is.EqualTo(domain.Inflate(new Thickness(4))));
+            Assert.That(result.Metadata[output.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(0.5f)));
         });
     }
 
@@ -402,8 +398,6 @@ public sealed class RegionAnalyzerTests
         {
             Assert.That(result.Measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 60, 60)));
             Assert.That(result.Measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 105, 105)));
-            Assert.That(result.TargetDomain, Is.EqualTo(targetDomain));
-            Assert.That(result.RequestedRegion, Is.EqualTo(requested));
             Assert.That(result.FinalCommitBounds, Is.EqualTo(Rect.Empty));
             Assert.That(result.GetFragmentRequirement(value), Is.EqualTo(RequiredRegion.Empty));
             Assert.That(result.GetTargetAccessRequirement(command), Is.EqualTo(RequiredRegion.Empty));
@@ -424,10 +418,10 @@ public sealed class RegionAnalyzerTests
         Assert.Multiple(() =>
         {
             Assert.That(measured, Is.EqualTo(analyzed.Measurement));
-            Assert.That(measuredRoot.Bounds, Is.EqualTo(analyzed.GetMetadata(measuredRoot).Bounds));
+            Assert.That(measuredRoot.Bounds, Is.EqualTo(analyzed.Metadata[measuredRoot.Id!.Value].Bounds));
             Assert.That(
                 measuredRoot.EffectiveScale,
-                Is.EqualTo(analyzed.GetMetadata(measuredRoot).EffectiveScale));
+                Is.EqualTo(analyzed.Metadata[measuredRoot.Id!.Value].EffectiveScale));
         });
 
         static RenderFragmentReference BuildRoot()

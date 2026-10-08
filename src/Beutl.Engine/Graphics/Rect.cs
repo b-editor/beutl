@@ -827,7 +827,7 @@ public readonly struct Rect
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Rect result)
     {
-        return TryParse(utf8Text, out result);
+        return TryParse(utf8Text, null, out result);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Rect result)

@@ -3340,4 +3340,58 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>前のツールタブに切り替え</value>
   </data>
+  <data name="GoToMarker" xml:space="preserve">
+    <value>マーカーへ移動…</value>
+  </data>
+  <data name="AddMarkerWithName" xml:space="preserve">
+    <value>マーカーを追加…</value>
+  </data>
+  <data name="RenameMarker" xml:space="preserve">
+    <value>マーカーの名前を変更…</value>
+  </data>
+  <data name="SaveDockLayoutAs" xml:space="preserve">
+    <value>ドックレイアウトに名前を付けて保存…</value>
+  </data>
+  <data name="RenameDockLayout" xml:space="preserve">
+    <value>ドックレイアウトの名前を変更…</value>
+  </data>
+  <data name="DeleteDockLayout" xml:space="preserve">
+    <value>ドックレイアウトを削除…</value>
+  </data>
+  <data name="JumpToHistory" xml:space="preserve">
+    <value>履歴の状態へ移動…</value>
+  </data>
+  <data name="ChangeSceneSize" xml:space="preserve">
+    <value>シーンのサイズを変更…</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>シーンの開始時間を変更…</value>
+  </data>
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>シーンの長さを変更…</value>
+  </data>
+  <data name="ChangePreviewRenderQuality" xml:space="preserve">
+    <value>プレビュー解像度を変更…</value>
+  </data>
+  <data name="OpenRecentProject" xml:space="preserve">
+    <value>最近使ったプロジェクトを開く…</value>
+  </data>
+  <data name="OpenRecentFile" xml:space="preserve">
+    <value>最近使ったファイルを開く…</value>
+  </data>
+  <data name="ChangeTheme" xml:space="preserve">
+    <value>テーマを変更…</value>
+  </data>
+  <data name="CommandPalette_ValueRequired" xml:space="preserve">
+    <value>値を入力してください。</value>
+  </data>
+  <data name="CommandPalette_NameInUse" xml:space="preserve">
+    <value>その名前は既に使われています。</value>
+  </data>
+  <data name="CommandPalette_SceneSizeInvalid" xml:space="preserve">
+    <value>幅x高さの形式で入力してください (例: 1920x1080)。</value>
+  </data>
+  <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
+    <value>hh:mm:ss.fff</value>
+  </data>
 </root>

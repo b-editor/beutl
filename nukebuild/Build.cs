@@ -113,7 +113,6 @@ class Build : NukeBuild
             [
                 "Beutl.ExceptionHandler",
                 "Beutl.PackageTools.UI",
-                "Beutl.WaitingDialog",
             ];
             foreach (string item in subProjects)
             {

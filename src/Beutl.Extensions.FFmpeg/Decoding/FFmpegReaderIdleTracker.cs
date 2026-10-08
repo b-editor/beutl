@@ -1,0 +1,143 @@
+﻿using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Extensions.FFmpeg.Decoding;
+
+internal interface IIdleSuspendableReader
+{
+    long LastAccessTicks { get; }
+
+    // Shared memory the reader holds in the worker (its ring buffer), which its decoder memory scales with.
+    long MemoryBytes { get; }
+
+    bool IsSuspended { get; }
+
+    // Must not block, and must decline when the reader was used after expectedLastAccessTicks was read.
+    bool TrySuspend(long expectedLastAccessTicks);
+}
+
+// Every decoding reader lives in the single FFmpeg worker process, and the scene compositor keeps the
+// readers of all elements it has rendered, so readers the timeline has moved past are suspended here
+// (worker decoder and shared memory released) and reopen on their next read.
+internal sealed class FFmpegReaderIdleTracker : IDisposable
+{
+    private static readonly ILogger s_logger = Log.CreateLogger<FFmpegReaderIdleTracker>();
+
+    private readonly Lock _lock = new();
+    // Held strongly so that a reader which is never disposed is still suspended: its finalizer cannot
+    // reach the worker, so dropping it here would leak the worker-side decoder for the process lifetime.
+    private readonly HashSet<IIdleSuspendableReader> _readers = new(ReferenceEqualityComparer.Instance);
+    private readonly FFmpegReaderIdlePolicy.Limits _limits;
+    private readonly TimeSpan? _sweepInterval;
+    private Timer? _timer;
+    private bool _disposed;
+    private int _sweeping;
+
+    // A null interval disables the periodic sweep; Sweep can then be called directly.
+    internal FFmpegReaderIdleTracker(FFmpegReaderIdlePolicy.Limits limits, TimeSpan? sweepInterval)
+    {
+        _limits = limits;
+        _sweepInterval = sweepInterval;
+    }
+
+    public static FFmpegReaderIdleTracker Shared { get; } = new(FFmpegReaderIdlePolicy.DefaultLimits, TimeSpan.FromSeconds(1));
+
+    internal int TrackedCount
+    {
+        get
+        {
+            lock (_lock)
+                return _readers.Count;
+        }
+    }
+
+    public void Track(IIdleSuspendableReader reader)
+    {
+        lock (_lock)
+        {
+            _readers.Add(reader);
+            if (_sweepInterval is { } interval && !_disposed)
+            {
+                _timer ??= new Timer(
+                    static state => ((FFmpegReaderIdleTracker)state!).OnTimer(),
+                    this, interval, interval);
+            }
+        }
+    }
+
+    public void Untrack(IIdleSuspendableReader reader)
+    {
+        lock (_lock)
+            _readers.Remove(reader);
+    }
+
+    // Stops the periodic sweep and waits for one in progress, so no sweep runs after this returns. Shared
+    // lives for the process; this is for trackers with a shorter lifetime. Must not be called from a sweep.
+    public void Dispose()
+    {
+        Timer? timer;
+        lock (_lock)
+        {
+            _disposed = true;
+            timer = _timer;
+            _timer = null;
+        }
+
+        if (timer == null)
+            return;
+
+        // Waited outside the lock: a running sweep takes it.
+        using var stopped = new ManualResetEvent(false);
+        if (timer.Dispose(stopped))
+            stopped.WaitOne();
+    }
+
+    internal void Sweep(long nowTicks)
+    {
+        IIdleSuspendableReader[] readers;
+        lock (_lock)
+            readers = [.. _readers];
+
+        if (readers.Length == 0)
+            return;
+
+        var candidates = new FFmpegReaderIdlePolicy.Candidate[readers.Length];
+        for (int i = 0; i < readers.Length; i++)
+            candidates[i] = new(readers[i].LastAccessTicks, readers[i].MemoryBytes);
+
+        int suspended = 0;
+        foreach (int index in FFmpegReaderIdlePolicy.SelectForSuspension(candidates, nowTicks, _limits))
+        {
+            if (readers[index].TrySuspend(candidates[index].LastAccessTicks))
+                suspended++;
+        }
+
+        if (suspended == 0)
+            return;
+
+        // A reader registers again when it resumes, which sets IsSuspended back before calling Track.
+        lock (_lock)
+            _readers.RemoveWhere(reader => reader.IsSuspended);
+
+        s_logger.LogDebug("Suspended {Count} idle FFmpeg readers", suspended);
+    }
+
+    private void OnTimer()
+    {
+        if (Interlocked.Exchange(ref _sweeping, 1) != 0)
+            return;
+
+        try
+        {
+            Sweep(Environment.TickCount64);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogError(ex, "Failed to suspend idle FFmpeg readers");
+        }
+        finally
+        {
+            Volatile.Write(ref _sweeping, 0);
+        }
+    }
+}

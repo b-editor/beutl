@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics.Rendering.Requests;
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -167,16 +166,5 @@ public sealed class OpaqueRenderSession
         where T : class
     {
         _token.UseResource(resource, _resourceBindings, use);
-    }
-
-    internal void UseNestedTarget(
-        RenderResource<NestedRenderTargetBinding> resource,
-        Action<NestedRenderTargetImage> use)
-    {
-        ArgumentNullException.ThrowIfNull(use);
-        _token.UseResource(
-            resource,
-            _resourceBindings,
-            binding => binding.UseImage(_token, use));
     }
 }

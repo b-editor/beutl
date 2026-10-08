@@ -33,8 +33,8 @@ public class ProgressRing : RangeBase
         MinimumProperty.Changed.AddClassHandler<ProgressRing>(OnMinimumPropertyChanged);
         MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnMaximumPropertyChanged);
         ValueProperty.Changed.AddClassHandler<ProgressRing>(OnValuePropertyChanged);
-        MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnStartAnglePropertyChanged);
-        MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnEndAnglePropertyChanged);
+        StartAngleProperty.Changed.AddClassHandler<ProgressRing>(OnAnglePropertyChanged);
+        EndAngleProperty.Changed.AddClassHandler<ProgressRing>(OnAnglePropertyChanged);
     }
 
     public ProgressRing()
@@ -105,25 +105,30 @@ public class ProgressRing : RangeBase
     static void OnMinimumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
         sender.Minimum = e.GetNewValue<double>();
+        sender.UpdateValueAngle();
     }
 
     static void OnMaximumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
         sender.Maximum = e.GetNewValue<double>();
+        sender.UpdateValueAngle();
     }
 
     static void OnValuePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.ValueAngle = (e.GetNewValue<double>() - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
+        sender.UpdateValueAngle();
     }
 
-    static void OnStartAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
+    // Redraws the arc for the new angles instead of writing the angle back, which could replace a binding.
+    static void OnAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.StartAngle = e.GetNewValue<double>();
+        sender.UpdateValueAngle();
     }
 
-    static void OnEndAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
+    // An empty range has no progress to show, so it draws no arc instead of a NaN sweep.
+    private void UpdateValueAngle()
     {
-        sender.EndAngle = e.GetNewValue<double>();
+        double range = Maximum - Minimum;
+        ValueAngle = range == 0 ? 0 : (Value - Minimum) * (EndAngle - StartAngle) / range;
     }
 }

@@ -88,18 +88,22 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
     public new partial class Resource
     {
         private readonly PooledList<int> _childrenVersion = [];
+        private readonly FlowInputState _flowInputs = new();
+
+        internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs.Inputs;
 
         public List<Drawable.Resource> Children { get; set; } = [];
 
         partial void PreUpdate(DrawableGroup obj, CompositionContext context)
         {
-            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
+            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion, obj, _flowInputs))
                 Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
             ResourceReconciler.ReleaseReconciledChildren(Children, _childrenVersion);
+            _flowInputs.Dispose();
         }
     }
 

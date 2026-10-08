@@ -23,4 +23,19 @@ public class FFmpegNativeRidTests
         // x64 process never probes the win-x86 folder.
         Assert.That(FFmpegNativeRid.GetWindowsRid(architecture), Is.EqualTo("win-x64"));
     }
+
+    [TestCase(Architecture.X64, "x86_64-linux-gnu")]
+    [TestCase(Architecture.Arm64, "aarch64-linux-gnu")]
+    [TestCase(Architecture.X86, "i386-linux-gnu")]
+    [TestCase(Architecture.Arm, "arm-linux-gnueabihf")]
+    public void GetLinuxMultiarchDirectory_MapsArchitectureToDebianTriplet(Architecture architecture, string expected)
+    {
+        Assert.That(FFmpegNativeRid.GetLinuxMultiarchDirectory(architecture), Is.EqualTo(expected));
+    }
+
+    [TestCase(Architecture.Wasm)]
+    public void GetLinuxMultiarchDirectory_UnknownArchitecture_HasNone(Architecture architecture)
+    {
+        Assert.That(FFmpegNativeRid.GetLinuxMultiarchDirectory(architecture), Is.Null);
+    }
 }

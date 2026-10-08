@@ -58,14 +58,12 @@ public sealed class RenderRequestModelTests
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: FusionMode.Disabled,
             owner: owner);
-        RenderRequestOptions nested = parent.CreateNested(binding);
+        RenderRequestOptions nested = parent.CreateNestedAtScale(binding, 2);
 
         Assert.Multiple(() =>
         {
             Assert.That(nested.Intent, Is.EqualTo(RenderIntent.Delivery));
             Assert.That(nested.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
-            Assert.That(nested.OutputScale, Is.EqualTo(2));
-            Assert.That(nested.MaxWorkingScale, Is.EqualTo(3));
             Assert.That(nested.CachePolicy, Is.EqualTo(RenderCacheOptions.Disabled));
             Assert.That(nested.FusionMode, Is.EqualTo(FusionMode.Disabled));
             Assert.That(nested.Owner, Is.SameAs(owner));
@@ -113,13 +111,11 @@ public sealed class RenderRequestModelTests
             requestedRegion: parentRegion);
         using var binding = new NestedRenderTargetBinding();
 
-        RenderRequestOptions implicitScale = parent.CreateNested(binding);
         RenderRequestOptions explicitScale = parent.CreateNestedAtScale(binding, 0.5f);
-        RenderRequestOptions mapped = parent.CreateNested(binding, requestedRegion: mappedChildRegion);
+        RenderRequestOptions mapped = parent.CreateNestedAtScale(binding, 0.5f, requestedRegion: mappedChildRegion);
 
         Assert.Multiple(() =>
         {
-            Assert.That(implicitScale.RequestedRegion, Is.Null);
             Assert.That(explicitScale.RequestedRegion, Is.Null);
             Assert.That(mapped.RequestedRegion, Is.EqualTo(mappedChildRegion));
         });

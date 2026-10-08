@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -12,31 +11,21 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
 {
     private static readonly ILogger s_logger = Log.CreateLogger<MetalVulkanTexture2D>();
 
-    // Thread-local storage for pending export info allocation (freed after base constructor call)
-    [ThreadStatic]
-    private static void* s_pendingExportInfoPtr;
-
     private readonly MetalContext _metalContext;
     private readonly MetalVulkanTimeline? _timeline;
     private readonly IntPtr _metalTexture;
 
-    public MetalVulkanTexture2D(
+    private MetalVulkanTexture2D(
         MetalContext metalContext,
         MetalVulkanTimeline? timeline,
         VulkanContext vulkanContext,
         int width,
         int height,
         TextureFormat format,
-        ImageUsageFlags usage = VulkanTexture2D.ColorTextureUsage)
-        : base(vulkanContext, width, height, format, usage, CreateExportInfo())
+        ImageUsageFlags usage,
+        ExportMetalObjectCreateInfoEXT* exportInfo)
+        : base(vulkanContext, width, height, format, usage, exportInfo)
     {
-        // Free the export info that was allocated in CreateExportInfo
-        if (s_pendingExportInfoPtr != null)
-        {
-            NativeMemory.Free(s_pendingExportInfoPtr);
-            s_pendingExportInfoPtr = null;
-        }
-
         _metalContext = metalContext;
         _timeline = timeline;
 
@@ -47,15 +36,24 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         TransitionTo(SkiaInteropLayout);
     }
 
-    private static void* CreateExportInfo()
+    public static MetalVulkanTexture2D Create(
+        MetalContext metalContext,
+        MetalVulkanTimeline? timeline,
+        VulkanContext vulkanContext,
+        int width,
+        int height,
+        TextureFormat format,
+        ImageUsageFlags usage = VulkanTexture2D.ColorTextureUsage)
     {
-        var ptr = NativeMemory.Alloc((nuint)sizeof(ExportMetalObjectCreateInfoEXT));
-        var exportInfo = (ExportMetalObjectCreateInfoEXT*)ptr;
-        exportInfo->SType = StructureType.ExportMetalObjectCreateInfoExt;
-        exportInfo->ExportObjectType = ExportMetalObjectTypeFlagsEXT.TextureBitExt;
-        exportInfo->PNext = null;
-        s_pendingExportInfoPtr = ptr;
-        return ptr;
+        // Only vkCreateImage reads the export request, inside the base constructor, so it lives on this frame
+        // and nothing is left to free when construction throws.
+        var exportInfo = new ExportMetalObjectCreateInfoEXT
+        {
+            SType = StructureType.ExportMetalObjectCreateInfoExt,
+            ExportObjectType = ExportMetalObjectTypeFlagsEXT.TextureBitExt,
+            PNext = null,
+        };
+        return new MetalVulkanTexture2D(metalContext, timeline, vulkanContext, width, height, format, usage, &exportInfo);
     }
 
     public override SKSurface CreateSkiaSurface(SKColorSpace colorSpace)

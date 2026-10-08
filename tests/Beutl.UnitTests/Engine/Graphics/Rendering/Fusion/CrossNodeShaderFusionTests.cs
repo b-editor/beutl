@@ -337,6 +337,7 @@ public sealed class CrossNodeShaderFusionTests
         ExecutionIslandPlan plan = new ExecutionIslandPlanner().Plan(
             graph,
             RenderRequestCompiler.ResolveRoots(graph),
+            new RenderCacheResolution([]),
             FusionMode.Enabled,
             SkslBackendBudget.Unlimited);
 

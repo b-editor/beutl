@@ -814,9 +814,6 @@ public class PackageManagerExtensionLifecycleTests
             where TExtension : Extension
             => _inner.GetExtensions<TExtension>();
 
-        public EditorExtension? MatchEditorExtension(string file)
-            => _inner.MatchEditorExtension(file);
-
         public ExtensionRemoval RemoveExtensions(int packageId)
             => _inner.RemoveExtensions(packageId);
 

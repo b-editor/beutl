@@ -5,4 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
+  </ItemGroup>
 </Project>

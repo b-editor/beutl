@@ -1,5 +1,6 @@
 ﻿using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.FFmpegWorker.Encoding;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 
@@ -7,6 +8,27 @@ namespace Beutl.FFmpegWorker.Handlers;
 
 internal sealed class CodecQueryHandler
 {
+    public IpcMessage HandleQueryEncoderOptions(IpcMessage msg)
+    {
+        var request = msg.GetPayload<QueryEncoderOptionsRequest>()
+            ?? throw new InvalidOperationException("Missing payload for QueryEncoderOptions");
+        try
+        {
+            MediaCodec codec = FindVideoEncoder(request.CodecName, request.OutputFile);
+            return IpcMessage.Create(msg.Id, MessageType.QueryEncoderOptionsResult,
+                new QueryEncoderOptionsResponse
+                {
+                    Options = EncoderOptionsQuery.GetOptions(codec, (AVPixelFormat)request.PixelFormat),
+                });
+        }
+        catch (Exception ex)
+        {
+            WorkerLog.Warning($"QueryEncoderOptions: codec-specific query failed: {ex.Message}", ex);
+            return IpcMessage.Create(msg.Id, MessageType.QueryEncoderOptionsResult,
+                new QueryEncoderOptionsResponse { Degraded = true });
+        }
+    }
+
     public IpcMessage HandleQueryCodecs(IpcMessage msg)
     {
         var request = msg.RequirePayload<QueryCodecsRequest>(MessageType.QueryCodecs);

@@ -7,10 +7,8 @@
 // adversarial 0 dBFS sine cases.
 internal static class TruePeakDetector
 {
-    private const int UpsampleFactor = 4;
-
     // Polyphase coefficients for the 4× anti-imaging FIR. Each phase is 12 taps.
-    // Generated from a Kaiser-windowed sinc with cutoff at 0.5/UpsampleFactor.
+    // Generated from a Kaiser-windowed sinc with cutoff at 0.5/4.
     private static readonly float[] s_phase0 =
     [
         0.00131f, -0.00659f, 0.01918f, -0.04412f, 0.09640f, -0.24029f,

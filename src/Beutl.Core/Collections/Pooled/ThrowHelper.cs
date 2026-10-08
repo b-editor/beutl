@@ -1,43 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
 
 namespace Beutl.Collections.Pooled;
 
 // src/Avalonia.Base/Collections/Pooled/ThrowHelper.cs
 internal static class ThrowHelper
 {
-    [DoesNotReturn]
-    internal static void ThrowArrayTypeMismatchException()
-    {
-        throw new ArrayTypeMismatchException();
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowIndexOutOfRangeException()
-    {
-        throw new IndexOutOfRangeException();
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowArgumentOutOfRangeException()
-    {
-        throw new ArgumentOutOfRangeException();
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowArgumentException_DestinationTooShort()
-    {
-        throw new ArgumentException("Destination too short.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowArgumentException_OverlapAlignmentMismatch()
-    {
-        throw new ArgumentException("Overlap alignment mismatch.");
-    }
-
     [DoesNotReturn]
     internal static void ThrowArgumentOutOfRange_IndexException()
     {
@@ -49,20 +18,6 @@ internal static class ThrowHelper
     internal static void ThrowIndexArgumentOutOfRange_NeedNonNegNumException()
     {
         throw GetArgumentOutOfRangeException(ExceptionArgument.index,
-                                                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowValueArgumentOutOfRange_NeedNonNegNumException()
-    {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.value,
-                                                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowLengthArgumentOutOfRange_ArgumentOutOfRange_NeedNonNegNum()
-    {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.length,
                                                 ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
     }
 
@@ -81,48 +36,16 @@ internal static class ThrowHelper
     }
 
     [DoesNotReturn]
-    internal static void ThrowWrongKeyTypeArgumentException<T>(T key, Type targetType)
-    {
-        // Generic key to move the boxing to the right hand side of throw
-        throw GetWrongKeyTypeArgumentException((object?)key, targetType);
-    }
-
-    [DoesNotReturn]
     internal static void ThrowWrongValueTypeArgumentException<T>(T value, Type targetType)
     {
         // Generic key to move the boxing to the right hand side of throw
         throw GetWrongValueTypeArgumentException((object?)value, targetType);
     }
 
-    private static ArgumentException GetAddingDuplicateWithKeyArgumentException(object? key)
-    {
-        return new ArgumentException($"Error adding duplicate with key: {key}.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowAddingDuplicateWithKeyArgumentException<T>(T key)
-    {
-        // Generic key to move the boxing to the right hand side of throw
-        throw GetAddingDuplicateWithKeyArgumentException((object?)key);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowKeyNotFoundException<T>(T key)
-    {
-        // Generic key to move the boxing to the right hand side of throw
-        throw GetKeyNotFoundException((object?)key);
-    }
-
     [DoesNotReturn]
     internal static void ThrowArgumentException(ExceptionResource resource)
     {
         throw GetArgumentException(resource);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowArgumentException(ExceptionResource resource, ExceptionArgument argument)
-    {
-        throw GetArgumentException(resource, argument);
     }
 
     private static ArgumentNullException GetArgumentNullException(ExceptionArgument argument)
@@ -137,129 +60,15 @@ internal static class ThrowHelper
     }
 
     [DoesNotReturn]
-    internal static void ThrowArgumentNullException(ExceptionResource resource)
-    {
-        throw new ArgumentNullException(GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowArgumentNullException(ExceptionArgument argument, ExceptionResource resource)
-    {
-        throw new ArgumentNullException(GetArgumentName(argument), GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowArgumentOutOfRangeException(ExceptionArgument argument)
-    {
-        throw new ArgumentOutOfRangeException(GetArgumentName(argument));
-    }
-
-    [DoesNotReturn]
     internal static void ThrowArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
     {
         throw GetArgumentOutOfRangeException(argument, resource);
     }
 
     [DoesNotReturn]
-    internal static void ThrowArgumentOutOfRangeException(ExceptionArgument argument, int paramNumber, ExceptionResource resource)
-    {
-        throw GetArgumentOutOfRangeException(argument, paramNumber, resource);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException(ExceptionResource resource)
-    {
-        throw GetInvalidOperationException(resource);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException(ExceptionResource resource, Exception e)
-    {
-        throw new InvalidOperationException(GetResourceString(resource), e);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowSerializationException(ExceptionResource resource)
-    {
-        throw new SerializationException(GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowSecurityException(ExceptionResource resource)
-    {
-        throw new System.Security.SecurityException(GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowRankException(ExceptionResource resource)
-    {
-        throw new RankException(GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowNotSupportedException(ExceptionResource resource)
-    {
-        throw new NotSupportedException(GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowUnauthorizedAccessException(ExceptionResource resource)
-    {
-        throw new UnauthorizedAccessException(GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowObjectDisposedException(string objectName, ExceptionResource resource)
-    {
-        throw new ObjectDisposedException(objectName, GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowObjectDisposedException(ExceptionResource resource)
-    {
-        throw new ObjectDisposedException(null, GetResourceString(resource));
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowNotSupportedException()
-    {
-        throw new NotSupportedException();
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowAggregateException(List<Exception> exceptions)
-    {
-        throw new AggregateException(exceptions);
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowOutOfMemoryException()
-    {
-        throw new OutOfMemoryException();
-    }
-
-    [DoesNotReturn]
     internal static void ThrowArgumentException_Argument_InvalidArrayType()
     {
         throw new ArgumentException("Invalid array type.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException_InvalidOperation_EnumNotStarted()
-    {
-        throw new InvalidOperationException("Enumeration has not started.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException_InvalidOperation_EnumEnded()
-    {
-        throw new InvalidOperationException("Enumeration has ended.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException_EnumCurrent(int index)
-    {
-        throw GetInvalidOperationException_EnumCurrent(index);
     }
 
     [DoesNotReturn]
@@ -274,43 +83,9 @@ internal static class ThrowHelper
         throw new InvalidOperationException("Invalid enumerator state: enumeration cannot proceed.");
     }
 
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException_InvalidOperation_NoValue()
-    {
-        throw new InvalidOperationException("No value provided.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException_ConcurrentOperationsNotSupported()
-    {
-        throw new InvalidOperationException("Concurrent operations are not supported.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowInvalidOperationException_HandleIsNotInitialized()
-    {
-        throw new InvalidOperationException("Handle is not initialized.");
-    }
-
-    [DoesNotReturn]
-    internal static void ThrowFormatException_BadFormatSpecifier()
-    {
-        throw new FormatException("Bad format specifier.");
-    }
-
     private static ArgumentException GetArgumentException(ExceptionResource resource)
     {
         return new ArgumentException(GetResourceString(resource));
-    }
-
-    private static InvalidOperationException GetInvalidOperationException(ExceptionResource resource)
-    {
-        return new InvalidOperationException(GetResourceString(resource));
-    }
-
-    private static ArgumentException GetWrongKeyTypeArgumentException(object? key, Type targetType)
-    {
-        return new ArgumentException($"Wrong key type. Expected {targetType}, got: '{key}'.", nameof(key));
     }
 
     private static ArgumentException GetWrongValueTypeArgumentException(object? value, Type targetType)
@@ -318,32 +93,9 @@ internal static class ThrowHelper
         return new ArgumentException($"Wrong value type. Expected {targetType}, got: '{value}'.", nameof(value));
     }
 
-    private static KeyNotFoundException GetKeyNotFoundException(object? key)
-    {
-        return new KeyNotFoundException($"Key not found: {key}");
-    }
-
     private static ArgumentOutOfRangeException GetArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
     {
         return new ArgumentOutOfRangeException(GetArgumentName(argument), GetResourceString(resource));
-    }
-
-    private static ArgumentException GetArgumentException(ExceptionResource resource, ExceptionArgument argument)
-    {
-        return new ArgumentException(GetResourceString(resource), GetArgumentName(argument));
-    }
-
-    private static ArgumentOutOfRangeException GetArgumentOutOfRangeException(ExceptionArgument argument, int paramNumber, ExceptionResource resource)
-    {
-        return new ArgumentOutOfRangeException(GetArgumentName(argument) + "[" + paramNumber.ToString() + "]", GetResourceString(resource));
-    }
-
-    private static InvalidOperationException GetInvalidOperationException_EnumCurrent(int index)
-    {
-        return new InvalidOperationException(
-            index < 0 ?
-            "Enumeration has not started" :
-            "Enumeration has ended");
     }
 
     // Allow nulls for reference types and Nullable<U>, but not for value types.
@@ -355,19 +107,6 @@ internal static class ThrowHelper
         // Note that default(T) is not equal to null for value types except when T is Nullable<U>.
         if (!(default(T) == null) && value == null)
             ThrowHelper.ThrowArgumentNullException(argName);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void ThrowForUnsupportedVectorBaseType<T>() where T : struct
-    {
-        if (typeof(T) != typeof(byte) && typeof(T) != typeof(sbyte) &&
-            typeof(T) != typeof(short) && typeof(T) != typeof(ushort) &&
-            typeof(T) != typeof(int) && typeof(T) != typeof(uint) &&
-            typeof(T) != typeof(long) && typeof(T) != typeof(ulong) &&
-            typeof(T) != typeof(float) && typeof(T) != typeof(double))
-        {
-            ThrowNotSupportedException(ExceptionResource.Arg_TypeNotSupported);
-        }
     }
 
 #if false // Reflection-based implementation does not work for CoreRT/ProjectN
@@ -452,8 +191,6 @@ internal static class ThrowHelper
                 return "source";
             case ExceptionArgument.state:
                 return "state";
-            case ExceptionArgument.length:
-                return "length";
             case ExceptionArgument.comparisonType:
                 return "comparisonType";
             case ExceptionArgument.manager:
@@ -584,8 +321,6 @@ internal static class ThrowHelper
                 return "This operation is not suppored on a fixed-size collection.";
             case ExceptionResource.Rank_MultiDimNotSupported:
                 return "Multi-dimensional arrays are not supported.";
-            case ExceptionResource.Arg_TypeNotSupported:
-                return "Type not supported.";
             default:
                 Debug.Assert(false,
                     "The enum value is not defined, please check the ExceptionResource Enum.");
@@ -632,7 +367,6 @@ internal enum ExceptionArgument
     comparable,
     source,
     state,
-    length,
     comparisonType,
     manager,
     sourceBytesToCopy,
@@ -694,5 +428,4 @@ internal enum ExceptionResource
     InvalidOperation_IComparerFailed,
     NotSupported_FixedSizeCollection,
     Rank_MultiDimNotSupported,
-    Arg_TypeNotSupported,
 }

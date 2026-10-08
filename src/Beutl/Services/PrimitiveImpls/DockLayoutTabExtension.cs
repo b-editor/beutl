@@ -10,7 +10,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class DockLayoutTabExtension : ToolTabExtension
+public sealed partial class DockLayoutTabExtension : ToolTabExtension
 {
     public static readonly DockLayoutTabExtension Instance = new();
 

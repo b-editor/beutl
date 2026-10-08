@@ -35,6 +35,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Beutl.UnitTests" />
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
+    <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
   </ItemGroup>
 
   <ItemGroup>

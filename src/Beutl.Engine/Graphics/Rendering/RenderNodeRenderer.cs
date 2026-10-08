@@ -689,6 +689,7 @@ public sealed class RenderNodeRenderer : IDisposable
         {
             ExceptionDispatchInfo? primary = ExceptionDispatchInfo.Capture(ex);
             DisposeAndCapture(request, ref primary);
+            request.Options.Owner.ReportMaskedFailures(primary!.SourceException);
             primary!.Throw();
             throw;
         }
@@ -876,6 +877,11 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderRequestOwner? owner,
         RenderTargetLeaseSession? targets)
     {
+        if (owner is not null && (primary?.SourceException ?? owner.PrimaryFailure?.SourceException) is { } thrown)
+        {
+            owner.ReportMaskedFailures(thrown);
+        }
+
         primary?.Throw();
         owner?.ThrowIfFailed();
         targets?.ThrowIfCleanupFailed();

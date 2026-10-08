@@ -107,16 +107,6 @@ public sealed partial class CompositionTemplateCatalog
         return offsetPatch;
     }
 
-    private static readonly (string Name, string[] Tokens)[] s_templateInferenceTokens =
-    [
-        ("kinetic-ribbon-title", ["kinetic-ribbon-title", "create-empty-scene-motion-graphics", "kinetic ribbon", "beutl motion", "seeded ribbon"]),
-        ("orbital-radar-map", ["orbital-radar-map", "create-empty-scene-orbital-radar", "orbital radar", "orbit map", "seeded orbit", "signal atlas"]),
-        ("split-screen-type-system", ["split-screen-type-system", "create-empty-scene-split-screen-typography", "split screen", "frame flow", "seeded panel"]),
-        ("liquid-gradient-system", ["liquid-gradient-system", "liquid signal", "seeded liquid", "blob field"]),
-        ("data-bar-dashboard", ["data-bar-dashboard", "signal index", "seeded metric", "dashboard"]),
-        ("glitch-cutout-collage", ["glitch-cutout-collage", "glitch cut", "seeded glitch", "chromatic collage"])
-    ];
-
     private readonly string _defaultSeed;
 
     public CompositionTemplateCatalog(string? defaultSeed = null)
@@ -178,34 +168,6 @@ public sealed partial class CompositionTemplateCatalog
             spec.CreateTransitions(metadata));
 
         return spec.Render(context);
-    }
-
-    public static string? TryInferTemplateName(JsonNode? node)
-    {
-        if (node is null)
-        {
-            return null;
-        }
-
-        return FindTemplateNameByToken(node.ToJsonString());
-    }
-
-    public static string? TryInferTemplateNameFromExampleName(string exampleName)
-    {
-        return FindTemplateNameByToken(exampleName);
-    }
-
-    private static string? FindTemplateNameByToken(string text)
-    {
-        foreach ((string name, string[] tokens) in s_templateInferenceTokens)
-        {
-            if (tokens.Any(token => text.Contains(token, StringComparison.OrdinalIgnoreCase)))
-            {
-                return name;
-            }
-        }
-
-        return null;
     }
 
     private static CompositionTemplateSpec PickFirst(string? tag, string seed)

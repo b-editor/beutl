@@ -68,9 +68,6 @@ internal static class TransformHandleMath
     /// point-reflected through the origin, so its centre lands on the far side of the image and the
     /// difference becomes a translation of thousands of pixels rather than an effect's offset.
     /// </remarks>
-    public static Matrix AlignUserMatrixToRenderedBounds(Matrix userMatrix, Size localSize, Rect renderedBounds)
-        => AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, null);
-
     public static Matrix AlignUserMatrixToRenderedBounds(Matrix userMatrix, Size localSize, Rect renderedBounds, Rect? deliveredTo)
     {
         Rect transformBounds = new Rect(localSize).TransformToDeliveredAABB(userMatrix, deliveredTo);

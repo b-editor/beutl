@@ -170,19 +170,6 @@ public static class PathEditorHelper
         };
     }
 
-    public static IProperty<BtlPoint>? GetControlPointProperty(object datacontext, int i)
-    {
-        return datacontext switch
-        {
-            ConicSegment conicSegment => conicSegment.ControlPoint,
-            CubicBezierSegment cubicBezierSegment => i == 0
-                ? cubicBezierSegment.ControlPoint1
-                : cubicBezierSegment.ControlPoint2,
-            QuadraticBezierSegment quadraticBezierSegment => quadraticBezierSegment.ControlPoint,
-            _ => null,
-        };
-    }
-
     public static IProperty<BtlPoint>? GetProperty(Thumb t)
     {
         switch (t.DataContext)

@@ -634,11 +634,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         }
     }
 
-    public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout)
-    {
-        TransitionImageLayout(image, oldLayout, newLayout, ImageAspectFlags.ColorBit);
-    }
-
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
     {
         RecordCommands(commandBuffer =>

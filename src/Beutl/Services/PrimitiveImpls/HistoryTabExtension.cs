@@ -10,7 +10,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class HistoryTabExtension : ToolTabExtension
+public sealed partial class HistoryTabExtension : ToolTabExtension
 {
     public static readonly HistoryTabExtension Instance = new();
 

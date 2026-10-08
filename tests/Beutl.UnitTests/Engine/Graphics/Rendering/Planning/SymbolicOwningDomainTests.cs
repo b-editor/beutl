@@ -37,7 +37,7 @@ public sealed class SymbolicOwningDomainTests
             Assert.That(effectItem.RecordedBounds, Is.EqualTo(new Rect(-5, 10, 10, 10)));
             Assert.That(effectItem.Bounds, Is.EqualTo(new Rect(-10, 0, 100, 60)));
             Assert.That(transform.Bounds, Is.EqualTo(s_rootDomain));
-            Assert.That(compiled.Regions.GetMetadata(effectItem).Bounds, Is.EqualTo(effectItem.Bounds));
+            Assert.That(compiled.Regions.Metadata[effectItem.Id!.Value].Bounds, Is.EqualTo(effectItem.Bounds));
             Assert.That(compiled.Measurement.OutputBounds, Is.EqualTo(s_rootDomain));
         });
     }
@@ -63,7 +63,7 @@ public sealed class SymbolicOwningDomainTests
             Assert.That(effectItem.RecordedEffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
             Assert.That(effectItem.EffectiveScale.Value, Is.EqualTo(expected).Within(1e-6f));
             Assert.That(transform.EffectiveScale.Value, Is.EqualTo(expected).Within(1e-6f));
-            Assert.That(compiled.Regions.GetMetadata(transform).EffectiveScale,
+            Assert.That(compiled.Regions.Metadata[transform.Id!.Value].EffectiveScale,
                 Is.EqualTo(transform.EffectiveScale));
         });
     }
@@ -372,7 +372,7 @@ public sealed class SymbolicOwningDomainTests
         {
             Assert.That(captureScope.ResolvedDomain, Is.EqualTo(localDomain));
             Assert.That(capture.Bounds, Is.EqualTo(localDomain));
-            Assert.That(compiled.Regions.GetMetadata(capture).Bounds, Is.EqualTo(localDomain));
+            Assert.That(compiled.Regions.Metadata[capture.Id!.Value].Bounds, Is.EqualTo(localDomain));
         });
     }
 

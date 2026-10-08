@@ -55,7 +55,7 @@ public class LibraryService(BeutlApiApplication clients) : IBeutlApiResource
         using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
         CancellationToken token = lifetimeCts.Token;
         token.ThrowIfCancellationRequested();
-        using Activity? activity = clients.ActivitySource.StartActivity("LibraryService.GetPackage", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity("LibraryService.Acquire", ActivityKind.Client);
 
         AcquirePackageResponse response = await clients.Library.AcquirePackage(new AcquirePackageRequest
         {

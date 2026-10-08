@@ -150,13 +150,11 @@ public class OptionsDisplayItemLayoutTests
     {
         await TestReset.ResetShellAsync();
         using var model = TestShell.MainViewModel.CreateSettingsDialog();
-        var dialog = new SettingsDialog
-        {
-            DataContext = model,
-            Width = 800,
-            Height = 700,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
-        };
+        var dialog = HeadlessAppWindow.Create(() => new SettingsDialog());
+        dialog.DataContext = model;
+        dialog.Width = 800;
+        dialog.Height = 700;
+        dialog.RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark;
         try
         {
             model.GoToBrowserSettingsPage();

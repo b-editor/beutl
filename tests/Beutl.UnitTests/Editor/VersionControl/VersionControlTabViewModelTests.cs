@@ -2374,15 +2374,15 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.CommitMessage.Value, Is.Empty);
             Assert.That(viewModel.StatusMessage.Value,
                 Is.EqualTo(Strings.VersionControl_CommitCreated));
-            Assert.That(viewModel.Commits[0].IsManual, Is.True);
-            Assert.That(viewModel.Commits[1].IsManual, Is.False);
             Assert.That(viewModel.Commits[0].KindText,
                 Is.EqualTo(Strings.VersionControl_SnapshotManual));
+            Assert.That(viewModel.Commits[1].KindText,
+                Is.EqualTo(Strings.VersionControl_SnapshotSave));
         });
     }
 
     [Test]
-    public async Task Every_snapshot_kind_exposes_exactly_one_badge_class_state()
+    public async Task Only_safety_and_restore_snapshots_expose_a_badge_class_state()
     {
         SnapshotKind[] kinds =
         [
@@ -2408,16 +2408,12 @@ public class VersionControlTabViewModelTests
         {
             foreach (VersionControlCommitViewModel commit in viewModel.Commits)
             {
-                int activeClasses = new[]
-                {
-                    commit.IsManual,
-                    commit.IsSave,
-                    commit.IsClose,
-                    commit.IsSafety,
+                SnapshotKind kind = commit.Commit.Kind;
+                Assert.That(commit.IsSafety, Is.EqualTo(kind == SnapshotKind.Safety), kind.ToString());
+                Assert.That(
                     commit.IsRestore,
-                    commit.IsInit,
-                }.Count(static value => value);
-                Assert.That(activeClasses, Is.EqualTo(1), commit.Commit.Kind.ToString());
+                    Is.EqualTo(kind is SnapshotKind.Restore or SnapshotKind.Recovery),
+                    kind.ToString());
             }
 
             Assert.That(

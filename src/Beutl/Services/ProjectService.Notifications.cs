@@ -96,20 +96,6 @@ public partial class ProjectService
         }
     }
 
-    private void PublishProjectChange((Project? New, Project? Old) change)
-    {
-        try
-        {
-            _projectObservable.OnNext(change);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Unable to publish a committed project-state transition.");
-        }
-    }
-
     private void PublishTransitionCommitted(Project? project)
     {
         if (TransitionCommitted is not { } transitionCommitted)

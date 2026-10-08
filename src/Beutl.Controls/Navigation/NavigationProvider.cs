@@ -39,8 +39,6 @@ public class NavigationProvider : INavigationProvider
         TopNavigation = 0b_0_0_0_0,
     }
 
-    public object? CurrentContext { get; private set; }
-
     private void OnNavigating(object sender, FANavigatingCancelEventArgs e)
     {
         static bool HasFlags(TransitionMode @enum, int flags)
@@ -95,7 +93,6 @@ public class NavigationProvider : INavigationProvider
         {
             if (e.Parameter is { } parameter)
             {
-                CurrentContext = parameter;
                 control.DataContext = parameter;
                 if (parameter is PageContext pageContext)
                 {
@@ -104,19 +101,6 @@ public class NavigationProvider : INavigationProvider
             }
 
             control.Focus();
-        }
-    }
-
-    public async ValueTask<TContext?> FindAsync<TContext>(Predicate<TContext> predicate)
-        where TContext : class
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            return FindCore(predicate);
-        }
-        else
-        {
-            return await Dispatcher.UIThread.InvokeAsync(() => FindCore(predicate));
         }
     }
 
@@ -144,18 +128,6 @@ public class NavigationProvider : INavigationProvider
         return default;
     }
 
-    public async ValueTask GoBackAsync()
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            _frame.GoBack();
-        }
-        else
-        {
-            await Dispatcher.UIThread.InvokeAsync(() => _frame.GoBack());
-        }
-    }
-
     public async ValueTask NavigateAsync<TContext>(Predicate<TContext> predicate, Func<TContext> factory)
         where TContext : class
     {
@@ -174,45 +146,6 @@ public class NavigationProvider : INavigationProvider
         else
         {
             await Dispatcher.UIThread.InvokeAsync(() => NavigateCore(predicate, factory));
-        }
-    }
-
-    public async ValueTask RemoveAllAsync<TContext>(Predicate<TContext> predicate, bool goBack = false)
-        where TContext : class
-    {
-        void RemoveAllCore(Predicate<TContext> predicate, bool goBack)
-        {
-            for (int i = _frame.BackStack.Count - 1; i >= 0; i--)
-            {
-                FAPageStackEntry item = _frame.BackStack[i];
-                if (item.Parameter is TContext typed && predicate(typed))
-                {
-                    _frame.BackStack.RemoveAt(i);
-                }
-            }
-
-            if (goBack)
-            {
-                _frame.GoBack();
-            }
-
-            for (int i = _frame.ForwardStack.Count - 1; i >= 0; i--)
-            {
-                FAPageStackEntry item = _frame.ForwardStack[i];
-                if (item.Parameter is TContext typed && predicate(typed))
-                {
-                    _frame.ForwardStack.RemoveAt(i);
-                }
-            }
-        }
-
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            RemoveAllCore(predicate, goBack);
-        }
-        else
-        {
-            await Dispatcher.UIThread.InvokeAsync(() => RemoveAllCore(predicate, goBack));
         }
     }
 }

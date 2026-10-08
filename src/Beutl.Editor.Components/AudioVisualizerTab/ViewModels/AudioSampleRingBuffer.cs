@@ -27,37 +27,11 @@ public sealed class AudioSampleRingBuffer
     private TimeSpan _lastWriteEndTime;
     private long _lastWriteEndIndex;
 
-    public int Capacity
-    {
-        get
-        {
-            lock (_gate) return _capacity;
-        }
-    }
-
     public int SampleRate
     {
         get
         {
             lock (_gate) return _sampleRate;
-        }
-    }
-
-    public long TotalWritten
-    {
-        get
-        {
-            lock (_gate) return _totalWritten;
-        }
-    }
-
-    public void Configure(int sampleRate, int capacitySamples)
-    {
-        if (capacitySamples <= 0) throw new ArgumentOutOfRangeException(nameof(capacitySamples));
-        lock (_gate)
-        {
-            if (_sampleRate == sampleRate && _capacity == capacitySamples) return;
-            ResetInternal(sampleRate, capacitySamples);
         }
     }
 
@@ -128,9 +102,6 @@ public sealed class AudioSampleRingBuffer
 
     // Returns the `length` most recent samples, oldest-first. Used when no
     // playback-time anchor is meaningful (e.g. metering fallback).
-    public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length)
-        => ReadLatest(destLeft, destRight, length, out _);
-
     public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
     {
         leadingZeros = 0;

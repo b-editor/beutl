@@ -41,8 +41,6 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
 
     public bool IsDirty { get; internal set; }
 
-    public DateTime ProjectLastWriteUtc => _projectLastWriteUtc;
-
     public void SetActiveScene(Scene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);

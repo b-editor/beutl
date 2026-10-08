@@ -193,4 +193,10 @@
   <data name="ApplyTemplate" xml:space="preserve">
     <value>テンプレートを適用</value>
   </data>
+  <data name="RenameElement" xml:space="preserve">
+    <value>要素の名前を変更</value>
+  </data>
+  <data name="AddMarker" xml:space="preserve">
+    <value>マーカーを追加</value>
+  </data>
 </root>

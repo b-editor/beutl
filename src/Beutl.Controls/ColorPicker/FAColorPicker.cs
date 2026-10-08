@@ -390,7 +390,6 @@ public partial class FAColorPicker : TemplatedControl
         {
             _ignoreColorChange = true;
 
-            var old = Color;
             if (reason != ColorUpdateReason.Programmatic)
                 Color = col;
 
@@ -554,7 +553,7 @@ public partial class FAColorPicker : TemplatedControl
                     break;
             }
 
-            RaiseColorChangedEvent(old, col);
+            RaiseColorChangedEvent(col);
         }
         finally
         {
@@ -776,9 +775,9 @@ public partial class FAColorPicker : TemplatedControl
         UpdateColorAndControls(args.NewColor, ColorUpdateReason.Spectrum);
     }
 
-    private void RaiseColorChangedEvent(Color2 oldColor, Color2 newColor)
+    private void RaiseColorChangedEvent(Color2 newColor)
     {
-        ColorChanged?.Invoke(this, new ColorChangedEventArgs(oldColor, newColor));
+        ColorChanged?.Invoke(this, new ColorChangedEventArgs(newColor));
     }
 
     private void SetAsCompactMode()

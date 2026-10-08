@@ -921,50 +921,16 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    public void DischargedLease_RejectsTargetAndDeviceSizeAccess()
+    public void DischargedLease_RejectsTargetAccess()
     {
         using var pool = new RenderTargetPool(new TrackingTargetFactory());
         using RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery);
         RenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
         lease.Dispose();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                () => _ = lease.Target,
-                Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
-            Assert.That(
-                () => _ = lease.DeviceSize,
-                Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
-        });
-    }
-
-    [Test]
-    public void ContextRecreation_EvictsOldBucketsBeforeAllocation()
-    {
-        var factory = new TrackingTargetFactory();
-        using var pool = new RenderTargetPool(factory);
-        object firstContext = new();
-        object secondContext = new();
-        RenderTargetLease firstLease;
-        TrackingRenderTarget firstTarget;
-        using (RenderTargetLeaseSession request = pool.BeginSessionForContext(RenderIntent.Delivery, firstContext, 0))
-        {
-            firstLease = request.Acquire(new PixelSize(5, 5));
-            firstTarget = (TrackingRenderTarget)firstLease.Target;
-            firstLease.Dispose();
-        }
-
-        using RenderTargetLeaseSession secondRequest = pool.BeginSessionForContext(RenderIntent.Delivery, secondContext, 0);
-        RenderTargetLease secondLease = secondRequest.Acquire(new PixelSize(5, 5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(firstLease.State, Is.EqualTo(RenderTargetLeaseState.Released));
-            Assert.That(firstTarget.IsDisposed, Is.True);
-            Assert.That(secondLease.Target, Is.Not.SameAs(firstTarget));
-            Assert.That(pool.Statistics.Creates, Is.EqualTo(2));
-        });
+        Assert.That(
+            () => _ = lease.Target,
+            Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
     }
 
     [Test]
@@ -972,8 +938,9 @@ public sealed class RenderTargetPoolTests
     {
         var factory = new TrackingTargetFactory();
         using var pool = new RenderTargetPool(factory);
+        using var destination = new TrackingRenderTarget(2, 2);
 
-        using (RenderTargetLeaseSession request = pool.BeginSessionForContext(RenderIntent.Delivery, new object(), 0))
+        using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery, destination))
             request.Acquire(new PixelSize(2, 2)).Dispose();
         using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery))
             request.Acquire(new PixelSize(3, 3)).Dispose();
@@ -988,12 +955,11 @@ public sealed class RenderTargetPoolTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void TargetlessGpuBinding_ForwardsLiveContextOnLaterMissAndRecreation()
+    public void TargetlessGpuBinding_ForwardsLiveContextOnLaterMiss()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using IGraphicsContext recreatedContext = GraphicsContextFactory.CreateContext();
             var factory = new DescriptorTargetFactory();
             using var pool = new RenderTargetPool(factory);
             GRRecordingContext firstContext;
@@ -1009,17 +975,9 @@ public sealed class RenderTargetPoolTests
             using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery))
                 request.Acquire(new PixelSize(3, 3)).Dispose();
 
-            factory.ExpectedContext = recreatedContext.SkiaContext;
-            using (RenderTargetLeaseSession request = pool.BeginSessionForContext(RenderIntent.Delivery,
-                       recreatedContext.SkiaContext,
-                       recreatedContext.SkiaContext.Handle))
-            {
-                request.Acquire(new PixelSize(4, 4)).Dispose();
-            }
-
             Assert.Multiple(() =>
             {
-                Assert.That(factory.Observations, Has.Count.EqualTo(3));
+                Assert.That(factory.Observations, Has.Count.EqualTo(2));
                 Assert.That(factory.Observations, Has.All.Matches<AllocationObservation>(observation =>
                     observation.PixelFormat == RenderTargetPixelFormat.SrgbPremultipliedRgba16Float
                     && observation.ContextMatchedExpectation));
@@ -1029,11 +987,6 @@ public sealed class RenderTargetPoolTests
                 Assert.That(factory.Observations[1].HasGraphicsContext, Is.True);
                 Assert.That(factory.Observations[1].GraphicsContextHandle, Is.EqualTo(firstContext.Handle));
                 Assert.That(factory.Observations[1].GraphicsBackend, Is.EqualTo(firstContext.Backend));
-                Assert.That(factory.Observations[2].HasGraphicsContext, Is.True);
-                Assert.That(factory.Observations[2].GraphicsContextHandle,
-                    Is.EqualTo(recreatedContext.SkiaContext.Handle));
-                Assert.That(factory.Observations[2].GraphicsBackend,
-                    Is.EqualTo(recreatedContext.SkiaContext.Backend));
             });
         });
     }

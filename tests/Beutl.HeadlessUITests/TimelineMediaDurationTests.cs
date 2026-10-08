@@ -515,6 +515,73 @@ public class TimelineMediaDurationTests
         }
     }
 
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EdgeDrag_DisabledFlowController_PreservesSafeBoundsForReenabling(bool leftEdge)
+    {
+        using var configuration = new RippleDisabledScope();
+        ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: leftEdge ? 2 : 1, lengthSeconds: 0.5);
+        var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(0.2) } };
+        model.Model.Objects.Add(controller);
+        var timeline = model.Timeline;
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 1600, Height = 420 };
+        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = view.GetVisualDescendants().OfType<ElementView>().Single(v => ReferenceEquals(v.DataContext, model));
+            Border border = element.FindControl<Border>("border")!;
+            float scale = timeline.Options.Value.Scale;
+            double y = border.Bounds.Height / 2;
+            Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), window)!.Value;
+            Point release = border.TranslatePoint(new Point(TimeSpan.FromSeconds(leftEdge ? -1 : 1.5).TimeToPixel(scale), y), window)!.Value;
+            window.MouseMove(press, RawInputModifiers.Alt);
+            window.MouseDown(press, MouseButton.Left, RawInputModifiers.Alt);
+            try
+            {
+                window.MouseMove(release, RawInputModifiers.Alt | RawInputModifiers.LeftMouseButton);
+                HeadlessTestHelpers.Render(5);
+                CapturePreview(window, $"disabled-flow-controller-left-{leftEdge}");
+                Assert.Multiple(() =>
+                {
+                    Assert.That(model.Width.Value, Is.EqualTo(TimeSpan.FromSeconds(0.8).TimeToPixel(scale)).Within(0.0001));
+                    Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.5)), "Preview must not mutate the element.");
+                });
+            }
+            finally
+            {
+                window.MouseUp(release, MouseButton.Left, RawInputModifiers.Alt);
+                HeadlessTestHelpers.Settle(4);
+            }
+            controller.IsEnabled = true;
+            using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+            var resource = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<DrawableTimeController.Resource>().Single();
+            var video = (SourceVideo.Resource)resource.Target!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(leftEdge ? 1.7 : 1)));
+                Assert.That(model.Model.Length, Is.EqualTo(TimeSpan.FromSeconds(0.8)));
+                Assert.That(video.RequestedPosition + video.OffsetPosition, Is.LessThanOrEqualTo(TimeSpan.FromSeconds(1)));
+            });
+        }
+        finally
+        {
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            view.DataContext = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     private static SourceVideo CreateDurationVideo()
     {
         DecoderRegistry.Register(new DurationVideoDecoder());

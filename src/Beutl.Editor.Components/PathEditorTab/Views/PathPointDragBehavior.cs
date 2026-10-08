@@ -503,7 +503,6 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         {
             if (related.Role == PathPointPropertyRole.Position || ReferenceEquals(related.Property, property)) continue;
             PathPointDragState state = CreateThumbDragState(viewModel, related.Owner, related.Property);
-            state.Anchor = anchor;
             state.Thumb = view.FindThumb(state.Target, state.Property);
             list.Add(state);
         }

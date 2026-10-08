@@ -32,18 +32,4 @@ internal static class TimestampUtilities
         double frameSec = (double)(frame * rate.Denominator) / rate.Numerator;
         return Convert100nsFromSec(frameSec);
     }
-
-    // timestamp -> Sample
-    public static int ConvertSampleFromTimeStamp(long nsTimeStamp, int nSamplesPerSec)
-    {
-        double sample = ConvertSecFrom100ns(nsTimeStamp) * nSamplesPerSec;
-        return (int)Math.Round(sample, MidpointRounding.AwayFromZero);
-    }
-
-    // Sample -> timestamp
-    public static long ConvertTimeStampFromSample(int startSample, int nSamplesPerSec)
-    {
-        double sampleSec = (double)startSample / nSamplesPerSec;
-        return Convert100nsFromSec(sampleSec);
-    }
 }

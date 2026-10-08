@@ -112,27 +112,15 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ElementProperty);
 
-    public Action<EngineObject>? RequestScroll { get; set; }
-
     public ReactiveProperty<Element?> Element { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
-
-    [Obsolete("Use Element property instead.")]
-    public ReactiveProperty<Element?> Layer => Element;
 
     public CoreList<EngineObjectPropertyViewModel> Items { get; } = [];
 
     public ToolTabExtension Extension => ElementPropertyTabExtension.Instance;
 
-    public IEditorContext ParentContext => _editorContext;
-
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
-
-    public void ScrollTo(EngineObject obj)
-    {
-        RequestScroll?.Invoke(obj);
-    }
 
     public void Dispose()
     {
@@ -147,7 +135,6 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         CanEdit.Dispose();
         Element.Dispose();
         _editorContext = null!;
-        RequestScroll = null;
     }
 
     private static string ViewStateDirectory(Element element)

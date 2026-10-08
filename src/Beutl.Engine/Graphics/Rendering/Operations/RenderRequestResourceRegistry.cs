@@ -121,20 +121,6 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         }
     }
 
-    public T TransferOwned<T>(RenderResource<T> resource)
-        where T : class, IDisposable
-    {
-        EnsureCommitted(resource);
-        if (resource.Mode != RenderResourceOwnershipMode.Owned
-            || resource.OwnershipState != RenderResourceOwnershipState.RequestOwned)
-        {
-            throw new InvalidOperationException("Only an unleased request-owned resource can transfer to a cache.");
-        }
-
-        RemoveResource(resource);
-        return (T)resource.Detach(RenderResourceOwnershipState.Discharged);
-    }
-
     public void Release(RenderResource resource)
     {
         EnsureRegistered(resource);
@@ -208,15 +194,6 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         if (!ReferenceEquals(resource.Registry, this))
         {
             throw new InvalidOperationException("The resource belongs to a different render request family.");
-        }
-    }
-
-    private void EnsureCommitted(RenderResource resource)
-    {
-        EnsureRegistered(resource);
-        if (resource.RegistrationState != RenderResourceRegistrationState.Committed)
-        {
-            throw new InvalidOperationException("The resource is not committed to this request.");
         }
     }
 

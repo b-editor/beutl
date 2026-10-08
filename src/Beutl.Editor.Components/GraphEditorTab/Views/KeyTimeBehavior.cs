@@ -13,10 +13,8 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public class KeyTimeMoveState
 {
-    public Point DragStart;
     internal GraphEditorDragSnapshot? Snapshot;
     internal Point Origin;
-    internal Point AppliedDelta;
     internal Point ScrollDelta;
     internal bool? HorizontalConstraint;
     internal bool ToggleOnRelease;
@@ -24,19 +22,8 @@ public class KeyTimeMoveState
     internal int TransformHandle = -1;
     internal Rect TransformBounds;
     internal Point TransformAnchor;
-    // ViewControlPoint2は後ろの位置からの相対的な位置
-    // ドラッグ前のコントロールポイントの位置（表示上の点）
-    public (Point ControlPoint1, Point ControlPoint2)? ViewControlPoints;
-    public (Point ControlPoint1, Point ControlPoint2)? NextViewControlPoints;
 
     public required IKeyFrame KeyFrame;
-    public GraphEditorKeyFrameViewModel? KeyFrameViewModel;
-    public GraphEditorKeyFrameViewModel? NextKeyFrameViewModel;
-
-    public bool Crossed;
-
-    // 追従移動するキーフレーム
-    public GraphEditorKeyFrameViewModel[]? FollowingKeyFrames;
 }
 
 public class KeyTimeBehavior : Behavior<Path>

@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
@@ -17,6 +18,9 @@ public sealed class FFmpegEncodingScaleTests
     [Test]
     public async Task Encode_WhenDestinationSizeDiffers_ScalesInsteadOfCropping()
     {
+        if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
+            Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
+
         string outputPath = Path.Combine(
             TestContext.CurrentContext.WorkDirectory,
             $"{Guid.NewGuid():N}.mp4");
@@ -118,11 +122,12 @@ public sealed class FFmpegEncodingScaleTests
                 Span<Bgra8888> row = bitmap.GetRow<Bgra8888>(y);
                 for (int x = 0; x < bitmap.Width; x++)
                 {
+                    // Bgra8888's constructor takes (r, g, b, a) although the fields are stored as B, G, R, A.
                     row[x] = (x < 32, y < 24) switch
                     {
-                        (true, true) => new Bgra8888(0, 0, 255, 255),
+                        (true, true) => new Bgra8888(255, 0, 0, 255),
                         (false, true) => new Bgra8888(0, 255, 0, 255),
-                        (true, false) => new Bgra8888(255, 0, 0, 255),
+                        (true, false) => new Bgra8888(0, 0, 255, 255),
                         _ => new Bgra8888(255, 255, 255, 255),
                     };
                 }

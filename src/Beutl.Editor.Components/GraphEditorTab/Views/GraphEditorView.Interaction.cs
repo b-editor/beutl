@@ -75,9 +75,7 @@ public partial class GraphEditorView
         KeyTimeMoveState = new KeyTimeMoveState
         {
             KeyFrame = item.Model,
-            KeyFrameViewModel = item,
             Origin = e.GetPosition(grid),
-            DragStart = e.GetPosition(grid),
             Snapshot = new GraphEditorDragSnapshot(channel),
             ToggleOnRelease = shift && selected
         };
@@ -115,9 +113,7 @@ public partial class GraphEditorView
                 KeyTimeMoveState = new KeyTimeMoveState
                 {
                     KeyFrame = first.Model,
-                    KeyFrameViewModel = first,
                     Origin = e.GetPosition(grid),
-                    DragStart = e.GetPosition(grid),
                     Snapshot = new GraphEditorDragSnapshot(channel),
                     TransformHandle = handle,
                     TransformBounds = bounds,
@@ -179,17 +175,16 @@ public partial class GraphEditorView
         }
         else
         {
-            DragKeyFrames(model, state, snapshot, ref delta, e);
+            DragKeyFrames(model, state, snapshot, delta, e);
         }
-        state.AppliedDelta = delta;
         AutoScrollWhileDragging(model, state, e);
         UpdateSelectionAdorner();
         e.Handled = true;
     }
 
-    // Shift locks the drag to the axis it started along, so delta may come back constrained.
+    // Shift locks the drag to the axis it started along.
     private void DragKeyFrames(
-        GraphEditorViewModel model, KeyTimeMoveState state, GraphEditorDragSnapshot snapshot, ref Point delta, PointerEventArgs e)
+        GraphEditorViewModel model, KeyTimeMoveState state, GraphEditorDragSnapshot snapshot, Point delta, PointerEventArgs e)
     {
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {

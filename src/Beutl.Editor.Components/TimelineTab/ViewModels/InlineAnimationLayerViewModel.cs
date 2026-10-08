@@ -93,12 +93,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        ObserveHeight = Element.LayerHeader
-            .Select(lh => lh?.Height ?? Observable.Return(FrameNumberHelper.LayerHeight))
-            .Switch()
-            .ToReadOnlyReactivePropertySlim(FrameNumberHelper.LayerHeight)
-            .DisposeWith(_disposables);
-
         // Widthプロパティを構成
         Timeline.Options.Subscribe(_ => UpdateWidth()).DisposeWith(_disposables);
 
@@ -190,9 +184,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     // Inline keyframe edits are refused while the clip or its layer is locked.
     public bool IsEditable => Element.IsEditable.Value;
 
-    [Obsolete("Use Element property instead.")]
-    public ElementViewModel Layer => Element;
-
     public CoreList<InlineKeyFrameViewModel> Items { get; } = [];
 
     public ReactiveProperty<Thickness> Margin { get; }
@@ -214,8 +205,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     public ReactiveCommand DeleteCurrentAnimationCommand { get; }
 
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Element.LayerHeader;
-
-    public IReadOnlyReactiveProperty<double> ObserveHeight { get; }
 
     public abstract void DropEasing(Easing easing, TimeSpan keyTime);
 

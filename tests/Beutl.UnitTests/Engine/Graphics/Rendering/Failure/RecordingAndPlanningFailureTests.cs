@@ -71,6 +71,60 @@ public sealed class RecordingAndPlanningFailureTests
     }
 
     [Test]
+    public void RecordingFailure_LogsTheCleanupFaultMaskedByThePrimaryWhenMeasuring()
+    {
+        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start();
+        var cleanupFailure = new InvalidOperationException("recording-cleanup");
+        var primaryFailure = new InvalidOperationException("recording-primary");
+        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
+        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
+
+        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(primaryFailure));
+            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
+        });
+    }
+
+    [Test]
+    public void RecordingFailure_LogsTheCleanupFaultMaskedByThePrimaryWhenRasterizing()
+    {
+        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start();
+        var cleanupFailure = new InvalidOperationException("recording-cleanup");
+        var primaryFailure = new InvalidOperationException("recording-primary");
+        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
+        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
+
+        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(primaryFailure));
+            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
+        });
+    }
+
+    [Test]
+    public void RecordingFailure_KeepsThePrimaryWhenTheLoggingProviderFails()
+    {
+        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start(throwOnLog: true);
+        var cleanupFailure = new InvalidOperationException("recording-cleanup");
+        var primaryFailure = new InvalidOperationException("recording-primary");
+        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
+        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
+
+        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(primaryFailure));
+            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
+        });
+    }
+
+    [Test]
     public void RecordingFailure_ReportsCleanupFaultWithoutReplacingThePrimary()
     {
         var cleanupFailure = new InvalidOperationException("recording-cleanup");
@@ -482,7 +536,7 @@ public sealed class RecordingAndPlanningFailureTests
                     _ = context.RecordNode(_other!, []);
                     break;
                 case RecordingRecursion.SeparateTarget:
-                    _ = context.RecordNestedTarget(this, s_bounds);
+                    _ = context.RecordNestedTargetAtScale(this, s_bounds, 1);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

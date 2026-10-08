@@ -21,7 +21,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     private readonly SurfaceKHR _surface;
     private readonly KhrSwapchain _khrSwapchain;
     private readonly KhrSurface _khrSurface;
-    private readonly uint _queueFamilyIndex;
 
     private SwapchainKHR _swapchain;
     private Image[] _images = [];
@@ -37,7 +36,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         Instance instance,
         PhysicalDevice physicalDevice,
         Device device,
-        uint queueFamilyIndex,
         SurfaceKHR surface,
         uint width,
         uint height)
@@ -45,7 +43,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         _vk = vk;
         _physicalDevice = physicalDevice;
         _device = device;
-        _queueFamilyIndex = queueFamilyIndex;
         _surface = surface;
 
         if (!vk.TryGetInstanceExtension(instance, out _khrSurface!))
@@ -102,11 +99,22 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     }
 
     /// <summary>
-    /// Whether the present shader has to encode sRGB itself: these 8-bit UNORM formats store its output unconverted.
+    /// Whether the present shader has to encode sRGB itself: a UNORM format stores its output unconverted,
+    /// while an SRGB format encodes in hardware, the HDR float format takes linear values, and a linear
+    /// color space expects linear components whatever the format.
     /// </summary>
-    private static bool RequiresShaderSrgbEncoding(Format format)
+    internal static bool RequiresShaderSrgbEncoding(Format format, ColorSpaceKHR colorSpace)
     {
-        return format is Format.B8G8R8A8Unorm or Format.R8G8B8A8Unorm or Format.R8G8B8Unorm;
+        if (colorSpace is ColorSpaceKHR.SpaceExtendedSrgbLinearExt or ColorSpaceKHR.SpaceDisplayP3LinearExt
+            or ColorSpaceKHR.SpaceBT709LinearExt or ColorSpaceKHR.SpaceBT2020LinearExt
+            or ColorSpaceKHR.SpaceAdobergbLinearExt)
+        {
+            return false;
+        }
+
+        // Silk.NET has no format-property table, so read the numeric type from the name
+        // (B8G8R8A8Unorm, A2B10G10R10UnormPack32, ...) rather than listing formats.
+        return format.ToString().Contains("Unorm", StringComparison.Ordinal);
     }
 
     private void Create(uint width, uint height, SwapchainKHR oldSwapchain)
@@ -117,7 +125,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         // Select format (prefer HDR)
         SelectFormat(out _format, out _colorSpace, out _isHdr);
-        SrgbFormat = !RequiresShaderSrgbEncoding(_format);
+        SrgbFormat = !RequiresShaderSrgbEncoding(_format, _colorSpace);
 
         // Select extent
         _extent = SelectExtent(capabilities, width, height);
@@ -249,17 +257,44 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             }
         }
 
-        // Last resort: first available format
+        // Last resort: a pair the present path shows as intended, else the first available format
         if (formats.Length > 0)
         {
-            format = formats[0].Format;
-            colorSpace = formats[0].ColorSpace;
+            SurfaceFormatKHR fallback = SelectFallbackFormat(formats);
+            format = fallback.Format;
+            colorSpace = fallback.ColorSpace;
             isHdr = false;
             s_logger.LogInformation("Selected fallback format: {Format} / {ColorSpace}", format, colorSpace);
             return;
         }
 
         throw new InvalidOperationException("No surface formats available");
+    }
+
+    /// <summary>
+    /// Picks the first pair the present path shows as intended, else the first format listed.
+    /// </summary>
+    /// <remarks>
+    /// The present path writes sRGB-primaried values, either encoded with the sRGB curve (by an SRGB format or
+    /// the shader) or left linear, so only color spaces with those primaries and the matching transfer fit.
+    /// </remarks>
+    internal static SurfaceFormatKHR SelectFallbackFormat(SurfaceFormatKHR[] formats)
+    {
+        foreach (var f in formats)
+        {
+            bool? expectsSrgbCurve = f.ColorSpace switch
+            {
+                ColorSpaceKHR.SpaceSrgbNonlinearKhr or ColorSpaceKHR.SpaceExtendedSrgbNonlinearExt => true,
+                ColorSpaceKHR.SpaceExtendedSrgbLinearExt or ColorSpaceKHR.SpaceBT709LinearExt => false,
+                _ => null,
+            };
+            bool writesSrgbCurve = f.Format.ToString().Contains("Srgb", StringComparison.Ordinal)
+                                   || RequiresShaderSrgbEncoding(f.Format, f.ColorSpace);
+            if (expectsSrgbCurve == writesSrgbCurve)
+                return f;
+        }
+
+        return formats[0];
     }
 
     private PresentModeKHR SelectPresentMode()

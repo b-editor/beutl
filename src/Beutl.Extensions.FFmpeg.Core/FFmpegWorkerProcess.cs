@@ -250,6 +250,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous);
         Process? process = null;
+        FFmpegWorkerLogPump logPump;
 
         try
         {
@@ -265,13 +266,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
                 // Publish the process and log pump together so disposal can claim both.
                 // User configuration and availability callbacks run outside this gate.
-                _logPump = new FFmpegWorkerLogPump();
-                _logPump.Attach(process);
+                _logPump = logPump = new FFmpegWorkerLogPump();
+                logPump.Attach(process);
                 process.BeginErrorReadLine();
                 process.BeginOutputReadLine();
             }
 
-            await WaitForWorkerConnectionAsync(pipeServer, process, ct).ConfigureAwait(false);
+            await WaitForWorkerConnectionAsync(pipeServer, process, logPump, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -344,7 +345,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
     }
 
     private static async Task WaitForWorkerConnectionAsync(
-        NamedPipeServerStream pipeServer, Process process, CancellationToken ct)
+        NamedPipeServerStream pipeServer, Process process, FFmpegWorkerLogPump logPump, CancellationToken ct)
     {
         // パイプ接続待機 + Worker早期終了検出
         using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -360,6 +361,9 @@ public sealed class FFmpegWorkerProcess : IDisposable
             await exitTask.ConfigureAwait(false);
 
             int code = process.ExitCode;
+            // WaitForExitAsync drains the redirected streams before completing.
+            string stderr = logPump.GetStandardErrorTail();
+            string details = stderr.Length == 0 ? string.Empty : $"{Environment.NewLine}Worker stderr: {stderr}";
 
             // 敗者となった connectTask の例外を観測しておく（UnobservedTaskException 防止）
             connectCts.Cancel();
@@ -373,10 +377,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 FFmpegLibraryState.ArmReprobeCooldown();
 #endif
                 throw new FFmpegLibrariesNotFoundException(
-                    "FFmpeg worker exited because the FFmpeg libraries could not be found.");
+                    "FFmpeg worker exited because the FFmpeg libraries could not be found." + details);
             }
             throw new InvalidOperationException(
-                $"FFmpeg worker exited unexpectedly with code {code} before establishing connection.");
+                $"FFmpeg worker exited unexpectedly with code {code} before establishing connection." + details);
         }
 
         // 接続が先に成立。例外があれば伝播させる
@@ -449,31 +453,44 @@ public sealed class FFmpegWorkerProcess : IDisposable
     /// <summary>
     /// Resolves how to launch the GPL worker process. Dev builds isolate it under an
     /// <c>FFmpegWorker/</c> subdirectory (so it never overwrites the app's shared assemblies); Nuke
-    /// publishes lay it out flat. Prefers the subdir over the flat layout, and an apphost over a bare
-    /// <c>.dll</c>; when no apphost exists, launches via the dotnet host with the .dll as the first arg.
+    /// publishes lay it out flat. Requires the worker DLL and its runtime configuration/dependency
+    /// manifests; skips incomplete layouts. Prefers the subdir over the flat layout, and an apphost
+    /// over DLL mode; when no apphost exists, launches the DLL via the dotnet host.
     /// </summary>
     internal static WorkerCommand ResolveWorkerCommand(
         string baseDirectory, bool isWindows, string dotnetHost, Func<string, bool> fileExists)
     {
         (string exeSuffix, string subDirStem, string flatStem) = GetWorkerStems(baseDirectory, isWindows);
-        string stem = fileExists(subDirStem + exeSuffix) || fileExists(subDirStem + ".dll")
-            ? subDirStem
-            : flatStem;
+        foreach (string stem in new[] { subDirStem, flatStem })
+        {
+            if (!IsWorkerDeploymentComplete(stem, fileExists))
+                continue;
 
-        string apphostPath = stem + exeSuffix;
-        return fileExists(apphostPath)
-            ? new WorkerCommand(apphostPath, null)
-            : new WorkerCommand(dotnetHost, stem + ".dll");
+            string apphostPath = stem + exeSuffix;
+            return fileExists(apphostPath)
+                ? new WorkerCommand(apphostPath, null)
+                : new WorkerCommand(dotnetHost, stem + ".dll");
+        }
+
+        throw new FileNotFoundException(
+            "No complete FFmpeg worker deployment was found in FFmpegWorker/ or the application directory. "
+            + "Each layout requires Beutl.FFmpegWorker.dll, Beutl.FFmpegWorker.runtimeconfig.json, "
+            + "and Beutl.FFmpegWorker.deps.json.");
     }
 
     /// <summary>Reports whether a launchable Beutl.FFmpegWorker is present under
     /// <paramref name="baseDirectory"/> (FFmpegWorker/ subdir, then flat layout).</summary>
     public static bool IsWorkerAvailable(string baseDirectory)
     {
-        (string exeSuffix, string subDirStem, string flatStem) = GetWorkerStems(baseDirectory, OperatingSystem.IsWindows());
-        return File.Exists(subDirStem + exeSuffix) || File.Exists(subDirStem + ".dll")
-            || File.Exists(flatStem + exeSuffix) || File.Exists(flatStem + ".dll");
+        (_, string subDirStem, string flatStem) = GetWorkerStems(baseDirectory, OperatingSystem.IsWindows());
+        return IsWorkerDeploymentComplete(subDirStem, File.Exists)
+            || IsWorkerDeploymentComplete(flatStem, File.Exists);
     }
+
+    private static bool IsWorkerDeploymentComplete(string stem, Func<string, bool> fileExists)
+        => fileExists(stem + ".dll")
+            && fileExists(stem + ".runtimeconfig.json")
+            && fileExists(stem + ".deps.json");
 
     private static (string ExeSuffix, string SubDirStem, string FlatStem) GetWorkerStems(
         string baseDirectory, bool isWindows)

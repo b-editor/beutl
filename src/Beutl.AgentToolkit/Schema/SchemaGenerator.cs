@@ -105,11 +105,6 @@ public sealed partial class SchemaGenerator
             includeExamples ? CreateExamples(typeFilter, categoryFilter) : []);
     }
 
-    public bool ContainsType(string typeOrDiscriminator)
-    {
-        return Generate(typeFilter: typeOrDiscriminator).Types.Count > 0;
-    }
-
     private static IEnumerable<(string Category, Type Type)> EnumerateRegisteredTypes()
     {
         foreach (string format in s_formats)

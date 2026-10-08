@@ -18,7 +18,7 @@ public class SettingsDialogTests
         SettingsDialog? dialog = null;
         try
         {
-            dialog = new SettingsDialog();
+            dialog = HeadlessAppWindow.Create(() => new SettingsDialog());
             Assert.Multiple(() =>
             {
                 Assert.That(dialog.FindControl<FANavigationView>("nav"), Is.Not.Null);
@@ -53,7 +53,10 @@ public class SettingsDialogTests
     {
         await TestReset.ResetShellAsync();
         using SettingsDialogViewModel viewModel = TestShell.MainViewModel.CreateSettingsDialog();
-        var dialog = new SettingsDialog { DataContext = viewModel, Width = 800, Height = 600 };
+        var dialog = HeadlessAppWindow.Create(() => new SettingsDialog());
+        dialog.DataContext = viewModel;
+        dialog.Width = 800;
+        dialog.Height = 600;
         var owner = new Window();
         FAFrame frame = dialog.FindControl<FAFrame>("frame")!;
 

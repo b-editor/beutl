@@ -85,14 +85,6 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
         NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, Properties.Value);
     }
 
-    public void ChangeType(Type type)
-    {
-        if (Activator.CreateInstance(type) is PathSegment instance)
-        {
-            SetValue(Value.Value, instance);
-        }
-    }
-
     public void SetNull()
     {
         SetValue(Value.Value, null);

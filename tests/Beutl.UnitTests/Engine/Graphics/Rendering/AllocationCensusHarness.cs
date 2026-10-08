@@ -80,7 +80,7 @@ public sealed class AllocationCensusHarness
             {
                 "=== NODE SCALING (uniform RectShape scene, cache DISABLED) ===",
                 $"{"rects",6} {"fragments",10} {"values",8} {"resources",10} {"islands",8} "
-                + $"{"RECORD",10} {"METADATA",10} {"COMPILE",10} {"EXECUTE",10} {"TOTAL",10}",
+                + $"{"RECORD",10} {"SETUP",10} {"COMPILE",10} {"EXECUTE",10} {"TOTAL",10}",
             };
             int[] counts = [1, 2, 4, 8, 16, 32];
             foreach (int count in counts)
@@ -371,8 +371,8 @@ public sealed class AllocationCensusHarness
         "2 BeginLifecycle (render-node cache)",
         "3 RenderRequest + RenderRequestOptions",
         "4 RECORD  (RenderRequestRecorder.Record)",
-        "5 METADATA (compiler.ResolveMetadata)",
-        "6 COMPILE  (compiler.CompileAfterMetadata)",
+        "5 SETUP   (cache context + compiler)",
+        "6 COMPILE  (compiler.Compile)",
         "7 Target acquire + canvas + clear",
         "8 EXECUTE (RenderRequestExecutor.Execute)",
         "9 Teardown / dispose",
@@ -430,13 +430,11 @@ public sealed class AllocationCensusHarness
             structuralPlanCache,
             cacheContext,
             warmCache ? RenderNodeCacheLookup.Instance : null);
-        RenderNodeMeasurement measurement = compiler.ResolveMetadata(request, graph);
         Mark();
 
         SkslBackendBudget shaderBudget = SkslBackendBudgetResolver.Resolve(
             targets.ExternalTarget?.RawValue.Context?.Backend);
-        CompiledRenderRequest compiled =
-            compiler.CompileAfterMetadata(request, graph, measurement, shaderBudget);
+        CompiledRenderRequest compiled = compiler.Compile(request, graph, shaderBudget);
         Mark();
 
         Rect selectedBounds = compiled.SelectedOutputBounds;

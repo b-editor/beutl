@@ -2,7 +2,6 @@
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
-using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
@@ -15,11 +14,6 @@ public sealed class ExtensionsPageViewModel : IToolWindowContext
 
     public ExtensionsPageViewModel(BeutlApiApplication clients, EditorService editorService, ProjectService projectService)
     {
-        IsAuthenticated = clients.AuthenticatedUser
-            .Select(x => x != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         clients.AuthenticatedUser.Subscribe(user =>
             {
                 _authDisposables.Clear();
@@ -31,8 +25,6 @@ public sealed class ExtensionsPageViewModel : IToolWindowContext
             })
             .DisposeWith(_disposables);
     }
-
-    public ReadOnlyReactivePropertySlim<bool> IsAuthenticated { get; }
 
     public DiscoverPageViewModel Discover => _discover!.Value;
 

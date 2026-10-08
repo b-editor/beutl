@@ -11,7 +11,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.Editor.Components.LibraryTab;
 
 [PrimitiveImpl]
-public sealed class LibraryTabExtension : ToolTabExtension
+public sealed partial class LibraryTabExtension : ToolTabExtension
 {
     public static readonly LibraryTabExtension Instance = new();
 

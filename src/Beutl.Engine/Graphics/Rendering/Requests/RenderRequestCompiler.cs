@@ -75,48 +75,6 @@ internal sealed class RenderRequestCompiler
         }
     }
 
-    public CompiledRenderRequest CompileAfterMetadata(
-        RenderRequest request,
-        RecordedRenderGraph graph,
-        RenderNodeMeasurement measurement)
-        => CompileAfterMetadata(
-            request,
-            graph,
-            measurement,
-            SkslBackendBudgetResolver.Portable);
-
-    internal CompiledRenderRequest CompileAfterMetadata(
-        RenderRequest request,
-        RecordedRenderGraph graph,
-        RenderNodeMeasurement measurement,
-        SkslBackendBudget shaderBudget)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(graph);
-        ArgumentNullException.ThrowIfNull(shaderBudget);
-        if (request.State != RenderRequestState.MetadataResolved)
-        {
-            throw new InvalidOperationException(
-                "A render request can be compiled only after metadata resolution.");
-        }
-
-        try
-        {
-            var measurements = new Dictionary<RenderRequest, RenderNodeMeasurement>(
-                ReferenceEqualityComparer.Instance)
-            {
-                [request] = measurement,
-            };
-            CollectNestedMetadata(graph, measurements);
-            return CompileFamilyAndRetainSlots(request, graph, measurements, shaderBudget);
-        }
-        catch (Exception ex)
-        {
-            FailFamily(request, graph, ex);
-            throw;
-        }
-    }
-
     private CompiledRenderRequest CompileFamilyAndRetainSlots(
         RenderRequest request,
         RecordedRenderGraph graph,
@@ -165,29 +123,6 @@ internal sealed class RenderRequestCompiler
             request.Options.TargetDomain);
         return new RegionAnalyzer()
             .ResolveMeasurement(request.Options, roots, targetDependencies);
-    }
-
-    private void CollectNestedMetadata(
-        RecordedRenderGraph graph,
-        IDictionary<RenderRequest, RenderNodeMeasurement> measurements)
-    {
-        foreach (RecordedNestedRenderRequest nested in graph.NestedRequests)
-        {
-            if (nested.Request.State == RenderRequestState.Recorded)
-            {
-                ResolveMetadataFamily(nested.Request, nested.Graph, measurements);
-            }
-            else if (nested.Request.State == RenderRequestState.MetadataResolved)
-            {
-                CollectNestedMetadata(nested.Graph, measurements);
-                measurements[nested.Request] = MeasureRoots(nested.Request, nested.Graph);
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    "A nested render request must be recorded or metadata-resolved before family compilation.");
-            }
-        }
     }
 
     private CompiledRenderRequest CompileFamily(

@@ -215,19 +215,6 @@ public sealed class IpcConnection : IDisposable
         }
     }
 
-    public IpcMessage? Receive()
-    {
-        _readLock.Wait();
-        try
-        {
-            return MessageSerializer.ReadMessage(_pipe);
-        }
-        finally
-        {
-            _readLock.Release();
-        }
-    }
-
     public async ValueTask<IpcMessage?> ReceiveAsync(CancellationToken ct = default)
     {
         await _readLock.WaitAsync(ct).ConfigureAwait(false);

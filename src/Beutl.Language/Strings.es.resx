@@ -3345,4 +3345,58 @@ cuando el registro del historial está activado.</value>
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>Cambiar a la pestaña de herramienta anterior</value>
   </data>
+  <data name="GoToMarker" xml:space="preserve">
+    <value>Ir al marcador…</value>
+  </data>
+  <data name="AddMarkerWithName" xml:space="preserve">
+    <value>Agregar marcador…</value>
+  </data>
+  <data name="RenameMarker" xml:space="preserve">
+    <value>Cambiar nombre del marcador…</value>
+  </data>
+  <data name="SaveDockLayoutAs" xml:space="preserve">
+    <value>Guardar diseño de paneles como…</value>
+  </data>
+  <data name="RenameDockLayout" xml:space="preserve">
+    <value>Cambiar nombre del diseño de paneles…</value>
+  </data>
+  <data name="DeleteDockLayout" xml:space="preserve">
+    <value>Eliminar diseño de paneles…</value>
+  </data>
+  <data name="JumpToHistory" xml:space="preserve">
+    <value>Ir a un estado del historial…</value>
+  </data>
+  <data name="ChangeSceneSize" xml:space="preserve">
+    <value>Cambiar tamaño de la escena…</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>Cambiar inicio de la escena…</value>
+  </data>
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>Cambiar duración de la escena…</value>
+  </data>
+  <data name="ChangePreviewRenderQuality" xml:space="preserve">
+    <value>Cambiar calidad de renderizado de la vista previa…</value>
+  </data>
+  <data name="OpenRecentProject" xml:space="preserve">
+    <value>Abrir proyecto reciente…</value>
+  </data>
+  <data name="OpenRecentFile" xml:space="preserve">
+    <value>Abrir archivo reciente…</value>
+  </data>
+  <data name="ChangeTheme" xml:space="preserve">
+    <value>Cambiar tema…</value>
+  </data>
+  <data name="CommandPalette_ValueRequired" xml:space="preserve">
+    <value>Introduce un valor.</value>
+  </data>
+  <data name="CommandPalette_NameInUse" xml:space="preserve">
+    <value>Ese nombre ya está en uso.</value>
+  </data>
+  <data name="CommandPalette_SceneSizeInvalid" xml:space="preserve">
+    <value>Introduce el tamaño como ancho x alto, por ejemplo 1920x1080.</value>
+  </data>
+  <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
+    <value>hh:mm:ss.fff</value>
+  </data>
 </root>

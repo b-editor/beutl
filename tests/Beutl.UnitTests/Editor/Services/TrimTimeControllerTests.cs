@@ -54,7 +54,7 @@ public class TrimTimeControllerTests
         double[] localSamples = [0, 0.5, 1.5];
         double[] shiftedPlayback = localSamples.Select(t => ReadPosition(controller, 5 + t + 0.25)).ToArray();
         TimeSpan clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(1));
-        TimeSpan? maximumDuration = SlippableMedia.GetMaximumDuration(element);
+        TimeSpan? maximumDuration = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration();
 
         Assert.Multiple(() =>
         {
@@ -270,7 +270,7 @@ public class TrimTimeControllerTests
             Assert.That(ReadPosition(controller, 7), Is.EqualTo(1.5).Within(0.000001));
         });
 
-        TimeSpan? maximumDuration = SlippableMedia.GetMaximumDuration(element);
+        TimeSpan? maximumDuration = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration();
 
         Assert.Multiple(() =>
         {
@@ -335,7 +335,7 @@ public class TrimTimeControllerTests
 
         var targets = SlippableMedia.Collect(element);
         TimeSpan clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(1));
-        TimeSpan? maximumDuration = SlippableMedia.GetMaximumDuration(element);
+        TimeSpan? maximumDuration = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration();
         double beforeShiftedStart = ReadFlowPosition(0.25);
 
         Assert.Multiple(() =>
@@ -657,7 +657,7 @@ public class TrimTimeControllerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(SlippableMedia.GetMaximumDuration(element), Is.Null);
+            Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(), Is.Null);
             Assert.That(SlippableMedia.HasOriginalDuration(element), Is.True);
             Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(expected)));
         });
@@ -729,7 +729,7 @@ public class TrimTimeControllerTests
             OffsetPosition = { CurrentValue = Seconds(10) },
             Loop = { CurrentValue = true }
         });
-        TimeSpan? maximum = SlippableMedia.GetMaximumDuration(element);
+        TimeSpan? maximum = SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration();
         Assert.That(maximum?.TotalSeconds, Is.GreaterThanOrEqualTo(1.6));
         Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(Seconds(1.6)), Is.EqualTo(Seconds(1.6)));
     }

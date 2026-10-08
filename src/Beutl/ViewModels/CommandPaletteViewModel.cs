@@ -186,7 +186,11 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             {
                 Close();
                 ReportInteractionFailure(ex, "A command palette validator failed.");
+                return Task.CompletedTask;
             }
+
+            if (prompt.IsCompleted)
+                HideAfterAnsweredPrompt(prompt);
             return Task.CompletedTask;
         }
 
@@ -268,6 +272,18 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                     Close();
             }));
         return await prompt.Completion;
+    }
+
+    // The handler resumes from the answer at a higher priority than this check, so a next step it
+    // requests straight away keeps the palette open. A handler that goes on to other work (opening a
+    // project, committing) must not leave the answered prompt on screen; a later request reopens it.
+    private void HideAfterAnsweredPrompt(CommandPalettePromptViewModel prompt)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ReferenceEquals(Prompt.Value, prompt) && IsOpen.Value)
+                Hide();
+        }, DispatcherPriority.Background);
     }
 
     private bool TryUpdatePrompt(CommandPalettePromptViewModel prompt, string value)

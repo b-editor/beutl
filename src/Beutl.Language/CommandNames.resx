@@ -197,4 +197,10 @@
   <data name="ApplyTemplate" xml:space="preserve">
     <value>Apply Template</value>
   </data>
+  <data name="RenameElement" xml:space="preserve">
+    <value>Rename Element</value>
+  </data>
+  <data name="AddMarker" xml:space="preserve">
+    <value>Add Marker</value>
+  </data>
 </root>

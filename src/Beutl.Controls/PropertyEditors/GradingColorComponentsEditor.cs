@@ -13,8 +13,8 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
         AvaloniaProperty.RegisterDirect<GradingColorComponentsEditor, GradingColor>(nameof(Color),
             x => x.Color, (x, v) => x.Color = v);
 
-    public static readonly DirectProperty<ColorComponentsEditor, bool> RgbProperty =
-        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, bool>(nameof(Rgb),
+    public static readonly DirectProperty<GradingColorComponentsEditor, bool> RgbProperty =
+        AvaloniaProperty.RegisterDirect<GradingColorComponentsEditor, bool>(nameof(Rgb),
             x => x.Rgb, (x, v) => x.Rgb = v, unsetValue: true);
 
     private GradingColor _color = new GradingColor(1, 1, 1);

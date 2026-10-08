@@ -12,7 +12,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     : EncodingController(outputFile)
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingController>();
-    const int AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
 
     private bool _isHdr;
     private BitmapColorSpace? _targetColorSpace;
@@ -90,12 +89,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var codec = AudioSettings.Codec.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.AudioCodec)
             : MediaCodec.FindEncoder(AudioSettings.Codec.Name);
-        var channelLayout = new AVChannelLayout
-        {
-            order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
-            nb_channels = AudioSettings.Channels,
-            u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
-        };
+        AVChannelLayout channelLayout = SelectChannelLayout(codec, AudioSettings.Channels);
         int sampleRate = AudioSettings.SampleRate;
         var format = (AVSampleFormat)AudioSettings.Format;
         int bitRate = AudioSettings.Bitrate;
@@ -160,12 +154,32 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         swr.SetOpts(encoder.ChLayout, encoder.SampleRate,
             (AVSampleFormat)AudioSettings.Format, nbsamples);
 
-        // src
-        audioFrame.ChLayout = encoder.ChLayout;
+        // src: the sample provider always delivers interleaved stereo, which swr remixes into the encoder's layout
+        audioFrame.ChLayout = DefaultChannelLayout(2);
         audioFrame.NbSamples = nbsamples;
         audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
         audioFrame.SampleRate = encoder.SampleRate;
         audioFrame.AllocateBuffer();
+    }
+
+    // The codec's own layout for the channel count comes first: AAC takes 5.1 only with back
+    // speakers, while FFmpeg's default six-channel layout uses side ones.
+    private static AVChannelLayout SelectChannelLayout(MediaCodec codec, int channels)
+    {
+        foreach (AVChannelLayout layout in codec.GetChLayouts())
+        {
+            if (layout.nb_channels == channels)
+                return layout;
+        }
+
+        return DefaultChannelLayout(channels);
+    }
+
+    private static unsafe AVChannelLayout DefaultChannelLayout(int channels)
+    {
+        AVChannelLayout layout;
+        ffmpeg.av_channel_layout_default(&layout, channels);
+        return layout;
     }
 
     private unsafe void ConfigureVideoStream(
@@ -485,6 +499,11 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             pkt.StreamIndex = stream.Index;
             // Console.WriteLine(
             //     $"pts:{pkt.Pts} pts_time:{0} dst:{pkt.Dts} dts_time:{0} duration:{pkt.Duration} duration_time:{0} stream_index:{streamIndex}");
+            // Encoders such as libx264 leave a video packet's duration unset, and the muxer needs it for the last
+            // sample, which has no next timestamp to take its length from: a one-frame video would otherwise last
+            // zero seconds. Each packet holds one frame, so give it one frame interval in the encoder's time base.
+            if (pkt.Duration == 0 && encoder.CodecType == AVMediaType.AVMEDIA_TYPE_VIDEO)
+                pkt.Duration = ffmpeg.av_rescale_q(1, ffmpeg.av_inv_q(encoder.Framerate), encoder.TimeBase);
             ffmpeg.av_packet_rescale_ts(pkt, encoder.TimeBase, stream.TimeBase);
             muxer.WritePacket(pkt).ThrowIfError();
         }

@@ -417,8 +417,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         };
     }
 
-    public Rect LastSelectedRect { get; set; }
-
     public EditViewModel EditViewModel => _editViewModel;
 
     public PathEditorViewModel PathEditor { get; }
@@ -615,14 +613,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         return rate;
-    }
-
-    public (TimeSpan Start, TimeSpan End) GetLoopRange()
-    {
-        if (Scene == null)
-            return (TimeSpan.Zero, TimeSpan.Zero);
-
-        return (Scene.Start, Scene.Start + Scene.Duration);
     }
 
     public void ToggleLoop()

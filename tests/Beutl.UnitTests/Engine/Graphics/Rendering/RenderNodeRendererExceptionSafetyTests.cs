@@ -248,14 +248,14 @@ public class RenderNodeRendererExceptionSafetyTests
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => Execute(entryPoint, renderer));
-        RenderRequestOwner owner = node.NestedRequest!.Request.Options.Owner;
+        RenderRequestOwner owner = node.NestedRequest!.Recording.Request.Options.Owner;
 
         Assert.Multiple(() =>
         {
             Assert.That(failure!.Message, Is.EqualTo("rt-create-fault"));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
             Assert.That(owner.SecondaryFailures, Is.Empty);
-            Assert.That(node.NestedRequest.Request.State, Is.EqualTo(RenderRequestState.Disposed));
+            Assert.That(node.NestedRequest.Recording.Request.State, Is.EqualTo(RenderRequestState.Disposed));
         });
     }
 
@@ -533,7 +533,7 @@ public class RenderNodeRendererExceptionSafetyTests
 
         public override void Process(RenderNodeContext context)
         {
-            NestedRequest = context.RecordNestedTarget(_nested, s_domain);
+            NestedRequest = context.RecordNestedTargetAtScale(_nested, s_domain, 1);
             context.Publish(context.TargetCapture(TargetCaptureDescription.Create(
                 TargetRegion.Region(s_domain),
                 s_domain,

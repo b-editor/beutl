@@ -41,16 +41,10 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
             .Subscribe()
             .DisposeWith(Disposables);
 
-        SelectedValue = Value
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
         SelectedIndex = Value.Select(v => _originalChoices.IndexOf(v))
             .ToReactiveProperty()
             .DisposeWith(Disposables);
     }
-
-    public ReadOnlyReactivePropertySlim<T?> SelectedValue { get; }
 
     public ReactiveProperty<int> SelectedIndex { get; }
 

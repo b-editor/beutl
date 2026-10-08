@@ -219,12 +219,6 @@ internal sealed class AiRequestKey : IDisposable
     }
 
     /// <summary>
-    /// The key for a request identified by <paramref name="parts"/>. The server
-    /// holds a key to printable ASCII and to 255 characters, which this is.
-    /// </summary>
-    public string For(params ReadOnlySpan<string?> parts) => NameFor(parts).Key;
-
-    /// <summary>
     /// The key for a request identified by <paramref name="parts"/>, and
     /// whether it has been handed out since the last settlement.
     /// </summary>
@@ -253,13 +247,6 @@ internal sealed class AiRequestKey : IDisposable
             form,
             sources);
     }
-
-    /// <summary>
-    /// The key for the <paramref name="pieceIndex"/>th piece of a request sent
-    /// in pieces, each of which is charged and recovered on its own.
-    /// </summary>
-    public string For(int pieceIndex, params ReadOnlySpan<string?> parts)
-        => NameFor(pieceIndex, parts).Key;
 
     public AiRequestName NameFor(int pieceIndex, params ReadOnlySpan<string?> parts)
     {
@@ -374,18 +361,6 @@ internal sealed class AiRequestKey : IDisposable
             throw new InvalidDataException("AI recovery dispatch fence could not be persisted.");
     }
 
-    internal AiPendingAttempt? FindPending(
-        AiOperationId operation,
-        ReadOnlySpan<string?> parts)
-    {
-        if (_recoveryContext?.TryGetIdentity() is not { } identity)
-            return null;
-        return _recoveryContext.Store.Find(
-            identity.AccountId,
-            ResolveOperation(parts),
-            Fingerprint(parts));
-    }
-
     internal bool MatchesPending(AiPendingAttempt attempt, ReadOnlySpan<string?> parts)
         => _recoveryContext?.TryGetIdentity() is { } identity
             && StringComparer.Ordinal.Equals(identity.AccountId, attempt.AccountId)
@@ -409,37 +384,6 @@ internal sealed class AiRequestKey : IDisposable
             attempt.Fingerprint);
         return current is not null
             && StringComparer.Ordinal.Equals(current.Key, attempt.Key);
-    }
-
-    internal void PersistForm(
-        AiRequestName name,
-        AiRequestFormSnapshot form,
-        IReadOnlyList<AiRequestRecoverySource>? sources = null)
-    {
-        if (_recoveryContext is null || string.IsNullOrEmpty(name.Key))
-            return;
-        ArgumentNullException.ThrowIfNull(form);
-        lock (_gate)
-        {
-            if (!TryGetOutstanding(name.Key, out string? request, out string? account, out string? operation))
-            {
-                throw new InvalidOperationException("The AI request name is not outstanding.");
-            }
-
-            AiPendingAttempt? existing = _recoveryContext.Store.Find(account, operation, request);
-            if (existing is null)
-                throw new InvalidDataException("The AI recovery row is missing.");
-            if (!_recoveryContext.Store.TryUpdateForm(
-                    account,
-                    operation,
-                    request,
-                    existing.Key,
-                    form,
-                    sources))
-            {
-                throw new InvalidDataException("The AI recovery row changed while updating form state.");
-            }
-        }
     }
 
     internal void Abandon(AiPendingAttempt attempt)
@@ -533,35 +477,6 @@ internal sealed class AiRequestKey : IDisposable
                 ?? throw new InvalidOperationException("The AI request name is not outstanding.");
         }
         return _recoveryContext.Enter(account);
-    }
-
-    /// <summary>
-    /// Identifies a file the way the server does: by the name it arrives under
-    /// and by its bytes.
-    /// </summary>
-    /// <remarks>
-    /// Anything else drifts from what the server calls the same request. Its
-    /// path would make a file moved between folders a new request, and its
-    /// modified time would do the same for a file merely touched — both would
-    /// buy the same work a second time. Reading the bytes is what the upload is
-    /// about to do anyway.
-    /// </remarks>
-    public static string FileStamp(string? filePath)
-    {
-        if (string.IsNullOrEmpty(filePath))
-            return string.Empty;
-
-        try
-        {
-            using FileStream stream = File.OpenRead(filePath);
-            return FileStamp(Path.GetFileName(filePath), SHA256.HashData(stream));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Unreadable here means the upload is about to fail anyway; the path
-            // alone still tells two different files apart.
-            return filePath;
-        }
     }
 
     /// <summary>
@@ -693,29 +608,6 @@ internal sealed class AiRequestKey : IDisposable
         _hasOutstandingName.Value = false;
         return true;
     }
-
-    /// <summary>
-    /// Forgets a name the server made no job under, so it stops counting as
-    /// outstanding and the same request may go out under it again.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A name is handed out before the request goes out, and some refusals
-    /// happen before anything is reserved: the client's own balance check, and
-    /// the server's answers about the plan, the sign-in, the size of an upload
-    /// and whether a model can serve the request at all — every one of which it
-    /// decides after looking the name up and finding nothing. Leaving such a
-    /// name outstanding pins the run to the model it named and keeps the way
-    /// back to a job open that was never made.
-    /// </para>
-    /// <para>
-    /// Call this only where the server has been heard to reserve nothing, or
-    /// where the request never left. A name withdrawn while the job it made is
-    /// still out there is a job that will be bought again.
-    /// </para>
-    /// </remarks>
-    public bool Withdraw(AiRequestName name)
-        => WithdrawCore(name, ownerAuthorizedDispatched: false);
 
     /// <summary>
     /// Withdraws a name after the server authoritatively reported that no

@@ -2,7 +2,6 @@
 using System.Collections.Specialized;
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 
 namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
@@ -12,7 +11,7 @@ public sealed class CurvePresenterViewModel : IDisposable
     private readonly HistoryManager _history;
     private bool _isUpdating;
 
-    public CurvePresenterViewModel(string header, Curves effect, IProperty<CurveMap> property,
+    public CurvePresenterViewModel(string header, IProperty<CurveMap> property,
         HistoryManager history)
     {
         Header = header;

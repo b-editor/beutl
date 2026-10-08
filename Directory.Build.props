@@ -1,5 +1,8 @@
 <Project>
   <PropertyGroup>
+    <!-- The SDK defaults Configuration only after this file is imported, so a project built without -c
+         would still see it empty below and keep Optimize=true in Debug. Default it the same way first. -->
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>preview</LangVersion>
     <Nullable>enable</Nullable>

@@ -11,7 +11,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.Editor.Components.SceneSettingsTab;
 
 [PrimitiveImpl]
-public sealed class SceneSettingsTabExtension : ToolTabExtension
+public sealed partial class SceneSettingsTabExtension : ToolTabExtension
 {
     public static readonly SceneSettingsTabExtension Instance = new();
 
@@ -19,7 +19,7 @@ public sealed class SceneSettingsTabExtension : ToolTabExtension
 
     public override string Name => "Scene settings";
 
-    public override string DisplayName => Name;
+    public override string DisplayName => Strings.SceneSettings;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

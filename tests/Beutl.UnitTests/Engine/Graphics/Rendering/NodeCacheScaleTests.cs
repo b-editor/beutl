@@ -1,6 +1,8 @@
-﻿using Beutl.Graphics;
+﻿using System.Reflection;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -83,17 +85,18 @@ public class NodeCacheScaleTests
         {
         }
 
-        Assert.That(node.Cache.IsCached, Is.True);
-        foreach ((RenderTarget target, Rect bounds) in node.Cache.UseCache())
+        Assert.That(node.Cache.TryGetCachedOutput(CurrentCacheIdentity(node.Cache), out RenderNodeCachedOutput? cached));
+        Assert.That(cached!.Values, Is.Not.Empty);
+        Assert.Multiple(() =>
         {
-            using (target)
+            foreach (RenderNodeCachedValue value in cached.Values)
             {
                 PixelRect expectedDeviceBounds = RenderScaleUtilities.AddRasterApron(
-                    PixelRect.FromRect(bounds, 0.5f));
-                Assert.That(target.Width, Is.EqualTo(expectedDeviceBounds.Width));
-                Assert.That(target.Height, Is.EqualTo(expectedDeviceBounds.Height));
+                    PixelRect.FromRect(value.Bounds, 0.5f));
+                Assert.That(value.Target.Width, Is.EqualTo(expectedDeviceBounds.Width));
+                Assert.That(value.Target.Height, Is.EqualTo(expectedDeviceBounds.Height));
             }
-        }
+        });
     }
 
     [Test]
@@ -183,6 +186,16 @@ public class NodeCacheScaleTests
             Assert.That(node.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
             Assert.That(node.ExecuteCount, Is.EqualTo(1));
         });
+    }
+
+    // The cache publishes its identity only to the renderer that resolved it; read it back so the test can
+    // inspect the published targets through the production lookup.
+    private static RenderOutputCacheIdentity CurrentCacheIdentity(RenderNodeCache cache)
+    {
+        object storage = typeof(RenderNodeCache)
+            .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(cache)!;
+        return (RenderOutputCacheIdentity)storage.GetType().GetProperty("Identity")!.GetValue(storage)!;
     }
 
     private static RenderNodeRenderer CreateFrameRenderer(

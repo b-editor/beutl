@@ -126,26 +126,6 @@ public sealed class OpaqueRenderDescription
         }
     }
 
-    internal OpaqueRenderDescription WithoutDirectReplay()
-        => DirectReplay is null
-            ? this
-            : new OpaqueRenderDescription(
-                _execution,
-                Bounds,
-                HitTest,
-                ValueCardinality,
-                Scale,
-                InputDemand,
-                DeviceGridSensitivity,
-                DefinitionFingerprint,
-                InputReadbacks,
-                Resources,
-                BackendBoundary,
-                directReplay: null,
-                supportsDirectDstOut: false,
-                hasDirectReplayMaterializationContract: false,
-                directReplayAtExactIntegerReduction: false);
-
     /// <param name="state">
     /// Immutable pixel-affecting state retained for execution.
     /// </param>

@@ -96,7 +96,7 @@ public class AudioVisualizerDrawableTests
 
         Assert.That(resource.Width, Is.EqualTo(320f));
         Assert.That(resource.Height, Is.EqualTo(80f));
-        Assert.That(resource.CachedSamples, Is.Empty);
+        Assert.That(resource.CachedSampleLength, Is.Zero);
     }
 
     [Test]

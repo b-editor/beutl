@@ -73,16 +73,6 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         public Sound.Resource? Source => _source;
 
         /// <summary>
-        /// Gets the pooled buffer the composed samples live in.
-        /// </summary>
-        /// <remarks>
-        /// The engine owns this array: it is reused across frames, grown in place, and only its first
-        /// <see cref="CachedSampleLength"/> entries are meaningful. It stays internal for that reason —
-        /// <see cref="CachedSampleSpan"/> is the supported way for a subclass to read the samples.
-        /// </remarks>
-        internal float[] CachedSamples => _cachedSamples;
-
-        /// <summary>
         /// Gets the number of valid samples in the cache. Zero means there is nothing to draw.
         /// </summary>
         protected internal int CachedSampleLength => _cachedSampleLength;

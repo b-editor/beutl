@@ -287,7 +287,7 @@ public sealed class DegradedPreviewCachePurityTests
     {
         public override void Process(RenderNodeContext context)
         {
-            _ = context.RecordNestedTarget(nestedRoot, bounds);
+            _ = context.RecordNestedTargetAtScale(nestedRoot, bounds, 1);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 bounds,
                 static (session, area) =>

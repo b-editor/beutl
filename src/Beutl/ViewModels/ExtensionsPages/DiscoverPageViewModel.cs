@@ -62,9 +62,12 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
                 try
                 {
                     IsBusy.Value = true;
-                    PackagePageList.RemoveLoadMoreItem(Items);
-                    Package[] array = await LoadItems(Items.Count, PackagePageList.PageSize, activity, _lifetimeCts.Token);
-                    PackagePageList.AppendPage(Items, array);
+                    Package[] array = await LoadItems(
+                        PackagePageList.NextPageStart(Items),
+                        PackagePageList.PageSize,
+                        activity,
+                        _lifetimeCts.Token);
+                    PackagePageList.AppendNextPage(Items, array);
                 }
                 catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
                 {

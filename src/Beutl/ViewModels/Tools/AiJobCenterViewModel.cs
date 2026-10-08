@@ -325,65 +325,6 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         }
     }
 
-    internal async Task<AiJobRetryPreflight> GetRetryEstimateAsync(AiJobItemViewModel item)
-    {
-        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
-        if (lifetimeOperation is null)
-            return RetryUnavailable();
-        ArgumentNullException.ThrowIfNull(item);
-        if (!item.CanRetry)
-            return RetryUnavailable();
-
-        try
-        {
-            if (!_jobKinds.TryAcquireRetryHandler(
-                    item.Job.Kind,
-                    out IAiJobRetryHandlerLease? lease))
-                return RetryUnavailable();
-
-            using (lease)
-            {
-                AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-                IAiJobRetryHandler retryHandler = lease.Handler;
-                if (!retryHandler.CanRetry(item.Job, status))
-                {
-                    return RetryUnavailable();
-                }
-
-                AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
-                    item.Job,
-                    lifetimeOperation.CancellationToken);
-                SetOperationError(estimate.CanSubmit ? null : estimate.Explanation);
-                return estimate;
-            }
-        }
-        catch (AuthenticationRequiredException)
-        {
-            SetOperationError(Strings.AiAuthenticationRequired);
-            return new AiJobRetryPreflight(false, false, Strings.AiAuthenticationRequired);
-        }
-        catch (AiJobRetryPreparationRejectedException)
-        {
-            SetOperationError(Strings.AiResultUnavailable);
-            return new AiJobRetryPreflight(false, false, Strings.AiResultUnavailable);
-        }
-        catch (AiJobRetryPreparationUnavailableException)
-        {
-            SetOperationError(Strings.AiPricingUnavailable);
-            return RetryUnavailable();
-        }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-        {
-            return RetryUnavailable();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to refresh authoritative pricing before retrying AI job {JobId}", item.Id);
-            SetOperationError(Strings.AiPricingUnavailable);
-            return RetryUnavailable();
-        }
-    }
-
     public async Task AddToSceneAsync(AiJobItemViewModel item)
     {
         using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
@@ -678,8 +619,4 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
             ? Strings.AiAuthenticationRequired
             : _operationError ?? _snapshotError;
     }
-
-    private static AiJobRetryPreflight RetryUnavailable()
-        => new(false, false, Strings.AiPricingUnavailable);
-
 }

@@ -316,16 +316,6 @@ internal sealed partial class VersionControlCoordinator :
         await GetTrackedBackend().SetRemoteAsync(url.Trim(), operation.CancellationToken);
     }
 
-    public async Task SetLocalIdentityAsync(
-        GitIdentity identity,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(identity);
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
-        await GetTrackedBackend().SetLocalIdentityAsync(identity, operation.CancellationToken);
-    }
-
     public async Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken = default)

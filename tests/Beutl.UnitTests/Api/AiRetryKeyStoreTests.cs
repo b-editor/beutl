@@ -29,19 +29,19 @@ public sealed class AiRetryKeyStoreTests
         var first = new FileAiRetryKeyStore(_directory);
         AiJob jobA = Job("job-a", "prompt-a");
         AiJob jobB = Job("job-b", "prompt-b");
-        string keyA = first.GetOrCreate(jobA, "account", out bool repeatA);
+        string keyA = Seed(first, jobA, "account");
         var second = new FileAiRetryKeyStore(_directory);
-        string keyB = second.GetOrCreate(jobB, "account", out bool repeatB);
+        string keyB = Seed(second, jobB, "account");
         var restarted = new FileAiRetryKeyStore(_directory);
+        AiRetryAttempt againA = restarted.PrepareAttempt(jobA, "account");
+        AiRetryAttempt againB = restarted.PrepareAttempt(jobB, "account");
 
         Assert.Multiple(() =>
         {
-            Assert.That(repeatA, Is.False);
-            Assert.That(repeatB, Is.False);
-            Assert.That(restarted.GetOrCreate(jobA, "account", out bool againA), Is.EqualTo(keyA));
-            Assert.That(againA, Is.True);
-            Assert.That(restarted.GetOrCreate(jobB, "account", out bool againB), Is.EqualTo(keyB));
-            Assert.That(againB, Is.True);
+            Assert.That(againA.Key, Is.EqualTo(keyA));
+            Assert.That(againA.Kind, Is.EqualTo(AiRetryAttemptKind.Recovery));
+            Assert.That(againB.Key, Is.EqualTo(keyB));
+            Assert.That(againB.Kind, Is.EqualTo(AiRetryAttemptKind.Recovery));
         });
     }
 
@@ -52,15 +52,15 @@ public sealed class AiRetryKeyStoreTests
         AiJob firstBody = Job("job", "first");
         AiJob changedBody = Job("job", "second");
 
-        string first = store.GetOrCreate(firstBody, "account-a", out _);
-        string otherAccount = store.GetOrCreate(firstBody, "account-b", out bool accountRepeat);
+        string first = Seed(store, firstBody, "account-a");
+        AiRetryAttempt otherAccount = store.PrepareAttempt(firstBody, "account-b");
         Assert.Throws<AiRetryAttemptRejectedException>(() =>
-            store.GetOrCreate(changedBody, "account-a", out _));
+            store.PrepareAttempt(changedBody, "account-a"));
 
         Assert.Multiple(() =>
         {
-            Assert.That(accountRepeat, Is.False);
-            Assert.That(otherAccount, Is.Not.EqualTo(first));
+            Assert.That(otherAccount.Kind, Is.EqualTo(AiRetryAttemptKind.NewPurchase));
+            Assert.That(otherAccount.Key, Is.Not.EqualTo(first));
         });
     }
 
@@ -70,20 +70,23 @@ public sealed class AiRetryKeyStoreTests
         var store = new FileAiRetryKeyStore(_directory);
         AiJob firstJob = Job("first", "one");
         AiJob secondJob = Job("second", "two");
-        string first = store.GetOrCreate(firstJob, "account", out _);
-        string second = store.GetOrCreate(secondJob, "account", out _);
+        AiRetryAttempt purchase = store.PrepareAttempt(firstJob, "account");
+        Assert.That(store.TryConsumeAttempt(purchase, firstJob, "account", out string first, out _), Is.True);
+        string second = Seed(store, secondJob, "account");
 
-        store.Retire(firstJob, "account");
+        Assert.That(
+            store.TryRetire(firstJob, "account", first, purchase.Generation + 1, purchase.Token),
+            Is.True);
         var restarted = new FileAiRetryKeyStore(_directory);
-        string nextFirst = restarted.GetOrCreate(firstJob, "account", out bool firstRepeat);
-        string sameSecond = restarted.GetOrCreate(secondJob, "account", out bool secondRepeat);
+        AiRetryAttempt nextFirst = restarted.PrepareAttempt(firstJob, "account");
+        AiRetryAttempt sameSecond = restarted.PrepareAttempt(secondJob, "account");
 
         Assert.Multiple(() =>
         {
-            Assert.That(firstRepeat, Is.False);
-            Assert.That(nextFirst, Is.Not.EqualTo(first));
-            Assert.That(secondRepeat, Is.True);
-            Assert.That(sameSecond, Is.EqualTo(second));
+            Assert.That(nextFirst.Kind, Is.EqualTo(AiRetryAttemptKind.NewPurchase));
+            Assert.That(nextFirst.Key, Is.Not.EqualTo(first));
+            Assert.That(sameSecond.Kind, Is.EqualTo(AiRetryAttemptKind.Recovery));
+            Assert.That(sameSecond.Key, Is.EqualTo(second));
         });
     }
 
@@ -92,10 +95,13 @@ public sealed class AiRetryKeyStoreTests
     {
         var first = new FileAiRetryKeyStore(_directory);
         AiJob job = Job("recovery-race", "prompt");
-        string original = first.GetOrCreate(job, "account", out _);
+        string original = Seed(first, job, "account");
         AiRetryAttempt attempt = first.PrepareAttempt(job, "account");
 
-        new FileAiRetryKeyStore(_directory).Retire(job, "account");
+        var other = new FileAiRetryKeyStore(_directory);
+        AiRetryAttempt winner = other.PrepareAttempt(job, "account");
+        Assert.That(other.TryConsumeAttempt(winner, job, "account", out _, out _), Is.True);
+        Assert.That(other.TryRetire(job, "account", original, winner.Generation, winner.Token), Is.True);
 
         Assert.Multiple(() =>
         {
@@ -105,9 +111,9 @@ public sealed class AiRetryKeyStoreTests
             Assert.That(first.TryGet(job, "account", out _), Is.False);
         });
 
-        string fresh = first.GetOrCreate(job, "account", out bool isRepeat);
-        Assert.That(isRepeat, Is.False);
-        Assert.That(fresh, Is.Not.EqualTo(original));
+        AiRetryAttempt fresh = first.PrepareAttempt(job, "account");
+        Assert.That(fresh.Kind, Is.EqualTo(AiRetryAttemptKind.NewPurchase));
+        Assert.That(fresh.Key, Is.Not.EqualTo(original));
     }
 
     [Test]
@@ -115,7 +121,7 @@ public sealed class AiRetryKeyStoreTests
     {
         var store = new FileAiRetryKeyStore(_directory);
         AiJob job = Job("account-binding", "prompt");
-        string original = store.GetOrCreate(job, "account-a", out _);
+        string original = Seed(store, job, "account-a");
         AiRetryAttempt attempt = store.PrepareAttempt(job, "account-a");
 
         Assert.That(
@@ -235,10 +241,11 @@ public sealed class AiRetryKeyStoreTests
         var store = new FileAiRetryKeyStore(_directory);
         AiJob first = JobWithInput("semantic", "{\"prompt\":\"same\",\"seed\":1}");
         AiJob equivalent = JobWithInput("semantic", "{ \"seed\": 1.0e0, \"prompt\": \"same\" }");
-        string key = store.GetOrCreate(first, "account", out _);
+        string key = Seed(store, first, "account");
+        AiRetryAttempt retry = store.PrepareAttempt(equivalent, "account");
 
-        Assert.That(store.GetOrCreate(equivalent, "account", out bool repeat), Is.EqualTo(key));
-        Assert.That(repeat, Is.True);
+        Assert.That(retry.Key, Is.EqualTo(key));
+        Assert.That(retry.Kind, Is.EqualTo(AiRetryAttemptKind.Recovery));
     }
 
     [Test]
@@ -247,7 +254,7 @@ public sealed class AiRetryKeyStoreTests
         var store = new FileAiRetryKeyStore(_directory);
         AiJob original = JobWithInput("changed", "{\"prompt\":\"before\"}");
         AiJob changed = JobWithInput("changed", "{\"prompt\":\"after\"}");
-        store.GetOrCreate(original, "account", out _);
+        Seed(store, original, "account");
         AiRetryAttempt attempt = store.PrepareAttempt(original, "account");
 
         Assert.That(
@@ -296,14 +303,13 @@ public sealed class AiRetryKeyStoreTests
         for (int index = 0; index < 600; index++)
         {
             AiJob job = JobWithInput($"settled-{index}", "{\"prompt\":\"same\"}");
-            string key = store.GetOrCreate(job, "account", out _);
             AiRetryAttempt attempt = store.PrepareAttempt(job, "account");
-            Assert.That(store.TryConsumeAttempt(attempt, job, "account", out _, out _), Is.True);
-            Assert.That(store.TryRetire(job, "account", key, attempt.Generation, attempt.Token), Is.True);
+            Assert.That(store.TryConsumeAttempt(attempt, job, "account", out string key, out _), Is.True);
+            Assert.That(store.TryRetire(job, "account", key, attempt.Generation + 1, attempt.Token), Is.True);
         }
 
         AiJob active = JobWithInput("active", "{\"prompt\":\"same\"}");
-        string activeKey = store.GetOrCreate(active, "account", out _);
+        string activeKey = Seed(store, active, "account");
         Assert.That(store.TryGet(active, "account", out string retained), Is.True);
         Assert.That(retained, Is.EqualTo(activeKey));
     }
@@ -332,7 +338,7 @@ public sealed class AiRetryKeyStoreTests
         var store = new FileAiRetryKeyStore(_directory);
 
         Assert.Throws<AiRetryStoreUnavailableException>(() =>
-            store.GetOrCreate(Job("job", "prompt"), "account", out _));
+            store.PrepareAttempt(Job("job", "prompt"), "account"));
     }
 
     [Test]
@@ -342,7 +348,7 @@ public sealed class AiRetryKeyStoreTests
         File.WriteAllBytes(path, new byte[1024 * 1024 + 1]);
         var oversized = new FileAiRetryKeyStore(_directory);
         Assert.Throws<AiRetryStoreUnavailableException>(() =>
-            oversized.GetOrCreate(Job("job", "prompt"), "account", out _));
+            oversized.PrepareAttempt(Job("job", "prompt"), "account"));
 
         string identity = new('A', 64);
         File.WriteAllText(path, JsonSerializer.Serialize(new
@@ -356,7 +362,7 @@ public sealed class AiRetryKeyStoreTests
         }));
         var duplicate = new FileAiRetryKeyStore(_directory);
         Assert.Throws<AiRetryStoreUnavailableException>(() =>
-            duplicate.GetOrCreate(Job("job", "prompt"), "account", out _));
+            duplicate.PrepareAttempt(Job("job", "prompt"), "account"));
     }
 
     [Test]
@@ -370,7 +376,7 @@ public sealed class AiRetryKeyStoreTests
             FileShare.None);
 
         Assert.Throws<AiRetryStoreUnavailableException>(() =>
-            store.GetOrCreate(Job("job", "prompt"), "account", out _));
+            store.PrepareAttempt(Job("job", "prompt"), "account"));
     }
 
     [Test]
@@ -378,16 +384,19 @@ public sealed class AiRetryKeyStoreTests
     {
         var store = new FileAiRetryKeyStore(_directory);
         AiJob firstJob = Job("job-000", "prompt-000");
-        string first = store.GetOrCreate(firstJob, "account", out _);
+        string first = Seed(store, firstJob, "account");
         for (int index = 1; index < 256; index++)
-            store.GetOrCreate(Job($"job-{index:000}", $"prompt-{index:000}"), "account", out _);
+            Seed(store, Job($"job-{index:000}", $"prompt-{index:000}"), "account");
 
+        AiJob overflowJob = Job("overflow", "overflow");
+        AiRetryAttempt overflow = store.PrepareAttempt(overflowJob, "account");
         Assert.Throws<AiRetryStoreUnavailableException>(() =>
-            store.GetOrCreate(Job("overflow", "overflow"), "account", out _));
+            store.TryConsumeAttempt(overflow, overflowJob, "account", out _, out _));
 
         var restarted = new FileAiRetryKeyStore(_directory);
-        Assert.That(restarted.GetOrCreate(firstJob, "account", out bool repeat), Is.EqualTo(first));
-        Assert.That(repeat, Is.True);
+        AiRetryAttempt recovery = restarted.PrepareAttempt(firstJob, "account");
+        Assert.That(recovery.Key, Is.EqualTo(first));
+        Assert.That(recovery.Kind, Is.EqualTo(AiRetryAttemptKind.Recovery));
     }
 
     [Test]
@@ -399,7 +408,7 @@ public sealed class AiRetryKeyStoreTests
             return;
         }
         var store = new FileAiRetryKeyStore(_directory);
-        store.GetOrCreate(Job("job", "prompt"), "account", out _);
+        store.PrepareAttempt(Job("job", "prompt"), "account");
 
 #pragma warning disable CA1416 // Guarded above; these APIs are unavailable only on Windows.
         Assert.Multiple(() =>
@@ -443,6 +452,15 @@ public sealed class AiRetryKeyStoreTests
         _ = new FileAiRetryKeyStore(_directory);
 
         Assert.That(File.Exists(path), Is.True);
+    }
+
+    private static string Seed(FileAiRetryKeyStore store, AiJob job, string accountId)
+    {
+        AiRetryAttempt attempt = store.PrepareAttempt(job, accountId);
+        Assert.That(store.TryConsumeAttempt(attempt, job, accountId, out string key, out bool isRepeat), Is.True);
+        Assert.That(isRepeat, Is.False);
+        Assert.That(store.TryRelease(job, accountId, key, attempt.Generation + 1, attempt.Token), Is.True);
+        return key;
     }
 
     private static AiJob Job(string id, string prompt) => new(

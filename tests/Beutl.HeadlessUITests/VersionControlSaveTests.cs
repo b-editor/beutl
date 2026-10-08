@@ -17,7 +17,6 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
-using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
@@ -37,21 +36,21 @@ public class VersionControlSaveTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                MainView.IsCurrentCommitTarget(
+                MainViewModel.IsCurrentCommitTarget(
                     expectedProject,
                     expectedService,
                     expectedProject,
                     expectedService),
                 Is.True);
             Assert.That(
-                MainView.IsCurrentCommitTarget(
+                MainViewModel.IsCurrentCommitTarget(
                     expectedProject,
                     expectedService,
                     replacementProject,
                     expectedService),
                 Is.False);
             Assert.That(
-                MainView.IsCurrentCommitTarget(
+                MainViewModel.IsCurrentCommitTarget(
                     expectedProject,
                     expectedService,
                     expectedProject,

@@ -158,20 +158,6 @@ internal sealed partial class RenderTargetPool : IDisposable
         return _implicitBinding;
     }
 
-    public RenderTargetLeaseSession BeginSessionForContext(
-        RenderIntent intent,
-        object contextIdentity,
-        nint expectedContextHandle,
-        RenderTarget? externalTarget = null)
-    {
-        if (!Enum.IsDefined(intent))
-            throw new ArgumentOutOfRangeException(nameof(intent));
-        ArgumentNullException.ThrowIfNull(contextIdentity);
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        externalTarget?.VerifyAccess();
-        return BeginSessionCore(intent, contextIdentity, expectedContextHandle, externalTarget);
-    }
-
     public void Dispose()
     {
         if (_disposed)

@@ -136,12 +136,6 @@ internal interface IProjectVersionControlTransaction
         string message,
         CancellationToken cancellationToken);
 
-    Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
-        ProjectCheckpoint checkpoint,
-        CheckedOutBranchTip targetTip,
-        string projectFile,
-        CancellationToken cancellationToken);
-
     Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
         CancellationToken cancellationToken);
 

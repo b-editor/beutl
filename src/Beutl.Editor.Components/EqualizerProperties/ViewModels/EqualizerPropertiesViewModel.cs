@@ -157,7 +157,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
         for (int i = 0; i < equalizer.Bands.Count; i++)
         {
-            Bands.Add(new EqualizerBandItemViewModel(equalizer.Bands[i], i, factory, _element, _parentServices));
+            Bands.Add(new EqualizerBandItemViewModel(equalizer.Bands[i], factory, _element, _parentServices));
         }
 
         // Re-evaluate SelectedBand so it points to a freshly created ViewModel

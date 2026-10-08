@@ -15,30 +15,11 @@ public abstract partial class ColorPickerComponent : Control
 
     protected virtual void OnColorChanged(Color2 oldColor, Color2 newColor)
     {
-        ColorChanged?.Invoke(this, new ColorChangedEventArgs(oldColor, newColor));
+        ColorChanged?.Invoke(this, new ColorChangedEventArgs(newColor));
     }
 
     protected virtual void OnComponentChanged(ColorComponent newValue)
     {
         InvalidateVisual();
-    }
-
-    protected int ComponentRange
-    {
-        get
-        {
-            if (_component == ColorComponent.Hue)
-            {
-                return 359;
-            }
-            else if (_component == ColorComponent.Saturation || _component == ColorComponent.Value)
-            {
-                return 100;
-            }
-            else
-            {
-                return 255;
-            }
-        }
     }
 }

@@ -39,6 +39,8 @@ public enum MessageType
     QuerySampleRatesResult = 45,
     QueryAudioFormats = 46,
     QueryAudioFormatsResult = 47,
+    QueryEncoderOptions = 48,
+    QueryEncoderOptionsResult = 49,
 
     // エラー
     Error = 99,

@@ -66,6 +66,15 @@ public partial class PlayerViewModel
         return true;
     }
 
+    public static string GetTimecodeErrorMessage(GotoTimecodeError error) => error switch
+    {
+        GotoTimecodeError.InvalidFormat => Strings.GotoTimecode_InvalidFormat,
+        GotoTimecodeError.MarkerNotFound => Strings.GotoTimecode_MarkerNotFound,
+        GotoTimecodeError.NoScene => Strings.GotoTimecode_NoScene,
+        GotoTimecodeError.OutOfRange => Strings.GotoTimecode_OutOfRange,
+        _ => Strings.GotoTimecode_InvalidFormat,
+    };
+
     public void ApplyTimecodeSeek(TimeSpan target)
     {
         // target is already frame-snapped by TryParseTimecode.

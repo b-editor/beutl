@@ -95,6 +95,8 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(QuerySampleRatesResponse))]
 [JsonSerializable(typeof(QueryAudioFormatsRequest))]
 [JsonSerializable(typeof(QueryAudioFormatsResponse))]
+[JsonSerializable(typeof(QueryEncoderOptionsRequest))]
+[JsonSerializable(typeof(QueryEncoderOptionsResponse))]
 // Supporting types
 [JsonSerializable(typeof(Dictionary<string, string>))]
 // Nullable error code

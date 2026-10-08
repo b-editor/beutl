@@ -538,19 +538,6 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         _pendingContentChange = false;
     }
 
-    // A delivered event resets the rearm budget.
-    internal void MarkDelivered()
-    {
-        lock (_stateSync)
-        {
-            if (_disposed)
-                return;
-
-            _errorRearmCount = 0;
-            _failingCanonicalPath = null;
-        }
-    }
-
     public void Dispose()
     {
         CancellationTokenSource? debounce;

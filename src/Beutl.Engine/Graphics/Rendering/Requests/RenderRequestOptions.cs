@@ -103,17 +103,6 @@ internal sealed class RenderRequestOptions
 
     internal RenderRequestOptions? NestedPolicyParent { get; private set; }
 
-    public RenderRequestOptions CreateNested(
-        NestedRenderTargetBinding targetBinding,
-        Rect? targetDomain = null,
-        Rect? requestedRegion = null)
-        => CreateNestedCore(
-            targetBinding,
-            targetDomain,
-            requestedRegion,
-            OutputScale,
-            MaxWorkingScale);
-
     public RenderRequestOptions CreateNestedAtScale(
         NestedRenderTargetBinding targetBinding,
         float workingScale,

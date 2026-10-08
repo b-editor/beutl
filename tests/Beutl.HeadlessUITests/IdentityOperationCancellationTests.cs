@@ -8,7 +8,6 @@ public sealed class IdentityOperationCancellationTests
     [TestCase(0)]
     [TestCase(1)]
     [TestCase(2)]
-    [TestCase(3)]
     public async Task Dispose_DuringLinkedCancellation_DoesNotWaitForCallback(int cancellationOrigin)
     {
         await using var lifetime = new AsyncOperationLifetime();
@@ -32,12 +31,9 @@ public sealed class IdentityOperationCancellationTests
                     identity.Switch(static () => { });
                     break;
                 case 1:
-                    cancellation = lifetime.StopAsync();
-                    break;
-                case 2:
                     cancellation = lifetime.DisposeAsync().AsTask();
                     break;
-                case 3:
+                case 2:
                     cancellation = Task.Run(operation.Cancel);
                     break;
             }
@@ -71,7 +67,7 @@ public sealed class IdentityOperationCancellationTests
 
         operation.Dispose();
         identity.Switch(static () => { });
-        await lifetime.StopAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await lifetime.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {

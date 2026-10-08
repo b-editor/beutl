@@ -266,44 +266,6 @@ public sealed class NestedTargetAndCleanupFailureTests
     }
 
     [Test]
-    public void NestedTarget_ParentReadsThePreparedFullDomainWithShiftedChildPixels()
-    {
-        var fullDomain = new Rect(0, 0, 10, 7);
-        var childBounds = new Rect(2, 1, 5, 4);
-        using var child = new ShiftedNestedChildNode(childBounds);
-        using var parent = new NestedOutputConsumerNode(child, fullDomain);
-        using var renderer = new RenderNodeRenderer(parent, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = fullDomain,
-            RequestedRegion = fullDomain,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        });
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-        Bitmap bitmap = rasterization.Bitmap
-            ?? throw new AssertionException("The parent did not publish its nested target output.");
-        var inside = bitmap.SKBitmap.GetPixel(4, 3);
-        var outside = bitmap.SKBitmap.GetPixel(0, 0);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(inside.Red, Is.GreaterThan(240));
-            Assert.That(inside.Alpha, Is.GreaterThan(240));
-            Assert.That(outside.Alpha, Is.Zero,
-                "The child must preserve its shifted origin inside the full transparent target domain.");
-            Assert.That(parent.NestedTarget, Is.Not.Null);
-            Assert.That(parent.NestedTarget!.Target.LogicalBounds, Is.EqualTo(fullDomain));
-            Assert.That(parent.NestedTarget.Target.DeviceBounds, Is.EqualTo(new PixelRect(0, 0, 10, 7)));
-            Assert.That(parent.NestedTarget.Target.IsDisposed, Is.True,
-                "The prepared child lease must remain live through the parent callback and discharge afterward.");
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-        });
-    }
-
-    [Test]
     public void NestedTarget_MetadataQueriesRecurseWithoutExecutingOrAllocating()
     {
         using var child = new NestedChildNode();
@@ -357,7 +319,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
-        using RenderRequest nestedRequest = nested.Request;
+        using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
@@ -417,7 +379,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
-        using RenderRequest nestedRequest = nested.Request;
+        using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
@@ -467,7 +429,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
-        using RenderRequest nestedRequest = nested.Request;
+        using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
@@ -513,7 +475,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
-        using RenderRequest nestedRequest = nested.Request;
+        using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
@@ -580,8 +542,8 @@ public sealed class NestedTargetAndCleanupFailureTests
             ?? throw new AssertionException("The parent did not record its nested child request.");
         RecordedNestedRenderTarget grandchildRecording = child.NestedRequest
             ?? throw new AssertionException("The child did not record its nested grandchild request.");
-        using RenderRequest childRequest = childRecording.Request;
-        using RenderRequest grandchildRequest = grandchildRecording.Request;
+        using RenderRequest childRequest = childRecording.Recording.Request;
+        using RenderRequest grandchildRequest = grandchildRecording.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
@@ -863,7 +825,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
-        using RenderRequest nestedRequest = nested.Request;
+        using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
@@ -1199,7 +1161,7 @@ public sealed class NestedTargetAndCleanupFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            _ = context.RecordNestedTarget(child, s_bounds);
+            _ = context.RecordNestedTargetAtScale(child, s_bounds, 1);
             context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription(
                 session =>
                 {
@@ -1244,7 +1206,7 @@ public sealed class NestedTargetAndCleanupFailureTests
     {
         public override void Process(RenderNodeContext context)
         {
-            _ = context.RecordNestedTarget(child, s_bounds);
+            _ = context.RecordNestedTargetAtScale(child, s_bounds, 1);
             context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription()));
         }
     }
@@ -1263,57 +1225,6 @@ public sealed class NestedTargetAndCleanupFailureTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.Green));
                     session.Publish(output);
                 })));
-        }
-    }
-
-    private sealed class ShiftedNestedChildNode(Rect bounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-                session =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                    output.Canvas.Use(canvas => canvas.Clear(Colors.Red));
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueSource(description));
-        }
-    }
-
-    private sealed class NestedOutputConsumerNode(
-        RenderNode child,
-        Rect targetDomain) : RenderNode
-    {
-        public RecordedNestedRenderTarget? NestedTarget { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            NestedTarget = context.RecordNestedTarget(child, targetDomain);
-            RecordedNestedRenderTarget nested = NestedTarget;
-            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-                session => session.UseNestedTarget(
-                    nested.Binding,
-                    image =>
-                    {
-                        using OpaqueRenderOutput output = session.CreateOutput(targetDomain);
-                        output.Canvas.Use(canvas =>
-                        {
-                            canvas.Clear(Colors.Transparent);
-                            image.Draw(canvas);
-                        });
-                        session.Publish(output);
-                    }),
-                OpaqueRenderBoundsContract.Source(targetDomain),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [NestedTargetAndCleanupFailureSlots.Nested.Bind(nested.Binding)]);
-            context.Publish(context.OpaqueSource(description));
         }
     }
 
@@ -1338,7 +1249,7 @@ public sealed class NestedTargetAndCleanupFailureTests
 
             if (nestedRoot is not null)
             {
-                NestedRequest = context.RecordNestedTarget(nestedRoot, s_bounds);
+                NestedRequest = context.RecordNestedTargetAtScale(nestedRoot, s_bounds, 1);
             }
 
             context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription(
@@ -1375,7 +1286,7 @@ public sealed class NestedTargetAndCleanupFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            NestedRequest = context.RecordNestedTarget(_nestedRoot, s_bounds);
+            NestedRequest = context.RecordNestedTargetAtScale(_nestedRoot, s_bounds, 1);
             context.PassThrough();
         }
     }
@@ -1467,9 +1378,4 @@ public sealed class NestedTargetAndCleanupFailureTests
                 throw failure;
         }
     }
-}
-
-internal static class NestedTargetAndCleanupFailureSlots
-{
-    internal static readonly RenderResourceSlot<NestedRenderTargetBinding> Nested = new();
 }

@@ -49,7 +49,6 @@ modules:
       - chmod +x /app/lib/beutl/Beutl
       - chmod +x /app/lib/beutl/Beutl.ExceptionHandler
       - chmod +x /app/lib/beutl/Beutl.PackageTools.UI
-      - chmod +x /app/lib/beutl/Beutl.WaitingDialog
       - chmod +x /app/lib/beutl/Beutl.FFmpegWorker
       - install -Dm755 beutl-launcher.sh /app/bin/beutl
       - install -Dm644 net.beditor.Beutl.desktop /app/share/applications/net.beditor.Beutl.desktop

@@ -41,6 +41,8 @@ public class CompositionContext(TimeSpan time)
 
     public IList<EngineObject.Resource>? Flow { get; set; }
 
+    internal FlowNode? ReplayedFlow { get; set; }
+
     public TimeSpan Time { get; set; } = time;
 
     public bool DisableResourceShare { get; set; }

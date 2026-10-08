@@ -260,7 +260,7 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task RequestStop_detaches_a_published_host_while_startup_completion_is_pending()
+    public async Task StopAsync_detaches_a_published_host_while_startup_completion_is_pending()
     {
         await TestReset.ResetShellAsync();
         await using var endpoint = new AgentHostEndpoint(
@@ -273,7 +273,7 @@ public sealed class AgentHostEndpointTests
             .SetValue(endpoint, completion.Task);
         try
         {
-            endpoint.RequestStop();
+            _ = endpoint.StopAsync();
             Assert.That(endpoint.IsRunning, Is.False);
             Assert.That(endpoint.EndpointUri, Is.Null);
         }
@@ -478,13 +478,13 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task RequestStop_before_start_keeps_the_endpoint_stopped()
+    public async Task StopAsync_before_start_keeps_the_endpoint_stopped()
     {
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
 
         // A stop requested before startup must win: StartAsync must not bring the host up afterward.
-        endpoint.RequestStop();
+        _ = endpoint.StopAsync();
         await endpoint.StartAsync();
 
         Assert.Multiple(() =>
@@ -497,13 +497,13 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task RequestStop_marks_endpoint_stopped_without_awaiting_host_shutdown()
+    public async Task StopAsync_marks_endpoint_stopped_without_awaiting_host_shutdown()
     {
         await TestReset.ResetShellAsync();
         var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
 
         await endpoint.StartAsync();
-        endpoint.RequestStop();
+        _ = endpoint.StopAsync();
 
         Assert.Multiple(() =>
         {

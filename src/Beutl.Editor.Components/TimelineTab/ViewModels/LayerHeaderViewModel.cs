@@ -42,10 +42,6 @@ public sealed class LayerHeaderViewModel : IDisposable
         IsVideoMuted = ObserveLayerFlag(TimelineLayer.IsVideoMutedProperty);
         IsSolo = ObserveLayerFlag(TimelineLayer.IsSoloProperty);
 
-        HasItems = ItemsCount.Select(i => i > 0)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         ToggleLockCommand = new ReactiveCommand()
             .WithSubscribe(() => ToggleLayerFlag(IsLocked, (s, scene, n, v) => s.SetLocked(scene, n, v)));
         ToggleAudioMuteCommand = new ReactiveCommand()
@@ -143,8 +139,6 @@ public sealed class LayerHeaderViewModel : IDisposable
     public ReactiveProperty<bool> IsSolo { get; }
 
     public ReactiveProperty<int> ItemsCount { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
 
     public ReactiveProperty<double> Height { get; } = new(FrameNumberHelper.LayerHeight);
 

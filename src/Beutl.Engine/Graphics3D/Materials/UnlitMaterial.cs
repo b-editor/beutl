@@ -52,8 +52,6 @@ public sealed partial class UnlitMaterial : Material3D
 
         protected internal override IPipeline3D? Pipeline => _pipelines[Variant];
 
-        internal MaterialDrawBindingPool? DrawBindings => _drawBindings[Variant];
-
         // A mesh with an opaque tint writes depth even when textured, so a concave model hides its own far side;
         // texels with no alpha are discarded and write nothing. Translucent texels of a self-overlapping mesh
         // then depend on triangle order, the usual cost of not sorting within a mesh.

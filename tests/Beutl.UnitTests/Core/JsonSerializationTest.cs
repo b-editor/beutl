@@ -38,6 +38,21 @@ public class JsonSerializationTest
         }
     }
 
+    [Test]
+    public void SerializeToJsonString_AppliesTheOptionsToAnObjectTypedAsTheInterface()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "beutl-string-options-" + Guid.NewGuid().ToString("N"));
+        var child = new TestSerializable { Uri = new Uri(Path.Combine(directory, "child.json")) };
+        ICoreSerializable root = new TestSerializable { Instance = child };
+        var options = new CoreSerializerOptions { BaseUri = new Uri(Path.Combine(directory, "root.json")) };
+
+        string json = CoreSerializer.SerializeToJsonString(root, options);
+
+        Assert.That(json, Is.EqualTo(CoreSerializer.ConvertToJsonString(CoreSerializer.SerializeToJsonObject(root, options))));
+        Assert.That(json, Is.Not.EqualTo(CoreSerializer.SerializeToJsonString(root)),
+            "The base URI must change how the reference is written, or this test proves nothing.");
+    }
+
     [TestCase("literal%20name.json", false, false)]
     [TestCase("literal%20name.json", false, true)]
     [TestCase("literal%20name.json", true, false)]

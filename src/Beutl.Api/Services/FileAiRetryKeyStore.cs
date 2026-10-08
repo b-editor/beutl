@@ -32,33 +32,6 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         SweepTemporaryFiles();
     }
 
-    public string GetOrCreate(AiJob job, string accountId, out bool isRepeat)
-    {
-        string identity = CanonicalIdentity(job, accountId);
-        lock (_gate)
-        {
-            using FileStream lease = AcquireLock();
-            StoreData data = LoadPruned();
-            if (data.Entries.TryGetValue(identity, out Entry? existing))
-            {
-                existing = ClaimExistingEntry(data, identity, existing, job);
-                isRepeat = true;
-                return existing.Key;
-            }
-
-            isRepeat = false;
-            string key = CreateKey(job);
-            long generation = AdvanceGeneration(data, identity);
-            data.Entries.Add(
-                identity,
-                new Entry(key, generation, PayloadDigest(job), 1, null, null));
-            RemoveAttemptsForIdentity(data, identity);
-            PruneGenerations(data);
-            Save(data);
-            return key;
-        }
-    }
-
     public bool TryGet(AiJob job, string accountId, out string key)
     {
         string identity = CanonicalIdentity(job, accountId);
@@ -76,21 +49,6 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
 
             key = string.Empty;
             return false;
-        }
-    }
-
-    public void Retire(AiJob job, string accountId)
-    {
-        string identity = CanonicalIdentity(job, accountId);
-        lock (_gate)
-        {
-            using FileStream lease = AcquireLock();
-            StoreData data = Load();
-            if (data.Entries.Remove(identity))
-                AdvanceGeneration(data, identity);
-            RemoveAttemptsForIdentity(data, identity);
-            PruneGenerations(data);
-            Save(data);
         }
     }
 
@@ -194,55 +152,6 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
                 throw new AiRetryStoreUnavailableException("Retry confirmation store is full.");
 
             return AddPendingAttempt(data, accountId, identity, key, generation, kind, PayloadDigest(job), 1);
-        }
-    }
-
-    public bool TryPrepareRecoveryAttempt(
-        AiJob job,
-        string accountId,
-        out AiRetryAttempt attempt)
-    {
-        string identity = CanonicalIdentity(job, accountId);
-        lock (_gate)
-        {
-            using FileStream lease = AcquireLock();
-            StoreData data = LoadPruned();
-            if (!data.Entries.TryGetValue(identity, out Entry? entry))
-            {
-                attempt = null!;
-                return false;
-            }
-
-            if (entry.PayloadVersion != 1
-                || !StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
-                throw new AiRetryAttemptRejectedException();
-            entry = ClearExpiredLease(data, identity, entry);
-
-            PendingAttempt? existing = FindPendingAttempt(
-                data,
-                accountId,
-                identity,
-                entry.Key,
-                entry.Generation,
-                AiRetryAttemptKind.Recovery);
-            if (existing is not null)
-            {
-                attempt = ToAttempt(existing);
-                return true;
-            }
-
-            if (data.Attempts.Count >= MaximumAttempts)
-                throw new AiRetryStoreUnavailableException("Retry confirmation store is full.");
-            attempt = AddPendingAttempt(
-                data,
-                accountId,
-                identity,
-                entry.Key,
-                entry.Generation,
-                AiRetryAttemptKind.Recovery,
-                entry.PayloadDigest,
-                entry.PayloadVersion);
-            return true;
         }
     }
 

@@ -170,16 +170,7 @@ public partial class PlayerView
                 float scale = ViewModel.Scene!.FrameSize.Width / (float)Image.Bounds.Width;
                 Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
 
-                if (ViewModel.TcsForCrop == null)
-                {
-                    ShowCropResultMenu(rect);
-                }
-                else
-                {
-                    ViewModel.TcsForCrop?.SetResult(rect);
-                }
-
-                ViewModel.LastSelectedRect = rect;
+                ShowCropResultMenu(rect);
 
                 if (_border != null)
                 {

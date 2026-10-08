@@ -15,7 +15,25 @@ internal static class PackagePageList
         AppendPage(items, page);
     }
 
-    public static void AppendPage(AvaloniaList<object> items, Package[] page)
+    // The start index of the next page: the packages shown so far, excluding the trailing LoadMoreItem.
+    public static int NextPageStart(AvaloniaList<object> items)
+    {
+        return EndsWithLoadMoreItem(items) ? items.Count - 1 : items.Count;
+    }
+
+    // Replaces the trailing LoadMoreItem only once the next page has loaded, so a failed request leaves
+    // the tile in place to retry.
+    public static void AppendNextPage(AvaloniaList<object> items, Package[] page)
+    {
+        if (EndsWithLoadMoreItem(items))
+        {
+            items.RemoveAt(items.Count - 1);
+        }
+
+        AppendPage(items, page);
+    }
+
+    private static void AppendPage(AvaloniaList<object> items, Package[] page)
     {
         items.AddRange(page);
 
@@ -25,8 +43,8 @@ internal static class PackagePageList
         }
     }
 
-    public static void RemoveLoadMoreItem(AvaloniaList<object> items)
+    private static bool EndsWithLoadMoreItem(AvaloniaList<object> items)
     {
-        items.RemoveAt(items.Count - 1);
+        return items.Count > 0 && items[^1] is LoadMoreItem;
     }
 }

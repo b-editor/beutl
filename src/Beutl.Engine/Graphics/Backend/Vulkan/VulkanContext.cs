@@ -146,8 +146,6 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     /// <inheritdoc cref="VulkanDevice.SupportsImageCubeArray"/>
     public bool SupportsImageCubeArray => _vulkanDevice.SupportsImageCubeArray;
 
-    public Queue GraphicsQueue => _vulkanDevice.GraphicsQueue;
-
     public uint GraphicsQueueFamilyIndex => _vulkanDevice.GraphicsQueueFamilyIndex;
 
     public IEnumerable<string> EnabledExtensions =>
@@ -199,11 +197,6 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     internal void SubmitIsolatedCommands(Action<CommandBuffer> record)
     {
         _vulkanCommandPool.SubmitIsolatedCommands(record);
-    }
-
-    public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout)
-    {
-        _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout);
     }
 
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
