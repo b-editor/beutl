@@ -40,4 +40,34 @@ public class VulkanSwapchainFormatTests
     {
         Assert.That(VulkanSwapchain.RequiresShaderSrgbEncoding(Format.B8G8R8A8Unorm, colorSpace), Is.False);
     }
+
+    // PQ needs a transfer function the shader lacks, and a float image in the sRGB color space would get
+    // linear values, so the last resort passes both for a linear BT.709 pair.
+    [Test]
+    public void TheFallbackSkipsPairsThePresentPathCannotShowAsIntended()
+    {
+        SurfaceFormatKHR[] formats =
+        [
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceHdr10ST2084Ext),
+            new(Format.R16G16B16A16Sfloat, ColorSpaceKHR.SpaceSrgbNonlinearKhr),
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceBT709LinearExt),
+            new(Format.B8G8R8A8Unorm, ColorSpaceKHR.SpaceSrgbNonlinearKhr),
+        ];
+
+        SurfaceFormatKHR chosen = VulkanSwapchain.SelectFallbackFormat(formats);
+        Assert.That((chosen.Format, chosen.ColorSpace), Is.EqualTo((Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceBT709LinearExt)));
+    }
+
+    [Test]
+    public void TheFallbackTakesTheFirstFormatWhenNoPairFits()
+    {
+        SurfaceFormatKHR[] formats =
+        [
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceHdr10ST2084Ext),
+            new(Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceHdr10HlgExt),
+        ];
+
+        SurfaceFormatKHR chosen = VulkanSwapchain.SelectFallbackFormat(formats);
+        Assert.That((chosen.Format, chosen.ColorSpace), Is.EqualTo((Format.A2B10G10R10UnormPack32, ColorSpaceKHR.SpaceHdr10ST2084Ext)));
+    }
 }

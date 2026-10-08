@@ -260,17 +260,44 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             }
         }
 
-        // Last resort: first available format
+        // Last resort: a pair the present path shows as intended, else the first available format
         if (formats.Length > 0)
         {
-            format = formats[0].Format;
-            colorSpace = formats[0].ColorSpace;
+            SurfaceFormatKHR fallback = SelectFallbackFormat(formats);
+            format = fallback.Format;
+            colorSpace = fallback.ColorSpace;
             isHdr = false;
             s_logger.LogInformation("Selected fallback format: {Format} / {ColorSpace}", format, colorSpace);
             return;
         }
 
         throw new InvalidOperationException("No surface formats available");
+    }
+
+    /// <summary>
+    /// Picks the first pair the present path shows as intended, else the first format listed.
+    /// </summary>
+    /// <remarks>
+    /// The present path writes sRGB-primaried values, either encoded with the sRGB curve (by an SRGB format or
+    /// the shader) or left linear, so only color spaces with those primaries and the matching transfer fit.
+    /// </remarks>
+    internal static SurfaceFormatKHR SelectFallbackFormat(SurfaceFormatKHR[] formats)
+    {
+        foreach (var f in formats)
+        {
+            bool? expectsSrgbCurve = f.ColorSpace switch
+            {
+                ColorSpaceKHR.SpaceSrgbNonlinearKhr or ColorSpaceKHR.SpaceExtendedSrgbNonlinearExt => true,
+                ColorSpaceKHR.SpaceExtendedSrgbLinearExt or ColorSpaceKHR.SpaceBT709LinearExt => false,
+                _ => null,
+            };
+            bool writesSrgbCurve = f.Format.ToString().Contains("Srgb", StringComparison.Ordinal)
+                                   || RequiresShaderSrgbEncoding(f.Format, f.ColorSpace);
+            if (expectsSrgbCurve == writesSrgbCurve)
+                return f;
+        }
+
+        return formats[0];
     }
 
     private PresentModeKHR SelectPresentMode()
