@@ -86,8 +86,17 @@ public class UnixUpdaterTests
             using Process process = Process.Start(start)!;
             Task<string> stdout = process.StandardOutput.ReadToEndAsync();
             Task<string> stderr = process.StandardError.ReadToEndAsync();
-            await process.StandardInput.WriteLineAsync("n");
-            process.StandardInput.Close();
+            try
+            {
+                try { await process.StandardInput.WriteLineAsync("n"); }
+                finally { process.StandardInput.Close(); }
+            }
+            catch (IOException)
+            {
+                // Only the Linux success path reads the launch prompt. Every other path may exit
+                // first, and then both the write and Close's flush fail with EPIPE. The exit code
+                // and file assertions below still report an early exit.
+            }
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             try { await process.WaitForExitAsync(timeout.Token); }
             catch { process.Kill(entireProcessTree: true); throw; }
