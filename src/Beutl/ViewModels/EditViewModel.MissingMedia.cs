@@ -13,6 +13,8 @@ public sealed partial class EditViewModel
 {
     private CancellationTokenSource? _missingMediaNotification;
     private bool _openingMissingMedia;
+    private Task _missingMediaScanTask = Task.CompletedTask;
+    private bool _missingMediaScanRequested;
 
     // In-place URI repairs do not produce property-history entries. Retain this
     // flag if saving fails, until an explicit save succeeds.
@@ -22,9 +24,37 @@ public sealed partial class EditViewModel
 
     internal void NotifyMissingMedia()
     {
-        if (_disposed || _missingMediaNotification != null) return;
-        int count = new MissingMediaService().FindMissing(Scene).Count;
-        if (count == 0) return;
+        if (_disposed) return;
+        _missingMediaScanRequested = true;
+        if (_missingMediaScanTask.IsCompleted) _missingMediaScanTask = RecheckMissingMediaAsync();
+    }
+
+    internal Task WaitForMissingMediaAsync() => _missingMediaScanTask;
+
+    private async Task RecheckMissingMediaAsync()
+    {
+        await Task.Yield();
+        try
+        {
+            do
+            {
+                _missingMediaScanRequested = false;
+                await Task.Delay(200, MediaRepairCancellationToken);
+                if (_missingMediaScanRequested) continue;
+                int count = (await new MissingMediaService().FindMissingAsync(Scene, MediaRepairCancellationToken)).Count;
+                if (_disposed) return;
+                if (_missingMediaScanRequested) continue;
+                if (count == 0) DismissMissingMediaNotification();
+                else if (_missingMediaNotification == null) ShowMissingMediaNotification(count);
+            }
+            while (_missingMediaScanRequested);
+        }
+        catch (OperationCanceledException) when (MediaRepairCancellationToken.IsCancellationRequested) { }
+        catch (Exception ex) { _logger.LogWarning(ex, "Could not check missing media."); }
+    }
+
+    private void ShowMissingMediaNotification(int count)
+    {
         _missingMediaNotification = CancellationTokenSource.CreateLinkedTokenSource(MediaRepairCancellationToken);
         NotificationService.Show(new Beutl.Services.Notification(
             MissingMediaStrings.Title,
@@ -69,7 +99,7 @@ public sealed partial class EditViewModel
                          value => value is MediaSource { HasUri: true } or ModelSource { HasUri: true, MeshCount: 0 })
                          .SearchAll().OfType<IFileSource>())
             {
-                if (!source.Uri.IsFile || !File.Exists(source.Uri.LocalPath)) continue;
+                if (!source.Uri.IsFile) continue;
                 if (source is MediaSource media) media.InvalidateResourceCache();
                 else if (source is ModelSource)
                 {
@@ -96,10 +126,12 @@ public sealed partial class EditViewModel
             FrameCacheManager.Value.Clear();
             Player.QueuePreviewRender();
 
-            if (existing != null) existing.RefreshRows();
+            var missing = await new MissingMediaService().FindMissingAsync(Scene, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (existing != null) existing.RefreshRows(missing);
             else
             {
-                existing = new MissingMediaViewModel(this);
+                existing = new MissingMediaViewModel(this, missing);
                 if (!DockHost.OpenToolTab(existing, DockHost.Factory.GetAnchoredDock(existing.Extension.DefaultAnchor)))
                 {
                     existing.Dispose();

@@ -6,6 +6,7 @@ using Beutl.IO;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Services.PrimitiveImpls;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Icon = FluentIcons.Common.Icon;
 
@@ -30,7 +31,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim();
     }
 
-    public MissingMedia Media { get; }
+    public MissingMedia Media { get; internal set; }
     public string Name => Media.Name;
     public string ExpectedLocation => Media.ExpectedUri?.LocalPath ?? Media.FontFamily!.Name;
     public string Elements { get; }
@@ -81,19 +82,22 @@ public sealed class MissingMediaRowViewModel : IDisposable
 
 public sealed class MissingMediaViewModel : IToolContext
 {
+    private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<MissingMediaViewModel>();
     private readonly EditViewModel _editor;
     private readonly MissingMediaService _service = new();
     private readonly CancellationTokenSource _cancellation;
     private readonly CancellationToken _token;
     private readonly List<IDisposable> _subscriptions = [];
+    private CancellationTokenSource? _candidateCancellation;
+    private Task _candidateScanTask = Task.CompletedTask;
     private bool _disposed;
 
-    public MissingMediaViewModel(EditViewModel editor)
+    public MissingMediaViewModel(EditViewModel editor, IReadOnlyList<MissingMedia>? missing = null)
     {
         _editor = editor;
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(editor.MediaRepairCancellationToken);
         _token = _cancellation.Token;
-        RefreshRows();
+        RefreshRows(missing);
     }
 
     public ToolTabExtension Extension => MissingMediaTabExtension.Instance;
@@ -108,24 +112,53 @@ public sealed class MissingMediaViewModel : IToolContext
     public ReactivePropertySlim<string> Summary { get; } = new(string.Empty);
     public ReactivePropertySlim<string?> Error { get; } = new();
     internal CancellationToken CancellationToken => _token;
+    internal Func<IEnumerable<MissingMedia>, string, CancellationToken,
+        Task<IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>>>>? FindCandidateMatches
+    { get; set; }
     public Task RefreshAsync() => _editor.OpenMissingMediaAsync(refresh: true);
 
     public void Close() => _editor.CloseToolTab(this);
 
-    internal void RefreshRows()
+    internal Task WaitForCandidatesAsync() => _candidateScanTask;
+
+    internal async Task RefreshRowsAsync()
+        => RefreshRows(await _service.FindMissingAsync(_editor.Scene, _token));
+
+    internal async Task InitializeRowsAsync()
     {
-        var offline = Rows.Where(row => row.IsOffline.Value)
-            .Select(row => (row.Media.Kind, row.Media.ExpectedUri, row.Media.FontFamily?.Name)).ToHashSet();
+        SetBusy(true);
+        IsEmpty.Value = false;
+        try { await RefreshRowsAsync(); }
+        catch (OperationCanceledException) when (_token.IsCancellationRequested) { }
+        catch (Exception ex) { if (!_disposed) Error.Value = ex.Message; }
+        finally { if (!_disposed) SetBusy(false); }
+    }
+
+    internal void RefreshRows(IReadOnlyList<MissingMedia>? missing = null)
+    {
+        if (_disposed) return;
+        var previous = Rows.ToDictionary(row => (row.Media.Kind, row.Media.ExpectedUri, row.Media.FontFamily?.Name));
         foreach (var subscription in _subscriptions) subscription.Dispose();
         _subscriptions.Clear();
-        foreach (var row in Rows) row.Dispose();
-        Rows.Clear();
-        foreach (var media in _service.FindMissing(_editor.Scene))
+        var retained = new List<MissingMediaRowViewModel>();
+        foreach (var media in missing ?? _service.FindMissing(_editor.Scene))
         {
-            var row = new MissingMediaRowViewModel(media);
-            row.IsOffline.Value = offline.Contains((media.Kind, media.ExpectedUri, media.FontFamily?.Name));
-            Rows.Add(row);
+            var key = (media.Kind, media.ExpectedUri, media.FontFamily?.Name);
+            var row = previous.TryGetValue(key, out var existing) ? existing : new MissingMediaRowViewModel(media);
+            row.Media = media;
+            retained.Add(row);
             _subscriptions.Add(row.IsOffline.Subscribe(_ => RefreshState()));
+        }
+        foreach (var row in Rows.Where(row => !retained.Contains(row)).ToArray())
+        {
+            Rows.Remove(row);
+            row.Dispose();
+        }
+        for (int i = 0; i < retained.Count; i++)
+        {
+            int index = Rows.IndexOf(retained[i]);
+            if (index < 0) Rows.Insert(i, retained[i]);
+            else if (index != i) Rows.Move(index, i);
         }
         IsEmpty.Value = Rows.Count == 0;
         if (IsEmpty.Value) _editor.DismissMissingMediaNotification();
@@ -138,24 +171,37 @@ public sealed class MissingMediaViewModel : IToolContext
 
     public void WriteToJson(JsonObject json) { }
 
-    private async Task FindCandidatesInDirectoryAsync(string directory, MissingMediaRowViewModel selectedRow)
+    private async Task FindCandidatesInDirectoryAsync(string directory, MissingMediaRowViewModel selectedRow, CancellationToken token)
     {
-        var rows = Rows.Where(row => row != selectedRow && !row.IsOffline.Value && row.ReplacementPath.Value == null).ToArray();
-        if (rows.Length == 0) return;
-        foreach (var row in rows)
+        // Let the selected replacement become usable before unrelated discovery.
+        await Task.Yield();
+        try
         {
-            row.CandidatePath.Value = null;
-            row.ValidatedSource = null;
-            row.FontReplacementFiles = [];
-            row.Status.Value = MissingMediaStrings.Missing;
+            var rows = Rows.Where(row => row != selectedRow && !row.IsOffline.Value && row.ReplacementPath.Value == null).ToArray();
+            if (selectedRow.Media.Kind == MissingMediaKind.Font)
+            {
+                string? selected = selectedRow.ReplacementPath.Value;
+                if (selected != null)
+                {
+                    var fonts = await _service.FindFontFamilyFilesAsync(selectedRow.Media.FontFamily!, directory, token, selected);
+                    if (Rows.Contains(selectedRow) && selectedRow.ReplacementPath.Value == selected)
+                        selectedRow.FontReplacementFiles = fonts;
+                }
+            }
+            if (rows.Length == 0) return;
+            var matches = await (FindCandidateMatches?.Invoke(rows.Select(row => row.Media), directory, token)
+                ?? _service.FindMatchesAsync(rows.Select(row => row.Media), directory, token));
+            foreach (var row in rows)
+            {
+                token.ThrowIfCancellationRequested();
+                if (!Rows.Contains(row) || row.IsOffline.Value || row.ReplacementPath.Value != null) continue;
+                if (matches.TryGetValue(row.Media, out var paths))
+                    await SetReplacementCoreAsync(row, paths[0], paths, asCandidate: true, cancellationToken: token);
+            }
         }
-        var matches = await _service.FindMatchesAsync(rows.Select(row => row.Media), directory, _token);
-        foreach (var row in rows)
-        {
-            _token.ThrowIfCancellationRequested();
-            if (matches.TryGetValue(row.Media, out var paths))
-                await SetReplacementCoreAsync(row, paths[0], paths, asCandidate: true);
-        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) { if (!_disposed) Error.Value = ex.Message; }
+        finally { if (!_disposed) RefreshState(); }
     }
 
     public async Task SetReplacementAsync(MissingMediaRowViewModel row, string path)
@@ -171,7 +217,10 @@ public sealed class MissingMediaViewModel : IToolContext
             {
                 string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
                 GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory = directory;
-                await FindCandidatesInDirectoryAsync(directory, row);
+                _candidateCancellation?.Cancel();
+                _candidateCancellation?.Dispose();
+                _candidateCancellation = CancellationTokenSource.CreateLinkedTokenSource(_token);
+                _candidateScanTask = FindCandidatesInDirectoryAsync(directory, row, _candidateCancellation.Token);
             }
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { }
@@ -194,18 +243,20 @@ public sealed class MissingMediaViewModel : IToolContext
         foreach (var row in Rows) UseCandidate(row);
     }
 
-    private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null, bool asCandidate = false)
+    private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null,
+        bool asCandidate = false, CancellationToken? cancellationToken = null)
     {
+        CancellationToken token = cancellationToken ?? _token;
         try
         {
-            var validated = await _service.ValidateAsync(row.Media, path, _token);
+            var validated = await _service.ValidateAsync(row.Media, path, token);
             IReadOnlyList<string> fontFiles = [];
             if (row.Media.Kind == MissingMediaKind.Font)
             {
-                fontFiles = matchedPaths ?? await _service.FindFontFamilyFilesAsync(row.Media.FontFamily!, Path.GetDirectoryName(Path.GetFullPath(path))!, _token);
-                foreach (string file in fontFiles) await _service.ValidateAsync(row.Media, file, _token);
+                fontFiles = await _service.SelectFontFamilyFilesAsync(row.Media.FontFamily!, path, matchedPaths ?? [path], token);
             }
-            _token.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
+            if (asCandidate && (!Rows.Contains(row) || row.IsOffline.Value || row.ReplacementPath.Value != null)) return;
             row.ValidatedSource = validated;
             row.FontReplacementFiles = fontFiles;
             if (asCandidate) row.CandidatePath.Value = Path.GetFullPath(path);
@@ -216,6 +267,8 @@ public sealed class MissingMediaViewModel : IToolContext
         catch (OperationCanceledException) { throw; }
         catch (Exception)
         {
+            if (asCandidate && (!Rows.Contains(row) || row.IsOffline.Value
+                || row.ReplacementPath.Value != null || row.CandidatePath.Value != null)) return;
             if (!_disposed)
             {
                 // Leave the original reference intact. The row can be retried or kept offline.
@@ -232,6 +285,7 @@ public sealed class MissingMediaViewModel : IToolContext
     public async Task<bool> ApplyAsync()
     {
         if (_disposed || !CanApply.Value) return false;
+        _candidateCancellation?.Cancel();
         SetBusy(true);
         var dockable = _editor.DockHost.Factory.EnumerateTools().FirstOrDefault(tool => tool.ToolContext == this);
         if (dockable != null) dockable.CanClose = false;
@@ -263,44 +317,98 @@ public sealed class MissingMediaViewModel : IToolContext
                     value => value is Beutl.Media.Source.MediaSource { HasUri: true }
                         or Beutl.Graphics3D.Models.ModelSource { HasUri: true })
                 .SearchAll().OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance)
-                .ToLookup(source => (source.GetType(), source.Uri));
-            using (_editor.HistoryManager.SuppressRecording())
-            {
-                foreach (var row in rows.Where(row => row.Media.Kind != MissingMediaKind.Font))
-                {
-                    var uri = new Uri(row.ReplacementPath.Value!);
-                    Type sourceType = row.Media.References.First(reference => reference.Source != null).Source!.GetType();
-                    foreach (IFileSource source in currentSources[(sourceType, row.Media.ExpectedUri!)])
-                        ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
-                            synchronizeModelGeometry: replacementModels.Contains(row));
-                }
-            }
-            _editor.HasMediaRepairs.Value = true;
-
+                .ToLookup(source => (MissingMediaService.GetKind(source), source.Uri));
             string projectDirectory = Path.GetDirectoryName((_editor.Scene.FindHierarchicalParent<Project>()?.Uri
                                       ?? _editor.Scene.Uri)!.LocalPath)!;
-            var fontRows = rows.Where(row => row.Media.Kind == MissingMediaKind.Font).ToArray();
-            if (fontRows.Length > 0)
+            string fontsDirectory = Path.Combine(projectDirectory, "resources", "fonts");
+            var originalFonts = Directory.Exists(fontsDirectory)
+                ? Directory.GetFiles(fontsDirectory).ToHashSet(StringComparer.Ordinal) : [];
+            var fingerprints = new Dictionary<string, Beutl.ProjectSystem.MediaFileFingerprint>(_editor.Scene.MediaFingerprints);
+            bool hadRepairs = _editor.HasMediaRepairs.Value;
+            var rollback = new List<Action>();
+            foreach (var source in rows.Where(row => row.Media.Kind != MissingMediaKind.Font)
+                         .SelectMany(row => currentSources[(row.Media.Kind, row.Media.ExpectedUri!)])
+                         .Distinct<IFileSource>(ReferenceEqualityComparer.Instance))
             {
-                var paths = fontRows.ToDictionary(row => row.Media.FontFamily!.Name, row => row.FontReplacementFiles);
-                var relocation = new ResourceRelocationService(family => paths[family]);
-                RelocationResult result = await relocation.RelocateFontsAsync(fontRows.Select(row => row.Media.FontFamily!),
-                    projectDirectory, _token);
-                if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);
-                var project = _editor.Scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _editor.Scene.Uri };
-                FontManager.Instance.LoadProjectFonts(project);
+                Uri original = source.Uri;
+                if (source is Beutl.Graphics3D.Models.ModelSource model)
+                {
+                    var snapshot = model.CaptureState();
+                    rollback.Add(() => model.RelinkFrom(snapshot));
+                    if (model.FindHierarchicalParent<Beutl.Graphics3D.Models.Model3D>() is { } owner)
+                        rollback.Add(owner.CaptureGeometryRollback());
+                }
+                else rollback.Add(() => source.ReadFrom(original));
             }
+            var fontRows = rows.Where(row => row.Media.Kind == MissingMediaKind.Font).ToArray();
+            try
+            {
+                // Copy and validate fonts before mutating any live media reference.
+                if (fontRows.Length > 0)
+                {
+                    var paths = fontRows.ToDictionary(row => row.Media.FontFamily!.Name, row => row.FontReplacementFiles);
+                    var relocation = new ResourceRelocationService(family => paths[family]);
+                    RelocationResult result = await relocation.RelocateFontsAsync(fontRows.Select(row => row.Media.FontFamily!),
+                        projectDirectory, _token);
+                    if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);
+                    var project = _editor.Scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _editor.Scene.Uri };
+                    FontManager.Instance.LoadProjectFonts(project);
+                }
+                using (_editor.HistoryManager.SuppressRecording())
+                {
+                    foreach (var row in rows.Where(row => row.Media.Kind != MissingMediaKind.Font))
+                    {
+                        var uri = new Uri(row.ReplacementPath.Value!);
+                        foreach (IFileSource source in currentSources[(row.Media.Kind, row.Media.ExpectedUri!)])
+                            ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
+                                synchronizeModelGeometry: replacementModels.Contains(row));
+                    }
+                }
+                _editor.HasMediaRepairs.Value = true;
 
-            await _editor.SaveAsync();
+                if (!await _editor.SaveAsync()) throw new IOException(MessageStrings.UnableToSaveFile);
+            }
+            catch
+            {
+                using (_editor.HistoryManager.SuppressRecording())
+                    foreach (var restore in rollback) restore();
+                _editor.Scene.MediaFingerprints.Clear();
+                foreach (var pair in fingerprints) _editor.Scene.MediaFingerprints[pair.Key] = pair.Value;
+                _editor.HasMediaRepairs.Value = hadRepairs;
+                if (fontRows.Length > 0)
+                {
+                    try
+                    {
+                        if (Directory.Exists(fontsDirectory))
+                            foreach (string file in Directory.GetFiles(fontsDirectory).Where(file => !originalFonts.Contains(file)))
+                                File.Delete(file);
+                        FontManager.Instance.LoadProjectFonts(_editor.Scene.FindHierarchicalParent<Project>() ?? new Project { Uri = _editor.Scene.Uri });
+                    }
+                    catch (Exception ex) { s_logger.LogWarning(ex, "Could not roll back copied repair fonts."); }
+                }
+                _editor.Renderer.Value.ClearAllCaches();
+                _editor.FrameCacheManager.Value.Clear();
+                _editor.Player.QueuePreviewRender();
+                throw;
+            }
             if (_editor.EditorService.ProjectVersionControlSession is { } session)
             {
-                await session.NotifySavedAsync(write, _token);
-                _editor.ScheduleMediaFingerprints(finishSaveSnapshot: true);
+                try
+                {
+                    await session.NotifySavedAsync(write, _token);
+                    _editor.ScheduleMediaFingerprints(finishSaveSnapshot: true);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The repair has reached disk; a snapshot failure cannot undo that save.
+                    s_logger.LogWarning(ex, "Could not snapshot the saved media repair.");
+                    Error.Value = ex.Message;
+                }
             }
             _editor.Renderer.Value.ClearAllCaches();
             _editor.FrameCacheManager.Value.Clear();
             _editor.Player.QueuePreviewRender();
-            RefreshRows();
+            await RefreshRowsAsync();
             return true;
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { return false; }
@@ -344,6 +452,8 @@ public sealed class MissingMediaViewModel : IToolContext
         _disposed = true;
         _cancellation.Cancel();
         _cancellation.Dispose();
+        _candidateCancellation?.Cancel();
+        _candidateCancellation?.Dispose();
         foreach (var subscription in _subscriptions) subscription.Dispose();
         foreach (var row in Rows) row.Dispose();
         IsBusy.Dispose();

@@ -31,7 +31,7 @@ using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 
-public class MissingMediaTests
+public partial class MissingMediaTests
 {
     [AvaloniaTest]
     public async Task Opening_missing_media_shows_a_persistent_notification_that_opens_one_repair_tab()
@@ -57,6 +57,7 @@ public class MissingMediaTests
             TestShell.Editor.ActivateTabItem(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
             editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             editor.NotifyMissingMedia();
+            await editor.WaitForMissingMediaAsync();
             Notification notification = handler.Notifications.Single();
             Assert.Multiple(() =>
             {
@@ -96,6 +97,7 @@ public class MissingMediaTests
             }
             finally { window.Close(); }
             await tool.SetReplacementAsync(tool.Rows.Single(), moved);
+            await tool.WaitForCandidatesAsync();
             Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
             Assert.That(tool.Rows, Is.Empty);
             Assert.That(notification.CancellationToken.IsCancellationRequested, Is.True);
@@ -126,6 +128,7 @@ public class MissingMediaTests
                 AddImage(editor.Scene, Path.Combine(directory, "old", "second.png"));
             }
             editor.NotifyMissingMedia();
+            await editor.WaitForMissingMediaAsync();
             Notification notification = handler.Notifications.Single();
             await editor.OpenMissingMediaAsync();
             var tool = editor.FindToolTab<MissingMediaViewModel>()!;
@@ -133,6 +136,7 @@ public class MissingMediaTests
             string replacement = Path.Combine(directory, "first.png");
             File.WriteAllBytes(replacement, s_png);
             await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "first.png"), replacement);
+            await tool.WaitForCandidatesAsync();
             Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
             Assert.That(tool.Rows.Single().Name, Is.EqualTo("second.png"));
             Assert.That(tool.Rows.Single().IsOffline.Value, Is.True);
@@ -175,6 +179,7 @@ public class MissingMediaTests
             await editor.OpenMissingMediaAsync();
             var tool = editor.FindToolTab<MissingMediaViewModel>()!;
             await tool.SetReplacementAsync(tool.Rows.Single(), replacement);
+            await tool.WaitForCandidatesAsync();
             using (editor.HistoryManager.SuppressRecording())
             {
                 editor.Scene.Children.Remove(removed);
@@ -213,7 +218,9 @@ public class MissingMediaTests
             File.WriteAllBytes(secondPath, s_png);
             File.WriteAllBytes(replacement, s_png);
             await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "first.png"), secondPath);
+            await tool.WaitForCandidatesAsync();
             await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "second.png"), replacement);
+            await tool.WaitForCandidatesAsync();
             Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
             Assert.That(((SourceImage)editor.Scene.Children[0].Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(secondPath));
             Assert.That(((SourceImage)editor.Scene.Children[1].Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(replacement));
@@ -368,6 +375,7 @@ public class MissingMediaTests
         using var vm = new MissingMediaViewModel(editor);
         Assert.That(vm.Rows.Single().Media.Kind, Is.EqualTo(MissingMediaKind.Font));
         await vm.SetReplacementAsync(vm.Rows.Single(), fontPath);
+        await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         bool updateOnly = false;
         textResource.Update(text, CompositionContext.Default, ref updateOnly);
@@ -401,6 +409,7 @@ public class MissingMediaTests
         using var vm = new MissingMediaViewModel(editor);
         Assert.That(vm.Rows, Has.Count.EqualTo(300));
         await vm.SetReplacementAsync(vm.Rows[0], Path.Combine(directory, vm.Rows[0].Name));
+        await vm.WaitForCandidatesAsync();
         Assert.That(vm.Rows.Skip(1).All(row => row.CandidatePath.Value != null && row.ReplacementPath.Value == null), Is.True, vm.Error.Value);
         vm.UseAllCandidates();
         Assert.That(vm.Rows.All(row => row.ReplacementPath.Value != null), Is.True, vm.Error.Value);
@@ -491,6 +500,7 @@ public class MissingMediaTests
         using var shared = source.ToResource(CompositionContext.Default);
         Assert.That(shared.IsOffline, Is.False);
         await vm.SetReplacementAsync(vm.Rows.Single(), path);
+        await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         var repaired = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
         Assert.That(repaired, Is.SameAs(initial));
@@ -614,9 +624,9 @@ public class MissingMediaTests
         {
             dialog.Show();
             HeadlessTestHelpers.Render(3);
-            var rows = view.FindControl<ItemsControl>("MissingMediaItems")!.GetVisualDescendants()
+            var rows = view.FindControl<ItemsRepeater>("MissingMediaItems")!.GetVisualDescendants()
                 .OfType<Border>().Where(border => border.Name == "MediaRow").ToArray();
-            Assert.That(rows, Has.Length.EqualTo(vm.Rows.Count));
+            Assert.That(rows.Length, Is.InRange(1, 20), "Only rows near the viewport are realized for the 350-item list.");
             Assert.That(view.GetVisualDescendants().OfType<ListBox>(), Is.Empty);
             var firstRow = rows[0];
             var texts = firstRow.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().ToArray();
@@ -656,6 +666,7 @@ public class MissingMediaTests
             string invalid = Path.Combine(directory, "unknown.png");
             File.WriteAllText(invalid, "not an image");
             await vm.SetReplacementAsync(vm.Rows[0], invalid);
+            await vm.WaitForCandidatesAsync();
             vm.Rows[0].IsOffline.Value = true;
             HeadlessTestHelpers.Render(3);
             Assert.That(vm.Rows[0].ReplacementPath.Value, Is.Null);
@@ -716,6 +727,7 @@ public class MissingMediaTests
             offlineItem.IsChecked = false;
             flyout.Hide();
             await vm.SetReplacementAsync(row, replacement);
+            await vm.WaitForCandidatesAsync();
             HeadlessTestHelpers.Render(3);
             Assert.That(row.IsReady.Value, Is.True);
             Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Ready));
@@ -758,8 +770,10 @@ public class MissingMediaTests
         File.WriteAllText(invalid, "not an image");
         using var vm = new MissingMediaViewModel(editor);
         await vm.SetReplacementAsync(vm.Rows.Single(), valid);
+        await vm.WaitForCandidatesAsync();
         Assert.That(vm.CanApply.Value, Is.True);
         await vm.SetReplacementAsync(vm.Rows.Single(), invalid);
+        await vm.WaitForCandidatesAsync();
         Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.Null);
         Assert.That(vm.CanApply.Value, Is.False);
         await TestReset.ResetShellAsync();
@@ -961,6 +975,7 @@ public class MissingMediaTests
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), path);
+            await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             await editor.WaitForMediaFingerprintsAsync();
             session.Verify(value => value.NotifySavedAsync(Moq.It.Is<Beutl.Editor.VersionControl.IProjectFileWriteLease>(lease => lease != null), Moq.It.IsAny<CancellationToken>()), Moq.Times.Exactly(2));
@@ -1058,6 +1073,7 @@ public class MissingMediaTests
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), files[0]);
+            await vm.WaitForCandidatesAsync();
             Assert.That(vm.Rows.Single().FontReplacementFiles, Is.EquivalentTo(files));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
@@ -1124,6 +1140,7 @@ public class MissingMediaTests
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
+            await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(model.Children, Is.EqualTo(new[] { child, extra }));
             Assert.That(child.Name, Is.EqualTo("User mesh"));
@@ -1157,7 +1174,7 @@ public class MissingMediaTests
         {
             await editor.OpenMissingMediaAsync(refresh: true);
             var vm = editor.FindToolTab<MissingMediaViewModel>()!;
-            Assert.That(vm.Rows.Single().Name, Is.EqualTo("missing-image.png"));
+            Assert.That(vm.Rows.Select(row => row.Name), Is.EquivalentTo(new[] { "missing-image.png", "unreadable.obj" }));
             Assert.That(source.MeshCount, Is.Zero);
             Assert.That(owner.OwnedWindows, Is.Empty);
             vm.Close();
@@ -1254,6 +1271,7 @@ public class MissingMediaTests
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), moved);
+            await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(restored.Children, Is.EqualTo(children));
             Assert.That(restored.Children.Select(child => CoreSerializer.SerializeToJsonObject(child).ToJsonString()), Is.EqualTo(savedChildren));
@@ -1323,6 +1341,7 @@ public class MissingMediaTests
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), path);
+            await vm.WaitForCandidatesAsync();
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(path));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
@@ -1363,10 +1382,12 @@ public class MissingMediaTests
             using var vm = new MissingMediaViewModel(editor);
             var chosen = vm.Rows.Single(row => row.Name == "chosen.png");
             await vm.SetReplacementAsync(chosen, chosenPath);
+            await vm.WaitForCandidatesAsync();
             vm.Rows.Single(row => row.Name == "ignored.png").IsOffline.Value = true;
             var seed = vm.Rows.Single(row => row.Name == "seed.png");
             var sibling = vm.Rows.Single(row => row.Name == "sibling.png");
             await vm.SetReplacementAsync(seed, Path.Combine(directory, "seed.png"));
+            await vm.WaitForCandidatesAsync();
             Assert.That(sibling.CandidatePath.Value, Is.EqualTo(Path.Combine(directory, "sibling.png")));
             Assert.That(sibling.ReplacementPath.Value, Is.Null);
             Assert.That(sibling.HasCandidate.Value, Is.True);
@@ -1404,6 +1425,7 @@ public class MissingMediaTests
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(row => row.Name == "seed.png"), Path.Combine(directory, "seed.png"));
+            await vm.WaitForCandidatesAsync();
             File.WriteAllText(candidate, "no longer readable");
             vm.UseAllCandidates();
             Assert.That(await vm.ApplyAsync(), Is.False);
@@ -1436,6 +1458,7 @@ public class MissingMediaTests
         {
             window.Show();
             await vm.SetReplacementAsync(vm.Rows.Single(row => row.Name == "first.png"), Path.Combine(directory, "first.png"));
+            await vm.WaitForCandidatesAsync();
             HeadlessTestHelpers.Render(3);
             var candidate = vm.Rows.Single(row => row.Name == "second.png");
             Assert.That(candidate.ReplacementPath.Value, Is.Null);

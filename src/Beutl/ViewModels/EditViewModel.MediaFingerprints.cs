@@ -40,8 +40,15 @@ public sealed partial class EditViewModel
     {
         // Lifecycle saves reserve the workspace. Wait only for hashing, never
         // for the background metadata writer queued behind that reservation.
-        if (!_fingerprintCaptureTask.IsCompleted) await _fingerprintCaptureTask;
-        await CaptureMediaFingerprintsAsync(Scene);
+        try
+        {
+            if (!_fingerprintCaptureTask.IsCompleted) await _fingerprintCaptureTask;
+            await CaptureMediaFingerprintsAsync(Scene);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not flush media fingerprints.");
+        }
     }
 
     private void CaptureSavedMediaUris()

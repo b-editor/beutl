@@ -13,6 +13,8 @@ internal static class ExtensionMenuActions
         if (!viewModel.EditorService.TabItems.Contains(selectedTab)) return;
         IEditorContext original = selectedTab.Context.Value;
         using var suspension = viewModel.EditorService.SuspendEditor(original);
+        if (original is EditViewModel sceneEditor)
+            await sceneEditor.FlushMediaFingerprintsAsync();
         if (original is ISavableEditorContext editor
             && !await editor.SaveAsync())
         {

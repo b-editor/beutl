@@ -44,11 +44,37 @@ public sealed class MissingMediaService
     }
 
     public IReadOnlyList<MissingMedia> FindMissing(Scene scene)
+        => FindMissingAsync(scene).GetAwaiter().GetResult();
+
+    public Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, CancellationToken token = default)
+    {
+        // Capture the editable graph before moving filesystem probes and decoders
+        // off the UI thread. Worker tasks never traverse mutable engine objects.
+        var references = CaptureReferences(scene);
+        return Task.Run<IReadOnlyList<MissingMedia>>(async () =>
+        {
+            var missing = new List<MissingMedia>();
+            foreach (var item in references)
+            {
+                token.ThrowIfCancellationRequested();
+                if (item.FontFamily is { } font)
+                {
+                    if (!_fontExists(font)) missing.Add(item);
+                    continue;
+                }
+                try { await ValidateAsync(item, item.ExpectedUri!.LocalPath, token); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception) { missing.Add(item); }
+            }
+            token.ThrowIfCancellationRequested();
+            return missing;
+        }, token);
+    }
+
+    private static IReadOnlyList<MissingMedia> CaptureReferences(Scene scene)
     {
         var groups = new Dictionary<(MissingMediaKind Kind, string Key), List<MissingMediaReference>>();
         var values = new Dictionary<(MissingMediaKind Kind, string Key), (Uri? Uri, FontFamily? Font)>();
-        var fileExists = new Dictionary<string, bool>(StringComparer.Ordinal);
-        var fontExists = new Dictionary<FontFamily, bool>();
         var searcher = new ObjectSearcher(scene, (stack, value) =>
         {
             Uri? uri = GetUri(value);
@@ -59,16 +85,10 @@ public sealed class MissingMediaService
             if (uri is { IsAbsoluteUri: true, IsFile: true })
             {
                 key = uri.AbsoluteUri;
-                if (!fileExists.TryGetValue(key, out bool exists))
-                    fileExists[key] = exists = File.Exists(uri.LocalPath);
-                if (exists) return false;
             }
             else if (font != null)
             {
                 key = font.Name;
-                if (!fontExists.TryGetValue(font, out bool exists))
-                    fontExists[font] = exists = _fontExists(font);
-                if (exists) return false;
             }
             else return false;
 
@@ -100,7 +120,7 @@ public sealed class MissingMediaService
         _ => null
     };
 
-    private static MissingMediaKind? GetKind(object value) => value switch
+    public static MissingMediaKind? GetKind(object value) => value switch
     {
         VideoSource => MissingMediaKind.Video,
         SoundSource => MissingMediaKind.Sound,
@@ -120,7 +140,7 @@ public sealed class MissingMediaService
             if (!Directory.Exists(directory)) throw new DirectoryNotFoundException(directory);
             var byName = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var bySize = new Dictionary<long, List<string>>();
-            var fonts = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var fonts = new Dictionary<string, List<string>>(StringComparer.Ordinal);
             bool findFonts = items.Any(item => item.Kind == MissingMediaKind.Font);
             foreach (string path in EnumerateMediaFiles(directory, token))
             {
@@ -183,15 +203,41 @@ public sealed class MissingMediaService
         }, token);
     }
 
-    public Task<IReadOnlyList<string>> FindFontFamilyFilesAsync(FontFamily family, string directory, CancellationToken token = default)
-        => Task.Run<IReadOnlyList<string>>(() => EnumerateMediaFiles(directory, token).Where(IsFontFile).Where(path =>
+    public Task<IReadOnlyList<string>> FindFontFamilyFilesAsync(FontFamily family, string directory, CancellationToken token = default,
+        string? selectedPath = null)
+        => Task.Run<IReadOnlyList<string>>(() => SelectFontFamilyFiles(family,
+            EnumerateMediaFiles(directory, token).Where(IsFontFile), selectedPath, token), token);
+
+    public Task<IReadOnlyList<string>> SelectFontFamilyFilesAsync(FontFamily family, string selectedPath,
+        IEnumerable<string> candidates, CancellationToken token = default)
+        => Task.Run<IReadOnlyList<string>>(() => SelectFontFamilyFiles(family, candidates, selectedPath, token), token);
+
+    private static IReadOnlyList<string> SelectFontFamilyFiles(FontFamily family, IEnumerable<string> candidates,
+        string? selectedPath, CancellationToken token)
+    {
+        var result = new List<string>();
+        var accepted = new HashSet<(int Style, int Weight)>();
+        var paths = candidates.Order(StringComparer.Ordinal);
+        foreach (string path in (selectedPath == null ? paths : new[] { selectedPath }.Concat(paths)).Distinct(StringComparer.Ordinal))
         {
-            bool matches = false;
-            foreach (var face in FontManager.OpenFontFaces(path))
-                using (face)
-                    if (string.Equals(face.FamilyName, family.Name, StringComparison.OrdinalIgnoreCase)) matches = true;
-            return matches;
-        }).Order(StringComparer.Ordinal).ToArray(), token);
+            token.ThrowIfCancellationRequested();
+            var faces = new HashSet<(int Style, int Weight)>();
+            try
+            {
+                foreach (var face in FontManager.OpenFontFaces(path))
+                    using (face)
+                        if (string.Equals(face.FamilyName, family.Name, StringComparison.Ordinal))
+                            faces.Add(((int)face.FontSlant, face.FontWeight));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+            // Collections cannot be copied one face at a time. Do not bundle a
+            // conflicting file that could override the user's selected face.
+            if (faces.Count == 0 || faces.Overlaps(accepted)) continue;
+            accepted.UnionWith(faces);
+            result.Add(path);
+        }
+        return result;
+    }
 
     internal static async Task<bool> MatchesFingerprintAsync(MissingMedia item, string path, ModelSource? model = null,
         CancellationToken token = default, Dictionary<string, string>? hashes = null)
@@ -290,6 +336,7 @@ public sealed class MissingMediaService
                 case MissingMediaKind.Model:
                     var model = new ModelSource();
                     model.ReadFrom(new Uri(Path.GetFullPath(path)));
+                    if (model.MeshCount == 0) throw new InvalidDataException("The file does not contain model geometry.");
                     return model;
                 case MissingMediaKind.Cube:
                     using (var stream = File.OpenRead(path)) CubeFile.FromStream(stream);
@@ -298,7 +345,7 @@ public sealed class MissingMediaService
                     bool found = false;
                     foreach (var face in FontManager.OpenFontFaces(path))
                         using (face)
-                            if (string.Equals(face.FamilyName, item.FontFamily!.Name, StringComparison.OrdinalIgnoreCase)) found = true;
+                            if (string.Equals(face.FamilyName, item.FontFamily!.Name, StringComparison.Ordinal)) found = true;
                     if (!found) throw new InvalidDataException("Choose a font file belonging to the missing font family.");
                     break;
             }
@@ -366,9 +413,14 @@ public sealed class MissingMediaService
     private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous, CancellationToken token)
     {
         var file = new FileInfo(path);
-        if (previous is not null && previous.Length == file.Length && previous.LastWriteTimeUtcTicks == file.LastWriteTimeUtc.Ticks)
-            return previous;
-        return new(file.Length, file.LastWriteTimeUtc.Ticks, await HashFileAsync(file.FullName, token));
+        // Size and mtime can survive an overwrite; they do not establish content identity.
+        string hash = await HashFileAsync(file.FullName, token);
+        return new(file.Length, file.LastWriteTimeUtc.Ticks, hash)
+        {
+            // Retain the bundle manifest while its source is offline and cannot
+            // repopulate dependencies, provided the main file still matches.
+            Dependencies = previous?.Sha256 == hash ? previous.Dependencies : null
+        };
     }
 
     internal static async Task<string> HashFileAsync(string path, CancellationToken token)

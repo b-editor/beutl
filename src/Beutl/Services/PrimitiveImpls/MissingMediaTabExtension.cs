@@ -28,7 +28,8 @@ public sealed class MissingMediaTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = editorContext is EditViewModel editor ? new MissingMediaViewModel(editor) : null;
+        context = editorContext is EditViewModel editor ? new MissingMediaViewModel(editor, []) : null;
+        if (context is MissingMediaViewModel tool) _ = tool.InitializeRowsAsync();
         return context != null;
     }
 }

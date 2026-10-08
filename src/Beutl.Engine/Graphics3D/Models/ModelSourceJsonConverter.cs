@@ -10,7 +10,8 @@ public sealed class ModelSourceJsonConverter : FileSourceJsonConverter
         {
             base.ReadFrom(instance, uri);
         }
-        catch (FileNotFoundException) when (uri.IsFile && !File.Exists(uri.LocalPath))
+        catch (Exception ex) when (uri.IsFile
+            && ex is FileNotFoundException or InvalidOperationException { InnerException: FileNotFoundException })
         {
             // ReadFrom retains the URI before loading. Keep the source and the
             // serialized mesh edits available for the missing-media dialog.

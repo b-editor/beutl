@@ -4,9 +4,14 @@ namespace Beutl.Media.Source;
 
 internal static class OfflineMediaPlaceholder
 {
+    private static readonly Lazy<SKBitmap> s_bitmap = new(CreateSharedBitmap);
+
     public static PixelSize Size => new(320, 180);
 
-    public static Bitmap CreateBitmap()
+    // Each resource owns its wrapper, while the identical pixels live for the process.
+    public static Bitmap CreateBitmap() => new(s_bitmap.Value, ownsData: false);
+
+    private static SKBitmap CreateSharedBitmap()
     {
         var bitmap = new SKBitmap(Size.Width, Size.Height);
         using var canvas = new SKCanvas(bitmap);
@@ -16,6 +21,7 @@ internal static class OfflineMediaPlaceholder
         canvas.DrawLine(210, 40, 110, 140, paint);
         paint.Style = SKPaintStyle.Stroke;
         canvas.DrawRect(3, 3, Size.Width - 6, Size.Height - 6, paint);
-        return new Bitmap(bitmap);
+        bitmap.SetImmutable();
+        return bitmap;
     }
 }

@@ -123,6 +123,13 @@ public class ModelSource : EngineObject, IFileSource
         RaiseEdited();
     }
 
+    internal ModelSource CaptureState()
+    {
+        var snapshot = new ModelSource();
+        snapshot.RelinkFrom(this);
+        return snapshot;
+    }
+
     private unsafe void LoadWithAssimp(string path)
     {
         using var assimp = Assimp.GetApi();
@@ -155,6 +162,9 @@ public class ModelSource : EngineObject, IFileSource
                 scene->MRootNode == null)
             {
                 var error = assimp.GetErrorStringS();
+                if (fileSystem.MissingPaths.Count > 0)
+                    throw new InvalidOperationException($"Failed to load model: {error}",
+                        new FileNotFoundException("A required model file is missing.", fileSystem.MissingPaths.First()));
                 throw new InvalidOperationException($"Failed to load model: {error}");
             }
 

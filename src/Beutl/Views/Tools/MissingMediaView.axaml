@@ -80,15 +80,14 @@
         <ScrollViewer Name="MediaScrollViewer" Grid.Row="2" Grid.Column="1" Margin="0,10,0,4"
                       HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsEmpty.Value}">
             <Border Name="MediaGroup" Classes="options-group" Padding="0" VerticalAlignment="Top">
-                <ItemsControl Name="MissingMediaItems" ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <controls:OptionsGroupPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
+                <ItemsRepeater Name="MissingMediaItems" ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
-                            <Border Name="MediaRow" Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}">
+                            <Border Name="MediaRow" Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}"
+                                    BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
@@ -167,8 +166,8 @@
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
             </Border>
         </ScrollViewer>
 

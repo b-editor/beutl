@@ -28,6 +28,7 @@ internal sealed unsafe class ModelImportFileIO : IDisposable
     public FileIO FileIO { get; }
 
     public HashSet<string> Paths { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> MissingPaths { get; } = new(StringComparer.Ordinal);
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static AssimpFile* Open(FileIO* io, byte* name, byte* mode)
@@ -35,12 +36,14 @@ internal sealed unsafe class ModelImportFileIO : IDisposable
         FileStream? stream = null;
         GCHandle handle = default;
         AssimpFile* file = null;
+        ModelImportFileIO? owner = null;
+        string? path = null;
         try
         {
             if (Marshal.PtrToStringUTF8((nint)mode) is not ("r" or "rb" or "rt"))
                 return null;
-            var owner = (ModelImportFileIO)GCHandle.FromIntPtr((nint)io->UserData).Target!;
-            string path = Path.GetFullPath(Marshal.PtrToStringUTF8((nint)name)!.Replace('\\', Path.DirectorySeparatorChar), owner._directory);
+            owner = (ModelImportFileIO)GCHandle.FromIntPtr((nint)io->UserData).Target!;
+            path = Path.GetFullPath(Marshal.PtrToStringUTF8((nint)name)!.Replace('\\', Path.DirectorySeparatorChar), owner._directory);
             stream = System.IO.File.OpenRead(path);
             handle = GCHandle.Alloc(stream);
             file = (AssimpFile*)NativeMemory.Alloc((nuint)sizeof(AssimpFile));
@@ -58,8 +61,10 @@ internal sealed unsafe class ModelImportFileIO : IDisposable
             owner._openFiles.Add((nint)file, (stream, handle));
             return file;
         }
-        catch
+        catch (Exception ex)
         {
+            if ((ex is FileNotFoundException or DirectoryNotFoundException) && path != null)
+                owner?.MissingPaths.Add(path);
             try { stream?.Dispose(); }
             catch { }
             if (handle.IsAllocated) handle.Free();
