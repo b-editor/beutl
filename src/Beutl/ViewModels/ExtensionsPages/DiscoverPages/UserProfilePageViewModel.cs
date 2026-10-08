@@ -96,8 +96,10 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
     private async Task MoreLoadPackages()
     {
-        PackagePageList.RemoveLoadMoreItem(Packages);
-        Package[] array = await Profile.GetPackagesAsync(CancellationToken.None, Packages.Count, PackagePageList.PageSize);
-        PackagePageList.AppendPage(Packages, array);
+        Package[] array = await Profile.GetPackagesAsync(
+            CancellationToken.None,
+            PackagePageList.NextPageStart(Packages),
+            PackagePageList.PageSize);
+        PackagePageList.AppendNextPage(Packages, array);
     }
 }
