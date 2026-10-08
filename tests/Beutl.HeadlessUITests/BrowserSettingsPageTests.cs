@@ -141,7 +141,8 @@ public class BrowserSettingsPageTests
     public void SettingsDialog_NavigatesDirectlyToBrowserPage()
     {
         using var vm = TestShell.MainViewModel.CreateSettingsDialog();
-        var dialog = new SettingsDialog { DataContext = vm };
+        var dialog = HeadlessAppWindow.Create(() => new SettingsDialog());
+        dialog.DataContext = vm;
         try
         {
             vm.GoToBrowserSettingsPage();
