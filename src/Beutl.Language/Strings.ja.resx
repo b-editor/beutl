@@ -3263,19 +3263,19 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>高さを自動調整</value>
   </data>
   <data name="GraphFitAll" xml:space="preserve">
-    <value>全体を表示 (F)</value>
+    <value>全体を表示</value>
   </data>
   <data name="GraphFitSelection" xml:space="preserve">
-    <value>選択範囲を表示 (Shift+F)</value>
+    <value>選択範囲を表示</value>
   </data>
   <data name="GraphEasyEase" xml:space="preserve">
-    <value>イージーイーズ (F9)</value>
+    <value>イージーイーズ</value>
   </data>
   <data name="GraphEasyEaseIn" xml:space="preserve">
-    <value>イーズイン (Shift+F9)</value>
+    <value>イーズイン</value>
   </data>
   <data name="GraphEasyEaseOut" xml:space="preserve">
-    <value>イーズアウト (Ctrl/Cmd+F9)</value>
+    <value>イーズアウト</value>
   </data>
   <data name="GraphValueGraph" xml:space="preserve">
     <value>値グラフ</value>
@@ -3284,7 +3284,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>値</value>
   </data>
   <data name="GraphVelocity" xml:space="preserve">
-    <value>キーフレーム速度 (Ctrl/Cmd+Shift+K)</value>
+    <value>キーフレーム速度</value>
   </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>入る速度</value>
@@ -3308,10 +3308,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>アルファ</value>
   </data>
   <data name="GraphDistributeEvenly" xml:space="preserve">
-    <value>等間隔に配置 (Alt+D)</value>
+    <value>等間隔に配置</value>
   </data>
   <data name="GraphReverse" xml:space="preserve">
-    <value>キーフレームの時間を反転 (Alt+R)</value>
+    <value>キーフレームの時間を反転</value>
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>値をスケール</value>

@@ -31,6 +31,21 @@ public partial class GraphEditorView : UserControl
     public GraphEditorView()
     {
         InitializeComponent();
+        KeyModifiers commandModifier = KeyGestureHelper.GetCommandModifier();
+        foreach (MenuItem item in graphPanel.ContextMenu!.Items.OfType<MenuItem>())
+        {
+            item.InputGesture = item.Tag switch
+            {
+                "Ease" => new KeyGesture(Key.F9),
+                "EaseIn" => new KeyGesture(Key.F9, KeyModifiers.Shift),
+                "EaseOut" => new KeyGesture(Key.F9, commandModifier),
+                "Velocity" => new KeyGesture(Key.K, commandModifier | KeyModifiers.Shift),
+                "DistributeEvenly" => new KeyGesture(Key.D, KeyModifiers.Alt),
+                "Reverse" => new KeyGesture(Key.R, KeyModifiers.Alt),
+                _ => item.InputGesture
+            };
+        }
+
         RulerBar.PointerMoved += OnContentPointerMoved;
         RulerBar.PointerReleased += OnContentPointerReleased;
         RulerBar.PointerPressed += OnContentPointerPressed;
