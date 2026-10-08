@@ -135,7 +135,8 @@ internal static class AiFileDrop
                 && FindContext<AiVideoGenerationDialogViewModel>(control) is { } owner && !owner.IsGenerating.Value
                 && owner.ReferenceGroups.Contains(group) && group.IsSupported.Value:
                 return Request(group.Pick, AiVideoGenerationDialogViewModel.GetInputFilePatterns(group.Kind), true,
-                    paths => owner.PickInputAsync(group.Kind, paths), group.MaximumCount - group.Files.Count);
+                    paths => owner.PickInputAsync(group.Kind, paths), group.MaximumCount - group.Files.Count,
+                    path => CanAddVideoReference(group, path));
             case AiFileDropTarget.Captions when FindContext<AiSubtitleDialogViewModel>(control) is { } captions
                 && !captions.IsSubtitleOperationActive.Value && ((ICommand)captions.ImportCaptions).CanExecute(null):
                 return new DropRequest(path => captions.CanImportCaptionFile(Path.GetFileName(path)), false,
@@ -150,20 +151,33 @@ internal static class AiFileDrop
         => Request(command, options.FileTypeFilter!.SelectMany(type => type.Patterns ?? []).ToArray(), multiple, apply);
 
     private static DropRequest? Request(ICommand command, IReadOnlyList<string> patterns, bool multiple,
-        Func<IReadOnlyList<string>, Task> apply, int maximumCount = int.MaxValue)
+        Func<IReadOnlyList<string>, Task> apply, int maximumCount = int.MaxValue, Func<string, bool>? filter = null)
         => maximumCount > 0 && command.CanExecute(null)
             ? new DropRequest(path => patterns.Any(pattern =>
-                FileSystemName.MatchesSimpleExpression(pattern, Path.GetFileName(path), ignoreCase: true)), multiple, apply, maximumCount)
+                FileSystemName.MatchesSimpleExpression(pattern, Path.GetFileName(path), ignoreCase: true))
+                && (filter?.Invoke(path) ?? true), multiple, apply, maximumCount)
             : null;
+
+    private static bool CanAddVideoReference(AiVideoInputGroup group, string path)
+    {
+        if (group.Files.Any(file => file.Path == path)) return false;
+        try
+        {
+            return new FileInfo(path).Length <= group.MaximumBytes;
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
 
     private static IReadOnlyList<string> GetPaths(IDataTransfer data, DropRequest request)
     {
         // The drag transfer owns its storage items; local paths remain usable after the event ends.
         var paths = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (IStorageItem item in data.TryGetFiles() ?? [])
         {
             if (item is not IStorageFile || item.TryGetLocalPath() is not { } path
-                || !File.Exists(path) || !request.Accepts(path)) continue;
+                || !File.Exists(path) || !request.Accepts(path) || !seen.Add(path)) continue;
             paths.Add(path);
             if (!request.Multiple || paths.Count >= request.MaximumCount) break;
         }

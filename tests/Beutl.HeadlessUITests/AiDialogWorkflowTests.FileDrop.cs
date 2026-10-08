@@ -217,6 +217,87 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    [TestCase("image", "png", true)]
+    [TestCase("video", "webm", true)]
+    [TestCase("image", "png", false)]
+    [TestCase("video", "webm", false)]
+    public async Task FileDrop_VideoReferenceDuplicatesDoNotConsumeRemainingCapacity(string kind, string extension, bool existing)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var video = CreateVideoGenerationDialog(scope.Clients);
+        video.Prompt.Value = "Animate the references";
+        await WaitUntilAsync(() => video.ReferenceGroups.All(group => group.IsSupported.Value) && video.CanGenerate.Value);
+        var group = video.ReferenceGroups.Single(group => group.Kind == kind);
+        int remaining = existing ? 1 : 2;
+        for (int i = 0; i < group.MaximumCount - remaining; i++)
+            group.Add(scope.File($"existing-{i}.{extension}", s_png));
+        string[] previous = group.Files.Select(file => file.Path).ToArray();
+        string first = scope.File($"first.{extension}", s_png);
+        string second = scope.File($"second.{extension}", s_png);
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Control target = FindFileDropTarget(view, AiFileDropTarget.VideoReference, kind);
+            using var data = FileDropTransfer(existing ? [previous[0], first] : [first, first, second]);
+            await DropFiles(window, target, data);
+            string[] expected = existing ? [.. previous, first] : [.. previous, first, second];
+            Assert.That(group.Files.Select(file => file.Path), Is.EqualTo(expected));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("image", "png")]
+    [TestCase("video", "webm")]
+    [TestCase("audio", "wave")]
+    public async Task FileDrop_VideoReferencesRejectFilesAboveTheModelByteLimit(string kind, string extension)
+    {
+        await TestReset.ResetShellAsync();
+        const long maximumBytes = 128;
+        await using var scope = new FileDropScope(maximumBytes);
+        await using var video = CreateVideoGenerationDialog(scope.Clients);
+        video.Prompt.Value = "Animate the references";
+        await WaitUntilAsync(() => video.ReferenceGroups.All(group => group.IsSupported.Value) && video.CanGenerate.Value);
+        var group = video.ReferenceGroups.Single(group => group.Kind == kind);
+        Assert.That(group.MaximumBytes, Is.EqualTo(maximumBytes));
+        var previousGroup = video.ReferenceGroups.First(other => other != group);
+        string previousExtension = previousGroup.Kind == "image" ? "png" : "webm";
+        string previous = scope.File($"previous.{previousExtension}", s_png);
+        previousGroup.Add(previous);
+        string large = scope.File($"large.{extension}", s_png);
+        using (var stream = System.IO.File.OpenWrite(large)) stream.SetLength(maximumBytes + 1);
+        string valid = scope.File($"valid.{extension}", s_png);
+        using (var stream = System.IO.File.OpenWrite(valid)) stream.SetLength(maximumBytes);
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Control target = FindFileDropTarget(view, AiFileDropTarget.VideoReference, kind);
+            using var largeData = FileDropTransfer(large);
+            Assert.That(RaiseFileDrag(target, DragDrop.DragEnterEvent, largeData).DragEffects, Is.EqualTo(DragDropEffects.None));
+            Assert.That(target.Classes, Does.Not.Contain("dragover"));
+            Assert.That(RaiseFileDrag(target, DragDrop.DropEvent, largeData).DragEffects, Is.EqualTo(DragDropEffects.None));
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            Assert.That(group.Files, Is.Empty);
+            Assert.That(previousGroup.Files.Single().Path, Is.EqualTo(previous));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
+
+            using var mixedData = FileDropTransfer(large, valid);
+            await DropFiles(window, target, mixedData);
+            Assert.That(group.Files.Single().Path, Is.EqualTo(valid));
+            Assert.That(previousGroup.Files.Single().Path, Is.EqualTo(previous));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     public async Task FileDrop_SourceVideoAndCharacterImageUseTheActiveEditingTask()
     {
         await TestReset.ResetShellAsync();
@@ -702,7 +783,7 @@ public sealed partial class AiDialogWorkflowTests
         public string DirectoryPath { get; } = Path.Combine(BeutlHomeIsolation.CurrentHome!, "file-drop-" + Guid.NewGuid().ToString("N"));
         public BeutlApiApplication Clients { get; }
 
-        public FileDropScope()
+        public FileDropScope(long? maximumReferenceBytes = null)
         {
             Directory.CreateDirectory(DirectoryPath);
             var capabilities = JsonNode.Parse(ProviderVideoCapabilities)!;
@@ -712,6 +793,9 @@ public sealed partial class AiDialogWorkflowTests
                     operations[operation.Key] = operation.Value!.DeepClone();
             operations["video.generate"]!["models"]![0]!["firstFrame"] = true;
             operations["video.generate"]!["models"]![0]!["lastFrame"] = true;
+            if (maximumReferenceBytes is { } maximum)
+                foreach (string field in new[] { "maxInputReferenceBytes", "maxVideoReferenceBytes", "maxAudioReferenceBytes" })
+                    operations["video.generate"]!["models"]![0]![field] = maximum;
             _handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
