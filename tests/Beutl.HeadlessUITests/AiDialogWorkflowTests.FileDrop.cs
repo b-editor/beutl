@@ -298,6 +298,160 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task FileDrop_VideoReferencesRespectAggregateByteBudgets(bool imageBudget)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var video = CreateVideoGenerationDialog(scope.Clients);
+        video.Prompt.Value = "Animate the references";
+        await WaitUntilAsync(() => video.ReferenceGroups.All(group => group.IsSupported.Value) && video.CanGenerate.Value);
+        (string Kind, int MiB)[] inputs = imageBudget
+            ? [("image", 5), ("image", 5), ("image", 5), ("image", 4)]
+            : [("video", 20), ("image", 5), ("image", 5), ("image", 1)];
+        for (int i = 0; i < inputs.Length; i++)
+        {
+            var (kind, size) = inputs[i];
+            string extension = kind == "image" ? "png" : "webm";
+            video.ReferenceGroups.Single(group => group.Kind == kind)
+                .Add(scope.File($"existing-{i}.{extension}", s_png, size * 1048576L));
+        }
+        string[] previous = video.ReferenceGroups.SelectMany(group => group.Files).Select(file => file.Path).ToArray();
+        Assert.That(video.InputError.Value, Is.Null);
+        Assert.That(video.CanGenerate.Value, Is.True);
+        var group = video.ReferenceGroups.Single(group => group.Kind == (imageBudget ? "image" : "audio"));
+        string droppedExtension = imageBudget ? "png" : "wave";
+        string large = scope.File($"large.{droppedExtension}", s_png, 2 * 1048576L);
+        string valid = scope.File($"valid.{droppedExtension}", s_png, 1048576L);
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Control target = FindFileDropTarget(view, AiFileDropTarget.VideoReference, group.Kind);
+            using var largeData = FileDropTransfer(large);
+            Assert.That(RaiseFileDrag(target, DragDrop.DragOverEvent, largeData).DragEffects, Is.EqualTo(DragDropEffects.None));
+            Assert.That(RaiseFileDrag(target, DragDrop.DropEvent, largeData).DragEffects, Is.EqualTo(DragDropEffects.None));
+            Assert.That(video.ReferenceGroups.SelectMany(group => group.Files).Select(file => file.Path), Is.EqualTo(previous));
+            using var mixedData = FileDropTransfer(large, valid);
+            await DropFiles(window, target, mixedData);
+            Assert.That(group.Files.Any(file => file.Path == valid), Is.True);
+            Assert.That(video.ReferenceGroups.SelectMany(group => group.Files).Select(file => file.Path).Where(path => path != valid), Is.EqualTo(previous));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    public async Task FileDrop_VideoReferencesAccountForTheWholeBatchByteBudget()
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var video = CreateVideoGenerationDialog(scope.Clients);
+        video.Prompt.Value = "Animate the references";
+        await WaitUntilAsync(() => video.ReferenceGroups.All(group => group.IsSupported.Value) && video.CanGenerate.Value);
+        string[] paths = Enumerable.Range(0, 3).Select(i => scope.File($"video-{i}.webm", s_png, 16 * 1048576L)).ToArray();
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            using var data = FileDropTransfer(paths);
+            await DropFiles(window, FindFileDropTarget(view, AiFileDropTarget.VideoReference, "video"), data);
+            Assert.That(video.ReferenceGroups.Single(group => group.Kind == "video").Files.Select(file => file.Path), Is.EqualTo(paths.Take(2)));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("size")]
+    [TestCase("too-short")]
+    [TestCase("too-long")]
+    public async Task FileDrop_UnsupportedSourceVideoKeepsThePreviousSelection(string kind)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope(maximumSourceVideoBytes: 128);
+        await using var tasks = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(scope.Clients, sourceMode: mode));
+        var video = tasks.ActiveContent.Value!;
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+        string previous = scope.File("previous.webm", s_png);
+        string candidate = scope.File("candidate.webm", s_png, kind == "size" ? 129 : 128);
+        video.VideoDurationReader = path => TimeSpan.FromSeconds(path == candidate ? kind == "too-short" ? 1 : kind == "too-long" ? 11 : 4 : 4);
+        await video.PickInputAsync("source", [previous]);
+        Assert.That(video.InputError.Value, Is.Null);
+        var view = new AiVideoEditingView { DataContext = tasks };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Control target = FindFileDropTarget(view, AiFileDropTarget.SourceVideo);
+            using var data = FileDropTransfer(candidate);
+            await DropFiles(window, target, data);
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(previous));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.Error.Value, Is.Not.Null);
+            using var previousData = FileDropTransfer(previous);
+            await DropFiles(window, target, previousData);
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(previous));
+            Assert.That(video.Error.Value, Is.Null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FileDrop_PendingSourceProbeCannotPublishAfterGenerationStarts(bool probeFails)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var tasks = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(scope.Clients, sourceMode: mode));
+        var video = tasks.ActiveContent.Value!;
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+        string previous = scope.File("previous.webm", s_png);
+        string candidate = scope.File("candidate.webm", s_png);
+        var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseProbe = new ManualResetEventSlim();
+        video.VideoDurationReader = path =>
+        {
+            if (path == candidate)
+            {
+                probeStarted.TrySetResult();
+                if (!releaseProbe.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+                if (probeFails) throw new InvalidDataException("Pending source probe failed.");
+                return TimeSpan.FromSeconds(8);
+            }
+            return TimeSpan.FromSeconds(4);
+        };
+        await video.PickInputAsync("source", [previous]);
+        var view = new AiVideoEditingView { DataContext = tasks };
+        var window = ShowFileDropView(view);
+        Control target = FindFileDropTarget(view, AiFileDropTarget.SourceVideo);
+        try
+        {
+            using var data = FileDropTransfer(candidate);
+            RaiseFileDrag(target, DragDrop.DropEvent, data);
+            await probeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            video.IsGenerating.Value = true;
+            video.Error.Value = "Generation status";
+            releaseProbe.Set();
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(previous));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            Assert.That(video.Error.Value, Is.EqualTo("Generation status"));
+        }
+        finally
+        {
+            releaseProbe.Set();
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            video.IsGenerating.Value = false;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task FileDrop_SourceVideoAndCharacterImageUseTheActiveEditingTask()
     {
         await TestReset.ResetShellAsync();
@@ -783,7 +937,7 @@ public sealed partial class AiDialogWorkflowTests
         public string DirectoryPath { get; } = Path.Combine(BeutlHomeIsolation.CurrentHome!, "file-drop-" + Guid.NewGuid().ToString("N"));
         public BeutlApiApplication Clients { get; }
 
-        public FileDropScope(long? maximumReferenceBytes = null)
+        public FileDropScope(long? maximumReferenceBytes = null, long? maximumSourceVideoBytes = null)
         {
             Directory.CreateDirectory(DirectoryPath);
             var capabilities = JsonNode.Parse(ProviderVideoCapabilities)!;
@@ -796,6 +950,8 @@ public sealed partial class AiDialogWorkflowTests
             if (maximumReferenceBytes is { } maximum)
                 foreach (string field in new[] { "maxInputReferenceBytes", "maxVideoReferenceBytes", "maxAudioReferenceBytes" })
                     operations["video.generate"]!["models"]![0]![field] = maximum;
+            if (maximumSourceVideoBytes is { } sourceMaximum)
+                operations["video.edit"]!["models"]![0]!["maxSourceVideoBytes"] = sourceMaximum;
             _handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
             {
                 "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
@@ -808,10 +964,15 @@ public sealed partial class AiDialogWorkflowTests
             SetAuthenticatedUser(Clients, _http);
         }
 
-        public string File(string name, byte[] bytes)
+        public string File(string name, byte[] bytes, long? length = null)
         {
             string path = Path.Combine(DirectoryPath, name);
             System.IO.File.WriteAllBytes(path, bytes);
+            if (length is { } size)
+            {
+                using var stream = System.IO.File.OpenWrite(path);
+                stream.SetLength(size);
+            }
             return path;
         }
 

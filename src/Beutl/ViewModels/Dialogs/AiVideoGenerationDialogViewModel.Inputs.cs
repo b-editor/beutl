@@ -139,12 +139,38 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         }
     }
 
-    private void ValidateSourceInputs(AiUploadSource source, AiUploadSource? character, double? duration, AiVideoModelCapabilities limits)
+    internal bool CanAddDroppedReference(AiVideoInputGroup group, string path, IReadOnlyList<string> acceptedPaths)
+    {
+        if (group.Files.Any(file => file.Path == path)) return false;
+        try
+        {
+            AiUploadSource candidate = Describe(path);
+            AiVideoInputLimits.Validate(candidate, group.Kind, group.MaximumBytes);
+            AiVideoInputLimits.ValidateReferences([
+                .. ReferenceGroups.SelectMany(group => group.Files).Select(file => Describe(file.Path, file.Name)),
+                .. acceptedPaths.Select(path => Describe(path)),
+                candidate,
+            ]);
+            return true;
+        }
+        catch (AiFileTooLargeException) { return false; }
+        catch (VideoInputException) { return false; }
+        catch (ArgumentException) { return false; }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
+    private void ValidateSourceVideo(AiUploadSource source, double? duration, AiVideoModelCapabilities limits)
     {
         AiVideoInputLimits.Validate(source, "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
         if (duration is not { } seconds || !double.IsFinite(seconds) || seconds <= 0 || seconds > 60
             || (_selectedRecovery is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
             throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
+    }
+
+    private void ValidateSourceInputs(AiUploadSource source, AiUploadSource? character, double? duration, AiVideoModelCapabilities limits)
+    {
+        ValidateSourceVideo(source, duration, limits);
         if (IsMotionControl)
         {
             if (character is null) throw new VideoInputException(Strings.AiChooseCharacterImage);
@@ -174,6 +200,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         if (operation is null) return;
         int selectionRevision = Volatile.Read(ref _sourceVideoSelectionRevision);
         bool IsCurrentSelection() => role != "source" || selectionRevision == Volatile.Read(ref _sourceVideoSelectionRevision);
+        bool CanPublishSelection() => IsCurrentSelection() && (droppedPaths is null || !IsGenerating.Value);
         try
         {
             IReadOnlyList<string> paths;
@@ -199,8 +226,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             double? duration = role == "source" ? await ReadVideoDurationAsync(paths[0], operation.CancellationToken) : null;
             operation.TryPublish(() =>
             {
-                if (!IsCurrentSelection()) return;
-                if (role == "source") { SourceVideoPath.Value = paths[0]; SourceDuration.Value = duration; }
+                if (!CanPublishSelection()) return;
+                if (role == "source")
+                {
+                    if (droppedPaths is not null)
+                        ValidateSourceVideo(Describe(paths[0]), duration, ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted);
+                    SourceVideoPath.Value = paths[0];
+                    SourceDuration.Value = duration;
+                }
                 else if (role == "character") CharacterImagePath.Value = paths[0];
                 else
                 {
@@ -216,8 +249,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         {
             operation.TryPublish(() =>
             {
-                if (IsCurrentSelection())
-                    Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable;
+                if (CanPublishSelection())
+                    Error.Value = ex switch
+                    {
+                        AiFileTooLargeException => Strings.AiFileTooLarge,
+                        VideoInputException => ex.Message,
+                        _ => Strings.AiVideoInputUnavailable,
+                    };
             });
         }
     }
