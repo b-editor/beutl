@@ -200,4 +200,10 @@
   <data name="AddElementFromTemplate" xml:space="preserve">
     <value>从模板添加元素</value>
   </data>
+  <data name="RenameElement" xml:space="preserve">
+    <value>重命名元素</value>
+  </data>
+  <data name="AddMarker" xml:space="preserve">
+    <value>添加标记</value>
+  </data>
 </root>

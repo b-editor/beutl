@@ -3345,4 +3345,58 @@ when history recording is enabled.</value>
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>Switch to previous tool tab</value>
   </data>
+  <data name="GoToMarker" xml:space="preserve">
+    <value>Go to marker…</value>
+  </data>
+  <data name="AddMarkerWithName" xml:space="preserve">
+    <value>Add marker…</value>
+  </data>
+  <data name="RenameMarker" xml:space="preserve">
+    <value>Rename marker…</value>
+  </data>
+  <data name="SaveDockLayoutAs" xml:space="preserve">
+    <value>Save dock layout as…</value>
+  </data>
+  <data name="RenameDockLayout" xml:space="preserve">
+    <value>Rename dock layout…</value>
+  </data>
+  <data name="DeleteDockLayout" xml:space="preserve">
+    <value>Delete dock layout…</value>
+  </data>
+  <data name="JumpToHistory" xml:space="preserve">
+    <value>Go to history state…</value>
+  </data>
+  <data name="ChangeSceneSize" xml:space="preserve">
+    <value>Change scene size…</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>Change scene start time…</value>
+  </data>
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>Change scene duration…</value>
+  </data>
+  <data name="ChangePreviewRenderQuality" xml:space="preserve">
+    <value>Change preview render quality…</value>
+  </data>
+  <data name="OpenRecentProject" xml:space="preserve">
+    <value>Open recent project…</value>
+  </data>
+  <data name="OpenRecentFile" xml:space="preserve">
+    <value>Open recent file…</value>
+  </data>
+  <data name="ChangeTheme" xml:space="preserve">
+    <value>Change theme…</value>
+  </data>
+  <data name="CommandPalette_ValueRequired" xml:space="preserve">
+    <value>Enter a value.</value>
+  </data>
+  <data name="CommandPalette_NameInUse" xml:space="preserve">
+    <value>That name is already in use.</value>
+  </data>
+  <data name="CommandPalette_SceneSizeInvalid" xml:space="preserve">
+    <value>Enter the size as width x height, for example 1920x1080.</value>
+  </data>
+  <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
+    <value>hh:mm:ss.fff</value>
+  </data>
 </root>

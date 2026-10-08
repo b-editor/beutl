@@ -295,6 +295,12 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
             return Task.CompletedTask;
         }
 
+        if (execution.Interaction is { } interaction
+            && ExecutePaletteCommand(execution.CommandName, interaction) is { } paletteOperation)
+        {
+            return paletteOperation;
+        }
+
         if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
         {
             return MenuBarViewModel.ExecuteCommandAsync(command);
@@ -315,6 +321,9 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
 
         if (execution.CommandName == "ShowCommandPalette")
             return true;
+
+        if (CanExecutePaletteOnlyCommand(execution.CommandName) is { } canExecute)
+            return canExecute;
 
         // 未知のコマンドは false を返し、ContextCommandManager のフォールバックバインディングや
         // 他のハンドラーへキーイベントを委ねられるようにする。

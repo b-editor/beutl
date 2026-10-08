@@ -3345,4 +3345,58 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>切换到上一个工具标签页</value>
   </data>
+  <data name="GoToMarker" xml:space="preserve">
+    <value>转到标记…</value>
+  </data>
+  <data name="AddMarkerWithName" xml:space="preserve">
+    <value>添加标记…</value>
+  </data>
+  <data name="RenameMarker" xml:space="preserve">
+    <value>重命名标记…</value>
+  </data>
+  <data name="SaveDockLayoutAs" xml:space="preserve">
+    <value>将停靠布局另存为…</value>
+  </data>
+  <data name="RenameDockLayout" xml:space="preserve">
+    <value>重命名停靠布局…</value>
+  </data>
+  <data name="DeleteDockLayout" xml:space="preserve">
+    <value>删除停靠布局…</value>
+  </data>
+  <data name="JumpToHistory" xml:space="preserve">
+    <value>转到历史记录状态…</value>
+  </data>
+  <data name="ChangeSceneSize" xml:space="preserve">
+    <value>更改场景尺寸…</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>更改场景开始时间…</value>
+  </data>
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>更改场景时长…</value>
+  </data>
+  <data name="ChangePreviewRenderQuality" xml:space="preserve">
+    <value>更改预览渲染质量…</value>
+  </data>
+  <data name="OpenRecentProject" xml:space="preserve">
+    <value>打开最近的项目…</value>
+  </data>
+  <data name="OpenRecentFile" xml:space="preserve">
+    <value>打开最近的文件…</value>
+  </data>
+  <data name="ChangeTheme" xml:space="preserve">
+    <value>更改主题…</value>
+  </data>
+  <data name="CommandPalette_ValueRequired" xml:space="preserve">
+    <value>请输入一个值。</value>
+  </data>
+  <data name="CommandPalette_NameInUse" xml:space="preserve">
+    <value>该名称已被使用。</value>
+  </data>
+  <data name="CommandPalette_SceneSizeInvalid" xml:space="preserve">
+    <value>请按 宽x高 的格式输入，例如 1920x1080。</value>
+  </data>
+  <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
+    <value>hh:mm:ss.fff</value>
+  </data>
 </root>

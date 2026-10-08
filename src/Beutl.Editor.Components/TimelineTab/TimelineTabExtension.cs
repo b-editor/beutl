@@ -10,7 +10,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class TimelineTabExtension : ToolTabExtension
+public sealed partial class TimelineTabExtension : ToolTabExtension
 {
     public static readonly TimelineTabExtension Instance = new();
 
@@ -40,11 +40,16 @@ public sealed class TimelineTabExtension : ToolTabExtension
             new ContextCommandKeyGesture("Ctrl+V"),
             new ContextCommandKeyGesture("Cmd+V", OSPlatform.OSX),
         ]),
+        // Rename and Split act on the editor's selected element, so the palette runs them through this
+        // extension even with the timeline closed. Their gestures still reach the focused clip.
         new ContextCommandDefinition("Rename", Strings.Rename, Strings.Rename_Description,
         [
             new ContextCommandKeyGesture("F2"),
             new ContextCommandKeyGesture("Enter", OSPlatform.OSX),
-        ]),
+        ])
+        {
+            Scope = ContextCommandScope.Extension
+        },
         new ContextCommandDefinition("Exclude", Strings.Exclude, Strings.Exclude_Description,
         [
             new ContextCommandKeyGesture("Delete"),
@@ -69,7 +74,14 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("Ctrl+K"),
             new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),
-        ]),
+        ])
+        {
+            Scope = ContextCommandScope.Extension
+        },
+        new ContextCommandDefinition("SaveAsTemplate", Strings.SaveAsTemplate, "", [])
+        {
+            Scope = ContextCommandScope.Extension
+        },
         new ContextCommandDefinition("Duplicate", Strings.Duplicate, Strings.Duplicate_Description,
         [
             new ContextCommandKeyGesture("Ctrl+D"),

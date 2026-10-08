@@ -200,4 +200,10 @@
   <data name="AddElementFromTemplate" xml:space="preserve">
     <value>Agregar elemento desde plantilla</value>
   </data>
+  <data name="RenameElement" xml:space="preserve">
+    <value>Cambiar nombre del elemento</value>
+  </data>
+  <data name="AddMarker" xml:space="preserve">
+    <value>Agregar marcador</value>
+  </data>
 </root>

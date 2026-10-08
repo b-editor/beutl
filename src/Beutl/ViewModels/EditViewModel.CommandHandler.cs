@@ -96,6 +96,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             "Previous" => ((System.Windows.Input.ICommand)Player.Previous).CanExecute(null),
             "SeekStart" => ((System.Windows.Input.ICommand)Player.Start).CanExecute(null),
             "SeekEnd" => ((System.Windows.Input.ICommand)Player.End).CanExecute(null),
+            "GoToMarker" or "RenameMarker" => Scene.Markers.Count > 0,
             _ => true,
         };
     }
@@ -151,8 +152,20 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             case "PreviousMarker" when !isFromTextInput:
                 SeekToAdjacentMarker(forward: false);
                 break;
+            case "GotoTimecode" when execution.Interaction is { } interaction:
+                operation = GotoTimecodeAsync(interaction);
+                break;
             case "GotoTimecode" when !isFromTextInput:
                 Player.RequestEditTimecode();
+                break;
+            case "GoToMarker" when execution.Interaction is { } interaction:
+                operation = GoToMarkerAsync(interaction);
+                break;
+            case "AddMarker" when execution.Interaction is { } interaction:
+                operation = AddMarkerAsync(interaction);
+                break;
+            case "RenameMarker" when execution.Interaction is { } interaction:
+                operation = RenameMarkerAsync(interaction);
                 break;
             case "NextKeyFrame" when !isFromTextInput:
                 SeekToAdjacentKeyFrame(forward: true);

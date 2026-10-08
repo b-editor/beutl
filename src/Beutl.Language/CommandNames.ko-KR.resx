@@ -200,4 +200,10 @@
   <data name="AddElementFromTemplate" xml:space="preserve">
     <value>템플릿에서 요소 추가</value>
   </data>
+  <data name="RenameElement" xml:space="preserve">
+    <value>요소 이름 바꾸기</value>
+  </data>
+  <data name="AddMarker" xml:space="preserve">
+    <value>마커 추가</value>
+  </data>
 </root>
