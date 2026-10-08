@@ -8,7 +8,16 @@ namespace Beutl.Engine;
 internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inputs)
 {
     public static FlowNode? Capture(EngineObject.Resource resource)
-        => resource.GetOriginal() is { } obj ? new(obj, resource.FlowInputs) : null;
+    {
+        if (resource.GetOriginal() is not { } obj) return null;
+        IReadOnlyList<FlowNode> inputs = resource.FlowInputs;
+        FlowNode? captured = resource.CapturedFlow;
+        // Playback parameters and Version can change every frame without changing
+        // provenance. Only replace this immutable node when its graph changes.
+        if (captured == null || !ReferenceEquals(captured.Object, obj) || !ReferenceEquals(captured.Inputs, inputs))
+            resource.CapturedFlow = captured = new FlowNode(obj, inputs);
+        return captured;
+    }
 
     public void Reconcile<TResource>(CompositionContext context, ref TResource? resource, ref bool changed)
         where TResource : EngineObject.Resource
@@ -73,7 +82,25 @@ internal sealed class FlowInputState : IDisposable
                 }
             }
         }
-        Inputs = consumed.Select(resource => FlowNode.Capture(resource)).OfType<FlowNode>().ToArray();
+        int count = 0;
+        bool changedInputs = false;
+        foreach (TResource resource in consumed)
+        {
+            if (FlowNode.Capture(resource) is not { } node) continue;
+            if (count >= Inputs.Count || !ReferenceEquals(Inputs[count], node)) changedInputs = true;
+            count++;
+        }
+        if (!changedInputs && count == Inputs.Count) return;
+        if (count == 0)
+        {
+            Inputs = [];
+            return;
+        }
+        var snapshot = new FlowNode[count];
+        int index = 0;
+        foreach (TResource resource in consumed)
+            if (FlowNode.Capture(resource) is { } node) snapshot[index++] = node;
+        Inputs = snapshot;
     }
 
     private void DisposeOwned()

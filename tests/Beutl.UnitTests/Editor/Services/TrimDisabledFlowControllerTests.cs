@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Services;
@@ -6,6 +7,8 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -303,6 +306,114 @@ public class TrimDisabledFlowControllerTests
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(Seconds(incomingFlow ? 0 : 1)));
             Assert.That(_harness.History.UndoCount, Is.EqualTo(history + (incomingFlow ? 0 : 1)));
         });
+    }
+
+    [Test]
+    public void Collect_ReenableStatesOpenEachVideoAndAudioSourceOnlyOnce()
+    {
+        var decoder = new CountingDurationDecoder();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            Uri videoUri = CreateCountingSourceFile(decoder, 10);
+            Uri audioUri = CreateCountingSourceFile(decoder, 8);
+            var videoSource = new VideoSource();
+            videoSource.ReadFrom(videoUri);
+            var audioSource = new SoundSource();
+            audioSource.ReadFrom(audioUri);
+            Element element = AddElement(0, 2, new SourceVideo { Source = { CurrentValue = videoSource } });
+            element.Objects.Add(new SourceSound { Source = { CurrentValue = audioSource } });
+            for (int i = 0; i < 7; i++) AddDisabledController(element, offset: 0.1);
+
+            var targets = SlippableMedia.Collect(element);
+            TimeSpan clamped = SlippableMedia.ClampSharedDelta(targets, Seconds(15));
+            TestContext.WriteLine($"Reader opens across 128 Flow states: video={decoder.Opens[videoUri.LocalPath]}, audio={decoder.Opens[audioUri.LocalPath]}.");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(targets, Has.Count.EqualTo(2));
+                Assert.That(targets.Select(target => target.Total), Is.EquivalentTo(new[] { Seconds(10), Seconds(8) }));
+                Assert.That(clamped, Is.EqualTo(Seconds(6)));
+                Assert.That(decoder.Opens[videoUri.LocalPath], Is.EqualTo(1));
+                Assert.That(decoder.Opens[audioUri.LocalPath], Is.EqualTo(1));
+                Assert.That(decoder.Disposals, Is.EqualTo(2));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [Test]
+    public void Collect_DurationCacheIsLocalToTheOperationAndObservesSourceUriChanges()
+    {
+        var decoder = new CountingDurationDecoder();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            Uri firstUri = CreateCountingSourceFile(decoder, 10);
+            Uri secondUri = CreateCountingSourceFile(decoder, 20);
+            var source = new VideoSource();
+            source.ReadFrom(firstUri);
+            Element element = AddElement(0, 2, new SourceVideo { Source = { CurrentValue = source } });
+            AddDisabledController(element);
+
+            TimeSpan? first = SlippableMedia.Collect(element).Single().Total;
+            TimeSpan? repeated = SlippableMedia.Collect(element).Single().Total;
+            source.ReadFrom(secondUri);
+            TimeSpan? changed = SlippableMedia.Collect(element).Single().Total;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(first, Is.EqualTo(Seconds(10)));
+                Assert.That(repeated, Is.EqualTo(Seconds(10)));
+                Assert.That(changed, Is.EqualTo(Seconds(20)));
+                Assert.That(decoder.Opens[firstUri.LocalPath], Is.EqualTo(2));
+                Assert.That(decoder.Opens[secondUri.LocalPath], Is.EqualTo(1));
+                Assert.That(decoder.Disposals, Is.EqualTo(3));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    private Uri CreateCountingSourceFile(CountingDurationDecoder decoder, double seconds)
+    {
+        string path = Path.Combine(_harness.BasePath, $"{Guid.NewGuid():N}.trim-duration-count");
+        File.WriteAllBytes(path, []);
+        decoder.Durations[path] = seconds;
+        return new Uri(path);
+    }
+
+    private sealed class CountingDurationDecoder : IDecoderInfo
+    {
+        public string Name => "Trim duration counting decoder";
+        public Dictionary<string, double> Durations { get; } = new();
+        public Dictionary<string, int> Opens { get; } = new();
+        public int Disposals { get; private set; }
+        public IEnumerable<string> VideoExtensions() => [".trim-duration-count"];
+        public IEnumerable<string> AudioExtensions() => [".trim-duration-count"];
+
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            if (!Durations.TryGetValue(file, out double seconds)) return null;
+            Opens[file] = Opens.GetValueOrDefault(file) + 1;
+            return new CountingDurationReader(seconds, this);
+        }
+
+        private sealed class CountingDurationReader(double seconds, CountingDurationDecoder owner) : MediaReader
+        {
+            public override VideoStreamInfo VideoInfo { get; } = new("test", (int)(seconds * 30), new PixelSize(100, 100), new Rational(30, 1));
+            public override AudioStreamInfo AudioInfo { get; } = new("test", new Rational((int)seconds, 1), 44100, 2);
+            public override bool HasVideo => true;
+            public override bool HasAudio => true;
+            public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image) { image = null; return false; }
+            public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound) { sound = null; return false; }
+            protected override void Dispose(bool disposing) => owner.Disposals++;
+        }
     }
 
     private DrawableTimeController AddDisabledController(Element element, float speed = 100, double offset = 0)

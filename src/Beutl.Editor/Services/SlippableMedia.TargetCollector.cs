@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -16,6 +17,7 @@ internal static partial class SlippableMedia
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
+        private readonly Dictionary<MediaSource, TimeSpan?> _sourceDurations;
         private readonly List<Target> _targets = new();
         private readonly List<DrawableTimeController> _disabledFlowControllers = new();
         private readonly HashSet<object> _path = new();
@@ -28,7 +30,7 @@ internal static partial class SlippableMedia
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
-            IReadOnlySet<DrawableTimeController>? reenabledControllers = null)
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, TimeSpan?>? sourceDurations = null)
         {
             _element = element;
             _timingPeers = timingPeers;
@@ -36,6 +38,7 @@ internal static partial class SlippableMedia
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
             _reenabledControllers = reenabledControllers;
+            _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo);
@@ -66,7 +69,7 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled, _sourceDurations);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -85,6 +88,24 @@ internal static partial class SlippableMedia
 
         private bool IsEnabled(EngineObject obj)
             => obj.IsEnabled || obj is DrawableTimeController controller && _reenabledControllers?.Contains(controller) == true;
+
+        private TimeSpan? GetSourceDuration(MediaSource? source)
+        {
+            if (source == null) return null;
+            if (_sourceDurations.TryGetValue(source, out TimeSpan? duration)) return duration;
+            // All re-enabling states use the same pre-edit media. Keep only its
+            // duration in this operation's cache so each reader is opened once
+            // and its temporary resource is still disposed immediately.
+            using var resource = source.ToResource(CompositionContext.Default);
+            duration = resource switch
+            {
+                VideoSource.Resource video => video.Duration,
+                SoundSource.Resource sound => sound.Duration > TimeSpan.Zero ? sound.Duration : null,
+                _ => null
+            };
+            _sourceDurations.Add(source, duration);
+            return duration;
+        }
 
         private List<Node> BuildFlow()
         {
@@ -216,18 +237,15 @@ internal static partial class SlippableMedia
             switch (obj)
             {
                 case SourceVideo video:
-                    using (var resource = video.Source.CurrentValue?.ToResource(CompositionContext.Default))
                     {
-                        _targets.Add(new Target(video.OffsetPosition, resource?.Duration,
-                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, resource?.Duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length));
+                        TimeSpan? duration = GetSourceDuration(video.Source.CurrentValue);
+                        _targets.Add(new Target(video.OffsetPosition, duration,
+                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length));
                     }
                     break;
                 case SourceSound sound:
-                    using (var resource = sound.Source.CurrentValue?.ToResource(CompositionContext.Default))
-                    {
-                        _targets.Add(new Target(sound.OffsetPosition, resource?.Duration > TimeSpan.Zero ? resource.Duration : null,
-                            new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length));
-                    }
+                    _targets.Add(new Target(sound.OffsetPosition, GetSourceDuration(sound.Source.CurrentValue),
+                        new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length));
                     break;
                 case SceneSound sound:
                     _targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.CurrentValue?.Duration,

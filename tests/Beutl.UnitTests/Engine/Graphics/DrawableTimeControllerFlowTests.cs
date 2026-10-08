@@ -1,4 +1,6 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Collections.Pooled;
+using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -113,6 +115,95 @@ public class DrawableTimeControllerFlowTests
                 Is.EqualTo(1.5).Within(0.000001));
             Assert.That(resources.Single(resource => ReferenceEquals(resource.RequireOriginal(), sibling)).RequestedPosition.TotalSeconds,
                 Is.EqualTo(0.5).Within(0.000001));
+        });
+    }
+
+    [TestCase("group")]
+    [TestCase("decorator")]
+    [TestCase("controller")]
+    public void FlowSnapshots_UnchangedProvenanceIsReusedAcrossFrames(string kind)
+    {
+        using var harness = new SceneHistoryHarness("beutl_flow_snapshot_reuse", duration: Seconds(10));
+        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        var video = CreateVideo();
+        element.Objects.Add(video);
+        element.Objects.Add(kind switch
+        {
+            "group" => new DrawableGroup(),
+            "decorator" => new DrawableDecorator(),
+            _ => new DrawableTimeController { Speed = { CurrentValue = 200 } }
+        });
+        using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
+        var first = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single());
+        var secondResource = compositor.EvaluateGraphics(Seconds(1)).Objects.Single();
+        var second = FlowNode.Capture(secondResource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.Not.Null);
+            Assert.That(second, Is.SameAs(first), "Changing playback time must not rebuild unchanged Flow provenance.");
+            Assert.That(Videos(secondResource).Single().RequestedPosition.TotalSeconds,
+                Is.EqualTo(kind == "controller" ? 2 : 1).Within(0.000001));
+        });
+    }
+
+    [Test]
+    public void FlowSnapshots_ChangedNestedInputsInvalidateAncestorsWithoutMutatingTheOldSnapshot()
+    {
+        using var harness = new SceneHistoryHarness("beutl_flow_snapshot_invalidation", duration: Seconds(10));
+        var first = CreateVideo();
+        var second = CreateVideo();
+        Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
+        element.Objects.Add(first);
+        element.Objects.Add(second);
+        element.Objects.Add(new DrawableGroup());
+        element.Objects.Add(new DrawableTimeController());
+        using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
+        var before = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single())!;
+        first.IsEnabled = false;
+        var after = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(1)).Objects.Single())!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(after, Is.Not.SameAs(before));
+            Assert.That(before.Inputs.Single().Inputs.Select(node => node.Object), Is.EqualTo(new[] { first, second }));
+            Assert.That(after.Inputs.Single().Inputs.Select(node => node.Object), Is.EqualTo(new[] { second }));
+        });
+    }
+
+    [Test]
+    public void FlowInputState_StableInputsDoNotAllocateAfterWarmup()
+    {
+        var owner = new DrawableGroup();
+        using var first = new EngineObject().ToResource(CompositionContext.Default);
+        using var second = new EngineObject().ToResource(CompositionContext.Default);
+        var flow = new List<EngineObject.Resource>(2);
+        var context = new CompositionContext(TimeSpan.Zero) { Flow = flow };
+        using var state = new FlowInputState();
+        using var consumed = new PooledList<EngineObject.Resource>();
+        for (int i = 0; i < 16; i++)
+        {
+            flow.Add(first);
+            flow.Add(second);
+            consumed.Clear();
+            state.Collect(context, owner, consumed);
+        }
+        var snapshot = state.Inputs;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 1000; i++)
+        {
+            flow.Add(first);
+            flow.Add(second);
+            consumed.Clear();
+            state.Collect(context, owner, consumed);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        TestContext.WriteLine($"Stable Flow capture over 1000 updates: {allocated} allocated bytes.");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(state.Inputs, Is.SameAs(snapshot));
+            Assert.That(allocated, Is.Zero);
         });
     }
 

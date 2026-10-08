@@ -151,19 +151,20 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
         private Drawable.Resource? _target;
         private FlowNode? _flowTarget;
+        private IReadOnlyList<FlowNode> _flowInputs = [];
 
-        internal override IReadOnlyList<FlowNode> FlowInputs => _flowTarget is { } target ? [target] : [];
+        internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs;
 
         public Drawable.Resource? Target => _target;
 
         partial void PostUpdate(DrawableTimeController obj, CompositionContext context)
         {
             Drawable? targetDrawable = null;
-            _flowTarget = null;
+            FlowNode? flowTarget = null;
             if (context.ReplayedFlow is { } replay && ReferenceEquals(replay.Object, obj))
             {
-                _flowTarget = replay.Inputs.FirstOrDefault(input => input.Object is Drawable);
-                targetDrawable = _flowTarget?.Object as Drawable;
+                flowTarget = replay.Inputs.FirstOrDefault(input => input.Object is Drawable);
+                targetDrawable = flowTarget?.Object as Drawable;
             }
             else if (context.Flow != null)
             {
@@ -172,7 +173,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
                     if (context.Flow[i] is Drawable.Resource d)
                     {
                         targetDrawable = d.GetOriginal();
-                        _flowTarget = FlowNode.Capture(d);
+                        flowTarget = FlowNode.Capture(d);
                         context.Flow.RemoveAt(i);
                         break;
                     }
@@ -181,6 +182,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             else
             {
                 targetDrawable = context.Get(obj.Target);
+            }
+            if (!ReferenceEquals(flowTarget, _flowTarget))
+            {
+                _flowTarget = flowTarget;
+                _flowInputs = flowTarget == null ? [] : [flowTarget];
             }
 
             // Save the original Time
@@ -210,6 +216,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         {
             _target?.Dispose();
             _flowTarget = null;
+            _flowInputs = [];
             SpeedIntegrator.Dispose();
         }
     }
