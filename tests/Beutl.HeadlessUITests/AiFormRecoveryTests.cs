@@ -319,17 +319,13 @@ public sealed class AiFormRecoveryTests
                 recoveryContext: initialContext,
                 operation: "image.generate");
             imageKey = imageKeyBuilder.NameFor(
-                "generation line one line two",
-                "3:2",
-                "transparent",
-                "17",
-                "old-image").Key;
-            AiPendingAttempt imageAttempt = initialStore.PendingFor("test-user", "image.generate").Single();
-            initialStore.TryUpdateForm(
-                "test-user",
-                imageAttempt.Operation,
-                imageAttempt.Fingerprint,
-                imageAttempt.Key,
+                [
+                    "generation line one line two",
+                    "3:2",
+                    "transparent",
+                    "17",
+                    "old-image",
+                ],
                 new AiRequestFormSnapshot(
                     Prompt: "generation line one line two",
                     AspectRatio: "3:2",
@@ -340,7 +336,7 @@ public sealed class AiFormRecoveryTests
                     MaxReferenceTotalBytes: 1024,
                     SupportsReferenceImage: false,
                     HasBackgroundChoice: true),
-                []);
+                []).Key;
 
             var editKeyBuilder = new AiRequestKey(
                 seed: "edit-seed",
@@ -352,13 +348,7 @@ public sealed class AiFormRecoveryTests
                     "edit\tline",
                     "old-edit",
                     AiRequestKey.FileStamp("input.png", sourceBytes),
-                ]).Key;
-            AiPendingAttempt editAttempt = initialStore.PendingFor("test-user", "image.edit.restyle").Single();
-            initialStore.TryUpdateForm(
-                "test-user",
-                editAttempt.Operation,
-                editAttempt.Fingerprint,
-                editAttempt.Key,
+                ],
                 new AiRequestFormSnapshot(
                     Prompt: "edit\tline",
                     Task: "restyle",
@@ -367,28 +357,24 @@ public sealed class AiFormRecoveryTests
                     "image",
                     sourcePath,
                     "input.png",
-                    sourceBytes)]);
+                    sourceBytes)]).Key;
 
             var videoKeyBuilder = new AiRequestKey(
                 seed: "video-seed",
                 recoveryContext: initialContext,
                 operation: "video.generate");
             videoKey = videoKeyBuilder.NameFor(
-                "video line one line two",
-                "8",
-                "1080p",
-                "9:16",
-                "audio",
-                "9",
-                "old-video",
-                "",
-                "").Key;
-            AiPendingAttempt videoAttempt = initialStore.PendingFor("test-user", "video.generate").Single();
-            initialStore.TryUpdateForm(
-                "test-user",
-                videoAttempt.Operation,
-                videoAttempt.Fingerprint,
-                videoAttempt.Key,
+                [
+                    "video line one line two",
+                    "8",
+                    "1080p",
+                    "9:16",
+                    "audio",
+                    "9",
+                    "old-video",
+                    "",
+                    "",
+                ],
                 new AiRequestFormSnapshot(
                     Prompt: "video line one line two",
                     DurationSeconds: 8,
@@ -400,7 +386,7 @@ public sealed class AiFormRecoveryTests
                     SupportsSeed: true,
                     SupportsFirstFrame: false,
                     SupportsLastFrame: false),
-                []);
+                []).Key;
         }
 
         var requests = new List<(string Path, string? Key, string Body)>();

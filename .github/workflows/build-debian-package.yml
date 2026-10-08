@@ -65,7 +65,6 @@ jobs:
           chmod +x Beutl
           chmod +x Beutl.ExceptionHandler
           chmod +x Beutl.PackageTools.UI
-          chmod +x Beutl.WaitingDialog
 
       - name: Symbolic Link
         run: |

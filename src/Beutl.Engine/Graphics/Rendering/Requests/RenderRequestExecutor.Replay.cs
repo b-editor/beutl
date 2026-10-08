@@ -66,7 +66,7 @@ internal sealed partial class RenderRequestExecutor
                             token.RunAndComplete(
                                 () =>
                                 {
-                                    IReadOnlyList<RenderExecutionInput> executionInputs = CreateExecutionInputs(
+                                    _ = CreateExecutionInputs(
                                         token,
                                         inputs,
                                         requiresReadback: false,
@@ -75,8 +75,7 @@ internal sealed partial class RenderRequestExecutor
                                     {
                                         replay(new EngineDirectRenderSession(
                                             token,
-                                            destination,
-                                            executionInputs));
+                                            destination));
                                     }
                                 });
                         }

@@ -293,37 +293,6 @@ public sealed class FusionBoundaryTests
     }
 
     [Test]
-    public void CompileAfterMetadata_UsesFinitePortableBudgetAndSplitsBeforeOverflow()
-    {
-        SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_bounds,
-            fusionMode: FusionMode.Enabled);
-        var request = new RenderRequest(options);
-        var cache = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        RecordedRenderGraph graph = StageGraph(request.Id, cache, budget.MaxStages + 1);
-        request.TransitionTo(RenderRequestState.Recording);
-        request.TransitionTo(RenderRequestState.Recorded);
-        var compiler = new RenderRequestCompiler();
-        RenderNodeMeasurement measurement = compiler.ResolveMetadata(request, graph);
-
-        using CompiledRenderRequest compiled = compiler.CompileAfterMetadata(
-            request,
-            graph,
-            measurement);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
-                Is.EqualTo(new[] { budget.MaxStages, 1 }));
-            Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
-                run => run.Program.Budget.Equals(budget)));
-        });
-    }
-
-    [Test]
     public void StandaloneBackendOverflow_ReportsOnlyTheExactBackendLimitBoundary()
     {
         SkslBackendBudget budget = new(

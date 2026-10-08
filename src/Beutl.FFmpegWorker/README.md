@@ -16,7 +16,6 @@ When adding a feature here, picture the IPC boundary first: what message does MI
 - `Handlers/` — one handler per IPC request type
 - `Decoding/` / `Encoding/` — FFmpeg-backed reader and encoder implementations
 - `FFmpegLoaderWorker.cs` — locates the native FFmpeg shared library at runtime
-- `FFmpegWorkerCodecCacheStub.cs` — placeholder for codec capability caching
 
 ## Tests
 

@@ -4,7 +4,6 @@ namespace Beutl.Graphics;
 
 internal readonly struct TileBrushCalculator
 {
-    private readonly Size _imageSize;
     private readonly Rect _drawRect;
 
     public TileBrushCalculator(TileBrush.Resource brush, Size contentSize, Size targetSize)
@@ -30,9 +29,7 @@ internal readonly struct TileBrushCalculator
         Size contentSize,
         Size targetSize)
     {
-        _imageSize = contentSize;
-
-        SourceRect = sourceRect.ToPixels(_imageSize);
+        SourceRect = sourceRect.ToPixels(contentSize);
         DestinationRect = destinationRect.ToPixels(targetSize);
 
         Vector scale = stretch.CalculateScaling(DestinationRect.Size, SourceRect.Size);
@@ -55,23 +52,6 @@ internal readonly struct TileBrushCalculator
     public Size IntermediateSize { get; }
 
     public Matrix IntermediateTransform { get; }
-
-    public bool NeedsIntermediate
-    {
-        get
-        {
-            if (IntermediateTransform != Matrix.Identity)
-                return true;
-            if (SourceRect.Position != default)
-                return true;
-            if (SourceRect.Size.AspectRatio == _imageSize.AspectRatio)
-                return false;
-            if (SourceRect.Width != _imageSize.Width ||
-                SourceRect.Height != _imageSize.Height)
-                return true;
-            return false;
-        }
-    }
 
     public Rect SourceRect { get; }
 

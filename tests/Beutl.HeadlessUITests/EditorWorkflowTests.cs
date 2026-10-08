@@ -111,7 +111,9 @@ public class EditorWorkflowTests
                 Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
                 Assert.That(editor.HistoryManager.CanUndo, Is.True);
                 Assert.That(
-                    UnsavedSceneStorage.OwnsPath(editor.Scene.Id, element.Uri!.LocalPath),
+                    FilePathComparison.IsSameOrDescendant(
+                        UnsavedSceneStorage.GetDirectory(editor.Scene.Id),
+                        element.Uri!.LocalPath),
                     Is.True);
                 Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
             });

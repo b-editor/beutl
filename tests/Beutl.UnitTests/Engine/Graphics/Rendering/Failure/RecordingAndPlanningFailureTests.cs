@@ -536,7 +536,7 @@ public sealed class RecordingAndPlanningFailureTests
                     _ = context.RecordNode(_other!, []);
                     break;
                 case RecordingRecursion.SeparateTarget:
-                    _ = context.RecordNestedTarget(this, s_bounds);
+                    _ = context.RecordNestedTargetAtScale(this, s_bounds, 1);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

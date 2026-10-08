@@ -99,36 +99,6 @@ public sealed class RenderResourceOwnershipTests
         Assert.That(value.DisposeCount, Is.EqualTo(1));
     }
 
-
-
-    [Test]
-    public void OwnedResource_CanTransferToPersistentCacheWithoutRequestDisposal()
-    {
-        var value = new TrackedDisposable();
-        using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value);
-        registry.Commit(resource);
-
-        TrackedDisposable transferred = registry.TransferOwned(resource);
-        registry.Release(resource);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(transferred, Is.SameAs(value));
-            Assert.That(value.DisposeCount, Is.Zero);
-            Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
-            Assert.That(resource.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.Discharged));
-            Assert.That(
-                () => registry.Use(resource, static _ => true),
-                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"));
-            Assert.That(() => registry.TransferOwned(resource), Throws.TypeOf<InvalidOperationException>());
-        });
-
-        transferred.Dispose();
-        Assert.That(value.DisposeCount, Is.EqualTo(1));
-    }
-
-
     // A pending registration can still be rolled back, so it stays unreadable from everywhere except the
     // recording that owns it - the only reader whose own work a rollback would discard as well.
     [Test]
@@ -181,25 +151,6 @@ public sealed class RenderResourceOwnershipTests
                 () => Read(registry, resource),
                 Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"),
                 "the recording is still live, but the registration it rolled back is gone");
-        });
-    }
-
-    // Reading is the only thing a pending registration allows. Taking the raw value out of the request is a
-    // mutation, and a rollback would have to undo it, so it still requires a committed registration.
-    [Test]
-    public void PendingResource_StillRefusesToTransferOwnership()
-    {
-        var owner = new RecordingScopeStub();
-        var value = new TrackedDisposable();
-        using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value, owner);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(Read(registry, resource), Is.True);
-            Assert.That(
-                () => registry.TransferOwned(resource),
-                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"));
         });
     }
 

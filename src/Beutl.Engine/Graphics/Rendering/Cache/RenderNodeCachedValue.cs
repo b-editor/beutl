@@ -66,11 +66,6 @@ internal sealed record RenderNodeCachedValue
 
     public Vector DeviceGridOffset { get; }
 
-    public Rect RasterBounds
-        => DeviceBounds
-            .ToRect(EffectiveScale.Value)
-            .Translate(-DeviceGridOffset);
-
     private static PixelRect CreateDeviceBounds(
         RenderTarget target,
         Rect bounds,

@@ -52,44 +52,4 @@ public class JsonDeepCloneTests
         Assert.That(dst.ContainsKey("nullable"), Is.True);
         Assert.That(dst["nullable"], Is.Null);
     }
-
-    [Test]
-    public void CopyTo_Array_AppendsAllItems()
-    {
-        var src = new JsonArray(1, 2, 3);
-        var dst = new JsonArray();
-
-        JsonDeepClone.CopyTo(src, dst);
-
-        Assert.That(dst.Count, Is.EqualTo(3));
-        Assert.That((int?)dst[0], Is.EqualTo(1));
-        Assert.That((int?)dst[2], Is.EqualTo(3));
-    }
-
-    [Test]
-    public void CopyTo_Array_DeepClonesChildren()
-    {
-        var element = new JsonObject { ["v"] = 5 };
-        var src = new JsonArray(element);
-        var dst = new JsonArray();
-
-        JsonDeepClone.CopyTo(src, dst);
-
-        element["v"] = 999;
-
-        Assert.That((int?)dst[0]?["v"], Is.EqualTo(5));
-    }
-
-    [Test]
-    public void CopyTo_Array_HandlesNullElements()
-    {
-        var src = new JsonArray { null, 42 };
-        var dst = new JsonArray();
-
-        JsonDeepClone.CopyTo(src, dst);
-
-        Assert.That(dst.Count, Is.EqualTo(2));
-        Assert.That(dst[0], Is.Null);
-        Assert.That((int?)dst[1], Is.EqualTo(42));
-    }
 }

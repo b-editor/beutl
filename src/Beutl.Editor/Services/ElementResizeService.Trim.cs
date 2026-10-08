@@ -279,8 +279,7 @@ public sealed partial class ElementResizeService
         }
 
         // Enforce the documented Min ≤ 0 ≤ Max contract structurally instead of relying on
-        // every media OffsetPosition being non-negative (an invariant owned by other services);
-        // an inverted window would throw in the View's per-pointer-frame ClampDelta.
+        // every media OffsetPosition being non-negative (an invariant owned by other services).
         if (min > TimeSpan.Zero) min = TimeSpan.Zero;
         if (max < TimeSpan.Zero) max = TimeSpan.Zero;
 

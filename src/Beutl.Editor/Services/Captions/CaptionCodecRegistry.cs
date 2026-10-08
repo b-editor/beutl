@@ -209,7 +209,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         IEnumerable<CaptionCodecDescriptorRegistration> descriptors,
         IEnumerable<CaptionDecoderRegistration> decoders,
         IEnumerable<CaptionEncoderRegistration> encoders,
-        IReadOnlyDictionary<CaptionFormatId, Extension> descriptorOwners,
         IReadOnlyDictionary<CaptionFormatId, Extension> decoderOwners,
         IReadOnlyDictionary<CaptionFormatId, Extension> encoderOwners)
     {
@@ -220,7 +219,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                 descriptors,
                 decoders,
                 encoders,
-                ToObjectOwners(descriptorOwners),
                 ToObjectOwners(decoderOwners),
                 ToObjectOwners(encoderOwners)));
             return new CaptionRegistryDrain<Extension>(
@@ -381,9 +379,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             encoders.Select(entry => new CaptionEncoderRegistration(
                 entry.Registration.Format,
                 entry.Registration.Encoder)),
-            descriptors.ToDictionary(
-                entry => entry.Registration.Descriptor.Format,
-                entry => (object)entry),
             decoders.ToDictionary(
                 entry => entry.Registration.Format,
                 entry => (object)entry),
@@ -543,15 +538,12 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             Dictionary<CaptionFormatId, ICaptionDecoder> decoders,
             Dictionary<CaptionFormatId, ICaptionEncoder> encoders,
             Dictionary<string, CaptionFormatId> formatsByExtension,
-            IReadOnlyDictionary<CaptionFormatId, object> descriptorOwners,
             IReadOnlyDictionary<CaptionFormatId, object> decoderOwners,
             IReadOnlyDictionary<CaptionFormatId, object> encoderOwners)
         {
-            Descriptors = descriptors;
             Decoders = decoders;
             Encoders = encoders;
             FormatsByExtension = formatsByExtension;
-            DescriptorOwners = descriptorOwners;
             DecoderOwners = decoderOwners;
             EncoderOwners = encoderOwners;
             CaptionCodecInfo[] codecs = descriptors.Values
@@ -566,9 +558,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             CodecsByFormat = codecs.ToDictionary(codec => codec.Format);
         }
 
-        public Dictionary<CaptionFormatId, CaptionCodecDescriptor> Descriptors
-        { get; private set; }
-
         public Dictionary<CaptionFormatId, ICaptionDecoder> Decoders { get; private set; }
 
         public Dictionary<CaptionFormatId, ICaptionEncoder> Encoders { get; private set; }
@@ -578,8 +567,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         public Dictionary<CaptionFormatId, CaptionCodecInfo> CodecsByFormat { get; private set; }
 
         public Dictionary<string, CaptionFormatId> FormatsByExtension { get; private set; }
-
-        public IReadOnlyDictionary<CaptionFormatId, object> DescriptorOwners { get; private set; }
 
         public IReadOnlyDictionary<CaptionFormatId, object> DecoderOwners { get; private set; }
 
@@ -594,14 +581,12 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         public Task RetireAndReleasePayloadAsync()
         {
             Task drain = RetireAsync();
-            Descriptors = [];
             Decoders = [];
             Encoders = [];
             Codecs = [];
             CodecsByFormat = [];
             FormatsByExtension = new Dictionary<string, CaptionFormatId>(
                 StringComparer.OrdinalIgnoreCase);
-            DescriptorOwners = new Dictionary<CaptionFormatId, object>();
             DecoderOwners = new Dictionary<CaptionFormatId, object>();
             EncoderOwners = new Dictionary<CaptionFormatId, object>();
             return drain;
@@ -611,7 +596,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             IEnumerable<CaptionCodecDescriptorRegistration> descriptorRegistrations,
             IEnumerable<CaptionDecoderRegistration> decoderRegistrations,
             IEnumerable<CaptionEncoderRegistration> encoderRegistrations,
-            IReadOnlyDictionary<CaptionFormatId, object>? descriptorOwners = null,
             IReadOnlyDictionary<CaptionFormatId, object>? decoderOwners = null,
             IReadOnlyDictionary<CaptionFormatId, object>? encoderOwners = null)
         {
@@ -667,7 +651,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                 decoders,
                 encoders,
                 formatsByExtension,
-                descriptorOwners ?? new Dictionary<CaptionFormatId, object>(),
                 decoderOwners ?? new Dictionary<CaptionFormatId, object>(),
                 encoderOwners ?? new Dictionary<CaptionFormatId, object>());
         }

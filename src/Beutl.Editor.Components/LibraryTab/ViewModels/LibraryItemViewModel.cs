@@ -123,11 +123,6 @@ public class LibraryItemViewModel
         };
     }
 
-    public bool CanDragDrop()
-    {
-        return Data is SingleTypeLibraryItem or MultipleTypeLibraryItem or GraphNodeRegistry.RegistryItem;
-    }
-
     public int Match(Regex[] regexes)
     {
         // 配点は適当

@@ -11,12 +11,4 @@ internal static class JsonDeepClone
             destination[item.Key] = item.Value?.DeepClone();
         }
     }
-
-    public static void CopyTo(JsonArray source, JsonArray destination)
-    {
-        foreach (JsonNode? item in source)
-        {
-            destination.Add(item?.DeepClone());
-        }
-    }
 }

@@ -1,58 +1,7 @@
-﻿using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
-using Beutl.Media.Source;
-
-namespace Beutl.Audio;
+﻿namespace Beutl.Audio;
 
 internal static class SoundSamplingHelper
 {
-    public static bool TryReadMonoFloat(
-        SoundSource.Resource source,
-        TimeSpan start,
-        TimeSpan length,
-        out float[] samples,
-        out int sampleRate)
-    {
-        samples = [];
-        sampleRate = 0;
-
-        if (source.IsDisposed || source.MediaReader == null)
-        {
-            return false;
-        }
-
-        if (length <= TimeSpan.Zero)
-        {
-            sampleRate = source.SampleRate;
-            return true;
-        }
-
-        if (!source.Read(start, length, out Ref<IPcm>? soundRef))
-        {
-            return false;
-        }
-
-        using (soundRef)
-        {
-            IPcm pcm = soundRef.Value;
-            sampleRate = pcm.SampleRate;
-
-            using Pcm<Monaural32BitFloat> mono = pcm is Pcm<Monaural32BitFloat> direct
-                ? direct.Clone()
-                : pcm.Convert<Monaural32BitFloat>();
-
-            int n = mono.NumSamples;
-            samples = new float[n];
-            ReadOnlySpan<Monaural32BitFloat> src = mono.DataSpan;
-            for (int i = 0; i < n; i++)
-            {
-                samples[i] = src[i].Value;
-            }
-        }
-
-        return true;
-    }
-
     public static void DownsampleMinMax(
         ReadOnlySpan<float> samples,
         Span<float> mins,

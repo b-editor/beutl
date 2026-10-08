@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Avalonia.Media;
 using Beutl.NodeGraph;
 using Reactive.Bindings;
 
@@ -25,12 +24,6 @@ public class ConnectionViewModel : IDisposable
                 ? _nodeGraph.FindNodePortViewModel(output) as OutputPortViewModel
                 : null)
             .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        InputBrush = InputPortVM.Select(vm => vm?.Color)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        OutputBrush = OutputPortVM.Select(vm => vm?.Color)
-            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         Status = connection.GetObservable(Connection.StatusProperty)
             .ToReadOnlyReactivePropertySlim()
@@ -70,10 +63,6 @@ public class ConnectionViewModel : IDisposable
     public ReactivePropertySlim<Point> InputPortPosition { get; } = new();
 
     public ReactivePropertySlim<Point> OutputPortPosition { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<IBrush?> InputBrush { get; }
-
-    public ReadOnlyReactivePropertySlim<IBrush?> OutputBrush { get; }
 
     public IReadOnlyReactiveProperty<ConnectionStatus> Status { get; }
 

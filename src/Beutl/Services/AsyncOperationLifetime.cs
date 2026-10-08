@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -10,9 +9,8 @@ namespace Beutl.Services;
 /// admits publication before shutdown begins, keeps admitted publication in the
 /// drain, and allows disposal to await every admitted operation. Publication admission and
 /// shutdown are linearized by the gate. If a publication acquires the gate before
-/// <see cref="StopAsync"/> or <see cref="DisposeAsync()"/> marks the lifetime as stopping, its
-/// callback may run after shutdown has started, but remains in the drain until that callback
-/// returns.
+/// <see cref="DisposeAsync()"/> marks the lifetime as stopping, its callback may run after
+/// shutdown has started, but remains in the drain until that callback returns.
 /// </summary>
 internal sealed class AsyncOperationLifetime : IAsyncDisposable
 {
@@ -59,57 +57,8 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         }
     }
 
-    public Task StopAsync()
-    {
-        long started = Stopwatch.GetTimestamp();
-        CancellationTokenSource? cancellation = null;
-        Task stopTask;
-        Task? drained = null;
-        bool startCompletion = false;
-        lock (_gate)
-        {
-            if (!_stopping)
-            {
-                _stopping = true;
-                cancellation = _cancellation;
-            }
-
-            if (_stopTask is null)
-            {
-                drained = BeginStop_NoLock(cancellation);
-                startCompletion = true;
-            }
-
-            stopTask = _stopTask;
-        }
-
-        if (startCompletion)
-        {
-            Task cancellationTask = _stopCancellationTask!;
-            if (cancellation is not null)
-            {
-                // Preserve the old synchronous observation that admission has
-                // been cancelled, without running user callbacks on this
-                // thread. CancellationTokenSource marks itself cancelled before
-                // invoking callbacks, so this wait cannot be held by a
-                // reentrant callback.
-                SpinWait.SpinUntil(
-                    () => cancellation.IsCancellationRequested || cancellationTask.IsCompleted,
-                    _shutdownDeadline);
-            }
-            _ = CompleteStopDrainAsync(drained!, cancellationTask);
-            TimeSpan remaining = _shutdownDeadline - Stopwatch.GetElapsedTime(started);
-            _ = CompleteStopProxyAsync(
-                _stopCompletion!,
-                _stopDrainTask!,
-                remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
-        }
-
-        return stopTask;
-    }
-
-    // Creates the single stop state shared by StopAsync and DisposeAsync. The caller starts
-    // its completion outside the gate; the returned task completes when no work is active.
+    // Creates the single stop state used by DisposeAsync. The caller starts its completion
+    // outside the gate; the returned task completes when no work is active.
     [MemberNotNull(nameof(_stopTask))]
     private Task BeginStop_NoLock(CancellationTokenSource? cancellation)
     {
@@ -412,8 +361,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
                     return false;
 
                 // This increment is the publication's linearization point. The operation
-                // gate remains held through the callback, so ClosePublication cannot return
-                // until an already-admitted callback has completed.
+                // gate remains held through the callback.
                 _activePublications++;
             }
 
@@ -511,19 +459,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             => _owner?.TryPublish(this, publication) == true;
 
         internal bool CanPublish => Volatile.Read(ref _publicationClosed) == 0;
-
-        /// <summary>
-        /// Permanently closes publication for this operation without removing
-        /// it from shutdown draining. Used when an account/session changes
-        /// while non-cooperative remote work may still complete.
-        /// </summary>
-        public void ClosePublication()
-        {
-            Interlocked.Exchange(ref _publicationClosed, 1);
-            lock (PublicationGate)
-            {
-            }
-        }
 
         public void Cancel()
         {

@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -94,21 +93,6 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         }
 
         return _lease.Target.Texture;
-    }
-
-    public void UseImage(
-        RenderExecutionSessionToken token,
-        Action<NestedRenderTargetImage> use)
-    {
-        ArgumentNullException.ThrowIfNull(token);
-        ArgumentNullException.ThrowIfNull(use);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        if (_state != NestedRenderTargetBindingState.Ready || _lease is null)
-            throw new InvalidOperationException("The nested render target is not ready for consumption.");
-
-        using SKImage image = _lease.Target.Value.Snapshot();
-        var view = new NestedRenderTargetImage(token, image, LogicalBounds, Density, DeviceBounds);
-        token.AuthorizeResource(image, () => use(view));
     }
 
     public void Dispose()

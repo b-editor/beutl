@@ -14,8 +14,6 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
     private readonly Buffer _buffer;
     private readonly DeviceMemory _memory;
     private readonly ulong _size;
-    private readonly BufferUsage _usage;
-    private readonly MemoryProperty _memoryProperties;
     private bool _disposed;
 
     public VulkanContext OwnerContext => _context;
@@ -28,8 +26,6 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
     {
         _context = context;
         _size = size;
-        _usage = usage;
-        _memoryProperties = memoryProperties;
 
         var vk = context.Vk;
         var device = context.Device;

@@ -21,28 +21,6 @@ internal sealed class IdentityOperationLifetime : IDisposable
         _generations.Add(0, _current);
     }
 
-    public Operation? TryEnter(AsyncOperationLifetime.Operation operation)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        lock (_gate)
-        {
-            if (_disposed)
-            {
-                operation.Dispose();
-                return null;
-            }
-            if (_current.ClearPending)
-            {
-                operation.Dispose();
-                return null;
-            }
-
-            Generation generation = _current;
-            generation.Active++;
-            return new Operation(this, operation, generation);
-        }
-    }
-
     /// <summary>Admits the parent operation and identity revision as one critical section.</summary>
     public Operation? TryEnter(AsyncOperationLifetime lifetime)
     {
@@ -321,9 +299,6 @@ internal sealed class IdentityOperationLifetime : IDisposable
 
         public bool IsCurrent
             => _owner.IsCurrent(this);
-
-        public void ClosePublication()
-            => _owner.Close(this);
 
         public void Cancel()
             => Parent.Cancel();

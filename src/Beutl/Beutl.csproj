@@ -106,8 +106,6 @@
     <ProjectReference Condition="'$(NukePublish)'!='True'"
       Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'"
-      Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'"
       Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
   </ItemGroup>
 

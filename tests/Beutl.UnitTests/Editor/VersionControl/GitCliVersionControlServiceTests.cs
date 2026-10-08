@@ -4559,15 +4559,19 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(
-                service.RevisionContainsProjectFileAsync(
-                    projectRevision,
-                    Path.Combine(Root, "project.bep"),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.RevisionContainsProjectFileAsync(
+                        projectRevision,
+                        Path.Combine(Root, "project.bep"),
+                        CancellationToken.None),
                     CancellationToken.None).GetAwaiter().GetResult(),
                 Is.True);
             Assert.That(
-                service.RevisionContainsProjectFileAsync(
-                    baseline,
-                    Path.Combine(Root, "project.bep"),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.RevisionContainsProjectFileAsync(
+                        baseline,
+                        Path.Combine(Root, "project.bep"),
+                        CancellationToken.None),
                     CancellationToken.None).GetAwaiter().GetResult(),
                 Is.False);
         });
@@ -4949,13 +4953,16 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "atomic.tmp"), "keep\n");
 
         using var service = CreateService();
-        CheckedOutBranchTip laterTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip laterTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        CommitResult targetRestore = await service.CommitProjectTreeAsync(
-            laterTip,
-            targetSha,
-            "beutl: restore target",
-            SnapshotKind.Restore,
+        CommitResult targetRestore = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                laterTip,
+                targetSha,
+                "beutl: restore target",
+                SnapshotKind.Restore,
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -4971,11 +4978,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         var targetRestoreCommit = (CommitRevision.Known)
             ((CommitResult.Committed)targetRestore).Revision;
-        await service.CommitProjectTreeAsync(
-            new CheckedOutBranchTip(laterTip.RefName, targetRestoreCommit.Sha),
-            laterSha,
-            "beutl: restore later",
-            SnapshotKind.Restore,
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                new CheckedOutBranchTip(laterTip.RefName, targetRestoreCommit.Sha),
+                laterSha,
+                "beutl: restore later",
+                SnapshotKind.Restore,
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -5006,9 +5015,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        await service.CreateBranchAsync(
-            "restored-state",
-            targetSha,
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("restored-state", targetSha, CancellationToken.None),
             CancellationToken.None);
 
         GitCommandResult branch = await RunGitAsync("branch", "--show-current");
@@ -5022,7 +5030,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("target\n"));
         });
 
-        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.SwitchBranchAsync("main", CancellationToken.None),
+            CancellationToken.None);
         GitCommandResult switchedBack = await RunGitAsync("branch", "--show-current");
 
         Assert.Multiple(() =>
@@ -5256,8 +5266,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(
             CancellationToken.None);
 
-        await Assert.ThrowsAsync<ArgumentException>(
-            async () => await service.SwitchBranchAsync("-", CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentException>(async () =>
             await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
                 async transaction =>
@@ -5275,38 +5283,24 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task CreateBranch_paths_reject_option_like_revision_before_mutation(
-        bool useExclusiveTransaction)
+    [Test]
+    public async Task CreateBranchAsync_rejects_option_like_revision_before_mutation()
     {
         await CommitFileAsync("project.bep", "current\n", "current");
         string originalSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         using var service = CreateService();
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
-        {
-            if (useExclusiveTransaction)
-            {
-                await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
-                    async transaction =>
-                    {
-                        await transaction.CreateBranchAsync(
-                            "injected-option",
-                            "--discard-changes",
-                            CancellationToken.None);
-                        return true;
-                    },
-                    CancellationToken.None);
-            }
-            else
-            {
-                await service.CreateBranchAsync(
-                    "injected-option",
-                    "--discard-changes",
-                    CancellationToken.None);
-            }
-        });
+            await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.CreateBranchAsync(
+                        "injected-option",
+                        "--discard-changes",
+                        CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
 
         GitCommandResult currentBranch = await RunGitAsync("branch", "--show-current");
         GitCommandResult injectedBranch = await RunGitAsync("branch", "--list", "injected-option");
@@ -5326,19 +5320,25 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         using var service = CreateService();
 
-        await service.CreateBranchAsync("alternate", baseSha, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("alternate", baseSha, CancellationToken.None),
+            CancellationToken.None);
         IReadOnlyList<BranchInfo> afterCreate = await service.GetBranchesAsync(
             CancellationToken.None);
         await CommitFileAsync("project.bep", "alternate\n", "alternate");
         string alternateSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
 
-        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.SwitchBranchAsync("main", CancellationToken.None),
+            CancellationToken.None);
         await CommitFileAsync("project.bep", "main\n", "main");
         string mainSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         IReadOnlyList<BranchInfo> onMain = await service.GetBranchesAsync(
             CancellationToken.None);
 
-        await service.SwitchBranchAsync("alternate", CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.SwitchBranchAsync("alternate", CancellationToken.None),
+            CancellationToken.None);
         string mergeBase = (await RunGitAsync(
             "merge-base",
             "main",
@@ -5385,20 +5385,21 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await Assert.MultipleAsync(async () =>
         {
             await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await service.CommitProjectTreeAsync(
-                    new CheckedOutBranchTip("refs/heads/main", head),
-                    head,
-                    "blocked restore",
-                    SnapshotKind.Restore,
+                await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CommitProjectTreeAsync(
+                        new CheckedOutBranchTip("refs/heads/main", head),
+                        head,
+                        "blocked restore",
+                        SnapshotKind.Restore,
+                        CancellationToken.None),
                     CancellationToken.None));
             await Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await service.CreateBranchAsync(
-                    "blocked-branch",
-                    previous,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CreateBranchAsync("blocked-branch", previous, CancellationToken.None),
                     CancellationToken.None));
             await Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await service.SwitchBranchAsync(
-                    "main",
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.SwitchBranchAsync("main", CancellationToken.None),
                     CancellationToken.None));
         });
 
@@ -5424,7 +5425,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             isWorktreeMutationAllowed: static () => false);
 
-        await service.CreateBranchAsync("open-branch", head, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
+            CancellationToken.None);
 
         GitCommandResult branch = await RunGitAsync("branch", "--show-current");
         GitCommandResult branchTip = await RunGitAsync("rev-parse", "refs/heads/open-branch");
@@ -5448,7 +5451,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             isWorktreeMutationAllowed: static () => false);
 
-        await service.CreateBranchAsync("open-branch", head[..7], CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("open-branch", head[..7], CancellationToken.None),
+            CancellationToken.None);
 
         GitCommandResult branch = await RunGitAsync("branch", "--show-current");
         GitCommandResult branchTip = await RunGitAsync("rev-parse", "refs/heads/open-branch");
@@ -5466,9 +5471,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         using var service = CreateService();
 
         ArgumentException? exception = await Assert.ThrowsAsync<ArgumentException>(
-            async () => await service.CreateBranchAsync(
-                "missing-start",
-                "0123456789abcdef0123456789abcdef01234567",
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateBranchAsync(
+                    "missing-start",
+                    "0123456789abcdef0123456789abcdef01234567",
+                    CancellationToken.None),
                 CancellationToken.None));
 
         GitCommandResult branches = await RunGitAsync("branch", "--list", "missing-start");
@@ -5492,7 +5499,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             isWorktreeMutationAllowed: static () => false);
 
-        await service.CreateBranchAsync("open-branch", head, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
+            CancellationToken.None);
 
         GitCommandResult branch = await RunGitAsync("branch", "--show-current");
         GitCommandResult previous = await RunGitAsync("rev-parse", "--abbrev-ref", "@{-1}");
@@ -5518,9 +5527,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => true);
 
         await Assert.CatchAsync<GitOperationException>(
-            async () => await service.CreateBranchAsync(
-                "closed-branch",
-                head,
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateBranchAsync("closed-branch", head, CancellationToken.None),
                 CancellationToken.None));
 
         GitCommandResult branch = await RunGitAsync("branch", "--show-current");
@@ -5547,9 +5555,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         try
         {
             await Assert.CatchAsync<GitOperationException>(
-                async () => await service.CreateBranchAsync(
-                    "open-branch",
-                    head,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
                     CancellationToken.None));
         }
         finally
@@ -5560,7 +5567,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         GitCommandResult leftover = await RunGitAsync("branch", "--list", "open-branch");
         GitCommandResult current = await RunGitAsync("branch", "--show-current");
         // The failed attempt must not take the name, so the retry succeeds.
-        await service.CreateBranchAsync("open-branch", head, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
+            CancellationToken.None);
         GitCommandResult retried = await RunGitAsync("branch", "--show-current");
         Assert.Multiple(() =>
         {
@@ -5590,9 +5599,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         try
         {
             failure = await Assert.ThrowsAsync<GitOperationException>(
-                async () => await service.CreateBranchAsync(
-                    "open-branch",
-                    head,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
                     CancellationToken.None));
         }
         finally
@@ -5626,7 +5634,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             isWorktreeMutationAllowed: static () => false);
 
         await Assert.CatchAsync<GitOperationException>(
-            async () => await service.CreateBranchAsync("open-branch", head, CancellationToken.None));
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateBranchAsync("open-branch", head, CancellationToken.None),
+                CancellationToken.None));
 
         GitCommandResult branches = await RunGitAsync("branch", "--list", "open-branch");
         GitCommandResult current = await RunGitAsync("branch", "--show-current");
@@ -5656,7 +5666,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => runner,
             isWorktreeMutationAllowed: static () => false);
 
-        await service.CreateBranchAsync("open-branch", mainTip, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("open-branch", mainTip, CancellationToken.None),
+            CancellationToken.None);
 
         GitCommandResult branch = await RunGitAsync("branch", "--show-current");
         GitCommandResult status = await RunGitAsync("status", "--porcelain");
@@ -5880,7 +5892,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(
             CancellationToken.None);
-        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expectedTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         VersionControlConflictedException[] exceptions =
@@ -5891,20 +5904,24 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     SnapshotKind.Manual,
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.CommitProjectTreeAsync(
-                    expectedTip,
-                    history[0].Sha,
-                    "blocked restore",
-                    SnapshotKind.Restore,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CommitProjectTreeAsync(
+                        expectedTip,
+                        history[0].Sha,
+                        "blocked restore",
+                        SnapshotKind.Restore,
+                        CancellationToken.None),
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.CreateBranchAsync(
-                    "blocked-branch",
-                    history[0].Sha,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CreateBranchAsync(
+                        "blocked-branch",
+                        history[0].Sha,
+                        CancellationToken.None),
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.SwitchBranchAsync(
-                    "alternate",
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.SwitchBranchAsync("alternate", CancellationToken.None),
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.InitializeAsync(
@@ -5918,10 +5935,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     new GitIdentity("Blocked", "blocked@example.invalid"),
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.PullFastForwardAsync(
-                    expectedTip,
-                    checkpoint: null,
-                    Path.Combine(Root, "project.bep"),
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.PullFastForwardAsync(
+                        expectedTip,
+                        checkpoint: null,
+                        Path.Combine(Root, "project.bep"),
+                        CancellationToken.None),
                     CancellationToken.None)))!,
         ];
         // Configuring the remote and pushing touch neither the worktree nor the index, so like plain Git
@@ -5978,7 +5997,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await RunGitAsync("merge", "--no-commit", "--no-ff", "alternate");
         using var service = CreateService();
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
-        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expectedTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
         string headBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -5991,11 +6011,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     CancellationToken.None)))!;
         VersionControlConflictedException treeCommitException =
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.CommitProjectTreeAsync(
-                    expectedTip,
-                    expectedTip.Commit,
-                    "blocked project tree commit",
-                    SnapshotKind.Restore,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.CommitProjectTreeAsync(
+                        expectedTip,
+                        expectedTip.Commit,
+                        "blocked project tree commit",
+                        SnapshotKind.Restore,
+                        CancellationToken.None),
                     CancellationToken.None)))!;
 
         string mergeHeadPath = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
@@ -6021,7 +6043,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         bool closeGateChecked = false;
         using (var readService = CreateService())
         {
-            expectedTip = await readService.GetCheckedOutBranchTipAsync(CancellationToken.None);
+            expectedTip = await readService.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                CancellationToken.None);
         }
 
         string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
@@ -6043,15 +6067,17 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
         VersionControlConflictedException preflightException =
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.PreflightPullAsync(
-                    expectedTip,
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.PreflightPullAsync(expectedTip, CancellationToken.None),
                     CancellationToken.None)))!;
         VersionControlConflictedException transitionException =
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
-                async () => await service.PullFastForwardAsync(
-                    expectedTip,
-                    checkpoint: null,
-                    Path.Combine(Root, "project.bep"),
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.PullFastForwardAsync(
+                        expectedTip,
+                        checkpoint: null,
+                        Path.Combine(Root, "project.bep"),
+                        CancellationToken.None),
                     CancellationToken.None)))!;
 
         Assert.Multiple(() =>
@@ -6090,15 +6116,18 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             watcher: null,
             _ => runner);
-        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expectedTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         InvalidOperationException exception = (await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitProjectTreeAsync(
-                expectedTip,
-                sourceCommit,
-                "blocked transition",
-                SnapshotKind.Restore,
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CommitProjectTreeAsync(
+                    expectedTip,
+                    sourceCommit,
+                    "blocked transition",
+                    SnapshotKind.Restore,
+                    CancellationToken.None),
                 CancellationToken.None)))!;
 
         string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -6120,13 +6149,16 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         CheckedOutBranchTip baseTip;
         using (var checkpointService = CreateService())
         {
-            baseTip = await checkpointService.GetCheckedOutBranchTipAsync(
+            baseTip = await checkpointService.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
                 CancellationToken.None);
             await File.WriteAllTextAsync(
                 Path.Combine(Root, "project.bep"),
                 "checkpointed\n");
-            checkpoint = await checkpointService.CreateProjectCheckpointAsync(
-                "beutl: external operation rollback checkpoint",
+            checkpoint = await checkpointService.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync(
+                    "beutl: external operation rollback checkpoint",
+                    CancellationToken.None),
                 CancellationToken.None);
         }
 
@@ -6152,8 +6184,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             _ => runner);
 
         InvalidOperationException exception = (await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.RestoreProjectCheckpointAsync(
-                checkpoint,
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.RestoreProjectCheckpointAsync(checkpoint, CancellationToken.None),
                 CancellationToken.None)))!;
 
         string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -6189,8 +6221,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(temporaryPath, "local temporary\n");
         using var service = CreateService();
 
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: filtered checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: filtered checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
         string checkpointProject = (await RunGitAsync(
             "show",
@@ -6224,8 +6258,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        await service.CreateProjectCheckpointAsync(
-            "beutl: lfs-aware checkpoint",
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: lfs-aware checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
         await service.CommitAllAsync(
             "beutl: snapshot on save",
@@ -6267,14 +6303,18 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         CheckedOutBranchTip targetTip;
         using (var readService = CreateService())
         {
-            targetTip = await readService.GetCheckedOutBranchTipAsync(CancellationToken.None);
+            targetTip = await readService.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                CancellationToken.None);
         }
 
         await CommitFileAsync("project.bep", "current\n", "current");
         CheckedOutBranchTip expectedTip;
         using (var readService = CreateService())
         {
-            expectedTip = await readService.GetCheckedOutBranchTipAsync(CancellationToken.None);
+            expectedTip = await readService.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                CancellationToken.None);
         }
 
         string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
@@ -6292,9 +6332,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        BranchTipRollbackResult result = await service.TryRollbackBranchTipAsync(
-            expectedTip,
-            targetTip,
+        BranchTipRollbackResult result = await service.ExecuteExclusiveAsync(
+            transaction => transaction.TryRollbackBranchTipAsync(expectedTip, targetTip, CancellationToken.None),
             CancellationToken.None);
 
         string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -6768,8 +6807,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             SnapshotKind.Save,
             CancellationToken.None);
         string committedSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await service.CreateBranchAsync("alternate", committedSha, CancellationToken.None);
-        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("alternate", committedSha, CancellationToken.None),
+            CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.SwitchBranchAsync("main", CancellationToken.None),
+            CancellationToken.None);
         await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
         RemoteOpResult push = await service.PushAsync(progress: null, CancellationToken.None);
 
@@ -6811,18 +6854,22 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             await service.PushAsync(progress: null, CancellationToken.None),
             Is.TypeOf<RemoteOpResult.Success>());
         await CommitFileAsync("local.belm", "local only\n", "local update");
-        CheckedOutBranchTip expectedTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expectedTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        PullPreflightResult preflight = await service.PreflightPullAsync(
-            expectedTip,
+        PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PreflightPullAsync(expectedTip, CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expectedTip,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expectedTip,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
-        CheckedOutBranchTip actualTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip actualTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -7497,15 +7544,23 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        CheckedOutBranchTip tip = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
-        await service.CommitProjectTreeAsync(
-            tip,
-            baseSha,
-            "beutl: restore base",
-            SnapshotKind.Restore,
+        CheckedOutBranchTip tip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        await service.CreateBranchAsync("alternate", baseSha, CancellationToken.None);
-        await service.SwitchBranchAsync("alternate", CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                tip,
+                baseSha,
+                "beutl: restore base",
+                SnapshotKind.Restore,
+                CancellationToken.None),
+            CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("alternate", baseSha, CancellationToken.None),
+            CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.SwitchBranchAsync("alternate", CancellationToken.None),
+            CancellationToken.None);
 
         string[][] worktreeCommands = recording.Commands
             .Where(static arguments =>
@@ -7538,8 +7593,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await CommitFileAsync("tracked-later.txt", "tracked\n", "add a file the other branch lacks");
         using var service = CreateService();
-        await service.CreateBranchAsync("alternate", baseSha, CancellationToken.None);
-        await service.SwitchBranchAsync("main", CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("alternate", baseSha, CancellationToken.None),
+            CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.SwitchBranchAsync("main", CancellationToken.None),
+            CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "collides.txt\n");
         await RunGitAsync("add", "--", ".gitignore");
         await RunGitAsync("commit", "-m", "ignore the collision path");
@@ -7551,7 +7610,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "collides.txt"), "local ignored content\n");
 
         await Assert.ThrowsAsync<GitOperationException>(
-            async () => await service.SwitchBranchAsync("alternate", CancellationToken.None));
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.SwitchBranchAsync("alternate", CancellationToken.None),
+                CancellationToken.None));
 
         Assert.That(
             await File.ReadAllTextAsync(Path.Combine(Root, "collides.txt")),

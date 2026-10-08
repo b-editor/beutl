@@ -295,24 +295,20 @@ public sealed class StructuralAndProgramCacheTests
         });
     }
 
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    [TestCase(true, true)]
-    public void NestedRequestAddedOrRemoved_ReusesUnchangedAncestorPlans(
-        bool initiallyIncluded,
-        bool resolveMetadataFirst)
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NestedRequestAddedOrRemoved_ReusesUnchangedAncestorPlans(bool initiallyIncluded)
     {
         using var cache = new StructuralPlanCache();
         using var leaf = new ParameterShaderNode();
         using var child = new OptionalNestedParentNode(leaf) { IncludeChild = initiallyIncluded };
         using var parent = new NestedParentNode(child);
         using var root = new NestedParentNode(parent);
-        using CompiledRenderRequest first = Compile(cache, root, resolveMetadataFirst: resolveMetadataFirst);
+        using CompiledRenderRequest first = Compile(cache, root);
         StructuralPlanCacheStatistics before = cache.Statistics;
 
         child.IncludeChild = !initiallyIncluded;
-        using CompiledRenderRequest second = Compile(cache, root, resolveMetadataFirst: resolveMetadataFirst);
+        using CompiledRenderRequest second = Compile(cache, root);
 
         Assert.Multiple(() =>
         {
@@ -369,6 +365,7 @@ public sealed class StructuralAndProgramCacheTests
             static graph => new ExecutionIslandPlanner().Plan(
                 graph,
                 RenderRequestCompiler.ResolveRoots(graph),
+                new RenderCacheResolution([]),
                 FusionMode.Enabled,
                 SkslBackendBudget.Unlimited));
     }
@@ -460,17 +457,13 @@ public sealed class StructuralAndProgramCacheTests
     private static CompiledRenderRequest Compile(
         StructuralPlanCache cache,
         RenderNode node,
-        FusionMode fusionMode = FusionMode.Enabled,
-        bool resolveMetadataFirst = false)
+        FusionMode fusionMode = FusionMode.Enabled)
     {
         RenderRequest request = CreateRequest(fusionMode);
         try
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            var compiler = new RenderRequestCompiler(cache);
-            return resolveMetadataFirst
-                ? compiler.CompileAfterMetadata(request, graph, compiler.ResolveMetadata(request, graph))
-                : compiler.Compile(request, graph);
+            return new RenderRequestCompiler(cache).Compile(request, graph);
         }
         catch
         {
@@ -583,7 +576,7 @@ public sealed class StructuralAndProgramCacheTests
     private sealed class NestedParentNode(RenderNode child) : RenderNode
     {
         public override void Process(RenderNodeContext context)
-            => _ = context.RecordNestedTarget(child, new Rect(0, 0, 8, 8));
+            => _ = context.RecordNestedTargetAtScale(child, new Rect(0, 0, 8, 8), 1);
     }
 
     private sealed class OptionalNestedParentNode(RenderNode child) : RenderNode
@@ -605,7 +598,7 @@ public sealed class StructuralAndProgramCacheTests
         public override void Process(RenderNodeContext context)
         {
             if (IncludeChild)
-                _ = context.RecordNestedTarget(child, new Rect(0, 0, 8, 8));
+                _ = context.RecordNestedTargetAtScale(child, new Rect(0, 0, 8, 8), 1);
         }
     }
 

@@ -109,12 +109,16 @@ public class DirectoryWatcherServiceTests
     [Test]
     public void A_watcher_that_delivers_again_gets_its_retries_back()
     {
-        using var service = new DirectoryWatcherService();
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
         service.Watch(_scratch);
         service.TryRearmAfterError();
         service.TryRearmAfterError();
 
-        service.MarkDelivered();
+        service.NotifyPathChanged(Path.Combine(_scratch, "clip.png"));
+        Assert.That(SpinWait.SpinUntil(() => !posted.IsEmpty, TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(posted.TryDequeue(out Action? deliver), Is.True);
+        deliver!();
 
         var results = new List<bool>();
         for (int i = 0; i < 4; i++)

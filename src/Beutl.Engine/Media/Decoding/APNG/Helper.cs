@@ -8,8 +8,6 @@ internal static class Helper
 
     internal static uint ConvertEndian(uint i) => BinaryPrimitives.ReverseEndianness(i);
 
-    internal static short ConvertEndian(short i) => BinaryPrimitives.ReverseEndianness(i);
-
     internal static ushort ConvertEndian(ushort i) => BinaryPrimitives.ReverseEndianness(i);
 
     public static bool IsBytesEqual(byte[] byte1, byte[] byte2)

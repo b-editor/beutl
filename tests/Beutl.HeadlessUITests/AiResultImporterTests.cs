@@ -124,26 +124,6 @@ public sealed class AiResultImporterTests
         });
     }
 
-    [AvaloniaTest]
-    public async Task ImportImageBytes_RejectsOversizedDimensionsBeforeBitmapDecode()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-result-importer-bomb");
-        var importer = new AiResultImporter(
-            editor.Scene,
-            editor.GetRequiredService<IElementAdder>());
-        byte[] oversized = PngWithDimensions(8_193, 1);
-
-        await Assert.ThrowsAsync<InvalidDataException>(() => importer.ImportImageAsync(
-            oversized,
-            new AiResultImportOptions(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(5),
-                0,
-                "AI image")));
-        Assert.That(editor.Scene.Children, Is.Empty);
-    }
-
     [Test]
     public void OutpaintDimensions_RejectExpandedPixelBoundsBeforeMakeBorder()
     {
@@ -154,39 +134,16 @@ public sealed class AiResultImporterTests
             AiImageEditDialogViewModel.GetOutpaintDimensions(1_366, 1_366, 100));
     }
 
-    private static byte[] PngWithDimensions(int width, int height)
-    {
-        using var source = new SKBitmap(1, 1, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using SKImage image = SKImage.FromBitmap(source);
-        using SKData encoded = image.Encode(SKEncodedImageFormat.Png, 100);
-        byte[] bytes = encoded.ToArray();
-        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(16, 4), width);
-        BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(20, 4), height);
-        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(29, 4), Crc32(bytes.AsSpan(12, 17)));
-        return bytes;
-    }
-
-    private static uint Crc32(ReadOnlySpan<byte> bytes)
-    {
-        uint crc = 0xffffffff;
-        foreach (byte value in bytes)
-        {
-            crc ^= value;
-            for (int bit = 0; bit < 8; bit++)
-                crc = (crc & 1) == 0 ? crc >> 1 : 0xedb88320 ^ (crc >> 1);
-        }
-        return ~crc;
-    }
-
     [AvaloniaTest]
-    public async Task ImportVideoBytes_StagesAndImportsEveryProducedElement()
+    public async Task ImportVideo_StagesAndImportsEveryProducedElement()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-video-importer");
         var adder = new CapturingElementAdder(producedElementCount: 2);
         var importer = new AiResultImporter(editor.Scene, adder, AcceptVideoAsync);
 
-        ElementAddResult result = await importer.ImportVideoAsync(
+        ElementAddResult result = await ImportVideoFileAsync(
+            importer,
             new byte[] { 1, 2, 3, 4 },
             new AiResultImportOptions(
                 TimeSpan.Zero,
@@ -237,7 +194,8 @@ public sealed class AiResultImporterTests
         var adder = new CapturingElementAdder(producedElementCount: 0);
         var importer = new AiResultImporter(editor.Scene, adder, AcceptVideoAsync);
 
-        ElementAddResult result = await importer.ImportVideoAsync(
+        ElementAddResult result = await ImportVideoFileAsync(
+            importer,
             new byte[] { 1, 2, 3, 4 },
             new AiResultImportOptions(
                 TimeSpan.Zero,
@@ -271,7 +229,8 @@ public sealed class AiResultImporterTests
 
         try
         {
-            await importer.ImportVideoAsync(
+            await ImportVideoFileAsync(
+                importer,
                 new byte[] { 1, 2, 3, 4 },
                 new AiResultImportOptions(
                     TimeSpan.Zero,
@@ -311,7 +270,8 @@ public sealed class AiResultImporterTests
 
         try
         {
-            await importer.ImportVideoAsync(
+            await ImportVideoFileAsync(
+                importer,
                 new byte[] { 1, 2, 3, 4 },
                 new AiResultImportOptions(
                     TimeSpan.Zero,
@@ -354,7 +314,8 @@ public sealed class AiResultImporterTests
         {
             try
             {
-                await importer.ImportVideoAsync(
+                await ImportVideoFileAsync(
+                    importer,
                     new byte[] { 1, 2, 3, 4 },
                     new AiResultImportOptions(
                         TimeSpan.Zero,
@@ -471,6 +432,23 @@ public sealed class AiResultImporterTests
         return Task.CompletedTask;
     }
 
+    private static async Task<ElementAddResult> ImportVideoFileAsync(
+        AiResultImporter importer,
+        byte[] bytes,
+        AiResultImportOptions options)
+    {
+        string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.mp4");
+        await File.WriteAllBytesAsync(sourcePath, bytes);
+        try
+        {
+            return await importer.ImportVideoAsync(sourcePath, options);
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
     [AvaloniaTest]
     public async Task ImportImage_UnsavedSceneUsesRealAdderAndRehomesItsSidecarOnFirstSave()
     {
@@ -511,7 +489,9 @@ public sealed class AiResultImporterTests
             {
                 Assert.That(result.IsSuccess, Is.True);
                 Assert.That(
-                    UnsavedSceneStorage.OwnsPath(scene.Id, unsavedSidecar.LocalPath),
+                    FilePathComparison.IsSameOrDescendant(
+                        UnsavedSceneStorage.GetDirectory(scene.Id),
+                        unsavedSidecar.LocalPath),
                     Is.True);
                 Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True);
                 Assert.That(File.Exists(resourcePath), Is.True);

@@ -172,8 +172,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public IObservable<TimeSpan> CurrentTime { get; }
 
-    public bool IsAnimatable => PropertyAdapter is IAnimatablePropertyAdapter;
-
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
     protected ImmutableArray<CoreObject?> GetStorables() => [_element];

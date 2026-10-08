@@ -52,8 +52,6 @@ internal sealed class FileBrowserFavoritesStore
 
     public event Action? Changed;
 
-    public bool Contains(string path) => _favorites.Contains(path);
-
     public void Toggle(string path)
     {
         if (string.IsNullOrEmpty(path))

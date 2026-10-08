@@ -376,16 +376,6 @@ public class DirectoryWatcherServiceTests
         Assert.That(service.IsWatching, Is.False);
     }
 
-    [Test]
-    public void Path_scope_fails_closed_when_canonical_inspection_is_invalid()
-    {
-        bool result = true;
-
-        Assert.DoesNotThrow(() =>
-            result = PathScope.IsUnderDirectory("\0", _projectRoot));
-        Assert.That(result, Is.False);
-    }
-
     [TestCase(true)]
     [TestCase(false)]
     public void Built_in_template_and_material_paths_override_the_reserved_metadata_filter(

@@ -29,10 +29,6 @@ internal interface IProjectVersionControlCoordinator
         string url,
         CancellationToken cancellationToken);
 
-    Task SetLocalIdentityAsync(
-        GitIdentity identity,
-        CancellationToken cancellationToken);
-
     Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken);

@@ -169,7 +169,7 @@ public sealed partial class PackageManager
         {
             _pendingRollbacks.Add(package.LocalId, pendingRollback);
         }
-        pendingRollback.Operation = DrainAndRollbackAsync(
+        _ = DrainAndRollbackAsync(
             pendingRollback,
             removal);
     }
@@ -227,8 +227,6 @@ public sealed partial class PackageManager
         public IReadOnlyList<Extension> Extensions { get; } = extensions;
 
         public PluginLoadContext? LoadContext { get; } = loadContext;
-
-        public Task? Operation { get; set; }
     }
 
     internal List<Extension> LoadPackageExtensions(IEnumerable<Type> extensionTypes)

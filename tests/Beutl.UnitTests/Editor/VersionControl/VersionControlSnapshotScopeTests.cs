@@ -126,8 +126,8 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
 
         await File.WriteAllTextAsync(sourceFile, "checkpoint plugin state\n");
         await WriteProjectFileAsync("render-cache.tmp", "new scratch state\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: safety checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: safety checkpoint", CancellationToken.None),
             CancellationToken.None);
         GitCommandResult checkpointSource = await RunGitAsync(
             "show",

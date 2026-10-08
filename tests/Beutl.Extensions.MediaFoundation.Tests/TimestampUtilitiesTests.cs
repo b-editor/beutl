@@ -47,22 +47,4 @@ public class TimestampUtilitiesTests
         long timestamp = TimestampUtilities.ConvertTimeStampFromFrame(frame, rate);
         Assert.That(TimestampUtilities.ConvertFrameFromTimeStamp(timestamp, rate), Is.EqualTo(frame));
     }
-
-    [Test]
-    public void ConvertSampleFromTimeStamp_OneSecondAt44100_Returns44100()
-        => Assert.That(TimestampUtilities.ConvertSampleFromTimeStamp(10_000_000, 44100), Is.EqualTo(44100));
-
-    [Test]
-    public void ConvertTimeStampFromSample_44100SamplesAt44100_ReturnsOneSecond()
-        => Assert.That(TimestampUtilities.ConvertTimeStampFromSample(44100, 44100), Is.EqualTo(10_000_000));
-
-    [TestCase(0)]
-    [TestCase(1)]
-    [TestCase(22050)]
-    [TestCase(44100)]
-    public void SampleAndTimeStamp_RoundTripAt44100(int sample)
-    {
-        long timestamp = TimestampUtilities.ConvertTimeStampFromSample(sample, 44100);
-        Assert.That(TimestampUtilities.ConvertSampleFromTimeStamp(timestamp, 44100), Is.EqualTo(sample));
-    }
 }

@@ -341,8 +341,6 @@ public class DeviceExtentLimitTests
             Assert.That((fixedSize.Width, fixedSize.Height), Is.EqualTo((0, 0)),
                 "a fixed-size node must not commit an extent it was refused");
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => DeviceExtentLimits.ThrowIfCannotMakeCubeFace(device.Object, -1));
-            Assert.Throws<ArgumentOutOfRangeException>(
                 () => DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(device.Object, 0));
             AssertNeverAllocated(device);
         });
@@ -425,16 +423,20 @@ public class DeviceExtentLimitTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                DeviceExtentLimits.ResolveCubeFaceAttachmentBudget(MockDevice(attachment: 4096, cube: 2048).Object),
+                Device3DExtentBudget.FromContext(MockDevice(attachment: 4096, cube: 2048).Object)
+                    .ResolveCubeFaceAttachmentBudget(),
                 Is.EqualTo(2048));
             Assert.That(
-                DeviceExtentLimits.ResolveCubeFaceAttachmentBudget(MockDevice(attachment: 1024, cube: 2048).Object),
+                Device3DExtentBudget.FromContext(MockDevice(attachment: 1024, cube: 2048).Object)
+                    .ResolveCubeFaceAttachmentBudget(),
                 Is.EqualTo(1024));
             Assert.That(
-                DeviceExtentLimits.ResolveCubeFaceAttachmentBudget(MockDevice(attachment: 0, cube: 2048).Object),
+                Device3DExtentBudget.FromContext(MockDevice(attachment: 0, cube: 2048).Object)
+                    .ResolveCubeFaceAttachmentBudget(),
                 Is.EqualTo(2048));
             Assert.That(
-                DeviceExtentLimits.ResolveCubeFaceAttachmentBudget(MockDevice(attachment: 1024, cube: 0).Object),
+                Device3DExtentBudget.FromContext(MockDevice(attachment: 1024, cube: 0).Object)
+                    .ResolveCubeFaceAttachmentBudget(),
                 Is.EqualTo(1024));
         });
     }

@@ -236,7 +236,7 @@ public static partial class CoreSerializer
         }
         if (addedTypeDiscriminator && obj is CoreObject coreObject)
         {
-            coreObject.WasTypeDiscriminatorAddedDuringRestore = true;
+            coreObject.MergePersistedContentMigration(Project.DefaultMinAppVersion);
         }
     }
 
@@ -357,10 +357,9 @@ public static partial class CoreSerializer
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
         PopulateFromJsonObjectCore(obj, type, json, options, addedTypeDiscriminator);
-        if (obj is CoreObject populatedCoreObject)
+        if (addedTypeDiscriminator && obj is CoreObject populatedCoreObject)
         {
-            populatedCoreObject.WasTypeDiscriminatorAddedDuringRestore =
-                addedTypeDiscriminator;
+            populatedCoreObject.MergePersistedContentMigration(Project.DefaultMinAppVersion);
         }
     }
 

@@ -104,9 +104,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 }));
             Assert.That(canCreateSameName, Is.True);
             await Assert.ThrowsAsync<ArgumentException>(
-                async () => await service.SwitchBranchAsync("origin/feature", CancellationToken.None));
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.SwitchBranchAsync("origin/feature", CancellationToken.None),
+                    CancellationToken.None));
             await Assert.ThrowsAsync<ArgumentException>(
-                async () => await service.SwitchBranchAsync("Feature", CancellationToken.None));
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.SwitchBranchAsync("Feature", CancellationToken.None),
+                    CancellationToken.None));
         });
     }
 
@@ -300,12 +304,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -335,16 +343,20 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         RepositoryInfo originPeer = await CloneRemoteAsync(originRoot);
         await CommitInRepositoryAsync(originPeer, "project.bep", "from origin\n", "origin update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
 
         // origin/main is not the history this branch follows, so fast-forwarding to it would be a guess.
-        PullPreflightResult preflight = await service.PreflightPullAsync(
-            expected,
+        PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PreflightPullAsync(expected, CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         var refusal = new RemoteOpResult.Failed(
@@ -368,17 +380,21 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("branch", "--set-upstream-to=upstream/main", "main");
         RepositoryInfo upstreamPeer = await CloneRemoteAsync(upstreamRoot);
         await CommitInRepositoryAsync(upstreamPeer, "project.bep", "from upstream\n", "upstream update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
 
         // Without origin there is still no remote Beutl pulls from, so the branch's upstream on
         // another remote is refused rather than fetched.
-        PullPreflightResult preflight = await service.PreflightPullAsync(
-            expected,
+        PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PreflightPullAsync(expected, CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         var refusal = new RemoteOpResult.Failed(
@@ -440,15 +456,19 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 GitCommandOptions.Local,
                 CancellationToken.None))
             .Stdout.Trim();
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
-
-        PullPreflightResult preflight = await service.PreflightPullAsync(
-            expected,
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+
+        PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PreflightPullAsync(expected, CancellationToken.None),
+            CancellationToken.None);
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string originHead = (await RunGitAsync("rev-parse", "refs/remotes/origin/main"))
             .Stdout.Trim();
@@ -480,10 +500,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         RepositoryInfo peer = await CloneRemoteAsync(originRoot);
         await CommitInRepositoryAsync(peer, "project/project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "notes.txt"), "scratch outside the project\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
 
-        PullPreflightResult preflight = await service.PreflightPullAsync(
-            expected,
+        PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PreflightPullAsync(expected, CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -545,11 +567,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             ["rev-parse", "HEAD"],
             GitCommandOptions.Local,
             CancellationToken.None)).Stdout.Trim();
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        PullPreflightResult preflight = await service.PreflightPullAsync(
-            expected,
+        PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PreflightPullAsync(expected, CancellationToken.None),
             CancellationToken.None);
         string originHead = (await RunGitAsync("rev-parse", "refs/remotes/origin/main"))
             .Stdout.Trim();
@@ -580,13 +603,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "+refs/heads/other:refs/remotes/origin/other");
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -634,13 +660,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             ["push"],
             GitCommandOptions.Local,
             CancellationToken.None);
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -668,7 +697,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string hooksDirectory = Path.Combine(Root, ".git", "beutl-test-hooks");
         Directory.CreateDirectory(hooksDirectory);
@@ -694,10 +724,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         await RunGitAsync("config", "core.hooksPath", hooksDirectory);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -742,15 +774,19 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             GitCommandOptions.Network,
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "ignored.txt"), "local secret\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
-        CheckedOutBranchTip actual = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip actual = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -779,13 +815,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "tracked.txt", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -828,13 +867,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             ["push"],
             GitCommandOptions.Network,
             CancellationToken.None);
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -851,24 +893,30 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         using var service = CreateService();
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         await RunGitAsync("switch", "-c", "external");
-        CheckedOutBranchTip external = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip external = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         Assert.That(
-            async () => await service.PullFastForwardAsync(
-                expected,
-                checkpoint: null,
-                Path.Combine(Root, "project.bep"),
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.PullFastForwardAsync(
+                    expected,
+                    checkpoint: null,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<InvalidOperationException>());
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                service.GetCheckedOutBranchTipAsync(CancellationToken.None).GetAwaiter().GetResult(),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                    CancellationToken.None).GetAwaiter().GetResult(),
                 Is.EqualTo(external));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("initial\n"));
@@ -893,13 +941,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
         string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
@@ -953,7 +1004,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        expected = await service.GetCheckedOutBranchTipAsync(
+        expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string originalTree = (await RunGitAsync(
             "rev-parse",
@@ -975,10 +1027,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             expected.Commit);
         externalProxy = new RepositoryInfo(externalProxyRoot, externalProxyRoot);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
         string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
@@ -1034,13 +1088,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             collisionPath,
             $"remote {collisionKind} contents\n",
             "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string actualTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
 
@@ -1100,17 +1157,22 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             $"remote {collisionKind} contents\n",
             "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: late collision checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: late collision checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
         string cachedBefore = (await RunGitAsync("diff", "--cached", "--binary")).Stdout;
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string cachedAfter = (await RunGitAsync("diff", "--cached", "--binary")).Stdout;
         string actualTip = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
@@ -1148,16 +1210,19 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string headLockPath = Path.Combine(Root, ".git", "HEAD.lock");
         await File.WriteAllTextAsync(headLockPath, "stale");
         File.SetLastWriteTimeUtc(headLockPath, DateTime.UtcNow - TimeSpan.FromMinutes(20));
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string worktrees = (await RunGitAsync("worktree", "list", "--porcelain")).Stdout;
 
@@ -1207,12 +1272,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "local\n", "local update");
         string localHeadBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         string remoteHeadBefore = await ReadRemoteHeadAsync(remoteRoot);
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         RemoteOpResult push = await service.PushAsync(progress: null, CancellationToken.None);
 
@@ -1242,24 +1311,32 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        CheckedOutBranchTip originalHead = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
-
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: safety checkpoint before pull",
+        CheckedOutBranchTip originalHead = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        CheckedOutBranchTip headAfterCheckpoint = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: safety checkpoint before pull",
+                CancellationToken.None),
+            CancellationToken.None);
+        CheckedOutBranchTip headAfterCheckpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
         string resolvedCheckpoint = (await RunGitAsync(
             "rev-parse",
             checkpoint.RefName)).Stdout.Trim();
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            originalHead,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                originalHead,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         CheckedOutBranchTip pulledHead = pull.Tip;
         Assert.That(pull.Recovery, Is.Not.Null);
-        await service.CompletePendingPullRecoveryAsync(
-            pull.Recovery!,
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CompletePendingPullRecoveryAsync(pull.Recovery!, CancellationToken.None),
             CancellationToken.None);
         string safetyParent = (await RunGitAsync("rev-parse", "HEAD^1")).Stdout.Trim();
         string remoteHead = await ReadRemoteHeadAsync(remoteRoot);
@@ -1326,19 +1403,26 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         string localMarker = Path.Combine(Root, "local.belm");
         await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: safety checkpoint before pull",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: safety checkpoint before pull",
+                CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         IReadOnlyList<PendingPullRecovery> recoveries =
-            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
+                CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -1391,16 +1475,21 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
             await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
             await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-            CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+            CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
                 CancellationToken.None);
-            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-                "beutl: safety checkpoint before pull",
+            ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync(
+                    "beutl: safety checkpoint before pull",
+                    CancellationToken.None),
                 CancellationToken.None);
 
-            FastForwardPullResult pull = await service.PullFastForwardAsync(
-                expected,
-                checkpoint,
-                Path.Combine(Root, "project.bep"),
+            FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+                transaction => transaction.PullFastForwardAsync(
+                    expected,
+                    checkpoint,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None),
                 CancellationToken.None);
             publishedRecovery = pull.Recovery;
 
@@ -1415,7 +1504,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         using GitCliVersionControlService restarted = CreateService();
         IReadOnlyList<PendingPullRecovery> recoveries =
-            await restarted.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            await restarted.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
+                CancellationToken.None);
 
         Assert.That(recoveries, Is.EqualTo(new[] { publishedRecovery! }));
     }
@@ -1458,19 +1549,26 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: safety checkpoint before pull",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: safety checkpoint before pull",
+                CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         IReadOnlyList<PendingPullRecovery> recoveries =
-            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
+                CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -1529,7 +1627,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
         string originalTree = (await RunGitAsync(
             "rev-parse",
             $"{expected.Commit}^{{tree}}")).Stdout.Trim();
@@ -1541,17 +1641,23 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "-m",
             "external update during checkpoint preparation")).Stdout.Trim();
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: safety checkpoint before pull",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: safety checkpoint before pull",
+                CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         IReadOnlyList<PendingPullRecovery> pendingRecoveries =
-            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
+                CancellationToken.None);
         string actualRef = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
         string checkpointRef = (await RunGitAsync("rev-parse", checkpoint.RefName)).Stdout.Trim();
 
@@ -1592,17 +1698,22 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: prepare failure checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: prepare failure checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
         checkpointCommit = checkpoint.Commit;
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string cachedDiff = (await RunGitAsync(
             "diff",
@@ -1643,16 +1754,21 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: secondary prepare failure checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: secondary prepare failure checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         Assert.Multiple(() =>
         {
@@ -1685,16 +1801,20 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             before: null,
             static (_, _, _) => throw new IOException("simulated final index observation failure"));
         using var service = CreateService(runner: interceptingRunner);
-        baseTip = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        baseTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpointed\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: final reset failure checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: final reset failure checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
         await RunGitAsync("restore", "--source=HEAD", "--worktree", "--", "project.bep");
 
         Assert.That(
-            async () => await service.RestoreProjectCheckpointAsync(
-                checkpoint,
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.RestoreProjectCheckpointAsync(checkpoint, CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<InvalidOperationException>());
 
@@ -1709,7 +1829,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(
-                service.GetCheckedOutBranchTipAsync(CancellationToken.None).GetAwaiter().GetResult(),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                    CancellationToken.None).GetAwaiter().GetResult(),
                 Is.EqualTo(baseTip));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("base\n"));
             Assert.That(cachedDiff, Is.Empty);
@@ -1734,13 +1856,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string cachedDiff = (await RunGitAsync(
             "diff",
@@ -1757,7 +1882,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Assert.That(pull.TransitionState, Is.EqualTo(PullTransitionState.Unchanged));
             Assert.That(pull.Tip, Is.EqualTo(expected));
             Assert.That(
-                service.GetCheckedOutBranchTipAsync(CancellationToken.None).GetAwaiter().GetResult(),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                    CancellationToken.None).GetAwaiter().GetResult(),
                 Is.EqualTo(expected));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("initial\n"));
@@ -1784,13 +1911,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string actualRef = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
         string worktrees = (await RunGitAsync("worktree", "list", "--porcelain")).Stdout;
@@ -1820,13 +1950,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -1867,7 +2000,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.TypeOf<RemoteOpResult.Success>());
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
-        expected = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
         string originalTree = (await RunGitAsync(
             "rev-parse",
             $"{expected.Commit}^{{tree}}")).Stdout.Trim();
@@ -1888,10 +2023,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             expected.Commit);
         externalProxy = new RepositoryInfo(externalProxyRoot, externalProxyRoot);
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string actualRef = (await RunGitAsync("rev-parse", expected.RefName)).Stdout.Trim();
 
@@ -1929,14 +2066,18 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitInRepositoryAsync(peer, "project.bep", "remote\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local\n");
 
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: safety checkpoint before pull",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: safety checkpoint before pull",
+                CancellationToken.None),
             CancellationToken.None);
         Assert.That(
-            async () => await service.PullFastForwardAsync(
-                checkpoint.BaseTip,
-                checkpoint,
-                Path.Combine(Root, "project.bep"),
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.PullFastForwardAsync(
+                    checkpoint.BaseTip,
+                    checkpoint,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<GitOperationException>());
 
@@ -1953,7 +2094,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         {
             Assert.That(retainedCheckpoint, Is.EqualTo(checkpoint.Commit));
             Assert.That(
-                service.GetCheckedOutBranchTipAsync(CancellationToken.None).GetAwaiter().GetResult(),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                    CancellationToken.None).GetAwaiter().GetResult(),
                 Is.EqualTo(checkpoint.BaseTip));
             Assert.That(statusAfterConflict, Does.Contain("project.bep"));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
@@ -1971,15 +2114,20 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "one\n", "one");
         using var service = CreateService();
-        CheckedOutBranchTip target = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip target = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
         await CommitFileAsync("project.bep", "two\n", "two");
-        CheckedOutBranchTip expectedCurrent = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip expectedCurrent = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
         await CommitFileAsync("project.bep", "external\n", "external");
-        CheckedOutBranchTip externallyChanged = await service.GetCheckedOutBranchTipAsync(CancellationToken.None);
+        CheckedOutBranchTip externallyChanged = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+            CancellationToken.None);
 
-        BranchTipRollbackResult rollback = await service.TryRollbackBranchTipAsync(
-            expectedCurrent,
-            target,
+        BranchTipRollbackResult rollback = await service.ExecuteExclusiveAsync(
+            transaction => transaction.TryRollbackBranchTipAsync(expectedCurrent, target, CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -1987,7 +2135,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Assert.That(rollback,
                 Is.EqualTo(new BranchTipRollbackResult.RefChanged(externallyChanged.Commit)));
             Assert.That(
-                service.GetCheckedOutBranchTipAsync(CancellationToken.None).GetAwaiter().GetResult(),
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                    CancellationToken.None).GetAwaiter().GetResult(),
                 Is.EqualTo(externallyChanged));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")),
                 Is.EqualTo("external\n"));
@@ -2010,16 +2160,19 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("commit", "-m", "current");
         var nestedRepository = new RepositoryInfo(Root, projectRoot);
         using var service = CreateService(nestedRepository);
-        CheckedOutBranchTip currentTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip currentTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "outside.txt"), "outside staged\n");
         await RunGitAsync("add", "--", "outside.txt");
 
-        CommitResult restore = await service.CommitProjectTreeAsync(
-            currentTip,
-            originalCommit,
-            "beutl: restore project tree",
-            SnapshotKind.Restore,
+        CommitResult restore = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                currentTip,
+                originalCommit,
+                "beutl: restore project tree",
+                SnapshotKind.Restore,
+                CancellationToken.None),
             CancellationToken.None);
         var restored = (CommitRevision.Known)((CommitResult.Committed)restore).Revision;
         var restoredTip = new CheckedOutBranchTip(currentTip.RefName, restored.Sha);
@@ -2035,11 +2188,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
             "HEAD")).Stdout.Trim();
 
-        CommitResult recovery = await service.CommitProjectTreeAsync(
-            restoredTip,
-            currentTip.Commit,
-            "beutl: recover original project tree",
-            SnapshotKind.Recovery,
+        CommitResult recovery = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                restoredTip,
+                currentTip.Commit,
+                "beutl: recover original project tree",
+                SnapshotKind.Recovery,
+                CancellationToken.None),
             CancellationToken.None);
         string stagedAfterRecovery = (await RunGitAsync("show", ":outside.txt")).Stdout;
         string recoveryTrailer = (await RunGitAsync(
@@ -2077,7 +2232,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("worktree", "add", "-b", "linked", linkedRoot, mainTip);
         var linkedRepository = new RepositoryInfo(linkedRoot, linkedRoot);
         using var service = CreateService(linkedRepository);
-        CheckedOutBranchTip linkedTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip linkedTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string gitFile = await File.ReadAllTextAsync(Path.Combine(linkedRoot, ".git"));
         string linkedGitDirectory = gitFile["gitdir:".Length..].Trim();
@@ -2090,11 +2246,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string mainHeadLock = Path.Combine(Root, ".git", "HEAD.lock");
         await File.WriteAllTextAsync(mainHeadLock, "main worktree sentinel");
 
-        CommitResult result = await service.CommitProjectTreeAsync(
-            linkedTip,
-            baseCommit,
-            "beutl: linked worktree transition",
-            SnapshotKind.Restore,
+        CommitResult result = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                linkedTip,
+                baseCommit,
+                "beutl: linked worktree transition",
+                SnapshotKind.Restore,
+                CancellationToken.None),
             CancellationToken.None);
         string worktrees = (await RunGitAsync("worktree", "list", "--porcelain")).Stdout;
 
@@ -2121,8 +2279,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         using (GitCliVersionControlService service = CreateService())
         {
             await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local work\n");
-            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None);
             string tree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
             string targetCommit = (await RunGitAsync(
@@ -2142,13 +2300,15 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         using GitCliVersionControlService restarted = CreateService();
         IReadOnlyList<PendingPullRecovery> recoveries =
-            await restarted.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            await restarted.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
+                CancellationToken.None);
         PendingPullRecovery recoveredDescriptor = recoveries.Single();
-        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
-            recoveredDescriptor,
+        PendingPullRecoveryOutcome outcome = await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.RecoverPendingPullRecoveryAsync(recoveredDescriptor, CancellationToken.None),
             CancellationToken.None);
-        await restarted.CompletePendingPullRecoveryAsync(
-            recoveredDescriptor,
+        await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.CompletePendingPullRecoveryAsync(recoveredDescriptor, CancellationToken.None),
             CancellationToken.None);
         string remainingRecoveryRefs = (await RunGitAsync(
             "for-each-ref",
@@ -2182,8 +2342,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string projectFile = Path.Combine(Root, "draft\\..\\project.bep");
         await File.WriteAllTextAsync(projectFile, "literal backslashes\n");
         using var service = CreateService();
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         string tree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
         string targetCommit = (await RunGitAsync(
@@ -2199,7 +2359,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             new CheckedOutBranchTip(checkpoint.BaseTip.RefName, targetCommit),
             projectFile,
             CancellationToken.None);
-        PendingPullRecovery restored = (await service.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery restored = (await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
 
         Assert.Multiple(() =>
@@ -2222,11 +2383,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string localMarker = Path.Combine(Root, "local.belm");
         using (GitCliVersionControlService service = CreateService())
         {
-            CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+            CheckedOutBranchTip baseTip = await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
                 CancellationToken.None);
             await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
-            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None);
             persisted = await service.PersistPendingPullRecoveryAsync(
                 checkpoint,
@@ -2239,12 +2401,14 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("reset", "--hard", targetCommit);
 
         using GitCliVersionControlService restarted = CreateService();
-        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovered = (await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
-        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
-            recovered,
+        PendingPullRecoveryOutcome outcome = await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.RecoverPendingPullRecoveryAsync(recovered, CancellationToken.None),
             CancellationToken.None);
-        CheckedOutBranchTip recoveredTip = await restarted.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip recoveredTip = await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -2283,11 +2447,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string localMarker = Path.Combine(Root, "local.belm");
         using (GitCliVersionControlService service = CreateService())
         {
-            CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+            CheckedOutBranchTip baseTip = await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
                 CancellationToken.None);
             await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
-            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None);
             persisted = await service.PersistPendingPullRecoveryAsync(
                 checkpoint,
@@ -2301,12 +2466,14 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.That(new FileInfo(projectFile).LinkTarget, Is.Not.Null);
 
         using GitCliVersionControlService restarted = CreateService();
-        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovered = (await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
-        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
-            recovered,
+        PendingPullRecoveryOutcome outcome = await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.RecoverPendingPullRecoveryAsync(recovered, CancellationToken.None),
             CancellationToken.None);
-        CheckedOutBranchTip recoveredTip = await restarted.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip recoveredTip = await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -2330,8 +2497,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         using (GitCliVersionControlService service = CreateService())
         {
             await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local work\n");
-            ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None);
             string tree = (await RunGitAsync(
                 "rev-parse",
@@ -2357,10 +2524,11 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             await RunGitAsync("cat-file", "-e", $"{targetCommit}^{{commit}}"));
 
         using GitCliVersionControlService restarted = CreateService();
-        PendingPullRecovery recovered = (await restarted.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovered = (await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
-        PendingPullRecoveryOutcome outcome = await restarted.RecoverPendingPullRecoveryAsync(
-            recovered,
+        PendingPullRecoveryOutcome outcome = await restarted.ExecuteExclusiveAsync(
+            transaction => transaction.RecoverPendingPullRecoveryAsync(recovered, CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -2377,11 +2545,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "base\n", "initial");
         using var service = CreateService();
-        CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip baseTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local work\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         string baseTree = (await RunGitAsync("rev-parse", $"{baseTip.Commit}^{{tree}}")).Stdout.Trim();
         string targetCommit = (await RunGitAsync(
@@ -2409,8 +2578,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         // A branch named beutl takes the path that beutl/recovery/<id> needs, so Git cannot create it.
         await RunGitAsync("branch", "beutl", baseTip.Commit);
 
-        PendingPullRecoveryOutcome outcome = await service.RecoverPendingPullRecoveryAsync(
-            recovery,
+        PendingPullRecoveryOutcome outcome = await service.ExecuteExclusiveAsync(
+            transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
             CancellationToken.None);
         string preservedCheckpoint = (await RunGitAsync(
             "rev-parse",
@@ -2433,11 +2602,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             before: null,
             after: null);
         using var service = CreateService(runner: recordingRunner);
-        CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip baseTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local work\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         string baseTree = (await RunGitAsync("rev-parse", $"{baseTip.Commit}^{{tree}}")).Stdout.Trim();
         string targetCommit = (await RunGitAsync(
@@ -2474,18 +2644,20 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         PendingPullRecoveryOutcome? repeatedOutcome = null;
         await Assert.DoesNotThrowAsync(async () =>
         {
-            outcome = await service.RecoverPendingPullRecoveryAsync(
-                recovery,
+            outcome = await service.ExecuteExclusiveAsync(
+                transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                 CancellationToken.None);
-            repeatedOutcome = await service.RecoverPendingPullRecoveryAsync(
-                recovery,
+            repeatedOutcome = await service.ExecuteExclusiveAsync(
+                transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                 CancellationToken.None);
         });
         string recoveryBranch = $"refs/heads/beutl/recovery/{recovery.Id}";
         string actualTip = (await RunGitAsync("rev-parse", baseTip.RefName)).Stdout.Trim();
         string preservedCheckpoint = (await RunGitAsync("rev-parse", recoveryBranch)).Stdout.Trim();
         WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
-        await service.CompletePendingPullRecoveryAsync(recovery, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CompletePendingPullRecoveryAsync(recovery, CancellationToken.None),
+            CancellationToken.None);
         string remainingPrivateRefs = (await RunGitAsync(
             "for-each-ref",
             "--format=%(refname)",
@@ -2536,12 +2708,13 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("reset", "--hard", baseCommit);
 
         using var service = CreateService();
-        CheckedOutBranchTip baseTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip baseTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string localMarker = Path.Combine(Root, "local.belm");
         await File.WriteAllTextAsync(localMarker, "local checkpoint\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         string baseTree = (await RunGitAsync(
             "rev-parse",
@@ -2568,8 +2741,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         PendingPullRecoveryPreservedException? exception =
             await Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
-                await service.RecoverPendingPullRecoveryAsync(
-                    recovery,
+                await service.ExecuteExclusiveAsync(
+                    transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                     CancellationToken.None));
         string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
         string statusAfter = (await RunGitAsync(
@@ -2621,8 +2794,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         PendingPullRecoveryPreservedException? exception =
             await Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
-                await service.RecoverPendingPullRecoveryAsync(
-                    recovery,
+                await service.ExecuteExclusiveAsync(
+                    transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                     CancellationToken.None));
         string actualTip = (await RunGitAsync(
             "rev-parse",
@@ -2686,8 +2859,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             "unverified state\n");
 
         Exception? exception = await Assert.ThrowsAsync<AggregateException>(async () =>
-            await service.RecoverPendingPullRecoveryAsync(
-                recovery,
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                 CancellationToken.None));
         string checkpointRefs = (await RunGitAsync(
             "for-each-ref",
@@ -2752,8 +2925,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             string.Empty);
 
         Exception? exception = await Assert.ThrowsAsync<AggregateException>(async () =>
-            await service.RecoverPendingPullRecoveryAsync(
-                recovery,
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                 CancellationToken.None));
         string actualTip = (await RunGitAsync(
             "rev-parse",
@@ -2806,8 +2979,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         PendingPullRecoveryPreservedException? exception =
             await Assert.ThrowsAsync<PendingPullRecoveryPreservedException>(async () =>
-                await service.RecoverPendingPullRecoveryAsync(
-                    recovery,
+                await service.ExecuteExclusiveAsync(
+                    transaction => transaction.RecoverPendingPullRecoveryAsync(recovery, CancellationToken.None),
                     CancellationToken.None));
         string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
         string statusAfter = (await RunGitAsync(
@@ -2903,7 +3076,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("update-ref", descriptorRef, descriptorObject, string.Empty);
 
         IReadOnlyList<PendingPullRecovery> recoveries =
-            await service.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
+                CancellationToken.None);
 
         Assert.That(recoveries, Is.Empty);
     }
@@ -2917,8 +3092,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await File.WriteAllTextAsync(externalProject, "outside\n");
         string linkedProject = Path.Combine(Root, "linked-project.bep");
         using var service = CreateService();
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         // Created after the checkpoint, so only the persistence guard sees the link.
         CreateFileSymbolicLinkOrIgnore(linkedProject, externalProject);
@@ -2952,7 +3127,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.False);
         await ReplaceRecoveryProjectFileAsync(valid, "linked-project.bep");
 
-        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovery = (await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
 
         Assert.That(recovery.ProjectFile,
@@ -2982,7 +3158,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.False);
         await ReplaceRecoveryProjectFileAsync(valid, "linked-project.bep");
 
-        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovery = (await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
 
         Assert.That(recovery.ProjectFile,
@@ -3004,7 +3181,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             Is.True);
         await ReplaceRecoveryProjectFileAsync(valid, "current/current/project.bep");
 
-        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovery = (await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
 
         Assert.That(
@@ -3025,7 +3203,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
         await ReplaceRecoveryProjectFileAsync(valid, "cycle-a/project.bep");
 
-        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovery = (await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
 
         Assert.That(recovery.ProjectFile,
@@ -3051,7 +3230,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         PendingPullRecovery valid = await CreatePendingPullRecoveryAsync(service);
         await ReplaceRecoveryProjectFileAsync(valid, "link-0/project.bep");
 
-        PendingPullRecovery recovery = (await service.GetPendingPullRecoveriesAsync(
+        PendingPullRecovery recovery = (await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetPendingPullRecoveriesAsync(CancellationToken.None),
             CancellationToken.None)).Single();
 
         Assert.That(recovery.ProjectFile,
@@ -3077,8 +3257,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             projectFile: repositoryProjectAlias);
 
         InvalidOperationException? refusal = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -3106,8 +3286,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
 
         using var service = CreateService();
         await File.WriteAllTextAsync(variantProjectFile, "local work\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
 
         PendingPullRecovery recovery = await service.PersistPendingPullRecoveryAsync(
@@ -3159,8 +3339,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         tamperedObject = await WriteGitBlobAsync(descriptor.ToJsonString());
 
         await Assert.ThrowsAsync<PendingPullRecoveryChangedException>(async () =>
-            await service.CompletePendingPullRecoveryAsync(
-                pending,
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.CompletePendingPullRecoveryAsync(pending, CancellationToken.None),
                 CancellationToken.None));
 
         string retainedDescriptor = (await RunGitAsync(
@@ -3191,8 +3371,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         PendingPullRecovery pending = await CreatePendingPullRecoveryAsync(service);
 
         await Assert.DoesNotThrowAsync(async () =>
-            await service.CompletePendingPullRecoveryAsync(
-                pending,
+            await service.ExecuteExclusiveAsync(
+                transaction => transaction.CompletePendingPullRecoveryAsync(pending, CancellationToken.None),
                 CancellationToken.None));
         string remainingRefs = (await RunGitAsync(
             "for-each-ref",
@@ -3225,19 +3405,25 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("add", "--", "outside.txt");
         string stagedOutsideBefore = (await RunGitAsync("show", ":outside.txt")).Stdout;
 
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: scoped safety checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync(
+                "beutl: scoped safety checkpoint",
+                CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            checkpoint.BaseTip,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                checkpoint.BaseTip,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
         string stagedOutsideAfter = (await RunGitAsync("show", ":outside.txt")).Stdout;
         string checkpointOutside = (await RunGitAsync(
             "show",
             $"{checkpoint.Commit}:outside.txt")).Stdout;
-        await service.RestoreProjectCheckpointAsync(checkpoint, CancellationToken.None);
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.RestoreProjectCheckpointAsync(checkpoint, CancellationToken.None),
+            CancellationToken.None);
         string stagedOutsideAfterRestore = (await RunGitAsync("show", ":outside.txt")).Stdout;
 
         Assert.Multiple(() =>
@@ -3278,13 +3464,15 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 "simulated lost checkpoint ref publication response"));
         using var service = CreateService(runner: interceptingRunner);
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpointed\n");
-        CheckedOutBranchTip before = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip before = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
 
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
-        CheckedOutBranchTip after = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip after = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         string published = (await RunGitAsync("rev-parse", checkpoint.RefName)).Stdout.Trim();
 
@@ -3305,8 +3493,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         using var service = CreateService();
 
         Assert.That(
-            async () => await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<DetachedHeadNotSupportedException>());
     }
@@ -3321,8 +3509,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "worktree\n");
 
         Assert.That(
-            async () => await service.CreateProjectCheckpointAsync(
-                "beutl: checkpoint",
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<ProjectCheckpointStagedChangesException>());
 
@@ -3346,16 +3534,18 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "base\n", "initial");
         using var service = CreateService();
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpointed\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "newer edit\n");
         await File.WriteAllTextAsync(Path.Combine(Root, "after.belm"), "after checkpoint\n");
 
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            checkpoint.BaseTip,
-            checkpoint,
-            Path.Combine(Root, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                checkpoint.BaseTip,
+                checkpoint,
+                Path.Combine(Root, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -3377,8 +3567,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "base\n", "initial");
         using var service = CreateService();
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpointed\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         await RunGitAsync("switch", "--detach");
         await File.WriteAllTextAsync(Path.Combine(Root, "detached.belm"), "keep me\n");
@@ -3386,10 +3576,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(
-                async () => await service.PullFastForwardAsync(
-                    checkpoint.BaseTip,
-                    checkpoint,
-                    Path.Combine(Root, "project.bep"),
+                async () => await service.ExecuteExclusiveAsync(
+                    transaction => transaction.PullFastForwardAsync(
+                        checkpoint.BaseTip,
+                        checkpoint,
+                        Path.Combine(Root, "project.bep"),
+                        CancellationToken.None),
                     CancellationToken.None),
                 Throws.TypeOf<DetachedHeadNotSupportedException>());
         });
@@ -3402,8 +3594,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "base\n", "initial");
         using var service = CreateService();
         await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         await RunGitAsync("restore", "--source=HEAD", "--worktree", "--", ".");
         await RunGitAsync("clean", "-fd", "--", ".");
@@ -3420,17 +3612,21 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             checkpoint.BaseTip.Commit);
 
         Assert.That(
-            async () => await service.PullFastForwardAsync(
-                checkpoint.BaseTip,
-                checkpoint,
-                Path.Combine(Root, "project.bep"),
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.PullFastForwardAsync(
+                    checkpoint.BaseTip,
+                    checkpoint,
+                    Path.Combine(Root, "project.bep"),
+                    CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<InvalidOperationException>());
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                service.GetCheckedOutBranchTipAsync(CancellationToken.None).GetAwaiter().GetResult().Commit,
+                service.ExecuteExclusiveAsync(
+                    transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+                    CancellationToken.None).GetAwaiter().GetResult().Commit,
                 Is.EqualTo(unrelatedCommit));
             Assert.That(File.Exists(Path.Combine(Root, "local.belm")), Is.False);
             Assert.That(
@@ -3445,15 +3641,15 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "base\n", "initial");
         using var service = CreateService();
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpointed\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         await RunGitAsync("restore", "--source=HEAD", "--worktree", "--", ".");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "new recovery edit\n");
 
         Assert.That(
-            async () => await service.RestoreProjectCheckpointAsync(
-                checkpoint,
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.RestoreProjectCheckpointAsync(checkpoint, CancellationToken.None),
                 CancellationToken.None),
             Throws.TypeOf<InvalidOperationException>());
 
@@ -3516,8 +3712,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         GitCliVersionControlService service)
     {
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local work\n");
-        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
-            "beutl: checkpoint",
+        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
             CancellationToken.None);
         return await service.PersistPendingPullRecoveryAsync(
             checkpoint,

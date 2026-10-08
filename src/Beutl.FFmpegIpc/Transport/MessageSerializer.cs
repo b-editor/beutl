@@ -37,33 +37,6 @@ public static class MessageSerializer
         }
     }
 
-    public static IpcMessage? ReadMessage(Stream stream)
-    {
-        Span<byte> lengthBuf = stackalloc byte[LengthPrefixSize];
-        int bytesRead = ReadExactly(stream, lengthBuf);
-        if (bytesRead < LengthPrefixSize)
-            return null;
-
-        int length = BinaryPrimitives.ReadInt32LittleEndian(lengthBuf);
-        if (length <= 0 || length > MaxMessageSize)
-            throw new InvalidOperationException($"Invalid message length: {length}");
-
-        byte[] jsonBuf = ArrayPool<byte>.Shared.Rent(length);
-        try
-        {
-            bytesRead = ReadExactly(stream, jsonBuf.AsSpan(0, length));
-            if (bytesRead < length)
-                return null;
-
-            return JsonSerializer.Deserialize<IpcMessage>(
-                jsonBuf.AsSpan(0, length), IpcJsonContext.Default.Options);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(jsonBuf);
-        }
-    }
-
     public static async ValueTask<IpcMessage?> ReadMessageAsync(Stream stream, CancellationToken ct = default)
     {
         byte[] lengthBuf = ArrayPool<byte>.Shared.Rent(LengthPrefixSize);
@@ -96,19 +69,6 @@ public static class MessageSerializer
         {
             ArrayPool<byte>.Shared.Return(lengthBuf);
         }
-    }
-
-    private static int ReadExactly(Stream stream, Span<byte> buffer)
-    {
-        int totalRead = 0;
-        while (totalRead < buffer.Length)
-        {
-            int read = stream.Read(buffer[totalRead..]);
-            if (read == 0)
-                return totalRead;
-            totalRead += read;
-        }
-        return totalRead;
     }
 
     private static async ValueTask<int> ReadExactlyAsync(Stream stream, Memory<byte> buffer, CancellationToken ct)

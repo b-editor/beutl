@@ -519,10 +519,7 @@ internal sealed class ProjectCheckpointChangedException : InvalidOperationExcept
     public ProjectCheckpointChangedException(string refName)
         : base($"The project checkpoint ref '{refName}' changed outside Beutl.")
     {
-        RefName = refName;
     }
-
-    public string RefName { get; }
 }
 
 internal sealed class ProjectCheckpointStateChangedException : InvalidOperationException
@@ -547,7 +544,6 @@ internal sealed class PendingPullRecoveryChangedException : InvalidOperationExce
     public PendingPullRecoveryChangedException(string refName)
         : base($"The pending pull recovery ref '{refName}' changed outside Beutl.")
     {
-        RefName = refName;
     }
 
     public PendingPullRecoveryChangedException(string refName, Exception innerException)
@@ -555,8 +551,5 @@ internal sealed class PendingPullRecoveryChangedException : InvalidOperationExce
             $"The pending pull recovery ref '{refName}' changed outside Beutl.",
             innerException)
     {
-        RefName = refName;
     }
-
-    public string RefName { get; }
 }

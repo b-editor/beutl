@@ -15,10 +15,6 @@ public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel) : FAPick
 
     public event TypedEventHandler<OutputPickerFlyout, EventArgs>? Dismissed;
 
-    public event TypedEventHandler<OutputPickerFlyout, PinnableOutputItem>? Pinned;
-
-    public event TypedEventHandler<OutputPickerFlyout, PinnableOutputItem>? Unpinned;
-
     public event TypedEventHandler<OutputPickerFlyout, MoreMenuRequestedArgs>? MoreMenuRequested;
 
     public OutputPickerViewModel ViewModel { get; } = viewModel;
@@ -29,16 +25,8 @@ public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel) : FAPick
         pfp.CloseClicked += OnFlyoutDismissed;
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
-        pfp.Pinned += item =>
-        {
-            ViewModel.Pin(item);
-            Pinned?.Invoke(this, item);
-        };
-        pfp.Unpinned += item =>
-        {
-            ViewModel.Unpin(item);
-            Unpinned?.Invoke(this, item);
-        };
+        pfp.Pinned += item => ViewModel.Pin(item);
+        pfp.Unpinned += item => ViewModel.Unpin(item);
         pfp.MoreMenuRequested += (item, anchor) =>
             MoreMenuRequested?.Invoke(this, new MoreMenuRequestedArgs(item, anchor));
 

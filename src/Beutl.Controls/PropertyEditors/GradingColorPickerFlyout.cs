@@ -27,13 +27,7 @@ public sealed class GradingColorPickerFlyout : FAPickerFlyoutBase
 
     public event TypedEventHandler<GradingColorPickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<GradingColorPickerFlyout, EventArgs>? Dismissed;
-
-    public event TypedEventHandler<GradingColorPickerFlyout, EventArgs>? CloseClicked;
-
     public event TypedEventHandler<GradingColorPickerFlyout, (GradingColor OldValue, GradingColor NewValue)>? ColorChanged;
-
-    public event TypedEventHandler<GradingColorPickerFlyout, (GradingColor OldValue, GradingColor NewValue)>? ColorConfirmed;
 
     protected override Control CreatePresenter()
     {
@@ -47,7 +41,6 @@ public sealed class GradingColorPickerFlyout : FAPickerFlyoutBase
         pfp.KeyDown += OnFlyoutKeyDown;
 
         ColorPicker.ColorChanged += OnPickerColorChanged;
-        ColorPicker.ColorConfirmed += OnPickerColorConfirmed;
 
         return pfp;
     }
@@ -57,29 +50,13 @@ public sealed class GradingColorPickerFlyout : FAPickerFlyoutBase
         ColorChanged?.Invoke(this, args);
     }
 
-    private void OnPickerColorConfirmed(GradingColorPicker sender, (GradingColor OldValue, GradingColor NewValue) args)
-    {
-        ColorConfirmed?.Invoke(this, args);
-    }
-
     private void OnFlyoutKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key is Key.Enter or Key.Escape)
         {
-            if (_showButtons)
+            if (_showButtons && e.Key == Key.Enter)
             {
-                if (e.Key == Key.Enter)
-                {
-                    Confirmed?.Invoke(this, EventArgs.Empty);
-                }
-                else
-                {
-                    Dismissed?.Invoke(this, EventArgs.Empty);
-                }
-            }
-            else
-            {
-                CloseClicked?.Invoke(this, EventArgs.Empty);
+                Confirmed?.Invoke(this, EventArgs.Empty);
             }
 
             Hide();
@@ -108,13 +85,11 @@ public sealed class GradingColorPickerFlyout : FAPickerFlyoutBase
 
     private void OnFlyoutCloseClicked(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {
-        CloseClicked?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, object args)
     {
-        Dismissed?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 

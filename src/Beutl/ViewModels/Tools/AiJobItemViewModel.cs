@@ -49,8 +49,6 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
 
     public Uri? ContentUri { get; private set; }
 
-    public string? FileId { get; private set; }
-
     public string? Error { get; private set; }
 
     public bool CanRetry { get; private set; }
@@ -61,13 +59,9 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
 
     public string? Resolution { get; private set; }
 
-    public string? Task { get; private set; }
-
     public string? Language { get; private set; }
 
     public int? DurationSeconds { get; private set; }
-
-    public DateTimeOffset GeneratedAt { get; private set; }
 
     public string Summary { get; private set; } = string.Empty;
 
@@ -304,15 +298,12 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         Kind = NormalizeToken(_response.Kind.Value);
         Status = NormalizeToken(_response.Status.Value);
         ContentUri = _response.ContentUri;
-        FileId = _response.FileId?.Value;
         Error = AiErrorMessage.Localize(_response.Error);
         Prompt = GetString("prompt");
         ImageSize = GetString("size");
         Resolution = GetString("resolution");
-        Task = GetString("task");
         Language = GetString("targetLanguage") ?? GetString("language");
         DurationSeconds = GetInt32("durationSeconds");
-        GeneratedAt = _response.CreatedAt.ToUniversalTime();
         var presentation = new AiJobPresentation(
             Kind.Length > 0 ? Kind : Strings.AiJobCenter_NoDescription,
             Status.Length > 0 ? Status : Strings.AiJobCenter_NoDescription,

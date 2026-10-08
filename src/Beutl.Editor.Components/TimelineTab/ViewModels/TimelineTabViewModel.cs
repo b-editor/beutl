@@ -2,7 +2,6 @@
 using Avalonia;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -41,7 +40,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         CurrentTime = editorClock.CurrentTime;
         MaximumTime = editorClock.MaximumTime;
         BufferStatus = editorContext.GetRequiredService<IBufferStatus>();
-        FrameSelectionRange = new FrameSelectionRange(Scale).DisposeWith(_disposables);
 
         SeekBarMargin = CurrentTime
             .CombineLatest(Scale)
@@ -165,14 +163,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         IsRippleEnabled.Subscribe(b => editorConfig.IsRippleEnabled = b)
-            .DisposeWith(_disposables);
-
-        IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IsUnlockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: true })
-            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         DeleteAllFrameCache = new ReactiveCommandSlim()
@@ -346,12 +336,6 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public ReactivePropertySlim<double?> SnapBarPosition { get; } = new();
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> IsLockCacheButtonEnabled { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsUnlockCacheButtonEnabled { get; }
-
-    public FrameSelectionRange FrameSelectionRange { get; }
 
     public TimeSpan ClickedFrame { get; set; }
 

@@ -201,25 +201,6 @@ public sealed partial class ElementViewModel
         RefreshProxyState(invalidateFingerprintCache: true);
     }
 
-    internal static bool ElementUsesChangedSource(Element element, string changedSourceKey)
-    {
-        // Match against every proxy-aware source (not just the first), so a store event for a source
-        // reached only through an animated value / graph input / referenced scene still invalidates
-        // the filmstrip. Resolve via FromFile so a symlinked source matches its own event key.
-        foreach (VideoSource source in ProxySourceEnumerator.EnumerateVideoSources(element))
-        {
-            if (source is { HasUri: true }
-                && source.Uri is { IsFile: true } uri
-                && ProxyFingerprint.TryFromFile(uri.LocalPath, out ProxyFingerprint fingerprint)
-                && string.Equals(fingerprint.AbsolutePath, changedSourceKey, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     // Per-event relevance gate: matches against this element's cached fingerprints so a burst of
     // store/job events never re-stats the source files (ResolveLinkTarget) on the UI thread. The
     // cache re-stats only when the source URI set changes or a source edit fires ThumbnailsInvalidated.

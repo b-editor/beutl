@@ -20,8 +20,6 @@ public class ResolveTaskModel : NuGet.Common.LoggerBase
 
     public ReactiveProperty<string> Message { get; } = new();
 
-    public ReactiveProperty<bool?> FailedToResolve { get; } = new();
-
     public ReactiveProperty<bool> IsProgressBarVisible { get; } = new();
 
     public ReactiveProperty<string> ErrorMessage { get; } = new();

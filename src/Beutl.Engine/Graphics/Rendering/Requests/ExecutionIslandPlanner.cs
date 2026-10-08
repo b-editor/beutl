@@ -25,13 +25,6 @@ internal sealed class ExecutionIslandPlanner
     public ExecutionIslandPlan Plan(
         RecordedRenderGraph graph,
         ImmutableArray<RenderFragmentReference> roots,
-        FusionMode fusionMode,
-        SkslBackendBudget budget)
-        => Plan(graph, roots, new RenderCacheResolution([]), fusionMode, budget);
-
-    public ExecutionIslandPlan Plan(
-        RecordedRenderGraph graph,
-        ImmutableArray<RenderFragmentReference> roots,
         RenderCacheResolution cacheResolution,
         FusionMode fusionMode,
         SkslBackendBudget budget)

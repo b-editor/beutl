@@ -214,9 +214,6 @@ internal static partial class SlippableMedia
         return delta;
     }
 
-    public static TimeSpan? GetMaximumDuration(Element element, TimeSpan? start = null)
-        => CreateResizeConstraints(element).GetMaximumDuration(start);
-
     public static bool HasOriginalDuration(Element element)
     {
         List<Target> targets = Collect(element);

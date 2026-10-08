@@ -123,7 +123,6 @@ public sealed class RenderPipelineBenchmarkNodeTests
         byte[] firstPixels = first.Bitmap?.GetPixelSpan().ToArray()
             ?? throw new InvalidOperationException("The first animated Blur frame produced no pixels.");
         Assert.That(boundary.Cache.IsCached, Is.True);
-        using RenderTarget cachedPrefix = boundary.Cache.UseCache(out Rect cachedBounds);
         animation.Apply(new RenderPipelineBenchmarkFrameState(1.25f, StructuralVariant: false));
 
         Assert.Multiple(() =>
@@ -135,14 +134,11 @@ public sealed class RenderPipelineBenchmarkNodeTests
         });
 
         using RenderNodeRasterization second = renderer.Rasterize();
-        using RenderTarget retainedPrefix = boundary.Cache.UseCache(out Rect retainedBounds);
         Assert.Multiple(() =>
         {
             Assert.That(second.Bitmap, Is.Not.Null);
             Assert.That(second.Bitmap!.GetPixelSpan().SequenceEqual(firstPixels), Is.False);
             Assert.That(boundary.Cache.IsCached, Is.True);
-            Assert.That(retainedPrefix.Value, Is.SameAs(cachedPrefix.Value));
-            Assert.That(retainedBounds, Is.EqualTo(cachedBounds));
             Assert.That(tail.HasChanges, Is.False);
             Assert.That(prefix.HasChanges, Is.False);
         });

@@ -3877,8 +3877,7 @@ public class VersionControlRestoreTests
             Exception? rejectedOperation = null;
             try
             {
-                await coordinator.SetLocalIdentityAsync(
-                    new GitIdentity("Rejected Close Test", "rejected-close@example.invalid"));
+                await coordinator.SetRemoteAsync("https://example.invalid/rejected-close.git");
             }
             catch (Exception ex)
             {
@@ -3893,7 +3892,6 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.IsTracked.Value, Is.False);
                 Assert.That(rejectedOperation, Is.TypeOf<InvalidOperationException>());
                 Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
                 Assert.That(backend.CallsAfterRetirement, Is.Zero);
             });
 
@@ -13674,6 +13672,7 @@ public class VersionControlRestoreTests
 
         public Task SetRemoteAsync(string url, CancellationToken cancellationToken)
         {
+            RecordBackendCall();
             return Task.CompletedTask;
         }
 

@@ -863,8 +863,8 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             });
 
         await Assert.ThrowsAsync<GitIdentityRequiredException>(
-            async () => await service.CreateProjectCheckpointAsync(
-                "safety checkpoint",
+            async () => await service.ExecuteExclusiveAsync(
+                transaction => transaction.CreateProjectCheckpointAsync("safety checkpoint", CancellationToken.None),
                 CancellationToken.None));
         GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
         GitCommandResult checkpoints = await RunGitAsync(
@@ -895,16 +895,19 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 notices.Add(notice);
                 return Task.CompletedTask;
             });
-        CheckedOutBranchTip current = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip current = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
         await RunGitAsync("config", "--local", "user.name", "");
         await RunGitAsync("config", "--local", "user.email", "");
 
-        CommitResult result = await service.CommitProjectTreeAsync(
-            current,
-            original,
-            "restore snapshot",
-            SnapshotKind.Restore,
+        CommitResult result = await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                current,
+                original,
+                "restore snapshot",
+                SnapshotKind.Restore,
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>

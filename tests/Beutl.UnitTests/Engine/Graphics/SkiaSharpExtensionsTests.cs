@@ -1,8 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Media;
 using SkiaSharp;
-using Vector = Beutl.Graphics.Vector;
-using Vector4 = System.Numerics.Vector4;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
@@ -21,14 +19,6 @@ public class SkiaSharpExtensionsTests
             Assert.That(sk.Y, Is.EqualTo(2.5f));
             Assert.That(back, Is.EqualTo(p));
         });
-    }
-
-    [Test]
-    public void Vector_ToSKPoint_ConvertsValues()
-    {
-        var v = new Vector(3.5f, -2.5f);
-        SKPoint sk = v.ToSKPoint();
-        Assert.That(sk, Is.EqualTo(new SKPoint(3.5f, -2.5f)));
     }
 
     [Test]
@@ -71,27 +61,21 @@ public class SkiaSharpExtensionsTests
     }
 
     [Test]
-    public void Size_RoundTripsThroughSKSize()
+    public void Size_ToSKSize_ConvertsValues()
     {
         var s = new Size(100f, 200f);
         SKSize sk = s.ToSKSize();
-        Size back = sk.ToGraphicsSize();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(sk, Is.EqualTo(new SKSize(100f, 200f)));
-            Assert.That(back, Is.EqualTo(s));
-        });
+        Assert.That(sk, Is.EqualTo(new SKSize(100f, 200f)));
     }
 
     [Test]
-    public void PixelSize_RoundTripsThroughSKSizeI()
+    public void PixelSize_ToSKSizeI_ConvertsValues()
     {
         var s = new PixelSize(640, 480);
         SKSizeI sk = s.ToSKSizeI();
-        PixelSize back = sk.ToGraphicsSize();
 
-        Assert.That(back, Is.EqualTo(s));
+        Assert.That(sk, Is.EqualTo(new SKSizeI(640, 480)));
     }
 
     [Test]
@@ -116,21 +100,6 @@ public class SkiaSharpExtensionsTests
             Assert.That(sk.Red, Is.EqualTo(0x20));
             Assert.That(sk.Green, Is.EqualTo(0x30));
             Assert.That(sk.Blue, Is.EqualTo(0x40));
-        });
-    }
-
-    [Test]
-    public void Vector4_ToSKColorF_PreservesChannels()
-    {
-        var v = new Vector4(0.1f, 0.2f, 0.3f, 0.4f);
-        SKColorF sk = v.ToSKColorF();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(sk.Red, Is.EqualTo(0.1f));
-            Assert.That(sk.Green, Is.EqualTo(0.2f));
-            Assert.That(sk.Blue, Is.EqualTo(0.3f));
-            Assert.That(sk.Alpha, Is.EqualTo(0.4f));
         });
     }
 

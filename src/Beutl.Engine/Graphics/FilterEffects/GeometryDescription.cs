@@ -24,7 +24,6 @@ public sealed class GeometryDescription
         _execution = execution;
         Bounds = bounds;
         HitTest = hitTest;
-        DefinitionFingerprint = definitionFingerprint;
         RequiresReadback = requiresReadback;
         InputDemand = inputDemand;
         Resources = resources;
@@ -49,8 +48,6 @@ public sealed class GeometryDescription
 
     /// <summary>Gets the CPU-only hit-test contract for the conservative produced geometry.</summary>
     public RenderHitTestContract HitTest { get; }
-
-    internal object DefinitionFingerprint { get; }
 
     /// <summary>Gets whether the callback is permitted to request declared input readback.</summary>
     public bool RequiresReadback { get; }

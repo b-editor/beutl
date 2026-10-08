@@ -89,10 +89,6 @@ public class CustomFilterEffectContext
     /// <summary>Gets the explicit request purpose for this execution.</summary>
     public RenderRequestPurpose Purpose { get; }
 
-    internal DrawableBrushMaterializer? DrawableBrushMaterializer => _drawableBrushMaterializer;
-
-    internal bool UsesExecutorManagedCanvas => _useExecutorManagedCanvas;
-
     internal RenderTargetLeaseSession? RenderTargetLeaseSession => _renderTargetLeaseSession;
 
     internal BrushConstructor CreateBrushConstructor(

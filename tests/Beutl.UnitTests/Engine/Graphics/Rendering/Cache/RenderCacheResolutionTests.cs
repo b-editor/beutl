@@ -513,9 +513,6 @@ public sealed class RenderCacheResolutionTests
         {
             RenderCacheResolution cold = Resolve(first, context: firstContext);
             lookup.AddRange(GetMissCaptures(cold));
-            Assert.That(
-                GetMissCaptures(cold).Single().Identity!.DeviceGridOffset,
-                Is.EqualTo(new Vector(1, 1)));
         }
 
         using Scenario second = ShaderCandidate(description);
@@ -525,9 +522,6 @@ public sealed class RenderCacheResolutionTests
         {
             Assert.That(GetHits(moved), Is.Empty);
             Assert.That(moved.MissCaptureCount, Is.EqualTo(1));
-            Assert.That(
-                GetMissCaptures(moved).Single().Identity!.DeviceGridOffset,
-                Is.EqualTo(new Vector(2, 2)));
         });
     }
 
@@ -1190,10 +1184,6 @@ public sealed class RenderCacheResolutionTests
             Assert.That(GetHits(resolution), Is.Empty);
             Assert.That(resolution.MissCaptureCount, Is.EqualTo(1));
             Assert.That(GetMissCaptures(resolution).Single().Identity, Is.Not.EqualTo(enabledIdentity));
-            Assert.That(enabledIdentity.FusionMode, Is.EqualTo(FusionMode.Enabled));
-            Assert.That(
-                GetMissCaptures(resolution).Single().Identity!.FusionMode,
-                Is.EqualTo(FusionMode.Disabled));
         });
     }
 

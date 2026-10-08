@@ -36,7 +36,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public long SampleCount { get; }
     public long SampleRate { get; }
-    public long SamplesProvided { get; private set; }
 
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
@@ -105,7 +104,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
             await EnsureChunkLoaded(remainingOffset);
             _currentChunk!.DataSpan[..(int)remainingLength].CopyTo(result2.DataSpan[(int)firstPartLength..]);
 
-            SamplesProvided += result2.NumSamples;
             StartPrefetchIfNeeded();
             return result2;
         }
@@ -123,7 +121,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
         int start = (int)(offset - _currentChunkOffset);
         var result = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
         _currentChunk!.DataSpan.Slice(start, (int)length).CopyTo(result.DataSpan);
-        SamplesProvided += result.NumSamples;
         return result;
     }
 

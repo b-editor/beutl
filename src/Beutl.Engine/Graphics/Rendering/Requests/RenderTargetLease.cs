@@ -1,6 +1,4 @@
-﻿using Beutl.Media;
-
-namespace Beutl.Graphics.Rendering.Requests;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>One exclusive hold on a target owned by a renderer's pool.</summary>
 internal sealed class RenderTargetLease : IDisposable
@@ -19,15 +17,6 @@ internal sealed class RenderTargetLease : IDisposable
         {
             Session.Pool.VerifyLease(this);
             return Slot.Target;
-        }
-    }
-
-    public PixelSize DeviceSize
-    {
-        get
-        {
-            Session.Pool.VerifyLease(this);
-            return Slot.Size;
         }
     }
 

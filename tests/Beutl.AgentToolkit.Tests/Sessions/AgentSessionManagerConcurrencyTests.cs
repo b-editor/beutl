@@ -42,7 +42,7 @@ public sealed class AgentSessionManagerConcurrencyTests
             "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
 
         var ex = Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
-            () => manager.GetCompositionPlan(state.Id))!;
+            () => manager.GetCompositionPlan(state.Id, manager.CurrentSessionKey))!;
         Assert.That(ex.Error.Message, Does.Contain("session"));
     }
 
@@ -84,7 +84,7 @@ public sealed class AgentSessionManagerConcurrencyTests
         }
 
         Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
-            () => manager.GetCompositionPlan(first.Id));
+            () => manager.GetCompositionPlan(first.Id, manager.CurrentSessionKey));
     }
 
     [Test]
@@ -114,7 +114,7 @@ public sealed class AgentSessionManagerConcurrencyTests
                         new JsonArray(),
                         new HashSet<Guid>());
                     plans.Add(state.Id);
-                    manager.GetCompositionPlan(state.Id);
+                    manager.GetCompositionPlan(state.Id, manager.CurrentSessionKey);
                     manager.RemoveCompositionPlan(state.Id);
                 }
                 catch (Exception ex)

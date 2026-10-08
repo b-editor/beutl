@@ -13,9 +13,6 @@ internal sealed class ParticleSimulator
     // fps frame sits ~1.7e-5 steps early) are never snapped.
     private const double TickTruncationStepTolerance = 8e-6d;
     private const double MaximumSnapTolerance = 2.5e-5d;
-    // A float timestamp's own ulp grows along the timeline, so its snap is capped at a quarter step instead:
-    // never far enough to reach past the midpoint between two steps.
-    private const double MaximumFloatSnapTolerance = 0.25d;
     private const int CheckpointIntervalSteps = 30;
     private const int MaxCheckpoints = 120;
 
@@ -295,14 +292,6 @@ internal sealed class ParticleSimulator
     public ReadOnlyMemory<Particle> GetAliveParticles()
     {
         return _particles.AsMemory(0, _aliveCount);
-    }
-
-    internal static int ResolveTargetStep(float time)
-    {
-        double timeUlp = Math.Max(
-            Math.Abs((double)MathF.BitIncrement(time) - time),
-            Math.Abs((double)time - MathF.BitDecrement(time)));
-        return SnapToStep((double)time * 60d, timeUlp, MaximumFloatSnapTolerance);
     }
 
     internal static int ResolveTargetStep(double time)

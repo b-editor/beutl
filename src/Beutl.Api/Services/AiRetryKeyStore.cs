@@ -86,16 +86,7 @@ internal interface IAiRetryKeyStore
 {
     bool TryGet(AiJob job, string accountId, out string key);
 
-    string GetOrCreate(AiJob job, string accountId, out bool isRepeat);
-
-    void Retire(AiJob job, string accountId);
-
     AiRetryAttempt PrepareAttempt(AiJob job, string accountId);
-
-    bool TryPrepareRecoveryAttempt(
-        AiJob job,
-        string accountId,
-        out AiRetryAttempt attempt);
 
     void AbandonAttempt(AiRetryAttempt attempt);
 

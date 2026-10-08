@@ -752,11 +752,7 @@ public sealed class AudioSourceItem
 
     internal Guid ElementId => _elementId;
 
-    internal TimeSpan ElementLength => _elementLength;
-
     internal TimeSpan SourceOffset => _sourceOffset;
-
-    internal float Speed => _speed;
 
     internal double GetSourceElapsedSeconds()
     {

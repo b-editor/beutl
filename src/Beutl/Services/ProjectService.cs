@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -17,34 +16,16 @@ namespace Beutl.Services;
 
 public sealed partial class ProjectService
 {
-    private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
-    private readonly IObservable<(Project? New, Project? Old)> _safeProjectObservable;
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
 
     public ProjectService()
     {
-        _safeProjectObservable = Observable.Create<(Project? New, Project? Old)>(observer =>
-            _projectObservable.Subscribe(change =>
-            {
-                try
-                {
-                    observer.OnNext(change);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(
-                        ex,
-                        "A project-state observer failed while publishing the committed transition.");
-                }
-            }));
         CurrentProject = _app.GetObservable(BeutlApplication.ProjectProperty)
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
-
-    public IObservable<(Project? New, Project? Old)> ProjectObservable => _safeProjectObservable;
 
     /// <summary>
     /// Raised before <see cref="Closing"/>, while the editors are still open. Anything that has to
@@ -338,7 +319,6 @@ public sealed partial class ProjectService
 
             TryAddToRecentProjects(file);
             _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
-            PublishProjectChange((New: project, null));
             PublishTransitionCommitted(project);
             usage?.Complete();
         }
@@ -355,7 +335,6 @@ public sealed partial class ProjectService
                     await ActivateProjectAsync(previousProject);
                     if (previousProject.Uri is { IsFile: true } previousUri)
                         TryAddToRecentProjects(previousUri.LocalPath);
-                    PublishProjectChange((New: previousProject, null));
                     PublishTransitionCommitted(previousProject);
                 }
                 catch (Exception recoveryFailure)
@@ -406,7 +385,6 @@ public sealed partial class ProjectService
     {
         if (_app.Project is { } project)
         {
-            PublishProjectChange((New: null, project));
             _app.Project = null;
             Media.FontManager.Instance.ClearProjectFonts(project);
             try
@@ -492,7 +470,6 @@ public sealed partial class ProjectService
                 }
             }
 
-            PublishProjectChange((New: project, null));
             await ActivateProjectAsync(project);
 
             TryAddToRecentProjects(project.Uri.LocalPath);

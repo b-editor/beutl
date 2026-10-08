@@ -99,7 +99,6 @@ internal static class CoreLibraries
             case "Beutl.ProjectSystem":
             case "Beutl.Threading":
             case "Beutl.Utilities":
-            case "Beutl.WaitingDialog":
             case "Beutl.PackageTools.UI":
             case "Beutl.ExceptionHandler":
             case "Beutl.Editor":

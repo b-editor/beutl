@@ -31,8 +31,6 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     internal float IdentityDensity => _storage.IdentityDensity;
 
-    internal Type? NodeType => _node.TryGetTarget(out RenderNode? node) ? node.GetType() : null;
-
     internal bool IsDisposed { get; private set; }
 
     internal int SuccessfulStableRequestCount => _successfulStableRequests;
@@ -99,25 +97,6 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
         {
             // Finalizers must never let cleanup failures terminate the process.
         }
-    }
-
-    internal RenderTarget UseCache(out Rect bounds)
-    {
-        if (_storage.Values.Length == 0)
-        {
-            throw new InvalidOperationException("No cached render target is available.");
-        }
-
-        RenderNodeCachedValue value = _storage.Values[0];
-        bounds = value.Bounds;
-        return value.Target.ShallowCopy();
-    }
-
-    internal IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
-    {
-        return _storage.Values
-            .Select(static value => (value.Target.ShallowCopy(), value.Bounds))
-            .ToArray();
     }
 
     internal bool TryGetCachedOutput(

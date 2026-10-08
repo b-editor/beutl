@@ -193,41 +193,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return scaled.IsEmpty ? _rasterBounds : _rasterBounds.Union(scaled);
     }
 
-    // テスト用
-    internal Point AddToSKPath(SKPathBuilder path, Point point)
-    {
-        using SKFont font = this.ToSKFont();
-        SKShaper.Result result = Shape(font, 1f);
-
-        // create the text blob
-        using var builder = new SKTextBlobBuilder();
-        SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
-
-        // copy the glyphs
-        Span<ushort> glyphs = run.Glyphs;
-        Span<SKPoint> positions = run.Positions;
-        for (int i = 0; i < result.Codepoints.Length; i++)
-        {
-            glyphs[i] = (ushort)result.Codepoints[i];
-            SKPoint p = result.Points[i];
-            p.X += i * Spacing;
-            positions[i] = p;
-        }
-
-        for (int i = 0; i < glyphs.Length; i++)
-        {
-            ushort glyph = glyphs[i];
-            SKPoint p = positions[i] + point.ToSKPoint();
-
-            using SKPath? glyphPath = font.GetGlyphPath(glyph);
-            if (glyphPath != null)
-                path.AddPath(glyphPath, p.X, p.Y);
-        }
-
-        using SKTextBlob? textBlob = builder.Build();
-        return point;
-    }
-
     internal SKPath GetFillPath()
     {
         MeasureAndSetField();

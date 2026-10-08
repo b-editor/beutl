@@ -17,10 +17,4 @@ public static class IdentityHelper
         json.WriteDiscriminator(type);
         return json["$type"]!.GetValue<string>();
     }
-
-    public static bool TryGetDiscriminator(JsonObject json, out string? discriminator)
-    {
-        ArgumentNullException.ThrowIfNull(json);
-        return json.TryGetDiscriminator(out discriminator);
-    }
 }

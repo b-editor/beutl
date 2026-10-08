@@ -7,19 +7,11 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
 {
-    public enum ScriptType
-    {
-        CSharp,
-        SKSL,
-        GLSL,
-    }
-
     private readonly IScriptCompilableEffect? _validator;
 
     public ScriptEditorViewModel(IPropertyAdapter<string?> property)
         : base(property)
     {
-        DetectedScriptType = DetectScriptType(property.ImplementedType);
         _validator = Activator.CreateInstance(property.ImplementedType) as IScriptCompilableEffect;
 
         Value
@@ -41,17 +33,6 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
 
     // Distinct from CompileError: "could not check" must not read as a failure or a success.
     public ReactivePropertySlim<string?> ValidationNotice { get; } = new();
-
-    public ScriptType DetectedScriptType { get; }
-
-    private static ScriptType DetectScriptType(Type implementedType)
-    {
-        if (implementedType == typeof(GLSLScriptEffect))
-            return ScriptType.GLSL;
-        if (implementedType == typeof(SKSLScriptEffect))
-            return ScriptType.SKSL;
-        return ScriptType.CSharp;
-    }
 
     private ScriptCompilationResult ValidateScript(string? script)
     {

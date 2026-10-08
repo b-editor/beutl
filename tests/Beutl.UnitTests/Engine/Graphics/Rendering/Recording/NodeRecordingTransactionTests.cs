@@ -307,7 +307,7 @@ public sealed class NodeRecordingTransactionTests
         var committedTransaction = new NodeRecordingTransaction(host, new object(), []);
         RecordedNestedRenderRequest committedNested = committedTransaction.RecordNestedRequest(
             root,
-            request.Options.CreateNested(committedBinding));
+            request.Options.CreateNestedAtScale(committedBinding, 1));
 
         Assert.That(host.Commits, Is.Empty,
             "A nested graph must remain checkpoint-local before the parent commits.");
@@ -327,7 +327,7 @@ public sealed class NodeRecordingTransactionTests
         var rolledBackTransaction = new NodeRecordingTransaction(host, new object(), []);
         RecordedNestedRenderRequest rolledBackNested = rolledBackTransaction.RecordNestedRequest(
             root,
-            request.Options.CreateNested(rolledBackBinding));
+            request.Options.CreateNestedAtScale(rolledBackBinding, 1));
         var primary = new InvalidOperationException("rollback nested request");
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
@@ -567,7 +567,7 @@ public sealed class NodeRecordingTransactionTests
         using (owner.RecordingFamily.Enter(node))
         {
             failure = Assert.Throws<InvalidOperationException>(
-                () => recorder.RecordNestedRequest(node, options.CreateNested(binding)));
+                () => recorder.RecordNestedRequest(node, options.CreateNestedAtScale(binding, 1)));
         }
 
         Assert.Multiple(() =>
@@ -813,7 +813,7 @@ public sealed class NodeRecordingTransactionTests
             bool subtree)
         {
             var child = new NodeRecordingTransaction(this, node, inputs, parent);
-            LastChildInputs = child.Inputs;
+            LastChildInputs = child.InputHandles;
             ChildAction?.Invoke(new RenderNodeContext(child));
             return child.Commit();
         }

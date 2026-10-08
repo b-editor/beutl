@@ -968,13 +968,16 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "--name-only",
             "HEAD");
 
-        CheckedOutBranchTip currentTip = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip currentTip = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        await service.CommitProjectTreeAsync(
-            currentTip,
-            targetSha,
-            "beutl: restore target",
-            SnapshotKind.Restore,
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CommitProjectTreeAsync(
+                currentTip,
+                targetSha,
+                "beutl: restore target",
+                SnapshotKind.Restore,
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -1007,9 +1010,8 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             watcher: null,
             _ => CreateRunner());
         string branchStart = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await service.CreateBranchAsync(
-            "whole-repository",
-            branchStart,
+        await service.ExecuteExclusiveAsync(
+            transaction => transaction.CreateBranchAsync("whole-repository", branchStart, CancellationToken.None),
             CancellationToken.None);
         GitCommandResult branchFiles = await RunGitAsync(
             "ls-tree",
@@ -1072,12 +1074,15 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             GitCommandOptions.Network,
             CancellationToken.None);
 
-        CheckedOutBranchTip expected = await service.GetCheckedOutBranchTipAsync(
+        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
+            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.PullFastForwardAsync(
-            expected,
-            checkpoint: null,
-            Path.Combine(projectRoot, "project.bep"),
+        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
+            transaction => transaction.PullFastForwardAsync(
+                expected,
+                checkpoint: null,
+                Path.Combine(projectRoot, "project.bep"),
+                CancellationToken.None),
             CancellationToken.None);
 
         Assert.Multiple(() =>

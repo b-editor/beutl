@@ -45,7 +45,7 @@ public class FileBrowserFavoritesStoreTests
         Assert.Multiple(() =>
         {
             Assert.That(store.Favorites, Is.EqualTo(new[] { "/b" }));
-            Assert.That(store.Contains("/a"), Is.False);
+            Assert.That(store.Favorites.Contains("/a"), Is.False);
             Assert.That(preferences.SetCount, Is.EqualTo(3));
         });
     }
@@ -163,7 +163,7 @@ public class FileBrowserFavoritesStoreTests
         Assert.Multiple(() =>
         {
             Assert.That(store.Favorites, Is.EqualTo(new[] { "/b" }));
-            Assert.That(store.Contains("/a"), Is.False);
+            Assert.That(store.Favorites.Contains("/a"), Is.False);
         });
     }
 
