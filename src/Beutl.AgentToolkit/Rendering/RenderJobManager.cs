@@ -242,14 +242,9 @@ public sealed class RenderJobManager : IDisposable
         }
         finally
         {
-            DateTimeOffset completedAt = DateTimeOffset.UtcNow;
             lock (record.Sync)
             {
                 record.AcceptsCancellation = false;
-                record.Result = terminalState == RenderJobState.Completed ? result : null;
-                record.Failure = failure;
-                record.State = terminalState;
-                record.CompletedAt = completedAt;
             }
 
             try
@@ -265,16 +260,20 @@ public sealed class RenderJobManager : IDisposable
                         failure,
                         ex);
                 terminalState = RenderJobState.Failed;
-                lock (record.Sync)
-                {
-                    record.Result = null;
-                    record.Failure = failure;
-                    record.State = RenderJobState.Failed;
-                    record.CompletedAt = completedAt;
-                }
             }
             finally
             {
+                // Published once, after the lease is released, so a reader never sees a terminal state that
+                // a lease failure would later rewrite.
+                DateTimeOffset completedAt = DateTimeOffset.UtcNow;
+                lock (record.Sync)
+                {
+                    record.Result = terminalState == RenderJobState.Completed ? result : null;
+                    record.Failure = failure;
+                    record.State = terminalState;
+                    record.CompletedAt = completedAt;
+                }
+
                 if (acquired)
                 {
                     try
