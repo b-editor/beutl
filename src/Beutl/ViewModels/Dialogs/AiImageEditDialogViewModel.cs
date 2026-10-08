@@ -533,6 +533,19 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
             return;
         if (droppedPath is not null)
         {
+            try
+            {
+                // Validate before the path subscription releases the current previews.
+                using Bitmap validated = AiImageDecodeValidator.LoadValidatedBitmap(
+                    droppedPath,
+                    AiRequestLimits.MaxImageUploadBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load the dropped image preview.");
+                operation.TryPublish(() => Error.Value = Strings.AiEditSourcePreviewFailed);
+                return;
+            }
             operation.TryPublish(() =>
             {
                 _sourceElementId = null;

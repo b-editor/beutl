@@ -14,6 +14,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Media.Source;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -61,6 +62,59 @@ public sealed partial class AiDialogWorkflowTests
             }
             Assert.That(parentDrops, Is.Zero);
             Assert.That(target.Classes, Does.Not.Contain("dragover"));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("corrupt", false)]
+    [TestCase("corrupt", true)]
+    [TestCase("encoded-size", true)]
+    [TestCase("decoded-size", true)]
+    public async Task FileDrop_InvalidSourceImageKeepsThePreviousSelectionAndPreview(string kind, bool hasSource)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var edit = CreateImageEditDialog(scope.Clients);
+        await WaitUntilAsync(() => edit.ModelPicker.IsLoaded.Value);
+        string? previous = hasSource ? scope.File("previous.png", s_png) : null;
+        edit.SourceFilePath.Value = previous;
+        if (hasSource)
+            edit.ResultImage.Value = Ref<Beutl.Media.Bitmap>.Create(new Beutl.Media.Bitmap(1, 1));
+        var previousPreview = edit.OriginalImage.Value;
+        var previousBitmap = previousPreview?.Value;
+        var previousResult = edit.ResultImage.Value;
+        var previousResultBitmap = previousResult?.Value;
+        var previousComparison = edit.SelectedComparisonMode.Value;
+        Assert.That(edit.CanEdit.Value, Is.EqualTo(hasSource));
+
+        string invalid = scope.File("invalid.png", kind == "corrupt" ? [1, 2, 3] : s_png);
+        if (kind == "encoded-size")
+        {
+            using var stream = System.IO.File.OpenWrite(invalid);
+            stream.SetLength(AiRequestLimits.MaxImageUploadBytes + 1);
+        }
+        else if (kind == "decoded-size")
+        {
+            using var bitmap = new Beutl.Media.Bitmap(8192, 2049);
+            using var stream = System.IO.File.Create(invalid);
+            bitmap.Save(stream, Beutl.Graphics.EncodedImageFormat.Png);
+        }
+
+        var view = new AiImageEditView { DataContext = edit };
+        var window = ShowFileDropView(view);
+        try
+        {
+            using var data = FileDropTransfer(invalid);
+            await DropFiles(window, FindFileDropTarget(view, AiFileDropTarget.SourceImage), data);
+            Assert.That(edit.SourceFilePath.Value, Is.EqualTo(previous));
+            Assert.That(edit.OriginalImage.Value, Is.SameAs(previousPreview));
+            Assert.That(previousPreview?.Value, Is.SameAs(previousBitmap));
+            Assert.That(edit.ResultImage.Value, Is.SameAs(previousResult));
+            Assert.That(previousResult?.Value, Is.SameAs(previousResultBitmap));
+            Assert.That(edit.SelectedComparisonMode.Value, Is.SameAs(previousComparison));
+            Assert.That(edit.CanEdit.Value, Is.EqualTo(hasSource));
+            Assert.That(edit.Error.Value, Is.Not.Null);
         }
         finally { window.Close(); }
     }
