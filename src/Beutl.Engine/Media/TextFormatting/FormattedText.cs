@@ -243,7 +243,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
-            Hinting = SKFontHinting.Full,
+            // Hinting refits outlines to the pixel grid at every size, so text that scales changes
+            // shape from frame to frame under FreeType and DirectWrite. CoreText ignores it anyway.
+            Hinting = SKFontHinting.None,
             // Baseline snapping quantizes vertical placement to whole device pixels, which makes an
             // animated transform advance the text in 1 px jumps.
             BaselineSnap = false
