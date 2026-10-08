@@ -33,6 +33,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private readonly Dictionary<int, (ShapedGlyph Glyph, FormattedText? Text)> _nonOutlineGlyphs = [];
     private readonly List<Rect> _nonOutlineBounds = [];
     private ShapedGlyph? _shapedGlyph;
+    private long _fontRevision;
+    private List<TextFontFallback.Run>? _fontRuns;
+    private SKTypeface? _fontRunsPrimary;
+    private long _fontRunsRevision;
 
     public FormattedText()
     {
@@ -66,25 +70,27 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _textBlob = null;
         _fillPath = null;
         _strokePath = null;
+        _fontRuns = null;
+        _fontRunsPrimary = null;
         IsDisposed = true;
     }
 
     public FontWeight Weight
     {
         get => _weight;
-        set => SetProperty(ref _weight, value);
+        set => SetProperty(ref _weight, value, invalidateFontRuns: true);
     }
 
     public FontStyle Style
     {
         get => _style;
-        set => SetProperty(ref _style, value);
+        set => SetProperty(ref _style, value, invalidateFontRuns: true);
     }
 
     public FontFamily Font
     {
         get => _font;
-        set => SetProperty(ref _font, value);
+        set => SetProperty(ref _font, value, invalidateFontRuns: true);
     }
 
     // > 0
@@ -113,7 +119,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 throw new Exception("Cannot contain newline codes.");
             }
 
-            SetProperty(ref _text, value);
+            SetProperty(ref _text, value, invalidateFontRuns: true);
         }
     }
 
@@ -239,7 +245,12 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     {
         density = NormalizeDensity(density);
         var typeface = new Typeface(Font, Style, Weight);
-        var font = new SKFont(typeface.ToSkia(), Size * density)
+        return CreateSKFont(_shapedGlyph?.Typeface ?? typeface.ToSkia(), density);
+    }
+
+    private SKFont CreateSKFont(SKTypeface typeface, float density)
+    {
+        var font = new SKFont(typeface, Size * density)
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
@@ -326,24 +337,70 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _nonOutlineBounds.Clear();
     }
 
-    private SKShaper.Result Shape(SKFont font, float density)
+    private List<ShapedRun> Shape(SKFont font, float density)
     {
         if (_shapedGlyph is { } glyph)
         {
-            return new SKShaper.Result(
+            return [new ShapedRun(glyph.Typeface, new SKShaper.Result(
                 [glyph.Id], [0],
                 [new SKPoint(glyph.Position.X * density, glyph.Position.Y * density)],
-                glyph.Width * density);
+                glyph.Width * density))];
         }
 
-        using var shaper = new TextShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
-        return shaper.Shape(buffer, font);
+        long revision = FontManager.Instance.Revision;
+        if (_fontRuns is null || _fontRunsRevision != revision || !ReferenceEquals(_fontRunsPrimary, font.Typeface))
+        {
+            _fontRuns = TextFontFallback.GetRuns(Text.AsSpan(), font, Style, Weight);
+            _fontRunsPrimary = font.Typeface;
+            _fontRunsRevision = revision;
+        }
+        List<TextFontFallback.Run> runs = _fontRuns;
+        if (runs.Count == 1)
+        {
+            using SKFont runFont = CreateSKFont(runs[0].Typeface, density);
+            using var shaper = new TextShaper(runs[0].Typeface);
+            return [new ShapedRun(runs[0].Typeface, shaper.Shape(buffer, runFont))];
+        }
+
+        var shapedRuns = new List<ShapedRun>(runs.Count);
+        var shapers = new Dictionary<SKTypeface, TextShaper>();
+        bool rightToLeft = buffer.Direction == HarfBuzzSharp.Direction.RightToLeft;
+        try
+        {
+            for (int i = 0; i < runs.Count; i++)
+            {
+                TextFontFallback.Run run = runs[rightToLeft ? runs.Count - 1 - i : i];
+                using SKFont runFont = CreateSKFont(run.Typeface, density);
+                if (!shapers.TryGetValue(run.Typeface, out TextShaper? shaper))
+                {
+                    // Opening the same font data per run dominates alternating-font text.
+                    shaper = new TextShaper(run.Typeface);
+                    shapers.Add(run.Typeface, shaper);
+                }
+                using var runBuffer = new HarfBuzzSharp.Buffer();
+                // Retain the surrounding text as HarfBuzz context at a font boundary.
+                runBuffer.AddUtf16(Text.AsSpan(), run.Start, run.Length);
+                runBuffer.Direction = buffer.Direction;
+                runBuffer.Language = buffer.Language;
+                runBuffer.GuessSegmentProperties();
+                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.Shape(runBuffer, runFont)));
+            }
+        }
+        finally
+        {
+            foreach (TextShaper shaper in shapers.Values)
+                shaper.Dispose();
+        }
+
+        return shapedRuns;
     }
 
-    private readonly record struct ShapedGlyph(ushort Id, SKPoint Position, float Width);
+    private readonly record struct ShapedRun(SKTypeface Typeface, SKShaper.Result Result);
+
+    private readonly record struct ShapedGlyph(SKTypeface Typeface, ushort Id, SKPoint Position, float Width);
 
     // The caller owns TextBlob, FillPath and StrokePath.
     private readonly record struct MeasuredText(
@@ -374,86 +431,109 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         using SKFont font = ToSKFont(density);
 
-        SKShaper.Result result = Shape(font, density);
+        List<ShapedRun> shapedRuns = Shape(font, density);
+        int glyphCount = shapedRuns.Sum(run => run.Result.Codepoints.Length);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
-        SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
-
         using var fillBuilder = new SKPathBuilder();
-        Span<ushort> glyphs = run.Glyphs;
-        Span<SKPoint> positions = run.Positions;
         Span<Geometry.Resource> pathList = default;
         if (updatePathList)
         {
             ClearNonOutlineGlyphs();
-            pathList = PreparePathList(result.Codepoints.Length);
+            pathList = PreparePathList(glyphCount);
         }
 
         Rect nonOutlineBounds = default;
+        Rect rasterBounds = default;
+        FontMetrics metrics = font.Metrics.ToFontMetrics();
+        int glyphOffset = 0;
+        float advance = 0;
         Span<SKRect> glyphBounds = stackalloc SKRect[1];
         Span<float> glyphWidth = stackalloc float[1];
-        for (int i = 0; i < result.Codepoints.Length; i++)
+        foreach (ShapedRun shapedRun in shapedRuns)
         {
-            glyphs[i] = (ushort)result.Codepoints[i];
-
-            SKPoint point = result.Points[i];
-            point.X += i * spacing;
-            positions[i] = point;
-
-            SKPath? tmp = font.GetGlyphPath(glyphs[i]);
-            if (tmp is null || tmp.IsEmpty)
+            using SKFont runFont = CreateSKFont(shapedRun.Typeface, density);
+            SKShaper.Result result = shapedRun.Result;
+            SKPositionedRunBuffer run = builder.AllocatePositionedRun(runFont, result.Codepoints.Length);
+            Span<ushort> glyphs = run.Glyphs;
+            Span<SKPoint> positions = run.Positions;
+            for (int i = 0; i < result.Codepoints.Length; i++)
             {
-                font.GetGlyphWidths(glyphs.Slice(i, 1), glyphWidth, glyphBounds);
-                if (!glyphBounds[0].IsEmpty)
+                glyphs[i] = (ushort)result.Codepoints[i];
+
+                int glyphIndex = glyphOffset + i;
+                SKPoint point = result.Points[i];
+                point.X += advance + glyphIndex * spacing;
+                positions[i] = point;
+
+                SKPath? tmp = runFont.GetGlyphPath(glyphs[i]);
+                if (tmp is null || tmp.IsEmpty)
                 {
-                    glyphBounds[0].Offset(point);
-                    Rect inkBounds = glyphBounds[0].ToGraphicsRect();
-                    nonOutlineBounds = nonOutlineBounds.Union(inkBounds);
-                    if (updatePathList)
+                    runFont.GetGlyphWidths(glyphs.Slice(i, 1), glyphWidth, glyphBounds);
+                    if (!glyphBounds[0].IsEmpty)
                     {
-                        _nonOutlineBounds.Add(inkBounds);
-                        if (_shapedGlyph is null)
+                        glyphBounds[0].Offset(point);
+                        Rect inkBounds = glyphBounds[0].ToGraphicsRect();
+                        nonOutlineBounds = nonOutlineBounds.Union(inkBounds);
+                        if (updatePathList)
                         {
-                            _nonOutlineGlyphs.Add(i, (new ShapedGlyph(glyphs[i], point, glyphWidth[0]), null));
+                            _nonOutlineBounds.Add(inkBounds);
+                            if (_shapedGlyph is null)
+                            {
+                                _nonOutlineGlyphs.Add(glyphIndex,
+                                    (new ShapedGlyph(shapedRun.Typeface, glyphs[i], point, glyphWidth[0]), null));
+                            }
                         }
                     }
                 }
+
+                if (tmp != null)
+                {
+                    fillBuilder.AddPath(tmp, point.X, point.Y);
+
+                    if (updatePathList)
+                    {
+                        tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
+                        AssignGlyphGeometry(pathList, glyphIndex, tmp);
+                    }
+                    else
+                    {
+                        tmp.Dispose();
+                    }
+                }
+                else if (updatePathList)
+                {
+                    AssignGlyphGeometry(pathList, glyphIndex, tmp);
+                }
             }
 
-            if (tmp != null)
+            rasterBounds = rasterBounds.Union(MeasureGlyphMaskBounds(runFont, glyphs, positions));
+            FontMetrics runMetrics = runFont.Metrics.ToFontMetrics();
+            metrics = metrics with
             {
-                fillBuilder.AddPath(tmp, point.X, point.Y);
-
-                if (updatePathList)
-                {
-                    tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
-                    AssignGlyphGeometry(pathList, i, tmp);
-                }
-                else
-                {
-                    tmp.Dispose();
-                }
-            }
-            else if (updatePathList)
-            {
-                AssignGlyphGeometry(pathList, i, tmp);
-            }
+                Ascent = MathF.Min(metrics.Ascent, runMetrics.Ascent),
+                Descent = MathF.Max(metrics.Descent, runMetrics.Descent),
+                Leading = MathF.Max(metrics.Leading, runMetrics.Leading),
+                Top = MathF.Min(metrics.Top, runMetrics.Top),
+                Bottom = MathF.Max(metrics.Bottom, runMetrics.Bottom),
+            };
+            advance += result.Width;
+            glyphOffset += glyphs.Length;
         }
 
         SKPath fillPath = fillBuilder.Detach();
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
-        float width = MathF.Max(0, (Math.Max(0, glyphs.Length - 1) * spacing) + result.Width);
+        float width = MathF.Max(0, (Math.Max(0, glyphCount - 1) * spacing) + advance);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         Rect fillBounds = actualBounds.Union(nonOutlineBounds);
         // A split glyph is already positioned, just like the neighboring geometries. Its brush must
         // follow that ink rectangle; only a complete text run uses zero-origin layout bounds.
         var bounds = _shapedGlyph is null ? new Rect(0, 0, width, fillBounds.Height) : fillBounds;
-        Rect rasterBounds = MeasureGlyphMaskBounds(font, glyphs, positions);
         SKTextBlob? textBlob = builder.Build();
 
-        if (result.Codepoints.Length > 0)
+        if (glyphCount > 0)
         {
             if (Pen != null && Pen.Thickness > 0)
             {
@@ -468,7 +548,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         rasterBounds = rasterBounds.IsEmpty ? actualBounds : rasterBounds.Union(actualBounds);
 
         return new MeasuredText(
-            textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds, rasterBounds);
+            textBlob, fillPath, strokePath, metrics, bounds, actualBounds, rasterBounds);
     }
 
     // Sizes the glyph geometry list to one entry per glyph and returns it for filling in place.
@@ -535,22 +615,26 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return bounds;
     }
 
-    private void SetProperty<T>(ref T field, T value)
+    private void SetProperty<T>(ref T field, T value, bool invalidateFontRuns = false)
     {
         if (!EqualityComparer<T>.Default.Equals(field, value))
         {
             field = value;
             _isDirty = true;
+            if (invalidateFontRuns)
+                _fontRuns = null;
         }
     }
 
     private void MeasureAndSetField()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        if (_isDirty)
+        long revision = FontManager.Instance.Revision;
+        if (_isDirty || _fontRevision != revision)
         {
             Measure();
             _isDirty = false;
+            _fontRevision = revision;
         }
     }
 

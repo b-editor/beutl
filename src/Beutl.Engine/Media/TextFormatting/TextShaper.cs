@@ -76,6 +76,17 @@ internal sealed class TextShaper : IDisposable
         return new SKShaper.Result(codepoints, clusters, points, x);
     }
 
+    public bool HasGlyphs(HarfBuzzSharp.Buffer buffer)
+    {
+        _font.Shape(buffer);
+        foreach (GlyphInfo info in buffer.GetGlyphInfoSpan())
+        {
+            if (info.Codepoint == 0)
+                return false;
+        }
+        return true;
+    }
+
     public void Dispose()
     {
         _font.Dispose();
