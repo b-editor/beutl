@@ -32,6 +32,8 @@ internal sealed class EncoderOptionsEditor : UserControl
     private readonly Button _add;
     private readonly List<Action> _primaryRefreshers = [];
     private readonly List<Action> _advancedRefreshers = [];
+    private readonly List<Action> _primaryPendingEdits = [];
+    private readonly List<Action> _advancedPendingEdits = [];
     private (AdditionalOption Option, string Name)[] _advancedSignature = [];
     private string[] _activeSignature = [];
     private (string Name, bool Invalid)[] _numericSignature = [];
@@ -114,6 +116,10 @@ internal sealed class EncoderOptionsEditor : UserControl
         _updating = true;
         try
         {
+            foreach (Action commit in _primaryPendingEdits) commit();
+            foreach (Action commit in _advancedPendingEdits) commit();
+            _primaryPendingEdits.Clear();
+            _advancedPendingEdits.Clear();
             _status.Text = _model.Status;
             _status.IsVisible = !string.IsNullOrEmpty(_model.Status);
             _primary.Children.Clear();
@@ -123,7 +129,7 @@ internal sealed class EncoderOptionsEditor : UserControl
             foreach (EncoderOptionInfo option in _model.ActiveDescriptors)
             {
                 var input = CreateInput(option, () => _model.GetValue(option.Name),
-                    value => _model.SetValue(option.Name, value), _primaryRefreshers);
+                    value => _model.SetValue(option.Name, value), _primaryRefreshers, _primaryPendingEdits);
                 input.Name = "EncoderOption_" + option.Name;
                 input.Header = GetLabel(option.Name);
                 var reset = IconButton(Icon.ArrowUndo, Strings.EncoderOptionsAutomatic);
@@ -141,6 +147,7 @@ internal sealed class EncoderOptionsEditor : UserControl
     {
         _advancedRows.Children.Clear();
         _advancedRefreshers.Clear();
+        _advancedPendingEdits.Clear();
         _advancedSignature = _model.Options.Select(o => (o, o.Name)).ToArray();
         foreach (AdditionalOption option in _model.Options)
         {
@@ -160,6 +167,7 @@ internal sealed class EncoderOptionsEditor : UserControl
                 name.Text = option.Name;
                 renameWarning.IsVisible = option.Name != value.Trim();
             });
+            TrackPendingEdit(name, () => option.Name, value => _model.RenameOption(option, value), _advancedPendingEdits);
             var remove = IconButton(Icon.Delete, Strings.EncoderOptionsRemove);
             remove.Click += (_, _) => _model.RemoveOption(option);
             name.MenuContent = remove;
@@ -168,7 +176,7 @@ internal sealed class EncoderOptionsEditor : UserControl
                 {
                     if (value == null) _model.RemoveOption(option);
                     else _model.SetValue(option, value);
-                }, _advancedRefreshers);
+                }, _advancedRefreshers, _advancedPendingEdits);
             input.Header = Strings.EncoderOptionsValue;
             input.MenuContent = new Border { Width = 24, Height = 24, IsHitTestVisible = false };
             _advancedRows.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 4), Children = { name, renameWarning, input } });
@@ -214,7 +222,8 @@ internal sealed class EncoderOptionsEditor : UserControl
         => _model.ActiveDescriptors.Where(d => d.Kind is EncoderOptionKind.Integer or EncoderOptionKind.Number)
             .Select(d => (d.Name, _model.GetWarning(d, _model.GetValue(d.Name)) != null)).ToArray();
 
-    private PropertyEditor CreateInput(EncoderOptionInfo descriptor, Func<string?> read, Action<string?> write, List<Action> refreshers)
+    private PropertyEditor CreateInput(EncoderOptionInfo descriptor, Func<string?> read, Action<string?> write,
+        List<Action> refreshers, List<Action> pendingEdits)
     {
         PropertyEditor result;
         if (descriptor.Kind == EncoderOptionKind.Choice && !descriptor.AllowsNumericValues
@@ -292,9 +301,38 @@ internal sealed class EncoderOptionsEditor : UserControl
             refreshers.Add(() => { if (!editor.IsKeyboardFocusWithin) editor.Text = read() ?? ""; });
             result = editor;
         }
+        if (result is StringEditor textEditor)
+        {
+            TrackPendingEdit(textEditor, read, value =>
+            {
+                if (textEditor is NumberEditor<decimal>
+                    && decimal.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out decimal number))
+                {
+                    if (descriptor.Kind == EncoderOptionKind.Integer) number = decimal.Truncate(number);
+                    value = number.ToString(CultureInfo.InvariantCulture);
+                }
+                write(value);
+            }, pendingEdits);
+        }
         result.IsReadOnly = _model.IsReadOnly;
         result.Description = descriptor.Description;
         return result;
+    }
+
+    private void TrackPendingEdit(StringEditor editor, Func<string?> read, Action<string> write, List<Action> pendingEdits)
+    {
+        bool edited = false;
+        editor.PropertyChanged += (_, e) =>
+        {
+            if (!_updating && editor.IsKeyboardFocusWithin && e.Property == StringEditor.TextProperty) edited = true;
+        };
+        editor.ValueConfirmed += (_, _) => edited = false;
+        pendingEdits.Add(() =>
+        {
+            if (!edited || !editor.IsKeyboardFocusWithin) return;
+            if (editor.Text != (read() ?? "")) write(editor.Text);
+            edited = false;
+        });
     }
 
     private void CommitText(StringEditor editor, Func<string?> read, Action<string> write)

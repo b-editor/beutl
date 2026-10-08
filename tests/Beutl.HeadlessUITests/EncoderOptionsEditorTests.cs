@@ -22,6 +22,65 @@ namespace Beutl.HeadlessUITests;
 public sealed class EncoderOptionsEditorTests
 {
     [AvaloniaTest]
+    [TestCase(false, "28", true)]
+    [TestCase(true, "custom-crf", true)]
+    [TestCase(false, "30", false)]
+    public async Task MetadataArrivalPreservesPendingAdvancedText(bool editName, string text, bool edited)
+    {
+        var settings = new FFmpegVideoEncoderSettings
+        {
+            Codec = new CodecRecord("libx264", "H.264"),
+            OutputFile = "out.mp4",
+            Options = [new("crf", "22")],
+        };
+        EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
+        var reply = new TaskCompletionSource<OptionsQueryResult<EncoderOptionInfo>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), settings.Format);
+        var query = FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => reply.Task);
+        using var model = new EncoderOptionsEditorViewModel(
+            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+            new FFmpegEncoderSpecializedPropertyExtension());
+        var view = new EncoderOptionsEditor(model);
+        var applied = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        model.SchemaChanged += () => { if (model.Status == null) applied.TrySetResult(); };
+        var window = new Window { Content = view, Width = 440, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(2);
+            view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
+            HeadlessTestHelpers.Render(2);
+            var editor = view.GetVisualDescendants().OfType<StringEditor>()
+                .Single(c => c.Header == (editName ? Strings.EncoderOptionsOptionName : Strings.EncoderOptionsValue)
+                    && c.Name != "AddEncoderOptionName");
+            var input = editor.GetVisualDescendants().OfType<TextBox>().Single();
+            Assert.That(input.Focus(), Is.True);
+            if (edited)
+            {
+                input.SelectAll();
+                window.KeyTextInput(text);
+            }
+            else settings.Options.Single().Value = text;
+            Assert.That(model.GetValue("crf"), Is.EqualTo(edited ? "22" : text));
+
+            reply.SetResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false));
+            await query;
+            await applied.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Render(2);
+
+            Assert.That(settings.Options.Single().Name, Is.EqualTo(editName ? text : "crf"));
+            Assert.That(settings.Options.Single().Value, Is.EqualTo(editName ? "22" : text));
+            Assert.That(view.GetVisualDescendants().OfType<StringEditor>().Any(c => c.Text == text), Is.True);
+        }
+        finally
+        {
+            reply.TrySetResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false));
+            window.Close();
+            FFmpegOptionsCaches.ClearAll();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(10, 100, "2", "0", false, "20")]
     [TestCase(0, 63, "100", "", true, "10")]
     public async Task NumericTypingKeepsFocusUntilTheEditIsConfirmed(
@@ -65,6 +124,51 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(confirm.Focus(), Is.True);
             HeadlessTestHelpers.Render(2);
             Assert.That(model.GetValue("crf"), Is.EqualTo(expected));
+        }
+        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, "28")]
+    [TestCase(true, "28")]
+    [TestCase(false, "-")]
+    [TestCase(true, "-")]
+    public async Task SchemaRefreshPreservesPendingNumericText(bool advanced, string text)
+    {
+        var settings = new FFmpegVideoEncoderSettings
+        {
+            Codec = new CodecRecord("libx264", "H.264"),
+            OutputFile = "out.mp4",
+            Format = FFPixelFormat.YUV420P,
+            Options = [new("crf", "22")],
+        };
+        EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
+        foreach (int format in new[] { FFPixelFormat.YUV420P, FFPixelFormat.YUV420P10LE })
+        {
+            string key = EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), format);
+            await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync(key, () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
+        }
+        using var model = new EncoderOptionsEditorViewModel(
+            new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+            new FFmpegEncoderSpecializedPropertyExtension());
+        var view = new EncoderOptionsEditor(model);
+        var window = new Window { Content = view, Width = 440, Height = 480 };
+        try
+        {
+            window.Show();
+            if (advanced) view.GetVisualDescendants().OfType<ToggleButton>().Single(c => c.Name == "AdvancedEncoderOptions").IsChecked = true;
+            HeadlessTestHelpers.Render(2);
+            var editor = view.GetVisualDescendants().OfType<NumberEditor<decimal>>()
+                .Single(c => advanced ? c.Header == Strings.EncoderOptionsValue : c.Name == "EncoderOption_crf");
+            var input = editor.GetVisualDescendants().OfType<TextBox>().Single();
+            Assert.That(input.Focus(), Is.True);
+            input.SelectAll();
+            window.KeyTextInput(text);
+            Assert.That(model.GetValue("crf"), Is.EqualTo("22"));
+
+            settings.Format = FFPixelFormat.YUV420P10LE;
+            HeadlessTestHelpers.Render(2);
+            Assert.That(model.GetValue("crf"), Is.EqualTo(text));
         }
         finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
     }
