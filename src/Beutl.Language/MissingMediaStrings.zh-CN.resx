@@ -21,6 +21,7 @@
   <data name="Search" xml:space="preserve"><value>搜索</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>在文件夹中查找…</value></data>
   <data name="Replace" xml:space="preserve"><value>替换…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>替换文件</value></data>
   <data name="MatchFolder" xml:space="preserve"><value>匹配同一文件夹…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>保持离线</value></data>
   <data name="ContinueOffline" xml:space="preserve"><value>以离线状态继续</value></data>

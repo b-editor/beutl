@@ -21,6 +21,7 @@
   <data name="Search" xml:space="preserve"><value>검색</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>폴더에서 찾기…</value></data>
   <data name="Replace" xml:space="preserve"><value>교체…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>파일 교체</value></data>
   <data name="MatchFolder" xml:space="preserve"><value>같은 폴더 검색…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>오프라인 유지</value></data>
   <data name="ContinueOffline" xml:space="preserve"><value>오프라인으로 계속</value></data>

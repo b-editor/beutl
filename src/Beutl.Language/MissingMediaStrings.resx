@@ -21,6 +21,7 @@
   <data name="Search" xml:space="preserve"><value>Search</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>Find in folder…</value></data>
   <data name="Replace" xml:space="preserve"><value>Replace…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>Replace file</value></data>
   <data name="MatchFolder" xml:space="preserve"><value>Match folder…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>Keep offline</value></data>
   <data name="ContinueOffline" xml:space="preserve"><value>Continue offline</value></data>

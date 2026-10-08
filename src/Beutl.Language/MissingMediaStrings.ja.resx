@@ -21,6 +21,7 @@
   <data name="Search" xml:space="preserve"><value>検索</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>フォルダを指定…</value></data>
   <data name="Replace" xml:space="preserve"><value>個別差し替え…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>個別差し替え</value></data>
   <data name="MatchFolder" xml:space="preserve"><value>同フォルダを検索…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>無視（オフライン）</value></data>
   <data name="ContinueOffline" xml:space="preserve"><value>オフラインで続ける</value></data>

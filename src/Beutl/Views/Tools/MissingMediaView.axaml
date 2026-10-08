@@ -13,11 +13,11 @@
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="Border.mediaRow">
-            <Setter Property="Padding" Value="10" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.mediaRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="Border.mediaRow.offline">
             <Setter Property="Opacity" Value="0.65" />
@@ -50,8 +50,8 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
-        <controls:ToolTabBar>
+    <Grid ColumnDefinitions="12,*,12" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+        <controls:ToolTabBar Grid.ColumnSpan="3">
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                 <TextBlock Text="{x:Static lang:MissingMediaStrings.PanelTitle}"
                            Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
@@ -68,114 +68,118 @@
             </Grid>
         </controls:ToolTabBar>
 
-        <StackPanel Grid.Row="1" Margin="12,10,12,12" Spacing="8" IsEnabled="{Binding CanEdit.Value}"
+        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,10,0,12" Spacing="8" IsEnabled="{Binding CanEdit.Value}"
                     IsVisible="{Binding !IsEmpty.Value}">
             <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.SearchDirectory}" />
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
-                <TextBox Name="SearchDirectoryBox" Text="{Binding SearchDirectory.Value, Mode=TwoWay}"
+            <TextBox Name="SearchDirectoryBox" Text="{Binding SearchDirectory.Value, Mode=TwoWay}"
                          PlaceholderText="{x:Static lang:MissingMediaStrings.SearchDirectory}"
                          AutomationProperties.Name="{x:Static lang:MissingMediaStrings.SearchDirectory}"
-                         ToolTip.Tip="{Binding SearchDirectory.Value}" />
-                <Button Name="FindFolderButton" Grid.Column="1" Click="FindFolderClick"
+                         ToolTip.Tip="{Binding SearchDirectory.Value}">
+                <TextBox.InnerRightContent>
+                    <Button Name="FindFolderButton" Margin="0,0,2,0" Padding="6" Click="FindFolderClick"
                         AutomationProperties.Name="{x:Static lang:MissingMediaStrings.FindInFolder}"
-                        ToolTip.Tip="{x:Static lang:MissingMediaStrings.FindInFolder}">
-                    <icons:FluentIcon FontSize="16" Icon="Folder" />
-                </Button>
-            </Grid>
+                        ToolTip.Tip="{x:Static lang:MissingMediaStrings.FindInFolder}"
+                        Theme="{StaticResource TransparentButton}">
+                        <icons:FluentIcon FontSize="16" Icon="Folder" />
+                    </Button>
+                </TextBox.InnerRightContent>
+            </TextBox>
             <Button Name="SearchButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="SearchClick"
                     ToolTip.Tip="{x:Static lang:MissingMediaStrings.Description}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <icons:FluentIcon FontSize="16" Icon="Search" />
-                    <TextBlock Text="{x:Static lang:MissingMediaStrings.SearchAll}" />
+                    <TextBlock Text="{x:Static lang:MissingMediaStrings.SearchAll}" TextWrapping="Wrap" />
                 </StackPanel>
             </Button>
         </StackPanel>
-        <ProgressBar Grid.Row="2" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
+        <ProgressBar Grid.Row="2" Grid.ColumnSpan="3" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
 
-        <ListBox Name="MissingMediaList" Grid.Row="3" Margin="8,0,8,4" Background="Transparent" BorderThickness="0"
-                 ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-            <ListBox.Styles>
-                <Style Selector="ListBoxItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Margin" Value="0,0,0,6" />
-                </Style>
-            </ListBox.Styles>
-            <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
-                    <Border Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}">
-                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                                <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
-                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}" ToolTip.Tip="{Binding Kind}">
-                                    <icons:FluentIcon Icon="{Binding MediaIcon}" FontSize="18"
-                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                                </Border>
-                                <StackPanel Grid.Column="1" Spacing="2">
-                                    <TextBlock Name="MediaNameText" Text="{Binding Name}" FontWeight="SemiBold"
-                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-                                    <TextBlock Name="MediaKindText" Classes="secondary" Text="{Binding Kind}" />
-                                </StackPanel>
-                                <Border Grid.Column="2" VerticalAlignment="Top" Classes="statePill"
-                                        Classes.ready="{Binding IsReady.Value}" Classes.issue="{Binding HasIssue.Value}"
-                                        Classes.offline="{Binding IsOffline.Value}" ToolTip.Tip="{Binding Status.Value}">
-                                    <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
-                                </Border>
-                            </Grid>
-                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
-                                <Button Name="ReplaceButton" HorizontalAlignment="Left" FontSize="12" Padding="0,4"
-                                        Theme="{StaticResource TransparentButton}" Click="ReplaceClick"
-                                        Content="{x:Static lang:MissingMediaStrings.Replace}" />
-                                <ToggleButton Name="DetailsToggle" Grid.Column="1" Padding="6"
-                                              Theme="{StaticResource TransparentButton}" IsChecked="{Binding IsExpanded.Value, Mode=TwoWay}"
-                                              AutomationProperties.Name="{x:Static lang:Strings.ShowDetails}"
-                                              ToolTip.Tip="{x:Static lang:Strings.ShowDetails}">
-                                    <Panel>
-                                        <icons:FluentIcon FontSize="14" Icon="ChevronDown" IsVisible="{Binding !IsExpanded.Value}" />
-                                        <icons:FluentIcon FontSize="14" Icon="ChevronUp" IsVisible="{Binding IsExpanded.Value}" />
-                                    </Panel>
-                                </ToggleButton>
-                                <Button Name="MoreButton" Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}"
-                                        AutomationProperties.Name="{x:Static lang:MissingMediaStrings.MediaActions}"
-                                        ToolTip.Tip="{x:Static lang:MissingMediaStrings.MediaActions}">
-                                    <Button.Flyout>
-                                        <MenuFlyout>
-                                            <MenuItem Name="MatchFolderMenuItem" Header="{x:Static lang:MissingMediaStrings.MatchFolder}"
-                                                      Click="MatchFolderClick" />
-                                            <Separator />
-                                            <MenuItem Name="KeepOfflineMenuItem" Header="{x:Static lang:MissingMediaStrings.KeepOffline}"
-                                                      ToggleType="CheckBox" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
-                                        </MenuFlyout>
-                                    </Button.Flyout>
-                                    <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
-                                </Button>
-                            </Grid>
-                            <Border Name="DetailsPanel" Grid.Row="2" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
-                                    BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
-                                <StackPanel Spacing="6">
-                                    <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.OriginalReference}" />
-                                    <SelectableTextBlock Name="ExpectedPathText" Text="{Binding ExpectedLocation}" Background="Transparent"
-                                                         FontSize="11" TextWrapping="Wrap" />
-                                    <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.UsedBy}"
-                                               IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                    <TextBlock FontSize="11" Text="{Binding Elements}" TextWrapping="Wrap"
-                                               IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                    <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.ReplacementFile}"
-                                               IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                    <SelectableTextBlock FontSize="11" Text="{Binding ReplacementPath.Value}" TextWrapping="Wrap" Background="Transparent"
-                                                         IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                    <TextBlock FontSize="11" Text="{Binding Status.Value}" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource SystemFillColorCriticalBrush}" IsVisible="{Binding HasIssue.Value}" />
-                                </StackPanel>
+        <ScrollViewer Name="MediaScrollViewer" Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
+                      HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsEmpty.Value}">
+            <Border Name="MediaGroup" Classes="options-group" Padding="0" VerticalAlignment="Top">
+                <ItemsControl Name="MissingMediaItems" ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:OptionsGroupPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
+                            <Border Name="MediaRow" Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
+                                                Background="{DynamicResource SubtleFillColorSecondaryBrush}" ToolTip.Tip="{Binding Kind}">
+                                            <icons:FluentIcon Icon="{Binding MediaIcon}" FontSize="18"
+                                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Name="MediaNameText" Text="{Binding Name}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                            <TextBlock Name="MediaKindText" Classes="secondary" Text="{Binding Kind}" />
+                                        </StackPanel>
+                                        <Border Grid.Column="2" VerticalAlignment="Top" Classes="statePill"
+                                                Classes.ready="{Binding IsReady.Value}" Classes.issue="{Binding HasIssue.Value}"
+                                                Classes.offline="{Binding IsOffline.Value}" ToolTip.Tip="{Binding Status.Value}">
+                                            <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
+                                        </Border>
+                                    </Grid>
+                                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                                        <Button Name="ReplaceButton" HorizontalAlignment="Left" FontSize="12" Padding="8,4" Click="ReplaceClick">
+                                            <TextBlock Name="ReplaceButtonText" Text="{x:Static lang:MissingMediaStrings.ReplaceAction}"
+                                                       TextTrimming="None" TextWrapping="Wrap" />
+                                        </Button>
+                                        <ToggleButton Name="DetailsToggle" Grid.Column="1" Padding="6"
+                                                      Theme="{StaticResource TransparentButton}" IsChecked="{Binding IsExpanded.Value, Mode=TwoWay}"
+                                                      AutomationProperties.Name="{x:Static lang:Strings.ShowDetails}"
+                                                      ToolTip.Tip="{x:Static lang:Strings.ShowDetails}">
+                                            <Panel>
+                                                <icons:FluentIcon FontSize="14" Icon="ChevronDown" IsVisible="{Binding !IsExpanded.Value}" />
+                                                <icons:FluentIcon FontSize="14" Icon="ChevronUp" IsVisible="{Binding IsExpanded.Value}" />
+                                            </Panel>
+                                        </ToggleButton>
+                                        <Button Name="MoreButton" Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                                AutomationProperties.Name="{x:Static lang:MissingMediaStrings.MediaActions}"
+                                                ToolTip.Tip="{x:Static lang:MissingMediaStrings.MediaActions}">
+                                            <Button.Flyout>
+                                                <MenuFlyout>
+                                                    <MenuItem Name="MatchFolderMenuItem" Header="{x:Static lang:MissingMediaStrings.MatchFolder}"
+                                                              Click="MatchFolderClick" />
+                                                    <Separator />
+                                                    <MenuItem Name="KeepOfflineMenuItem" Header="{x:Static lang:MissingMediaStrings.KeepOffline}"
+                                                              ToggleType="CheckBox" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
+                                                </MenuFlyout>
+                                            </Button.Flyout>
+                                            <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
+                                        </Button>
+                                    </Grid>
+                                    <Border Name="DetailsPanel" Grid.Row="2" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
+                                            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.OriginalReference}" />
+                                            <SelectableTextBlock Name="ExpectedPathText" Text="{Binding ExpectedLocation}" Background="Transparent"
+                                                                 FontSize="11" TextWrapping="Wrap" />
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.UsedBy}"
+                                                       IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock FontSize="11" Text="{Binding Elements}" TextWrapping="Wrap"
+                                                       IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.ReplacementFile}"
+                                                       IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <SelectableTextBlock FontSize="11" Text="{Binding ReplacementPath.Value}" TextWrapping="Wrap" Background="Transparent"
+                                                                 IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock FontSize="11" Text="{Binding Status.Value}" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" IsVisible="{Binding HasIssue.Value}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
                             </Border>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </ScrollViewer>
 
-        <StackPanel Grid.Row="3" Margin="24" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty.Value}">
+        <StackPanel Grid.Row="3" Grid.Column="1" Margin="12,24" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty.Value}">
             <Border Width="48" Height="48" CornerRadius="24" HorizontalAlignment="Center"
                     Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}">
                 <icons:FluentIcon FontSize="24" Icon="Checkmark" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
@@ -184,7 +188,7 @@
                        FontSize="14" TextAlignment="Center" TextWrapping="Wrap" />
         </StackPanel>
 
-        <Border Name="ErrorBanner" Grid.Row="4" Margin="12,4" Padding="8" CornerRadius="6"
+        <Border Name="ErrorBanner" Grid.Row="4" Grid.Column="1" Margin="0,4" Padding="8" CornerRadius="6"
                 Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
                 IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
@@ -200,7 +204,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="5" Padding="12,10" BorderThickness="0,1,0,0"
+        <Border Grid.Row="5" Grid.Column="1" Padding="0,10" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !IsEmpty.Value}">
             <StackPanel Spacing="8">
                 <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"

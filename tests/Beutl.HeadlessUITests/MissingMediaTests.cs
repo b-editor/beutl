@@ -586,11 +586,13 @@ public class MissingMediaTests
     [TestCase(true, 320, 540, "en")]
     [TestCase(false, 320, 540, "ja")]
     [TestCase(true, 320, 540, "ja")]
+    [TestCase(false, 280, 540, "ja")]
+    [TestCase(true, 280, 540, "ja")]
     [TestCase(false, 360, 680, "en")]
     [TestCase(true, 360, 680, "en")]
     [TestCase(false, 400, 680, "ja")]
     [TestCase(false, 760, 440, "en")]
-    public async Task Tool_renders_virtualized_rows_and_allows_invalid_files_to_stay_offline(bool dark, int width, int height, string culture)
+    public async Task Tool_renders_grouped_rows_with_aligned_actions_and_allows_invalid_files_to_stay_offline(bool dark, int width, int height, string culture)
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await CreateEditorAsync();
@@ -610,9 +612,11 @@ public class MissingMediaTests
         {
             dialog.Show();
             HeadlessTestHelpers.Render(3);
-            var realized = view.FindControl<ListBox>("MissingMediaList")!.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
-            Assert.That(realized, Has.Length.LessThan(40));
-            var firstRow = realized[0];
+            var rows = view.FindControl<ItemsControl>("MissingMediaItems")!.GetVisualDescendants()
+                .OfType<Border>().Where(border => border.Name == "MediaRow").ToArray();
+            Assert.That(rows, Has.Length.EqualTo(vm.Rows.Count));
+            Assert.That(view.GetVisualDescendants().OfType<ListBox>(), Is.Empty);
+            var firstRow = rows[0];
             var texts = firstRow.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().ToArray();
             var kindText = texts.Single(text => text.Name == "MediaKindText");
             var nameText = texts.Single(text => text.Name == "MediaNameText");
@@ -621,6 +625,20 @@ public class MissingMediaTests
             Assert.That(firstRow.Bounds.Height, Is.LessThan(130), "Collapsed media rows keep their actions visible in a dock.");
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
             Assert.That(view.FindControl<Button>("FindFolderButton")!.Bounds.Width, Is.GreaterThan(0));
+            var mediaGroup = view.FindControl<Border>("MediaGroup")!;
+            var searchDirectoryBox = view.FindControl<TextBox>("SearchDirectoryBox")!;
+            var searchButton = view.FindControl<Button>("SearchButton")!;
+            var applyButton = view.FindControl<Button>("ApplyButton")!;
+            foreach (Control control in new Control[] { searchDirectoryBox, searchButton, applyButton })
+            {
+                Assert.That(control.TranslatePoint(default, view)!.Value.X,
+                    Is.EqualTo(mediaGroup.TranslatePoint(default, view)!.Value.X).Within(1), "Panel controls share the same left edge.");
+                Assert.That(control.Bounds.Width, Is.EqualTo(mediaGroup.Bounds.Width).Within(1), "Rows, folder input, and primary actions share a width.");
+            }
+            var replaceText = firstRow.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(text => text.Name == "ReplaceButtonText");
+            Assert.That(replaceText.Text, Is.EqualTo(Beutl.Language.MissingMediaStrings.ReplaceAction));
+            Assert.That(replaceText.Text, Does.Not.Contain("…"));
+            Assert.That(replaceText.TextTrimming, Is.EqualTo(Avalonia.Media.TextTrimming.None));
             foreach (var button in firstRow.GetVisualDescendants().OfType<Button>())
             {
                 var position = button.TranslatePoint(default, firstRow)!.Value;
