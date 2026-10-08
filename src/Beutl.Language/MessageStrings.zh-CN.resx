@@ -491,4 +491,7 @@
   <data name="ProjectFilesBeingChanged" xml:space="preserve">
     <value>另一项操作正在更改项目文件。请等待其完成后重试。</value>
   </data>
+  <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
+    <value>关键帧时间会重叠，或选区包含无法反转的缓动。</value>
+  </data>
 </root>

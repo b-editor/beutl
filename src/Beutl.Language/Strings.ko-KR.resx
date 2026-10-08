@@ -1798,6 +1798,18 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="GraphAlpha" xml:space="preserve">
     <value>알파</value>
   </data>
+  <data name="GraphDistributeEvenly" xml:space="preserve">
+    <value>등간격 배치 (Alt+D)</value>
+  </data>
+  <data name="GraphReverse" xml:space="preserve">
+    <value>키프레임 시간 반전 (Alt+R)</value>
+  </data>
+  <data name="GraphScaleValues" xml:space="preserve">
+    <value>값 배율 조정</value>
+  </data>
+  <data name="GraphScaleFactor" xml:space="preserve">
+    <value>배율</value>
+  </data>
   <data name="EnableAnimation" xml:space="preserve">
     <value>애니메이션 활성화</value>
   </data>

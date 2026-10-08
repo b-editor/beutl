@@ -491,4 +491,7 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="ProjectFilesBeingChanged" xml:space="preserve">
     <value>Otra operación está modificando archivos del proyecto. Espera a que termine e inténtalo de nuevo.</value>
   </data>
+  <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
+    <value>Los tiempos de los fotogramas clave se solaparían, o la selección contiene una interpolación que no se puede invertir.</value>
+  </data>
 </root>
