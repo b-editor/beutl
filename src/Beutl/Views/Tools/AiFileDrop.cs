@@ -135,7 +135,7 @@ internal static class AiFileDrop
                 && FindContext<AiVideoGenerationDialogViewModel>(control) is { } owner && !owner.IsGenerating.Value
                 && owner.ReferenceGroups.Contains(group) && group.IsSupported.Value:
                 return Request(group.Pick, AiVideoGenerationDialogViewModel.GetInputFilePatterns(group.Kind), true,
-                    paths => owner.PickInputAsync(group.Kind, paths));
+                    paths => owner.PickInputAsync(group.Kind, paths), group.MaximumCount - group.Files.Count);
             case AiFileDropTarget.Captions when FindContext<AiSubtitleDialogViewModel>(control) is { } captions
                 && !captions.IsSubtitleOperationActive.Value && ((ICommand)captions.ImportCaptions).CanExecute(null):
                 return new DropRequest(path => captions.CanImportCaptionFile(Path.GetFileName(path)), false,
@@ -150,10 +150,10 @@ internal static class AiFileDrop
         => Request(command, options.FileTypeFilter!.SelectMany(type => type.Patterns ?? []).ToArray(), multiple, apply);
 
     private static DropRequest? Request(ICommand command, IReadOnlyList<string> patterns, bool multiple,
-        Func<IReadOnlyList<string>, Task> apply)
-        => command.CanExecute(null)
+        Func<IReadOnlyList<string>, Task> apply, int maximumCount = int.MaxValue)
+        => maximumCount > 0 && command.CanExecute(null)
             ? new DropRequest(path => patterns.Any(pattern =>
-                FileSystemName.MatchesSimpleExpression(pattern, Path.GetFileName(path), ignoreCase: true)), multiple, apply)
+                FileSystemName.MatchesSimpleExpression(pattern, Path.GetFileName(path), ignoreCase: true)), multiple, apply, maximumCount)
             : null;
 
     private static IReadOnlyList<string> GetPaths(IDataTransfer data, DropRequest request)
@@ -165,7 +165,7 @@ internal static class AiFileDrop
             if (item is not IStorageFile || item.TryGetLocalPath() is not { } path
                 || !File.Exists(path) || !request.Accepts(path)) continue;
             paths.Add(path);
-            if (!request.Multiple) break;
+            if (!request.Multiple || paths.Count >= request.MaximumCount) break;
         }
         return paths;
     }
@@ -174,5 +174,6 @@ internal static class AiFileDrop
         => control.GetSelfAndVisualAncestors().OfType<Control>()
             .Select(ancestor => ancestor.DataContext).OfType<T>().FirstOrDefault();
 
-    private sealed record DropRequest(Func<string, bool> Accepts, bool Multiple, Func<IReadOnlyList<string>, Task> Apply);
+    private sealed record DropRequest(Func<string, bool> Accepts, bool Multiple, Func<IReadOnlyList<string>, Task> Apply,
+        int MaximumCount = int.MaxValue);
 }

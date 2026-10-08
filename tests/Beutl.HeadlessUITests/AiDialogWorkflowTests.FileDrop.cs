@@ -170,7 +170,47 @@ public sealed partial class AiDialogWorkflowTests
             Control target = FindFileDropTarget(view, AiFileDropTarget.VideoReference, kind);
             using var data = FileDropTransfer(first, second);
             await DropFiles(window, target, data);
-            Assert.That(group.Files.Select(file => file.Path), Is.EqualTo(new[] { first, second }));
+            Assert.That(group.Files.Select(file => file.Path), Is.EqualTo(new[] { first, second }.Take(group.MaximumCount)));
+            Assert.That(video.ReferenceGroups.Where(other => other != group).All(other => other.Files.Count == 0), Is.True);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("image", "png")]
+    [TestCase("video", "webm")]
+    [TestCase("audio", "wave")]
+    public async Task FileDrop_VideoReferencesRespectRemainingCapacityAndRejectFullGroups(string kind, string extension)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var video = CreateVideoGenerationDialog(scope.Clients);
+        video.Prompt.Value = "Animate the references";
+        await WaitUntilAsync(() => video.ReferenceGroups.All(group => group.IsSupported.Value) && video.CanGenerate.Value);
+        var group = video.ReferenceGroups.Single(group => group.Kind == kind);
+        for (int i = 0; i < group.MaximumCount - 1; i++)
+            group.Add(scope.File($"existing-{i}.{extension}", s_png));
+        string[] previous = group.Files.Select(file => file.Path).ToArray();
+        string[] dropped = Enumerable.Range(0, 3).Select(i => scope.File($"dropped-{i}.{extension}", s_png)).ToArray();
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            Control target = FindFileDropTarget(view, AiFileDropTarget.VideoReference, kind);
+            using var data = FileDropTransfer(dropped);
+            await DropFiles(window, target, data);
+            string[] expected = [.. previous, dropped[0]];
+            Assert.That(group.Files.Select(file => file.Path), Is.EqualTo(expected));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
+
+            Assert.That(RaiseFileDrag(target, DragDrop.DragEnterEvent, data).DragEffects, Is.EqualTo(DragDropEffects.None));
+            Assert.That(target.Classes, Does.Not.Contain("dragover"));
+            Assert.That(RaiseFileDrag(target, DragDrop.DropEvent, data).DragEffects, Is.EqualTo(DragDropEffects.None));
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            Assert.That(group.Files.Select(file => file.Path), Is.EqualTo(expected));
+            Assert.That(video.InputError.Value, Is.Null);
+            Assert.That(video.CanGenerate.Value, Is.True);
             Assert.That(video.ReferenceGroups.Where(other => other != group).All(other => other.Files.Count == 0), Is.True);
         }
         finally { window.Close(); }
