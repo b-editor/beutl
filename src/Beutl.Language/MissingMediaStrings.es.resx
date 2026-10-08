@@ -9,7 +9,6 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>Abrir herramienta de reparación</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No faltan archivos multimedia.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>Medios faltantes</value></data>
-  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>Reemplaza un archivo para encontrar candidatos para otros medios en la misma carpeta.</value></data>
   <data name="Candidate" xml:space="preserve"><value>Candidato</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>Archivo coincidente encontrado</value></data>
   <data name="UseCandidate" xml:space="preserve"><value>Usar este candidato</value></data>

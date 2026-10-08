@@ -624,7 +624,11 @@ public class MissingMediaTests
             var nameText = texts.Single(text => text.Name == "MediaNameText");
             Assert.That(nameText.TranslatePoint(default, firstRow)!.Value.Y,
                 Is.LessThan(kindText.TranslatePoint(default, firstRow)!.Value.Y));
-            Assert.That(firstRow.Bounds.Height, Is.LessThan(130), "Collapsed media rows keep their actions visible in a dock.");
+            Assert.That(firstRow.Bounds.Height, Is.LessThan(100), "Hidden candidate and detail panels leave no empty row space.");
+            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("ReplacementHint"), Is.Null);
+            double actionBottom = firstRow.GetVisualDescendants().OfType<Button>()
+                .Max(button => button.TranslatePoint(default, firstRow)!.Value.Y + button.Bounds.Height);
+            Assert.That(firstRow.Bounds.Height - actionBottom, Is.InRange(8, 12), "Only the row padding remains below its actions.");
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
             var mediaGroup = view.FindControl<Border>("MediaGroup")!;
             var applyButton = view.FindControl<Button>("ApplyButton")!;

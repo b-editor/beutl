@@ -9,7 +9,6 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>Open repair tool</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No missing media.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>Missing media</value></data>
-  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>Replace one missing file to find candidates for other media in the same folder.</value></data>
   <data name="Candidate" xml:space="preserve"><value>Candidate</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>Matching file found</value></data>
   <data name="UseCandidate" xml:space="preserve"><value>Use this candidate</value></data>

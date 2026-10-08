@@ -9,7 +9,6 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>打开修复工具</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>没有缺失媒体。</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>缺失媒体</value></data>
-  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>替换一个文件，即可从同一文件夹为其他媒体查找候选文件。</value></data>
   <data name="Candidate" xml:space="preserve"><value>有候选文件</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>找到匹配文件</value></data>
   <data name="UseCandidate" xml:space="preserve"><value>使用此候选文件</value></data>

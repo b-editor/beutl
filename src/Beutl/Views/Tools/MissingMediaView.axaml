@@ -14,7 +14,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="Border.mediaRow">
-            <Setter Property="Padding" Value="12" />
+            <Setter Property="Padding" Value="12,10" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
         <Style Selector="Border.mediaRow:pointerover">
@@ -57,7 +57,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="12,*,12" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <Grid ColumnDefinitions="12,*,12" RowDefinitions="Auto,Auto,*,Auto,Auto">
         <controls:ToolTabBar Grid.ColumnSpan="3">
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                 <TextBlock Text="{x:Static lang:MissingMediaStrings.PanelTitle}"
@@ -75,11 +75,9 @@
             </Grid>
         </controls:ToolTabBar>
 
-        <TextBlock Name="ReplacementHint" Grid.Row="1" Grid.Column="1" Margin="0,10,0,12" Classes="secondary"
-                   Text="{x:Static lang:MissingMediaStrings.ReplaceToFindCandidates}" TextWrapping="Wrap" IsVisible="{Binding !IsEmpty.Value}" />
-        <ProgressBar Grid.Row="2" Grid.ColumnSpan="3" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
+        <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
 
-        <ScrollViewer Name="MediaScrollViewer" Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
+        <ScrollViewer Name="MediaScrollViewer" Grid.Row="2" Grid.Column="1" Margin="0,10,0,4"
                       HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsEmpty.Value}">
             <Border Name="MediaGroup" Classes="options-group" Padding="0" VerticalAlignment="Top">
                 <ItemsControl Name="MissingMediaItems" ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}">
@@ -91,7 +89,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
                             <Border Name="MediaRow" Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}">
-                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
                                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}" ToolTip.Tip="{Binding Kind}">
@@ -110,7 +108,7 @@
                                             <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
                                         </Border>
                                     </Grid>
-                                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                                         <Button Name="ReplaceButton" HorizontalAlignment="Left" FontSize="12" Padding="8,4" Click="ReplaceClick">
                                             <TextBlock Name="ReplaceButtonText" Text="{x:Static lang:MissingMediaStrings.ReplaceAction}"
                                                        TextTrimming="None" TextWrapping="Wrap" />
@@ -136,7 +134,7 @@
                                             <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
                                         </Button>
                                     </Grid>
-                                    <Border Name="CandidatePanel" Grid.Row="2" Padding="8" CornerRadius="4"
+                                    <Border Name="CandidatePanel" Padding="8" CornerRadius="4"
                                             Background="{DynamicResource SubtleFillColorSecondaryBrush}" IsVisible="{Binding HasCandidate.Value}">
                                         <StackPanel Spacing="6">
                                             <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.FoundCandidate}" />
@@ -148,7 +146,7 @@
                                             </Button>
                                         </StackPanel>
                                     </Border>
-                                    <Border Name="DetailsPanel" Grid.Row="3" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
+                                    <Border Name="DetailsPanel" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
                                             BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
                                         <StackPanel Spacing="6">
                                             <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.OriginalReference}" />
@@ -166,7 +164,7 @@
                                                        Foreground="{DynamicResource SystemFillColorCriticalBrush}" IsVisible="{Binding HasIssue.Value}" />
                                         </StackPanel>
                                     </Border>
-                                </Grid>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -174,7 +172,7 @@
             </Border>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="3" Grid.Column="1" Margin="12,24" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty.Value}">
+        <StackPanel Grid.Row="2" Grid.Column="1" Margin="12,24" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty.Value}">
             <Border Width="48" Height="48" CornerRadius="24" HorizontalAlignment="Center"
                     Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}">
                 <icons:FluentIcon FontSize="24" Icon="Checkmark" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
@@ -183,7 +181,7 @@
                        FontSize="14" TextAlignment="Center" TextWrapping="Wrap" />
         </StackPanel>
 
-        <Border Name="ErrorBanner" Grid.Row="4" Grid.Column="1" Margin="0,4" Padding="8" CornerRadius="6"
+        <Border Name="ErrorBanner" Grid.Row="3" Grid.Column="1" Margin="0,4" Padding="8" CornerRadius="6"
                 Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
                 IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
@@ -199,7 +197,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="5" Grid.Column="1" Padding="0,10" BorderThickness="0,1,0,0"
+        <Border Grid.Row="4" Grid.Column="1" Padding="0,10" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !IsEmpty.Value}">
             <StackPanel Spacing="8">
                 <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"

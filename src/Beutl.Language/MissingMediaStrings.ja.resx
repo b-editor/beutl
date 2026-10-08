@@ -9,7 +9,6 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>修復ツールを開く</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>欠損メディアはありません。</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>欠損メディア</value></data>
-  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>1つの素材を差し替えると、同じフォルダから他の素材の候補を検索します。</value></data>
   <data name="Candidate" xml:space="preserve"><value>候補あり</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>見つかった候補</value></data>
   <data name="UseCandidate" xml:space="preserve"><value>この候補を使用</value></data>
@@ -21,8 +20,8 @@
   <data name="OriginalReference" xml:space="preserve"><value>元の参照</value></data>
   <data name="ReplacementFile" xml:space="preserve"><value>新しいファイル</value></data>
   <data name="UsedBy" xml:space="preserve"><value>参照元</value></data>
-  <data name="Replace" xml:space="preserve"><value>個別差し替え…</value></data>
-  <data name="ReplaceAction" xml:space="preserve"><value>個別差し替え</value></data>
+  <data name="Replace" xml:space="preserve"><value>差し替え…</value></data>
+  <data name="ReplaceAction" xml:space="preserve"><value>差し替え</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>無視（オフライン）</value></data>
   <data name="ApplyAndSave" xml:space="preserve"><value>適用して保存</value></data>
   <data name="Missing" xml:space="preserve"><value>欠損</value></data>

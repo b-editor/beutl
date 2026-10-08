@@ -9,7 +9,6 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>복구 도구 열기</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>누락된 미디어가 없습니다.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>누락된 미디어</value></data>
-  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>파일 하나를 교체하면 같은 폴더에서 다른 미디어의 후보를 찾습니다.</value></data>
   <data name="Candidate" xml:space="preserve"><value>후보 있음</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>일치하는 파일 발견</value></data>
   <data name="UseCandidate" xml:space="preserve"><value>이 후보 사용</value></data>
