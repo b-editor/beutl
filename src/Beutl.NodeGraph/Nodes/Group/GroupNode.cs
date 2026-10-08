@@ -136,9 +136,18 @@ public partial class GroupNode : GraphNode
 
         void Reset()
         {
-            var outputNodePortCount = Group.Output?.Items.Count ?? 0;
+            // Reset is raised after the source list has already changed.
+            int outputNodePortCount = _outputNodePortDisposable.Count;
+            DisposeAll(_outputNodePortDisposable);
             Items.RemoveRange(0, outputNodePortCount);
-            // _outputNodePortCount = 0;
+
+            if (Group.Output is { } output)
+            {
+                for (int i = 0; i < output.Items.Count; i++)
+                {
+                    AddOutput(i, (IInputPort)output.Items[i]);
+                }
+            }
         }
 
         ApplyItemsCollectionChange(e, Add, Remove, Reset);
@@ -213,9 +222,18 @@ public partial class GroupNode : GraphNode
 
         void Reset()
         {
-            var outputNodePortCount = Group.Output?.Items.Count ?? 0;
-            var inputNodePortCount = Group.Input?.Items.Count ?? 0;
+            int outputNodePortCount = _outputNodePortDisposable.Count;
+            int inputNodePortCount = _inputNodePortDisposable.Count;
+            DisposeAll(_inputNodePortDisposable);
             Items.RemoveRange(outputNodePortCount, inputNodePortCount);
+
+            if (Group.Input is { } input)
+            {
+                for (int i = 0; i < input.Items.Count; i++)
+                {
+                    AddInput(i, (IGroupPort)input.Items[i]);
+                }
+            }
         }
 
         ApplyItemsCollectionChange(e, Add, Remove, Reset);
