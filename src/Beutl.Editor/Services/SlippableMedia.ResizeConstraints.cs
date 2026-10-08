@@ -5,9 +5,9 @@ internal static partial class SlippableMedia
     internal sealed class ResizeConstraints(TimeSpan elementStart, TimeSpan elementLength, List<Target> targets,
         TimeSpan? providerDuration = null, Func<TimeSpan, TimeSpan, List<Target>>? targetsAt = null)
     {
-        public bool HasMonotonicDuration => targets.All(t => !t.Mapping.HasVariableDuration);
+        public bool HasMonotonicDuration => targets.All(t => !t.HasVariableDuration);
 
-        public bool HasSharedClock => targetsAt != null || targets.Any(t => t.Mapping.HasSharedClock);
+        public bool HasSharedClock => targetsAt != null || targets.Any(t => t.HasSharedClock);
 
         private List<Target> Targets(TimeSpan length, TimeSpan startDelta = default)
             => targetsAt?.Invoke(length, startDelta) ?? targets;
@@ -44,7 +44,7 @@ internal static partial class SlippableMedia
         // Null means unbounded; zero means a known source is exhausted.
         public TimeSpan? GetMaximumDuration(TimeSpan? start = null)
         {
-            if (Targets(elementLength).Any(t => !t.Mapping.IsSupported)) return TimeSpan.Zero;
+            if (Targets(elementLength).Any(t => !t.IsSupported)) return TimeSpan.Zero;
             if (targetsAt == null && providerDuration == null && targets.All(t => t.Total == null)) return null;
             TimeSpan startDelta = (start ?? elementStart) - elementStart;
             bool Fits(TimeSpan length) => FitsProvider(length, allowRecovery: false)
@@ -64,11 +64,12 @@ internal static partial class SlippableMedia
             // with the element. Also inspect the later start-phase boundaries.
             TimeSpan searchEnd = TimeSpan.FromTicks(high);
             foreach (Target target in targets)
-            {
-                if (target.Mapping.DurationLoopPhase(startDelta) is not { } phase) continue;
-                long ticks = (long)Math.Clamp((decimal)phase.Phase - phase.DurationOffset, 0, maximum);
-                if (ticks > searchEnd.Ticks) searchEnd = TimeSpan.FromTicks(ticks);
-            }
+                foreach (MediaTimeMapping mapping in target.SampleMappings)
+                {
+                    if (mapping.DurationLoopPhase(startDelta) is not { } phase) continue;
+                    long ticks = (long)Math.Clamp((decimal)phase.Phase - phase.DurationOffset, 0, maximum);
+                    if (ticks > searchEnd.Ticks) searchEnd = TimeSpan.FromTicks(ticks);
+                }
             return SearchDurationPhases(result, searchEnd, startDelta, Fits);
         }
 
@@ -80,28 +81,29 @@ internal static partial class SlippableMedia
             long high = Math.Max(baseline.Ticks, requested.Ticks);
             var points = new SortedSet<long> { low, high };
             foreach (Target target in targets)
-            {
-                if (movingStart)
+                foreach (MediaTimeMapping mapping in target.SampleMappings)
                 {
-                    AddMovingStartPhases(target, low, high, points);
-                    continue;
+                    if (movingStart)
+                    {
+                        AddMovingStartPhases(mapping, low, high, points);
+                        continue;
+                    }
+                    if (mapping.DurationLoopPhase(startDelta) is not { Phase: > 0 } phase) continue;
+                    long minimumPeriod = (long)Math.Clamp((decimal)low + phase.DurationOffset, 1, long.MaxValue);
+                    long maximumPeriod = (long)Math.Clamp((decimal)high + phase.DurationOffset, 1, long.MaxValue);
+                    long first = Math.Max(1, phase.Phase / maximumPeriod);
+                    long last = (long)Math.Clamp((decimal)phase.Phase / minimumPeriod + 1, first, long.MaxValue);
+                    // Bound work even when a large controller offset crosses many
+                    // periods; direct requested values are always validated first.
+                    long count = Math.Min(128, last - first);
+                    for (long index = 0; index <= count; index++)
+                    {
+                        long cycle = count == 0 ? first : first + (long)((decimal)(last - first) * index / count);
+                        decimal tick = (decimal)(phase.Phase / cycle) - phase.DurationOffset;
+                        for (int adjacent = -1; adjacent <= 1; adjacent++)
+                            if (tick + adjacent >= low && tick + adjacent <= high) points.Add((long)(tick + adjacent));
+                    }
                 }
-                if (target.Mapping.DurationLoopPhase(startDelta) is not { Phase: > 0 } phase) continue;
-                long minimumPeriod = (long)Math.Clamp((decimal)low + phase.DurationOffset, 1, long.MaxValue);
-                long maximumPeriod = (long)Math.Clamp((decimal)high + phase.DurationOffset, 1, long.MaxValue);
-                long first = Math.Max(1, phase.Phase / maximumPeriod);
-                long last = (long)Math.Clamp((decimal)phase.Phase / minimumPeriod + 1, first, long.MaxValue);
-                // Bound work even when a large controller offset crosses many
-                // periods; direct requested values are always validated first.
-                long count = Math.Min(128, last - first);
-                for (long index = 0; index <= count; index++)
-                {
-                    long cycle = count == 0 ? first : first + (long)((decimal)(last - first) * index / count);
-                    decimal tick = (decimal)(phase.Phase / cycle) - phase.DurationOffset;
-                    for (int adjacent = -1; adjacent <= 1; adjacent++)
-                        if (tick + adjacent >= low && tick + adjacent <= high) points.Add((long)(tick + adjacent));
-                }
-            }
             long[] boundaries = points.ToArray();
             for (int i = 1; i < boundaries.Length; i++)
             {
@@ -121,7 +123,7 @@ internal static partial class SlippableMedia
             return baseline;
         }
 
-        private void AddMovingStartPhases(Target target, long low, long high, SortedSet<long> points)
+        private void AddMovingStartPhases(MediaTimeMapping mapping, long low, long high, SortedSet<long> points)
         {
             // With a fixed right edge, every duration has a different owner start.
             // Bracket cycle crossings on that moving clock and refine the actual
@@ -129,7 +131,7 @@ internal static partial class SlippableMedia
             (decimal Phase, decimal Period)? Sample(long length)
             {
                 TimeSpan startDelta = elementLength - TimeSpan.FromTicks(length);
-                if (target.Mapping.DurationLoopPhase(startDelta) is not { } phase) return null;
+                if (mapping.DurationLoopPhase(startDelta) is not { } phase) return null;
                 decimal period = (decimal)length + phase.DurationOffset;
                 return period > 0 ? (phase.Phase, period) : null;
             }

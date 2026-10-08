@@ -95,8 +95,8 @@ public sealed partial class ElementResizeService
 
         public TimeSpan Clamp(TimeSpan requested)
         {
-            if (fronts.Concat(middles).Any(t => !t.Mapping.IsSupported)
-                || backs.Any(t => !t.Mapping.CanWriteOffsets)) return TimeSpan.Zero;
+            if (fronts.Concat(middles).Any(t => !t.IsSupported)
+                || backs.Any(t => !t.CanWriteOffsets)) return TimeSpan.Zero;
             TimeSpan delta = ElementResizeService.Clamp(requested, Min, Max);
             // Conflicting shared offsets cannot be reconciled by shrinking the
             // edit to a rounding-sized movement that happens to have equal ticks.
@@ -110,13 +110,13 @@ public sealed partial class ElementResizeService
                 && backs.All(t => t.CanTrim(d, clampEnd))
                 && TryGetOffsetChanges(d, out _);
             TimeSpan result = SlippableMedia.ClampDelta(delta, Fits);
-            foreach (SlippableMedia.Target target in fronts.Where(t => t.Mapping.HasVariableDuration))
+            foreach (SlippableMedia.Target target in fronts.Where(t => t.HasVariableDuration))
             {
                 var limits = new SlippableMedia.ResizeConstraints(TimeSpan.Zero, target.Length, [target]);
                 result = limits.SearchDurationPhases(target.Length + result, target.Length + delta,
                     TimeSpan.Zero, length => Fits(length - target.Length)) - target.Length;
             }
-            foreach (SlippableMedia.Target target in backs.Where(t => t.Mapping.HasVariableDuration))
+            foreach (SlippableMedia.Target target in backs.Where(t => t.HasVariableDuration))
             {
                 var limits = new SlippableMedia.ResizeConstraints(TimeSpan.Zero, target.Length, [target]);
                 result = target.Length - limits.SearchDurationPhases(target.Length - result, target.Length - delta,
@@ -265,14 +265,14 @@ public sealed partial class ElementResizeService
         TimeSpan max = back.Length - minDuration;
 
         if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength
-            && frontTargets.All(t => !t.Mapping.HasVariableDuration))
+            && frontTargets.All(t => !t.HasVariableDuration))
         {
             TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
             if (outRoom < max) max = outRoom;
         }
 
         bool clampEnd = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        if (backTargets.All(t => !t.Mapping.HasVariableDuration))
+        if (backTargets.All(t => !t.HasVariableDuration))
         {
             min = SlippableMedia.ClampInPointDelta(backTargets, min, clampEnd);
             max = SlippableMedia.ClampInPointDelta(backTargets, max, clampEnd);

@@ -150,19 +150,29 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     {
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
         private Drawable.Resource? _target;
+        private FlowNode? _flowTarget;
+
+        internal override IReadOnlyList<FlowNode> FlowInputs => _flowTarget is { } target ? [target] : [];
 
         public Drawable.Resource? Target => _target;
 
         partial void PostUpdate(DrawableTimeController obj, CompositionContext context)
         {
             Drawable? targetDrawable = null;
-            if (context.Flow != null)
+            _flowTarget = null;
+            if (context.ReplayedFlow is { } replay && ReferenceEquals(replay.Object, obj))
+            {
+                _flowTarget = replay.Inputs.FirstOrDefault(input => input.Object is Drawable);
+                targetDrawable = _flowTarget?.Object as Drawable;
+            }
+            else if (context.Flow != null)
             {
                 for (int i = 0; i < context.Flow.Count; i++)
                 {
                     if (context.Flow[i] is Drawable.Resource d)
                     {
                         targetDrawable = d.GetOriginal();
+                        _flowTarget = FlowNode.Capture(d);
                         context.Flow.RemoveAt(i);
                         break;
                     }
@@ -179,11 +189,14 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             {
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
                 bool changed = false;
-                ResourceReconciler.ReconcileResource(
-                    context: context,
-                    value: targetDrawable,
-                    field: ref _target,
-                    changed: ref changed);
+                if (_flowTarget != null)
+                    _flowTarget.Reconcile(context, ref _target, ref changed);
+                else
+                    ResourceReconciler.ReconcileResource(
+                        context: context,
+                        value: targetDrawable,
+                        field: ref _target,
+                        changed: ref changed);
                 if (changed)
                     Version++;
             }
@@ -196,6 +209,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         partial void PostDispose(bool disposing)
         {
             _target?.Dispose();
+            _flowTarget = null;
             SpeedIntegrator.Dispose();
         }
     }

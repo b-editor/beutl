@@ -158,11 +158,15 @@ public static class ResourceReconciler
 
     internal static bool ReconcileChildrenFromFlow<TItem, TResource>(
         CompositionContext context, IListProperty<TItem> property,
-        List<TResource> field, IList<int> versions)
+        List<TResource> field, IList<int> versions, EngineObject? owner = null, FlowInputState? inputs = null)
         where TItem : EngineObject where TResource : EngineObject.Resource
     {
         using var consumed = new PooledList<TResource>();
-        if (context.Flow != null)
+        if (inputs != null && owner != null)
+        {
+            inputs.Collect(context, owner, consumed);
+        }
+        else if (context.Flow != null)
         {
             for (int i = context.Flow.Count - 1; i >= 0; i--)
             {

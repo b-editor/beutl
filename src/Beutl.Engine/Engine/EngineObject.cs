@@ -377,6 +377,8 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         private EngineObject? _original;
 
+        internal virtual IReadOnlyList<FlowNode> FlowInputs => [];
+
         /// <summary>
         /// The number every cache over this resource keys on.
         /// </summary>

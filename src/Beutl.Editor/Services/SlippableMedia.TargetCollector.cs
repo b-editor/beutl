@@ -15,7 +15,9 @@ internal static partial class SlippableMedia
         private readonly bool _ignoreLoops;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
+        private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly List<Target> _targets = new();
+        private readonly List<DrawableTimeController> _disabledFlowControllers = new();
         private readonly HashSet<object> _path = new();
         private readonly List<MediaTimeMapping.ControllerLink> _controllers = new();
         private readonly Dictionary<int, TimelineLayer> _layers = new();
@@ -25,13 +27,15 @@ internal static partial class SlippableMedia
         private bool _opaqueConsumption;
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
-            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates)
+            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null)
         {
             _element = element;
             _timingPeers = timingPeers;
             _ignoreLoops = ignoreLoops;
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
+            _reenabledControllers = reenabledControllers;
             if (element.HierarchicalParent is Scene layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo);
@@ -43,8 +47,44 @@ internal static partial class SlippableMedia
         public List<Target> Collect()
         {
             foreach (Node node in BuildFlow()) CollectNode(node);
+            if (_reenabledControllers != null || _disabledFlowControllers.Count == 0 || _targets.Any(t => !t.IsSupported)) return _targets;
+            // A disabled controller contributes bounds only. Its future clock
+            // must never replace the clock used to write the current source offset.
+            // Rebuild the complete Flow: consuming its first entry moves a
+            // controller to the end and can change a later controller's target.
+            // Bound the state space on the editing thread; reject an unproven
+            // graph atomically instead of omitting possible re-enabling states.
+            const int maximumReenabledControllers = 7;
+            if (_disabledFlowControllers.Count > maximumReenabledControllers)
+            {
+                CollectNode(new Node(new PortalObject(), [], Opaque: true));
+                return _targets;
+            }
+            var targetsByOffset = _targets.ToLookup(t => t.Offset);
+            for (int state = 1; state < 1 << _disabledFlowControllers.Count; state++)
+            {
+                var enabled = new HashSet<DrawableTimeController>();
+                for (int i = 0; i < _disabledFlowControllers.Count; i++)
+                    if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled);
+                foreach (Target reenabled in collector.Collect())
+                {
+                    Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
+                    if (owners.Length == 0)
+                    {
+                        // A newly opaque or previously absent input has no
+                        // established offset clock. Preserve atomic rejection.
+                        CollectNode(new Node(new PortalObject(), [], Opaque: true));
+                        return _targets;
+                    }
+                    foreach (Target target in owners) target.SampleMappings.Add(reenabled.Mapping);
+                }
+            }
             return _targets;
         }
+
+        private bool IsEnabled(EngineObject obj)
+            => obj.IsEnabled || obj is DrawableTimeController controller && _reenabledControllers?.Contains(controller) == true;
 
         private List<Node> BuildFlow()
         {
@@ -67,18 +107,26 @@ internal static partial class SlippableMedia
                     continue;
                 }
                 IReadOnlyList<Node> inputs = [];
-                if (obj is DrawableTimeController { IsEnabled: true })
+                if (obj is DrawableTimeController controller)
                 {
-                    int index = flow.FindIndex(node => node.Opaque || node.Object is Drawable { IsEnabled: true });
+                    int index = flow.FindIndex(node => node.Opaque || node.Object is Drawable && IsEnabled(node.Object));
                     if (index >= 0)
                     {
-                        inputs = [flow[index]];
-                        flow.RemoveAt(index);
+                        Node input = flow[index];
+                        if (IsEnabled(controller))
+                        {
+                            inputs = [input];
+                            flow.RemoveAt(index);
+                        }
+                        else
+                        {
+                            _disabledFlowControllers.Add(controller);
+                        }
                     }
                 }
                 else if (obj.IsEnabled && obj is SoundGroup or DrawableGroup or DrawableDecorator)
                 {
-                    bool Consumes(Node node) => node.Opaque || node.Object.IsEnabled
+                    bool Consumes(Node node) => node.Opaque || IsEnabled(node.Object)
                         && (obj is SoundGroup ? node.Object is Sound : node.Object is Drawable);
                     inputs = flow.FindAll(Consumes);
                     flow.RemoveAll(Consumes);
@@ -114,8 +162,8 @@ internal static partial class SlippableMedia
         }
 
         private bool HasCompetingFlowConsumer()
-            => _element.Objects.Count(obj => obj.IsEnabled && obj is DrawableTimeController) > 1
-                || _element.Objects.Any(obj => obj.IsEnabled && (obj is IPresenter<Drawable> && obj is not DrawableTimeController
+            => _element.Objects.Count(obj => IsEnabled(obj) && obj is DrawableTimeController) > 1
+                || _element.Objects.Any(obj => IsEnabled(obj) && (obj is IPresenter<Drawable> && obj is not DrawableTimeController
                     || obj is IFlowOperator && obj is not DrawableTimeController));
 
         private static bool HasNonPlainProviderObject(EngineObject[] objects)
@@ -143,7 +191,7 @@ internal static partial class SlippableMedia
             };
         }
 
-        private void CollectNode(Node node)
+        private void CollectNode(Node node, bool referenced = false)
         {
             if (node.Opaque)
             {
@@ -153,7 +201,7 @@ internal static partial class SlippableMedia
                     new MediaTimeMapping(_element, node.Object, Property.Create(100f), [], 60), _element.Length));
                 return;
             }
-            CollectFrom(node.Object, node.Inputs, node.FlowResolved, portalInput: node.PortalInput);
+            CollectFrom(node.Object, node.Inputs, node.FlowResolved, referenced, portalInput: node.PortalInput);
         }
 
         // Keep disabled streams in sync too. Detect cycles per path, rather than
@@ -214,9 +262,10 @@ internal static partial class SlippableMedia
                     }
                     if ((input?.Object ?? controller.Target.CurrentValue) is Drawable target)
                     {
-                        bool applyMapping = controller.IsEnabled || referenced || input == null;
+                        bool applyMapping = IsEnabled(controller) || referenced || input == null;
                         if (applyMapping) _controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
-                        CollectFrom(target, input?.Inputs, input?.FlowResolved == true, referenced: true, portalInput: input?.PortalInput == true);
+                        if (input != null) CollectNode(input, referenced: true);
+                        else CollectFrom(target, referenced: true);
                         if (applyMapping) _controllers.RemoveAt(_controllers.Count - 1);
                     }
                     break;
