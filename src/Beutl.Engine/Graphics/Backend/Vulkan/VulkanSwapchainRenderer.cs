@@ -62,6 +62,14 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private volatile bool _running;
     private bool _disposed;
 
+    // Bounds the wait for the previous frame, so a stalled GPU drops frames instead of blocking the
+    // presentation thread; a lost device still fails the wait and stops presenting.
+    private const ulong FenceTimeoutNanoseconds = 5_000_000_000;
+
+    // Set on the presentation thread once a Vulkan call fails. A failed submit leaves the in-flight fence
+    // unsignaled, so later frames are dropped instead of waiting on it; recreating the view recovers.
+    private bool _faulted;
+
     public VulkanSwapchainRenderer()
     {
         var vulkanInstance = GraphicsContextFactory.VulkanInstance
@@ -152,14 +160,26 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                     switch (command)
                     {
                         case RenderCommand.DrawCommand draw:
-                            ExecuteRender(draw.BitmapRef, draw.Params);
-                            draw.BitmapRef.Dispose();
+                            try
+                            {
+                                ExecuteRender(draw.BitmapRef, draw.Params);
+                            }
+                            finally
+                            {
+                                draw.BitmapRef.Dispose();
+                            }
+
                             break;
 
                         case RenderCommand.ResizeCommand resize:
                             ExecuteResize(resize.Width, resize.Height);
                             break;
                     }
+                }
+                catch (VulkanPresentException ex)
+                {
+                    _faulted = true;
+                    s_logger.LogError(ex, "Stopped presenting the preview after a Vulkan call failed");
                 }
                 catch (Exception ex)
                 {
@@ -179,10 +199,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     private void ExecuteResize(uint width, uint height)
     {
-        if (_swapchain == null || _pipeline == null)
+        if (_faulted || _swapchain == null || _pipeline == null)
             return;
 
-        _vk.DeviceWaitIdle(_device);
+        Check(_vk.DeviceWaitIdle(_device), "vkDeviceWaitIdle");
         _swapchain.Recreate(width, height);
         _pipeline.RecreateFramebuffers(_swapchain.ImageViews, _swapchain.Extent);
 
@@ -193,7 +213,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     {
         if (retryCount > 10) return;
 
-        if (_swapchain == null || _pipeline == null)
+        if (_faulted || _swapchain == null || _pipeline == null)
             return;
 
         var bitmap = bitmapRef.Value;
@@ -203,7 +223,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         // The previous frame fence covers its upload and present draw because both use this queue.
         // Wait before rewriting the persistent staging buffer or replacing the source image.
         var fence = _inFlightFence;
-        _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
+        Result waitResult = _vk.WaitForFences(_device, 1, &fence, Vk.True, FenceTimeoutNanoseconds);
+        if (waitResult == Result.Timeout)
+        {
+            // The GPU may still finish the previous frame, so drop this one and wait again on the next.
+            s_logger.LogWarning("Dropped a preview frame because the previous one had not finished");
+            return;
+        }
+
+        Check(waitResult, "vkWaitForFences");
 
         // The following render submission is ordered after this upload on the same queue, so it
         // needs no per-operation CPU fence wait.
@@ -216,7 +244,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             return;
         }
 
-        _vk.ResetFences(_device, 1, &fence);
+        if (acquireResult != Result.SuboptimalKhr)
+            Check(acquireResult, "vkAcquireNextImageKHR");
+
+        Check(_vk.ResetFences(_device, 1, &fence), "vkResetFences");
 
         // Record and submit command buffer
         RecordAndSubmit(imageIndex, renderParams);
@@ -227,8 +258,20 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         {
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
             ExecuteRender(bitmapRef, renderParams, ++retryCount); // Retry render after resize
+            return;
         }
+
+        Check(presentResult, "vkQueuePresentKHR");
     }
+
+    private static void Check(Result result, string operation)
+    {
+        if (result != Result.Success)
+            throw new VulkanPresentException(operation, result);
+    }
+
+    private sealed class VulkanPresentException(string operation, Result result)
+        : Exception($"{operation} failed with {result}.");
 
     private void UploadBitmap(Bitmap bitmap)
     {
@@ -252,13 +295,13 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         // Map and copy
         void* mapped;
-        _vk.MapMemory(_device, _stagingMemory, 0, dataSize, 0, &mapped);
+        Check(_vk.MapMemory(_device, _stagingMemory, 0, dataSize, 0, &mapped), "vkMapMemory");
         System.Buffer.MemoryCopy((void*)bitmap.Data, mapped, (long)dataSize, (long)dataSize);
         _vk.UnmapMemory(_device, _stagingMemory);
 
         // Copy staging buffer to image
         var cmdBuf = _uploadCommandBuffer;
-        _vk.ResetCommandBuffer(cmdBuf, 0);
+        Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
         BeginCommandBuffer(cmdBuf);
 
         // Transition to transfer dst
@@ -296,7 +339,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private void RecordAndSubmit(uint imageIndex, RenderParams renderParams)
     {
         var cmdBuf = _renderCommandBuffer;
-        _vk.ResetCommandBuffer(cmdBuf, 0);
+        Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
         BeginCommandBuffer(cmdBuf);
 
         var extent = _swapchain!.Extent;
@@ -342,7 +385,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _vk.CmdDraw(cmdBuf, 3, 1, 0, 0);
 
         _vk.CmdEndRenderPass(cmdBuf);
-        _vk.EndCommandBuffer(cmdBuf);
+        Check(_vk.EndCommandBuffer(cmdBuf), "vkEndCommandBuffer");
 
         // Submit
         var waitSemaphore = _imageAvailableSemaphore;
@@ -361,7 +404,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             PSignalSemaphores = &signalSemaphore
         };
 
-        _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence);
+        Check(_vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence), "vkQueueSubmit");
     }
 
     private static void ComputeStretchRects(RenderParams p, Extent2D extent, out PresentPushConstants pc)
