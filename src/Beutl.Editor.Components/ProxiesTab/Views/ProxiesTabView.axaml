@@ -78,7 +78,7 @@
                         Command="{Binding RefreshCommand}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Refresh}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
                 </Button>
             </Grid>
         </controls:ToolTabBar>

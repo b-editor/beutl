@@ -8,6 +8,7 @@
   <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} 件の素材が見つかりません。修復ツールから再リンクできます。</value></data>
   <data name="OpenRepairTool" xml:space="preserve"><value>修復ツールを開く</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>欠損メディアはありません。</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>素材を移動してファイルが見つからなくなった場合は、ここで参照先を修復できます。</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>欠損メディア</value></data>
   <data name="Candidate" xml:space="preserve"><value>候補あり</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>見つかった候補</value></data>

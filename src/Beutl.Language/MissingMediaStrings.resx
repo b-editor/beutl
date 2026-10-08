@@ -8,6 +8,7 @@
   <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} media references could not be found. Open the repair tool to relink them.</value></data>
   <data name="OpenRepairTool" xml:space="preserve"><value>Open repair tool</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No missing media.</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>When media is moved and files cannot be found, you can repair their references here.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>Missing media</value></data>
   <data name="Candidate" xml:space="preserve"><value>Candidate</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>Matching file found</value></data>

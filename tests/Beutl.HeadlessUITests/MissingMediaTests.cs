@@ -632,6 +632,10 @@ public class MissingMediaTests
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
             var mediaGroup = view.FindControl<Border>("MediaGroup")!;
             var applyButton = view.FindControl<Button>("ApplyButton")!;
+            Assert.That(mediaGroup.TranslatePoint(default, view)!.Value.X, Is.EqualTo(8).Within(1), "Match the Proxies tab's horizontal content margin.");
+            var footerBorder = view.FindControl<Border>("FooterBorder")!;
+            Assert.That(footerBorder.TranslatePoint(default, view)!.Value.X, Is.Zero);
+            Assert.That(footerBorder.Bounds.Width, Is.EqualTo(view.Bounds.Width), "The footer separator spans the entire tab.");
             Assert.That(view.FindControl<TextBox>("SearchDirectoryBox"), Is.Null);
             Assert.That(view.FindControl<Button>("SearchButton"), Is.Null);
             foreach (Control control in new Control[] { applyButton })
@@ -725,6 +729,7 @@ public class MissingMediaTests
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             HeadlessTestHelpers.Render(3);
             Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyText")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyDescription")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEffectivelyVisible, Is.False);
             using (WriteableBitmap? frame = window.CaptureRenderedFrame())
             {

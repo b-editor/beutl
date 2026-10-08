@@ -57,8 +57,8 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="12,*,12" RowDefinitions="Auto,Auto,*,Auto,Auto">
-        <controls:ToolTabBar Grid.ColumnSpan="3">
+    <Grid ColumnDefinitions="8,*,8" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <controls:ToolTabBar Name="ToolBar" Grid.ColumnSpan="3">
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                 <TextBlock Text="{x:Static lang:MissingMediaStrings.PanelTitle}"
                            Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
@@ -172,14 +172,20 @@
             </Border>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="2" Grid.Column="1" Margin="12,24" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty.Value}">
-            <Border Width="48" Height="48" CornerRadius="24" HorizontalAlignment="Center"
-                    Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}">
-                <icons:FluentIcon FontSize="24" Icon="Checkmark" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+        <ScrollViewer Grid.Row="2" Grid.ColumnSpan="3" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding IsEmpty.Value}">
+            <Border Name="EmptyState" Margin="24" VerticalAlignment="Center">
+                <StackPanel MaxWidth="320" Spacing="12">
+                    <Border Width="56" Height="56" CornerRadius="16" HorizontalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                        <icons:FluentIcon FontSize="24" Icon="Link" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                    </Border>
+                    <TextBlock Name="EmptyText" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
+                               FontSize="16" TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Name="EmptyDescription" Classes="secondary" FontSize="12"
+                               Text="{x:Static lang:MissingMediaStrings.EmptyDescription}" TextAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
             </Border>
-            <TextBlock Name="EmptyText" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
-                       FontSize="14" TextAlignment="Center" TextWrapping="Wrap" />
-        </StackPanel>
+        </ScrollViewer>
 
         <Border Name="ErrorBanner" Grid.Row="3" Grid.Column="1" Margin="0,4" Padding="8" CornerRadius="6"
                 Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
@@ -197,7 +203,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="4" Grid.Column="1" Padding="0,10" BorderThickness="0,1,0,0"
+        <Border Name="FooterBorder" Grid.Row="4" Grid.ColumnSpan="3" Padding="8,10" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !IsEmpty.Value}">
             <StackPanel Spacing="8">
                 <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"

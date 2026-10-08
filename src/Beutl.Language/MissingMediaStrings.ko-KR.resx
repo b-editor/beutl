@@ -8,6 +8,7 @@
   <data name="NotificationMessage" xml:space="preserve"><value>{0}: 미디어 참조 {1}개를 찾을 수 없습니다. 복구 도구를 열어 다시 연결하세요.</value></data>
   <data name="OpenRepairTool" xml:space="preserve"><value>복구 도구 열기</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>누락된 미디어가 없습니다.</value></data>
+  <data name="EmptyDescription" xml:space="preserve"><value>미디어를 이동하여 파일을 찾을 수 없으면 여기에서 참조를 복구할 수 있습니다.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>누락된 미디어</value></data>
   <data name="Candidate" xml:space="preserve"><value>후보 있음</value></data>
   <data name="FoundCandidate" xml:space="preserve"><value>일치하는 파일 발견</value></data>
