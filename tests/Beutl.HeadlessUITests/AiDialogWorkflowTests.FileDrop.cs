@@ -287,6 +287,97 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, false)]
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    public async Task FileDrop_CorruptFrameKeepsThePreviousPreviewAndTemporaryFile(bool first, bool captured)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        var editor = captured ? await OpenEditor("file-drop-corrupt-captured-frame") : null;
+        await using var video = CreateVideoGenerationDialog(scope.Clients, editor);
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+        if (captured)
+        {
+            video.CurrentFrameRenderer = _ => Task.FromResult(new Beutl.Media.Bitmap(2, 2));
+            await video.CaptureCurrentFrame.ExecuteAsync();
+        }
+        else
+        {
+            await video.SelectFrameAsync(first, scope.File("previous.png", s_png));
+        }
+        string previous = (first ? video.FirstFramePath.Value : video.LastFramePath.Value)!;
+        var previousPreview = first ? video.FirstFramePreview.Value : video.LastFramePreview.Value;
+        var previousBitmap = previousPreview!.Value;
+        string corrupt = scope.File("corrupt.png", [1, 2, 3]);
+        var view = new AiVideoGenerationView { DataContext = video };
+        var window = ShowFileDropView(view);
+        try
+        {
+            using var data = FileDropTransfer(corrupt);
+            await DropFiles(window, FindFileDropTarget(view, first ? AiFileDropTarget.FirstFrame : AiFileDropTarget.LastFrame), data);
+            Assert.That(first ? video.FirstFramePath.Value : video.LastFramePath.Value, Is.EqualTo(previous));
+            Assert.That(first ? video.FirstFramePreview.Value : video.LastFramePreview.Value, Is.SameAs(previousPreview));
+            Assert.That(previousPreview.Value, Is.SameAs(previousBitmap));
+            Assert.That(System.IO.File.Exists(previous), Is.True);
+            Assert.That(video.Error.Value, Is.Not.Null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FileDrop_EarlierVideoProbeCannotReplaceANewerBrowseSelection(bool earlierFails)
+    {
+        await TestReset.ResetShellAsync();
+        await using var scope = new FileDropScope();
+        await using var tasks = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(scope.Clients, sourceMode: mode));
+        var video = tasks.ActiveContent.Value!;
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
+        string earlier = scope.File("earlier.webm", s_png);
+        string newer = scope.File("newer.webm", s_png);
+        var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseProbe = new ManualResetEventSlim();
+        video.VideoDurationReader = path =>
+        {
+            if (path == earlier)
+            {
+                probeStarted.TrySetResult();
+                if (!releaseProbe.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+                if (earlierFails) throw new InvalidDataException("Earlier video probe failed.");
+                return TimeSpan.FromSeconds(8);
+            }
+            return TimeSpan.FromSeconds(4);
+        };
+        video.InputPicker = (_, _) => Task.FromResult<IReadOnlyList<string>>([newer]);
+        var view = new AiVideoEditingView { DataContext = tasks };
+        var window = ShowFileDropView(view);
+        Control target = FindFileDropTarget(view, AiFileDropTarget.SourceVideo);
+        try
+        {
+            using var data = FileDropTransfer(earlier);
+            RaiseFileDrag(target, DragDrop.DropEvent, data);
+            await probeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(target.Classes, Does.Contain("filedropping"));
+            await video.SelectSourceVideo.ExecuteAsync();
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(newer));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            releaseProbe.Set();
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            Assert.That(video.SourceVideoPath.Value, Is.EqualTo(newer));
+            Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+            Assert.That(video.Error.Value, Is.Null);
+        }
+        finally
+        {
+            releaseProbe.Set();
+            await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task FileDrop_OversizedCaptionsKeepTheCurrentCues()
     {
         await TestReset.ResetShellAsync();

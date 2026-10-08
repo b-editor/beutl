@@ -135,6 +135,23 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             return;
         }
 
+        // Decode before replacing the selection or releasing its temporary frame.
+        Ref<Bitmap>? preview = null;
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+        {
+            try
+            {
+                preview = Ref<Bitmap>.Create(
+                    AiImageDecodeValidator.LoadValidatedBitmap(path, AiRequestLimits.MaxFrameUploadBytes));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load an AI video frame preview from {Path}", path);
+                Error.Value = Strings.AiEditSourcePreviewFailed;
+                return;
+            }
+        }
+
         // Preserve a user-selected frame when model constraints merely hide it, so restoring the
         // old model also restores the same request with the same frame.
         if (!_applyingCapabilities)
@@ -172,21 +189,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             RequestTemporaryFileDeletion(previousPath);
         }
 
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return;
-
-        try
-        {
-            previewProperty.Value = Ref<Bitmap>.Create(
-                AiImageDecodeValidator.LoadValidatedBitmap(
-                    path,
-                    AiRequestLimits.MaxFrameUploadBytes));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load an AI video frame preview from {Path}", path);
-            Error.Value = Strings.AiEditSourcePreviewFailed;
-        }
+        previewProperty.Value = preview;
     }
 
     // Build the upload and its name from the same read. Reading twice could make the dispatched

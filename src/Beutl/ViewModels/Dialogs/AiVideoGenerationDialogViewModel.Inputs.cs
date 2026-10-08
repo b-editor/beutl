@@ -14,6 +14,8 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiVideoGenerationDialogViewModel
 {
+    private int _sourceVideoSelectionRevision;
+
     internal AiSourceVideoMode? SourceMode { get; }
     private AiOperationId Operation => SourceMode switch
     {
@@ -170,6 +172,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     {
         using var operation = TryEnterIdentityOperation();
         if (operation is null) return;
+        // Browse and drops share this version so a slower probe cannot replace a newer choice.
+        int selectionRevision = role == "source" ? Interlocked.Increment(ref _sourceVideoSelectionRevision) : 0;
+        bool IsCurrentSelection() => role != "source" || selectionRevision == Volatile.Read(ref _sourceVideoSelectionRevision);
         try
         {
             IReadOnlyList<string> paths;
@@ -187,12 +192,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel
                 paths = files.Select(file => file.TryGetLocalPath()).OfType<string>().ToArray();
                 foreach (var file in files) file.Dispose();
             }
-            if (paths.Count == 0) return;
+            if (paths.Count == 0 || !IsCurrentSelection()) return;
             string kind = InputKind(role);
             foreach (string path in paths) AiVideoInputLimits.Validate(Describe(path), kind, PickLimitBytes(kind));
             double? duration = role == "source" ? await ReadVideoDurationAsync(paths[0], operation.CancellationToken) : null;
             operation.TryPublish(() =>
             {
+                if (!IsCurrentSelection()) return;
                 if (role == "source") { SourceVideoPath.Value = paths[0]; SourceDuration.Value = duration; }
                 else if (role == "character") CharacterImagePath.Value = paths[0];
                 else
@@ -205,7 +211,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             });
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
-        catch (Exception ex) { operation.TryPublish(() => Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable); }
+        catch (Exception ex)
+        {
+            operation.TryPublish(() =>
+            {
+                if (IsCurrentSelection())
+                    Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable;
+            });
+        }
     }
 
     internal static string[] GetInputFilePatterns(string role) => role switch
