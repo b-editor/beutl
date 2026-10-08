@@ -40,7 +40,12 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
                 scale,
                 CommandPaletteInput.DescribeCurrent(scale == quality.PreviewScale.Value)))
             .ToArray();
-        if (await interaction.ShowQuickPickAsync(items) is not { } picked) return;
+        // Confirming the quality already in use changes nothing, so it must not stop playback either.
+        if (await interaction.ShowQuickPickAsync(items) is not { } picked
+            || picked.Value == quality.PreviewScale.Value)
+        {
+            return;
+        }
 
         // Rebuilding the renderer must not happen mid-playback. Pause also returns a pause still draining
         // the last frame, which IsPlaying no longer shows.

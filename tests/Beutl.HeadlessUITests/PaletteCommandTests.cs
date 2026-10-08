@@ -452,6 +452,21 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Picking_the_current_preview_quality_does_not_stop_playback()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-preview-quality-same");
+        IPreviewRenderQuality quality = editor.GetService<IPreviewRenderQuality>()!;
+        RenderScale current = quality.PreviewScale.Value;
+        editor.Player.IsPlaying.Value = true;
+
+        await PreviewSettingsTabExtension.Instance.ExecuteAsync(Execution("ChangePreviewRenderQuality", editor,
+            new ScriptedInteraction().Pick<RenderScale>(item => item.Value == current)));
+
+        Assert.That((quality.PreviewScale.Value, editor.Player.IsPlaying.Value), Is.EqualTo((current, true)));
+        editor.Player.IsPlaying.Value = false;
+    }
+
+    [AvaloniaTest]
     public async Task Preview_render_quality_stays_available_during_playback_and_pauses_first()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-preview-quality-playing");
@@ -531,6 +546,23 @@ public class PaletteCommandTests
             Assert.That(items[^1].Value.IsInitial, Is.True, "Newest first, so the initial state is last.");
             Assert.That(items[0].Description, Does.EndWith(Strings.Current));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Jump_to_history_can_revert_an_uncommitted_edit_to_the_initial_state()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-history-pending");
+        HistoryTabExtension history = HistoryTabExtension.Instance;
+        editor.HistoryManager.Clear();
+        // Recorded but not committed, like a nudge still in its debounce.
+        editor.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "Pending"));
+        Assert.That(editor.HistoryManager.HasPendingOperations, Is.True, "The marker must be a pending edit.");
+
+        Assert.That(history.CanExecute(Execution("JumpToHistory", editor)), Is.True);
+        await history.ExecuteAsync(Execution("JumpToHistory", editor,
+            new ScriptedInteraction().Pick<HistoryEntry>(item => item.Value.IsInitial)));
+
+        Assert.That(editor.Scene.Markers, Is.Empty);
     }
 
     [AvaloniaTest]

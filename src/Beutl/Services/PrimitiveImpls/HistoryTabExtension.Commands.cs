@@ -13,10 +13,11 @@ public sealed partial class HistoryTabExtension : IContextCommandHandler
 
     public bool CanExecute(ContextCommandExecution execution)
     {
-        // The initial entry alone leaves nowhere to go.
+        // The initial entry alone leaves nowhere to go, unless an uncommitted edit (a nudge still in its
+        // debounce) can be reverted to it.
         return execution.CommandName == "JumpToHistory"
-            && execution.EditorContext is EditViewModel editViewModel
-            && editViewModel.HistoryManager.GetEntriesSnapshot().Length > 1;
+            && execution.EditorContext is EditViewModel { HistoryManager: var history }
+            && (history.GetEntriesSnapshot().Length > 1 || history.HasPendingOperations);
     }
 
     public async Task ExecuteAsync(ContextCommandExecution execution)
