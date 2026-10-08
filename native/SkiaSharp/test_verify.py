@@ -155,6 +155,16 @@ class NativeBinaryVerificationTests(unittest.TestCase):
                     self.assertNotEqual(renamed, original)
                     self.assert_rejected_with_updated_hash(rid, renamed, "missing required exports")
 
+    def test_windows_runtimes_require_the_freetype_export(self):
+        # Spelled out rather than read from verify.py, so dropping the Windows requirement there fails here.
+        export = b"sk_beutl_fontmgr_create_freetype"
+        for rid in ("win-x64", "win-arm64"):
+            with self.subTest(rid=rid):
+                original = self.binary(rid)
+                renamed = original.replace(export + b"\0", b"x" + export[1:] + b"\0")
+                self.assertNotEqual(renamed, original)
+                self.assert_rejected_with_updated_hash(rid, renamed, "missing required exports")
+
     def test_each_required_export_is_checked_in_every_macos_slice(self):
         for _, slice_cpu, _, start, _ in self.macho_slices(self.binary("osx")):
             for export in verify.REQUIRED_EXPORTS:
