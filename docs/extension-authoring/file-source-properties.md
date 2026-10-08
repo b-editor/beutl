@@ -44,3 +44,6 @@ Without an attribute, the generic editor leaves the picker unfiltered. Existing
 built-in source editors retain their specialized behavior and default filters;
 `FileFilter` attributes override those filters when supplied. Filters constrain
 the picker, so `ReadFrom` remains responsible for validating file contents.
+
+List items also use the file editor. Their accessors do not inherit `FileFilter`
+attributes from the containing list property, so their pickers are unfiltered.

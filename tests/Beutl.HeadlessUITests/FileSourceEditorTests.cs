@@ -2,10 +2,14 @@
 using System.Text.Json.Serialization;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.VisualTree;
 using Beutl.Animation;
+using Beutl.Api.Services;
+using Beutl.Collections;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.IO;
@@ -14,6 +18,8 @@ using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Services;
+using Beutl.Services.Adapters;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
 
@@ -74,6 +80,137 @@ public sealed class FileSourceEditorTests
             Assert.That(editor.Value!.FullName, Is.EqualTo(path));
             Assert.That(editor.OpenOptions.FileTypeFilter, Is.Null.Or.Empty);
         });
+    }
+
+    [AvaloniaTest]
+    [TestCase("image #1.psd")]
+    [TestCase("image ?1.psd")]
+    [TestCase("image %23.psd")]
+    [TestCase("image #?%25 日本語.psd")]
+    public void Reserved_characters_in_selected_filenames_remain_part_of_the_local_path(string name)
+    {
+        if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            Assert.Ignore("The filename is not supported on this platform.");
+
+        var holder = new FilePropertyHolder();
+        var (vm, control) = CreateControl(new EnginePropertyAdapter<TestMediaSource?>(holder.Source, holder));
+        using var _ = vm;
+        using var history = new HistoryScope(holder);
+        vm.Accept(new Services(history.History));
+        var editor = (StorageFileEditor)control;
+        string path = CreateFile(name);
+
+        Confirm(editor, path);
+
+        Assert.That(holder.Source.CurrentValue, Is.Not.Null);
+        Uri uri = holder.Source.CurrentValue!.Uri;
+        Assert.Multiple(() =>
+        {
+            Assert.That(uri.IsFile, Is.True);
+            Assert.That(uri.LocalPath, Is.EqualTo(path));
+            Assert.That(uri.Query, Is.Empty);
+            Assert.That(uri.Fragment, Is.Empty);
+            Assert.That(editor.Value!.FullName, Is.EqualTo(path));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Real_list_items_support_selection_replacement_clearing_and_history()
+    {
+        var holder = new FilePropertyHolder();
+        var neighbor = new TestMediaSource();
+        neighbor.ReadFrom(new Uri(CreateFile("neighbor.psd")));
+        holder.Sources.Add(null);
+        holder.Sources.Add(neighbor);
+        using var history = new HistoryScope(holder);
+        var adapter = new EnginePropertyAdapter<ICoreList<TestMediaSource?>>(holder.Sources, holder);
+        using var list = new ListEditorViewModel<TestMediaSource?>(adapter);
+        list.Accept(new ListServices(history.History));
+        list.IsExpanded.Value = true;
+        var view = new ListEditor { DataContext = list };
+        var window = new Window { Content = view, Width = 480, Height = 300 };
+        try
+        {
+            window.Show();
+            await Task.Delay(350);
+            HeadlessTestHelpers.Render(3);
+            ListItemEditorViewModel<TestMediaSource?> item = list.Items[0];
+            Assert.That(item.ItemAccessor, Is.TypeOf<ListItemAccessorImpl<TestMediaSource?>>());
+            Assert.That(item.Context, Is.TypeOf<FileSourceEditorViewModel<TestMediaSource>>());
+            StorageFileEditor editor = view.GetVisualDescendants().OfType<StorageFileEditor>().First();
+            Assert.That(editor.DataContext, Is.SameAs(item.Context));
+            void RefreshItem()
+            {
+                HeadlessTestHelpers.Render(3);
+                item = list.Items[0];
+                editor = view.GetVisualDescendants().OfType<StorageFileEditor>()
+                    .Single(control => ReferenceEquals(control.DataContext, item.Context));
+            }
+            Assert.That(((IPropertyAdapter)item.ItemAccessor).GetAttributes(), Is.Empty);
+            Assert.That(editor.OpenOptions.FileTypeFilter, Is.Null.Or.Empty,
+                "List accessors do not inherit the containing property's file filters.");
+            string firstPath = CreateFile("list-first.psd");
+            string secondPath = CreateFile("list-second.psb");
+
+            Confirm(editor, firstPath);
+            HeadlessTestHelpers.Render(3);
+            TestMediaSource first = holder.Sources[0]!;
+            Assert.That(history.History.UndoCount, Is.EqualTo(1));
+            Assert.That(first.Uri.LocalPath, Is.EqualTo(firstPath));
+            Assert.That(item.ItemAccessor.GetValue(), Is.SameAs(first));
+            Assert.That(history.History.Undo(), Is.True);
+            RefreshItem();
+            Assert.That(holder.Sources[0], Is.Null);
+            Assert.That(item.ItemAccessor.GetValue(), Is.Null);
+            Assert.That(((FileSourceEditorViewModel<TestMediaSource>)item.Context!).FileInfo.Value, Is.Null);
+            Assert.That(editor.Value, Is.Null);
+            Assert.That(history.History.Redo(), Is.True);
+            RefreshItem();
+            Assert.That(holder.Sources[0], Is.SameAs(first));
+            Assert.That(editor.Value!.FullName, Is.EqualTo(firstPath));
+
+            Confirm(editor, secondPath);
+            HeadlessTestHelpers.Render(3);
+            TestMediaSource second = holder.Sources[0]!;
+            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(first.Uri.LocalPath, Is.EqualTo(firstPath));
+            Assert.That(item.ItemAccessor.GetValue(), Is.SameAs(second));
+            Assert.That(list.Items[0], Is.SameAs(item));
+            Assert.That(history.History.Undo(), Is.True);
+            RefreshItem();
+            Assert.That(holder.Sources[0], Is.SameAs(first));
+            Assert.That(editor.Value!.FullName, Is.EqualTo(firstPath));
+            Assert.That(history.History.Redo(), Is.True);
+            RefreshItem();
+            Assert.That(holder.Sources[0], Is.SameAs(second));
+
+            Confirm(editor, null);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(holder.Sources[0], Is.Null);
+            Assert.That(item.ItemAccessor.GetValue(), Is.Null);
+            Assert.That(history.History.Undo(), Is.True);
+            RefreshItem();
+            Assert.That(holder.Sources[0], Is.SameAs(second));
+            Assert.That(editor.Value!.FullName, Is.EqualTo(secondPath));
+            Assert.That(history.History.Redo(), Is.True);
+            RefreshItem();
+            Assert.That(editor.Value, Is.Null);
+            Assert.That(holder.Sources, Has.Count.EqualTo(2));
+            Assert.That(holder.Sources[1], Is.SameAs(neighbor));
+
+            ListItemEditorViewModel<TestMediaSource?> neighborItem = list.Items[1];
+            StorageFileEditor neighborEditor = view.GetVisualDescendants().OfType<StorageFileEditor>()
+                .Single(control => ReferenceEquals(control.DataContext, neighborItem.Context));
+            string neighborPath = CreateFile("neighbor-replaced.psd");
+            Confirm(neighborEditor, neighborPath);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(holder.Sources[0], Is.Null);
+            Assert.That(holder.Sources[1]!.Uri.LocalPath, Is.EqualTo(neighborPath));
+            Assert.That(history.History.Undo(), Is.True);
+            RefreshItem();
+            Assert.That(holder.Sources[1], Is.SameAs(neighbor));
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -338,6 +475,9 @@ public sealed class FileSourceEditorTests
         public IProperty<CubeSource?> Cube { get; } = Property.Create<CubeSource?>();
 
         public IProperty<MediaSource?> AbstractSource { get; } = Property.Create<MediaSource?>();
+
+        [FileFilter("Photoshop documents", "*.psd", "*.psb")]
+        public IListProperty<TestMediaSource?> Sources { get; } = Property.CreateList<TestMediaSource?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -386,6 +526,18 @@ public sealed class FileSourceEditorTests
     private sealed record Services(HistoryManager History, Element? Element = null) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type type) => type == typeof(HistoryManager) ? History : type == typeof(Element) ? Element : null;
+
+        public void Visit(IPropertyEditorContext context) { }
+    }
+
+    private sealed class ListServices(HistoryManager history) : IServiceProvider, IPropertyEditorContextVisitor
+    {
+        private readonly PropertyEditorFactoryAdapter _factory = new(TestShell.Extensions);
+
+        public object? GetService(Type type) => type == typeof(HistoryManager) ? history
+            : type == typeof(IPropertyEditorFactory) ? _factory
+            : type == typeof(ExtensionProvider) ? TestShell.Extensions
+            : null;
 
         public void Visit(IPropertyEditorContext context) { }
     }

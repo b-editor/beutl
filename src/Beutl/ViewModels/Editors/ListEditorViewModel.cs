@@ -233,7 +233,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                     Added(index++, item);
                 }
 
-                UpdateIndex(index + 1);
+                UpdateIndex(index);
                 break;
 
             case NotifyCollectionChangedAction.Remove:
