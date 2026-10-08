@@ -737,6 +737,43 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
+    public async Task An_unreadable_restored_model_does_not_block_the_remaining_repair_dialog()
+    {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string directory = NewDirectory(); string path = Path.Combine(directory, "unreadable.obj");
+        var source = new ModelSource();
+        Assert.Throws<FileNotFoundException>(() => source.ReadFrom(new Uri(path)));
+        var model = new Model3D { Source = { CurrentValue = source } };
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
+            element.Objects.Add(model);
+            AddImage(editor.Scene, Path.Combine(directory, "missing-image.png"));
+        }
+        File.WriteAllText(path, "This is not a model.");
+        var owner = new Window(); owner.Show();
+        Task show = editor.ShowMissingMediaAsync(owner);
+        try
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+            while (!owner.OwnedWindows.OfType<MissingMediaDialog>().Any() && !show.IsCompleted && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            if (show.IsCompleted) await show;
+            var dialog = owner.OwnedWindows.OfType<MissingMediaDialog>().Single();
+            var vm = (MissingMediaDialogViewModel)dialog.DataContext!;
+            Assert.That(vm.Rows.Single().Name, Is.EqualTo("missing-image.png"));
+            Assert.That(source.MeshCount, Is.Zero);
+            dialog.Close(); await show;
+        }
+        finally
+        {
+            foreach (Window dialog in owner.OwnedWindows.ToArray()) dialog.Close();
+            owner.Close(); await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Explicit_relink_reloads_a_model_restored_at_its_original_path_and_keeps_saved_children()
     {
         await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();

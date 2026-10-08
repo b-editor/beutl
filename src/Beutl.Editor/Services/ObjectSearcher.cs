@@ -52,7 +52,7 @@ public class ObjectSearcher
                 return null;
         }
 
-        if (!_hashSet.Add(obj))
+        if (!obj.GetType().IsValueType && !_hashSet.Add(obj))
             return null;
 
         if (_predicate(_stack!, obj))
@@ -64,6 +64,9 @@ public class ObjectSearcher
 
             switch (obj)
             {
+                case string:
+                    break;
+
                 case CoreObject coreObject:
                     foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
                                  .Where(x => (!x.PropertyType.IsValueType
@@ -145,7 +148,7 @@ public class ObjectSearcher
             if (obj == null) return;
         }
 
-        if (!_hashSet.Add(obj))
+        if (!obj.GetType().IsValueType && !_hashSet.Add(obj))
             return;
 
         if (_predicate(_stack!, obj))
@@ -157,6 +160,9 @@ public class ObjectSearcher
 
             switch (obj)
             {
+                case string:
+                    break;
+
                 case CoreObject coreObject:
                     foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
                                  .Where(x => (!x.PropertyType.IsValueType || x.PropertyType.IsAssignableTo(typeof(IOptional))) &&

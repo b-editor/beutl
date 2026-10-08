@@ -20,8 +20,8 @@ public sealed partial class EditViewModel
     internal void ScheduleMediaFingerprints(bool finishSaveSnapshot = false)
     {
         if (_disposed) return;
-        // Opening, edits and auto-save must never create a Git save snapshot.
-        _finishFingerprintSaveSnapshot = finishSaveSnapshot;
+        // Ordinary scans cannot request a Git snapshot or cancel a pending explicit save.
+        _finishFingerprintSaveSnapshot |= finishSaveSnapshot;
         _fingerprintScanRequested = true;
         if (_fingerprintScanTask.IsCompleted)
             _fingerprintScanTask = UpdateMediaFingerprintsInBackgroundAsync();

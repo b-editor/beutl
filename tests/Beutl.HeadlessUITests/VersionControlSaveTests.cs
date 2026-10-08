@@ -248,6 +248,11 @@ public class VersionControlSaveTests
             else await TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(await CountSaveSnapshotsAsync(gitPath, projectRoot), Is.EqualTo(1));
+            // An ordinary auto-save must not cancel the explicit save that is
+            // waiting for its media hash, nor request a snapshot of its own.
+            scene.Duration += TimeSpan.FromSeconds(1);
+            editor.HistoryManager.Commit("Edit while hashing");
+            HeadlessTestHelpers.Settle();
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
             string relativeScene = Path.GetRelativePath(projectRoot, scene.Uri!.LocalPath).Replace('\\', '/');

@@ -48,7 +48,7 @@ public sealed partial class EditViewModel
                         using (HistoryManager.SuppressRecording())
                             ResourceRelocationService.RelinkFileSource(source, uri, loaded);
                     }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
                     {
                         _logger.LogWarning(ex, "Could not reload restored model {Uri}.", source.Uri);
                     }

@@ -1025,6 +1025,44 @@ public class ProjectPackageServiceTests
 
     #region Helper Methods
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Exported_fingerprints_follow_packaged_media_and_match_it_after_a_rename(bool external)
+    {
+        Project project = CreateAndSaveTestProjectWithItems();
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string mediaDirectory = Path.Combine(external ? _testDir : _projectDir, "media");
+        Directory.CreateDirectory(mediaDirectory);
+        string original = Path.Combine(mediaDirectory, "original.png");
+        using (var bitmap = new Bitmap(4, 4))
+        {
+            bitmap.GetPixelSpan().Fill(255);
+            Assert.That(bitmap.Save(original, EncodedImageFormat.Png), Is.True);
+        }
+        var source = new ImageSource(); source.ReadFrom(new Uri(original));
+        var element = new Element { Uri = new Uri(Path.Combine(_projectDir, "media.belm")) };
+        element.Objects.Add(new SourceImage { Source = { CurrentValue = source } });
+        scene.Children.Add(element);
+        var media = new MissingMediaService();
+        await media.UpdateFingerprintsAsync(scene);
+        string expectedHash = scene.MediaFingerprints[new Uri(original).AbsoluteUri].Sha256;
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        string package = Path.Combine(_exportDir, "fingerprints.zip");
+        Assert.That((await ProjectPackageService.Current.ExportAsync(project, package)).Success, Is.True);
+        ZipFile.ExtractToDirectory(package, _importDir);
+        var packaged = CoreSerializer.RestoreFromUri<Project>(new Uri(Path.Combine(_importDir, Path.GetFileName(project.Uri!.LocalPath))));
+        Scene packagedScene = packaged.Items.OfType<Scene>().Single();
+        var packagedSource = packagedScene.Children.Single().Objects.OfType<SourceImage>().Single().Source.CurrentValue!;
+        Assert.That(packagedScene.MediaFingerprints, Has.Count.EqualTo(1));
+        Assert.That(packagedScene.MediaFingerprints.ContainsKey(new Uri(original).AbsoluteUri), Is.False);
+        Assert.That(packagedScene.MediaFingerprints[packagedSource.Uri.AbsoluteUri].Sha256, Is.EqualTo(expectedHash));
+        string renamed = Path.Combine(Path.GetDirectoryName(packagedSource.Uri.LocalPath)!, "renamed.png");
+        File.Move(packagedSource.Uri.LocalPath, renamed);
+        var missing = media.FindMissing(packagedScene).Single();
+        Assert.That((await media.FindMatchesAsync([missing], _importDir))[missing], Is.EqualTo(renamed));
+        Assert.That(scene.MediaFingerprints[new Uri(original).AbsoluteUri].Sha256, Is.EqualTo(expectedHash), "Export must leave the original graph intact.");
+    }
+
     private sealed class InlineProgress(Action<(string Message, double Progress)> report)
         : IProgress<(string Message, double Progress)>
     {
