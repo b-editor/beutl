@@ -96,7 +96,7 @@ public class PaletteCommandTests
         {
             Assert.Multiple(() =>
             {
-                Assert.That(options.Value, Is.EqualTo("00:00:00.00"));
+                Assert.That(options.Value, Is.EqualTo("00:00:00.000"));
                 Assert.That(options.Validate!("nonsense"), Is.EqualTo(Strings.GotoTimecode_InvalidFormat));
                 Assert.That(options.Validate!("@missing"), Is.EqualTo(Strings.GotoTimecode_MarkerNotFound));
             });
@@ -109,17 +109,19 @@ public class PaletteCommandTests
         Assert.That(interaction.IsDone, Is.True);
     }
 
-    [TestCase(0, "00:00:00.00")]
-    [TestCase(23.5, "23:30:00.00")]
-    [TestCase(25, "1.01:00:00.00")]
-    public void Palette_timecodes_parse_back_to_the_same_time(double hours, string expected)
+    [TestCase(0, 30, "00:00:00.000")]
+    [TestCase(1, 120, "00:00:00.008")]
+    [TestCase(119, 120, "00:00:00.991")]
+    [TestCase(30 * 3600 * 23 + 15, 30, "23:00:00.500")]
+    [TestCase(30 * 3600 * 25, 30, "1.01:00:00.000")]
+    public void Palette_timecodes_parse_back_to_the_same_frame(long frame, int rate, string expected)
     {
-        TimeSpan time = TimeSpan.FromHours(hours);
+        TimeSpan time = TimeSpan.FromSeconds(frame / (double)rate).RoundToRate(rate);
         string text = CommandPaletteInput.FormatTimecode(time);
 
-        bool parsed = GotoTimecodeParser.TryParse(text, 30, TimeSpan.Zero, [], out TimeSpan result, out _);
+        bool parsed = GotoTimecodeParser.TryParse(text, rate, TimeSpan.Zero, [], out TimeSpan result, out _);
 
-        Assert.That((text, parsed, result), Is.EqualTo((expected, true, time)));
+        Assert.That((text, parsed, result.RoundToRate(rate)), Is.EqualTo((expected, true, time)));
     }
 
     [AvaloniaTest]
@@ -168,8 +170,8 @@ public class PaletteCommandTests
             Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(3)));
             Assert.That(goTo.PickedFrom<SceneMarker>().Select(i => (i.Label, i.Description)), Is.EqualTo(new[]
             {
-                ("Intro", "00:00:01.00"),
-                ("Outro", "00:00:03.00"),
+                ("Intro", "00:00:01.000"),
+                ("Outro", "00:00:03.000"),
             }));
         });
 

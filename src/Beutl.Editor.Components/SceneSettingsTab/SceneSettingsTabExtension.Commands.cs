@@ -101,8 +101,9 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
             || duration is { } d && d != scene.Duration;
         if (!changes) return;
 
-        // As in the tab: applying rebuilds the renderer, which must not happen mid-playback.
-        if (editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+        // Applying rebuilds the renderer, which must not happen mid-playback. Pause also returns a pause
+        // still draining the last frame, which IsPlaying no longer shows.
+        if (editorContext.GetService<IPreviewPlayer>() is { } player)
         {
             await player.Pause();
         }

@@ -412,6 +412,18 @@ public sealed partial class EditViewModel
             () => HistoryManager.JumpTo(index));
     }
 
+    // Resolves the entry inside the guarded change: flushing pending edits first can shift or drop entries.
+    internal ValueTask<bool> JumpToHistoryAsync(HistoryEntry entry)
+    {
+        int IndexOf() => Array.IndexOf(HistoryManager.GetEntriesSnapshot(), entry);
+        return ExecuteHistoryMutationAsync(
+            "JumpTo",
+            null,
+            null,
+            () => IndexOf() is var index and >= 0 && HistoryManager.WouldJumpToMove(index),
+            () => IndexOf() is var index and >= 0 && HistoryManager.JumpTo(index));
+    }
+
     internal ValueTask<TResult> ExecuteGuardedHistoryMutationAsync<TResult>(
         Func<bool> shouldPause,
         Func<TResult> mutate,

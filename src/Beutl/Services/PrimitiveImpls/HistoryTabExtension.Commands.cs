@@ -41,13 +41,9 @@ public sealed partial class HistoryTabExtension : IContextCommandHandler
             })
             .Reverse()
             .ToArray();
-        if (await interaction.ShowQuickPickAsync(items) is not { } picked) return;
-
-        // A commit while the list was open shifts or drops entries, so the index is looked up again.
-        int target = Array.IndexOf(history.GetEntriesSnapshot(), picked.Value);
-        if (target >= 0)
+        if (await interaction.ShowQuickPickAsync(items) is { } picked)
         {
-            await editViewModel.JumpToHistoryAsync(target);
+            await editViewModel.JumpToHistoryAsync(picked.Value);
         }
     }
 }

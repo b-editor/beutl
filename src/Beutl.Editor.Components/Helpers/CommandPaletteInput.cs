@@ -4,12 +4,12 @@
 public static class CommandPaletteInput
 {
     /// <summary>
-    /// Formats <paramref name="time"/> the way the player shows the playhead, adding the day from 24 hours on
-    /// so that the text parses back to the same time instead of wrapping to the first day.
+    /// Formats <paramref name="time"/> so that it parses back to the same frame: milliseconds keep a frame
+    /// apart even at 120 fps, and the day is added from 24 hours on instead of wrapping to the first day.
     /// </summary>
     public static string FormatTimecode(TimeSpan time)
     {
-        return time.ToString(time.Days > 0 ? @"d\.hh\:mm\:ss\.ff" : @"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture);
+        return time.ToString(time.Days > 0 ? @"d\.hh\:mm\:ss\.fff" : @"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
     }
 
     public static string? Required(string value)

@@ -42,8 +42,9 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
             .ToArray();
         if (await interaction.ShowQuickPickAsync(items) is not { } picked) return;
 
-        // Playback may have started while the list was open.
-        if (execution.EditorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+        // Playback may have started while the list was open. Pause also returns a pause still draining the
+        // last frame, which IsPlaying no longer shows.
+        if (execution.EditorContext.GetService<IPreviewPlayer>() is { } player)
         {
             await player.Pause();
         }
