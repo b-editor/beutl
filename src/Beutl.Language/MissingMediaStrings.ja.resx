@@ -5,7 +5,10 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Title" xml:space="preserve"><value>欠損メディアを再リンク</value></data>
-  <data name="Description" xml:space="preserve"><value>素材フォルダを指定すると欠損ファイルをまとめて検索できます。未解決の素材は元の参照を保持し、オフラインのまま開きます。</value></data>
+  <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} 件の素材が見つかりません。修復ツールから再リンクできます。</value></data>
+  <data name="OpenRepairTool" xml:space="preserve"><value>修復ツールを開く</value></data>
+  <data name="NoMissingMedia" xml:space="preserve"><value>欠損メディアはありません。</value></data>
+  <data name="Description" xml:space="preserve"><value>素材フォルダから欠損ファイルをまとめて検索できます。</value></data>
   <data name="SearchDirectory" xml:space="preserve"><value>素材フォルダ</value></data>
   <data name="Search" xml:space="preserve"><value>検索</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>フォルダを指定…</value></data>

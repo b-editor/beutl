@@ -15,13 +15,21 @@ namespace Beutl.Services;
 public sealed class NotificationServiceHandler : INotificationServiceHandler
 {
     private readonly ILogger _logger = Log.CreateLogger<NotificationServiceHandler>();
+    private readonly Func<MainView?> _findMainView;
 
-    private static void Close(FAInfoBar infoBar)
+    public NotificationServiceHandler() : this(MainViewLocator.Find) { }
+
+    internal NotificationServiceHandler(Func<MainView?> findMainView)
+    {
+        _findMainView = findMainView;
+    }
+
+    private void Close(FAInfoBar infoBar)
     {
         // ShowCoreAsync 側の Expiration 待機が後から `if (!infoBar.IsOpen) return;` を
         // 通過して HiddenNotificationPanel に積み直さないように、ここで明示的に閉じる
         infoBar.IsOpen = false;
-        if (MainViewLocator.Find() is MainView mainView)
+        if (_findMainView() is MainView mainView)
         {
             mainView.NotificationPanel.Children.Remove(infoBar);
             mainView.HiddenNotificationPanel.Children.Remove(infoBar);
@@ -33,7 +41,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         _ = ShowCoreAsync(notification);
     }
 
-    private async Task ShowCoreAsync(Notification notification)
+    internal async Task ShowCoreAsync(Notification notification)
     {
         Action closeNotification = CreateOnceCallback(
             () => InvokeCallback(notification.OnClose, notification, "OnClose"));
@@ -43,13 +51,14 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 
         try
         {
-            await App.WaitWindowOpened();
+            await App.WaitWindowOpened().AsTask().WaitAsync(notification.CancellationToken);
 
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 try
                 {
-                    if (MainViewLocator.Find() is not MainView mainView)
+                    notification.CancellationToken.ThrowIfCancellationRequested();
+                    if (_findMainView() is not MainView mainView)
                     {
                         showFailed();
                         return;
@@ -59,6 +68,12 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     FAInfoBar infoBar = BuildInfoBar(notification, dismissed, closeNotification);
                     mainView.NotificationPanel.Children.Add(infoBar);
                     shown = true;
+                    using CancellationTokenRegistration registration = notification.CancellationToken.Register(
+                        () => Dispatcher.UIThread.Post(() =>
+                        {
+                            Close(infoBar);
+                            dismissed.TrySetResult();
+                        }));
 
                     if (await WaitForDismissal(
                             notification.Expiration ?? TimeSpan.FromSeconds(3), dismissed.Task))
@@ -73,13 +88,20 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     infoBar.IsOpen = false;
                     // FluentAvalonia の FAInfoBar クローズアニメーション完了待ち (≈167ms)
                     await Task.Delay(167);
+                    if (dismissed.Task.IsCompleted) return;
 
-                    if (MainViewLocator.Find() is MainView mv)
+                    if (_findMainView() is MainView mv)
                     {
                         mv.NotificationPanel.Children.Remove(infoBar);
                         mv.HiddenNotificationPanel.Children.Add(infoBar);
                         infoBar.IsOpen = true;
                     }
+
+                    if (notification.CancellationToken.CanBeCanceled)
+                        await dismissed.Task;
+                }
+                catch (OperationCanceledException) when (notification.CancellationToken.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -93,6 +115,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     }
                 }
             });
+        }
+        catch (OperationCanceledException) when (notification.CancellationToken.IsCancellationRequested)
+        {
         }
         // dispatcher shutdown 等、InvokeAsync 自体の失敗をここで握る
         catch (Exception e)

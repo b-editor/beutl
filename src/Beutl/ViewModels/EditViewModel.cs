@@ -187,6 +187,7 @@ public sealed partial class EditViewModel
         RestoreState();
         CaptureSavedMediaUris();
         ScheduleMediaFingerprints();
+        NotifyMissingMedia();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
@@ -299,7 +300,7 @@ public sealed partial class EditViewModel
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
         Cleanup(_autoSaveCancellation.Cancel);
-        Cleanup(() => _missingMediaDialog?.Close());
+        Cleanup(DismissMissingMediaNotification);
         Cleanup(HasMediaRepairs.Dispose);
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         try

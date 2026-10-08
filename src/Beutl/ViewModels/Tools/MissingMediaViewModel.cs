@@ -1,11 +1,14 @@
-﻿using Beutl.Configuration;
+﻿using System.Collections.ObjectModel;
+using System.Text.Json.Nodes;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.IO;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Services.PrimitiveImpls;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Dialogs;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class MissingMediaRowViewModel : IDisposable
 {
@@ -44,7 +47,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
     }
 }
 
-public sealed class MissingMediaDialogViewModel : IDisposable
+public sealed class MissingMediaViewModel : IToolContext
 {
     private readonly EditViewModel _editor;
     private readonly MissingMediaService _service = new();
@@ -53,19 +56,20 @@ public sealed class MissingMediaDialogViewModel : IDisposable
     private readonly List<IDisposable> _subscriptions = [];
     private bool _disposed;
 
-    public MissingMediaDialogViewModel(EditViewModel editor)
+    public MissingMediaViewModel(EditViewModel editor)
     {
         _editor = editor;
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(editor.MediaRepairCancellationToken);
         _token = _cancellation.Token;
-        Rows = _service.FindMissing(editor.Scene).Select(media => new MissingMediaRowViewModel(media)).ToArray();
         SearchDirectory.Value = GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory;
-        foreach (var row in Rows)
-            _subscriptions.Add(row.IsOffline.Subscribe(_ => RefreshState()));
-        RefreshState();
+        RefreshRows();
     }
 
-    public IReadOnlyList<MissingMediaRowViewModel> Rows { get; }
+    public ToolTabExtension Extension => MissingMediaTabExtension.Instance;
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(MissingMediaStrings.Title);
+    public ObservableCollection<MissingMediaRowViewModel> Rows { get; } = [];
+    public ReactivePropertySlim<bool> IsEmpty { get; } = new();
     public ReactivePropertySlim<string?> SearchDirectory { get; } = new();
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
     public ReactivePropertySlim<bool> CanEdit { get; } = new(true);
@@ -73,8 +77,36 @@ public sealed class MissingMediaDialogViewModel : IDisposable
     public ReactivePropertySlim<bool> CanDismiss { get; } = new(true);
     public ReactivePropertySlim<string> Summary { get; } = new(string.Empty);
     public ReactivePropertySlim<string?> Error { get; } = new();
-    public bool IsApplying { get; private set; }
-    public bool CanClose => !IsApplying || _token.IsCancellationRequested;
+    internal CancellationToken CancellationToken => _token;
+    public Task RefreshAsync() => _editor.OpenMissingMediaAsync(refresh: true);
+
+    public void Close() => _editor.CloseToolTab(this);
+
+    internal void RefreshRows()
+    {
+        var offline = Rows.Where(row => row.IsOffline.Value)
+            .Select(row => (row.Media.Kind, row.Media.ExpectedUri, row.Media.FontFamily?.Name)).ToHashSet();
+        foreach (var subscription in _subscriptions) subscription.Dispose();
+        _subscriptions.Clear();
+        foreach (var row in Rows) row.Dispose();
+        Rows.Clear();
+        foreach (var media in _service.FindMissing(_editor.Scene))
+        {
+            var row = new MissingMediaRowViewModel(media);
+            row.IsOffline.Value = offline.Contains((media.Kind, media.ExpectedUri, media.FontFamily?.Name));
+            Rows.Add(row);
+            _subscriptions.Add(row.IsOffline.Subscribe(_ => RefreshState()));
+        }
+        IsEmpty.Value = Rows.Count == 0;
+        if (IsEmpty.Value) _editor.DismissMissingMediaNotification();
+        RefreshState();
+    }
+
+    public object? GetService(Type serviceType) => _editor.GetService(serviceType);
+
+    public void ReadFromJson(JsonObject json) { }
+
+    public void WriteToJson(JsonObject json) { }
 
     public async Task FindInDirectoryAsync(string directory, MissingMediaRowViewModel? origin = null)
     {
@@ -155,8 +187,9 @@ public sealed class MissingMediaDialogViewModel : IDisposable
     {
         if (_disposed || !CanApply.Value) return false;
         SetBusy(true);
-        IsApplying = true;
         CanDismiss.Value = false;
+        var dockable = _editor.DockHost.Factory.EnumerateTools().FirstOrDefault(tool => tool.ToolContext == this);
+        if (dockable != null) dockable.CanClose = false;
         Error.Value = null;
         try
         {
@@ -179,13 +212,20 @@ public sealed class MissingMediaDialogViewModel : IDisposable
                     replacementModels.Add(row);
             }
             _token.ThrowIfCancellationRequested();
+            // The scene remains editable while this tab is open; resolve its current
+            // source instances rather than the detection-time references.
+            var currentSources = new ObjectSearcher(_editor.Scene,
+                    value => value is Beutl.Media.Source.MediaSource { HasUri: true }
+                        or Beutl.Graphics3D.Models.ModelSource { HasUri: true })
+                .SearchAll().OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance)
+                .ToLookup(source => (source.GetType(), source.Uri));
             using (_editor.HistoryManager.SuppressRecording())
             {
                 foreach (var row in rows.Where(row => row.Media.Kind != MissingMediaKind.Font))
                 {
                     var uri = new Uri(row.ReplacementPath.Value!);
-                    foreach (IFileSource source in row.Media.References.Select(reference => reference.Source)
-                                 .OfType<IFileSource>().Distinct<IFileSource>(ReferenceEqualityComparer.Instance))
+                    Type sourceType = row.Media.References.First(reference => reference.Source != null).Source!.GetType();
+                    foreach (IFileSource source in currentSources[(sourceType, row.Media.ExpectedUri!)])
                         ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
                             synchronizeModelGeometry: replacementModels.Contains(row));
                 }
@@ -215,6 +255,7 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             _editor.Renderer.Value.ClearAllCaches();
             _editor.FrameCacheManager.Value.Clear();
             _editor.Player.QueuePreviewRender();
+            RefreshRows();
             return true;
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { return false; }
@@ -225,7 +266,7 @@ public sealed class MissingMediaDialogViewModel : IDisposable
         }
         finally
         {
-            IsApplying = false;
+            if (dockable != null) dockable.CanClose = true;
             if (!_disposed)
             {
                 CanDismiss.Value = true;
@@ -234,8 +275,9 @@ public sealed class MissingMediaDialogViewModel : IDisposable
         }
     }
 
-    private void SetBusy(bool busy)
+    internal void SetBusy(bool busy)
     {
+        if (_disposed) return;
         IsBusy.Value = busy;
         CanEdit.Value = !busy;
         RefreshState();
@@ -263,6 +305,9 @@ public sealed class MissingMediaDialogViewModel : IDisposable
         CanEdit.Dispose();
         CanApply.Dispose();
         CanDismiss.Dispose();
+        IsSelected.Dispose();
+        Header.Dispose();
+        IsEmpty.Dispose();
         Summary.Dispose();
         Error.Dispose();
     }

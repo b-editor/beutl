@@ -20,17 +20,204 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
-using Beutl.Views.Dialogs;
+using Beutl.ViewModels.Tools;
+using Beutl.Views;
+using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 
 public class MissingMediaTests
 {
+    [AvaloniaTest]
+    public async Task Opening_missing_media_shows_a_persistent_notification_that_opens_one_repair_tab()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        string original = Path.Combine(directory, "image.png");
+        File.WriteAllBytes(original, s_png);
+        using (editor.HistoryManager.SuppressRecording()) AddImage(editor.Scene, original);
+        await editor.SaveAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+        string moved = Path.Combine(directory, "renamed.png");
+        File.Move(original, moved);
+        await TestReset.ResetShellAsync();
+        var handler = new CaptureNotificationHandler();
+        var previousHandler = NotificationService.Handler;
+        NotificationService.Handler = handler;
+        try
+        {
+            await TestShell.Project.OpenProject(projectPath);
+            TestShell.Editor.ActivateTabItem(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
+            editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            editor.NotifyMissingMedia();
+            Notification notification = handler.Notifications.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(notification.Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
+                Assert.That(notification.Type, Is.EqualTo(NotificationType.Warning));
+                Assert.That(notification.Message, Does.Contain(editor.Scene.Name));
+                Assert.That(notification.Actions, Has.Count.EqualTo(1));
+                Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Null);
+            });
+            notification.Actions![0].Callback();
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+            while (editor.FindToolTab<MissingMediaViewModel>() == null && DateTime.UtcNow < deadline)
+                await Task.Delay(10);
+            var tool = editor.FindToolTab<MissingMediaViewModel>()!;
+            Assert.That(tool, Is.Not.Null);
+            notification.Actions[0].Callback();
+            Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.SameAs(tool));
+            Assert.That(editor.DockHost.Factory.EnumerateTools().Count(item => item.ToolContext is MissingMediaViewModel), Is.EqualTo(1));
+            Assert.That(editor.DockHost.Factory.EnumerateTools().Single(item => item.ToolContext == tool).Owner,
+                Is.SameAs(editor.DockHost.Factory.GetAnchoredDock(Beutl.Extensibility.DockAnchor.Right)));
+            Assert.That(notification.Actions[0].DismissOnInvoke, Is.False);
+            Assert.That(notification.CancellationToken.IsCancellationRequested, Is.False);
+            var editView = new EditView { DataContext = editor };
+            var window = new Window { Content = editView, Width = 1280, Height = 900 };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render(3);
+                var toolView = editView.GetVisualDescendants().OfType<MissingMediaView>().Single();
+                Assert.That(toolView.DataContext, Is.SameAs(tool));
+                Assert.That(window.OwnedWindows, Is.Empty);
+                using WriteableBitmap? frame = window.CaptureRenderedFrame();
+                Assert.That(frame, Is.Not.Null);
+                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", "missing-media-docked-tool.png");
+                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                frame!.Save(output, PngBitmapEncoderOptions.Default);
+            }
+            finally { window.Close(); }
+            await tool.FindInDirectoryAsync(directory);
+            Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
+            Assert.That(tool.Rows, Is.Empty);
+            Assert.That(notification.CancellationToken.IsCancellationRequested, Is.True);
+            var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
+            Assert.That(((SourceImage)saved.Children.Single().Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(moved));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            NotificationService.Handler = previousHandler;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Repair_tab_keeps_unresolved_rows_and_notifications_until_the_editor_closes()
+    {
+        await TestReset.ResetShellAsync();
+        var previousHandler = NotificationService.Handler;
+        var handler = new CaptureNotificationHandler();
+        NotificationService.Handler = handler;
+        try
+        {
+            var editor = await CreateEditorAsync();
+            string directory = NewDirectory();
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                AddImage(editor.Scene, Path.Combine(directory, "old", "first.png"));
+                AddImage(editor.Scene, Path.Combine(directory, "old", "second.png"));
+            }
+            editor.NotifyMissingMedia();
+            Notification notification = handler.Notifications.Single();
+            await editor.OpenMissingMediaAsync();
+            var tool = editor.FindToolTab<MissingMediaViewModel>()!;
+            tool.Rows.Single(row => row.Name == "second.png").IsOffline.Value = true;
+            string replacement = Path.Combine(directory, "first.png");
+            File.WriteAllBytes(replacement, s_png);
+            await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "first.png"), replacement);
+            Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
+            Assert.That(tool.Rows.Single().Name, Is.EqualTo("second.png"));
+            Assert.That(tool.Rows.Single().IsOffline.Value, Is.True);
+            Assert.That(notification.CancellationToken.IsCancellationRequested, Is.False);
+            tool.Close();
+            Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Null);
+            await editor.OpenMissingMediaAsync();
+            Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Not.SameAs(tool));
+            await TestReset.ResetShellAsync();
+            Assert.That(notification.CancellationToken.IsCancellationRequested, Is.True);
+            notification.Actions![0].Callback();
+            Assert.That(TestShell.Editor.TabItems, Is.Empty);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            NotificationService.Handler = previousHandler;
+        }
+    }
+
+    private sealed class CaptureNotificationHandler : INotificationServiceHandler
+    {
+        public List<Notification> Notifications { get; } = [];
+        public void Show(Notification notification) => Notifications.Add(notification);
+    }
+
+    [AvaloniaTest]
+    public async Task A_repair_uses_the_current_scene_references_after_edits_with_the_tab_open()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        string original = Path.Combine(directory, "missing.png");
+        string replacement = Path.Combine(directory, "replacement.png");
+        File.WriteAllBytes(replacement, s_png);
+        Element removed;
+        using (editor.HistoryManager.SuppressRecording()) removed = AddImage(editor.Scene, original);
+        try
+        {
+            await editor.OpenMissingMediaAsync();
+            var tool = editor.FindToolTab<MissingMediaViewModel>()!;
+            await tool.SetReplacementAsync(tool.Rows.Single(), replacement);
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Children.Remove(removed);
+                AddImage(editor.Scene, original, "First new reference");
+                AddImage(editor.Scene, original, "Second new reference");
+            }
+            Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
+            Assert.That(tool.Rows, Is.Empty);
+            Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.CurrentValue!.Uri.LocalPath),
+                Is.All.EqualTo(replacement));
+            Assert.That(((SourceImage)removed.Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(original));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
     private static readonly byte[] s_png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=");
+
+    [AvaloniaTest]
+    public async Task Repair_targets_do_not_follow_uri_changes_from_earlier_rows()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        string firstPath = Path.Combine(directory, "first.png");
+        string secondPath = Path.Combine(directory, "second.png");
+        string replacement = Path.Combine(directory, "replacement.png");
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            AddImage(editor.Scene, firstPath, "First");
+            AddImage(editor.Scene, secondPath, "Second");
+        }
+        try
+        {
+            using var tool = new MissingMediaViewModel(editor);
+            File.WriteAllBytes(secondPath, s_png);
+            File.WriteAllBytes(replacement, s_png);
+            await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "first.png"), secondPath);
+            await tool.SetReplacementAsync(tool.Rows.Single(row => row.Name == "second.png"), replacement);
+            Assert.That(await tool.ApplyAsync(), Is.True, tool.Error.Value);
+            Assert.That(((SourceImage)editor.Scene.Children[0].Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(secondPath));
+            Assert.That(((SourceImage)editor.Scene.Children[1].Objects.Single()).Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(replacement));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
 
     private static string NewDirectory() => Directory.CreateDirectory(
         Path.Combine(BeutlHomeIsolation.CurrentHome!, "relink-" + Guid.NewGuid().ToString("N"))).FullName;
@@ -176,7 +363,7 @@ public class MissingMediaTests
         }
         using var textResource = text.ToResource(CompositionContext.Default);
         var fallbackText = textResource.GetTextElements();
-        using var vm = new MissingMediaDialogViewModel(editor);
+        using var vm = new MissingMediaViewModel(editor);
         Assert.That(vm.Rows.Single().Media.Kind, Is.EqualTo(MissingMediaKind.Font));
         await vm.FindInDirectoryAsync(directory);
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
@@ -209,7 +396,7 @@ public class MissingMediaTests
                 File.WriteAllBytes(Path.Combine(directory, name), s_png);
             }
         }
-        using var vm = new MissingMediaDialogViewModel(editor);
+        using var vm = new MissingMediaViewModel(editor);
         Assert.That(vm.Rows, Has.Count.EqualTo(300));
         await vm.FindInDirectoryAsync(directory);
         Assert.That(vm.Rows.All(row => row.ReplacementPath.Value != null), Is.True, vm.Error.Value);
@@ -282,7 +469,7 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
-    public async Task Same_uri_image_relink_recovers_the_existing_preview_resource_through_the_dialog()
+    public async Task Same_uri_image_relink_recovers_the_existing_preview_resource_through_the_repair_tool()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await CreateEditorAsync();
@@ -294,7 +481,7 @@ public class MissingMediaTests
         var compositor = editor.Renderer.Value.Compositor;
         var initial = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
         Assert.That(initial.Source!.IsOffline, Is.True);
-        using var vm = new MissingMediaDialogViewModel(editor);
+        using var vm = new MissingMediaViewModel(editor);
         File.WriteAllBytes(path, s_png);
         // A second consumer can populate the shared cache before the relink is applied.
         using var shared = source.ToResource(CompositionContext.Default);
@@ -393,10 +580,11 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, 980, 620)]
-    [TestCase(true, 980, 620)]
-    [TestCase(false, 760, 440)]
-    public async Task Dialog_renders_virtualized_rows_and_allows_invalid_files_to_stay_offline(bool dark, int width, int height)
+    [TestCase(false, 360, 680, "en")]
+    [TestCase(true, 360, 680, "en")]
+    [TestCase(false, 400, 680, "ja")]
+    [TestCase(false, 760, 440, "en")]
+    public async Task Tool_renders_virtualized_rows_and_allows_invalid_files_to_stay_offline(bool dark, int width, int height, string culture)
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await CreateEditorAsync();
@@ -406,14 +594,17 @@ public class MissingMediaTests
             for (int i = 0; i < 350; i++)
                 AddImage(editor.Scene, Path.Combine(directory, "previous-media-folder", $"footage-{i:D3}.png"), $"Shot {i:D3}");
         }
-        using var vm = new MissingMediaDialogViewModel(editor);
-        var dialog = new MissingMediaDialog
-        { DataContext = vm, Width = width, Height = height, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(culture);
+        using var vm = new MissingMediaViewModel(editor);
+        var view = new MissingMediaView { DataContext = vm };
+        var dialog = new Window
+        { Content = view, Width = width, Height = height, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
         try
         {
             dialog.Show();
             HeadlessTestHelpers.Render(3);
-            var realized = dialog.FindControl<ListBox>("MissingMediaList")!.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
+            var realized = view.FindControl<ListBox>("MissingMediaList")!.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
             Assert.That(realized, Has.Length.LessThan(40));
             var firstRow = realized[0];
             var texts = firstRow.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().ToArray();
@@ -421,9 +612,15 @@ public class MissingMediaTests
             var nameText = texts.Single(text => text.Name == "MediaNameText");
             var pathText = texts.Single(text => text.Name == "ExpectedPathText");
             Assert.That(nameText.TranslatePoint(default, firstRow)!.Value.X,
-                Is.GreaterThanOrEqualTo(kindText.TranslatePoint(default, firstRow)!.Value.X + kindText.Bounds.Width + 8));
-            Assert.That(pathText.Bounds.Width, Is.GreaterThan(200));
-            Assert.That(dialog.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
+                Is.GreaterThanOrEqualTo(kindText.TranslatePoint(default, firstRow)!.Value.X + kindText.Bounds.Width + 7));
+            Assert.That(pathText.Bounds.Width, Is.GreaterThan(100));
+            Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
+            Assert.That(view.FindControl<Button>("FindFolderButton")!.Bounds.Width, Is.GreaterThan(0));
+            foreach (var button in firstRow.GetVisualDescendants().OfType<Button>())
+            {
+                var position = button.TranslatePoint(default, firstRow)!.Value;
+                Assert.That(position.X + button.Bounds.Width, Is.LessThanOrEqualTo(firstRow.Bounds.Width + 1));
+            }
             string invalid = Path.Combine(directory, "unknown.png");
             File.WriteAllText(invalid, "not an image");
             await vm.SetReplacementAsync(vm.Rows[0], invalid);
@@ -431,11 +628,11 @@ public class MissingMediaTests
             HeadlessTestHelpers.Render(3);
             Assert.That(vm.Rows[0].ReplacementPath.Value, Is.Null);
             Assert.That(vm.Error.Value, Is.Not.Null);
-            Assert.That(dialog.FindControl<Button>("ContinueOfflineButton")!.IsEnabled, Is.True);
-            Assert.That(dialog.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
+            Assert.That(view.FindControl<Button>("CloseButton")!.IsEnabled, Is.True);
+            Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
             using WriteableBitmap? frame = dialog.CaptureRenderedFrame();
             Assert.That(frame, Is.Not.Null);
-            string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-{(dark ? "dark" : "light")}-{width}.png");
+            string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-tool-{culture}-{(dark ? "dark" : "light")}-{width}.png");
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             frame!.Save(output, PngBitmapEncoderOptions.Default);
             TestContext.Out.WriteLine($"Capture: {output}");
@@ -443,6 +640,7 @@ public class MissingMediaTests
         finally
         {
             dialog.Close();
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
             await TestReset.ResetShellAsync();
         }
     }
@@ -458,7 +656,7 @@ public class MissingMediaTests
         string invalid = Path.Combine(directory, "invalid.png");
         File.WriteAllBytes(valid, s_png);
         File.WriteAllText(invalid, "not an image");
-        using var vm = new MissingMediaDialogViewModel(editor);
+        using var vm = new MissingMediaViewModel(editor);
         await vm.SetReplacementAsync(vm.Rows.Single(), valid);
         Assert.That(vm.CanApply.Value, Is.True);
         await vm.SetReplacementAsync(vm.Rows.Single(), invalid);
@@ -661,7 +859,7 @@ public class MissingMediaTests
         editor.EditorService.ProjectVersionControlCoordinator = coordinator.Object;
         try
         {
-            using var vm = new MissingMediaDialogViewModel(editor);
+            using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), path);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             await editor.WaitForMediaFingerprintsAsync();
@@ -712,7 +910,7 @@ public class MissingMediaTests
         Assert.That(await service.FindMatchesAsync([missing], Path.GetDirectoryName(different)!), Is.Empty);
         try
         {
-            using var vm = new MissingMediaDialogViewModel(editor);
+            using var vm = new MissingMediaViewModel(editor);
             if (chooseDifferentBundle) await vm.SetReplacementAsync(vm.Rows.Single(), different);
             else await vm.FindInDirectoryAsync(Path.Combine(directory, "search"));
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(chooseDifferentBundle ? different : identical));
@@ -760,7 +958,7 @@ public class MissingMediaTests
         }
         try
         {
-            using var vm = new MissingMediaDialogViewModel(editor);
+            using var vm = new MissingMediaViewModel(editor);
             if (manual) await vm.SetReplacementAsync(vm.Rows.Single(), files[0]);
             else await vm.FindInDirectoryAsync(directory);
             Assert.That(vm.Rows.Single().FontReplacementFiles, Is.EquivalentTo(files));
@@ -788,7 +986,7 @@ public class MissingMediaTests
         var owner = new Window(); owner.Show();
         try
         {
-            await editor.ShowMissingMediaAsync(owner);
+            await editor.OpenMissingMediaAsync(refresh: true);
             var refreshed = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
             Assert.That(refreshed.Source!.IsOffline, Is.False);
         }
@@ -827,7 +1025,7 @@ public class MissingMediaTests
         File.Delete(original);
         try
         {
-            using var vm = new MissingMediaDialogViewModel(editor);
+            using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(model.Children, Is.EqualTo(new[] { child, extra }));
@@ -842,7 +1040,7 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
-    public async Task An_unreadable_restored_model_does_not_block_the_remaining_repair_dialog()
+    public async Task An_unreadable_restored_model_does_not_block_the_remaining_repair_tool()
     {
         await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
         await editor.WaitForMediaFingerprintsAsync();
@@ -858,18 +1056,14 @@ public class MissingMediaTests
         }
         File.WriteAllText(path, "This is not a model.");
         var owner = new Window(); owner.Show();
-        Task show = editor.ShowMissingMediaAsync(owner);
         try
         {
-            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
-            while (!owner.OwnedWindows.OfType<MissingMediaDialog>().Any() && !show.IsCompleted && DateTime.UtcNow < deadline)
-                await Task.Delay(10);
-            if (show.IsCompleted) await show;
-            var dialog = owner.OwnedWindows.OfType<MissingMediaDialog>().Single();
-            var vm = (MissingMediaDialogViewModel)dialog.DataContext!;
+            await editor.OpenMissingMediaAsync(refresh: true);
+            var vm = editor.FindToolTab<MissingMediaViewModel>()!;
             Assert.That(vm.Rows.Single().Name, Is.EqualTo("missing-image.png"));
             Assert.That(source.MeshCount, Is.Zero);
-            dialog.Close(); await show;
+            Assert.That(owner.OwnedWindows, Is.Empty);
+            vm.Close();
         }
         finally
         {
@@ -909,7 +1103,7 @@ public class MissingMediaTests
         var owner = new Window(); owner.Show();
         try
         {
-            await editor.ShowMissingMediaAsync(owner);
+            await editor.OpenMissingMediaAsync(refresh: true);
             Assert.That(source.MeshCount, Is.EqualTo(1));
             Assert.That(CoreSerializer.SerializeToJsonObject(model.Children.Single()).ToJsonString(), Is.EqualTo(savedChild));
             using (editor.HistoryManager.SuppressRecording())
@@ -961,7 +1155,7 @@ public class MissingMediaTests
         var savedChildren = children.Select(child => CoreSerializer.SerializeToJsonObject(child).ToJsonString()).ToArray();
         try
         {
-            using var vm = new MissingMediaDialogViewModel(editor);
+            using var vm = new MissingMediaViewModel(editor);
             if (withFingerprint) await vm.FindInDirectoryAsync(Path.GetDirectoryName(moved)!);
             else await vm.SetReplacementAsync(vm.Rows.Single(), moved);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
@@ -1031,7 +1225,7 @@ public class MissingMediaTests
         }
         try
         {
-            using var vm = new MissingMediaDialogViewModel(editor);
+            using var vm = new MissingMediaViewModel(editor);
             await vm.FindInDirectoryAsync(Path.GetDirectoryName(path)!);
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(path));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);

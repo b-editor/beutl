@@ -1,10 +1,9 @@
-﻿using Avalonia.Controls;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media.Source;
-using Beutl.ViewModels.Dialogs;
-using Beutl.Views.Dialogs;
+using Beutl.Services;
+using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -12,8 +11,8 @@ namespace Beutl.ViewModels;
 
 public sealed partial class EditViewModel
 {
-    private bool _checkedMissingMedia;
-    private MissingMediaDialog? _missingMediaDialog;
+    private CancellationTokenSource? _missingMediaNotification;
+    private bool _openingMissingMedia;
 
     // In-place URI repairs do not produce property-history entries. Retain this
     // flag if saving fails, until an explicit save succeeds.
@@ -21,13 +20,50 @@ public sealed partial class EditViewModel
 
     internal CancellationToken MediaRepairCancellationToken => _autoSaveCancellation.Token;
 
-    internal async Task ShowMissingMediaAsync(Window owner, bool onlyOnFirstOpen = false)
+    internal void NotifyMissingMedia()
     {
-        if (_disposed || _missingMediaDialog != null || (onlyOnFirstOpen && _checkedMissingMedia)) return;
-        if (!onlyOnFirstOpen)
+        if (_disposed || _missingMediaNotification != null) return;
+        int count = new MissingMediaService().FindMissing(Scene).Count;
+        if (count == 0) return;
+        _missingMediaNotification = CancellationTokenSource.CreateLinkedTokenSource(MediaRepairCancellationToken);
+        NotificationService.Show(new Beutl.Services.Notification(
+            MissingMediaStrings.Title,
+            string.Format(MissingMediaStrings.NotificationMessage, Scene.Name, count),
+            NotificationType.Warning,
+            Expiration: Timeout.InfiniteTimeSpan,
+            OnClose: DismissMissingMediaNotification,
+            Actions: [new(MissingMediaStrings.OpenRepairTool, () => _ = OpenMissingMediaAsync(), DismissOnInvoke: false)])
+        {
+            CancellationToken = _missingMediaNotification.Token
+        });
+    }
+
+    internal void DismissMissingMediaNotification()
+    {
+        _missingMediaNotification?.Cancel();
+        _missingMediaNotification?.Dispose();
+        _missingMediaNotification = null;
+    }
+
+    internal async Task OpenMissingMediaAsync(bool refresh = false)
+    {
+        if (_disposed || _openingMissingMedia) return;
+        var existing = FindToolTab<MissingMediaViewModel>();
+        if (existing != null && !refresh)
+        {
+            EditorService.ActivateTabItem(Scene);
+            OpenToolTab(existing);
+            return;
+        }
+        if (existing?.IsBusy.Value == true) return;
+        CancellationToken cancellationToken = existing?.CancellationToken ?? MediaRepairCancellationToken;
+        _openingMissingMedia = true;
+        existing?.SetBusy(true);
+        try
         {
             using var suspension = EditorService.SuspendEditor(this);
             await Player.Pause();
+            cancellationToken.ThrowIfCancellationRequested();
             if (_disposed) return;
             foreach (IFileSource source in new Beutl.Editor.Services.ObjectSearcher(Scene,
                          value => value is MediaSource { HasUri: true } or ModelSource { HasUri: true, MeshCount: 0 })
@@ -43,7 +79,8 @@ public sealed partial class EditViewModel
                         var loaded = await Task.Run(() =>
                         {
                             var model = new ModelSource(); model.ReadFrom(uri); return model;
-                        }, MediaRepairCancellationToken);
+                        }, cancellationToken);
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (_disposed) return;
                         using (HistoryManager.SuppressRecording())
                             ResourceRelocationService.RelinkFileSource(source, uri, loaded);
@@ -58,19 +95,27 @@ public sealed partial class EditViewModel
             Renderer.Value.ClearAllCaches();
             FrameCacheManager.Value.Clear();
             Player.QueuePreviewRender();
+
+            if (existing != null) existing.RefreshRows();
+            else
+            {
+                existing = new MissingMediaViewModel(this);
+                if (!DockHost.OpenToolTab(existing, DockHost.Factory.GetAnchoredDock(existing.Extension.DefaultAnchor)))
+                {
+                    existing.Dispose();
+                    return;
+                }
+            }
+            EditorService.ActivateTabItem(Scene);
+            OpenToolTab(existing);
         }
-        _checkedMissingMedia = true;
-        using var vm = new MissingMediaDialogViewModel(this);
-        if (vm.Rows.Count == 0) return;
-        var dialog = new MissingMediaDialog { DataContext = vm };
-        _missingMediaDialog = dialog;
-        try
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            await dialog.ShowDialog(owner);
         }
         finally
         {
-            _missingMediaDialog = null;
+            _openingMissingMedia = false;
+            existing?.SetBusy(false);
         }
     }
 }

@@ -5,7 +5,10 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Title" xml:space="preserve"><value>Volver a vincular medios faltantes</value></data>
-  <data name="Description" xml:space="preserve"><value>Selecciona una carpeta para buscar los archivos faltantes. Los archivos sin resolver conservarán sus referencias originales y permanecerán sin conexión.</value></data>
+  <data name="NotificationMessage" xml:space="preserve"><value>{0}: no se encontraron {1} referencias multimedia. Abre la herramienta de reparación para volver a vincularlas.</value></data>
+  <data name="OpenRepairTool" xml:space="preserve"><value>Abrir herramienta de reparación</value></data>
+  <data name="NoMissingMedia" xml:space="preserve"><value>No faltan archivos multimedia.</value></data>
+  <data name="Description" xml:space="preserve"><value>Busca en una carpeta para volver a vincular los archivos faltantes.</value></data>
   <data name="SearchDirectory" xml:space="preserve"><value>Carpeta de medios</value></data>
   <data name="Search" xml:space="preserve"><value>Buscar</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>Buscar en carpeta…</value></data>

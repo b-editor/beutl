@@ -5,7 +5,10 @@
   <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="Title" xml:space="preserve"><value>Relink missing media</value></data>
-  <data name="Description" xml:space="preserve"><value>Choose a media folder to find all missing files. Unresolved files keep their original references and remain offline.</value></data>
+  <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} media references could not be found. Open the repair tool to relink them.</value></data>
+  <data name="OpenRepairTool" xml:space="preserve"><value>Open repair tool</value></data>
+  <data name="NoMissingMedia" xml:space="preserve"><value>No missing media.</value></data>
+  <data name="Description" xml:space="preserve"><value>Search a media folder to relink missing files.</value></data>
   <data name="SearchDirectory" xml:space="preserve"><value>Media folder</value></data>
   <data name="Search" xml:space="preserve"><value>Search</value></data>
   <data name="FindInFolder" xml:space="preserve"><value>Find in folder…</value></data>

@@ -40,8 +40,8 @@ public partial class MenuBarViewModel
             .WithSubscribe(OnShowSceneSettings);
         RelinkMedia = new AsyncReactiveCommand(isSceneOpened).WithSubscribe(async () =>
         {
-            if (TryGetSelectedEditViewModel(out var editor) && AppHelper.GetTopLevel() is Avalonia.Controls.Window owner)
-                await editor.ShowMissingMediaAsync(owner);
+            if (TryGetSelectedEditViewModel(out var editor))
+                await editor.OpenMissingMediaAsync(refresh: true);
         });
     }
 

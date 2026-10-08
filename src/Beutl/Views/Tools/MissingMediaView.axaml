@@ -1,0 +1,64 @@
+<UserControl x:Class="Beutl.Views.Tools.MissingMediaView"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lang="using:Beutl.Language"
+        xmlns:vm="using:Beutl.ViewModels.Tools"
+        x:DataType="vm:MissingMediaViewModel"
+        x:CompileBindings="True">
+    <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" RowSpacing="8">
+        <TextBlock Text="{x:Static lang:MissingMediaStrings.Description}" TextWrapping="Wrap" />
+        <StackPanel Grid.Row="1" Spacing="8" IsEnabled="{Binding CanEdit.Value}">
+            <TextBox Name="SearchDirectoryBox" PlaceholderText="{x:Static lang:MissingMediaStrings.SearchDirectory}"
+                     Text="{Binding SearchDirectory.Value, Mode=TwoWay}" />
+            <WrapPanel>
+                <Button Name="SearchButton" Margin="0,0,8,8" Content="{x:Static lang:MissingMediaStrings.Search}" Click="SearchClick" />
+                <Button Name="FindFolderButton" Margin="0,0,8,8" Content="{x:Static lang:MissingMediaStrings.FindInFolder}" Click="FindFolderClick" />
+                <Button Name="RefreshButton" Margin="0,0,0,8" Content="{x:Static lang:Strings.Refresh}" Click="RefreshClick" />
+            </WrapPanel>
+        </StackPanel>
+        <ProgressBar Grid.Row="2" Height="3" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
+        <ListBox Name="MissingMediaList" Grid.Row="3" ItemsSource="{Binding Rows}"
+                 IsEnabled="{Binding CanEdit.Value}">
+            <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
+                    <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6" Margin="0,6">
+                        <TextBlock Name="MediaKindText" VerticalAlignment="Top" Text="{Binding Kind}" Opacity="0.7" TextWrapping="Wrap" />
+                        <StackPanel Grid.Column="1" Spacing="3">
+                            <TextBlock Name="MediaNameText" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Name="ExpectedPathText" Text="{Binding ExpectedLocation}" Opacity="0.65" FontSize="11"
+                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ExpectedLocation}" />
+                            <TextBlock Text="{Binding Elements}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <TextBlock Text="{Binding ReplacementPath.Value}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding ReplacementPath.Value}"
+                                       IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <TextBlock Text="{Binding Status.Value}" FontSize="11" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <WrapPanel Grid.Row="1" Grid.ColumnSpan="2">
+                            <Button Margin="0,0,6,4" FontSize="12" Padding="8,4" Content="{x:Static lang:MissingMediaStrings.Replace}" Click="ReplaceClick" />
+                            <Button Margin="0,0,6,4" FontSize="12" Padding="8,4" Content="{x:Static lang:MissingMediaStrings.MatchFolder}" Click="MatchFolderClick" />
+                            <CheckBox Margin="0,0,0,4" Content="{x:Static lang:MissingMediaStrings.KeepOffline}" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
+                        </WrapPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Name="EmptyText" Grid.Row="3" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
+                   IsVisible="{Binding IsEmpty.Value}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" />
+        <TextBlock Name="ErrorText" Grid.Row="4" Text="{Binding Error.Value}" TextWrapping="Wrap" MaxHeight="72" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+        <StackPanel Grid.Row="5" Spacing="8">
+            <TextBlock Name="SummaryText" Text="{Binding Summary.Value}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <WrapPanel>
+                <Button Name="CloseButton" Margin="0,0,8,4" Content="{x:Static lang:Strings.Close}"
+                        IsEnabled="{Binding CanDismiss.Value}" Click="CloseClick" />
+                <Button Name="ApplyButton" Margin="0,0,0,4" Content="{x:Static lang:MissingMediaStrings.ApplyAndSave}"
+                        IsEnabled="{Binding CanApply.Value}" Click="ApplyClick" Classes="accent" />
+            </WrapPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>
