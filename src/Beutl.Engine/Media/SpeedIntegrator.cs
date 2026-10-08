@@ -14,6 +14,7 @@ public sealed class SpeedIntegrator : IDisposable
     private int _sampleRate;
     private readonly Action? _invalidateCallback;
     private Func<float, float>? _speedTransform;
+    internal int CacheVersion { get; private set; }
 
     public SpeedIntegrator(int sampleRate, Action? invalidateCallback = null)
     {
@@ -94,6 +95,7 @@ public sealed class SpeedIntegrator : IDisposable
     /// </summary>
     public void Invalidate()
     {
+        CacheVersion++;
         _integralCache?.Clear();
         _greatestCachedSecond = -1;
         _invalidateCallback?.Invoke();
@@ -126,6 +128,24 @@ public sealed class SpeedIntegrator : IDisposable
         // Integrate speed in 1-second intervals from startSec to targetSec
         for (int sec = startSec; sec < targetSec; sec++)
         {
+            if (animation is KeyFrameAnimation<float> keyframes && keyframes.KeyFrames.Count > 0)
+            {
+                var first = (KeyFrame<float>)keyframes.KeyFrames[0];
+                var last = (KeyFrame<float>)keyframes.KeyFrames[^1];
+                int constantEnd = sec >= Math.Ceiling(last.KeyTime.TotalSeconds)
+                    ? targetSec
+                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.TotalSeconds));
+                if (constantEnd > sec)
+                {
+                    float constant = sec >= Math.Ceiling(last.KeyTime.TotalSeconds) ? last.Value : first.Value;
+                    constant = _speedTransform?.Invoke(constant) ?? constant;
+                    sum += constant / 100d * (constantEnd - sec);
+                    _integralCache![constantEnd] = sum;
+                    _greatestCachedSecond = Math.Max(_greatestCachedSecond, constantEnd);
+                    sec = constantEnd - 1;
+                    continue;
+                }
+            }
             for (int i = 0; i < _sampleRate; i++)
             {
                 double t = sec + (i / (double)_sampleRate);

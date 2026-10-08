@@ -110,7 +110,7 @@ public sealed partial class SpeedNode
                 return 0;
 
             int requestedFrames = buffer.Length / _channels;
-            if (_timeStretch != null && !draining && _timeStretchInputEnd is { } end)
+            if (_timeStretch != null && _timeStretchInputEnd is { } end)
             {
                 requestedFrames = (int)Math.Min(requestedFrames, Math.Max(0, end - _srcReadPos));
                 if (requestedFrames == 0)
@@ -135,7 +135,12 @@ public sealed partial class SpeedNode
                 range,
                 _sampleRate,
                 context.AnimationSampler,
-                context.OriginalTimeRange);
+                context.OriginalTimeRange)
+            {
+                ProcessEndTime = context.ProcessEndTime is { } terminal
+                    ? _speedNode.MapOutputTimeToSource(terminal)
+                    : null
+            };
 
             // Read consumes the child buffer fully into the interleaved span and never returns it, so
             // dispose its pooled MemoryPool<float> lease here; otherwise every resampler iteration leaks

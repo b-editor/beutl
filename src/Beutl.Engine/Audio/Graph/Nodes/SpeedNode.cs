@@ -18,6 +18,11 @@ public sealed partial class SpeedNode : AudioNode
     private bool _hasLastAnimatedSpeed;
 
     private readonly SpeedIntegrator _integrator;
+    private FiniteEndKey? _finiteEndKey;
+    private double _finiteEndValue;
+
+    private readonly record struct FiniteEndKey(IAnimation<float> Animation, int Version, int SampleRate,
+        double InputEnd, TimeSpan OwnerStart, bool GlobalClock, bool PreservePitch);
 
     public SpeedNode()
     {
@@ -33,6 +38,21 @@ public sealed partial class SpeedNode : AudioNode
     /// <summary>Uses time stretching instead of resampling to keep the input's pitch.</summary>
     public bool PreservePitch { get; set; }
 
+    private TimeSpan MapOutputTimeToSource(TimeSpan time)
+    {
+        if (Speed?.Animation is not { } animation)
+        {
+            float percent = Speed?.CurrentValue ?? 100f;
+            double factor = (PreservePitch ? TimeStretchParameters.Normalize(percent) : percent) / 100d;
+            return TimeSpan.FromSeconds(time.TotalSeconds * factor);
+        }
+
+        var ownerStart = Speed.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        return animation.UseGlobalClock
+            ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
+            : _integrator.Integrate(time, animation);
+    }
+
     internal override double? GetFiniteSourceEndSample(int sampleRate)
     {
         double? inputEnd = base.GetFiniteSourceEndSample(sampleRate);
@@ -47,6 +67,10 @@ public sealed partial class SpeedNode : AudioNode
         _integrator.SampleRate = sampleRate;
         _integrator.EnsureCache(animation);
         var ownerStart = Speed.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        var key = new FiniteEndKey(animation, _integrator.CacheVersion, sampleRate, end,
+            ownerStart, animation.UseGlobalClock, PreservePitch);
+        if (_finiteEndKey == key)
+            return _finiteEndValue;
         TimeSpan origin = animation.UseGlobalClock
             ? _integrator.Integrate(ownerStart, animation)
             : TimeSpan.Zero;
@@ -64,6 +88,8 @@ public sealed partial class SpeedNode : AudioNode
             else
                 high = middle;
         }
+        _finiteEndKey = key;
+        _finiteEndValue = high;
         return high;
     }
 

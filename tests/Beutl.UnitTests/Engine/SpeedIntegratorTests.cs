@@ -7,6 +7,22 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class SpeedIntegratorTests
 {
+    [Test]
+    public void ConstantTail_OnLongTimelineDoesNotSampleEveryAudioFrame()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        int samples = 0;
+        using var integrator = new SpeedIntegrator(48000)
+        {
+            SpeedTransform = value => { samples++; return value; }
+        };
+        integrator.EnsureCache(animation);
+
+        Assert.That(integrator.Integrate(TimeSpan.FromHours(1), animation), Is.EqualTo(TimeSpan.FromHours(1)));
+        Assert.That(samples, Is.LessThan(10));
+    }
+
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
     {
         var animation = new KeyFrameAnimation<float>();

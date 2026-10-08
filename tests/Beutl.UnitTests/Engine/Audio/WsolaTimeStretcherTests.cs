@@ -163,6 +163,28 @@ public class WsolaTimeStretcherTests
         }
     }
 
+    [TestCase(0.25)]
+    [TestCase(0.5)]
+    [TestCase(2)]
+    [TestCase(4)]
+    public void StartupImpulse_IsEmittedAtItsMappedTime(double tempo)
+    {
+        var stretcher = new WsolaTimeStretcher(SampleRate, 2) { Tempo = tempo };
+        var input = new float[4800 * 2];
+        input[120 * 2] = input[120 * 2 + 1] = 1;
+        stretcher.PutSamples(input, 4800);
+        stretcher.Flush();
+        var output = new float[2000 * 2];
+        int made = stretcher.ReceiveSamples(output, 2000);
+        int first = -1;
+        for (int i = 0; i < made; i++)
+        {
+            if (Math.Abs(output[i * 2]) > 1e-5) { first = i; break; }
+        }
+
+        Assert.That(first, Is.EqualTo((int)Math.Ceiling(120 / tempo)));
+    }
+
     private static double SourcePosition(WsolaTimeStretcher stretcher)
         => (double)typeof(WsolaTimeStretcher)
             .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;

@@ -25,6 +25,7 @@ internal sealed class WsolaTimeStretcher
     private bool _finished;
     private int _activeHopFrames;
     private bool _repeatShortSource;
+    private long? _initialOnset;
 
     public WsolaTimeStretcher(int sampleRate, int channels)
     {
@@ -62,6 +63,7 @@ internal sealed class WsolaTimeStretcher
         _finished = false;
         _activeHopFrames = 0;
         _repeatShortSource = false;
+        _initialOnset = null;
     }
 
     public void PutSamples(ReadOnlySpan<float> input, int frames)
@@ -75,6 +77,20 @@ internal sealed class WsolaTimeStretcher
 
         EnsureCapacity(checked(_inputFrames + frames));
         input[..samples].CopyTo(_input.AsSpan(_inputFrames * _channels, samples));
+        if (_initialOnset is null)
+        {
+            for (int frame = 0; frame < frames && _initialOnset is null; frame++)
+            {
+                for (int channel = 0; channel < _channels; channel++)
+                {
+                    if (Math.Abs(input[frame * _channels + channel]) > 1e-8f)
+                    {
+                        _initialOnset = _receivedInputFrames + frame;
+                        break;
+                    }
+                }
+            }
+        }
         _inputFrames += frames;
         _receivedInputFrames = checked(_receivedInputFrames + frames);
     }
@@ -94,17 +110,20 @@ internal sealed class WsolaTimeStretcher
         {
             if (_sourcePosition >= _receivedInputFrames - 1e-9)
                 break;
+            bool startupSilence = !_hasTail && (_initialOnset is null || _sourcePosition < _initialOnset.Value - 1e-9);
             double initialTempo = speedCurve.IsEmpty ? _tempo : speedCurve[written];
-            if (_outputPosition == _outputFrames && !GenerateGrain(initialTempo))
+            if (!startupSilence && _outputPosition == _outputFrames && !GenerateGrain(initialTempo))
                 break;
 
-            int count = Math.Min(frames - written, _outputFrames - _outputPosition);
+            int count = startupSilence ? frames - written : Math.Min(frames - written, _outputFrames - _outputPosition);
             double position = _sourcePosition;
             double compensation = _sourcePositionCompensation;
             int available = 0;
             for (; available < count; available++)
             {
                 if (position >= _receivedInputFrames - 1e-9)
+                    break;
+                if (startupSilence && _initialOnset is { } onset && position >= onset - 1e-9)
                     break;
                 double speed = speedCurve.IsEmpty ? _tempo : speedCurve[written + available];
                 if (!double.IsFinite(speed) || speed <= 0)
@@ -125,9 +144,16 @@ internal sealed class WsolaTimeStretcher
             // Before EOF, wait for enough real input to cover the source-domain advance. At EOF,
             // allow only the last fractional step, matching ceil(input length / static tempo).
             count = available;
-            _output.AsSpan(_outputPosition * _channels, count * _channels)
-                .CopyTo(output.Slice(written * _channels, count * _channels));
-            _outputPosition += count;
+            if (startupSilence)
+            {
+                output.Slice(written * _channels, count * _channels).Clear();
+            }
+            else
+            {
+                _output.AsSpan(_outputPosition * _channels, count * _channels)
+                    .CopyTo(output.Slice(written * _channels, count * _channels));
+                _outputPosition += count;
+            }
             written += count;
             _sourcePosition = position;
             _sourcePositionCompensation = compensation;
@@ -151,10 +177,12 @@ internal sealed class WsolaTimeStretcher
             }
         }
         long target = checked((long)Math.Round(_sourcePosition));
-        long first = _hasTail && !_repeatShortSource ? Math.Max(0, target - _searchFrames) : 0;
+        long initial = _initialOnset ?? 0;
+        long first = _hasTail && !_repeatShortSource ? Math.Max(0, target - _searchFrames) : _hasTail ? 0 : initial;
+        first = Math.Max(first, _inputStart);
         long last = _repeatShortSource
             ? Math.Max(0, _receivedInputFrames - _activeHopFrames * 2)
-            : _hasTail ? target + _searchFrames : 0;
+            : _hasTail ? target + _searchFrames : initial;
         DiscardBefore(first);
 
         long requiredEnd = last + _activeHopFrames * 2;
@@ -172,7 +200,7 @@ internal sealed class WsolaTimeStretcher
             _inputFrames += padding;
         }
 
-        long position = _hasTail ? FindAlignment(first, last, target) : 0;
+        long position = _hasTail ? FindAlignment(first, last, target) : initial;
         int offset = checked((int)(position - _inputStart) * _channels);
         int samples = _activeHopFrames * _channels;
         ReadOnlySpan<float> grain = _input.AsSpan(offset, samples * 2);

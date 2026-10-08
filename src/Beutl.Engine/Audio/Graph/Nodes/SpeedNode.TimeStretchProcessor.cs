@@ -10,6 +10,7 @@ public sealed partial class SpeedNode
         private readonly WsolaTimeStretcher? _timeStretch;
         private bool _timeStretchFlushed;
         private long? _timeStretchInputEnd;
+        private bool _timeStretchDraining;
 
         private static WsolaTimeStretcher CreateTimeStretchProcessor(int sampleRate, int channels)
             => new(sampleRate, channels);
@@ -19,6 +20,7 @@ public sealed partial class SpeedNode
             _timeStretch?.Clear();
             _timeStretchFlushed = false;
             _timeStretchInputEnd = null;
+            _timeStretchDraining = false;
         }
 
         // Pull enough continuous source audio to satisfy the requested output. The stretcher's initial
@@ -32,12 +34,28 @@ public sealed partial class SpeedNode
             bool draining)
         {
             double? end = draining ? null : _speedNode.Inputs[0].GetFiniteSourceEndSample(_sampleRate);
+            if (!draining && context.ProcessEndTime is { } terminal)
+            {
+                double terminalSample = _speedNode.MapOutputTimeToSource(terminal).TotalSeconds * _sampleRate;
+                end = end is { } finite ? Math.Min(finite, terminalSample) : terminalSample;
+            }
+            if (draining && !_timeStretchDraining)
+            {
+                // Analysis lookahead belongs to live processing, not to the held upstream tail.
+                // The live boundary kept the upstream state at its terminal sample; start a fresh
+                // drain stream there and consume only the latency that the upstream still retains.
+                _timeStretch!.Clear();
+                _timeStretchFlushed = false;
+                _timeStretchDraining = true;
+                int latency = _speedNode.GetMaxInputLatency(_sampleRate, drain: true);
+                _timeStretchInputEnd = latency == int.MaxValue ? null : checked(_srcReadPos + latency);
+            }
             if (end is { } value && double.IsFinite(value))
             {
                 double rounded = Math.Round(value);
                 _timeStretchInputEnd = checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
             }
-            else
+            else if (!draining)
             {
                 _timeStretchInputEnd = null;
             }
@@ -67,7 +85,7 @@ public sealed partial class SpeedNode
                         {
                             _timeStretch.PutSamples(input[..(got * _channels)], got);
                         }
-                        if (got == 0 || (!draining && _timeStretchInputEnd is { } inputEnd && _srcReadPos >= inputEnd))
+                        if (got == 0 || (_timeStretchInputEnd is { } inputEnd && _srcReadPos >= inputEnd))
                         {
                             // A short/exhausted source must release its final processing window once.
                             _timeStretch.Flush();

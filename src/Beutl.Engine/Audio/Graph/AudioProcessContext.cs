@@ -25,6 +25,10 @@ public sealed class AudioProcessContext
 
     public TimeRange OriginalTimeRange { get; }
 
+    // Terminal live-input boundary in the current node's timeline. Clip nodes establish it;
+    // time-mapping nodes translate it before forwarding contexts to their inputs.
+    internal TimeSpan? ProcessEndTime { get; init; }
+
     public int SampleRate { get; }
 
     public AnimationSampler AnimationSampler { get; }

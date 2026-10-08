@@ -23,6 +23,9 @@ public class ShiftNode : AudioNode
             context.TimeRange.AddStart(Shift),
             context.SampleRate,
             context.AnimationSampler,
-            context.OriginalTimeRange);
+            context.OriginalTimeRange)
+        {
+            ProcessEndTime = context.ProcessEndTime + Shift
+        };
     }
 }
