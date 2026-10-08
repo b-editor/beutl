@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
@@ -13,6 +14,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
+using Beutl.IO;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
@@ -59,6 +61,20 @@ public static class PropertyEditorService
         Type viewModelType = typeof(CoreObjectEditorViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
+    }
+
+    private static bool CanCreateFileSource(Type type)
+    {
+        return type.IsClass && !type.IsAbstract && !type.ContainsGenericParameters
+            && type.IsAssignableTo(typeof(IFileSource)) && type.GetConstructor(Type.EmptyTypes) != null;
+    }
+
+    private static BaseEditorViewModel? CreateFileSourceEditorViewModel(IPropertyAdapter property)
+    {
+        if (!CanCreateFileSource(property.PropertyType)) return null;
+
+        Type type = typeof(FileSourceEditorViewModel<>).MakeGenericType(property.PropertyType);
+        return Activator.CreateInstance(type, property) as BaseEditorViewModel;
     }
 
     private static BaseEditorViewModel? CreateParsableEditorViewModel(IPropertyAdapter s)
@@ -108,6 +124,7 @@ public static class PropertyEditorService
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
             { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },
+            { typeof(IFileSource), new(s => CanCreateFileSource(s.PropertyType) ? new StorageFileEditor() : null, CreateFileSourceEditorViewModel) },
             { typeof(CoreObject), new(_ => new CoreObjectListItemEditor(), CreateCoreObjectEditorViewModel) }
         };
 
@@ -140,6 +157,7 @@ public static class PropertyEditorService
             new(typeof(Enum), new(_ => new EnumEditor(), CreateEnumViewModel)),
             new(typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily?>()))),
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),
+            new(typeof(IFileSource), new(s => CanCreateFileSource(s.PropertyType) ? new StorageFileEditor() : null, CreateFileSourceEditorViewModel)),
 
             new(typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel(s.ToTyped<Color>()))),
             new(typeof(GradingColor), new(_ => new GradingColorEditor(), s => new GradingColorEditorViewModel(s.ToTyped<GradingColor>()))),
@@ -215,13 +233,15 @@ public static class PropertyEditorService
 
         private static bool HasEditorFor(Type type)
         {
-            if (s_editors.ContainsKey(type))
+            if (s_editors.ContainsKey(type) && (type != typeof(IFileSource) || CanCreateFileSource(type)))
             {
                 return true;
             }
 
             foreach (KeyValuePair<Type, Editor> pair in s_editors)
             {
+                if (pair.Key == typeof(IFileSource) && !CanCreateFileSource(type)) continue;
+
                 if (type.IsAssignableTo(pair.Key))
                 {
                     return true;
@@ -231,8 +251,7 @@ public static class PropertyEditorService
             return false;
         }
 
-        // The exact type first, then every entry the type is assignable to, in the map's order. A
-        // factory that declines is passed over, so the exact entry is asked again by the scan.
+        // Exact editors take precedence; file sources must be checked before the CoreObject fallback.
         private static TResult? CreateFromTypeMap<TEntry, TResult>(
             IReadOnlyDictionary<Type, TEntry> map,
             IPropertyAdapter property,
@@ -243,6 +262,13 @@ public static class PropertyEditorService
                 && create(exact, property) is { } created)
             {
                 return created;
+            }
+
+            if (CanCreateFileSource(property.PropertyType)
+                && map.TryGetValue(typeof(IFileSource), out TEntry? fileSource)
+                && create(fileSource, property) is { } fileSourceEditor)
+            {
+                return fileSourceEditor;
             }
 
             foreach (KeyValuePair<Type, TEntry> item in map)
@@ -398,6 +424,8 @@ public static class PropertyEditorService
             }
             finally
             {
+                ApplyFileFilters(context, control as Control);
+
                 if (control is IPropertyEditorContextVisitor visitor)
                 {
                     context.Accept(visitor);
@@ -476,10 +504,35 @@ public static class PropertyEditorService
             }
             finally
             {
+                ApplyFileFilters(context, control);
+
                 if (control is IPropertyEditorContextVisitor visitor)
                 {
                     context.Accept(visitor);
                 }
+            }
+        }
+
+        private static void ApplyFileFilters(IPropertyEditorContext context, Control? control)
+        {
+            if (context is not BaseEditorViewModel viewModel) return;
+
+            StorageFileEditor? editor = control as StorageFileEditor
+                ?? (control as UserControl)?.FindControl<StorageFileEditor>("FileEditor");
+            if (editor == null) return;
+
+            FilePickerFileType[] filters = viewModel.PropertyAdapter.GetAttributes()
+                .OfType<FileFilterAttribute>()
+                .Select(attribute => new FilePickerFileType(attribute.Name)
+                {
+                    Patterns = attribute.Patterns,
+                    MimeTypes = attribute.MimeTypes,
+                    AppleUniformTypeIdentifiers = attribute.AppleUniformTypeIdentifiers
+                })
+                .ToArray();
+            if (filters.Length > 0)
+            {
+                editor.OpenOptions.FileTypeFilter = filters;
             }
         }
     }

@@ -32,6 +32,7 @@ public class BlobFileSourceTests
         source.ReadFrom(uri);
 
         Assert.That(source.Data, Is.EqualTo(payload));
+        Assert.That(source.Uri, Is.EqualTo(uri));
     }
 
     [Test]
@@ -47,6 +48,7 @@ public class BlobFileSourceTests
             source.ReadFrom(new Uri(path));
 
             Assert.That(source.Data, Is.EqualTo(payload));
+            Assert.That(source.Uri, Is.EqualTo(new Uri(path)));
         }
         finally
         {

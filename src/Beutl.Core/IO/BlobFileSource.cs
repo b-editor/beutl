@@ -15,5 +15,6 @@ public class BlobFileSource : IFileSource
     public void ReadFrom(Uri uri)
     {
         Data = UriHelper.ResolveByteArray(uri);
+        Uri = uri;
     }
 }
