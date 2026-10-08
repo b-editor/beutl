@@ -13,6 +13,7 @@ public sealed class SpeedIntegrator : IDisposable
     private IAnimation<float>? _trackedAnimation;
     private int _sampleRate;
     private readonly Action? _invalidateCallback;
+    private Func<float, float>? _speedTransform;
 
     public SpeedIntegrator(int sampleRate, Action? invalidateCallback = null)
     {
@@ -28,6 +29,20 @@ public sealed class SpeedIntegrator : IDisposable
             if (_sampleRate != value)
             {
                 _sampleRate = value;
+                Invalidate();
+            }
+        }
+    }
+
+    // A bounded audio time mapping must integrate the same clamped values that its DSP uses.
+    internal Func<float, float>? SpeedTransform
+    {
+        get => _speedTransform;
+        set
+        {
+            if (_speedTransform != value)
+            {
+                _speedTransform = value;
                 Invalidate();
             }
         }
@@ -114,7 +129,7 @@ public sealed class SpeedIntegrator : IDisposable
             for (int i = 0; i < _sampleRate; i++)
             {
                 double t = sec + (i / (double)_sampleRate);
-                float speed = animation.Interpolate(TimeSpan.FromSeconds(t));
+                float speed = SampleSpeed(animation, TimeSpan.FromSeconds(t));
                 sum += (speed / 100.0) / _sampleRate;
             }
             _integralCache![sec + 1] = sum;
@@ -129,7 +144,7 @@ public sealed class SpeedIntegrator : IDisposable
         for (long i = secStartInSamples; i < targetInSamples; i++)
         {
             double t = i / (double)_sampleRate;
-            float speed = animation.Interpolate(TimeSpan.FromSeconds(t));
+            float speed = SampleSpeed(animation, TimeSpan.FromSeconds(t));
             sum += (speed / 100.0) / _sampleRate;
         }
 
@@ -137,11 +152,17 @@ public sealed class SpeedIntegrator : IDisposable
         double fractionalSamples = (timeSpan.TotalSeconds * _sampleRate) - targetInSamples;
         if (fractionalSamples > 0)
         {
-            float speed = animation.Interpolate(timeSpan);
+            float speed = SampleSpeed(animation, timeSpan);
             sum += (speed / 100.0) * fractionalSamples / _sampleRate;
         }
 
         return TimeSpan.FromSeconds(sum);
+    }
+
+    private float SampleSpeed(IAnimation<float> animation, TimeSpan time)
+    {
+        float speed = animation.Interpolate(time);
+        return _speedTransform?.Invoke(speed) ?? speed;
     }
 
     private void OnAnimationEdited(object? sender, EventArgs e)

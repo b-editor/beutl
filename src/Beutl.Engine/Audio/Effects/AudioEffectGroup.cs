@@ -25,30 +25,19 @@ public sealed partial class AudioEffectGroup : AudioEffect
     public override int GetLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-        if (!IsEnabled)
-            return 0;
+        return GetOutputLatencySamples(sampleRate, 0);
+    }
 
-        long total = 0;
+    internal override int GetOutputLatencySamples(int sampleRate, int inputLatency)
+    {
+        if (!IsEnabled)
+            return inputLatency;
+
         foreach (AudioEffect item in Children)
         {
-            if (!item.IsEnabled)
-                continue;
-
-            int latency = item.GetLatencySamples(sampleRate);
-            if (latency < 0)
-            {
-                throw new InvalidOperationException(
-                    $"{item.GetType().Name} reported a negative latency ({latency} samples).");
-            }
-
-            if (latency == int.MaxValue)
-                return int.MaxValue;
-
-            total += latency;
-            if (total >= int.MaxValue)
-                return int.MaxValue;
+            inputLatency = item.GetOutputLatencySamples(sampleRate, inputLatency);
         }
 
-        return (int)total;
+        return inputLatency;
     }
 }

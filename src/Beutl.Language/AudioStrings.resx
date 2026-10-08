@@ -186,4 +186,13 @@
   <data name="GateEffect_Range_Description" xml:space="preserve">
     <value>Attenuation applied while the gate is closed. 0 disables gating; more negative values attenuate harder.</value>
   </data>
+  <data name="TimeStretchEffect" xml:space="preserve">
+    <value>Time Stretch</value>
+  </data>
+  <data name="TimeStretchEffect_Speed" xml:space="preserve">
+    <value>Speed (%)</value>
+  </data>
+  <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
+    <value>Changes playback speed while preserving pitch. 100% is normal speed, 50% is half speed, and 200% is double speed.</value>
+  </data>
 </root>

@@ -267,7 +267,7 @@ public sealed partial class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(speed);
 
         // Try to reuse from previous nodes
-        if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed) is { } existing)
+        if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed && !n.PreservePitch) is { } existing)
         {
             Reclaim(existing).Speed = speed;
             return AddNode(existing);

@@ -5,7 +5,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed partial class SpeedNode
 {
-    private sealed class SpeedProcessor
+    private sealed partial class SpeedProcessor
     {
         private const int BLOCK = 256;
 
@@ -41,6 +41,7 @@ public sealed partial class SpeedNode
             _rs.SetFilterParms();
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
+            _timeStretch = speedNode.PreservePitch ? CreateTimeStretchProcessor(sampleRate, channels) : null;
         }
 
         public bool CanPassThroughDrain => !_initialized || _sourceCursorMatchesOutputTimeline;
@@ -49,6 +50,7 @@ public sealed partial class SpeedNode
         {
             double outputStart = context.TimeRange.Start.TotalSeconds;
             _rs.Reset();
+            ResetTimeStretch();
             _srcReadPos = (long)Math.Round(outputStart * _sampleRate) + sampleCount;
             _nextOutputStart = outputStart + (double)sampleCount / _sampleRate;
             _currentSpeed = 1f;
@@ -63,6 +65,8 @@ public sealed partial class SpeedNode
             _rs.SetFilterParms();
             _currentSpeed = speed;
             _resamplingMode = ResamplingMode.Static;
+            if (_timeStretch != null)
+                _timeStretch.Tempo = speed;
         }
 
         private void ConfigureVariableResampling(double speed)
@@ -86,6 +90,7 @@ public sealed partial class SpeedNode
             if (seek)
             {
                 _rs.Reset();
+                ResetTimeStretch();
                 _srcReadPos = (long)Math.Round(sourceStartSeconds * _sampleRate);
                 _initialized = true;
             }
@@ -173,6 +178,9 @@ public sealed partial class SpeedNode
                 ConfigureStaticResampling(speed);
             }
 
+            if (_timeStretch != null)
+                return ProcessTimeStretch(context, default, speed, expectedOut, draining);
+
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             try
             {
@@ -228,6 +236,9 @@ public sealed partial class SpeedNode
                 outputStart,
                 sourceStartSeconds,
                 forceReanchor: _initialized && !draining && forceReanchor);
+
+            if (_timeStretch != null)
+                return ProcessTimeStretch(context, speedCurve, 1f, expectedOut, draining);
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             try

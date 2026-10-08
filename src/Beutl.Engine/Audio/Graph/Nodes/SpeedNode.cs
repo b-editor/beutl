@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Media;
 
@@ -10,6 +11,7 @@ public sealed partial class SpeedNode : AudioNode
     // Processor for audio speed processing
     private SpeedProcessor? _processor;
     private int _lastSampleRate;
+    private bool _lastPreservePitch;
     private List<AudioNode>? _upstreamSnapshot;
     private bool _mappingInvalidated;
     private double _lastAnimatedSpeed;
@@ -27,6 +29,9 @@ public sealed partial class SpeedNode : AudioNode
     }
 
     public IProperty<float>? Speed { get; set; }
+
+    /// <summary>Uses time stretching instead of resampling to keep the input's pitch.</summary>
+    public bool PreservePitch { get; set; }
 
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: false));
@@ -96,7 +101,8 @@ public sealed partial class SpeedNode : AudioNode
         }
         else
         {
-            drainSpeed = (Speed?.CurrentValue ?? 100f) / 100d;
+            float percent = Speed?.CurrentValue ?? 100f;
+            drainSpeed = (PreservePitch ? TimeStretchParameters.Normalize(percent) : percent) / 100d;
         }
 
         return double.IsFinite(drainSpeed) && drainSpeed > 0;
@@ -112,6 +118,12 @@ public sealed partial class SpeedNode : AudioNode
 
     private bool TryGetMinimumSpeedFactor(out double minimumSpeed)
     {
+        if (PreservePitch)
+        {
+            minimumSpeed = TimeStretchParameters.GetMinimumSpeedFactor(Speed);
+            return true;
+        }
+
         IAnimation<float>? speedAnimation = Speed?.Animation;
         if (speedAnimation is null)
         {
@@ -143,6 +155,7 @@ public sealed partial class SpeedNode : AudioNode
         var expectedOutputSampleCount = context.GetSampleCount();
 
         var animation = Speed?.Animation;
+        _integrator.SpeedTransform = PreservePitch ? TimeStretchParameters.Normalize : null;
         _integrator.EnsureCache(animation);
         _integrator.SampleRate = context.SampleRate;
 
@@ -153,10 +166,12 @@ public sealed partial class SpeedNode : AudioNode
         // transitive upstream and compare by identity. Capture unconditionally so the first chunk seeds
         // the snapshot and a contiguous second chunk is not mistaken for a swap.
         bool upstreamChanged = UpstreamChangedAndCapture();
-        if (_processor == null || _lastSampleRate != context.SampleRate || upstreamChanged)
+        if (_processor == null || _lastSampleRate != context.SampleRate
+            || _lastPreservePitch != PreservePitch || upstreamChanged)
         {
             _processor = new SpeedProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
+            _lastPreservePitch = PreservePitch;
         }
 
         bool forceReanchor = _mappingInvalidated && !draining;
@@ -174,7 +189,8 @@ public sealed partial class SpeedNode : AudioNode
         bool draining,
         bool forceReanchor)
     {
-        float speed = (Speed?.CurrentValue ?? 100f) / 100f;
+        float percent = Speed?.CurrentValue ?? 100f;
+        float speed = (PreservePitch ? TimeStretchParameters.Normalize(percent) : percent) / 100f;
         // If speed is 1.0, use normal processing
         if (Math.Abs(speed - 1.0f) < float.Epsilon
             && (!draining || _processor!.CanPassThroughDrain))
@@ -225,7 +241,11 @@ public sealed partial class SpeedNode : AudioNode
         // Per-sample speed buffer, sized to expectedOutputSampleCount and allocated every render —
         // rent from ArrayPool to avoid hot-path GC pressure. ProcessBufferWithVariableSpeed consumes
         // the span synchronously without retaining it, so the array is safe to return afterwards.
-        var startInSamples = AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
+        // Compute the pitch-preserving sample clock in integer ticks. TotalSeconds * sampleRate
+        // can fall just below an exact sample boundary and repeat the previous animation sample.
+        long startInSamples = PreservePitch
+            ? checked((long)((Int128)context.TimeRange.Start.Ticks * context.SampleRate / TimeSpan.TicksPerSecond))
+            : AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
         double[] speedsArray = ArrayPool<double>.Shared.Rent(expectedOutputSampleCount);
         try
         {
@@ -241,8 +261,9 @@ public sealed partial class SpeedNode : AudioNode
             {
                 for (int i = 0; i < expectedOutputSampleCount; i++)
                 {
-                    speeds[i] = animation.GetAnimatedValue(
-                        ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                    float percent = animation.GetAnimatedValue(
+                        ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate));
+                    speeds[i] = (PreservePitch ? TimeStretchParameters.Normalize(percent) : percent) / 100d;
                 }
 
                 if (!draining && expectedOutputSampleCount > 0)

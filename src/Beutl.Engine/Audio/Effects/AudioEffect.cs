@@ -30,4 +30,18 @@ public abstract partial class AudioEffect : EngineObject
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
         return 0;
     }
+
+    // Fold a serial group's accumulated latency through this effect. Time mappings can scale
+    // earlier effects' delays, so summing each effect's own latency is not sufficient.
+    internal virtual int GetOutputLatencySamples(int sampleRate, int inputLatency)
+    {
+        if (!IsEnabled)
+            return inputLatency;
+
+        int latency = GetLatencySamples(sampleRate);
+        if (latency < 0)
+            throw new InvalidOperationException($"{GetType().Name} reported a negative latency ({latency} samples).");
+
+        return AudioLatency.SaturatingAdd(inputLatency, latency);
+    }
 }
