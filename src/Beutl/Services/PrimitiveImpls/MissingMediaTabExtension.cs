@@ -16,7 +16,6 @@ public sealed class MissingMediaTabExtension : ToolTabExtension
 
     public override string Name => "Missing Media";
     public override string DisplayName => MissingMediaStrings.Title;
-    public override string? Header => MissingMediaStrings.Title;
     public override bool CanMultiple => false;
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
     public override FAIconSource? GetIcon() => new FluentIconSource { Icon = Icon.Link };
