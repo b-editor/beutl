@@ -42,26 +42,28 @@ public class DebugBuildOptimizationTests
         startInfo.Environment.Remove("Configuration");
 
         using Process process = Process.Start(startInfo)!;
+        Task<string> output = process.StandardOutput.ReadToEndAsync();
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         try
         {
-            Task<string> output = process.StandardOutput.ReadToEndAsync();
-            Task<string> error = process.StandardError.ReadToEndAsync();
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
             await process.WaitForExitAsync(timeout.Token);
-
-            Assert.That(process.ExitCode, Is.Zero, await error);
-            JsonNode properties = JsonNode.Parse(await output)!["Properties"]!;
-            Assert.Multiple(() =>
-            {
-                Assert.That(properties["Configuration"]!.GetValue<string>(), Is.EqualTo("Debug"));
-                Assert.That(properties["Optimize"]!.GetValue<string>(), Is.EqualTo("false"));
-            });
         }
-        finally
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
-            if (!process.HasExited)
-                process.Kill(entireProcessTree: true);
+            // Kill does not wait, so reap the tree before reporting what it printed.
+            process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            Assert.Fail($"dotnet msbuild did not finish within two minutes.\n{await error}\n{await output}");
         }
+
+        Assert.That(process.ExitCode, Is.Zero, await error);
+        JsonNode properties = JsonNode.Parse(await output)!["Properties"]!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(properties["Configuration"]!.GetValue<string>(), Is.EqualTo("Debug"));
+            Assert.That(properties["Optimize"]!.GetValue<string>(), Is.EqualTo("false"));
+        });
     }
 
     private static string FindRepositoryRoot()
