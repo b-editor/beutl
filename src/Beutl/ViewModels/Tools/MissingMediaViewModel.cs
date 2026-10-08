@@ -298,8 +298,12 @@ public sealed class MissingMediaViewModel : IToolContext
             {
                 row.ValidatedSource = await _service.ValidateAsync(row.Media, row.ReplacementPath.Value!, _token);
                 if (row.Media.Kind == MissingMediaKind.Font)
-                    row.FontReplacementFiles = await _service.FindFontFamilyFilesAsync(row.Media.FontFamily!,
+                {
+                    var fresh = await _service.FindFontFamilyFilesAsync(row.Media.FontFamily!,
                         Path.GetDirectoryName(row.ReplacementPath.Value!)!, _token, row.ReplacementPath.Value!);
+                    row.FontReplacementFiles = await _service.SelectFontFamilyFilesAsync(row.Media.FontFamily!,
+                        row.ReplacementPath.Value!, row.FontReplacementFiles.Concat(fresh), _token);
+                }
                 foreach (string path in row.FontReplacementFiles) await _service.ValidateAsync(row.Media, path, _token);
                 // A repair keeps saved child meshes, including their order and edits.
                 // Replace geometry only when a saved hash proves this is a different asset.

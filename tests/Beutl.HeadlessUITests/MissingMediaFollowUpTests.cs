@@ -68,7 +68,9 @@ public partial class MissingMediaTests
         var scene = new Scene(); AddImage(scene, path);
         var service = new MissingMediaService();
         Assert.That(await service.FindMissingAsync(scene, revalidateExisting: false), Is.Empty);
-        using var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+        // Native decoders need not honor .NET sharing flags on Unix. Changed
+        // bytes exercise the cached check and explicit refresh on every platform.
+        File.WriteAllText(path, "This is no longer a readable image.");
         AddImage(scene, Path.Combine(directory, "missing.png"));
         Assert.That((await service.FindMissingAsync(scene, revalidateExisting: false)).Select(item => item.Name),
             Is.EqualTo(new[] { "missing.png" }));
@@ -119,6 +121,55 @@ public partial class MissingMediaTests
             Assert.That(FontManager.Instance.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
             string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+            await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
+            Assert.That(FontManager.Instance.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
+                Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    public async Task Font_candidates_in_sibling_directories_keep_complementary_faces_after_apply()
+    {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        string directory = NewDirectory(); var files = new List<string>();
+        foreach (string name in new[] { "ProjectFontSecondFixture.ttf", "ProjectFontMediumFixture.ttf" })
+        {
+            using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(name)!;
+            using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
+            foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
+            {
+                byte[] old = encoding.GetBytes("Roboto"); byte[] renamed = encoding.GetBytes("Relink");
+                for (int i = 0; i <= bytes.Length - old.Length; i++)
+                    if (bytes.AsSpan(i, old.Length).SequenceEqual(old)) renamed.CopyTo(bytes, i);
+            }
+            string folder = Directory.CreateDirectory(Path.Combine(directory,
+                name == "ProjectFontSecondFixture.ttf" ? "a-regular" : "b-medium")).FullName;
+            string path = Path.Combine(folder, name); File.WriteAllBytes(path, bytes); files.Add(path);
+        }
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
+            element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock
+            {
+                FontFamily = { CurrentValue = new FontFamily("Relink") },
+                FontWeight = { CurrentValue = FontWeight.Medium }
+            });
+            AddImage(editor.Scene, Path.Combine(directory, "old", "seed.png"));
+        }
+        string image = Path.Combine(directory, "seed.png"); File.WriteAllBytes(image, s_png);
+        try
+        {
+            using var vm = new MissingMediaViewModel(editor);
+            await vm.SetReplacementAsync(vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Image), image);
+            await vm.WaitForCandidatesAsync();
+            var font = vm.Rows.Single(row => row.Media.Kind == MissingMediaKind.Font);
+            Assert.That(font.FontReplacementFiles, Is.EquivalentTo(files));
+            vm.UseCandidate(font);
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+            string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
+            Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));
             await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
             Assert.That(FontManager.Instance.GetTypefaces(new FontFamily("Relink")).Select(face => face.Weight),
                 Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
