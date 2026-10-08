@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
@@ -10,8 +11,19 @@ namespace Beutl.Services.PrimitiveImpls;
 
 // Handles the extension-scoped commands, which act on the editor's selected element whether or not the
 // timeline is open. The timeline's own commands are handled by TimelineTabViewModel.
-public sealed partial class TimelineTabExtension : IContextCommandHandler
+public sealed partial class TimelineTabExtension : IContextCommandHandler, IContextCommandEditorStateNotifier
 {
+    // The commands act on the selected element, and Split also on the playhead, which moves every frame
+    // during playback.
+    public IObservable<Unit> GetCanExecuteChanged(IEditorContext editorContext)
+    {
+        IObservable<Unit> selection = editorContext.GetService<IEditorSelection>()?.SelectedObject
+            .Select(_ => Unit.Default) ?? Observable.Empty<Unit>();
+        IObservable<Unit> time = editorContext.GetService<IEditorClock>()?.CurrentTime
+            .Select(_ => Unit.Default) ?? Observable.Empty<Unit>();
+        return selection.Merge(time);
+    }
+
     public bool CanExecute(ContextCommandExecution execution)
     {
         if (!TryGetSelectedElement(execution.EditorContext, out Scene? scene, out Element? element))

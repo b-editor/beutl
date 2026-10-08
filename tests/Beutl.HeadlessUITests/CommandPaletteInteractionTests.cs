@@ -424,6 +424,64 @@ public sealed class CommandPaletteInteractionTests
         await drain;
     }
 
+    // The playhead signals every frame during playback, from the playback timer's thread, so the palette must
+    // not wait for the notifications to pause before it re-evaluates.
+    [AvaloniaTest]
+    public async Task State_notifications_that_never_pause_still_refresh_availability()
+    {
+        var provider = new ExtensionProvider();
+        var editor = new EditorService(provider);
+        var extension = new ClosedToolExtension { Enabled = false };
+        provider.AddExtensions(-43005, [extension]);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        manager.Register(extension);
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
+        using var palette = new CommandPaletteViewModel(service, editor);
+        palette.Open();
+        Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
+        extension.Enabled = true;
+
+        using var frames = new CancellationTokenSource();
+        Task playback = Task.Run(async () =>
+        {
+            while (!frames.IsCancellationRequested)
+            {
+                extension.NotifyStateChanged();
+                await Task.Delay(5);
+            }
+        });
+        try
+        {
+            await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
+        }
+        finally
+        {
+            frames.Cancel();
+            await playback;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_notifier_that_completes_right_after_its_last_change_still_refreshes_availability()
+    {
+        var provider = new ExtensionProvider();
+        var editor = new EditorService(provider);
+        var extension = new ClosedToolExtension { Enabled = false };
+        provider.AddExtensions(-43006, [extension]);
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(), new ContextCommandHandlerRegistry());
+        manager.Register(extension);
+        var service = new CommandPaletteService(manager, new FixedHandlerProvider(null), () => null, editor, provider);
+        using var palette = new CommandPaletteViewModel(service, editor);
+        palette.Open();
+        Assert.That(palette.FilteredCommands.Single().IsEnabled, Is.False);
+
+        extension.Enabled = true;
+        extension.NotifyStateChanged();
+        extension.CompleteStateChanges();
+
+        await UntilAsync(() => palette.FilteredCommands.Single().IsEnabled);
+    }
+
     [AvaloniaTest]
     public async Task An_answered_prompt_hides_the_palette_while_the_command_works_and_a_later_step_reopens_it()
     {
@@ -500,6 +558,8 @@ public sealed class CommandPaletteInteractionTests
         public IObservable<Unit> CanExecuteChanged => _stateChanged;
 
         public void NotifyStateChanged() => _stateChanged.OnNext(Unit.Default);
+
+        public void CompleteStateChanges() => _stateChanged.OnCompleted();
 
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>
         [

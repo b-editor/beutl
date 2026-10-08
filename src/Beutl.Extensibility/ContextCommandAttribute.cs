@@ -24,6 +24,21 @@ public interface IContextCommandStateNotifier
     IObservable<Unit> CanExecuteChanged { get; }
 }
 
+/// <summary>
+/// Optional interface for a ViewExtension whose <see cref="ContextCommandScope.Extension"/> commands become
+/// available or unavailable as the active editor's state changes (its playhead, its selection, ...).
+/// The extension is shared by every editor, so the command palette passes the editor it evaluates the
+/// commands against, and re-evaluates them while it is open each time the returned sequence signals.
+/// </summary>
+public interface IContextCommandEditorStateNotifier
+{
+    /// <summary>
+    /// Returns a sequence that signals when <see cref="IContextCommandHandler.CanExecute"/> may have changed
+    /// for <paramref name="editorContext"/>. It may signal on any thread and as often as every frame.
+    /// </summary>
+    IObservable<Unit> GetCanExecuteChanged(IEditorContext editorContext);
+}
+
 public class ContextCommandExecution
 {
     public ContextCommandExecution(string commandName)

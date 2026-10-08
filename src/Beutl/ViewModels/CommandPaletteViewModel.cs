@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Reactive.Concurrency;
 using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
@@ -115,8 +116,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             .OfType<IObservable<Unit>>()
             .Distinct())
         {
-            observable
-                .Throttle(s_stateChangeThrottle)
+            CoalesceStateChanges(observable)
                 .ObserveOnUIDispatcher()
                 .Subscribe(_ =>
                 {
@@ -134,6 +134,37 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
         // Throttle 経由ではなく即時に最新のスナップショットへ反映する
         RefreshFiltered();
+    }
+
+    // Throttle は通知が途切れるまで何も流さないため、再生中に毎フレーム動く再生ヘッドの通知では
+    // 再生が止まるまで再評価されない。最初の通知から s_stateChangeThrottle 後に 1 回だけ流し、
+    // その間に届いた通知はまとめる。
+    private static IObservable<Unit> CoalesceStateChanges(IObservable<Unit> source)
+    {
+        return Observable.Create<Unit>(observer =>
+        {
+            int pending = 0;
+            var timer = new SerialDisposable();
+            IDisposable subscription = source.Subscribe(
+                _ =>
+                {
+                    if (Interlocked.Exchange(ref pending, 1) != 0) return;
+                    // 予約より先に器を差し替え、予約の代入が窓より遅れても次の窓のタイマーを取り消さないようにする。
+                    var window = new SingleAssignmentDisposable();
+                    timer.Disposable = window;
+                    window.Disposable = Scheduler.Default.Schedule(s_stateChangeThrottle, () =>
+                    {
+                        // 流す前に解除し、解除後の通知が次の窓を開くようにする。解除前の変化はこの後の再評価が読む。
+                        Volatile.Write(ref pending, 0);
+                        observer.OnNext(Unit.Default);
+                    });
+                },
+                observer.OnError,
+                // 完了は流さない。流すとタイマーごと購読が破棄され、窓の途中の再評価が落ちる。
+                // 購読は RebuildSnapshot と ReleaseCommands で破棄される。
+                () => { });
+            return new CompositeDisposable(subscription, timer);
+        });
     }
 
     public void Close()
