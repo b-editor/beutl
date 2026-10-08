@@ -23,6 +23,50 @@ class NativeBinaryVerificationTests(unittest.TestCase):
         count = struct.unpack_from(">I", data, 4)[0]
         return [(8 + index * 20,) + struct.unpack_from(">iiII", data, 8 + index * 20) for index in range(count)]
 
+    @staticmethod
+    def macho_load_command(data, start, kinds):
+        command_count = struct.unpack_from("<I", data, start + 16)[0]
+        offset = start + 32
+        for _ in range(command_count):
+            command, command_size = struct.unpack_from("<II", data, offset)
+            if command in kinds:
+                return offset
+            offset += command_size
+        raise AssertionError(f"no load command {kinds} in the slice at {start}")
+
+    @classmethod
+    def macho_export_edges(cls, data, start):
+        """Maps each exported name of one slice to the file offset of the trie edge that ends it."""
+        command = cls.macho_load_command(data, start, (0x22, 0x80000022))
+        trie = start + struct.unpack_from("<I", data, command + 40)[0]
+        edges = {}
+
+        def uleb(offset):
+            value, shift = 0, 0
+            while True:
+                byte = data[offset]
+                offset += 1
+                value |= (byte & 0x7F) << shift
+                shift += 7
+                if byte < 0x80:
+                    return value, offset
+
+        pending = [(0, b"", None)]
+        while pending:
+            node, prefix, edge = pending.pop()
+            terminal, offset = uleb(trie + node)
+            if terminal:
+                edges[prefix] = edge
+            offset += terminal
+            children = data[offset]
+            offset += 1
+            for _ in range(children):
+                end = data.index(b"\0", offset)
+                name, edge_offset = data[offset:end], offset
+                child, offset = uleb(end + 1)
+                pending.append((child, prefix + name, edge_offset))
+        return edges
+
     def binary(self, rid):
         return (self.native_root / "runtimes" / rid / "native" / self.filename(rid)).read_bytes()
 
@@ -78,6 +122,15 @@ class NativeBinaryVerificationTests(unittest.TestCase):
                         struct.pack_into(">i", data, header, 7)  # Relabel the slice as i386.
                 self.assert_rejected_with_updated_hash("osx", bytes(data), f"architecture mismatch.*{architecture}")
 
+    def test_macos_slice_headers_must_match_their_universal_labels(self):
+        for architecture, other in (("arm64", 0x01000007), ("x86_64", 0x0100000C)):
+            with self.subTest(architecture=architecture):
+                data = bytearray(self.binary("osx"))
+                for _, slice_cpu, _, start, _ in self.macho_slices(data):
+                    if verify.MACHO_SLICES.get(slice_cpu) == architecture:
+                        struct.pack_into("<i", data, start + 4, other)  # Keep the outer label, change the image.
+                self.assert_rejected_with_updated_hash("osx", bytes(data), f"architecture mismatch.*{architecture}")
+
     def test_macos_runtime_requires_the_linker_patch_hash(self):
         for key in ("macosLinkerPatchSha256",):
             with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary:
@@ -93,6 +146,8 @@ class NativeBinaryVerificationTests(unittest.TestCase):
 
     def test_each_required_export_is_checked(self):
         for rid in verify.RIDS:
+            if rid == "osx":
+                continue
             for export in verify.REQUIRED_EXPORTS:
                 with self.subTest(rid=rid, export=export):
                     original = self.binary(rid)
@@ -100,22 +155,25 @@ class NativeBinaryVerificationTests(unittest.TestCase):
                     self.assertNotEqual(renamed, original)
                     self.assert_rejected_with_updated_hash(rid, renamed, "missing required exports")
 
+    def test_each_required_export_is_checked_in_every_macos_slice(self):
+        for _, slice_cpu, _, start, _ in self.macho_slices(self.binary("osx")):
+            for export in verify.REQUIRED_EXPORTS:
+                with self.subTest(slice=verify.MACHO_SLICES[slice_cpu], export=export):
+                    data = bytearray(self.binary("osx"))
+                    edge = self.macho_export_edges(data, start)[b"_" + export]
+                    data[edge] = ord("x")  # Rename the export in this slice's trie only; LC_SYMTAB keeps it.
+                    self.assertTrue(export + b"\0" in data)
+                    self.assert_rejected_with_updated_hash("osx", bytes(data), "missing required exports")
+
     def test_export_names_without_definitions_do_not_pass(self):
         for rid in verify.RIDS:
             with self.subTest(rid=rid):
                 data = bytearray(self.binary(rid))
                 if rid == "osx":
-                    # Leave all names intact, but mark every symbol of every slice undefined.
+                    # Leave the symbol tables intact, but give every slice an empty export trie.
                     for _, _, _, start, _ in self.macho_slices(data):
-                        command_count = struct.unpack_from("<I", data, start + 16)[0]
-                        offset = start + 32
-                        for _ in range(command_count):
-                            command, command_size = struct.unpack_from("<II", data, offset)
-                            if command == 0x2:  # LC_SYMTAB
-                                symbols, symbol_count = struct.unpack_from("<II", data, offset + 8)
-                                for position in range(start + symbols, start + symbols + symbol_count * 16, 16):
-                                    data[position + 4] = 0x01  # N_UNDF | N_EXT
-                            offset += command_size
+                        command = self.macho_load_command(data, start, (0x22, 0x80000022))
+                        struct.pack_into("<I", data, command + 44, 0)
                 elif rid.startswith("linux-"):
                     section_offset = struct.unpack_from("<Q", data, 40)[0]
                     section_size, section_count = struct.unpack_from("<HH", data, 58)

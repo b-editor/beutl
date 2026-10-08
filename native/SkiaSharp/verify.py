@@ -120,31 +120,72 @@ def pe_exports(data, rid):
     return exports
 
 
-def macho_slice_exports(data, start, end, rid, name):
+def uleb128(data, offset, end):
+    value = shift = 0
+    while True:
+        if offset >= end:
+            raise ValueError("Native binary contains a truncated ULEB128 value.")
+        byte = data[offset]
+        offset += 1
+        value |= (byte & 0x7F) << shift
+        shift += 7
+        if byte < 0x80:
+            return value, offset
+
+
+def macho_trie_exports(data, start, end, rid, name):
+    # dyld resolves symbols through this trie, not LC_SYMTAB; a name only in the symbol table does not load.
+    exports = set()
+    pending = [(0, b"")]
+    visited = set()
+    while pending:
+        node, prefix = pending.pop()
+        if node in visited or not 0 <= node < end - start:
+            raise ValueError(f"{rid}: invalid Mach-O export trie in the {name} slice.")
+        visited.add(node)
+        terminal_size, offset = uleb128(data, start + node, end)
+        if terminal_size:
+            flags, _ = uleb128(data, offset, min(end, offset + terminal_size))
+            # Regular definitions only: re-exports are not our C ABI implementation.
+            if flags & 0x03 == 0 and not flags & 0x08:
+                exports.add(prefix[1:] if prefix.startswith(b"_") else prefix)
+        offset += terminal_size
+        child_count = unpack(data, "B", offset)[0]
+        offset += 1
+        for _ in range(child_count):
+            edge = c_string(data, offset, end)
+            offset += len(edge) + 1
+            child, offset = uleb128(data, offset, end)
+            pending.append((child, prefix + edge))
+    return exports
+
+
+def macho_slice_exports(data, start, end, rid, name, cpu):
     if unpack(data, "<I", start)[0] != 0xFEEDFACF:
         raise ValueError(f"{rid}: {name} slice is not a 64-bit Mach-O image.")
+    inner_cpu = unpack(data, "<i", start + 4)[0]
+    if inner_cpu != cpu:
+        raise ValueError(f"{rid}: Mach-O architecture mismatch ({name} slice header has CPU type {inner_cpu:#x}).")
     command_count, commands_size = unpack(data, "<II", start + 16)
     if unpack(data, "<I", start + 12)[0] != 6 or start + 32 + commands_size > end:  # MH_DYLIB
         raise ValueError(f"{rid}: {name} slice is not a Mach-O dynamic library.")
-    exports = set()
+    trie = None
     offset = start + 32
     for _ in range(command_count):
         command, command_size = unpack(data, "<II", offset)
         if command_size < 8 or offset + command_size > start + 32 + commands_size:
             raise ValueError(f"{rid}: invalid Mach-O load command in the {name} slice.")
-        if command == 0x2:  # LC_SYMTAB
-            symbols, symbol_count, strings, strings_size = unpack(data, "<IIII", offset + 8)
-            symbols, strings = start + symbols, start + strings
-            if symbols + symbol_count * 16 > end or strings + strings_size > end:
-                raise ValueError(f"{rid}: invalid Mach-O symbol table in the {name} slice.")
-            for position in range(symbols, symbols + symbol_count * 16, 16):
-                name_offset, kind = unpack(data, "<IB", position)
-                # Only defined (N_SECT), external, non-private symbols are exported from the dylib.
-                if kind & 0xE0 == 0 and kind & 0x01 and not kind & 0x10 and kind & 0x0E == 0x0E:
-                    symbol = c_string(data, strings + name_offset, strings + strings_size)
-                    exports.add(symbol[1:] if symbol.startswith(b"_") else symbol)
+        if command in (0x22, 0x80000022):  # LC_DYLD_INFO, LC_DYLD_INFO_ONLY
+            trie = unpack(data, "<II", offset + 40)
+        elif command == 0x80000033:  # LC_DYLD_EXPORTS_TRIE
+            trie = unpack(data, "<II", offset + 8)
         offset += command_size
-    return exports
+    if trie is None or trie[1] == 0:
+        return set()
+    trie_start, trie_end = start + trie[0], start + trie[0] + trie[1]
+    if trie_end > end:
+        raise ValueError(f"{rid}: invalid Mach-O export trie in the {name} slice.")
+    return macho_trie_exports(data, trie_start, trie_end, rid, name)
 
 
 def macho_exports(data, rid):
@@ -162,7 +203,7 @@ def macho_exports(data, rid):
         if cpu in MACHO_SLICES:
             if start + size > len(data):
                 raise ValueError(f"{rid}: truncated Mach-O {MACHO_SLICES[cpu]} slice.")
-            slices[MACHO_SLICES[cpu]] = macho_slice_exports(data, start, start + size, rid, MACHO_SLICES[cpu])
+            slices[MACHO_SLICES[cpu]] = macho_slice_exports(data, start, start + size, rid, MACHO_SLICES[cpu], cpu)
     missing = sorted(set(MACHO_SLICES.values()) - slices.keys())
     if missing:
         raise ValueError(f"{rid}: Mach-O architecture mismatch (missing {', '.join(missing)} slice).")
