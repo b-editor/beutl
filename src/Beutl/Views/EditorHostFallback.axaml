@@ -39,14 +39,14 @@
                     <OptionsDisplayItem.Icon>
                         <icons:FluentIcon Icon="New" />
                     </OptionsDisplayItem.Icon>
-                    <OptionsDisplayItem.ContextMenu>
-                        <ContextMenu Placement="AnchorAndGravity"
-                                     PlacementAnchor="BottomRight"
-                                     PlacementGravity="BottomLeft">
-                            <MenuItem Click="CreateNewProject_Click" Header="{x:Static lang:Strings.CreateNewProject}" />
-                            <MenuItem Click="CreateNewScene_Click" Header="{x:Static lang:Strings.CreateNewScene}" />
-                        </ContextMenu>
-                    </OptionsDisplayItem.ContextMenu>
+                    <OptionsDisplayItem.ContextFlyout>
+                        <ui:FAMenuFlyout Placement="AnchorAndGravity"
+                                         PlacementAnchor="BottomRight"
+                                         PlacementGravity="BottomLeft">
+                            <ui:FAMenuFlyoutItem Click="CreateNewProject_Click" Text="{x:Static lang:Strings.CreateNewProject}" />
+                            <ui:FAMenuFlyoutItem Click="CreateNewScene_Click" Text="{x:Static lang:Strings.CreateNewScene}" />
+                        </ui:FAMenuFlyout>
+                    </OptionsDisplayItem.ContextFlyout>
                 </OptionsDisplayItem>
 
                 <OptionsDisplayItem Margin="4"
@@ -57,14 +57,14 @@
                     <OptionsDisplayItem.Icon>
                         <icons:FluentIcon Icon="Open" />
                     </OptionsDisplayItem.Icon>
-                    <OptionsDisplayItem.ContextMenu>
-                        <ContextMenu Placement="AnchorAndGravity"
-                                     PlacementAnchor="BottomRight"
-                                     PlacementGravity="BottomLeft">
-                            <MenuItem Click="OpenProject_Click" Header="{x:Static lang:Strings.Project}" />
-                            <MenuItem Click="OpenFile_Click" Header="{x:Static lang:Strings.File}" />
-                        </ContextMenu>
-                    </OptionsDisplayItem.ContextMenu>
+                    <OptionsDisplayItem.ContextFlyout>
+                        <ui:FAMenuFlyout Placement="AnchorAndGravity"
+                                         PlacementAnchor="BottomRight"
+                                         PlacementGravity="BottomLeft">
+                            <ui:FAMenuFlyoutItem Click="OpenProject_Click" Text="{x:Static lang:Strings.Project}" />
+                            <ui:FAMenuFlyoutItem Click="OpenFile_Click" Text="{x:Static lang:Strings.File}" />
+                        </ui:FAMenuFlyout>
+                    </OptionsDisplayItem.ContextFlyout>
                 </OptionsDisplayItem>
 
                 <OptionsDisplayItem Margin="4"
@@ -105,18 +105,16 @@
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="ContextMenu">
-                                <Template>
-                                    <ContextMenu x:DataType="sysIO:FileInfo">
-                                        <MenuItem Click="DeleteRecentItem_Click" Header="{x:Static lang:Strings.Remove}" />
-                                        <MenuItem Click="OpenRecentItem_Click" Header="{x:Static lang:Strings.Open}" />
-                                        <!-- Only projects: deleting a scene on its own would leave its project unable to open. -->
-                                        <Separator IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
-                                        <MenuItem Click="DeleteRecentProjectFromDisk_Click"
-                                                  Header="{x:Static lang:Strings.DeleteFromDisk}"
-                                                  IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
-                                    </ContextMenu>
-                                </Template>
+                            <Setter Property="ContextFlyout">
+                                <ui:FAMenuFlyout x:DataType="sysIO:FileInfo">
+                                    <ui:FAMenuFlyoutItem Click="DeleteRecentItem_Click" Text="{x:Static lang:Strings.Remove}" />
+                                    <ui:FAMenuFlyoutItem Click="OpenRecentItem_Click" Text="{x:Static lang:Strings.Open}" />
+                                    <!-- Only projects: deleting a scene on its own would leave its project unable to open. -->
+                                    <ui:FAMenuFlyoutSeparator IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
+                                    <ui:FAMenuFlyoutItem Click="DeleteRecentProjectFromDisk_Click"
+                                                         Text="{x:Static lang:Strings.DeleteFromDisk}"
+                                                         IsVisible="{CompiledBinding Converter={x:Static converters:ProjectFileConverters.IsProjectFile}}" />
+                                </ui:FAMenuFlyout>
                             </Setter>
                         </Style>
                     </ListBox.Styles>

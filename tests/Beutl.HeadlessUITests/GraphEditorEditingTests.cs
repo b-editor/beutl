@@ -455,7 +455,7 @@ public class GraphEditorEditingTests
         int undo = graph.Model.HistoryManager.UndoCount;
         var key = graph.KeyFrame(graph.Second);
         graph.RightClick(key.TranslatePoint(default, graph.Window)!.Value);
-        var menuItem = key.ContextMenu!.Items.OfType<MenuItem>().Single(x => Equals(x.Header, Strings.Paste));
+        var menuItem = ((FAMenuFlyout)key.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(x => Equals(x.Text, Strings.Paste));
         var keyModel = (GraphEditorKeyFrameViewModel)key.DataContext!;
         Assert.That(menuItem.Command, Is.SameAs(keyModel.PasteCommand));
         await keyModel.PasteAsync(graph.Window.Clipboard);
@@ -597,11 +597,11 @@ public class GraphEditorEditingTests
         Point oldHandle = adorner.TranslatePoint(adorner.Selection!.Value.Center, graph.Window)!.Value;
         var key = graph.KeyFrame(graph.Second);
         graph.RightClick(key.TranslatePoint(default, graph.Window)!.Value);
-        var delete = key.ContextMenu!.Items.OfType<MenuItem>().Single(item => Equals(item.Header, Strings.Delete));
+        var delete = ((FAMenuFlyout)key.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, Strings.Delete));
         delete.Command!.Execute(delete.CommandParameter);
         Assert.That(graph.Animation.KeyFrames, Is.Empty);
         Assert.That(adorner.Selection, Is.Null);
-        key.ContextMenu.Close();
+        key.ContextFlyout.Hide();
         HeadlessTestHelpers.Render(3);
         Assert.DoesNotThrow(() =>
         {
@@ -991,11 +991,11 @@ public class GraphEditorEditingTests
         }
         else if (source == "ContextMenu")
         {
-            graph.BackgroundMenu.Open(graph.View.FindControl<Panel>("graphPanel")!);
+            graph.BackgroundMenu.ShowAt(graph.View.FindControl<Panel>("graphPanel")!);
             HeadlessTestHelpers.Render();
-            graph.BackgroundMenu.Items.OfType<MenuItem>().Single(x => Equals(x.Tag, "Velocity"))
-                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-            graph.BackgroundMenu.Close();
+            graph.BackgroundMenu.Items.OfType<FAMenuFlyoutItem>().Single(x => Equals(x.Tag, "Velocity"))
+                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            graph.BackgroundMenu.Hide();
         }
         else graph.View.FindControl<Button>("VelocityButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);

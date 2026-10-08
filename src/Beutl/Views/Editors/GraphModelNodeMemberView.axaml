@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.GraphModelNodeMemberView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -19,20 +20,20 @@
                 <ToggleButton.Tag>
                     <icons:FluentIcon Margin="0,1,0,0" Icon="ChevronUpDown" />
                 </ToggleButton.Tag>
-                <ToggleButton.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="Delete" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Click="RenameClick" Header="{x:Static lang:Strings.Rename}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="Rename" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                    </ContextMenu>
-                </ToggleButton.ContextMenu>
+                <ToggleButton.ContextFlyout>
+                    <ui:FAMenuFlyout>
+                        <ui:FAMenuFlyoutItem Click="Remove_Click" Text="{x:Static lang:Strings.Remove}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="Delete" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="Rename" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                    </ui:FAMenuFlyout>
+                </ToggleButton.ContextFlyout>
             </ToggleButton>
 
             <Button Grid.Column="1"

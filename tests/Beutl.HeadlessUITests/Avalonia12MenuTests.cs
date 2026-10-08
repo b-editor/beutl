@@ -1,10 +1,17 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.GraphEditorTab.Views;
+using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Components.PathEditorTab.Views;
+using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Testing.Headless;
+using Beutl.Views;
 using Beutl.Views.Editors;
 using FluentAvalonia.UI.Controls;
 
@@ -13,6 +20,48 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class Avalonia12MenuTests
 {
+    [AvaloniaTest]
+    public async Task Player_context_flyout_resets_zoom_and_stays_closed_in_camera_mode()
+    {
+        using var graph = await GraphEditorContextMenuTests.GraphScope.CreateAsync();
+        var editor = (Beutl.ViewModels.EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var view = new PlayerView { DataContext = editor.Player };
+        var window = new Window { Content = view, Width = 640, Height = 480 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Control anchor = view.FindControl<Panel>("framePanel")!;
+            var flyout = (FAMenuFlyout)anchor.ContextFlyout!;
+            editor.Player.IsCameraMode.Value = true;
+            flyout.ShowAt(anchor);
+            Assert.That(flyout.IsOpen, Is.False);
+            editor.Player.IsCameraMode.Value = false;
+            editor.Player.FrameMatrix.Value = Beutl.Graphics.Matrix.CreateScale(2, 2);
+            flyout.ShowAt(anchor);
+            HeadlessTestHelpers.Render();
+            FAMenuFlyoutItem reset = flyout.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => item.Text == Beutl.Language.Strings.ResetZoom);
+            Assert.That(flyout.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => item.Text == Beutl.Language.Strings.SaveSelectedElementAsImage).IsEnabled, Is.False);
+            TopLevel popup = TopLevel.GetTopLevel(reset)!;
+            Avalonia.Point center = reset.TranslatePoint(new Avalonia.Point(reset.Bounds.Width / 2, reset.Bounds.Height / 2), popup)!.Value;
+            popup.MouseMove(center);
+            popup.MouseDown(center, MouseButton.Left);
+            popup.MouseUp(center, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.Player.FrameMatrix.Value, Is.EqualTo(Beutl.Graphics.Matrix.Identity));
+            Assert.That(flyout.IsOpen, Is.False);
+        }
+        finally
+        {
+            editor.Player.IsCameraMode.Value = false;
+            view.DataContext = null;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     // These views declare flyouts outside the visual tree. Constructing the view alone
     // does not verify that the renamed menu items still acquire a presenter and theme.
     [AvaloniaTest]
@@ -28,6 +77,12 @@ public class Avalonia12MenuTests
     [TestCase(typeof(TextureSourceEditor))]
     [TestCase(typeof(FilterEffectEditor))]
     [TestCase(typeof(PathEditorTabView))]
+    [TestCase(typeof(GraphEditorView))]
+    [TestCase(typeof(NodeGraphView))]
+    [TestCase(typeof(InlineAnimationLayer))]
+    [TestCase(typeof(GraphModelNodeMemberView))]
+    [TestCase(typeof(NavigateButton))]
+    [TestCase(typeof(EditorHostFallback))]
     public void Editor_menus_open_with_their_items_and_labels(Type viewType)
     {
         var view = (Control)Activator.CreateInstance(viewType)!;

@@ -9,6 +9,7 @@ using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Language;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
@@ -508,7 +509,7 @@ public partial class GraphEditorView
             graph.IsSpeedGraph.Value = action == "SpeedGraph";
         else if (action == "Velocity")
         {
-            if (sender is MenuItem) Dispatcher.UIThread.Post(ShowVelocityFlyout);
+            if (sender is FAMenuFlyoutItem) Dispatcher.UIThread.Post(ShowVelocityFlyout);
             else ShowVelocityFlyout();
             return;
         }

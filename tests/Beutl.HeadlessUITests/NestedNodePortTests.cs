@@ -31,6 +31,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
+using FluentAvalonia.UI.Controls;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -229,16 +230,16 @@ public class NestedNodePortTests
                 window.MouseDown(position, MouseButton.Right);
                 window.MouseUp(position, MouseButton.Right);
                 HeadlessTestHelpers.Render(3);
-                ContextMenu menu = point.ContextMenu!;
+                FAMenuFlyout menu = (FAMenuFlyout)point.ContextFlyout!;
                 Assert.That(menu.IsOpen, Is.True);
-                MenuItem disconnect = menu.Items.OfType<MenuItem>().Single();
-                TopLevel popup = TopLevel.GetTopLevel(menu)!;
+                FAMenuFlyoutItem disconnect = menu.Items.OfType<FAMenuFlyoutItem>().Single();
+                TopLevel popup = TopLevel.GetTopLevel(menu.Popup.Child!)!;
                 Capture(popup, $"invalid-connected-menu-{expression}");
                 Point action = disconnect.TranslatePoint(new Point(disconnect.Bounds.Width / 2, disconnect.Bounds.Height / 2), popup)!.Value;
                 popup.MouseMove(action);
                 popup.MouseDown(action, MouseButton.Left);
                 popup.MouseUp(action, MouseButton.Left);
-                menu.Close();
+                menu.Hide();
             }
             else
             {

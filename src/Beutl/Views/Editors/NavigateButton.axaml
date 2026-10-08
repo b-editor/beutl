@@ -54,16 +54,16 @@
                 Background="Transparent"
                 BorderThickness="0"
                 Click="Menu_Click">
-            <Button.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Click="Navigate_Click"
-                              Header="{x:Static lang:Strings.Edit}"
-                              IsEnabled="{Binding IsSet.Value}" />
-                    <MenuItem Click="New_Click"
-                              Header="{x:Static lang:Strings.CreateNew}"
-                              IsEnabled="{Binding CanWrite}" />
-                </ContextMenu>
-            </Button.ContextMenu>
+            <Button.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:FAMenuFlyoutItem Click="Navigate_Click"
+                                         Text="{x:Static lang:Strings.Edit}"
+                                         IsEnabled="{Binding IsSet.Value}" />
+                    <ui:FAMenuFlyoutItem Click="New_Click"
+                                         Text="{x:Static lang:Strings.CreateNew}"
+                                         IsEnabled="{Binding CanWrite}" />
+                </ui:FAMenuFlyout>
+            </Button.ContextFlyout>
             <icons:FluentIcon Icon="MoreVertical" />
         </Button>
     </pe:PropertyEditorGrid>

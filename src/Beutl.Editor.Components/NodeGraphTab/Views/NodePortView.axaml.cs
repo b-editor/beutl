@@ -9,6 +9,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.NodeGraph;
+using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
 using Reactive.Bindings;
@@ -174,7 +175,7 @@ public partial class NodePortView : UserControl
             portPt.Margin = new Thickness(6, 4, 0, 0);
         }
 
-        AddContextMenu(obj, portPt);
+        AddContextFlyout(obj, portPt);
         if (ProvidedEditor != null)
         {
             portPt.DataContext = obj;
@@ -215,7 +216,7 @@ public partial class NodePortView : UserControl
         };
         placeholder.ConnectRequested += OnNodePortPointConnectRequested;
         placeholder.DisconnectRequested += OnNodePortPointDisconnectRequested;
-        AddContextMenu(obj, placeholder);
+        AddContextFlyout(obj, placeholder);
         _listNodePortPanel.Children.Add(placeholder);
 
         // Subscribe to Connections changes (handles Add, Remove, Move)
@@ -252,13 +253,13 @@ public partial class NodePortView : UserControl
         grid.Children.Add(_listNodePortPanel);
     }
 
-    private void AddContextMenu(NodePortViewModel obj, NodePortPoint portPt)
+    private void AddContextFlyout(NodePortViewModel obj, NodePortPoint portPt)
     {
-        var list = new List<MenuItem>()
+        var list = new List<FAMenuFlyoutItem>()
         {
-            new MenuItem()
+            new FAMenuFlyoutItem()
             {
-                Header = Strings.Disconnect,
+                Text = Strings.Disconnect,
                 Command = new ReactiveCommand()
                     .WithSubscribe(obj.DisconnectAll)
             }
@@ -266,28 +267,27 @@ public partial class NodePortView : UserControl
 
         if (obj.Model is IDynamicPort)
         {
-            list.Add(new MenuItem()
+            list.Add(new FAMenuFlyoutItem()
             {
-                Header = Strings.Remove,
+                Text = Strings.Remove,
                 Command = new ReactiveCommand()
                     .WithSubscribe(obj.Remove)
             });
 
-            list.Add(new MenuItem()
+            list.Add(new FAMenuFlyoutItem()
             {
-                Header = Strings.Rename,
+                Text = Strings.Rename,
                 Command = new ReactiveCommand().WithSubscribe(RenameClick),
-                Icon = new FluentIcon
+                IconSource = new FluentIconSource
                 {
                     Icon = Icon.Rename
                 }
             });
         }
 
-        portPt.ContextMenu = new ContextMenu
-        {
-            ItemsSource = list
-        };
+        var flyout = new FAMenuFlyout();
+        foreach (var item in list) flyout.Items.Add(item);
+        portPt.ContextFlyout = flyout;
     }
 
     private void RenameClick()

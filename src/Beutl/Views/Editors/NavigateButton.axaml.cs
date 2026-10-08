@@ -38,7 +38,7 @@ public partial class NavigateButton : UserControl
     {
         if (sender is Button button)
         {
-            button.ContextMenu?.Open();
+            button.ContextFlyout?.ShowAt(button);
         }
     }
 

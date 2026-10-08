@@ -19,6 +19,7 @@ using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -65,19 +66,19 @@ public class NodeGraphPortDropTests
             window.MouseUp(to, MouseButton.Left);
             HeadlessTestHelpers.Render(3);
 
-            ContextMenu menu = view.PortDropMenu!;
+            FAMenuFlyout menu = view.PortDropMenu!;
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu.IsOpen, Is.True);
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
-            MenuItem utilities = menu.ItemsSource!.Cast<MenuItem>()
-                .Single(item => Equals(item.Header, NodeGraphStrings.ToolsAndValues));
-            MenuItem selector = utilities.ItemsSource!.Cast<MenuItem>()
-                .Single(item => Equals(item.Header, NodeGraphStrings.ConditionalSwitch));
-            Assert.That(selector.ItemsSource!.Cast<MenuItem>().Select(item => item.Header),
+            FAMenuFlyoutSubItem utilities = menu.Items.OfType<FAMenuFlyoutSubItem>()
+                .Single(item => Equals(item.Text, NodeGraphStrings.ToolsAndValues));
+            FAMenuFlyoutSubItem selector = utilities.Items.OfType<FAMenuFlyoutSubItem>()
+                .Single(item => Equals(item.Text, NodeGraphStrings.ConditionalSwitch));
+            Assert.That(selector.Items.Cast<FAMenuFlyoutItem>().Select(item => item.Text),
                 Is.EquivalentTo(new[] { NodeGraphStrings.Port_True, NodeGraphStrings.Port_False }));
-            MenuItem outputItem = menu.ItemsSource!.Cast<MenuItem>()
-                .Single(item => Equals(item.Header, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
-            TopLevel popup = TopLevel.GetTopLevel(menu)!;
+            FAMenuFlyoutItem outputItem = menu.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
+            TopLevel popup = TopLevel.GetTopLevel(menu.Popup.Child!)!;
             Capture(popup, $"compatible-menu-{scale}");
             Point action = outputItem.TranslatePoint(
                 new Point(outputItem.Bounds.Width / 2, outputItem.Bounds.Height / 2), popup)!.Value;
@@ -153,14 +154,14 @@ public class NodeGraphPortDropTests
             window.MouseUp(to, MouseButton.Left);
             HeadlessTestHelpers.Render(3);
 
-            ContextMenu menu = view.PortDropMenu!;
+            FAMenuFlyout menu = view.PortDropMenu!;
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu.IsOpen, Is.True);
-            Assert.That(menu.ItemsSource!.Cast<MenuItem>().Any(item =>
-                Equals(item.Header, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName)), Is.False);
-            MenuItem inputItem = menu.ItemsSource!.Cast<MenuItem>()
-                .Single(item => Equals(item.Header, GraphNodeRegistry.FindItem(typeof(LayerInputNode))!.DisplayName));
-            TopLevel popup = TopLevel.GetTopLevel(menu)!;
+            Assert.That(menu.Items.OfType<FAMenuFlyoutItem>().Any(item =>
+                Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName)), Is.False);
+            FAMenuFlyoutItem inputItem = menu.Items.OfType<FAMenuFlyoutItem>()
+                .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(LayerInputNode))!.DisplayName));
+            TopLevel popup = TopLevel.GetTopLevel(menu.Popup.Child!)!;
             Capture(popup, "compatible-input-menu");
             Point action = inputItem.TranslatePoint(
                 new Point(inputItem.Bounds.Width / 2, inputItem.Bounds.Height / 2), popup)!.Value;

@@ -11,6 +11,7 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
@@ -32,7 +33,7 @@ public partial class GraphEditorView : UserControl
     {
         InitializeComponent();
         KeyModifiers commandModifier = KeyGestureHelper.GetCommandModifier();
-        foreach (MenuItem item in graphPanel.ContextMenu!.Items.OfType<MenuItem>())
+        foreach (FAMenuFlyoutItem item in ((FAMenuFlyout)graphPanel.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>())
         {
             item.InputGesture = item.Tag switch
             {
@@ -101,7 +102,9 @@ public partial class GraphEditorView : UserControl
         VelocityFlyout?.Hide();
         ValueScaleFlyout?.Hide();
         FinishInteraction(obj, cancel: true);
+        graphPanel.ContextFlyout?.Hide();
         _disposables.Clear();
+        SelectedViewMenu.Items.Clear();
     }
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
@@ -109,6 +112,16 @@ public partial class GraphEditorView : UserControl
         obj.SetClipboardViewContext(() => ReferenceEquals(DataContext, obj) && IsEffectivelyVisible
             && TopLevel.GetTopLevel(this)?.PlatformImpl != null);
         AttachGraphInteractions(obj);
+
+        foreach (GraphEditorViewViewModel view in obj.Views)
+        {
+            var item = new FARadioMenuFlyoutItem { Text = view.DisplayName, DataContext = view };
+            item.Bind(FARadioMenuFlyoutItem.IsCheckedProperty, view.IsSelected)
+                .DisposeWith(_disposables);
+            item.Click += SelectedView_Click;
+            UsageTracking.SetFeature(item, "GraphEditor.SelectedView");
+            SelectedViewMenu.Items.Add(item);
+        }
 
         obj.MinHeight
             .CombineLatest(scroll.GetObservable(BoundsProperty))
@@ -284,7 +297,7 @@ public partial class GraphEditorView : UserControl
 
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is MenuItem menuItem
+        if (e.Source is FAMenuFlyoutItem menuItem
             && DataContext is GraphEditorViewModel viewModel)
         {
             float zoom;
@@ -314,7 +327,7 @@ public partial class GraphEditorView : UserControl
     private void SelectedView_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel
-            && e.Source is MenuItem { DataContext: GraphEditorViewViewModel itemViewModel })
+            && e.Source is FAMenuFlyoutItem { DataContext: GraphEditorViewViewModel itemViewModel })
         {
             viewModel.SelectedView.Value = itemViewModel;
         }

@@ -17,39 +17,39 @@ using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.Logging;
 
-using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    private MenuItem? _saveElementAsImage;
-    private MenuItem? _saveFrameAsImage;
+    private FAMenuFlyoutItem? _saveElementAsImage;
+    private FAMenuFlyoutItem? _saveFrameAsImage;
     private void ConfigureFrameContextMenu(Control control)
     {
-        _saveElementAsImage = new MenuItem
+        _saveElementAsImage = new FAMenuFlyoutItem
         {
-            Header = Strings.SaveSelectedElementAsImage,
+            Text = Strings.SaveSelectedElementAsImage,
             IsEnabled = false
         };
         _saveElementAsImage.Click += OnSaveElementAsImageClick;
-        _saveFrameAsImage = new MenuItem
+        _saveFrameAsImage = new FAMenuFlyoutItem
         {
-            Header = Strings.SaveFrameAsImage,
-            Icon = new FluentIcon
+            Text = Strings.SaveFrameAsImage,
+            IconSource = new FluentIconSource
             {
                 Icon = Icon.Image
             },
         };
         _saveFrameAsImage.Click += OnSaveFrameAsImageClick;
-        var resetZoom = new MenuItem
+        var resetZoom = new FAMenuFlyoutItem
         {
-            Header = Strings.ResetZoom
+            Text = Strings.ResetZoom
         };
         resetZoom.Click += OnResetZoomClick;
 
-        var menu = new ContextMenu()
+        var menu = new FAMenuFlyout()
         {
             Items =
             {
@@ -59,7 +59,7 @@ public partial class PlayerView
             }
         };
         menu.Opening += FrameContextMenuOpening;
-        control.ContextMenu = menu;
+        control.ContextFlyout = menu;
     }
 
     private void OnResetZoomClick(object? sender, RoutedEventArgs e)
@@ -71,11 +71,11 @@ public partial class PlayerView
         }
     }
 
-    private void FrameContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void FrameContextMenuOpening(object? sender, EventArgs e)
     {
         if (DataContext is PlayerViewModel viewModel && viewModel.IsCameraMode.Value)
         {
-            e.Cancel = true;
+            ((System.ComponentModel.CancelEventArgs)e).Cancel = true;
             return;
         }
 

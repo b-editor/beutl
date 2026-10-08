@@ -18,6 +18,8 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentAvalonia.Styling;
 
+using FluentAvalonia.UI.Controls;
+
 namespace Beutl.Views;
 
 public partial class EditorHostFallback : UserControl
@@ -72,7 +74,7 @@ public partial class EditorHostFallback : UserControl
     {
         if (sender is Control control)
         {
-            control.ContextMenu?.Open();
+            control.ContextFlyout?.ShowAt(control);
         }
     }
 
@@ -122,7 +124,7 @@ public partial class EditorHostFallback : UserControl
 
     private void DeleteRecentItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: FileInfo fi })
+        if (sender is FAMenuFlyoutItem { DataContext: FileInfo fi })
         {
             ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
 
@@ -133,7 +135,7 @@ public partial class EditorHostFallback : UserControl
 
     private async void DeleteRecentProjectFromDisk_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: FileInfo fi })
+        if (sender is FAMenuFlyoutItem { DataContext: FileInfo fi })
         {
             await ExecuteMainViewModelCommandAsync(vm => vm.ProjectDiskDeletion.DeleteAsync(fi.FullName));
         }
@@ -141,7 +143,7 @@ public partial class EditorHostFallback : UserControl
 
     private async void OpenRecentItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: FileInfo fi })
+        if (sender is FAMenuFlyoutItem { DataContext: FileInfo fi })
         {
             await OpenRecentFileAsync(fi.FullName);
         }

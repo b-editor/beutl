@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
+﻿<UserControl x:Class="Beutl.Editor.Components.FileBrowserTab.Views.FileBrowserTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
@@ -22,48 +22,48 @@
     <UserControl.Styles>
         <!--  共通コンテキストメニュー（file-itemクラスを持つBorderに適用）  -->
         <Style Selector="Border.file-item">
-            <Setter Property="ContextMenu">
-                <ContextMenu Opened="OnContextMenuOpened">
-                    <MenuItem usage:UsageTracking.Feature="FileBrowser.Open"
-                              Click="OnOpenClick"
-                              Header="{x:Static lang:Strings.Open}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Open" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem usage:UsageTracking.Feature="FileBrowser.OpenInFileManager"
-                              Click="OnOpenInFileManagerClick"
-                              Header="{x:Static lang:Strings.OpenInFileManager}"
-                              Tag="OpenInFileManager">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="OpenFolder" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem usage:UsageTracking.Feature="FileBrowser.Rename"
-                              Click="OnRenameClick"
-                              Header="{x:Static lang:Strings.Rename}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Rename" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem usage:UsageTracking.Feature="FileBrowser.Delete"
-                              Click="OnDeleteClick"
-                              Header="{x:Static lang:Strings.Delete}">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Delete" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem usage:UsageTracking.Feature="FileBrowser.ToggleFavoriteContextMenu"
-                              Click="OnToggleFavoriteContextMenuClick"
-                              Header="{x:Static lang:Strings.AddToFavorites}"
-                              Tag="FavoriteToggle">
-                        <MenuItem.Icon>
-                            <icons:FluentIcon Icon="Star" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                </ContextMenu>
+            <Setter Property="ContextFlyout">
+                <ui:FAMenuFlyout Opened="OnContextFlyoutOpened">
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.Open"
+                                         Click="OnOpenClick"
+                                         Text="{x:Static lang:Strings.Open}">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Open" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.OpenInFileManager"
+                                         Click="OnOpenInFileManagerClick"
+                                         Text="{x:Static lang:Strings.OpenInFileManager}"
+                                         Tag="OpenInFileManager">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="OpenFolder" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutSeparator />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.Rename"
+                                         Click="OnRenameClick"
+                                         Text="{x:Static lang:Strings.Rename}">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Rename" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.Delete"
+                                         Click="OnDeleteClick"
+                                         Text="{x:Static lang:Strings.Delete}">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Delete" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutSeparator />
+                    <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="FileBrowser.ToggleFavoriteContextMenu"
+                                         Click="OnToggleFavoriteContextMenuClick"
+                                         Text="{x:Static lang:Strings.AddToFavorites}"
+                                         Tag="FavoriteToggle">
+                        <ui:FAMenuFlyoutItem.IconSource>
+                            <icons:FluentIconSource Icon="Star" />
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                </ui:FAMenuFlyout>
             </Setter>
         </Style>
     </UserControl.Styles>

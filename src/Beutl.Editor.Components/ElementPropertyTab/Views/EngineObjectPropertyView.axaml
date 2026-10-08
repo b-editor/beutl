@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Editor.Components.ElementPropertyTab.Views.EngineObjectPropertyView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -19,25 +20,25 @@
             <Grid x:Name="headerPanel"
                   Background="Transparent"
                   ColumnDefinitions="Auto,Auto,*">
-                <Grid.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem usage:UsageTracking.Feature="ElementProperty.Remove"
-                                  Click="Remove_Click"
-                                  Header="{x:Static lang:Strings.Remove}"
-                                  IsEnabled="{Binding CanEdit.Value}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="Delete" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem usage:UsageTracking.Feature="ElementProperty.SaveAsTemplate"
-                                  Click="SaveAsTemplate_Click"
-                                  Header="{x:Static lang:Strings.SaveAsTemplate}">
-                            <MenuItem.Icon>
-                                <icons:FluentIcon Icon="DocumentCopy" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                    </ContextMenu>
-                </Grid.ContextMenu>
+                <Grid.ContextFlyout>
+                    <ui:FAMenuFlyout>
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="ElementProperty.Remove"
+                                             Click="Remove_Click"
+                                             Text="{x:Static lang:Strings.Remove}"
+                                             IsEnabled="{Binding CanEdit.Value}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="Delete" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="ElementProperty.SaveAsTemplate"
+                                             Click="SaveAsTemplate_Click"
+                                             Text="{x:Static lang:Strings.SaveAsTemplate}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="DocumentCopy" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                    </ui:FAMenuFlyout>
+                </Grid.ContextFlyout>
                 <Border x:Name="dragBorder"
                         IsEnabled="{Binding CanEdit.Value}"
                         Padding="{DynamicResource ToolTabBarIconButtonPadding}"

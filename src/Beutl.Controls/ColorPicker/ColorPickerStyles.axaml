@@ -778,36 +778,36 @@
                                         </Border>
                                     </TextBox.InnerLeftContent>
                                     <TextBox.ContextFlyout>
-                                        <MenuFlyout>
-                                            <MenuItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
-                                                      CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Header}"
-                                                      Header="#RRGGBB" />
-                                            <MenuItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
-                                                      CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Header}"
-                                                      Header="#AARRGGBB" />
-                                            <MenuItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
-                                                      CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Header}"
-                                                      Header="rgb( r, g, b )" />
-                                            <MenuItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
-                                                      CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Header}"
-                                                      Header="rgba( r, g, b, a )" />
-                                            <MenuItem Header="-" />
-                                            <MenuItem x:Name="TextBoxContextMenuCutItem"
-                                                      Command="{Binding $parent[TextBox].Cut}"
-                                                      Header="{x:Static lang:Strings.Cut}"
-                                                      InputGesture="{x:Static TextBox.CutGesture}"
-                                                      IsEnabled="{Binding $parent[TextBox].CanCut}" />
-                                            <MenuItem x:Name="TextBoxContextMenuCopyItem"
-                                                      Command="{Binding $parent[TextBox].Copy}"
-                                                      Header="{x:Static lang:Strings.Copy}"
-                                                      InputGesture="{x:Static TextBox.CopyGesture}"
-                                                      IsEnabled="{Binding $parent[TextBox].CanCopy}" />
-                                            <MenuItem x:Name="TextBoxContextMenuPasteItem"
-                                                      Command="{Binding $parent[TextBox].Paste}"
-                                                      Header="{x:Static lang:Strings.Paste}"
-                                                      InputGesture="{x:Static TextBox.PasteGesture}"
-                                                      IsEnabled="{Binding $parent[TextBox].CanPaste}" />
-                                        </MenuFlyout>
+                                        <ui:FAMenuFlyout>
+                                            <ui:FAMenuFlyoutItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
+                                                                 CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Text}"
+                                                                 Text="#RRGGBB" />
+                                            <ui:FAMenuFlyoutItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
+                                                                 CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Text}"
+                                                                 Text="#AARRGGBB" />
+                                            <ui:FAMenuFlyoutItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
+                                                                 CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Text}"
+                                                                 Text="rgb( r, g, b )" />
+                                            <ui:FAMenuFlyoutItem Command="{Binding $parent[ui:FAColorPicker].OnHexTextContextMenuItemClick}"
+                                                                 CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Text}"
+                                                                 Text="rgba( r, g, b, a )" />
+                                            <ui:FAMenuFlyoutSeparator />
+                                            <ui:FAMenuFlyoutItem x:Name="TextBoxContextMenuCutItem"
+                                                                 Command="{Binding $parent[TextBox].Cut}"
+                                                                 Text="{x:Static lang:Strings.Cut}"
+                                                                 InputGesture="{x:Static TextBox.CutGesture}"
+                                                                 IsEnabled="{Binding $parent[TextBox].CanCut}" />
+                                            <ui:FAMenuFlyoutItem x:Name="TextBoxContextMenuCopyItem"
+                                                                 Command="{Binding $parent[TextBox].Copy}"
+                                                                 Text="{x:Static lang:Strings.Copy}"
+                                                                 InputGesture="{x:Static TextBox.CopyGesture}"
+                                                                 IsEnabled="{Binding $parent[TextBox].CanCopy}" />
+                                            <ui:FAMenuFlyoutItem x:Name="TextBoxContextMenuPasteItem"
+                                                                 Command="{Binding $parent[TextBox].Paste}"
+                                                                 Text="{x:Static lang:Strings.Paste}"
+                                                                 InputGesture="{x:Static TextBox.PasteGesture}"
+                                                                 IsEnabled="{Binding $parent[TextBox].CanPaste}" />
+                                        </ui:FAMenuFlyout>
                                     </TextBox.ContextFlyout>
                                 </TextBox>
 

@@ -12,7 +12,7 @@ using Beutl.Language;
 
 using FluentAvalonia.UI.Controls;
 
-using FluentIcon = FluentIcons.Avalonia.Fluent.FluentIcon;
+using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Controls;
@@ -22,12 +22,12 @@ public sealed class DirectoryTreeView : TreeView
     private readonly FileSystemWatcher _watcher;
     private readonly AvaloniaList<TreeViewItem> _items = [];
     private readonly DirectoryInfo _directoryInfo;
-    private readonly MenuItem _open;
-    private readonly MenuItem _copy;
-    private readonly MenuItem _remove;
-    private readonly MenuItem _rename;
-    private readonly MenuItem _addfolder;
-    private readonly List<object> _menuItem;
+    private readonly FAMenuFlyoutItem _open;
+    private readonly FAMenuFlyoutItem _copy;
+    private readonly FAMenuFlyoutItem _remove;
+    private readonly FAMenuFlyoutItem _rename;
+    private readonly FAMenuFlyoutItem _addfolder;
+    private readonly List<Control> _menuItem;
     private readonly Func<string, object>? _contextFactory;
 
     public DirectoryTreeView(FileSystemWatcher watcher, Func<string, object>? contextFactory = null)
@@ -61,9 +61,9 @@ public sealed class DirectoryTreeView : TreeView
         _menuItem =
         [
             _open,
-            new MenuItem
+            new FAMenuFlyoutSubItem
             {
-                Header = Strings.CreateNew,
+                Text = Strings.CreateNew,
                 Items =
                 {
                     _addfolder,
@@ -72,23 +72,21 @@ public sealed class DirectoryTreeView : TreeView
             _copy,
             _remove,
             _rename,
-            new Separator()
+            new FAMenuFlyoutSeparator()
         ];
 
-        ContextMenu = new ContextMenu
-        {
-            ItemsSource = _menuItem
-        };
-
-        ContextMenu.Opening += ContextMenu_ContextMenuOpening;
+        var flyout = new FAMenuFlyout();
+        foreach (var item in _menuItem) flyout.Items.Add(item);
+        flyout.Opening += OnContextFlyoutOpening;
+        ContextFlyout = flyout;
     }
 
-    private static MenuItem CreateMenuItem(string header, Icon icon)
+    private static FAMenuFlyoutItem CreateMenuItem(string header, Icon icon)
     {
-        return new MenuItem
+        return new FAMenuFlyoutItem
         {
-            Header = header,
-            Icon = new FluentIcon
+            Text = header,
+            IconSource = new FluentIconSource
             {
                 Icon = icon,
                 FontSize = 20,
@@ -96,7 +94,7 @@ public sealed class DirectoryTreeView : TreeView
         };
     }
 
-    private void ContextMenu_ContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void OnContextFlyoutOpening(object? sender, EventArgs e)
     {
         _remove.IsEnabled = CanRemove();
         _open.IsEnabled = CanOpen();
