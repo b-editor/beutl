@@ -303,9 +303,31 @@ public sealed class SrgbCompositionTests
         });
     }
 
-    private static byte ToneMappedRed(SKImage image)
+    [Test]
+    public void ToneMappedPreview_SamplesWithHighQualityInterpolation()
     {
-        using SKShader? shader = BitmapView.CreateToneMappingShader(image, SKSamplingOptions.Default,
+        using var linear = new SKBitmap(new SKImageInfo(4, 4, SKColorType.RgbaF16, SKAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb.SKColorSpace));
+        using (var canvas = new SKCanvas(linear))
+        using (var paint = new SKPaint())
+        {
+            paint.SetColor(new SKColorF(2, 2, 2, 1), BitmapColorSpace.LinearSrgb.SKColorSpace);
+            canvas.DrawPaint(paint);
+        }
+
+        using SKImage image = SKImage.FromBitmap(linear);
+        // BitmapView's default HighQuality mode samples with the Mitchell cubic resampler.
+        var highQuality = new SKSamplingOptions(SKCubicResampler.Mitchell);
+
+        Assert.That(ToneMappedRed(image, highQuality), Is.EqualTo(ToneMappedRed(image)).Within(1));
+    }
+
+    private static byte ToneMappedRed(SKImage image)
+        => ToneMappedRed(image, SKSamplingOptions.Default);
+
+    private static byte ToneMappedRed(SKImage image, SKSamplingOptions sampling)
+    {
+        using SKShader? shader = BitmapView.CreateToneMappingShader(image, sampling,
             SKMatrix.Identity, 0, UIToneMappingOperator.Reinhard);
         Assert.That(shader, Is.Not.Null);
         using var output = new SKBitmap(new SKImageInfo(1, 1, SKColorType.Bgra8888, SKAlphaType.Premul,
@@ -458,17 +480,16 @@ public sealed class SrgbCompositionTests
 
         public override void Process(RenderNodeContext context)
         {
-            RecordedNestedRenderTarget nested = context.RecordNestedTarget(child, domain);
+            RecordedNestedRenderTarget nested = context.RecordNestedTargetAtScale(child, domain, 1f);
             OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-                session => session.UseNestedTarget(
+                session => session.UseResource(
                     nested.Binding,
-                    image =>
+                    binding =>
                     {
-                        ITexture2D texture = nested.Target.GetTexture(domain, 1f)
+                        ITexture2D texture = binding.GetTexture(domain, 1f)
                             ?? throw new AssertionException("The nested target has no texture.");
                         TextureRed = ReadTextureRed(texture, 8, 8);
                         using OpaqueRenderOutput output = session.CreateOutput(domain);
-                        output.Canvas.Use(image.Draw);
                         session.Publish(output);
                     }),
                 OpaqueRenderBoundsContract.Source(domain),

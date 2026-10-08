@@ -182,7 +182,11 @@ public class BitmapView : Avalonia.Controls.Control
 
         // Sample the stored values without an implicit destination-space transform; the shader
         // decodes sRGB explicitly before exposure and tone mapping, preserving extended F16 values.
-        using var imageShader = image.ToRawShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, sampling, localMatrix);
+        // Raw image shaders reject cubic resampling, so HighQuality falls back to bilinear here.
+        SKSamplingOptions rawSampling = sampling.UseCubic
+            ? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None)
+            : sampling;
+        using var imageShader = image.ToRawShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, rawSampling, localMatrix);
         var builder = new SKRuntimeShaderBuilder(effect);
         builder.Children["src"] = imageShader;
         builder.Uniforms["exposure"] = exposure;
