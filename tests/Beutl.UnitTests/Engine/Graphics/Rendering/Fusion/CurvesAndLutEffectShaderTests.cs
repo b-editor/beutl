@@ -119,7 +119,7 @@ public sealed class CurvesAndLutEffectShaderTests
             {
                 Assert.That(description.Resources, Has.Count.EqualTo(1));
                 Assert.That(description.Uniforms.Select(static uniform => uniform.Name),
-                    Is.EqualTo(new[] { "lutSize", "strength" }));
+                    Is.EqualTo(new[] { "lutSize", "lutWidth", "strength" }));
                 Assert.That(binding.Name, Is.EqualTo("lut"));
                 Assert.That(binding.CoordinateSpace, Is.EqualTo(ShaderResourceCoordinateSpace.Value));
                 Assert.That(lutResource.Strength, Is.EqualTo(100f));
