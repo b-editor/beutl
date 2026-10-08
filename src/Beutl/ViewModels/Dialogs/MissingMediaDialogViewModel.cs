@@ -34,6 +34,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
     public ReactivePropertySlim<string> Status { get; } = new(MissingMediaStrings.Missing);
     public ReactivePropertySlim<bool> IsOffline { get; } = new();
     internal IFileSource? ValidatedSource { get; set; }
+    internal IReadOnlyList<string> FontReplacementFiles { get; set; } = [];
 
     public void Dispose()
     {
@@ -92,8 +93,8 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             foreach (var row in rows)
             {
                 _token.ThrowIfCancellationRequested();
-                if (matches.TryGetValue(row.Media, out string? path))
-                    await SetReplacementCoreAsync(row, path);
+                if (matches.TryGetValue(row.Media, out var paths))
+                    await SetReplacementCoreAsync(row, paths[0], paths);
                 else row.Status.Value = MissingMediaStrings.NoUniqueMatch;
             }
         }
@@ -117,13 +118,20 @@ public sealed class MissingMediaDialogViewModel : IDisposable
         finally { if (!_disposed) SetBusy(false); }
     }
 
-    private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path)
+    private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null)
     {
         try
         {
             var validated = await _service.ValidateAsync(row.Media, path, _token);
+            IReadOnlyList<string> fontFiles = [];
+            if (row.Media.Kind == MissingMediaKind.Font)
+            {
+                fontFiles = matchedPaths ?? await _service.FindFontFamilyFilesAsync(row.Media.FontFamily!, Path.GetDirectoryName(Path.GetFullPath(path))!, _token);
+                foreach (string file in fontFiles) await _service.ValidateAsync(row.Media, file, _token);
+            }
             _token.ThrowIfCancellationRequested();
             row.ValidatedSource = validated;
+            row.FontReplacementFiles = fontFiles;
             row.ReplacementPath.Value = Path.GetFullPath(path);
             row.IsOffline.Value = false;
             row.Status.Value = MissingMediaStrings.Ready;
@@ -135,6 +143,7 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             {
                 // Leave the original reference intact. The row can be retried or kept offline.
                 row.ValidatedSource = null;
+                row.FontReplacementFiles = [];
                 row.ReplacementPath.Value = null;
                 row.Status.Value = MissingMediaStrings.Unrecognized;
                 Error.Value = $"{row.Name}: {MissingMediaStrings.Unrecognized}";
@@ -161,11 +170,12 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             foreach (var row in rows)
             {
                 row.ValidatedSource = await _service.ValidateAsync(row.Media, row.ReplacementPath.Value!, _token);
+                foreach (string path in row.FontReplacementFiles) await _service.ValidateAsync(row.Media, path, _token);
                 // A repair keeps saved child meshes, including their order and edits.
                 // Replace geometry only when a saved hash proves this is a different asset.
-                if (row.Media.Kind == MissingMediaKind.Model && row.Media.Fingerprint is { } fingerprint
-                    && !string.Equals(fingerprint.Sha256,
-                        await MissingMediaService.HashFileAsync(row.ReplacementPath.Value!, _token), StringComparison.OrdinalIgnoreCase))
+                if (row.Media.Kind == MissingMediaKind.Model && row.Media.Fingerprint is not null
+                    && !await MissingMediaService.MatchesFingerprintAsync(row.Media, row.ReplacementPath.Value!,
+                        row.ValidatedSource as Beutl.Graphics3D.Models.ModelSource, _token))
                     replacementModels.Add(row);
             }
             _token.ThrowIfCancellationRequested();
@@ -187,8 +197,8 @@ public sealed class MissingMediaDialogViewModel : IDisposable
             var fontRows = rows.Where(row => row.Media.Kind == MissingMediaKind.Font).ToArray();
             if (fontRows.Length > 0)
             {
-                var paths = fontRows.ToDictionary(row => row.Media.FontFamily!.Name, row => row.ReplacementPath.Value!);
-                var relocation = new ResourceRelocationService(family => [paths[family]]);
+                var paths = fontRows.ToDictionary(row => row.Media.FontFamily!.Name, row => row.FontReplacementFiles);
+                var relocation = new ResourceRelocationService(family => paths[family]);
                 RelocationResult result = await relocation.RelocateFontsAsync(fontRows.Select(row => row.Media.FontFamily!),
                     projectDirectory, _token);
                 if (result.FailedResources.Count > 0) throw new IOException(MissingMediaStrings.FontCopyFailed);

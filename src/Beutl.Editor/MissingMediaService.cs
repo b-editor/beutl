@@ -111,7 +111,7 @@ public sealed class MissingMediaService
         _ => null
     };
 
-    public async Task<IReadOnlyDictionary<MissingMedia, string>> FindMatchesAsync(
+    public async Task<IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>>> FindMatchesAsync(
         IEnumerable<MissingMedia> missing, string directory, CancellationToken token = default)
     {
         MissingMedia[] items = missing.ToArray();
@@ -141,21 +141,21 @@ public sealed class MissingMediaService
             }
 
             var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
-            var matches = new Dictionary<MissingMedia, string>();
+            var matches = new Dictionary<MissingMedia, IReadOnlyList<string>>();
             foreach (MissingMedia item in items)
             {
                 token.ThrowIfCancellationRequested();
                 if (item.FontFamily is { } font)
                 {
-                    if (fonts.TryGetValue(font.Name, out var fontPaths) && fontPaths.Count == 1)
-                        matches[item] = fontPaths[0];
+                    if (fonts.TryGetValue(font.Name, out var fontPaths) && fontPaths.Count > 0)
+                        matches[item] = fontPaths.Order(StringComparer.Ordinal).ToArray();
                     continue;
                 }
 
                 byName.TryGetValue(item.Name, out var named);
                 if (item.Fingerprint is not { } fingerprint)
                 {
-                    if (named is { Count: 1 }) matches[item] = named[0];
+                    if (named is { Count: 1 }) matches[item] = [named[0]];
                     continue;
                 }
 
@@ -169,20 +169,59 @@ public sealed class MissingMediaService
                     token.ThrowIfCancellationRequested();
                     try
                     {
-                        if (!hashes.TryGetValue(path, out var hash))
-                            hashes[path] = hash = await HashFileAsync(path, token);
-                        if (string.Equals(hash, fingerprint.Sha256, StringComparison.OrdinalIgnoreCase))
+                        if (await MatchesFingerprintAsync(item, path, token: token, hashes: hashes))
                             matchingHashes.Add(path);
                     }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { }
                 }
                 // Identical copies are interchangeable; prefer the original name.
                 string? match = matchingHashes.FirstOrDefault(path => named?.Contains(path) == true)
                                 ?? matchingHashes.FirstOrDefault();
-                if (match != null) matches[item] = match;
+                if (match != null) matches[item] = [match];
             }
-            return (IReadOnlyDictionary<MissingMedia, string>)matches;
+            return (IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>>)matches;
         }, token);
+    }
+
+    public Task<IReadOnlyList<string>> FindFontFamilyFilesAsync(FontFamily family, string directory, CancellationToken token = default)
+        => Task.Run<IReadOnlyList<string>>(() => EnumerateMediaFiles(directory, token).Where(IsFontFile).Where(path =>
+        {
+            bool matches = false;
+            foreach (var face in FontManager.OpenFontFaces(path))
+                using (face)
+                    if (string.Equals(face.FamilyName, family.Name, StringComparison.OrdinalIgnoreCase)) matches = true;
+            return matches;
+        }).Order(StringComparer.Ordinal).ToArray(), token);
+
+    internal static async Task<bool> MatchesFingerprintAsync(MissingMedia item, string path, ModelSource? model = null,
+        CancellationToken token = default, Dictionary<string, string>? hashes = null)
+    {
+        if (item.Fingerprint is not { } expected) return false;
+        async Task<bool> MatchesFileAsync(string file, MediaFileFingerprint fingerprint)
+        {
+            if (new FileInfo(file).Length != fingerprint.Length) return false;
+            string hash;
+            if (hashes is null || !hashes.TryGetValue(file, out hash!))
+            {
+                hash = await HashFileAsync(file, token);
+                if (hashes is not null) hashes[file] = hash;
+            }
+            return string.Equals(hash, fingerprint.Sha256, StringComparison.OrdinalIgnoreCase);
+        }
+        if (!await MatchesFileAsync(path, expected)) return false;
+        if (item.Kind != MissingMediaKind.Model) return true;
+        if (model is null) { model = new ModelSource(); model.ReadFrom(new Uri(Path.GetFullPath(path))); }
+        string[] dependencies = model.Dependencies.Where(file => !FilePathComparison.AreSameCanonicalPath(file, path)).ToArray();
+        // Old metadata cannot prove the identity of an external dependency bundle.
+        if (expected.Dependencies is null) return dependencies.Length == 0;
+        if (dependencies.Length != expected.Dependencies.Count) return false;
+        foreach (string dependency in dependencies)
+        {
+            string relative = Path.GetRelativePath(Path.GetDirectoryName(path)!, dependency).Replace('\\', '/');
+            if (!expected.Dependencies.TryGetValue(relative, out var fingerprint)
+                || !await MatchesFileAsync(dependency, fingerprint)) return false;
+        }
+        return true;
     }
 
     private IEnumerable<string> EnumerateMediaFiles(string root, CancellationToken token)
@@ -270,6 +309,10 @@ public sealed class MissingMediaService
     {
         Uri[] uris = GetFileUris(scene);
         var previous = new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints);
+        var modelDependencies = new ObjectSearcher(scene, value => value is ModelSource { HasUri: true, MeshCount: > 0 })
+            .SearchAll().OfType<ModelSource>().GroupBy(model => model.Uri.AbsoluteUri)
+            .ToDictionary(group => group.Key, group => group.First().Dependencies
+                .Where(path => !FilePathComparison.AreSameCanonicalPath(path, group.First().Uri.LocalPath)).ToArray());
         var updated = await Task.Run(async () =>
         {
             var result = new Dictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
@@ -279,10 +322,27 @@ public sealed class MissingMediaService
                 previous.TryGetValue(uri.AbsoluteUri, out var fingerprint);
                 try
                 {
-                    var file = new FileInfo(uri.LocalPath);
-                    if (file.Exists && (fingerprint == null || fingerprint.Length != file.Length
-                        || fingerprint.LastWriteTimeUtcTicks != file.LastWriteTimeUtc.Ticks))
-                        fingerprint = new(file.Length, file.LastWriteTimeUtc.Ticks, await HashFileAsync(file.FullName, token));
+                    if (File.Exists(uri.LocalPath))
+                    {
+                        MediaFileFingerprint next = await CaptureFileFingerprintAsync(uri.LocalPath, fingerprint, token);
+                        if (modelDependencies.TryGetValue(uri.AbsoluteUri, out var paths))
+                        {
+                            var dependencies = new Dictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
+                            foreach (string path in paths)
+                            {
+                                string relative = Path.GetRelativePath(Path.GetDirectoryName(uri.LocalPath)!, path).Replace('\\', '/');
+                                MediaFileFingerprint? old = null;
+                                fingerprint?.Dependencies?.TryGetValue(relative, out old);
+                                dependencies[relative] = await CaptureFileFingerprintAsync(path, old, token);
+                            }
+                            var retained = fingerprint?.Dependencies;
+                            if (retained is null || retained.Count != dependencies.Count
+                                || dependencies.Any(pair => !retained.TryGetValue(pair.Key, out var old) || old != pair.Value))
+                                retained = dependencies;
+                            next = next with { Dependencies = retained };
+                        }
+                        fingerprint = next;
+                    }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
                 if (fingerprint != null) result[uri.AbsoluteUri] = fingerprint;
@@ -301,6 +361,14 @@ public sealed class MissingMediaService
                 || previous.TryGetValue(pair.Key, out var old) && existing == old))
                 scene.MediaFingerprints[pair.Key] = pair.Value;
         }
+    }
+
+    private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous, CancellationToken token)
+    {
+        var file = new FileInfo(path);
+        if (previous is not null && previous.Length == file.Length && previous.LastWriteTimeUtcTicks == file.LastWriteTimeUtc.Ticks)
+            return previous;
+        return new(file.Length, file.LastWriteTimeUtc.Ticks, await HashFileAsync(file.FullName, token));
     }
 
     internal static async Task<string> HashFileAsync(string path, CancellationToken token)

@@ -97,7 +97,7 @@ public class MissingMediaTests
         var restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
         var item = service.FindMissing(restored).Single();
         Assert.That(item.Fingerprint, Is.Not.Null);
-        Assert.That((await service.FindMatchesAsync([item], search))[item], Is.EqualTo(renamed));
+        Assert.That((await service.FindMatchesAsync([item], search))[item].Single(), Is.EqualTo(renamed));
         restored.MediaFingerprints.Clear();
         Assert.That(await service.FindMatchesAsync(service.FindMissing(restored), search), Is.Empty);
     }
@@ -490,7 +490,7 @@ public class MissingMediaTests
         foreach (string path in new[] { partial, first, second }) AddImage(scene, Path.Combine(NewDirectory(), Path.GetFileName(path)));
         var service = new MissingMediaService(_ => true, Entries);
         var matches = await service.FindMatchesAsync(service.FindMissing(scene), directory);
-        Assert.That(matches.Values, Is.EquivalentTo(new[] { partial, first, second }));
+        Assert.That(matches.Values.SelectMany(paths => paths), Is.EquivalentTo(new[] { partial, first, second }));
     }
 
     [AvaloniaTest]
@@ -505,7 +505,7 @@ public class MissingMediaTests
         string renamed = Path.Combine(directory, "renamed.jpg");
         File.Move(path, renamed);
         var missing = service.FindMissing(scene).Single();
-        Assert.That((await service.FindMatchesAsync([missing], directory))[missing], Is.EqualTo(renamed));
+        Assert.That((await service.FindMatchesAsync([missing], directory))[missing].Single(), Is.EqualTo(renamed));
         await service.ValidateAsync(missing, renamed);
     }
 
@@ -636,7 +636,7 @@ public class MissingMediaTests
             var service = new MissingMediaService();
             var missing = service.FindMissing(saved).Single();
             Assert.That(missing.Fingerprint, Is.Not.Null);
-            Assert.That((await service.FindMatchesAsync([missing], directory))[missing], Is.EqualTo(renamed));
+            Assert.That((await service.FindMatchesAsync([missing], directory))[missing].Single(), Is.EqualTo(renamed));
         }
         finally
         {
@@ -668,6 +668,111 @@ public class MissingMediaTests
             session.Verify(value => value.NotifySavedAsync(Moq.It.Is<Beutl.Editor.VersionControl.IProjectFileWriteLease>(lease => lease != null), Moq.It.IsAny<CancellationToken>()), Moq.Times.Exactly(2));
         }
         finally { editor.EditorService.ProjectVersionControlCoordinator = old; await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Model_matching_and_replacement_include_external_buffer_contents(bool chooseDifferentBundle)
+    {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        await editor.WaitForMediaFingerprintsAsync();
+        string directory = NewDirectory();
+        string WriteModel(string name, float width)
+        {
+            string folder = Directory.CreateDirectory(Path.Combine(directory, name)).FullName;
+            float[] vertices = [0, 0, 0, width, 0, 0, 0, 1, 0];
+            File.WriteAllBytes(Path.Combine(folder, "buffer.bin"), vertices.SelectMany(BitConverter.GetBytes).ToArray());
+            string path = Path.Combine(folder, "model.gltf");
+            File.WriteAllText(path, """
+                {"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],"nodes":[{"mesh":0}],
+                "meshes":[{"primitives":[{"attributes":{"POSITION":0},"mode":4}]}],
+                "buffers":[{"uri":"buffer.bin","byteLength":36}],"bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36,"target":34962}],
+                "accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[3,1,0]}]}
+                """);
+            return path;
+        }
+        string original = WriteModel("original", 1);
+        string identical = WriteModel("search/identical", 1);
+        string different = WriteModel("search/different", 3);
+        var source = new ModelSource(); source.ReadFrom(new Uri(original));
+        var model = new Model3D { Source = { CurrentValue = source } };
+        var child = (MeshObject3D)model.Children.Single(); child.Name = "Edited child";
+        var verticesBefore = ((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue;
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear(); element.Objects.Add(model);
+        }
+        var service = new MissingMediaService(); await service.UpdateFingerprintsAsync(editor.Scene);
+        await editor.SaveAsync(); await editor.WaitForMediaFingerprintsAsync();
+        var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
+        Assert.That(saved.MediaFingerprints[new Uri(original).AbsoluteUri].Dependencies!.Keys, Does.Contain("buffer.bin"));
+        File.Delete(original);
+        var missing = service.FindMissing(editor.Scene).Single();
+        Assert.That(await service.FindMatchesAsync([missing], Path.GetDirectoryName(different)!), Is.Empty);
+        try
+        {
+            using var vm = new MissingMediaDialogViewModel(editor);
+            if (chooseDifferentBundle) await vm.SetReplacementAsync(vm.Rows.Single(), different);
+            else await vm.FindInDirectoryAsync(Path.Combine(directory, "search"));
+            Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(chooseDifferentBundle ? different : identical));
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.That(model.Children.Single(), Is.SameAs(child));
+            Assert.That(child.Name, Is.EqualTo("Edited child"));
+            var current = ((ModelMesh)child.Mesh.CurrentValue!).Vertices.CurrentValue;
+            if (chooseDifferentBundle) Assert.That(current, Is.Not.EqualTo(verticesBefore));
+            else Assert.That(current, Is.EqualTo(verticesBefore));
+            await editor.WaitForMediaFingerprintsAsync();
+            string selected = source.Uri.LocalPath;
+            string oldHash = editor.Scene.MediaFingerprints[source.Uri.AbsoluteUri].Dependencies!["buffer.bin"].Sha256;
+            File.WriteAllBytes(Path.Combine(Path.GetDirectoryName(selected)!, "buffer.bin"), new byte[36]);
+            await service.UpdateFingerprintsAsync(editor.Scene);
+            Assert.That(editor.Scene.MediaFingerprints[source.Uri.AbsoluteUri].Dependencies!["buffer.bin"].Sha256, Is.Not.EqualTo(oldHash));
+        }
+        finally { await TestReset.ResetShellAsync(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Font_family_repair_copies_all_complementary_files(bool manual)
+    {
+        await TestReset.ResetShellAsync(); var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        var files = new List<string>();
+        foreach (string name in new[] { "ProjectFontSecondFixture.ttf", "ProjectFontMediumFixture.ttf" })
+        {
+            using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(name)!;
+            using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
+            foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
+            {
+                byte[] old = encoding.GetBytes("Roboto"); byte[] replacement = encoding.GetBytes("Relink");
+                for (int index = 0; index <= bytes.Length - old.Length; index++)
+                    if (bytes.AsSpan(index, old.Length).SequenceEqual(old)) replacement.CopyTo(bytes, index);
+            }
+            string path = Path.Combine(directory, name); File.WriteAllBytes(path, bytes); files.Add(path);
+        }
+        var family = new Beutl.Media.FontFamily("Relink");
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
+            element.Objects.Add(new Beutl.Graphics.Shapes.TextBlock { FontFamily = { CurrentValue = family }, FontWeight = { CurrentValue = FontWeight.Medium } });
+        }
+        try
+        {
+            using var vm = new MissingMediaDialogViewModel(editor);
+            if (manual) await vm.SetReplacementAsync(vm.Rows.Single(), files[0]);
+            else await vm.FindInDirectoryAsync(directory);
+            Assert.That(vm.Rows.Single().FontReplacementFiles, Is.EquivalentTo(files));
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
+            string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
+            Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));
+            Assert.That(FontManager.Instance.GetTypefaces(family).Select(face => face.Weight), Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
+            await TestReset.ResetShellAsync(); await TestShell.Project.OpenProject(projectPath);
+            Assert.That(FontManager.Instance.GetTypefaces(family).Select(face => face.Weight), Is.EquivalentTo(new[] { FontWeight.Regular, FontWeight.Medium }));
+        }
+        finally { await TestReset.ResetShellAsync(); }
     }
 
     [AvaloniaTest]

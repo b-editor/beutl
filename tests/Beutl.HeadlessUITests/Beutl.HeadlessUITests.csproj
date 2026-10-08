@@ -24,6 +24,7 @@
     <EmbeddedResource Include="Assets/Flatpak/beutl.flatpak" />
     <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\BeutlTestVariable.ttf" LogicalName="ProjectFontFixture.ttf" />
     <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\Roboto-Regular.ttf" LogicalName="ProjectFontSecondFixture.ttf" />
+    <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\Roboto-Medium.ttf" LogicalName="ProjectFontMediumFixture.ttf" />
   </ItemGroup>
 
   <ItemGroup>

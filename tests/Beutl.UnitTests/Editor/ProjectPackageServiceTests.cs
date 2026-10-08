@@ -1059,7 +1059,7 @@ public class ProjectPackageServiceTests
         string renamed = Path.Combine(Path.GetDirectoryName(packagedSource.Uri.LocalPath)!, "renamed.png");
         File.Move(packagedSource.Uri.LocalPath, renamed);
         var missing = media.FindMissing(packagedScene).Single();
-        Assert.That((await media.FindMatchesAsync([missing], _importDir))[missing], Is.EqualTo(renamed));
+        Assert.That((await media.FindMatchesAsync([missing], _importDir))[missing].Single(), Is.EqualTo(renamed));
         Assert.That(scene.MediaFingerprints[new Uri(original).AbsoluteUri].Sha256, Is.EqualTo(expectedHash), "Export must leave the original graph intact.");
     }
 
