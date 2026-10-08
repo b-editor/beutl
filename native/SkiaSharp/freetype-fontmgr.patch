@@ -1,3 +1,18 @@
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -2029,6 +2029,12 @@
+   # for the fork; the list above is left identical to upstream to keep merges clean.
+   if (skia_enable_fontmgr_fontconfig) {
+     deps += [ ":fontmgr_fontconfig" ]
++  }
++
++  # Beutl: sk_beutl_fontmgr_create_freetype is compiled into :core as well and needs the
++  # SK_FONTMGR_FREETYPE_EMPTY_AVAILABLE define that only targets depending on this one receive.
++  if (skia_enable_fontmgr_custom_empty) {
++    deps += [ ":fontmgr_custom_empty" ]
+   }
+ }
+ 
 --- a/include/c/sk_typeface.h
 +++ b/include/c/sk_typeface.h
 @@ -68,6 +68,9 @@
