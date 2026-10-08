@@ -64,6 +64,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             group.DisposeWith(_disposables);
             ReferenceGroups.Add(group);
         }
+        // A probe started before generation stays stale after generation finishes.
+        IsGenerating.Where(value => value)
+            .Subscribe(_ => Interlocked.Increment(ref _sourceVideoSelectionRevision))
+            .DisposeWith(_disposables);
         SelectSourceVideo = new AsyncReactiveCommand(IsGenerating.Select(value => !value))
             .WithSubscribe(() => PickInputAsync("source")).DisposeWith(_disposables);
         SelectCharacterImage = new AsyncReactiveCommand(IsGenerating.Select(value => !value))

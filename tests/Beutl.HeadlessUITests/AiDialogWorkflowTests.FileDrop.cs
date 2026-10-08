@@ -401,9 +401,11 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task FileDrop_PendingSourceProbeCannotPublishAfterGenerationStarts(bool probeFails)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task FileDrop_PendingSourceProbeCannotPublishAfterGenerationStarts(bool probeFails, bool generationFinished)
     {
         await TestReset.ResetShellAsync();
         await using var scope = new FileDropScope();
@@ -436,11 +438,21 @@ public sealed partial class AiDialogWorkflowTests
             await probeStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
             video.IsGenerating.Value = true;
             video.Error.Value = "Generation status";
+            if (generationFinished) video.IsGenerating.Value = false;
             releaseProbe.Set();
             await WaitUntilAsync(() => !target.Classes.Contains("filedropping"));
             Assert.That(video.SourceVideoPath.Value, Is.EqualTo(previous));
             Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
             Assert.That(video.Error.Value, Is.EqualTo("Generation status"));
+            if (generationFinished)
+            {
+                string newer = scope.File("newer.webm", s_png);
+                using var newerData = FileDropTransfer(newer);
+                await DropFiles(window, target, newerData);
+                Assert.That(video.SourceVideoPath.Value, Is.EqualTo(newer));
+                Assert.That(video.SourceDuration.Value, Is.EqualTo(4));
+                Assert.That(video.Error.Value, Is.Null);
+            }
         }
         finally
         {
