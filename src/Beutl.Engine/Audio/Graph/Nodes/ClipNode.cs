@@ -18,6 +18,16 @@ public class ClipNode : AudioNode
 
     public TimeSpan Duration { get; set; } = TimeSpan.Zero;
 
+    internal override double? GetFiniteSourceEndSample(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        double start = Start.TotalSeconds * sampleRate;
+        double end = start + Duration.TotalSeconds * sampleRate;
+        return base.GetFiniteSourceEndSample(sampleRate) is { } inputEnd
+            ? Math.Min(end, start + inputEnd)
+            : end;
+    }
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
         InlineDrainAttempted = false;

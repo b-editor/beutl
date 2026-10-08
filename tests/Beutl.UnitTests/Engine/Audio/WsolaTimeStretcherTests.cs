@@ -143,6 +143,26 @@ public class WsolaTimeStretcherTests
         Assert.That(received, Is.EqualTo(expected));
     }
 
+    [Test]
+    public void ShortSlowedInput_RemainsAudibleAcrossItsFullOutputLength()
+    {
+        var stretcher = new WsolaTimeStretcher(SampleRate, 2) { Tempo = 0.25 };
+        stretcher.PutSamples(Signal(240, SampleRate), 240);
+        stretcher.Flush();
+        var output = new float[960 * 2];
+
+        Assert.That(stretcher.ReceiveSamples(output, 960), Is.EqualTo(960));
+
+        for (int start = 0; start < 960; start += 240)
+        {
+            double energy = 0;
+            for (int i = start; i < start + 240; i++)
+                energy += output[i * 2] * output[i * 2];
+            Assert.That(Math.Sqrt(energy / 240), Is.GreaterThan(0.2),
+                "The analysis padding must not become the synthesized sound.");
+        }
+    }
+
     private static double SourcePosition(WsolaTimeStretcher stretcher)
         => (double)typeof(WsolaTimeStretcher)
             .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;

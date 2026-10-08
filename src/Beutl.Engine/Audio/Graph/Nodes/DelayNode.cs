@@ -28,6 +28,8 @@ public sealed class DelayNode : AudioNode
     }
 
     // Echo delay is intentional render-time delay, not processing latency for compensation.
+    // Its feedback tail is not bounded by the finite input's end.
+    internal override double? GetFiniteSourceEndSample(int sampleRate) => null;
 
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {

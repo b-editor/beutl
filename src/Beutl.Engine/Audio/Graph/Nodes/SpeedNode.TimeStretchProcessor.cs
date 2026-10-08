@@ -9,6 +9,7 @@ public sealed partial class SpeedNode
         private const int TimeStretchFeedFrames = 1024;
         private readonly WsolaTimeStretcher? _timeStretch;
         private bool _timeStretchFlushed;
+        private long? _timeStretchInputEnd;
 
         private static WsolaTimeStretcher CreateTimeStretchProcessor(int sampleRate, int channels)
             => new(sampleRate, channels);
@@ -17,6 +18,7 @@ public sealed partial class SpeedNode
         {
             _timeStretch?.Clear();
             _timeStretchFlushed = false;
+            _timeStretchInputEnd = null;
         }
 
         // Pull enough continuous source audio to satisfy the requested output. The stretcher's initial
@@ -29,6 +31,16 @@ public sealed partial class SpeedNode
             int expectedOut,
             bool draining)
         {
+            double? end = draining ? null : _speedNode.Inputs[0].GetFiniteSourceEndSample(_sampleRate);
+            if (end is { } value && double.IsFinite(value))
+            {
+                double rounded = Math.Round(value);
+                _timeStretchInputEnd = checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
+            }
+            else
+            {
+                _timeStretchInputEnd = null;
+            }
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             float[] inputArray = ArrayPool<float>.Shared.Rent(TimeStretchFeedFrames * _channels);
             float[] outputArray = ArrayPool<float>.Shared.Rent(BLOCK * _channels);
@@ -55,7 +67,7 @@ public sealed partial class SpeedNode
                         {
                             _timeStretch.PutSamples(input[..(got * _channels)], got);
                         }
-                        else
+                        if (got == 0 || (!draining && _timeStretchInputEnd is { } inputEnd && _srcReadPos >= inputEnd))
                         {
                             // A short/exhausted source must release its final processing window once.
                             _timeStretch.Flush();

@@ -4,6 +4,9 @@ public class ShiftNode : AudioNode
 {
     public TimeSpan Shift { get; set; } = TimeSpan.Zero;
 
+    internal override double? GetFiniteSourceEndSample(int sampleRate)
+        => base.GetFiniteSourceEndSample(sampleRate) - Shift.TotalSeconds * sampleRate;
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
         return RecordProcessedOutput(Inputs[0].Process(CreateShiftedContext(context)));

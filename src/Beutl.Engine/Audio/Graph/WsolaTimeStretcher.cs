@@ -23,6 +23,8 @@ internal sealed class WsolaTimeStretcher
     private double _tempo = 1;
     private bool _hasTail;
     private bool _finished;
+    private int _activeHopFrames;
+    private bool _repeatShortSource;
 
     public WsolaTimeStretcher(int sampleRate, int channels)
     {
@@ -58,6 +60,8 @@ internal sealed class WsolaTimeStretcher
         _sourcePositionCompensation = 0;
         _hasTail = false;
         _finished = false;
+        _activeHopFrames = 0;
+        _repeatShortSource = false;
     }
 
     public void PutSamples(ReadOnlySpan<float> input, int frames)
@@ -90,7 +94,8 @@ internal sealed class WsolaTimeStretcher
         {
             if (_sourcePosition >= _receivedInputFrames - 1e-9)
                 break;
-            if (_outputPosition == _outputFrames && !GenerateGrain())
+            double initialTempo = speedCurve.IsEmpty ? _tempo : speedCurve[written];
+            if (_outputPosition == _outputFrames && !GenerateGrain(initialTempo))
                 break;
 
             int count = Math.Min(frames - written, _outputFrames - _outputPosition);
@@ -130,14 +135,29 @@ internal sealed class WsolaTimeStretcher
         return written;
     }
 
-    private bool GenerateGrain()
+    private bool GenerateGrain(double tempo)
     {
+        if (!_hasTail)
+        {
+            // A non-unity tempo needs a shorter first grain, so startup does not play a full
+            // normal-speed block before the first tempo-adjusted alignment. For a finite source
+            // shorter than a normal grain, use overlapping windows wholly inside the real data.
+            _activeHopFrames = Math.Clamp((int)Math.Round(_hopFrames * Math.Min(tempo, 1 / tempo)), 16, _hopFrames);
+            _repeatShortSource = _finished && _receivedInputFrames < _hopFrames * 2;
+            if (_repeatShortSource)
+            {
+                int limit = Math.Max(1, (int)(_receivedInputFrames / (4 * Math.Max(1, tempo))));
+                _activeHopFrames = Math.Min(_activeHopFrames, limit);
+            }
+        }
         long target = checked((long)Math.Round(_sourcePosition));
-        long first = _hasTail ? Math.Max(0, target - _searchFrames) : 0;
-        long last = _hasTail ? target + _searchFrames : 0;
+        long first = _hasTail && !_repeatShortSource ? Math.Max(0, target - _searchFrames) : 0;
+        long last = _repeatShortSource
+            ? Math.Max(0, _receivedInputFrames - _activeHopFrames * 2)
+            : _hasTail ? target + _searchFrames : 0;
         DiscardBefore(first);
 
-        long requiredEnd = last + _hopFrames * 2;
+        long requiredEnd = last + _activeHopFrames * 2;
         long bufferedEnd = _inputStart + _inputFrames;
         if (requiredEnd > bufferedEnd)
         {
@@ -154,33 +174,35 @@ internal sealed class WsolaTimeStretcher
 
         long position = _hasTail ? FindAlignment(first, last, target) : 0;
         int offset = checked((int)(position - _inputStart) * _channels);
-        ReadOnlySpan<float> grain = _input.AsSpan(offset, _hopFrames * 2 * _channels);
+        int samples = _activeHopFrames * _channels;
+        ReadOnlySpan<float> grain = _input.AsSpan(offset, samples * 2);
         if (!_hasTail)
         {
-            grain[.._output.Length].CopyTo(_output);
+            grain[..samples].CopyTo(_output);
         }
         else
         {
-            for (int frame = 0; frame < _hopFrames; frame++)
+            for (int frame = 0; frame < _activeHopFrames; frame++)
             {
-                float fadeIn = frame / (float)_hopFrames;
+                float fadeIn = frame / (float)_activeHopFrames;
                 float fadeOut = 1 - fadeIn;
                 int index = frame * _channels;
                 for (int channel = 0; channel < _channels; channel++)
                     _output[index + channel] = _tail[index + channel] * fadeOut + grain[index + channel] * fadeIn;
             }
         }
-        grain.Slice(_output.Length, _tail.Length).CopyTo(_tail);
+        grain.Slice(samples, samples).CopyTo(_tail);
         _hasTail = true;
         _outputPosition = 0;
-        _outputFrames = _hopFrames;
+        _outputFrames = _activeHopFrames;
         return true;
     }
 
     private long FindAlignment(long first, long last, long target)
     {
-        int length = _tail.Length;
-        double referenceEnergy = Dot(_tail, _tail);
+        int length = _activeHopFrames * _channels;
+        ReadOnlySpan<float> tail = _tail.AsSpan(0, length);
+        double referenceEnergy = Dot(tail, tail);
         if (referenceEnergy < 1e-12)
             return Math.Clamp(target, first, last);
 
@@ -191,7 +213,7 @@ internal sealed class WsolaTimeStretcher
         for (long position = first; position <= last; position++, offset += _channels)
         {
             double score = energy > 1e-12
-                ? Dot(_tail, _input.AsSpan(offset, length)) / Math.Sqrt(referenceEnergy * energy)
+                ? Dot(tail, _input.AsSpan(offset, length)) / Math.Sqrt(referenceEnergy * energy)
                 : 0;
             // Prefer the nearest equally good match to avoid drifting away from the tempo map.
             if (score > bestScore + 1e-6

@@ -109,6 +109,14 @@ public sealed partial class SpeedNode
             if (buffer.IsEmpty)
                 return 0;
 
+            int requestedFrames = buffer.Length / _channels;
+            if (_timeStretch != null && !draining && _timeStretchInputEnd is { } end)
+            {
+                requestedFrames = (int)Math.Min(requestedFrames, Math.Max(0, end - _srcReadPos));
+                if (requestedFrames == 0)
+                    return 0;
+            }
+
             // Derive each sub-range from the exact sample cursor to avoid repeated samples at fractional rates.
             long sourceStartTicks = checked((long)Math.Ceiling(
                 _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate));
@@ -122,7 +130,7 @@ public sealed partial class SpeedNode
             TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
             var range = new TimeRange(
                 sourceStart,
-                AudioProcessContext.GetDurationForSampleCount(buffer.Length / _channels, _sampleRate));
+                AudioProcessContext.GetDurationForSampleCount(requestedFrames, _sampleRate));
             var subContext = new AudioProcessContext(
                 range,
                 _sampleRate,
@@ -137,7 +145,7 @@ public sealed partial class SpeedNode
                 : _speedNode.Inputs[0].Process(subContext);
             var leftData = result.GetChannelData(0);
             var rightData = result.ChannelCount > 1 ? result.GetChannelData(1) : leftData;
-            int samplesToRead = Math.Min(buffer.Length / _channels, result.SampleCount);
+            int samplesToRead = Math.Min(requestedFrames, result.SampleCount);
             for (int i = 0; i < samplesToRead; i++)
             {
                 buffer[i * _channels] = leftData[i];

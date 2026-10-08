@@ -33,6 +33,40 @@ public sealed partial class SpeedNode : AudioNode
     /// <summary>Uses time stretching instead of resampling to keep the input's pitch.</summary>
     public bool PreservePitch { get; set; }
 
+    internal override double? GetFiniteSourceEndSample(int sampleRate)
+    {
+        double? inputEnd = base.GetFiniteSourceEndSample(sampleRate);
+        if (inputEnd is not { } end || !TryGetBoundedMinimumSpeedFactor(out double minimumSpeed))
+            return null;
+        if (end <= 0)
+            return 0;
+        if (Speed?.Animation is not { } animation)
+            return end / minimumSpeed;
+
+        _integrator.SpeedTransform = PreservePitch ? TimeStretchParameters.Normalize : null;
+        _integrator.SampleRate = sampleRate;
+        _integrator.EnsureCache(animation);
+        var ownerStart = Speed.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        TimeSpan origin = animation.UseGlobalClock
+            ? _integrator.Integrate(ownerStart, animation)
+            : TimeSpan.Zero;
+        double low = 0;
+        double high = end / minimumSpeed;
+        for (int i = 0; i < 64 && high - low > 1e-4; i++)
+        {
+            double middle = (low + high) / 2;
+            var time = TimeSpan.FromSeconds(middle / sampleRate);
+            if (animation.UseGlobalClock)
+                time += ownerStart;
+            double mapped = (_integrator.Integrate(time, animation) - origin).TotalSeconds * sampleRate;
+            if (mapped < end)
+                low = middle;
+            else
+                high = middle;
+        }
+        return high;
+    }
+
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: false));
 

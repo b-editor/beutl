@@ -356,6 +356,64 @@ public class TimeStretchEffectTests
         }
     }
 
+    [TestCase(48000, 48000, 1920, 400f)]
+    [TestCase(48000, 48000, 24000, 200f)]
+    [TestCase(44100, 48000, 1764, 400f)]
+    [TestCase(48000, 48000, 240, 25f)]
+    public void Composer_ShortWaveStopsAtItsScaledEndAndKeepsSlowedAudio(
+        int sourceRate, int outputRate, int sourceFrames, float speed)
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"beutl-short-stretch-{Guid.NewGuid():N}.wav");
+        var decoder = new WaveDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sourceRate, 2)))
+            {
+                for (int i = 0; i < sourceFrames; i++)
+                {
+                    float value = Sine(i, sourceRate, 440);
+                    writer.WriteSample(value);
+                    writer.WriteSample(-value);
+                }
+            }
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(path));
+            var effect = new TimeStretchEffect();
+            effect.Speed.CurrentValue = speed;
+            var sound = new SourceSound
+            {
+                TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                Source = { CurrentValue = source },
+                Effect = { CurrentValue = effect },
+                Gain = { CurrentValue = 75f }
+            };
+            using var resource = sound.ToResource(CompositionContext.Default);
+            using var composer = new Composer { SampleRate = outputRate };
+            var range = sound.TimeRange;
+            var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),
+                range, default, new CompositionEligibility([sound]));
+
+            using AudioBuffer? output = composer.Compose(range, frame);
+
+            Assert.That(output, Is.Not.Null);
+            int expected = (int)Math.Ceiling(sourceFrames / (double)sourceRate * outputRate / (speed / 100d));
+            Assert.That(output!.GetChannelData(0).Slice(expected).ToArray(), Is.All.Zero,
+                "Silence padding in SourceNode must not extend the real input budget.");
+            if (speed < 100)
+            {
+                for (int start = 0; start < expected; start += 240)
+                    Assert.That(Rms(output.GetChannelData(0).Slice(start, Math.Min(240, expected - start))),
+                        Is.GreaterThan(0.15), "A slowed short sound must remain audible after its original duration.");
+            }
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+            File.Delete(path);
+        }
+    }
+
     [Test]
     public void Flush_DrainsWithoutReadingLiveSource()
     {
