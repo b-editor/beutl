@@ -7,6 +7,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Beutl.Testing.Headless;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.CloudStorageTests;
 using StorageScope = Beutl.HeadlessUITests.CloudStorageIncrementalTests.StorageScope;
 
@@ -40,7 +41,9 @@ public sealed class CloudStorageVisibilityTests
             window.MouseDown(point, MouseButton.Right);
             window.MouseUp(point, MouseButton.Right);
             HeadlessTestHelpers.Settle();
-            var names = view.StorageMenu!.Items.OfType<MenuItem>().Select(item => item.Name).ToArray();
+            Assert.That(view.StorageMenu?.IsOpen, Is.True);
+            var names = view.StorageMenu!.Items.OfType<FAMenuFlyoutItem>().Select(item => item.Name).ToArray();
+            Assert.That(names, Does.Contain("StorageAction_delete"));
             Assert.That(names, Does.Not.Contain("StorageAction_setPublic").And.Not.Contain("StorageAction_setPrivate"));
 
             var context = vm.CaptureActionContext([vm.Items[1], vm.Items[2]])!;
