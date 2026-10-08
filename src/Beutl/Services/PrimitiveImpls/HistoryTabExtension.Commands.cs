@@ -43,7 +43,7 @@ public sealed partial class HistoryTabExtension : IContextCommandHandler
             .ToArray();
         if (await interaction.ShowQuickPickAsync(items) is { } picked)
         {
-            await editViewModel.JumpToHistoryAsync(picked.Value);
+            await editViewModel.JumpToHistoryAsync(picked.Value, interaction.CancellationToken);
         }
     }
 }

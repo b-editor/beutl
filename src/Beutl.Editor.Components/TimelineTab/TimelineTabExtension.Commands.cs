@@ -20,7 +20,7 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler
         return execution.CommandName switch
         {
             "Rename" => !scene.IsElementLocked(element),
-            "Split" => !scene.IsElementLocked(element) && IsInside(element, GetSplitTime(execution.EditorContext!, scene)),
+            "Split" => CanSplit(execution.EditorContext!, scene, element),
             // Saving a template only reads the element, so a lock does not stop it.
             "SaveAsTemplate" => true,
             _ => false,
@@ -66,14 +66,37 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler
             return;
         }
 
-        ImmutableHashSet<Guid>? group = scene.Groups.FirstOrDefault(g => g.Contains(element.Id));
-        Element[] targets = (group is null ? [element] : scene.Children.Where(e => group.Contains(e.Id)))
-            .Where(e => !scene.IsElementLocked(e))
-            .ToArray();
+        Element[] targets = GetSplitTargets(editorContext, scene, element);
         if (targets.Length == 0) return;
 
         editorContext.GetRequiredService<IElementStructureService>()
             .Split(scene, targets, GetSplitTime(editorContext, scene));
+    }
+
+    // Split is available when any clip it would act on crosses the playhead, not only the selected one.
+    private static bool CanSplit(IEditorContext editorContext, Scene scene, Element element)
+    {
+        TimeSpan time = GetSplitTime(editorContext, scene);
+        return GetSplitTargets(editorContext, scene, element).Any(e => IsInside(e, time));
+    }
+
+    // The editable clips a split acts on. An open timeline uses the clip's own rule (its selection and
+    // group, the way Ctrl+K does); otherwise the selected element and its group.
+    private static Element[] GetSplitTargets(IEditorContext editorContext, Scene scene, Element element)
+    {
+        if (editorContext.FindToolTab<TimelineTabViewModel>()?.GetViewModelFor(element) is { } viewModel)
+        {
+            IReadOnlyList<ElementViewModel> selected = viewModel.GetGroupOrSelectedElements();
+            return (selected.Count == 0 ? [viewModel] : selected)
+                .Where(e => e.IsEditable.Value)
+                .Select(e => e.Model)
+                .ToArray();
+        }
+
+        ImmutableHashSet<Guid>? group = scene.Groups.FirstOrDefault(g => g.Contains(element.Id));
+        return (group is null ? [element] : scene.Children.Where(e => group.Contains(e.Id)))
+            .Where(e => !scene.IsElementLocked(e))
+            .ToArray();
     }
 
     private static async Task SaveAsTemplateAsync(Element element, IContextCommandInteraction interaction)

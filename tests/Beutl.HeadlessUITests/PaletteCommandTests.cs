@@ -320,6 +320,31 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Split_is_available_when_another_selected_clip_crosses_the_playhead()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-split-staggered");
+        Element first = await AddRectAsync(editor, 0, 4, 0);
+        Element second = await AddRectAsync(editor, 5, 4, 1);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.SelectElement(timeline.GetViewModelFor(first)!);
+        timeline.SelectElement(timeline.GetViewModelFor(second)!);
+        // The selected clip ends before the playhead; the other selected clip crosses it.
+        editor.GetService<IEditorSelection>()!.SelectedObject.Value = first;
+        SetPlayhead(editor, 6);
+
+        Assert.That(TimelineTabExtension.Instance.CanExecute(Execution("Split", editor)), Is.True);
+        await TimelineTabExtension.Instance.ExecuteAsync(Execution("Split", editor));
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(editor.Scene.Children.Where(e => e.ZIndex == 1).Select(e => (e.Start, e.Length)),
+            Is.EquivalentTo(new[]
+            {
+                (TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+                (TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(3)),
+            }));
+    }
+
+    [AvaloniaTest]
     public async Task Add_element_puts_the_picked_library_item_at_the_playhead_above_the_visible_clips()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-add-element");
@@ -477,6 +502,23 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task A_cancelled_history_jump_leaves_the_history_alone()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-history-cancel");
+        SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
+        await settings.ExecuteAsync(Execution("ChangeSceneDuration", editor, new ScriptedInteraction().Input("00:00:05")));
+        int current = editor.HistoryManager.CurrentIndex;
+        // Cancelled as when the user switches editors after picking, while playback pauses.
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await HistoryTabExtension.Instance.ExecuteAsync(Execution("JumpToHistory", editor,
+            new ScriptedInteraction(cancellation.Token).Pick<HistoryEntry>(item => item.Value.IsInitial)));
+
+        Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(current));
+    }
+
+    [AvaloniaTest]
     public async Task Change_theme_picks_from_the_registered_themes()
     {
         await TestReset.ResetShellAsync();
@@ -566,12 +608,12 @@ public class PaletteCommandTests
     }
 
     // Answers the palette's steps in order, refusing an answer the palette's validation would refuse.
-    private sealed class ScriptedInteraction : IContextCommandInteraction
+    private sealed class ScriptedInteraction(CancellationToken cancellationToken = default) : IContextCommandInteraction
     {
         private readonly Queue<object> _steps = new();
         private readonly List<object> _pickedFrom = [];
 
-        public CancellationToken CancellationToken => CancellationToken.None;
+        public CancellationToken CancellationToken => cancellationToken;
 
         public bool IsDone => _steps.Count == 0;
 
