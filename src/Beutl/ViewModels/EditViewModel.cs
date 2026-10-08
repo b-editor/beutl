@@ -413,16 +413,19 @@ public sealed partial class EditViewModel
     }
 
     // Resolves the entry inside the guarded change: flushing pending edits first can shift or drop entries.
-    // A cancellation that arrives while playback pauses (the user switched editors) leaves this history alone.
+    // A cancellation (the user switched editors) leaves this history alone. One that arrives while playback
+    // pauses still lets the guard drain pending edits, but only while paused: whether to pause does not
+    // depend on the token, since a drain without the pause would race a live player.
     internal ValueTask<bool> JumpToHistoryAsync(HistoryEntry entry, CancellationToken cancellationToken)
     {
+        if (cancellationToken.IsCancellationRequested) return ValueTask.FromResult(false);
+
         int IndexOf() => Array.IndexOf(HistoryManager.GetEntriesSnapshot(), entry);
         return ExecuteHistoryMutationAsync(
             "JumpTo",
             null,
             null,
-            () => !cancellationToken.IsCancellationRequested
-                  && IndexOf() is var index and >= 0 && HistoryManager.WouldJumpToMove(index),
+            () => IndexOf() is var index and >= 0 && HistoryManager.WouldJumpToMove(index),
             () => !cancellationToken.IsCancellationRequested
                   && IndexOf() is var index and >= 0 && HistoryManager.JumpTo(index));
     }
