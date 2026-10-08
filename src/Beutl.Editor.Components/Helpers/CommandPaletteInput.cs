@@ -7,6 +7,10 @@ public static class CommandPaletteInput
     /// Formats <paramref name="time"/> so that it parses back to the same frame: milliseconds keep a frame
     /// apart even at 120 fps, and the day is added from 24 hours on instead of wrapping to the first day.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="time"/> is a timeline position (the playhead or a marker), never negative. No sign is
+    /// written: <see cref="GotoTimecodeParser"/> reads a leading minus as a relative seek.
+    /// </remarks>
     public static string FormatTimecode(TimeSpan time)
     {
         return time.ToString(time.Days > 0 ? @"d\.hh\:mm\:ss\.fff" : @"hh\:mm\:ss\.fff", CultureInfo.InvariantCulture);
