@@ -79,13 +79,11 @@ public class SettingsGroupTests
     {
         await TestReset.ResetShellAsync();
         using var model = TestShell.MainViewModel.CreateSettingsDialog();
-        var dialog = new SettingsDialog
-        {
-            DataContext = model,
-            Width = width,
-            Height = 760,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
-        };
+        var dialog = HeadlessAppWindow.Create(() => new SettingsDialog());
+        dialog.DataContext = model;
+        dialog.Width = width;
+        dialog.Height = 760;
+        dialog.RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark;
         try
         {
             model.GoToBrowserSettingsPage();

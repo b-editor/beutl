@@ -19,7 +19,7 @@ public sealed class MainViewModelShutdownTests
     {
         await TestReset.ResetShellAsync();
         var viewModel = new MainViewModel();
-        Avalonia.Controls.Window window = mac ? new MacWindow() : new MainWindow();
+        Avalonia.Controls.Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
         window.Content = null;
         var disposal = typeof(MainViewModel).GetField("_disposeTask",
@@ -53,7 +53,7 @@ public sealed class MainViewModelShutdownTests
     {
         await TestReset.ResetShellAsync();
         var viewModel = new MainViewModel();
-        Avalonia.Controls.Window window = mac ? new MacWindow() : new MainWindow();
+        Avalonia.Controls.Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
         window.DataContext = viewModel;
         window.Content = null;
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "window-veto-" + Guid.NewGuid().ToString("N"));
@@ -133,7 +133,8 @@ public sealed class MainViewModelShutdownTests
         PackageChangesQueue? handedOffQueue = null;
         var viewModel = new MainViewModel(clients =>
             handedOffQueue = clients.GetResource<PackageChangesQueue>());
-        var window = new MainWindow { DataContext = viewModel };
+        var window = HeadlessAppWindow.Create(() => new MainWindow());
+        window.DataContext = viewModel;
         // The minimal headless TestApp does not install the production MainView's app-only
         // chrome services. Keep the real MainWindow closing path while avoiding that unrelated
         // visual-tree startup callback.
@@ -170,7 +171,9 @@ public sealed class MainViewModelShutdownTests
         await TestReset.ResetShellAsync();
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         var viewModel = new MainViewModel();
-        var window = new MainWindow { DataContext = viewModel, Content = null };
+        var window = HeadlessAppWindow.Create(() => new MainWindow());
+        window.DataContext = viewModel;
+        window.Content = null;
         viewModel.RegisterExitHandler(lifetime);
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-editor");
         Directory.CreateDirectory(workspace);
@@ -327,7 +330,9 @@ public sealed class MainViewModelShutdownTests
         using var lifetime = new ClassicDesktopStyleApplicationLifetime();
         int handoffs = 0;
         var viewModel = new MainViewModel(_ => handoffs++);
-        var window = new MainWindow { DataContext = viewModel, Content = null };
+        var window = HeadlessAppWindow.Create(() => new MainWindow());
+        window.DataContext = viewModel;
+        window.Content = null;
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-window-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
         await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "window", location);
