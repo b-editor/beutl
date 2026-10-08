@@ -14,17 +14,6 @@ internal static class FreeTypeFonts
 {
     public static SKFontManager? Manager { get; } = CreateManager();
 
-    // Returns null when FreeType is not in use or cannot open the font; draw with the typeface itself then.
-    public static SKTypeface? CreateRenderFace(SKTypeface typeface)
-    {
-        if (Manager is null)
-            return null;
-
-        // CreateTypeface takes the stream over.
-        SKStreamAsset? stream = typeface.OpenStream(out int index);
-        return stream is null ? null : Manager.CreateTypeface(stream, index);
-    }
-
     internal static SKFontManager Wrap(nint handle) => GetObject(null, handle);
 
     private static SKFontManager? CreateManager()
