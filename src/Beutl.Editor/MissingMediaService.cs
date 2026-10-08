@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Models;
@@ -30,6 +31,8 @@ public sealed class MissingMediaService
 {
     private readonly Func<FontFamily, bool> _fontExists;
     private readonly Func<string, IEnumerable<string>> _enumerateEntries;
+    private readonly ConcurrentDictionary<(MissingMediaKind Kind, Uri Uri),
+        (HashSet<IFileSource> Sources, MediaFileFingerprint? Fingerprint)> _validated = new();
 
     public MissingMediaService() : this(font => FontManager.Instance.IsRegistered(font)) { }
 
@@ -46,11 +49,14 @@ public sealed class MissingMediaService
     public IReadOnlyList<MissingMedia> FindMissing(Scene scene)
         => FindMissingAsync(scene).GetAwaiter().GetResult();
 
-    public Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, CancellationToken token = default)
+    public Task<IReadOnlyList<MissingMedia>> FindMissingAsync(Scene scene, CancellationToken token = default,
+        bool revalidateExisting = true)
     {
         // Capture the editable graph before moving filesystem probes and decoders
         // off the UI thread. Worker tasks never traverse mutable engine objects.
         var references = CaptureReferences(scene);
+        var current = references.Where(item => item.ExpectedUri != null).Select(item => (item.Kind, item.ExpectedUri!)).ToHashSet();
+        foreach (var key in _validated.Keys.Where(key => !current.Contains(key))) _validated.TryRemove(key, out _);
         return Task.Run<IReadOnlyList<MissingMedia>>(async () =>
         {
             var missing = new List<MissingMedia>();
@@ -62,9 +68,19 @@ public sealed class MissingMediaService
                     if (!_fontExists(font)) missing.Add(item);
                     continue;
                 }
-                try { await ValidateAsync(item, item.ExpectedUri!.LocalPath, token); }
+                var key = (item.Kind, item.ExpectedUri!);
+                var sources = item.References.Select(reference => reference.Source!)
+                    .ToHashSet<IFileSource>(ReferenceEqualityComparer.Instance);
+                if (!revalidateExisting && _validated.TryGetValue(key, out var cached)
+                    && cached.Fingerprint == item.Fingerprint && cached.Sources.SetEquals(sources)) continue;
+                try
+                {
+                    await ValidateAsync(item, item.ExpectedUri!.LocalPath, token);
+                    token.ThrowIfCancellationRequested();
+                    _validated[key] = (sources, item.Fingerprint);
+                }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception) { missing.Add(item); }
+                catch (Exception) { _validated.TryRemove(key, out _); missing.Add(item); }
             }
             token.ThrowIfCancellationRequested();
             return missing;
@@ -112,6 +128,10 @@ public sealed class MissingMediaService
 
     internal static Uri[] GetFileUris(Scene scene) => new ObjectSearcher(scene, value => GetUri(value) is { IsFile: true })
         .SearchAll().Select(value => GetUri(value)!).Distinct().ToArray();
+
+    internal static HashSet<(object Source, Uri? Uri)> GetReferenceKeys(Scene scene)
+        => new ObjectSearcher(scene, value => value is FontFamily || GetUri(value) is { IsFile: true })
+            .SearchAll().Select(value => (value, GetUri(value))).ToHashSet();
 
     private static Uri? GetUri(object value) => value switch
     {
@@ -337,6 +357,17 @@ public sealed class MissingMediaService
                     var model = new ModelSource();
                     model.ReadFrom(new Uri(Path.GetFullPath(path)));
                     if (model.MeshCount == 0) throw new InvalidDataException("The file does not contain model geometry.");
+                    var dependencies = model.Dependencies.AsEnumerable();
+                    // Assimp can omit optional material libraries. A saved bundle
+                    // still requires them when validating its original location.
+                    if (item.Fingerprint?.Dependencies is { } saved && item.ExpectedUri is { IsFile: true } expected
+                        && FilePathComparison.AreSameCanonicalPath(path, expected.LocalPath))
+                        dependencies = dependencies.Concat(saved.Keys.Select(relative => Path.GetFullPath(relative, Path.GetDirectoryName(path)!)));
+                    foreach (string dependency in dependencies.Distinct(StringComparer.Ordinal))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        using var stream = File.OpenRead(dependency);
+                    }
                     return model;
                 case MissingMediaKind.Cube:
                     using (var stream = File.OpenRead(path)) CubeFile.FromStream(stream);
@@ -352,7 +383,7 @@ public sealed class MissingMediaService
             return null;
         }, token);
 
-    public async Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default)
+    public async Task UpdateFingerprintsAsync(Scene scene, CancellationToken token = default, bool force = true)
     {
         Uri[] uris = GetFileUris(scene);
         var previous = new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints);
@@ -369,11 +400,18 @@ public sealed class MissingMediaService
                 previous.TryGetValue(uri.AbsoluteUri, out var fingerprint);
                 try
                 {
-                    if (File.Exists(uri.LocalPath))
+                    // Ordinary reference scans reuse completed hashes. Explicit
+                    // saves/audits force reads, including timestamp-preserving overwrites.
+                    if ((force || fingerprint == null) && File.Exists(uri.LocalPath))
                     {
                         MediaFileFingerprint next = await CaptureFileFingerprintAsync(uri.LocalPath, fingerprint, token);
                         if (modelDependencies.TryGetValue(uri.AbsoluteUri, out var paths))
                         {
+                            // The same manifest may load with optional sidecars
+                            // absent. Do not erase those saved bundle members.
+                            if (next.Sha256 == fingerprint?.Sha256 && fingerprint.Dependencies is { } saved)
+                                paths = paths.Concat(saved.Keys.Select(relative => Path.GetFullPath(relative, Path.GetDirectoryName(uri.LocalPath)!)))
+                                    .Distinct(StringComparer.Ordinal).ToArray();
                             var dependencies = new Dictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
                             foreach (string path in paths)
                             {

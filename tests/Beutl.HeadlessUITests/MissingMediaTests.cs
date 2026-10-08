@@ -1074,8 +1074,8 @@ public partial class MissingMediaTests
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), files[0]);
             await vm.WaitForCandidatesAsync();
-            Assert.That(vm.Rows.Single().FontReplacementFiles, Is.EquivalentTo(files));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            Assert.That(vm.Rows.Count, Is.Zero);
             string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
             string bundled = Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts");
             Assert.That(Directory.GetFiles(bundled), Has.Length.EqualTo(2));

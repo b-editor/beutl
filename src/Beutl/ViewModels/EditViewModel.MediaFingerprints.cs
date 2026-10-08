@@ -9,19 +9,21 @@ namespace Beutl.ViewModels;
 public sealed partial class EditViewModel
 {
     private bool _fingerprintScanRequested;
+    private bool _forceFingerprintScanRequested;
+    private bool _fingerprintsFlushedForSave;
     private Task _fingerprintScanTask = Task.CompletedTask;
     private Task _fingerprintCaptureTask = Task.CompletedTask;
     private bool _finishFingerprintSaveSnapshot;
     private HashSet<string> _savedMediaUris = new(StringComparer.Ordinal);
     private readonly Dictionary<string, MediaFileFingerprint> _savedMediaFingerprints = new(StringComparer.Ordinal);
-    internal Func<Scene, CancellationToken, Task> CaptureMediaFingerprints { get; set; }
-        = static (scene, token) => new MissingMediaService().UpdateFingerprintsAsync(scene, token);
+    internal Func<Scene, CancellationToken, Task>? CaptureMediaFingerprints { get; set; }
 
-    internal void ScheduleMediaFingerprints(bool finishSaveSnapshot = false)
+    internal void ScheduleMediaFingerprints(bool finishSaveSnapshot = false, bool force = false)
     {
         if (_disposed) return;
         // Ordinary scans cannot request a Git snapshot or cancel a pending explicit save.
         _finishFingerprintSaveSnapshot |= finishSaveSnapshot;
+        _forceFingerprintScanRequested |= force;
         _fingerprintScanRequested = true;
         if (_fingerprintScanTask.IsCompleted)
             _fingerprintScanTask = UpdateMediaFingerprintsInBackgroundAsync();
@@ -29,10 +31,11 @@ public sealed partial class EditViewModel
 
     internal Task WaitForMediaFingerprintsAsync() => _fingerprintScanTask;
 
-    private Task CaptureMediaFingerprintsAsync(Scene scene)
+    private Task CaptureMediaFingerprintsAsync(Scene scene, bool force)
     {
         if (_fingerprintCaptureTask.IsCompleted)
-            _fingerprintCaptureTask = CaptureMediaFingerprints(scene, _autoSaveCancellation.Token);
+            _fingerprintCaptureTask = CaptureMediaFingerprints?.Invoke(scene, _autoSaveCancellation.Token)
+                ?? new MissingMediaService().UpdateFingerprintsAsync(scene, _autoSaveCancellation.Token, force);
         return _fingerprintCaptureTask;
     }
 
@@ -43,7 +46,9 @@ public sealed partial class EditViewModel
         try
         {
             if (!_fingerprintCaptureTask.IsCompleted) await _fingerprintCaptureTask;
-            await CaptureMediaFingerprintsAsync(Scene);
+            await CaptureMediaFingerprintsAsync(Scene, force: true);
+            _forceFingerprintScanRequested = false;
+            _fingerprintsFlushedForSave = true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -77,9 +82,11 @@ public sealed partial class EditViewModel
             {
                 if (_disposed) return;
                 _fingerprintScanRequested = false;
+                bool force = _forceFingerprintScanRequested;
+                _forceFingerprintScanRequested = false;
                 Scene scene = Scene;
                 Uri[] before = MissingMediaService.GetFileUris(scene);
-                await CaptureMediaFingerprintsAsync(scene);
+                await CaptureMediaFingerprintsAsync(scene, force);
                 if (_disposed) return;
                 Uri[] after = MissingMediaService.GetFileUris(scene);
                 if (!before.ToHashSet().SetEquals(after)) _fingerprintScanRequested = true;

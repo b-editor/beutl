@@ -178,16 +178,6 @@ public sealed class MissingMediaViewModel : IToolContext
         try
         {
             var rows = Rows.Where(row => row != selectedRow && !row.IsOffline.Value && row.ReplacementPath.Value == null).ToArray();
-            if (selectedRow.Media.Kind == MissingMediaKind.Font)
-            {
-                string? selected = selectedRow.ReplacementPath.Value;
-                if (selected != null)
-                {
-                    var fonts = await _service.FindFontFamilyFilesAsync(selectedRow.Media.FontFamily!, directory, token, selected);
-                    if (Rows.Contains(selectedRow) && selectedRow.ReplacementPath.Value == selected)
-                        selectedRow.FontReplacementFiles = fonts;
-                }
-            }
             if (rows.Length == 0) return;
             var matches = await (FindCandidateMatches?.Invoke(rows.Select(row => row.Media), directory, token)
                 ?? _service.FindMatchesAsync(rows.Select(row => row.Media), directory, token));
@@ -207,6 +197,7 @@ public sealed class MissingMediaViewModel : IToolContext
     public async Task SetReplacementAsync(MissingMediaRowViewModel row, string path)
     {
         if (_disposed || IsBusy.Value) return;
+        _candidateCancellation?.Cancel();
         SetBusy(true);
         Error.Value = null;
         try
@@ -230,7 +221,7 @@ public sealed class MissingMediaViewModel : IToolContext
 
     public void UseCandidate(MissingMediaRowViewModel row)
     {
-        if (_disposed || IsBusy.Value || row.IsOffline.Value || row.CandidatePath.Value == null) return;
+        if (_disposed || IsBusy.Value || row.IsOffline.Value || row.ReplacementPath.Value != null || row.CandidatePath.Value == null) return;
         row.ReplacementPath.Value = row.CandidatePath.Value;
         row.CandidatePath.Value = null;
         row.Status.Value = MissingMediaStrings.Ready;
@@ -260,7 +251,11 @@ public sealed class MissingMediaViewModel : IToolContext
             row.ValidatedSource = validated;
             row.FontReplacementFiles = fontFiles;
             if (asCandidate) row.CandidatePath.Value = Path.GetFullPath(path);
-            else row.ReplacementPath.Value = Path.GetFullPath(path);
+            else
+            {
+                row.CandidatePath.Value = null;
+                row.ReplacementPath.Value = Path.GetFullPath(path);
+            }
             row.IsOffline.Value = false;
             row.Status.Value = asCandidate ? MissingMediaStrings.Candidate : MissingMediaStrings.Ready;
         }
@@ -302,6 +297,9 @@ public sealed class MissingMediaViewModel : IToolContext
             foreach (var row in rows)
             {
                 row.ValidatedSource = await _service.ValidateAsync(row.Media, row.ReplacementPath.Value!, _token);
+                if (row.Media.Kind == MissingMediaKind.Font)
+                    row.FontReplacementFiles = await _service.FindFontFamilyFilesAsync(row.Media.FontFamily!,
+                        Path.GetDirectoryName(row.ReplacementPath.Value!)!, _token, row.ReplacementPath.Value!);
                 foreach (string path in row.FontReplacementFiles) await _service.ValidateAsync(row.Media, path, _token);
                 // A repair keeps saved child meshes, including their order and edits.
                 // Replace geometry only when a saved hash proves this is a different asset.

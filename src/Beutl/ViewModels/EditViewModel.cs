@@ -520,7 +520,8 @@ public sealed partial class EditViewModel
 
         HasMediaRepairs.Value = false;
         CaptureSavedMediaUris();
-        ScheduleMediaFingerprints();
+        ScheduleMediaFingerprints(force: !_fingerprintsFlushedForSave);
+        _fingerprintsFlushedForSave = false;
         return ValueTask.FromResult(true);
     }
 }

@@ -55,7 +55,6 @@ public partial class MissingMediaTests
             await vm.SetReplacementAsync(vm.Rows.Single(), selected);
             await vm.WaitForCandidatesAsync();
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(selected));
-            Assert.That(vm.Rows.Single().FontReplacementFiles, Is.EqualTo(new[] { selected, companion }));
             var wrongCase = new MissingMedia(MissingMediaKind.Font, null, new FontFamily("relink"), [], null);
             await Assert.ThrowsAsync<InvalidDataException>(async () => await new MissingMediaService().ValidateAsync(wrongCase, selected));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);

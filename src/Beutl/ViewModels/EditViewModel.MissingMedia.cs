@@ -15,6 +15,9 @@ public sealed partial class EditViewModel
     private bool _openingMissingMedia;
     private Task _missingMediaScanTask = Task.CompletedTask;
     private bool _missingMediaScanRequested;
+    private bool _missingMediaWarningDismissed;
+    private readonly MissingMediaService _missingMediaDetector = new();
+    private HashSet<(object Source, Uri? Uri)>? _mediaReferenceKeys;
 
     // In-place URI repairs do not produce property-history entries. Retain this
     // flag if saving fails, until an explicit save succeeds.
@@ -22,9 +25,19 @@ public sealed partial class EditViewModel
 
     internal CancellationToken MediaRepairCancellationToken => _autoSaveCancellation.Token;
 
+    private bool MediaReferencesChanged()
+    {
+        var current = MissingMediaService.GetReferenceKeys(Scene);
+        if (_mediaReferenceKeys?.SetEquals(current) == true) return false;
+        _mediaReferenceKeys = current;
+        _fingerprintsFlushedForSave = false;
+        return true;
+    }
+
     internal void NotifyMissingMedia()
     {
         if (_disposed) return;
+        _mediaReferenceKeys = MissingMediaService.GetReferenceKeys(Scene);
         _missingMediaScanRequested = true;
         if (_missingMediaScanTask.IsCompleted) _missingMediaScanTask = RecheckMissingMediaAsync();
     }
@@ -41,11 +54,15 @@ public sealed partial class EditViewModel
                 _missingMediaScanRequested = false;
                 await Task.Delay(200, MediaRepairCancellationToken);
                 if (_missingMediaScanRequested) continue;
-                int count = (await new MissingMediaService().FindMissingAsync(Scene, MediaRepairCancellationToken)).Count;
+                int count = (await _missingMediaDetector.FindMissingAsync(Scene, MediaRepairCancellationToken, revalidateExisting: false)).Count;
                 if (_disposed) return;
                 if (_missingMediaScanRequested) continue;
-                if (count == 0) DismissMissingMediaNotification();
-                else if (_missingMediaNotification == null) ShowMissingMediaNotification(count);
+                if (count == 0)
+                {
+                    _missingMediaWarningDismissed = false;
+                    DismissMissingMediaNotification();
+                }
+                else if (_missingMediaNotification == null && !_missingMediaWarningDismissed) ShowMissingMediaNotification(count);
             }
             while (_missingMediaScanRequested);
         }
@@ -56,12 +73,18 @@ public sealed partial class EditViewModel
     private void ShowMissingMediaNotification(int count)
     {
         _missingMediaNotification = CancellationTokenSource.CreateLinkedTokenSource(MediaRepairCancellationToken);
+        var cancellation = _missingMediaNotification;
         NotificationService.Show(new Beutl.Services.Notification(
             MissingMediaStrings.Title,
             string.Format(MissingMediaStrings.NotificationMessage, Scene.Name, count),
             NotificationType.Warning,
             Expiration: Timeout.InfiniteTimeSpan,
-            OnClose: DismissMissingMediaNotification,
+            OnClose: () =>
+            {
+                if (cancellation.IsCancellationRequested) return;
+                _missingMediaWarningDismissed = true;
+                DismissMissingMediaNotification();
+            },
             Actions: [new(MissingMediaStrings.OpenRepairTool, () => _ = OpenMissingMediaAsync(), DismissOnInvoke: false)])
         {
             CancellationToken = _missingMediaNotification.Token
@@ -126,7 +149,7 @@ public sealed partial class EditViewModel
             FrameCacheManager.Value.Clear();
             Player.QueuePreviewRender();
 
-            var missing = await new MissingMediaService().FindMissingAsync(Scene, cancellationToken);
+            var missing = await _missingMediaDetector.FindMissingAsync(Scene, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (existing != null) existing.RefreshRows(missing);
             else
