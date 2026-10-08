@@ -242,6 +242,38 @@ public sealed class SrgbCompositionTests
         });
     }
 
+    [TestCase(false, 0.0331f)]
+    [TestCase(true, 0.4845f)]
+    public void RepeatedSurfaceBlit_KeepsTransferringAcrossSpaces(bool encode, float expected)
+    {
+        var sourceFormat = encode ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+            : RenderTargetPixelFormat.SrgbPremultipliedRgba16Float;
+        var destinationFormat = encode ? RenderTargetPixelFormat.SrgbPremultipliedRgba16Float
+            : RenderTargetPixelFormat.LinearPremultipliedRgba16Float;
+        using RenderTarget source = RenderTarget.Create(1, 1, sourceFormat)!;
+        using SKRuntimeEffect effect = SKRuntimeEffect.CreateShader(
+            "half4 main(float2 p) { return half4(0.2, 0, 0, 0); }", out _)!;
+        using SKShader shader = new SKRuntimeShaderBuilder(effect).Build();
+        using (var paint = new SKPaint { Shader = shader, BlendMode = SKBlendMode.Src })
+            source.Value.Canvas.DrawPaint(paint);
+        using RenderTarget destination = RenderTarget.Create(1, 1, destinationFormat)!;
+        using (var canvas = new ImmediateCanvas(destination, RenderIntent.Delivery))
+        {
+            // The first blit learns the surface's space; the second must still transfer rather than
+            // hand the surface to Skia, which drops RGB at zero alpha.
+            canvas.DrawSurface(source.Value, default);
+            canvas.Clear();
+            canvas.DrawSurface(source.Value, default);
+        }
+
+        using Bitmap output = destination.Snapshot();
+        Assert.Multiple(() =>
+        {
+            Assert.That((float)output.GetPixelSpan<Half>()[0], Is.EqualTo(expected).Within(0.001f));
+            Assert.That((float)output.GetPixelSpan<Half>()[3], Is.Zero);
+        });
+    }
+
     [Test]
     public void Pool_DoesNotReuseCompositionTargetsForLinearEffects()
     {
@@ -368,12 +400,13 @@ public sealed class SrgbCompositionTests
         }
     }
 
-    [Test]
-    public void ToneMappedPreview_LeavesPqSourcesToColorManagement()
+    [TestCase(BitmapColorTransfer.Pq)]
+    [TestCase(BitmapColorTransfer.Linear)]
+    public void ToneMappedPreview_LeavesRec2020SourcesToColorManagement(BitmapColorTransfer transfer)
     {
-        SKColorSpace pq = BitmapColorSpaceMapping.BuildHdrColorSpace(
-            BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020).SKColorSpace;
-        using var source = new SKBitmap(new SKImageInfo(4, 4, SKColorType.RgbaF16, SKAlphaType.Premul, pq));
+        SKColorSpace rec2020 = BitmapColorSpaceMapping.BuildHdrColorSpace(
+            transfer, BitmapColorPrimaries.Rec2020).SKColorSpace;
+        using var source = new SKBitmap(new SKImageInfo(4, 4, SKColorType.RgbaF16, SKAlphaType.Premul, rec2020));
         source.Erase(SKColors.Gray);
         using SKImage image = SKImage.FromBitmap(source);
 

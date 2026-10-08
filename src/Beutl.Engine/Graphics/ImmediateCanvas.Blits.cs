@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using System.Runtime.CompilerServices;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -9,16 +10,32 @@ public partial class ImmediateCanvas
     /// <summary>How far a mapped coordinate may sit from a device-pixel boundary and still count as on it.</summary>
     private const float PixelAlignmentTolerance = 0.0001f;
 
+    // A surface's color space never changes, but reading it takes a snapshot, which can copy a GPU
+    // surface. Remembering it lets later blits of a same-space surface draw it directly.
+    private static readonly ConditionalWeakTable<SKSurface, BitmapColorSpace> s_surfaceColorSpaces = new();
+
     public void DrawSurface(SKSurface surface, Point point)
     {
         VerifyAccess();
         VerifyNativeTargetOperation();
         PrepareBlitPaint(antialias: true);
 
-        using (SKImage image = surface.Snapshot())
-            DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
-                SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
-        SurfaceSnapshot.Release(surface);
+        if (s_surfaceColorSpaces.TryGetValue(surface, out BitmapColorSpace? colorSpace)
+            && !ColorTransferShader.IsRequired(colorSpace, WorkingColorSpace))
+        {
+            Canvas.DrawSurface(surface, point.X, point.Y, GetPointBlitSampling(), _sharedFillPaint);
+        }
+        else
+        {
+            using (SKImage image = surface.Snapshot())
+            {
+                s_surfaceColorSpaces.AddOrUpdate(surface, BitmapColorSpace.FromSKColorSpace(image.ColorSpace));
+                DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
+                    SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
+            }
+
+            SurfaceSnapshot.Release(surface);
+        }
 
         if (!CanConsumeWithoutFlush(surface))
         {

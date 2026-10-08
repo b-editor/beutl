@@ -169,6 +169,8 @@ public class BitmapView : Avalonia.Controls.Control
         return new SKPaint { ColorFilter = colorFilter, IsDither = true };
     }
 
+    private static readonly SKColorSpace s_linearSrgb = SKColorSpace.CreateSrgbLinear();
+
     internal static SKShader? CreateToneMappingShader(
         SKImage image,
         SKSamplingOptions sampling,
@@ -180,10 +182,10 @@ public class BitmapView : Avalonia.Controls.Control
         if (effect is null)
             return null;
 
-        // The shader decodes only the sRGB curve and converts no gamut. Linear sources were always
-        // tone mapped; other curves (PQ, HLG) and wide-gamut sRGB-curve sources keep the color-managed path.
+        // The shader decodes only the sRGB curve and converts no gamut, so other curves (PQ, HLG) and
+        // other gamuts, linear or not, keep the color-managed preview path.
         SKColorSpace? colorSpace = image.ColorSpace;
-        if (colorSpace is not null && !colorSpace.IsSrgb && !colorSpace.GammaIsLinear)
+        if (colorSpace is not null && !colorSpace.IsSrgb && !SKColorSpace.Equal(colorSpace, s_linearSrgb))
             return null;
 
         // Sample the stored values without an implicit destination-space transform; the shader
