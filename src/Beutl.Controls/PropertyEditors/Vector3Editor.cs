@@ -439,6 +439,7 @@ public class Vector3Editor : PropertyEditor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _disposables.Clear();
         base.OnApplyTemplate(e);
         InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
         InnerSecondTextBox = e.NameScope.Find<TextBox>("PART_InnerSecondTextBox");

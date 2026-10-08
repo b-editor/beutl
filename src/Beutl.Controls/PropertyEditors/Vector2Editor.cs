@@ -82,6 +82,7 @@ public class Vector2Editor<TElement> : Vector2Editor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _disposables.Clear();
         base.OnApplyTemplate(e);
         FirstText = NumberEditorHelper.Format(_firstValue, NumberFormat);
         SecondText = NumberEditorHelper.Format(_secondValue, NumberFormat);
@@ -367,6 +368,7 @@ public class Vector2Editor : PropertyEditor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        _disposables.Clear();
         base.OnApplyTemplate(e);
         InnerFirstTextBox = e.NameScope.Get<TextBox>("PART_InnerFirstTextBox");
         InnerSecondTextBox = e.NameScope.Find<TextBox>("PART_InnerSecondTextBox");
