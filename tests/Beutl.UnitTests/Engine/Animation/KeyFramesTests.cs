@@ -5,6 +5,29 @@ namespace Beutl.UnitTests.Engine.Animation;
 
 public class KeyFramesTests
 {
+    [Test]
+    public void Changing_key_time_to_an_existing_time_keeps_the_collection_sorted()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        var first = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 10 };
+        var middle = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 200 };
+        var last = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(3), Value = 30 };
+        animation.KeyFrames.Add(first, out _);
+        animation.KeyFrames.Add(middle, out _);
+        animation.KeyFrames.Add(last, out _);
+
+        first.KeyTime = last.KeyTime;
+        Assert.That(animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
+        last.KeyTime = TimeSpan.FromSeconds(1);
+        Assert.That(animation.KeyFrames, Is.EqualTo(new[] { last, middle, first }));
+        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(200));
+
+        last.KeyTime = TimeSpan.FromSeconds(3);
+        Assert.That(animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
+        first.KeyTime = TimeSpan.FromSeconds(1);
+        Assert.That(animation.KeyFrames, Is.EqualTo(new[] { first, middle, last }));
+        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(200));
+    }
 
     [Test]
     public void Add_ShouldInsertKeyFrameAtCorrectPositionAndReturnIndex()

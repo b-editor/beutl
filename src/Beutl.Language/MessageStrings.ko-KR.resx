@@ -491,4 +491,7 @@
   <data name="ProjectFilesBeingChanged" xml:space="preserve">
     <value>다른 작업이 프로젝트 파일을 변경하고 있습니다. 완료된 후 다시 시도하세요.</value>
   </data>
+  <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
+    <value>키프레임 시간이 겹치거나 선택 영역에 반전할 수 없는 이징이 포함되어 있습니다.</value>
+  </data>
 </root>

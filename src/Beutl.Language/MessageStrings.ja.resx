@@ -485,4 +485,7 @@
   <data name="ProjectFilesBeingChanged" xml:space="preserve">
     <value>別の操作でプロジェクトのファイルを変更中です。完了してからもう一度お試しください。</value>
   </data>
+  <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
+    <value>キーフレームの時刻が重複するか、選択範囲に反転できないイージングが含まれています。</value>
+  </data>
 </root>

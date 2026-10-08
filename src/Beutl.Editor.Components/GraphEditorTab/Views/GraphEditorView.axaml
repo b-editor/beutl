@@ -104,6 +104,22 @@
                                   Header="{x:Static lang:Strings.GraphVelocity}"
                                   Tag="Velocity" />
                         <Separator />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.DistributeEvenly"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphDistributeEvenly}"
+                                  IsEnabled="{Binding CanDistributeSelection.Value}"
+                                  Tag="DistributeEvenly" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.Reverse"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphReverse}"
+                                  IsEnabled="{Binding CanReverseSelection.Value}"
+                                  Tag="Reverse" />
+                        <MenuItem usage:UsageTracking.Feature="GraphEditor.ScaleValues"
+                                  Click="GraphActionClick"
+                                  Header="{x:Static lang:Strings.GraphScaleValues}"
+                                  IsEnabled="{Binding HasSelection.Value}"
+                                  Tag="ScaleValues" />
+                        <Separator />
                         <MenuItem usage:UsageTracking.Feature="GraphEditor.CopyAllKeyFramesCommand"
                                   Command="{Binding CopyAllKeyFramesCommand}"
                                   Header="{x:Static lang:Strings.CopyAll}">

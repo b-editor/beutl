@@ -45,13 +45,25 @@ internal sealed class GraphEditorDragSnapshot
         }
     }
 
-    public void Apply(Func<Entry, (double Time, double Value)> transform, double timeScale = 1, double valueScale = 1, bool transformHandles = false)
+    public bool ScaleValues(double factor)
     {
-        if (Entries.Length == 0) return;
+        if (Entries.Length == 0 || !double.IsFinite(factor)) return false;
+        var changes = Entries.Select(entry =>
+            (Entry: entry, Result: (Time: entry.Time.TotalSeconds, Value: entry.Number * factor))).ToArray();
+        if (changes.Any(change => !double.IsFinite(change.Result.Value))) return false;
+        // Vector channels share easing; scaling a value must not rewrite their segment curves.
+        WriteValues(_channel.Parent, changes);
+        return true;
+    }
+
+    public bool Apply(Func<Entry, (double Time, double Value)> transform, double timeScale = 1, double valueScale = 1,
+        bool transformHandles = false, bool updateValues = true)
+    {
+        if (Entries.Length == 0) return false;
         var editor = _channel.Parent;
         int rate = editor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         var changes = Entries.Select(entry => (Entry: entry, Result: transform(entry))).ToArray();
-        if (changes.Any(change => !double.IsFinite(change.Result.Time))) return;
+        if (changes.Any(change => !double.IsFinite(change.Result.Time))) return false;
         // Clamp the group as a whole so its spacing is preserved at time zero.
         double correction = Math.Max(0, -changes.Min(x => x.Result.Time));
         var times = changes.Select(change => TimeSpan.FromSeconds(change.Result.Time + correction).RoundToRate(rate)).ToArray();
@@ -59,12 +71,12 @@ internal sealed class GraphEditorDragSnapshot
         // Only selected segments are mirrored. Reject unsupported interpolation before any
         // part of the transform changes the animation, retaining the last valid preview.
         if (timeScale < 0 && _reversedSegments.Any(segment => segment.Value == null
-                && selected.Contains(segment.Key.Start) && selected.Contains(segment.Key.End))) return;
+                && selected.Contains(segment.Key.Start) && selected.Contains(segment.Key.End))) return false;
         var occupied = editor.Animation.KeyFrames.Where(key => !selected.Contains(key)).Select(key => key.KeyTime).ToHashSet();
         // Reject the whole proposal before changing values or tangents. A drag can continue
         // past the occupied frame while retaining its last valid state at a collision.
-        if (times.Distinct().Count() != times.Length || times.Any(occupied.Contains)) return;
-        WriteValues(editor, changes);
+        if (times.Distinct().Count() != times.Length || times.Any(occupied.Contains)) return false;
+        if (updateValues) WriteValues(editor, changes);
         WriteKeyTimes(changes, times);
 
         Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> handles = ProjectHandles(selected, timeScale, valueScale);
@@ -75,6 +87,7 @@ internal sealed class GraphEditorDragSnapshot
             CoupleBoundaryHandles(handles, selected, editor);
         }
         RewriteSegments(handles, selected, timeScale);
+        return true;
     }
 
     private void WriteValues(GraphEditorViewModel editor, (Entry Entry, (double Time, double Value) Result)[] changes)
