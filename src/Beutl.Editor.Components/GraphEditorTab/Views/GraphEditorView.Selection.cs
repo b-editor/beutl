@@ -33,8 +33,7 @@ public partial class GraphEditorView
     {
         if (!double.IsFinite(factor) || factor == 1 || CaptureSelection(1) is not { } snapshot) return;
         if (snapshot.Entries.Any(entry => !double.IsFinite(entry.Number * factor))) return;
-        ApplySelectionTransform(() => snapshot.Apply(entry => (entry.Time.TotalSeconds, entry.Number * factor),
-            valueScale: factor, transformHandles: true, updateTimes: false));
+        ApplySelectionTransform(() => snapshot.ScaleValues(factor));
     }
 
     private GraphEditorDragSnapshot? CaptureSelection(int minimum)

@@ -48,7 +48,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
             for (int i = 0; i < KeyFrames.Count; i++)
             {
                 IKeyFrame item = KeyFrames[i];
-                if (keyframe != item && keyframe.KeyTime < item.KeyTime)
+                if (keyframe != item && keyframe.KeyTime <= item.KeyTime)
                 {
                     if (index < i)
                     {

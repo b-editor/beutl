@@ -81,6 +81,55 @@ public class GraphEditorSelectionCommandTests
     }
 
     [AvaloniaTest]
+    [TestCase(3, false)]
+    [TestCase(3, true)]
+    [TestCase(4, false)]
+    [TestCase(4, true)]
+    public async Task Reverse_multiple_keys_keeps_sorted_order_and_mirrors_interpolation(int count, bool keyboard)
+    {
+        using var graph = await GraphScope.CreateAsync(separateHandles: true);
+        for (int index = 1; index < count - 1; index++)
+        {
+            graph.Animation.KeyFrames.Add(new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(0.5 + (double)index / (count - 1)),
+                Value = 100 + 50 * index,
+                Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f)
+            }, out _);
+        }
+        var keys = graph.Animation.KeyFrames.ToArray();
+        graph.Model.SelectedView.Value!.SetSelection(keys);
+        graph.Model.HistoryManager.Commit();
+        var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(0.5 + index / 30d)).ToArray();
+        var originalValues = sampleTimes.Select(graph.Animation.Interpolate).ToArray();
+        string before = Serialize(graph.Animation);
+        int undo = graph.Model.HistoryManager.UndoCount;
+
+        Invoke(graph, "Reverse", keyboard ? Key.R : null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.Animation.KeyFrames, Is.EqualTo(keys.Reverse()));
+            Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
+            Assert.That(sampleTimes.Select(graph.Animation.Interpolate), Is.EqualTo(originalValues.Reverse()).Within(0.01));
+            Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.EqualTo(count));
+            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        });
+        string after = Serialize(graph.Animation);
+        for (int replay = 0; replay < 2; replay++)
+        {
+            graph.Model.HistoryManager.Undo();
+            Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+            Assert.That(graph.Animation.KeyFrames, Is.EqualTo(keys));
+            Assert.That(sampleTimes.Select(graph.Animation.Interpolate), Is.EqualTo(originalValues).Within(0.01));
+            graph.Model.HistoryManager.Redo();
+            Assert.That(Serialize(graph.Animation), Is.EqualTo(after));
+            Assert.That(graph.Animation.KeyFrames, Is.EqualTo(keys.Reverse()));
+            Assert.That(sampleTimes.Select(graph.Animation.Interpolate), Is.EqualTo(originalValues.Reverse()).Within(0.01));
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("distribute-collision")]
     [TestCase("distribute-rounding")]
     [TestCase("reverse-collision")]
@@ -150,14 +199,21 @@ public class GraphEditorSelectionCommandTests
     }
 
     [AvaloniaTest]
-    [TestCase(2d)]
-    [TestCase(-0.5d)]
-    public async Task Vector_value_scale_preserves_the_other_channel(double factor)
+    [TestCase(2d, true)]
+    [TestCase(-0.5d, true)]
+    [TestCase(2d, false)]
+    [TestCase(-0.5d, false)]
+    public async Task Vector_value_scale_preserves_the_other_channel(double factor, bool selectAll)
     {
         using var graph = await GraphScope.CreateAsync();
         var animation = new KeyFrameAnimation<GraphicsPoint>();
         var first = new KeyFrame<GraphicsPoint> { Value = new GraphicsPoint(10, 20) };
-        var second = new KeyFrame<GraphicsPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new GraphicsPoint(30, 40) };
+        var second = new KeyFrame<GraphicsPoint>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = new GraphicsPoint(30, 40),
+            Easing = new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f)
+        };
         animation.KeyFrames.Add(first);
         animation.KeyFrames.Add(second);
         var effect = new StrokeEffect();
@@ -167,17 +223,32 @@ public class GraphEditorSelectionCommandTests
         graph.Model.HistoryManager.Commit();
         using var model = new GraphEditorViewModel<GraphicsPoint>(graph.Model.EditorContext, animation, graph.Model.Element);
         graph.View.DataContext = model;
-        model.SelectedView.Value!.SetSelection(animation.KeyFrames);
+        model.SelectedView.Value!.SetSelection(selectAll ? animation.KeyFrames : [first]);
+        var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(index / 30d)).ToArray();
+        var originalValues = sampleTimes.Select(animation.Interpolate).ToArray();
+        string before = Serialize(animation);
         int undo = model.HistoryManager.UndoCount;
 
         graph.View.ScaleSelectionValues(factor);
 
         Assert.That(first.Value, Is.EqualTo(new GraphicsPoint((float)(10 * factor), 20)));
-        Assert.That(second.Value, Is.EqualTo(new GraphicsPoint((float)(30 * factor), 40)));
+        double endX = selectAll ? 30 * factor : 30;
+        Assert.That(second.Value, Is.EqualTo(new GraphicsPoint((float)endX, 40)));
+        var scaledValues = sampleTimes.Select(animation.Interpolate).ToArray();
+        Assert.That(scaledValues.Select(value => value.Y), Is.EqualTo(originalValues.Select(value => value.Y)).Within(0.0001));
+        for (int index = 0; index < scaledValues.Length; index++)
+        {
+            double progress = (originalValues[index].Y - 20) / 20;
+            Assert.That(scaledValues[index].X, Is.EqualTo(10 * factor + (endX - 10 * factor) * progress).Within(0.0001));
+        }
         Assert.That(model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        string after = Serialize(animation);
         model.HistoryManager.Undo();
-        Assert.That(first.Value, Is.EqualTo(new GraphicsPoint(10, 20)));
-        Assert.That(second.Value, Is.EqualTo(new GraphicsPoint(30, 40)));
+        Assert.That(Serialize(animation), Is.EqualTo(before));
+        Assert.That(sampleTimes.Select(animation.Interpolate), Is.EqualTo(originalValues));
+        model.HistoryManager.Redo();
+        Assert.That(Serialize(animation), Is.EqualTo(after));
+        Assert.That(sampleTimes.Select(animation.Interpolate), Is.EqualTo(scaledValues));
         graph.View.DataContext = graph.Model;
     }
 

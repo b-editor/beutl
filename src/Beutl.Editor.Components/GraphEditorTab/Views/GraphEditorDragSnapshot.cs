@@ -45,8 +45,19 @@ internal sealed class GraphEditorDragSnapshot
         }
     }
 
+    public bool ScaleValues(double factor)
+    {
+        if (Entries.Length == 0 || !double.IsFinite(factor)) return false;
+        var changes = Entries.Select(entry =>
+            (Entry: entry, Result: (Time: entry.Time.TotalSeconds, Value: entry.Number * factor))).ToArray();
+        if (changes.Any(change => !double.IsFinite(change.Result.Value))) return false;
+        // Vector channels share easing; scaling a value must not rewrite their segment curves.
+        WriteValues(_channel.Parent, changes);
+        return true;
+    }
+
     public bool Apply(Func<Entry, (double Time, double Value)> transform, double timeScale = 1, double valueScale = 1,
-        bool transformHandles = false, bool updateValues = true, bool updateTimes = true)
+        bool transformHandles = false, bool updateValues = true)
     {
         if (Entries.Length == 0) return false;
         var editor = _channel.Parent;
@@ -64,9 +75,9 @@ internal sealed class GraphEditorDragSnapshot
         var occupied = editor.Animation.KeyFrames.Where(key => !selected.Contains(key)).Select(key => key.KeyTime).ToHashSet();
         // Reject the whole proposal before changing values or tangents. A drag can continue
         // past the occupied frame while retaining its last valid state at a collision.
-        if (updateTimes && (times.Distinct().Count() != times.Length || times.Any(occupied.Contains))) return false;
+        if (times.Distinct().Count() != times.Length || times.Any(occupied.Contains)) return false;
         if (updateValues) WriteValues(editor, changes);
-        if (updateTimes) WriteKeyTimes(changes, times);
+        WriteKeyTimes(changes, times);
 
         Dictionary<IKeyFrame, (Point? Incoming, Point? Outgoing)> handles = ProjectHandles(selected, timeScale, valueScale);
         if (transformHandles)
