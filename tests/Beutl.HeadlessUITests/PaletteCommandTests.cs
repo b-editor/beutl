@@ -452,6 +452,21 @@ public class PaletteCommandTests
     }
 
     [AvaloniaTest]
+    public async Task Preview_render_quality_stays_available_during_playback_and_pauses_first()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-preview-quality-playing");
+        IPreviewRenderQuality quality = editor.GetService<IPreviewRenderQuality>()!;
+        editor.Player.IsPlaying.Value = true;
+
+        Assert.That(PreviewSettingsTabExtension.Instance.CanExecute(Execution("ChangePreviewRenderQuality", editor)),
+            Is.True, "A palette opened during playback would keep the entry disabled after playback stops.");
+        await PreviewSettingsTabExtension.Instance.ExecuteAsync(Execution("ChangePreviewRenderQuality", editor,
+            new ScriptedInteraction().Pick<RenderScale>(item => item.Value == RenderScale.Half)));
+
+        Assert.That((quality.PreviewScale.Value, editor.Player.IsPlaying.Value), Is.EqualTo((RenderScale.Half, false)));
+    }
+
+    [AvaloniaTest]
     public async Task Dock_layout_commands_save_rename_apply_and_delete()
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-dock-layouts");

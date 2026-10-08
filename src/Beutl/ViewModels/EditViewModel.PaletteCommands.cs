@@ -104,14 +104,12 @@ public partial class EditViewModel
         return (await interaction.ShowQuickPickAsync(items))?.Value;
     }
 
-    // The playback ticker would overwrite a seek made while playing, so playback stops first. Switching
-    // editors cancels the command meanwhile, and then this editor must not move.
+    // The playback ticker would overwrite a seek made while playing, so playback stops first. Pause runs even
+    // when IsPlaying is already false: at a loop boundary the session can re-arm, and Pause is what stops it.
+    // Switching editors cancels the command meanwhile, and then this editor must not move.
     private async Task SeekFromPaletteAsync(TimeSpan time, CancellationToken cancellationToken)
     {
-        if (Player.IsPlaying.Value)
-        {
-            await Player.Pause();
-        }
+        await Player.Pause();
 
         if (cancellationToken.IsCancellationRequested) return;
 

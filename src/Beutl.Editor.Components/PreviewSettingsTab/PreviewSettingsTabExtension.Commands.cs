@@ -17,12 +17,12 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
         },
     ];
 
+    // Unlike the tab's selector, the command stays available during playback: it pauses before rebuilding
+    // the renderer, and a palette entry disabled by playback would not re-enable when playback stops.
     public bool CanExecute(ContextCommandExecution execution)
     {
-        // The tab disables the selector during playback to avoid rebuilding the renderer mid-play.
         return execution.CommandName == "ChangePreviewRenderQuality"
-            && execution.EditorContext?.GetService<IPreviewRenderQuality>() is not null
-            && execution.EditorContext.GetService<IPreviewPlayer>() is not { IsPlaying.Value: true };
+            && execution.EditorContext?.GetService<IPreviewRenderQuality>() is not null;
     }
 
     public async Task ExecuteAsync(ContextCommandExecution execution)
@@ -42,8 +42,8 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
             .ToArray();
         if (await interaction.ShowQuickPickAsync(items) is not { } picked) return;
 
-        // Playback may have started while the list was open. Pause also returns a pause still draining the
-        // last frame, which IsPlaying no longer shows.
+        // Rebuilding the renderer must not happen mid-playback. Pause also returns a pause still draining
+        // the last frame, which IsPlaying no longer shows.
         if (execution.EditorContext.GetService<IPreviewPlayer>() is { } player)
         {
             await player.Pause();
