@@ -113,9 +113,15 @@ public sealed class CrossNodeShaderFusionTests
         Assert.That(enabledRaster.Bitmap, Is.Not.Null);
         Assert.That(disabledRaster.Bitmap, Is.Not.Null);
         Assert.That(expectedRaster.Bitmap, Is.Not.Null);
+        // The unfused chain stores F16 intermediates. Compare in linear light, where the sRGB encode's
+        // 12.92x slope near black does not amplify half a storage step past the tolerance.
+        using Bitmap disabledLinear = disabledRaster.Bitmap!.Convert(
+            BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        using Bitmap enabledLinear = enabledRaster.Bitmap!.Convert(
+            BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
         RgbaMaximumError fusionParity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
-            disabledRaster.Bitmap!,
-            enabledRaster.Bitmap!);
+            disabledLinear,
+            enabledLinear);
         RgbaMaximumError normalizedParity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
             expectedRaster.Bitmap!,
             enabledRaster.Bitmap!);

@@ -63,14 +63,16 @@ public sealed class Scene3DCoordinateRenderTests
     }
 
     // Overlapping unmoved cards keep the 2D painter order even when the later one's center is farther from
-    // the camera than the earlier one's.
+    // the camera than the earlier one's. The 3D renderer blends translucent cards in linear light, while 2D
+    // composition blends in sRGB, so the reference lays the single-card renders over each other in linear light.
     [Test]
     public async Task OverlappingUnmovedCards_KeepTheTwoDimensionalOrder()
     {
         AgentToolkitGpuTestEnvironment.EnsureAvailable();
 
         var later = new Color(200, 240, 160, 20);
-        float[] twoDimensional = await RenderAsync([CreateRect(0, 0), CreateRect(300, 100, later)]);
+        float[] earlierAlone = await RenderAsync([CreateRect(0, 0)]);
+        float[] laterAlone = await RenderAsync([CreateRect(300, 100, later)]);
         float[] asCards = await RenderAsync(
         [
             CreateRect(0, 0), new DrawableObject3D(),
@@ -79,13 +81,42 @@ public sealed class Scene3DCoordinateRenderTests
         ]);
 
         float maximum = 0;
-        for (int i = 0; i < asCards.Length; i++)
+        for (int i = 0; i < asCards.Length; i += 4)
         {
-            maximum = Math.Max(maximum, Math.Abs(asCards[i] - twoDimensional[i]));
+            float[] expected = SourceOverInLinearLight(laterAlone.AsSpan(i, 4), earlierAlone.AsSpan(i, 4));
+            for (int channel = 0; channel < 4; channel++)
+                maximum = Math.Max(maximum, Math.Abs(asCards[i + channel] - expected[channel]));
         }
 
         Assert.That(maximum, Is.LessThanOrEqualTo(2f / 255f));
     }
+
+    // Composites premultiplied sRGB pixels in linear light and encodes the result back to premultiplied sRGB.
+    private static float[] SourceOverInLinearLight(ReadOnlySpan<float> source, ReadOnlySpan<float> destination)
+    {
+        float sourceAlpha = source[3];
+        float alpha = sourceAlpha + destination[3] * (1 - sourceAlpha);
+        var result = new float[] { 0, 0, 0, alpha };
+        if (alpha <= 0)
+            return result;
+
+        for (int channel = 0; channel < 3; channel++)
+        {
+            float linear = Decode(source, channel) + Decode(destination, channel) * (1 - sourceAlpha);
+            result[channel] = LinearToSrgb(linear / alpha) * alpha;
+        }
+
+        return result;
+
+        static float Decode(ReadOnlySpan<float> pixel, int channel)
+            => pixel[3] > 0 ? SrgbToLinear(pixel[channel] / pixel[3]) * pixel[3] : 0;
+    }
+
+    private static float SrgbToLinear(float value)
+        => value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+
+    private static float LinearToSrgb(float value)
+        => value <= 0.0031308f ? value * 12.92f : 1.055f * MathF.Pow(value, 1 / 2.4f) - 0.055f;
 
     // A 200 px cube whose front face sits on z = 0 covers the same pixels as a 200 px 2D square, and a
     // negative Y places it above the center as it would in 2D.

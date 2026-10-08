@@ -173,10 +173,10 @@ public sealed class LutEffectTextureTests
     {
         public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
         {
-            using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
             PixelSize size = allocation.DeviceSize;
             SKSurface surface = SKSurface.Create(new SKImageInfo(
-                size.Width, size.Height, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace))
+                size.Width, size.Height, SKColorType.RgbaF16, SKAlphaType.Premul,
+                allocation.PixelFormat.GetColorSpace().SKColorSpace))
                 ?? throw new InvalidOperationException("Could not create the CPU LUT test surface.");
             return new CpuRenderTarget(surface, size);
         }
