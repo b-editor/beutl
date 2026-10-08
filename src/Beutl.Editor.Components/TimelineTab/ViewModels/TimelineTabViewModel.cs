@@ -214,11 +214,15 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     private async Task AddElementCore(ElementDescription description)
         => await AddElementWithResultAsync(description);
 
-    public async Task<ElementAddResult> AddElementWithResultAsync(ElementDescription description)
+    public Task<ElementAddResult> AddElementWithResultAsync(ElementDescription description)
+        => AddElementWithResultAsync(description, CancellationToken.None);
+
+    public async Task<ElementAddResult> AddElementWithResultAsync(
+        ElementDescription description, CancellationToken cancellationToken)
     {
         ElementAddResult result = await EditorContext
             .GetRequiredService<IElementAdder>()
-            .AddAsync([description], CancellationToken.None);
+            .AddAsync([description], cancellationToken);
         if (result.IsSuccess)
         {
             Element scrollTarget = result.Items[^1].PrimaryElement;

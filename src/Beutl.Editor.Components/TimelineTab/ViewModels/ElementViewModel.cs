@@ -170,7 +170,8 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         Name.Skip(1)
             .Subscribe(v =>
             {
-                if (IsEditable.Value) Model.Name = v;
+                if (IsEditable.Value)
+                    Timeline.EditorContext.GetRequiredService<IElementAttributeService>().SetName(Model, v);
                 else if (v != Model.Name) Name.Value = Model.Name;
             })
             .AddTo(_disposables);

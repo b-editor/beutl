@@ -43,4 +43,16 @@ public sealed class ElementAttributeService : IElementAttributeService
         element.IsLocked = isLocked;
         _historyManager.Commit(CommandNames.ChangeElementLocked);
     }
+
+    public void SetName(Element element, string name)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(name);
+        // Same backstop as SetAccentColor; the caller enforces the layer lock.
+        if (element.IsLocked) return;
+        if (element.Name == name) return;
+
+        element.Name = name;
+        _historyManager.Commit(CommandNames.RenameElement);
+    }
 }

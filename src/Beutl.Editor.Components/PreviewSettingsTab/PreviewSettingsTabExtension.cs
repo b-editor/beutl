@@ -11,7 +11,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.Editor.Components.PreviewSettingsTab;
 
 [PrimitiveImpl]
-public sealed class PreviewSettingsTabExtension : ToolTabExtension
+public sealed partial class PreviewSettingsTabExtension : ToolTabExtension
 {
     public static readonly PreviewSettingsTabExtension Instance = new();
 

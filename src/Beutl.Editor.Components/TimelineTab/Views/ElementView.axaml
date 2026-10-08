@@ -259,7 +259,7 @@
                      HorizontalAlignment="Stretch"
                      IsEnabled="{Binding IsEditable.Value}"
                      IsVisible="False"
-                     Text="{Binding Name.Value}"
+                     Text="{Binding Name.Value, UpdateSourceTrigger=LostFocus}"
                      Theme="{StaticResource ElementNameTextBoxTheme}" />
 
             <Border x:Name="proxyIndicator"

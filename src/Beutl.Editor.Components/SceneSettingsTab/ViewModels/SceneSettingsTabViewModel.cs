@@ -120,7 +120,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
     }
 
-    private static string? DurationValidator(string str)
+    internal static string? DurationValidator(string str)
     {
         if (TimeSpan.TryParse(str, out TimeSpan time))
         {
@@ -139,7 +139,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         }
     }
 
-    private static string? StartValidator(string str)
+    internal static string? StartValidator(string str)
     {
         if (TimeSpan.TryParse(str, out TimeSpan time))
         {

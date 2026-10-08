@@ -101,6 +101,10 @@ public sealed class SceneEditorExtension : EditorExtension
         [
             new ContextCommandKeyGesture("Alt+O")
         ]),
+        // Palette-only: they ask for their arguments, so they have no default gesture.
+        new("GoToMarker", Strings.GoToMarker, "", []),
+        new("AddMarker", Strings.AddMarkerWithName, "", []),
+        new("RenameMarker", Strings.RenameMarker, "", []),
     ];
 
     public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)

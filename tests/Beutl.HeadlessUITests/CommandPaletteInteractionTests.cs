@@ -424,6 +424,51 @@ public sealed class CommandPaletteInteractionTests
         await drain;
     }
 
+    [AvaloniaTest]
+    public async Task An_answered_prompt_hides_the_palette_while_the_command_works_and_a_later_step_reopens_it()
+    {
+        var work = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? first = null;
+        string? second = null;
+        var (palette, _) = CreatePalette(async execution =>
+        {
+            first = await execution.Interaction!.ShowInputAsync(new ContextCommandInputOptions());
+            await work.Task;
+            second = await execution.Interaction.ShowInputAsync(new ContextCommandInputOptions());
+            await work.Task;
+        });
+        using (palette)
+        {
+            palette.Open();
+            Task operation = palette.ExecuteSelectedAsync();
+            HeadlessTestHelpers.Settle();
+
+            palette.Query.Value = "first";
+            await palette.ExecuteSelectedAsync();
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(first, Is.EqualTo("first"));
+                Assert.That(palette.IsOpen.Value, Is.False, "The answered prompt must not stay on screen.");
+                Assert.That(operation.IsCompleted, Is.False);
+            });
+
+            work.SetResult();
+            await UntilAsync(() => palette.Prompt.Value is { IsCompleted: false });
+            Assert.That(palette.IsOpen.Value, Is.True, "A later step reopens the palette.");
+
+            palette.Query.Value = "second";
+            await palette.ExecuteSelectedAsync();
+            await operation;
+            Assert.Multiple(() =>
+            {
+                Assert.That(second, Is.EqualTo("second"));
+                Assert.That(palette.IsOpen.Value, Is.False);
+                Assert.That(palette.Prompt.Value, Is.Null);
+            });
+        }
+    }
+
     private sealed class PromptExtension : ViewExtension
     {
         public override IEnumerable<ContextCommandDefinition> ContextCommands =>

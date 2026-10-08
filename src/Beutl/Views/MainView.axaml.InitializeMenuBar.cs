@@ -211,42 +211,7 @@ public partial class MainView
             return;
         }
 
-        if (!IsCurrentCommitTarget(
-                expectedProject,
-                expectedService,
-                viewModel.ProjectService.CurrentProject.Value,
-                viewModel.VersionControlCoordinator.CurrentService))
-        {
-            return;
-        }
-
-        try
-        {
-            CommitResult result = await viewModel.VersionControlCoordinator.CommitManualAsync(
-                message.Trim());
-            NotificationService.ShowInformation(
-                Strings.VersionControl,
-                result is CommitResult.NoChanges
-                    ? Strings.VersionControl_NothingToCommit
-                    : Strings.VersionControl_CommitCreated);
-        }
-        catch (GitIdentityRequiredException)
-        {
-        }
-        catch (Exception ex)
-        {
-            await ex.Handle();
-        }
-    }
-
-    internal static bool IsCurrentCommitTarget(
-        Project expectedProject,
-        object expectedService,
-        Project? currentProject,
-        object? currentService)
-    {
-        return ReferenceEquals(expectedProject, currentProject)
-               && ReferenceEquals(expectedService, currentService);
+        await viewModel.CommitVersionAsync(expectedProject, expectedService, message);
     }
 
     private Control GetVersionControlFlyoutAnchor()

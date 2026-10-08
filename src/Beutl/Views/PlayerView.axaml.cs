@@ -105,7 +105,7 @@ public partial class PlayerView : UserControl
         // the playback timer would overwrite the new playhead on its next tick.
         if (!vm.TryParseTimecode(e.Input, out TimeSpan target, out GotoTimecodeError error))
         {
-            e.Reject(LookupLocalizedError(error));
+            e.Reject(PlayerViewModel.GetTimecodeErrorMessage(error));
             return;
         }
 
@@ -123,15 +123,6 @@ public partial class PlayerView : UserControl
             _logger.LogError(ex, "Unexpected error while applying timecode '{Input}'.", e.Input);
         }
     }
-
-    private string LookupLocalizedError(GotoTimecodeError error) => error switch
-    {
-        GotoTimecodeError.InvalidFormat => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
-        GotoTimecodeError.MarkerNotFound => Beutl.Language.Strings.GotoTimecode_MarkerNotFound,
-        GotoTimecodeError.NoScene => Beutl.Language.Strings.GotoTimecode_NoScene,
-        GotoTimecodeError.OutOfRange => Beutl.Language.Strings.GotoTimecode_OutOfRange,
-        _ => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
-    };
 
     private void SetupImageControl()
     {
