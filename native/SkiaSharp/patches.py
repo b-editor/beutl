@@ -13,6 +13,8 @@ def patches_for(rid):
         patches["fontconfigPatchSha256"] = HERE / "fontconfig-missing-family.patch"
     if rid.startswith("win-"):
         patches["freetypeFontMgrPatchSha256"] = HERE / "freetype-fontmgr.patch"
+    if rid == "osx":
+        patches["macosLinkerPatchSha256"] = HERE / "macos-linker-version.patch"
     return patches
 
 

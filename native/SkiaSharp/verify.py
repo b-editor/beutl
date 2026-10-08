@@ -12,7 +12,7 @@ from patches import patch_hashes
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-RIDS = ("linux-x64", "linux-arm64", "win-x64", "win-arm64")
+RIDS = ("linux-x64", "linux-arm64", "win-x64", "win-arm64", "osx")
 REQUIRED_EXPORTS = {
     b"gr_beutl_backendrendertarget_get_vk_image_layout",
     b"gr_beutl_backendrendertarget_set_vk_image_layout",
@@ -22,6 +22,16 @@ WINDOWS_EXPORTS = {b"sk_beutl_fontmgr_create_freetype"}
 
 def required_exports(rid):
     return REQUIRED_EXPORTS | (WINDOWS_EXPORTS if rid.startswith("win-") else set())
+
+
+# Mach-O CPU types of the slices the universal macOS runtime must carry.
+MACHO_SLICES = {0x0100000C: "arm64", 0x01000007: "x86_64"}
+
+
+def library_name(rid):
+    if rid == "osx":
+        return "libSkiaSharp.dylib"
+    return "libSkiaSharp.so" if rid.startswith("linux-") else "libSkiaSharp.dll"
 
 
 def unpack(data, layout, offset):
@@ -117,8 +127,102 @@ def pe_exports(data, rid):
     return exports
 
 
+def uleb128(data, offset, end):
+    value = shift = 0
+    while True:
+        if offset >= end:
+            raise ValueError("Native binary contains a truncated ULEB128 value.")
+        byte = data[offset]
+        offset += 1
+        value |= (byte & 0x7F) << shift
+        shift += 7
+        if byte < 0x80:
+            return value, offset
+
+
+def macho_trie_exports(data, start, end, rid, name):
+    # dyld resolves symbols through this trie, not LC_SYMTAB; a name only in the symbol table does not load.
+    exports = set()
+    pending = [(0, b"")]
+    visited = set()
+    while pending:
+        node, prefix = pending.pop()
+        if node in visited or not 0 <= node < end - start:
+            raise ValueError(f"{rid}: invalid Mach-O export trie in the {name} slice.")
+        visited.add(node)
+        terminal_size, offset = uleb128(data, start + node, end)
+        if terminal_size:
+            flags, _ = uleb128(data, offset, min(end, offset + terminal_size))
+            # Regular definitions only: re-exports are not our C ABI implementation.
+            if flags & 0x03 == 0 and not flags & 0x08:
+                exports.add(prefix[1:] if prefix.startswith(b"_") else prefix)
+        offset += terminal_size
+        child_count = unpack(data, "B", offset)[0]
+        offset += 1
+        for _ in range(child_count):
+            edge = c_string(data, offset, end)
+            offset += len(edge) + 1
+            child, offset = uleb128(data, offset, end)
+            pending.append((child, prefix + edge))
+    return exports
+
+
+def macho_slice_exports(data, start, end, rid, name, cpu):
+    if unpack(data, "<I", start)[0] != 0xFEEDFACF:
+        raise ValueError(f"{rid}: {name} slice is not a 64-bit Mach-O image.")
+    inner_cpu = unpack(data, "<i", start + 4)[0]
+    if inner_cpu != cpu:
+        raise ValueError(f"{rid}: Mach-O architecture mismatch ({name} slice header has CPU type {inner_cpu:#x}).")
+    command_count, commands_size = unpack(data, "<II", start + 16)
+    if unpack(data, "<I", start + 12)[0] != 6 or start + 32 + commands_size > end:  # MH_DYLIB
+        raise ValueError(f"{rid}: {name} slice is not a Mach-O dynamic library.")
+    trie = None
+    offset = start + 32
+    for _ in range(command_count):
+        command, command_size = unpack(data, "<II", offset)
+        if command_size < 8 or offset + command_size > start + 32 + commands_size:
+            raise ValueError(f"{rid}: invalid Mach-O load command in the {name} slice.")
+        if command in (0x22, 0x80000022):  # LC_DYLD_INFO, LC_DYLD_INFO_ONLY
+            trie = unpack(data, "<II", offset + 40)
+        elif command == 0x80000033:  # LC_DYLD_EXPORTS_TRIE
+            trie = unpack(data, "<II", offset + 8)
+        offset += command_size
+    if trie is None or trie[1] == 0:
+        return set()
+    trie_start, trie_end = start + trie[0], start + trie[0] + trie[1]
+    if trie_end > end:
+        raise ValueError(f"{rid}: invalid Mach-O export trie in the {name} slice.")
+    return macho_trie_exports(data, trie_start, trie_end, rid, name)
+
+
+def macho_exports(data, rid):
+    # The macOS runtime is a universal library, as the upstream SkiaSharp asset is.
+    if unpack(data, ">I", 0)[0] not in (0xCAFEBABE, 0xCAFEBABF):
+        raise ValueError(f"{rid}: expected a universal Mach-O library.")
+    wide = unpack(data, ">I", 0)[0] == 0xCAFEBABF
+    slice_count = unpack(data, ">I", 4)[0]
+    slices = {}
+    for index in range(slice_count):
+        if wide:
+            cpu, _, start, size = unpack(data, ">iiQQ", 8 + index * 32)
+        else:
+            cpu, _, start, size = unpack(data, ">iiII", 8 + index * 20)
+        if cpu in MACHO_SLICES:
+            if start + size > len(data):
+                raise ValueError(f"{rid}: truncated Mach-O {MACHO_SLICES[cpu]} slice.")
+            slices[MACHO_SLICES[cpu]] = macho_slice_exports(data, start, start + size, rid, MACHO_SLICES[cpu], cpu)
+    missing = sorted(set(MACHO_SLICES.values()) - slices.keys())
+    if missing:
+        raise ValueError(f"{rid}: Mach-O architecture mismatch (missing {', '.join(missing)} slice).")
+    # An export counts only when every slice provides it.
+    return set.intersection(*slices.values())
+
+
 def verify_binary(data, rid):
-    exports = elf_exports(data, rid) if rid.startswith("linux-") else pe_exports(data, rid)
+    if rid == "osx":
+        exports = macho_exports(data, rid)
+    else:
+        exports = elf_exports(data, rid) if rid.startswith("linux-") else pe_exports(data, rid)
     missing = required_exports(rid) - exports
     if missing:
         names = ", ".join(name.decode("ascii") for name in sorted(missing))
@@ -133,7 +237,7 @@ def verify(native_root, rids):
         for key, expected in {**source, "rid": rid, **patch_hashes(rid)}.items():
             if manifest.get(key) != expected:
                 raise ValueError(f"{rid}: {key} does not match the pinned source and patch; rebuild this runtime.")
-        filename = "libSkiaSharp.so" if rid.startswith("linux-") else "libSkiaSharp.dll"
+        filename = library_name(rid)
         data = (directory / filename).read_bytes()
         digest = hashlib.sha256(data).hexdigest()
         if manifest.get("binarySha256") != digest:
@@ -142,7 +246,7 @@ def verify(native_root, rids):
         for notice in ("Skia.LICENSE", "Skia.NOTICES"):
             if not (directory / notice).read_bytes():
                 raise ValueError(f"{rid}: {notice} is empty.")
-        print(f"Verified {rid}: SkiaSharp {source['skiaSharpVersion']}, architecture and Vulkan exports, SHA-256 {digest}")
+        print(f"Verified {rid}: SkiaSharp {source['skiaSharpVersion']}, architecture and Beutl exports, SHA-256 {digest}")
 
 
 if __name__ == "__main__":
