@@ -44,7 +44,8 @@ internal static class RasterShaderMapping
         float destinationScale,
         Rect destinationRasterBounds,
         SKShaderTileMode tileMode,
-        BitmapColorSpace? destinationColorSpace = null)
+        BitmapColorSpace? destinationColorSpace = null,
+        bool numericLinear = false)
     {
         ArgumentNullException.ThrowIfNull(image);
         var imageBounds = new PixelRect(new PixelSize(image.Width, image.Height));
@@ -101,13 +102,15 @@ internal static class RasterShaderMapping
             semanticRasterBounds);
         if (semanticSubset == imageBounds)
         {
-            return ColorTransferShader.Create(
-                image,
-                destinationColorSpace,
-                tileMode,
-                tileMode,
-                SKSamplingOptions.Default,
-                localMatrix);
+            return numericLinear
+                ? ColorTransferShader.CreateNumericLinear(image, tileMode, tileMode, SKSamplingOptions.Default, localMatrix)
+                : ColorTransferShader.Create(
+                    image,
+                    destinationColorSpace,
+                    tileMode,
+                    tileMode,
+                    SKSamplingOptions.Default,
+                    localMatrix);
         }
 
         using SKImage subset = recordingContext is null
@@ -115,13 +118,15 @@ internal static class RasterShaderMapping
             : image.Subset(recordingContext, semanticSubset.ToSKRectI());
         if (subset is null)
             throw new InvalidOperationException("The semantic shader source subset could not be created.");
-        return ColorTransferShader.Create(
-            subset,
-            destinationColorSpace,
-            tileMode,
-            tileMode,
-            SKSamplingOptions.Default,
-            localMatrix);
+        return numericLinear
+            ? ColorTransferShader.CreateNumericLinear(subset, tileMode, tileMode, SKSamplingOptions.Default, localMatrix)
+            : ColorTransferShader.Create(
+                subset,
+                destinationColorSpace,
+                tileMode,
+                tileMode,
+                SKSamplingOptions.Default,
+                localMatrix);
     }
 
     public static SKMatrix CreateLocalMatrix(

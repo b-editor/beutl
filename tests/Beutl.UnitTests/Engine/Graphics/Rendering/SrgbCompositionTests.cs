@@ -84,6 +84,38 @@ public sealed class SrgbCompositionTests
     }
 
     [Test]
+    public void DirectShaderRun_IntoSrgbComposition_ComputesInLinearSpace()
+    {
+        var grading = new ColorGrading();
+        grading.Exposure.CurrentValue = 1;
+        using FilterEffect.Resource resource = grading.ToResource(CompositionContext.Default);
+        using Brush.Resource gray = new SolidColorBrush(Colors.Gray).ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        node.AddChild(new RectangleRenderNode(Frame, gray, null));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = Frame,
+            OutputScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
+        using RenderTarget target = RenderTarget.Create(240, 80)!;
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery))
+        {
+            canvas.Clear(Colors.Black);
+            renderer.Render(canvas);
+        }
+
+        // Only the vector input materializes; the shader run draws straight into the sRGB target.
+        Assert.That(renderer.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(1));
+
+        using Bitmap snapshot = target.Snapshot();
+        using Bitmap frame = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        // Doubling linear gray 128 gives sRGB 176; doubling the encoded value would clip to 255.
+        Assert.That(Red(frame, 120, 40), Is.EqualTo(176).Within(1));
+    }
+
+    [Test]
     public void Blur_AveragesOpaqueBlackAndWhiteInLinearSpace()
     {
         var blur = new Blur();

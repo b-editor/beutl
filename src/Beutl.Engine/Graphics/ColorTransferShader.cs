@@ -70,8 +70,48 @@ internal static class ColorTransferShader
         using SKShader raw = image.ToRawShader(tileModeX, tileModeY, rawSampling, localMatrix)
                              ?? throw new InvalidOperationException("The raw image shader could not be created.");
         using SKShader converted = image.ToShader(tileModeX, tileModeY, sampling, localMatrix);
+        return Build(raw, converted, decode, exact);
+    }
+
+    /// <summary>
+    /// Creates an image shader whose samples are linear-sRGB values while Skia evaluates it for an sRGB
+    /// destination, so a program that computes in linear light can draw straight into the composition.
+    /// Wrap the program's output in <see cref="EncodeNumericLinear"/>.
+    /// </summary>
+    public static SKShader CreateNumericLinear(
+        SKImage image,
+        SKShaderTileMode tileModeX,
+        SKShaderTileMode tileModeY,
+        SKSamplingOptions sampling,
+        SKMatrix localMatrix)
+    {
+        SKColorSpace? sourceSpace = image.ColorSpace;
+        if (sourceSpace is not null
+            && SKColorSpace.Equal(sourceSpace, BitmapColorSpace.LinearSrgb.SKColorSpace)
+            && image.AlphaType is SKAlphaType.Premul or SKAlphaType.Opaque)
+        {
+            // The stored values already are linear; Skia would convert them toward the sRGB destination.
+            SKSamplingOptions rawSampling = sampling.UseCubic
+                ? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None)
+                : sampling;
+            return image.ToRawShader(tileModeX, tileModeY, rawSampling, localMatrix)
+                   ?? throw new InvalidOperationException("The raw image shader could not be created.");
+        }
+
+        // An image shader yields premultiplied values in the destination's sRGB space, unconverted for an sRGB
+        // image and with every sampling Skia supports, so decoding them exactly gives the linear values.
+        using SKShader samples = image.ToShader(tileModeX, tileModeY, sampling, localMatrix);
+        return Build(samples, samples, decode: true, exact: true);
+    }
+
+    /// <summary>Encodes the linear-sRGB output of <paramref name="linear"/> for an sRGB destination.</summary>
+    public static SKShader EncodeNumericLinear(SKShader linear)
+        => Build(linear, linear, decode: false, exact: true);
+
+    private static SKShader Build(SKShader image, SKShader converted, bool decode, bool exact)
+    {
         var builder = new SKRuntimeShaderBuilder(s_effect.Value);
-        builder.Children["image"] = raw;
+        builder.Children["image"] = image;
         builder.Children["converted"] = converted;
         builder.Uniforms["decode"] = decode ? 1 : 0;
         builder.Uniforms["exact"] = exact ? 1 : 0;

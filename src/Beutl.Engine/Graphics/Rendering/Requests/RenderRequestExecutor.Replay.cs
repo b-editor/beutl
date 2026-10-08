@@ -107,8 +107,16 @@ internal sealed partial class RenderRequestExecutor
         {
             // The Vulkan-native path consumes and produces pooled RGBA16F textures. Keep it behind the ordinary
             // materialization boundary instead of recording GPU work directly into a Skia replay destination.
-            if (destination.WorkingColorSpace != BitmapColorSpace.LinearSrgb || ShouldDeferDirectReplayToSpirv(run))
+            if (ShouldDeferDirectReplayToSpirv(run))
                 return false;
+
+            // An sRGB composition receives the program's linear output encoded (see ShaderRunDestination.NumericLinear).
+            // Resource children would arrive converted to sRGB instead, so such a run materializes in linear.
+            if (destination.WorkingColorSpace != BitmapColorSpace.LinearSrgb
+                && (destination.WorkingColorSpace != BitmapColorSpace.Srgb || BindsResources(run)))
+            {
+                return false;
+            }
 
             RenderFragmentReference output = run.GetOutput(_graph);
             RenderFragmentReference inputFragment = run.GetInput(_graph);
@@ -298,6 +306,17 @@ internal sealed partial class RenderRequestExecutor
                     DrawValues(materializedInput, destination);
                 CompleteFragmentUse(input);
             }
+        }
+
+        private bool BindsResources(CompiledShaderRun run)
+        {
+            for (int index = 0; index < run.Program.StageCount; index++)
+            {
+                if (run.GetDescription(_graph, index).Resources.Count > 0)
+                    return true;
+            }
+
+            return false;
         }
 
         private static void AppendGammaFilter(SKImageFilterBuilder builder, bool toLinear)

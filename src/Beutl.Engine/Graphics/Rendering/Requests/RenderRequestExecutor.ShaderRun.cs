@@ -176,7 +176,8 @@ internal sealed partial class RenderRequestExecutor
                         outputScale,
                         frame.RasterBounds,
                         head.SourceTileMode,
-                        destination.ColorSpace);
+                        destination.ColorSpace,
+                        destination.NumericLinear);
                 }
                 else
                 {
@@ -189,19 +190,22 @@ internal sealed partial class RenderRequestExecutor
                     SKShaderTileMode tileMode = interpolatedBitmap
                         ? SKShaderTileMode.Clamp
                         : SKShaderTileMode.Decal;
+                    SKMatrix localMatrix = RasterShaderMapping.CreateLocalMatrix(
+                        outputScale,
+                        input.EffectiveScale.Value,
+                        outputRasterBounds,
+                        input.RasterBounds);
                     // Sampling converts the sRGB composition raster into the linear output, so the
                     // input needs no linear copy of its own.
-                    inputShader = ColorTransferShader.Create(
-                        inputImage,
-                        destination.ColorSpace,
-                        tileMode,
-                        tileMode,
-                        sampling,
-                        RasterShaderMapping.CreateLocalMatrix(
-                            outputScale,
-                            input.EffectiveScale.Value,
-                            outputRasterBounds,
-                            input.RasterBounds));
+                    inputShader = destination.NumericLinear
+                        ? ColorTransferShader.CreateNumericLinear(inputImage, tileMode, tileMode, sampling, localMatrix)
+                        : ColorTransferShader.Create(
+                            inputImage,
+                            destination.ColorSpace,
+                            tileMode,
+                            tileMode,
+                            sampling,
+                            localMatrix);
                 }
                 children.Add(inputShader);
                 runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
@@ -376,9 +380,10 @@ internal sealed partial class RenderRequestExecutor
                     1f / directPlan.Density,
                     directPlan.OutputDeviceBounds.X / directPlan.Density,
                     directPlan.OutputDeviceBounds.Y / directPlan.Density));
+            using SKShader? encoded = destination.NumericLinear ? ColorTransferShader.EncodeNumericLinear(mapped) : null;
             using var paint = new SKPaint
             {
-                Shader = mapped,
+                Shader = encoded ?? mapped,
                 IsAntialias = false,
             };
             ImmediateCanvas canvas = destination.DirectCanvas
@@ -418,6 +423,12 @@ internal sealed partial class RenderRequestExecutor
             public float Scale => MaterializedOutput?.EffectiveScale.Value ?? DirectPlan.Density;
 
             public BitmapColorSpace? ColorSpace => MaterializedOutput?.Target.ColorSpace ?? DirectCanvas?.WorkingColorSpace;
+
+            /// <summary>
+            /// Whether the program draws straight into an sRGB composition: it then samples and computes linear
+            /// values that Skia treats as the destination's, and its output is encoded before blending.
+            /// </summary>
+            public bool NumericLinear => DirectCanvas is { } canvas && canvas.WorkingColorSpace != BitmapColorSpace.LinearSrgb;
 
             public static ShaderRunDestination ForMaterialized(MaterializedRenderValue output)
             {
