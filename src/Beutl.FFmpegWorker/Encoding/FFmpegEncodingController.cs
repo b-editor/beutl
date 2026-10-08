@@ -500,6 +500,11 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             pkt.StreamIndex = stream.Index;
             // Console.WriteLine(
             //     $"pts:{pkt.Pts} pts_time:{0} dst:{pkt.Dts} dts_time:{0} duration:{pkt.Duration} duration_time:{0} stream_index:{streamIndex}");
+            // Encoders such as libx264 leave a video packet's duration unset, and the muxer needs it for the last
+            // sample, which has no next timestamp to take its length from: a one-frame video would otherwise last
+            // zero seconds. Each packet holds one frame, so give it one frame interval in the encoder's time base.
+            if (pkt.Duration == 0 && encoder.CodecType == AVMediaType.AVMEDIA_TYPE_VIDEO)
+                pkt.Duration = ffmpeg.av_rescale_q(1, ffmpeg.av_inv_q(encoder.Framerate), encoder.TimeBase);
             ffmpeg.av_packet_rescale_ts(pkt, encoder.TimeBase, stream.TimeBase);
             muxer.WritePacket(pkt).ThrowIfError();
         }

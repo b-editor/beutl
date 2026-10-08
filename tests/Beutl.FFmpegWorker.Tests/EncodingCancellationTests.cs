@@ -130,6 +130,31 @@ public class EncodingCancellationTests
     }
 
     [Test]
+    public async Task A_single_frame_video_keeps_its_frame_duration()
+    {
+        if (!s_ffmpegAvailable.Value)
+            Assert.Ignore("FFmpeg native libraries are not available.");
+
+        string outputPath = Path.Combine(_workDir, "single-frame.mp4");
+        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
+        controller.VideoSettings.SourceSize = new PixelSize(32, 24);
+        controller.VideoSettings.DestinationSize = new PixelSize(32, 24);
+        controller.VideoSettings.FrameRate = new Rational(1, 1);
+        controller.AudioSettings.SampleRate = 44100;
+        controller.AudioSettings.Channels = 2;
+        using var frames = new GradientFrameProvider(1, new Rational(1, 1), 32, 24);
+        using var samples = new SineSampleProvider(44100, 44100);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using MediaDemuxer demuxer = MediaDemuxer.Open(outputPath);
+        MediaStream video = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO);
+        // One frame at 1 fps lasts one second; a zero-length sample leaves nothing for a decoder to show.
+        // Half a frame of tolerance leaves room for the container's timescale.
+        Assert.That(video.Duration * ffmpeg.av_q2d(video.TimeBase), Is.EqualTo(1).Within(0.5));
+    }
+
+    [Test]
     public async Task EncodingOverALargerFile_DoesNotRetainThePreviousTail()
     {
         if (!s_ffmpegAvailable.Value)
