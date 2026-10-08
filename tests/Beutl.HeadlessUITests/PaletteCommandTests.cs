@@ -483,8 +483,11 @@ public class PaletteCommandTests
         MainViewModel main = TestShell.MainViewModel;
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
         string original = config.Theme;
+        // Two of its own, since which themes the registry holds depends on the tests that ran before.
         var theme = new ThemeDescriptor("palette-test-theme", "Palette test theme", ThemeVariant.Dark);
+        var other = new ThemeDescriptor("palette-test-theme-2", "Palette test theme 2", ThemeVariant.Light);
         ThemeRegistry.Register(theme);
+        ThemeRegistry.Register(other);
         try
         {
             Assert.That(main.CanExecute(new ContextCommandExecution("ChangeTheme")), Is.True);
@@ -499,6 +502,7 @@ public class PaletteCommandTests
         {
             config.Theme = original;
             ThemeRegistry.Unregister(theme);
+            ThemeRegistry.Unregister(other);
         }
     }
 
