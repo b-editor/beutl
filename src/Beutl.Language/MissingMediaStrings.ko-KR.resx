@@ -9,24 +9,22 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>복구 도구 열기</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>누락된 미디어가 없습니다.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>누락된 미디어</value></data>
-  <data name="SearchAll" xml:space="preserve"><value>일치하는 파일 찾기</value></data>
+  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>파일 하나를 교체하면 같은 폴더에서 다른 미디어의 후보를 찾습니다.</value></data>
+  <data name="Candidate" xml:space="preserve"><value>후보 있음</value></data>
+  <data name="FoundCandidate" xml:space="preserve"><value>일치하는 파일 발견</value></data>
+  <data name="UseCandidate" xml:space="preserve"><value>이 후보 사용</value></data>
+  <data name="UseAllCandidates" xml:space="preserve"><value>모든 후보 사용</value></data>
+  <data name="CandidateSummary" xml:space="preserve"><value>누락 {0}개 · 준비 {1}개 · 후보 {2}개 · 무시 {3}개</value></data>
   <data name="MediaActions" xml:space="preserve"><value>미디어 작업</value></data>
   <data name="Offline" xml:space="preserve"><value>오프라인</value></data>
   <data name="NeedsAttention" xml:space="preserve"><value>파일 확인</value></data>
   <data name="OriginalReference" xml:space="preserve"><value>원래 참조</value></data>
   <data name="ReplacementFile" xml:space="preserve"><value>대체 파일</value></data>
   <data name="UsedBy" xml:space="preserve"><value>참조 요소</value></data>
-  <data name="Description" xml:space="preserve"><value>미디어 폴더에서 누락된 파일을 찾아 다시 연결하세요.</value></data>
-  <data name="SearchDirectory" xml:space="preserve"><value>미디어 폴더</value></data>
-  <data name="Search" xml:space="preserve"><value>검색</value></data>
-  <data name="FindInFolder" xml:space="preserve"><value>폴더에서 찾기…</value></data>
   <data name="Replace" xml:space="preserve"><value>교체…</value></data>
   <data name="ReplaceAction" xml:space="preserve"><value>파일 교체</value></data>
-  <data name="MatchFolder" xml:space="preserve"><value>같은 폴더 검색…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>오프라인 유지</value></data>
-  <data name="ContinueOffline" xml:space="preserve"><value>오프라인으로 계속</value></data>
   <data name="ApplyAndSave" xml:space="preserve"><value>적용 및 저장</value></data>
-  <data name="Summary" xml:space="preserve"><value>누락 {0}개 · 연결 가능 {1}개 · 무시 {2}개</value></data>
   <data name="Missing" xml:space="preserve"><value>누락</value></data>
   <data name="Ready" xml:space="preserve"><value>다시 연결 가능</value></data>
   <data name="Unrecognized" xml:space="preserve"><value>파일을 읽을 수 없습니다. 다른 파일을 선택하거나 오프라인으로 유지하세요.</value></data>

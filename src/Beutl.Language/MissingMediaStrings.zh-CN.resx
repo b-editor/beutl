@@ -9,24 +9,22 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>打开修复工具</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>没有缺失媒体。</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>缺失媒体</value></data>
-  <data name="SearchAll" xml:space="preserve"><value>批量查找匹配文件</value></data>
+  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>替换一个文件，即可从同一文件夹为其他媒体查找候选文件。</value></data>
+  <data name="Candidate" xml:space="preserve"><value>有候选文件</value></data>
+  <data name="FoundCandidate" xml:space="preserve"><value>找到匹配文件</value></data>
+  <data name="UseCandidate" xml:space="preserve"><value>使用此候选文件</value></data>
+  <data name="UseAllCandidates" xml:space="preserve"><value>使用所有候选文件</value></data>
+  <data name="CandidateSummary" xml:space="preserve"><value>缺失 {0} · 就绪 {1} · 候选 {2} · 忽略 {3}</value></data>
   <data name="MediaActions" xml:space="preserve"><value>媒体操作</value></data>
   <data name="Offline" xml:space="preserve"><value>离线</value></data>
   <data name="NeedsAttention" xml:space="preserve"><value>检查文件</value></data>
   <data name="OriginalReference" xml:space="preserve"><value>原始引用</value></data>
   <data name="ReplacementFile" xml:space="preserve"><value>替换文件</value></data>
   <data name="UsedBy" xml:space="preserve"><value>引用来源</value></data>
-  <data name="Description" xml:space="preserve"><value>在媒体文件夹中搜索并重新链接缺失文件。</value></data>
-  <data name="SearchDirectory" xml:space="preserve"><value>媒体文件夹</value></data>
-  <data name="Search" xml:space="preserve"><value>搜索</value></data>
-  <data name="FindInFolder" xml:space="preserve"><value>在文件夹中查找…</value></data>
   <data name="Replace" xml:space="preserve"><value>替换…</value></data>
   <data name="ReplaceAction" xml:space="preserve"><value>替换文件</value></data>
-  <data name="MatchFolder" xml:space="preserve"><value>匹配同一文件夹…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>保持离线</value></data>
-  <data name="ContinueOffline" xml:space="preserve"><value>以离线状态继续</value></data>
   <data name="ApplyAndSave" xml:space="preserve"><value>应用并保存</value></data>
-  <data name="Summary" xml:space="preserve"><value>缺失 {0} 个 · 可重新链接 {1} 个 · 已忽略 {2} 个</value></data>
   <data name="Missing" xml:space="preserve"><value>缺失</value></data>
   <data name="Ready" xml:space="preserve"><value>可重新链接</value></data>
   <data name="Unrecognized" xml:space="preserve"><value>无法读取文件，请选择其他文件或保持离线。</value></data>

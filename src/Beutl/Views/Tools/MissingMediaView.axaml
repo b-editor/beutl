@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
+             xmlns:converters="using:Beutl.Converters"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:vm="using:Beutl.ViewModels.Tools"
@@ -36,6 +37,12 @@
         <Style Selector="Border.statePill.ready TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
         </Style>
+        <Style Selector="Border.statePill.candidate">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.candidate TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
         <Style Selector="Border.statePill.issue">
             <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
         </Style>
@@ -68,30 +75,8 @@
             </Grid>
         </controls:ToolTabBar>
 
-        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,10,0,12" Spacing="8" IsEnabled="{Binding CanEdit.Value}"
-                    IsVisible="{Binding !IsEmpty.Value}">
-            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.SearchDirectory}" />
-            <TextBox Name="SearchDirectoryBox" Text="{Binding SearchDirectory.Value, Mode=TwoWay}"
-                         PlaceholderText="{x:Static lang:MissingMediaStrings.SearchDirectory}"
-                         AutomationProperties.Name="{x:Static lang:MissingMediaStrings.SearchDirectory}"
-                         ToolTip.Tip="{Binding SearchDirectory.Value}">
-                <TextBox.InnerRightContent>
-                    <Button Name="FindFolderButton" Margin="0,0,2,0" Padding="6" Click="FindFolderClick"
-                        AutomationProperties.Name="{x:Static lang:MissingMediaStrings.FindInFolder}"
-                        ToolTip.Tip="{x:Static lang:MissingMediaStrings.FindInFolder}"
-                        Theme="{StaticResource TransparentButton}">
-                        <icons:FluentIcon FontSize="16" Icon="Folder" />
-                    </Button>
-                </TextBox.InnerRightContent>
-            </TextBox>
-            <Button Name="SearchButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="SearchClick"
-                    ToolTip.Tip="{x:Static lang:MissingMediaStrings.Description}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <icons:FluentIcon FontSize="16" Icon="Search" />
-                    <TextBlock Text="{x:Static lang:MissingMediaStrings.SearchAll}" TextWrapping="Wrap" />
-                </StackPanel>
-            </Button>
-        </StackPanel>
+        <TextBlock Name="ReplacementHint" Grid.Row="1" Grid.Column="1" Margin="0,10,0,12" Classes="secondary"
+                   Text="{x:Static lang:MissingMediaStrings.ReplaceToFindCandidates}" TextWrapping="Wrap" IsVisible="{Binding !IsEmpty.Value}" />
         <ProgressBar Grid.Row="2" Grid.ColumnSpan="3" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
 
         <ScrollViewer Name="MediaScrollViewer" Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
@@ -106,7 +91,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
                             <Border Name="MediaRow" Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}">
-                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
                                                 Background="{DynamicResource SubtleFillColorSecondaryBrush}" ToolTip.Tip="{Binding Kind}">
@@ -120,6 +105,7 @@
                                         </StackPanel>
                                         <Border Grid.Column="2" VerticalAlignment="Top" Classes="statePill"
                                                 Classes.ready="{Binding IsReady.Value}" Classes.issue="{Binding HasIssue.Value}"
+                                                Classes.candidate="{Binding HasCandidate.Value}"
                                                 Classes.offline="{Binding IsOffline.Value}" ToolTip.Tip="{Binding Status.Value}">
                                             <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
                                         </Border>
@@ -143,9 +129,6 @@
                                                 ToolTip.Tip="{x:Static lang:MissingMediaStrings.MediaActions}">
                                             <Button.Flyout>
                                                 <MenuFlyout>
-                                                    <MenuItem Name="MatchFolderMenuItem" Header="{x:Static lang:MissingMediaStrings.MatchFolder}"
-                                                              Click="MatchFolderClick" />
-                                                    <Separator />
                                                     <MenuItem Name="KeepOfflineMenuItem" Header="{x:Static lang:MissingMediaStrings.KeepOffline}"
                                                               ToggleType="CheckBox" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
                                                 </MenuFlyout>
@@ -153,7 +136,19 @@
                                             <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
                                         </Button>
                                     </Grid>
-                                    <Border Name="DetailsPanel" Grid.Row="2" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
+                                    <Border Name="CandidatePanel" Grid.Row="2" Padding="8" CornerRadius="4"
+                                            Background="{DynamicResource SubtleFillColorSecondaryBrush}" IsVisible="{Binding HasCandidate.Value}">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.FoundCandidate}" />
+                                            <TextBlock Name="CandidatePathText" FontSize="12" FontWeight="SemiBold"
+                                                       Text="{Binding CandidatePath.Value, Converter={x:Static converters:FileNameConverter.Instance}}"
+                                                       TextWrapping="Wrap" ToolTip.Tip="{Binding CandidatePath.Value}" />
+                                            <Button Name="UseCandidateButton" FontSize="12" Padding="8,4" HorizontalAlignment="Left" Click="UseCandidateClick">
+                                                <TextBlock Text="{x:Static lang:MissingMediaStrings.UseCandidate}" TextWrapping="Wrap" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Name="DetailsPanel" Grid.Row="3" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
                                             BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
                                         <StackPanel Spacing="6">
                                             <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.OriginalReference}" />
@@ -209,6 +204,10 @@
             <StackPanel Spacing="8">
                 <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"
                            TextWrapping="Wrap" ToolTip.Tip="{Binding Summary.Value}" />
+                <Button Name="UseAllCandidatesButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        IsVisible="{Binding CanUseCandidates.Value}" IsEnabled="{Binding CanUseCandidates.Value}" Click="UseAllCandidatesClick">
+                    <TextBlock Text="{x:Static lang:MissingMediaStrings.UseAllCandidates}" TextWrapping="Wrap" />
+                </Button>
                 <Button Name="ApplyButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Classes="accent"
                         Content="{x:Static lang:MissingMediaStrings.ApplyAndSave}" IsEnabled="{Binding CanApply.Value}" Click="ApplyClick" />
             </StackPanel>

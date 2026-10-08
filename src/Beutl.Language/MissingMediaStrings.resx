@@ -9,24 +9,22 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>Open repair tool</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No missing media.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>Missing media</value></data>
-  <data name="SearchAll" xml:space="preserve"><value>Find matching files</value></data>
+  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>Replace one missing file to find candidates for other media in the same folder.</value></data>
+  <data name="Candidate" xml:space="preserve"><value>Candidate</value></data>
+  <data name="FoundCandidate" xml:space="preserve"><value>Matching file found</value></data>
+  <data name="UseCandidate" xml:space="preserve"><value>Use this candidate</value></data>
+  <data name="UseAllCandidates" xml:space="preserve"><value>Use all candidates</value></data>
+  <data name="CandidateSummary" xml:space="preserve"><value>{0} missing · {1} ready · {2} candidates · {3} ignored</value></data>
   <data name="MediaActions" xml:space="preserve"><value>Media actions</value></data>
   <data name="Offline" xml:space="preserve"><value>Offline</value></data>
   <data name="NeedsAttention" xml:space="preserve"><value>Check file</value></data>
   <data name="OriginalReference" xml:space="preserve"><value>Original reference</value></data>
   <data name="ReplacementFile" xml:space="preserve"><value>Replacement file</value></data>
   <data name="UsedBy" xml:space="preserve"><value>Used by</value></data>
-  <data name="Description" xml:space="preserve"><value>Search a media folder to relink missing files.</value></data>
-  <data name="SearchDirectory" xml:space="preserve"><value>Media folder</value></data>
-  <data name="Search" xml:space="preserve"><value>Search</value></data>
-  <data name="FindInFolder" xml:space="preserve"><value>Find in folder…</value></data>
   <data name="Replace" xml:space="preserve"><value>Replace…</value></data>
   <data name="ReplaceAction" xml:space="preserve"><value>Replace file</value></data>
-  <data name="MatchFolder" xml:space="preserve"><value>Match folder…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>Keep offline</value></data>
-  <data name="ContinueOffline" xml:space="preserve"><value>Continue offline</value></data>
   <data name="ApplyAndSave" xml:space="preserve"><value>Apply and save</value></data>
-  <data name="Summary" xml:space="preserve"><value>{0} missing · {1} ready · {2} ignored</value></data>
   <data name="Missing" xml:space="preserve"><value>Missing</value></data>
   <data name="Ready" xml:space="preserve"><value>Ready to relink</value></data>
   <data name="Unrecognized" xml:space="preserve"><value>Cannot read file — choose another file or keep offline.</value></data>

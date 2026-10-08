@@ -9,24 +9,22 @@
   <data name="OpenRepairTool" xml:space="preserve"><value>Abrir herramienta de reparación</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No faltan archivos multimedia.</value></data>
   <data name="PanelTitle" xml:space="preserve"><value>Medios faltantes</value></data>
-  <data name="SearchAll" xml:space="preserve"><value>Buscar archivos coincidentes</value></data>
+  <data name="ReplaceToFindCandidates" xml:space="preserve"><value>Reemplaza un archivo para encontrar candidatos para otros medios en la misma carpeta.</value></data>
+  <data name="Candidate" xml:space="preserve"><value>Candidato</value></data>
+  <data name="FoundCandidate" xml:space="preserve"><value>Archivo coincidente encontrado</value></data>
+  <data name="UseCandidate" xml:space="preserve"><value>Usar este candidato</value></data>
+  <data name="UseAllCandidates" xml:space="preserve"><value>Usar todos los candidatos</value></data>
+  <data name="CandidateSummary" xml:space="preserve"><value>{0} faltantes · {1} listos · {2} candidatos · {3} ignorados</value></data>
   <data name="MediaActions" xml:space="preserve"><value>Acciones del archivo</value></data>
   <data name="Offline" xml:space="preserve"><value>Sin conexión</value></data>
   <data name="NeedsAttention" xml:space="preserve"><value>Revisar archivo</value></data>
   <data name="OriginalReference" xml:space="preserve"><value>Referencia original</value></data>
   <data name="ReplacementFile" xml:space="preserve"><value>Archivo de reemplazo</value></data>
   <data name="UsedBy" xml:space="preserve"><value>Utilizado por</value></data>
-  <data name="Description" xml:space="preserve"><value>Busca en una carpeta para volver a vincular los archivos faltantes.</value></data>
-  <data name="SearchDirectory" xml:space="preserve"><value>Carpeta de medios</value></data>
-  <data name="Search" xml:space="preserve"><value>Buscar</value></data>
-  <data name="FindInFolder" xml:space="preserve"><value>Buscar en carpeta…</value></data>
   <data name="Replace" xml:space="preserve"><value>Reemplazar…</value></data>
   <data name="ReplaceAction" xml:space="preserve"><value>Reemplazar archivo</value></data>
-  <data name="MatchFolder" xml:space="preserve"><value>Buscar en la misma carpeta…</value></data>
   <data name="KeepOffline" xml:space="preserve"><value>Mantener sin conexión</value></data>
-  <data name="ContinueOffline" xml:space="preserve"><value>Continuar sin conexión</value></data>
   <data name="ApplyAndSave" xml:space="preserve"><value>Aplicar y guardar</value></data>
-  <data name="Summary" xml:space="preserve"><value>{0} faltantes · {1} listos · {2} ignorados</value></data>
   <data name="Missing" xml:space="preserve"><value>Faltante</value></data>
   <data name="Ready" xml:space="preserve"><value>Listo para vincular</value></data>
   <data name="Unrecognized" xml:space="preserve"><value>No se puede leer el archivo. Selecciona otro o mantenlo sin conexión.</value></data>

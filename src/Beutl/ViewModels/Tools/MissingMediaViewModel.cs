@@ -20,10 +20,13 @@ public sealed class MissingMediaRowViewModel : IDisposable
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct());
         IsReady = ReplacementPath.CombineLatest(IsOffline, (path, offline) => path != null && !offline)
             .ToReadOnlyReactivePropertySlim();
-        HasIssue = Status.Select(status => status != MissingMediaStrings.Missing && status != MissingMediaStrings.Ready)
+        HasIssue = Status.Select(status => status == MissingMediaStrings.NoUniqueMatch || status == MissingMediaStrings.Unrecognized)
+            .ToReadOnlyReactivePropertySlim();
+        HasCandidate = CandidatePath.CombineLatest(IsOffline, (path, offline) => path != null && !offline)
             .ToReadOnlyReactivePropertySlim();
         StateText = Status.CombineLatest(IsOffline, (status, offline) => (offline ? MissingMediaStrings.Offline
-                : status == MissingMediaStrings.Missing || status == MissingMediaStrings.Ready ? status : MissingMediaStrings.NeedsAttention) ?? string.Empty)
+                : status == MissingMediaStrings.Missing || status == MissingMediaStrings.Ready || status == MissingMediaStrings.Candidate
+                    ? status : MissingMediaStrings.NeedsAttention) ?? string.Empty)
             .ToReadOnlyReactivePropertySlim();
     }
 
@@ -51,11 +54,13 @@ public sealed class MissingMediaRowViewModel : IDisposable
     };
 
     public ReactivePropertySlim<string?> ReplacementPath { get; } = new();
+    public ReactivePropertySlim<string?> CandidatePath { get; } = new();
     public ReactivePropertySlim<string> Status { get; } = new(MissingMediaStrings.Missing);
     public ReactivePropertySlim<bool> IsOffline { get; } = new();
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
     public ReadOnlyReactivePropertySlim<bool> IsReady { get; }
     public ReadOnlyReactivePropertySlim<bool> HasIssue { get; }
+    public ReadOnlyReactivePropertySlim<bool> HasCandidate { get; }
     public ReadOnlyReactivePropertySlim<string?> StateText { get; }
     internal IFileSource? ValidatedSource { get; set; }
     internal IReadOnlyList<string> FontReplacementFiles { get; set; } = [];
@@ -64,9 +69,11 @@ public sealed class MissingMediaRowViewModel : IDisposable
     {
         IsReady.Dispose();
         HasIssue.Dispose();
+        HasCandidate.Dispose();
         StateText.Dispose();
         IsExpanded.Dispose();
         ReplacementPath.Dispose();
+        CandidatePath.Dispose();
         Status.Dispose();
         IsOffline.Dispose();
     }
@@ -86,7 +93,6 @@ public sealed class MissingMediaViewModel : IToolContext
         _editor = editor;
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(editor.MediaRepairCancellationToken);
         _token = _cancellation.Token;
-        SearchDirectory.Value = GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory;
         RefreshRows();
     }
 
@@ -95,10 +101,10 @@ public sealed class MissingMediaViewModel : IToolContext
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(MissingMediaStrings.Title);
     public ObservableCollection<MissingMediaRowViewModel> Rows { get; } = [];
     public ReactivePropertySlim<bool> IsEmpty { get; } = new();
-    public ReactivePropertySlim<string?> SearchDirectory { get; } = new();
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
     public ReactivePropertySlim<bool> CanEdit { get; } = new(true);
     public ReactivePropertySlim<bool> CanApply { get; } = new();
+    public ReactivePropertySlim<bool> CanUseCandidates { get; } = new();
     public ReactivePropertySlim<string> Summary { get; } = new(string.Empty);
     public ReactivePropertySlim<string?> Error { get; } = new();
     internal CancellationToken CancellationToken => _token;
@@ -132,31 +138,24 @@ public sealed class MissingMediaViewModel : IToolContext
 
     public void WriteToJson(JsonObject json) { }
 
-    public async Task FindInDirectoryAsync(string directory, MissingMediaRowViewModel? origin = null)
+    private async Task FindCandidatesInDirectoryAsync(string directory, MissingMediaRowViewModel selectedRow)
     {
-        if (_disposed || IsBusy.Value) return;
-        SetBusy(true);
-        Error.Value = null;
-        try
+        var rows = Rows.Where(row => row != selectedRow && !row.IsOffline.Value && row.ReplacementPath.Value == null).ToArray();
+        if (rows.Length == 0) return;
+        foreach (var row in rows)
         {
-            SearchDirectory.Value = directory;
-            GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory = directory;
-            var rows = Rows.Where(row => !row.IsOffline.Value && row.ReplacementPath.Value == null
-                && (origin == null || row.Media.ExpectedUri != null && origin.Media.ExpectedUri != null
-                    && Path.GetDirectoryName(row.ExpectedLocation) == Path.GetDirectoryName(origin.ExpectedLocation)
-                    || ReferenceEquals(row, origin))).ToArray();
-            var matches = await _service.FindMatchesAsync(rows.Select(row => row.Media), directory, _token);
-            foreach (var row in rows)
-            {
-                _token.ThrowIfCancellationRequested();
-                if (matches.TryGetValue(row.Media, out var paths))
-                    await SetReplacementCoreAsync(row, paths[0], paths);
-                else row.Status.Value = MissingMediaStrings.NoUniqueMatch;
-            }
+            row.CandidatePath.Value = null;
+            row.ValidatedSource = null;
+            row.FontReplacementFiles = [];
+            row.Status.Value = MissingMediaStrings.Missing;
         }
-        catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { }
-        catch (Exception ex) { if (!_disposed) Error.Value = ex.Message; }
-        finally { if (!_disposed) SetBusy(false); }
+        var matches = await _service.FindMatchesAsync(rows.Select(row => row.Media), directory, _token);
+        foreach (var row in rows)
+        {
+            _token.ThrowIfCancellationRequested();
+            if (matches.TryGetValue(row.Media, out var paths))
+                await SetReplacementCoreAsync(row, paths[0], paths, asCandidate: true);
+        }
     }
 
     public async Task SetReplacementAsync(MissingMediaRowViewModel row, string path)
@@ -166,15 +165,36 @@ public sealed class MissingMediaViewModel : IToolContext
         Error.Value = null;
         try
         {
+            row.CandidatePath.Value = null;
             await SetReplacementCoreAsync(row, path);
             if (row.ReplacementPath.Value != null)
-                GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory = Path.GetDirectoryName(path);
+            {
+                string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
+                GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory = directory;
+                await FindCandidatesInDirectoryAsync(directory, row);
+            }
         }
         catch (OperationCanceledException) when (_cancellation.IsCancellationRequested) { }
+        catch (Exception ex) { if (!_disposed) Error.Value = ex.Message; }
         finally { if (!_disposed) SetBusy(false); }
     }
 
-    private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null)
+    public void UseCandidate(MissingMediaRowViewModel row)
+    {
+        if (_disposed || IsBusy.Value || row.IsOffline.Value || row.CandidatePath.Value == null) return;
+        row.ReplacementPath.Value = row.CandidatePath.Value;
+        row.CandidatePath.Value = null;
+        row.Status.Value = MissingMediaStrings.Ready;
+        RefreshState();
+    }
+
+    public void UseAllCandidates()
+    {
+        if (_disposed || IsBusy.Value) return;
+        foreach (var row in Rows) UseCandidate(row);
+    }
+
+    private async Task SetReplacementCoreAsync(MissingMediaRowViewModel row, string path, IReadOnlyList<string>? matchedPaths = null, bool asCandidate = false)
     {
         try
         {
@@ -188,9 +208,10 @@ public sealed class MissingMediaViewModel : IToolContext
             _token.ThrowIfCancellationRequested();
             row.ValidatedSource = validated;
             row.FontReplacementFiles = fontFiles;
-            row.ReplacementPath.Value = Path.GetFullPath(path);
+            if (asCandidate) row.CandidatePath.Value = Path.GetFullPath(path);
+            else row.ReplacementPath.Value = Path.GetFullPath(path);
             row.IsOffline.Value = false;
-            row.Status.Value = MissingMediaStrings.Ready;
+            row.Status.Value = asCandidate ? MissingMediaStrings.Candidate : MissingMediaStrings.Ready;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception)
@@ -201,6 +222,7 @@ public sealed class MissingMediaViewModel : IToolContext
                 row.ValidatedSource = null;
                 row.FontReplacementFiles = [];
                 row.ReplacementPath.Value = null;
+                row.CandidatePath.Value = null;
                 row.Status.Value = MissingMediaStrings.Unrecognized;
                 Error.Value = $"{row.Name}: {MissingMediaStrings.Unrecognized}";
             }
@@ -310,8 +332,10 @@ public sealed class MissingMediaViewModel : IToolContext
         if (_disposed) return;
         int ready = Rows.Count(row => !row.IsOffline.Value && row.ReplacementPath.Value != null);
         int offline = Rows.Count(row => row.IsOffline.Value);
-        Summary.Value = string.Format(MissingMediaStrings.Summary, Rows.Count, ready, offline);
+        int candidates = Rows.Count(row => !row.IsOffline.Value && row.CandidatePath.Value != null);
+        Summary.Value = string.Format(MissingMediaStrings.CandidateSummary, Rows.Count, ready, candidates, offline);
         CanApply.Value = !IsBusy.Value && ready > 0;
+        CanUseCandidates.Value = !IsBusy.Value && candidates > 0;
     }
 
     public void Dispose()
@@ -322,10 +346,10 @@ public sealed class MissingMediaViewModel : IToolContext
         _cancellation.Dispose();
         foreach (var subscription in _subscriptions) subscription.Dispose();
         foreach (var row in Rows) row.Dispose();
-        SearchDirectory.Dispose();
         IsBusy.Dispose();
         CanEdit.Dispose();
         CanApply.Dispose();
+        CanUseCandidates.Dispose();
         IsSelected.Dispose();
         Header.Dispose();
         IsEmpty.Dispose();
