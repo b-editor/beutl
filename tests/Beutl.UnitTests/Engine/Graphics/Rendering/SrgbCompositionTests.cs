@@ -59,6 +59,35 @@ public sealed class SrgbCompositionTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void LinearDestination_CompositesInLinearWhetherOrNotExecutionExpands(bool expanded)
+    {
+        var node = new ContainerRenderNode();
+        node.AddChild(new RectangleRenderNode(new Rect(60.8f, 0, 120, 80), Brushes.Resource.White, null));
+        // Reading the whole frame back expands execution past a narrower requested region.
+        node.AddChild(new FrameReadbackNode());
+        using RenderTarget target = RenderTarget.Create(240, 80, RenderTargetPixelFormat.LinearPremultipliedRgba16Float)!;
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery))
+        {
+            canvas.Clear(Colors.Black);
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = Frame,
+                RequestedRegion = expanded ? new Rect(40, 0, 160, 80) : null,
+                OutputScale = 1,
+                CacheOptions = RenderCacheOptions.Disabled,
+            }, new CpuTargetFactory());
+            renderer.Render(canvas);
+        }
+
+        using Bitmap snapshot = target.Snapshot();
+        using Bitmap encoded = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        // 20% coverage composited in linear light encodes to ~124; composited in sRGB it stays 51.
+        Assert.That(Red(encoded, 60, 40), Is.EqualTo(124).Within(1));
+    }
+
     [Test]
     public void IdentityFilter_PreservesSrgbCoverageWhenCompositedOverBlack()
     {
@@ -322,6 +351,21 @@ public sealed class SrgbCompositionTests
         Assert.That(ToneMappedRed(image, highQuality), Is.EqualTo(ToneMappedRed(image)).Within(1));
     }
 
+    [Test]
+    public void ToneMappedPreview_LeavesPqSourcesToColorManagement()
+    {
+        SKColorSpace pq = BitmapColorSpaceMapping.BuildHdrColorSpace(
+            BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020).SKColorSpace;
+        using var source = new SKBitmap(new SKImageInfo(4, 4, SKColorType.RgbaF16, SKAlphaType.Premul, pq));
+        source.Erase(SKColors.Gray);
+        using SKImage image = SKImage.FromBitmap(source);
+
+        using SKShader? shader = BitmapView.CreateToneMappingShader(image, SKSamplingOptions.Default,
+            SKMatrix.Identity, 0, UIToneMappingOperator.Reinhard);
+
+        Assert.That(shader, Is.Null);
+    }
+
     private static byte ToneMappedRed(SKImage image)
         => ToneMappedRed(image, SKSamplingOptions.Default);
 
@@ -468,6 +512,21 @@ public sealed class SrgbCompositionTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueSource(description));
+        }
+    }
+
+    private sealed class FrameReadbackNode : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.TargetCommand(
+                [],
+                TargetCommandDescription.CreateRequestLocal(
+                    static session => session.UseSnapshot(static _ => { }),
+                    TargetRegion.Region(Frame),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    TargetAccess.Readback)));
         }
     }
 

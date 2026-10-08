@@ -180,6 +180,12 @@ public class BitmapView : Avalonia.Controls.Control
         if (effect is null)
             return null;
 
+        // The shader decodes only the sRGB curve and converts no gamut. Linear sources were always
+        // tone mapped; other curves (PQ, HLG) and wide-gamut sRGB-curve sources keep the color-managed path.
+        SKColorSpace? colorSpace = image.ColorSpace;
+        if (colorSpace is not null && !colorSpace.IsSrgb && !colorSpace.GammaIsLinear)
+            return null;
+
         // Sample the stored values without an implicit destination-space transform; the shader
         // decodes sRGB explicitly before exposure and tone mapping, preserving extended F16 values.
         // Raw image shaders reject cubic resampling, so HighQuality falls back to bilinear here.
@@ -337,16 +343,18 @@ public class BitmapView : Avalonia.Controls.Control
                 var localMatrix = SKMatrix.CreateScaleTranslation(1 / scaleX, 1 / scaleY, transX, transY);
 
                 using var finalShader = CreateToneMappingShader(image, sampling, localMatrix, tmExposure, tmOperator);
-                using var paint = CreatePreviewPaint(null);
-                paint.Shader = finalShader;
-                canvas.DrawRect(destRect, paint);
+                if (finalShader is not null)
+                {
+                    using var paint = CreatePreviewPaint(null);
+                    paint.Shader = finalShader;
+                    canvas.DrawRect(destRect, paint);
+                    return;
+                }
             }
-            else
-            {
-                // 既存パス: Linear→sRGB or そのまま
-                canvas.DrawImage(image, sourceRect, destRect, sampling,
-                    isLinear ? s_linearPaint : s_gammaPaint);
-            }
+
+            // 既存パス: Linear→sRGB or そのまま
+            canvas.DrawImage(image, sourceRect, destRect, sampling,
+                isLinear ? s_linearPaint : s_gammaPaint);
         }
     }
 }

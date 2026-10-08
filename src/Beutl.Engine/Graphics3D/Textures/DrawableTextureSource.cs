@@ -135,7 +135,6 @@ public sealed partial class DrawableTextureSource : TextureSource
         /// <summary>Records the drawable at <paramref name="density"/> and renders it into <paramref name="renderTarget"/>.</summary>
         private bool RenderContent(RenderTarget renderTarget, float density, int textureWidth, int textureHeight)
         {
-            _lastDensity = density;
             DrawableRenderNode drawableNode = RecordDrawable(density)
                 ?? throw new InvalidOperationException("The drawable texture source became empty while rendering.");
 
@@ -170,6 +169,8 @@ public sealed partial class DrawableTextureSource : TextureSource
 
             // Prepare for sampling (flush the surface) while the composition it reads is still alive.
             renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+            // Commit the cache key only now, so a failed allocation above retries on the next call.
+            _lastDensity = density;
             _renderTargetVersion = Version;
             return true;
         }

@@ -222,7 +222,11 @@ public sealed class RenderNodeRenderer : IDisposable
 
         try
         {
-            executionLease = targets.TryAcquire(destination.DeviceSize);
+            // Composite in the destination's space, as the unexpanded path does by drawing into it.
+            RenderTargetPixelFormat executionFormat = destination.WorkingColorSpace.GammaIsLinear
+                ? RenderTargetPixelFormat.LinearPremultipliedRgba16Float
+                : RenderTargetPixelFormat.SrgbPremultipliedRgba16Float;
+            executionLease = targets.TryAcquire(destination.DeviceSize, pixelFormat: executionFormat);
             if (executionLease is null)
                 return;
 
