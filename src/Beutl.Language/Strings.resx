@@ -3268,19 +3268,19 @@ when history recording is enabled.</value>
     <value>Auto height</value>
   </data>
   <data name="GraphFitAll" xml:space="preserve">
-    <value>Fit all (F)</value>
+    <value>Fit all</value>
   </data>
   <data name="GraphFitSelection" xml:space="preserve">
-    <value>Fit selection (Shift+F)</value>
+    <value>Fit selection</value>
   </data>
   <data name="GraphEasyEase" xml:space="preserve">
-    <value>Easy Ease (F9)</value>
+    <value>Easy Ease</value>
   </data>
   <data name="GraphEasyEaseIn" xml:space="preserve">
-    <value>Ease In (Shift+F9)</value>
+    <value>Ease In</value>
   </data>
   <data name="GraphEasyEaseOut" xml:space="preserve">
-    <value>Ease Out (Ctrl/Cmd+F9)</value>
+    <value>Ease Out</value>
   </data>
   <data name="GraphValueGraph" xml:space="preserve">
     <value>Value graph</value>
@@ -3289,7 +3289,7 @@ when history recording is enabled.</value>
     <value>Value</value>
   </data>
   <data name="GraphVelocity" xml:space="preserve">
-    <value>Keyframe velocity (Ctrl/Cmd+Shift+K)</value>
+    <value>Keyframe velocity</value>
   </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>Incoming</value>
@@ -3313,10 +3313,10 @@ when history recording is enabled.</value>
     <value>Alpha</value>
   </data>
   <data name="GraphDistributeEvenly" xml:space="preserve">
-    <value>Distribute evenly (Alt+D)</value>
+    <value>Distribute evenly</value>
   </data>
   <data name="GraphReverse" xml:space="preserve">
-    <value>Reverse keyframe times (Alt+R)</value>
+    <value>Reverse keyframe times</value>
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>Scale values</value>

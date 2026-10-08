@@ -1754,19 +1754,19 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>自动高度</value>
   </data>
   <data name="GraphFitAll" xml:space="preserve">
-    <value>适合全部 (F)</value>
+    <value>适合全部</value>
   </data>
   <data name="GraphFitSelection" xml:space="preserve">
-    <value>适合所选 (Shift+F)</value>
+    <value>适合所选</value>
   </data>
   <data name="GraphEasyEase" xml:space="preserve">
-    <value>缓动 (F9)</value>
+    <value>缓动</value>
   </data>
   <data name="GraphEasyEaseIn" xml:space="preserve">
-    <value>缓入 (Shift+F9)</value>
+    <value>缓入</value>
   </data>
   <data name="GraphEasyEaseOut" xml:space="preserve">
-    <value>缓出 (Ctrl/Cmd+F9)</value>
+    <value>缓出</value>
   </data>
   <data name="GraphValueGraph" xml:space="preserve">
     <value>值图表</value>
@@ -1775,7 +1775,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>值</value>
   </data>
   <data name="GraphVelocity" xml:space="preserve">
-    <value>关键帧速度 (Ctrl/Cmd+Shift+K)</value>
+    <value>关键帧速度</value>
   </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>传入</value>
@@ -1799,10 +1799,10 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>Alpha</value>
   </data>
   <data name="GraphDistributeEvenly" xml:space="preserve">
-    <value>等间距排列 (Alt+D)</value>
+    <value>等间距排列</value>
   </data>
   <data name="GraphReverse" xml:space="preserve">
-    <value>反转关键帧时间 (Alt+R)</value>
+    <value>反转关键帧时间</value>
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>缩放数值</value>

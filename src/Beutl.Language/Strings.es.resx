@@ -1754,19 +1754,19 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Altura automática</value>
   </data>
   <data name="GraphFitAll" xml:space="preserve">
-    <value>Ajustar todo (F)</value>
+    <value>Ajustar todo</value>
   </data>
   <data name="GraphFitSelection" xml:space="preserve">
-    <value>Ajustar selección (Shift+F)</value>
+    <value>Ajustar selección</value>
   </data>
   <data name="GraphEasyEase" xml:space="preserve">
-    <value>Suavizado (F9)</value>
+    <value>Suavizado</value>
   </data>
   <data name="GraphEasyEaseIn" xml:space="preserve">
-    <value>Suavizado de entrada (Shift+F9)</value>
+    <value>Suavizado de entrada</value>
   </data>
   <data name="GraphEasyEaseOut" xml:space="preserve">
-    <value>Suavizado de salida (Ctrl/Cmd+F9)</value>
+    <value>Suavizado de salida</value>
   </data>
   <data name="GraphValueGraph" xml:space="preserve">
     <value>Gráfico de valores</value>
@@ -1775,7 +1775,7 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Valor</value>
   </data>
   <data name="GraphVelocity" xml:space="preserve">
-    <value>Velocidad de fotograma clave (Ctrl/Cmd+Shift+K)</value>
+    <value>Velocidad de fotograma clave</value>
   </data>
   <data name="GraphIncoming" xml:space="preserve">
     <value>Entrada</value>
@@ -1799,10 +1799,10 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>Alfa</value>
   </data>
   <data name="GraphDistributeEvenly" xml:space="preserve">
-    <value>Distribuir uniformemente (Alt+D)</value>
+    <value>Distribuir uniformemente</value>
   </data>
   <data name="GraphReverse" xml:space="preserve">
-    <value>Invertir tiempos de fotogramas clave (Alt+R)</value>
+    <value>Invertir tiempos de fotogramas clave</value>
   </data>
   <data name="GraphScaleValues" xml:space="preserve">
     <value>Escalar valores</value>
