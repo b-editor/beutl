@@ -13,34 +13,45 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed partial class AiSubtitleDialogViewModel
 {
-    private async Task ImportCaptionsCore()
+    private Task ImportCaptionsCore() => ImportCaptionsCore(null);
+
+    internal bool CanImportCaptionFile(string name)
+        => !_disposed && _captionCodecs.TryGetByFileName(name, out CaptionCodecInfo? codec) && codec.CanDecode;
+
+    internal async Task ImportCaptionsCore(string? droppedPath)
     {
         using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
         if (operationLifetime is null)
             return;
-        IStorageProvider? storage = AiDialogStorage.MainWindowStorage();
-        if (storage is null)
-            return;
-
-        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        IReadOnlyList<IStorageFile> files = [];
+        if (droppedPath is null)
         {
-            AllowMultiple = false,
-            FileTypeFilter = [CreateCaptionFileType(canDecode: true)],
-        });
+            IStorageProvider? storage = AiDialogStorage.MainWindowStorage();
+            if (storage is null)
+                return;
+
+            files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                AllowMultiple = false,
+                FileTypeFilter = [CreateCaptionFileType(canDecode: true)],
+            });
+            if (files.Count == 0)
+                return;
+        }
         using IDisposable fileOwnership = SharedFilePickerOptions.OwnStorageFiles(files);
-        if (files.Count == 0)
-            return;
 
         try
         {
             if (!_captionCodecs.TryGetByFileName(
-                    files[0].Name,
+                    droppedPath is null ? files[0].Name : Path.GetFileName(droppedPath),
                     out CaptionCodecInfo? codec)
                 || !codec.CanDecode)
             {
                 throw new NotSupportedException("No caption codec is registered for this file extension.");
             }
-            await using Stream stream = await files[0].OpenReadAsync();
+            await using Stream stream = droppedPath is null
+                ? await files[0].OpenReadAsync()
+                : File.OpenRead(droppedPath);
             using var memory = new SizeLimitedMemoryStream(AiCaptionHistoryResultParser.MaximumResultBytes);
             await stream.CopyToAsync(memory, operationLifetime.CancellationToken);
             operationLifetime.TryPublish(() => ImportCaptionBytes(memory.ToArray(), codec.Format));

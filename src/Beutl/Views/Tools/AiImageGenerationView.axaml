@@ -16,6 +16,9 @@
              x:CompileBindings="True"
              x:DataType="vm:AiImageGenerationDialogViewModel"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
+    </UserControl.Styles>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
             <Border Padding="8"
@@ -140,7 +143,9 @@
 
             <Expander Header="{x:Static lang:Strings.AiReferenceImageHeader}"
                       IsVisible="{CompiledBinding SupportsReferenceImage.Value}">
-                <StackPanel Margin="0,8,0,0" Spacing="8">
+                <StackPanel x:Name="ReferenceImageInput"
+                            tools:AiFileDrop.Target="ReferenceImage"
+                            Margin="0,8,0,0" Spacing="8">
                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                Text="{x:Static lang:Strings.AiReferenceImageDescription}"
                                TextWrapping="Wrap" />

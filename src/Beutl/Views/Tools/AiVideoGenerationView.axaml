@@ -16,6 +16,9 @@
              x:CompileBindings="True"
              x:DataType="vm:AiVideoGenerationDialogViewModel"
              mc:Ignorable="d">
+    <UserControl.Styles>
+        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
+    </UserControl.Styles>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
             <Border Padding="8"
@@ -201,7 +204,8 @@
                             Content="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
                             ToolTip.Tip="{x:Static lang:Strings.AiVideoUseCurrentFrame}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{CompiledBinding IsGeneration}">
-                        <StackPanel IsVisible="{CompiledBinding SupportsFirstFrame.Value}" Spacing="4">
+                        <StackPanel x:Name="FirstFrameInput" tools:AiFileDrop.Target="FirstFrame"
+                                    IsVisible="{CompiledBinding SupportsFirstFrame.Value}" Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoFirstFrame}" />
                             <Border Height="96"
                                     Background="{DynamicResource ControlFillColorDefaultBrush}"
@@ -228,7 +232,8 @@
                                         IsVisible="{CompiledBinding FirstFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </WrapPanel>
                         </StackPanel>
-                        <StackPanel Grid.Column="1"
+                        <StackPanel x:Name="LastFrameInput" tools:AiFileDrop.Target="LastFrame"
+                                    Grid.Column="1"
                                     IsVisible="{CompiledBinding SupportsLastFrame.Value}"
                                     Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoLastFrame}" />
@@ -267,7 +272,8 @@
                     <ItemsControl ItemsSource="{CompiledBinding ReferenceGroups}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:AiVideoInputGroup">
-                                <StackPanel IsVisible="{CompiledBinding IsVisible.Value}" Spacing="4" Margin="0,0,0,8">
+                                <StackPanel tools:AiFileDrop.Target="VideoReference"
+                                            IsVisible="{CompiledBinding IsVisible.Value}" Spacing="4" Margin="0,0,0,8">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                         <TextBlock Text="{CompiledBinding Label}" VerticalAlignment="Center" />
                                         <Button Grid.Column="1"

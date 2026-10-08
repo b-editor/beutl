@@ -166,18 +166,19 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             token => { token.ThrowIfCancellationRequested(); return ValueTask.FromResult<Stream>(File.OpenRead(path)); },
             new FileInfo(path).Length);
 
-    private async Task PickInputAsync(string role)
+    internal async Task PickInputAsync(string role, IReadOnlyList<string>? droppedPaths = null)
     {
         using var operation = TryEnterIdentityOperation();
         if (operation is null) return;
         try
         {
             IReadOnlyList<string> paths;
-            if (InputPicker is { } picker) paths = await picker(role, operation.CancellationToken);
+            if (droppedPaths is not null) paths = droppedPaths;
+            else if (InputPicker is { } picker) paths = await picker(role, operation.CancellationToken);
             else
             {
                 if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }) return;
-                var patterns = role switch { "source" or "video" => new[] { "*.mp4", "*.webm" }, "audio" => ["*.wav", "*.wave", "*.mp3"], _ => ["*.png", "*.jpg", "*.jpeg", "*.webp"] };
+                string[] patterns = GetInputFilePatterns(role);
                 var files = await window.StorageProvider.OpenFilePickerAsync(new()
                 {
                     AllowMultiple = role is "image" or "video" or "audio",
@@ -206,6 +207,13 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested) { }
         catch (Exception ex) { operation.TryPublish(() => Error.Value = ex is AiFileTooLargeException ? Strings.AiFileTooLarge : Strings.AiVideoInputUnavailable); }
     }
+
+    internal static string[] GetInputFilePatterns(string role) => role switch
+    {
+        "source" or "video" => ["*.mp4", "*.webm"],
+        "audio" => ["*.wav", "*.wave", "*.mp3"],
+        _ => ["*.png", "*.jpg", "*.jpeg", "*.webp"],
+    };
 
     // What a picker for role chooses: the source and video references are videos, audio is audio,
     // and the rest are images.

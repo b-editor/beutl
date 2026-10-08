@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.IO.Enumeration;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -27,6 +29,11 @@ public class StorageFileEditor : StringEditor
     public StorageFileEditor()
     {
         OpenOptions = new FilePickerOpenOptions();
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragEnterEvent, OnDragOver);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     public FilePickerOpenOptions OpenOptions
@@ -65,11 +72,73 @@ public class StorageFileEditor : StringEditor
             IReadOnlyList<IStorageFile> result = await storage.OpenFilePickerAsync(OpenOptions);
             if (result is [var file] && file.TryGetLocalPath() is string localPath)
             {
-                FileInfo? oldValue = Value;
-                Value = new FileInfo(localPath);
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(Value, oldValue, ValueConfirmedEvent));
+                ConfirmValue(new FileInfo(localPath));
             }
         }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        bool canDrop = GetDroppedFile(e.DataTransfer) != null;
+        e.DragEffects = canDrop ? DragDropEffects.Copy : DragDropEffects.None;
+        InnerTextBox?.Classes.Set("dragover", canDrop);
+        e.Handled = e.DataTransfer.Contains(DataFormat.File);
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        InnerTextBox?.Classes.Set("dragover", false);
+    }
+
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        InnerTextBox?.Classes.Set("dragover", false);
+        if (!e.DataTransfer.Contains(DataFormat.File)) return;
+
+        e.Handled = true;
+        if (GetDroppedFile(e.DataTransfer) is { } file)
+        {
+            e.DragEffects = DragDropEffects.Copy;
+            ConfirmValue(file);
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+    }
+
+    private FileInfo? GetDroppedFile(IDataTransfer data)
+    {
+        if (IsReadOnly || !IsEffectivelyEnabled) return null;
+
+        IReadOnlyList<FilePickerFileType>? filters = OpenOptions.FileTypeFilter;
+        foreach (IStorageItem item in data.TryGetFiles() ?? [])
+        {
+            if (item is not IStorageFile
+                || item.TryGetLocalPath() is not { } path
+                || !File.Exists(path))
+                continue;
+
+            string name = Path.GetFileName(path);
+            if (filters is not { Count: > 0 }
+                || filters.Any(type => type.Patterns?.Any(pattern =>
+                    pattern is "*" or "*.*"
+                    || FileSystemName.MatchesSimpleExpression(pattern, name, ignoreCase: true)) == true))
+            {
+                return new FileInfo(path);
+            }
+        }
+
+        return null;
+    }
+
+    private void ConfirmValue(FileInfo file)
+    {
+        FileInfo? oldValue = Value;
+        Value = file;
+        _oldValue = Value;
+        _oldText = Text;
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(Value, oldValue, ValueConfirmedEvent));
     }
 
     protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)

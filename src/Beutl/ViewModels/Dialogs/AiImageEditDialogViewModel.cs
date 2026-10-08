@@ -524,11 +524,22 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         }
     }
 
-    public async Task SelectSourceFileAsync()
+    public Task SelectSourceFileAsync() => SelectSourceFileAsync(null);
+
+    internal async Task SelectSourceFileAsync(string? droppedPath)
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
+        if (droppedPath is not null)
+        {
+            operation.TryPublish(() =>
+            {
+                _sourceElementId = null;
+                SourceFilePath.Value = droppedPath;
+            });
+            return;
+        }
         if (SourceFilePicker is { } picker)
         {
             string? path = await picker(operation.CancellationToken);

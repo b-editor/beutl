@@ -12,14 +12,18 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiVideoGenerationDialogViewModel
 {
-    private async Task SelectFrameAsync(bool isFirstFrame)
+    internal async Task SelectFrameAsync(bool isFirstFrame, string? droppedPath = null)
     {
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         string? path;
         IDisposable? selectedFilesOwnership = null;
-        if (FramePicker is { } picker)
+        if (droppedPath is not null)
+        {
+            path = droppedPath;
+        }
+        else if (FramePicker is { } picker)
         {
             path = await picker(operation.CancellationToken);
         }
