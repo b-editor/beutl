@@ -53,7 +53,7 @@ public sealed partial class LibraryTabExtension : IContextCommandHandler
                         .ToArray();
                     if (await interaction.ShowQuickPickAsync(items) is not { Value: { } type }) return;
 
-                    await AddAtPlayheadAsync(editorContext, scene, (start, layer) => new ElementDescription(
+                    await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken, (start, layer) => new ElementDescription(
                         start, s_defaultElementLength, layer,
                         new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!)));
                     break;
@@ -66,7 +66,7 @@ public sealed partial class LibraryTabExtension : IContextCommandHandler
                         .ToArray();
                     if (await interaction.ShowQuickPickAsync(items) is not { Value: { } template }) return;
 
-                    await AddAtPlayheadAsync(editorContext, scene,
+                    await AddAtPlayheadAsync(editorContext, scene, interaction.CancellationToken,
                         (start, layer) => ElementTemplateResolver.CreateDescription(template, start, layer));
                     break;
                 }
@@ -105,8 +105,10 @@ public sealed partial class LibraryTabExtension : IContextCommandHandler
         }
     }
 
+    // The cancellation token stops the add when the user switches editors while it is being prepared.
     private static async Task AddAtPlayheadAsync(
-        IEditorContext editorContext, Scene scene, Func<TimeSpan, int, ElementDescription> createDescription)
+        IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
+        Func<TimeSpan, int, ElementDescription> createDescription)
     {
         TimeSpan time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
         TimeSpan start = time.RoundToRate(scene.FindHierarchicalParent<Project>().GetFrameRate());
@@ -121,12 +123,12 @@ public sealed partial class LibraryTabExtension : IContextCommandHandler
         // An open timeline also scrolls to the new clip and reports the failure itself.
         if (editorContext.FindToolTab<TimelineTabViewModel>() is { } timeline)
         {
-            await timeline.AddElementWithResultAsync(description);
+            await timeline.AddElementWithResultAsync(description, cancellationToken);
             return;
         }
 
         ElementAddResult result = await editorContext.GetRequiredService<IElementAdder>()
-            .AddAsync([description], CancellationToken.None);
+            .AddAsync([description], cancellationToken);
         if (result.IsSuccess) return;
 
         if (result.Failure is LockedElementLayerFailure)

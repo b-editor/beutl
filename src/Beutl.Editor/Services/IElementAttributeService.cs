@@ -17,5 +17,13 @@ public interface IElementAttributeService
 
     void SetLocked(Element element, bool isLocked);
 
-    void SetName(Element element, string name);
+    /// <summary>
+    /// Renames <paramref name="element"/>. The host commits the rename as one history entry; this default,
+    /// kept for replacements written before the member existed, only writes the name.
+    /// </summary>
+    void SetName(Element element, string name)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.Name = name;
+    }
 }

@@ -13,7 +13,7 @@ public partial class EditViewModel
         {
             Prompt = Strings.GotoTimecode_Description,
             Placeholder = Strings.GotoTimecode_InputHint,
-            Value = Player.CurrentFrame.Value.ToString(CommandPaletteInput.TimecodeFormat),
+            Value = CommandPaletteInput.FormatTimecode(Player.CurrentFrame.Value),
             Validate = value => Player.TryParseTimecode(value, out _, out GotoTimecodeError error)
                 ? null
                 : PlayerViewModel.GetTimecodeErrorMessage(error)
@@ -21,7 +21,7 @@ public partial class EditViewModel
         // Relative input resolves against the playhead when it is confirmed, not when it was last validated.
         if (input is null || !Player.TryParseTimecode(input, out TimeSpan target, out _)) return;
 
-        await SeekFromPaletteAsync(target);
+        await SeekFromPaletteAsync(target, interaction.CancellationToken);
     }
 
     private async Task GoToMarkerAsync(IContextCommandInteraction interaction)
@@ -29,7 +29,7 @@ public partial class EditViewModel
         SceneMarker? marker = await PickMarkerAsync(interaction);
         if (marker is null || !Scene.Markers.Contains(marker)) return;
 
-        await SeekFromPaletteAsync(marker.Time);
+        await SeekFromPaletteAsync(marker.Time, interaction.CancellationToken);
     }
 
     private async Task AddMarkerAsync(IContextCommandInteraction interaction)
@@ -41,15 +41,16 @@ public partial class EditViewModel
 
         // A frame keeps one marker: Toggle marker removes only one of two markers sharing a frame,
         // so an existing one is renamed instead of duplicated.
-        SceneMarker? existing = Scene.Markers.FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
+        SceneMarker? FindMarkerOnFrame() => Scene.Markers.FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            Value = existing?.Name ?? $"Marker {Scene.Markers.Count + 1}",
+            Value = FindMarkerOnFrame()?.Name ?? $"Marker {Scene.Markers.Count + 1}",
             Validate = CommandPaletteInput.Required
         });
         if (name is null) return;
 
-        if (existing is not null && Scene.Markers.Contains(existing))
+        // Looked up again: the markers may have changed while the name was being typed.
+        if (FindMarkerOnFrame() is { } existing)
         {
             RenameMarkerCore(existing, name);
             return;
@@ -89,7 +90,7 @@ public partial class EditViewModel
             .OrderBy(m => m.Time)
             .Select(m =>
             {
-                string time = m.Time.ToString(CommandPaletteInput.TimecodeFormat);
+                string time = CommandPaletteInput.FormatTimecode(m.Time);
                 return new ContextCommandPickItem<SceneMarker>(
                     string.IsNullOrWhiteSpace(m.Name) ? time : m.Name, m, time);
             })
@@ -98,13 +99,16 @@ public partial class EditViewModel
         return (await interaction.ShowQuickPickAsync(items))?.Value;
     }
 
-    // The playback ticker would overwrite a seek made while playing, so playback stops first.
-    private async Task SeekFromPaletteAsync(TimeSpan time)
+    // The playback ticker would overwrite a seek made while playing, so playback stops first. Switching
+    // editors cancels the command meanwhile, and then this editor must not move.
+    private async Task SeekFromPaletteAsync(TimeSpan time, CancellationToken cancellationToken)
     {
         if (Player.IsPlaying.Value)
         {
             await Player.Pause();
         }
+
+        if (cancellationToken.IsCancellationRequested) return;
 
         SeekAndScroll(time);
     }

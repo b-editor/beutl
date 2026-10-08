@@ -43,7 +43,7 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
                         Validate = value => TryParseSize(value, out _) ? null : Strings.CommandPalette_SceneSizeInvalid
                     });
                     if (input is not null && TryParseSize(input, out PixelSize size))
-                        await ApplyAsync(editorContext, scene, frameSize: size);
+                        await ApplyAsync(editorContext, scene, interaction.CancellationToken, frameSize: size);
                     break;
                 }
 
@@ -56,7 +56,7 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
                         Validate = SceneSettingsTabViewModel.StartValidator
                     });
                     if (input is not null && TimeSpan.TryParse(input, out TimeSpan start))
-                        await ApplyAsync(editorContext, scene, start: start);
+                        await ApplyAsync(editorContext, scene, interaction.CancellationToken, start: start);
                     break;
                 }
 
@@ -69,7 +69,7 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
                         Validate = SceneSettingsTabViewModel.DurationValidator
                     });
                     if (input is not null && TimeSpan.TryParse(input, out TimeSpan duration))
-                        await ApplyAsync(editorContext, scene, duration: duration);
+                        await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
                     break;
                 }
         }
@@ -93,7 +93,7 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
 
     // The settings left out keep the scene's values as of the change, not as of the prompt.
     private static async Task ApplyAsync(
-        IEditorContext editorContext, Scene scene,
+        IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
         PixelSize? frameSize = null, TimeSpan? start = null, TimeSpan? duration = null)
     {
         bool changes = frameSize is { } f && f != scene.FrameSize
@@ -106,6 +106,9 @@ public sealed partial class SceneSettingsTabExtension : IContextCommandHandler
         {
             await player.Pause();
         }
+
+        // Switching editors while pausing cancels the command; the scene left behind stays as it was.
+        if (cancellationToken.IsCancellationRequested) return;
 
         editorContext.GetRequiredService<ISceneSettingsService>().Apply(
             scene,

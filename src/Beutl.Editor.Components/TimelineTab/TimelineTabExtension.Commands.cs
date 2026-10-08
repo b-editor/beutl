@@ -53,7 +53,8 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions { Value = element.Name });
         if (name is null || !scene.Children.Contains(element) || scene.IsElementLocked(element)) return;
 
-        editorContext.GetRequiredService<IElementAttributeService>().SetName(element, name);
+        // An empty name is kept: it leaves the element unnamed.
+        editorContext.GetRequiredService<IElementAttributeService>().SetName(element, name.Trim());
     }
 
     private static async Task SplitAsync(IEditorContext editorContext, Scene scene, Element element)
@@ -89,8 +90,14 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler
 
         try
         {
-            if (await ObjectTemplateService.Instance.AddFromInstanceAsync(element, name.Trim()) is not null)
+            // Switching editors cancels the command, which stops rendering the preview and saving.
+            if (await ObjectTemplateService.Instance.AddFromInstanceAsync(
+                    element, name.Trim(), interaction.CancellationToken) is not null)
                 return;
+        }
+        catch (OperationCanceledException) when (interaction.CancellationToken.IsCancellationRequested)
+        {
+            return;
         }
         catch (Exception)
         {

@@ -1,11 +1,16 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
@@ -20,6 +25,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Beutl.Views;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.HeadlessUITests;
@@ -101,6 +107,19 @@ public class PaletteCommandTests
 
         Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(interaction.IsDone, Is.True);
+    }
+
+    [TestCase(0, "00:00:00.00")]
+    [TestCase(23.5, "23:30:00.00")]
+    [TestCase(25, "1.01:00:00.00")]
+    public void Palette_timecodes_parse_back_to_the_same_time(double hours, string expected)
+    {
+        TimeSpan time = TimeSpan.FromHours(hours);
+        string text = CommandPaletteInput.FormatTimecode(time);
+
+        bool parsed = GotoTimecodeParser.TryParse(text, 30, TimeSpan.Zero, [], out TimeSpan result, out _);
+
+        Assert.That((text, parsed, result), Is.EqualTo((expected, true, time)));
     }
 
     [AvaloniaTest]
@@ -211,6 +230,51 @@ public class PaletteCommandTests
             Assert.That(timeline.CanExecute(Execution("Split", editor)), Is.False);
             Assert.That(timeline.CanExecute(Execution("SaveAsTemplate", editor)), Is.True);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Inline_rename_writes_the_name_once_editing_ends_as_one_history_entry()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-inline-rename");
+        Element element = await AddRectAsync(editor, 0, 2, 0);
+        var elsewhere = new Button();
+        var window = new Window
+        {
+            Content = new DockPanel { Children = { elsewhere, new EditView { DataContext = editor } } },
+            Width = 1200,
+            Height = 800
+        };
+        window.Show();
+        try
+        {
+            HeadlessTestHelpers.Render(5);
+            ElementView view = window.GetVisualDescendants().OfType<ElementView>().First();
+            var textBox = (TextBox)view.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
+            int entries = editor.HistoryManager.GetEntriesSnapshot().Length;
+
+            ((ElementViewModel)view.DataContext!).RenameRequested();
+            HeadlessTestHelpers.Render(5);
+            Assert.That(textBox.IsFocused, Is.True, "Rename did not focus the editor, so typing would go elsewhere.");
+            textBox.SelectAll();
+            window.KeyTextInput("Ti");
+            window.KeyTextInput("tle");
+            Assert.That(element.Name, Is.Not.EqualTo("Title"), "Each keystroke must not write the name.");
+
+            elsewhere.Focus();
+            HeadlessTestHelpers.Render(2);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(element.Name, Is.EqualTo("Title"));
+                Assert.That(editor.HistoryManager.GetEntriesSnapshot(), Has.Length.EqualTo(entries + 1));
+                Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.RenameElement));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]

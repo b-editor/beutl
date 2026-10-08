@@ -48,6 +48,9 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
             await player.Pause();
         }
 
+        // Switching editors while pausing cancels the command; the editor left behind keeps its quality.
+        if (interaction.CancellationToken.IsCancellationRequested) return;
+
         quality.PreviewScale.Value = picked.Value;
     }
 }
