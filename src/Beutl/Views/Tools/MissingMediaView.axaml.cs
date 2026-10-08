@@ -34,20 +34,22 @@ public partial class MissingMediaView : UserControl
 
     private async void SearchClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MissingMediaViewModel vm && !string.IsNullOrWhiteSpace(vm.SearchDirectory.Value))
-            await vm.FindInDirectoryAsync(vm.SearchDirectory.Value);
+        if (DataContext is not MissingMediaViewModel vm) return;
+        string? directory = vm.SearchDirectory.Value;
+        if (string.IsNullOrWhiteSpace(directory)) directory = await PickFolderAsync();
+        if (directory != null) await vm.FindInDirectoryAsync(directory);
     }
 
     private async void MatchFolderClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MissingMediaViewModel vm && sender is Button { DataContext: MissingMediaRowViewModel row }
+        if (DataContext is MissingMediaViewModel vm && sender is Control { DataContext: MissingMediaRowViewModel row }
             && await PickFolderAsync() is { } directory)
             await vm.FindInDirectoryAsync(directory, row);
     }
 
     private async void ReplaceClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MissingMediaViewModel vm || sender is not Button { DataContext: MissingMediaRowViewModel row }
+        if (DataContext is not MissingMediaViewModel vm || sender is not Control { DataContext: MissingMediaRowViewModel row }
             || TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage) return;
         var options = new FilePickerOpenOptions { Title = MissingMediaStrings.Replace, AllowMultiple = false };
         string? directory = GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory;
@@ -68,8 +70,8 @@ public partial class MissingMediaView : UserControl
         if (DataContext is MissingMediaViewModel vm) await vm.RefreshAsync();
     }
 
-    private void CloseClick(object? sender, RoutedEventArgs e)
+    private void DismissErrorClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MissingMediaViewModel vm) vm.Close();
+        if (DataContext is MissingMediaViewModel vm) vm.Error.Value = null;
     }
 }

@@ -8,6 +8,14 @@
   <data name="NotificationMessage" xml:space="preserve"><value>{0}: {1} media references could not be found. Open the repair tool to relink them.</value></data>
   <data name="OpenRepairTool" xml:space="preserve"><value>Open repair tool</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No missing media.</value></data>
+  <data name="PanelTitle" xml:space="preserve"><value>Missing media</value></data>
+  <data name="SearchAll" xml:space="preserve"><value>Find matching files</value></data>
+  <data name="MediaActions" xml:space="preserve"><value>Media actions</value></data>
+  <data name="Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="NeedsAttention" xml:space="preserve"><value>Check file</value></data>
+  <data name="OriginalReference" xml:space="preserve"><value>Original reference</value></data>
+  <data name="ReplacementFile" xml:space="preserve"><value>Replacement file</value></data>
+  <data name="UsedBy" xml:space="preserve"><value>Used by</value></data>
   <data name="Description" xml:space="preserve"><value>Search a media folder to relink missing files.</value></data>
   <data name="SearchDirectory" xml:space="preserve"><value>Media folder</value></data>
   <data name="Search" xml:space="preserve"><value>Search</value></data>

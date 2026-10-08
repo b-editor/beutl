@@ -8,6 +8,14 @@
   <data name="NotificationMessage" xml:space="preserve"><value>{0}: no se encontraron {1} referencias multimedia. Abre la herramienta de reparación para volver a vincularlas.</value></data>
   <data name="OpenRepairTool" xml:space="preserve"><value>Abrir herramienta de reparación</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>No faltan archivos multimedia.</value></data>
+  <data name="PanelTitle" xml:space="preserve"><value>Medios faltantes</value></data>
+  <data name="SearchAll" xml:space="preserve"><value>Buscar archivos coincidentes</value></data>
+  <data name="MediaActions" xml:space="preserve"><value>Acciones del archivo</value></data>
+  <data name="Offline" xml:space="preserve"><value>Sin conexión</value></data>
+  <data name="NeedsAttention" xml:space="preserve"><value>Revisar archivo</value></data>
+  <data name="OriginalReference" xml:space="preserve"><value>Referencia original</value></data>
+  <data name="ReplacementFile" xml:space="preserve"><value>Archivo de reemplazo</value></data>
+  <data name="UsedBy" xml:space="preserve"><value>Utilizado por</value></data>
   <data name="Description" xml:space="preserve"><value>Busca en una carpeta para volver a vincular los archivos faltantes.</value></data>
   <data name="SearchDirectory" xml:space="preserve"><value>Carpeta de medios</value></data>
   <data name="Search" xml:space="preserve"><value>Buscar</value></data>

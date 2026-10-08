@@ -8,6 +8,14 @@
   <data name="NotificationMessage" xml:space="preserve"><value>{0}：找不到 {1} 个媒体引用。打开修复工具以重新链接。</value></data>
   <data name="OpenRepairTool" xml:space="preserve"><value>打开修复工具</value></data>
   <data name="NoMissingMedia" xml:space="preserve"><value>没有缺失媒体。</value></data>
+  <data name="PanelTitle" xml:space="preserve"><value>缺失媒体</value></data>
+  <data name="SearchAll" xml:space="preserve"><value>批量查找匹配文件</value></data>
+  <data name="MediaActions" xml:space="preserve"><value>媒体操作</value></data>
+  <data name="Offline" xml:space="preserve"><value>离线</value></data>
+  <data name="NeedsAttention" xml:space="preserve"><value>检查文件</value></data>
+  <data name="OriginalReference" xml:space="preserve"><value>原始引用</value></data>
+  <data name="ReplacementFile" xml:space="preserve"><value>替换文件</value></data>
+  <data name="UsedBy" xml:space="preserve"><value>引用来源</value></data>
   <data name="Description" xml:space="preserve"><value>在媒体文件夹中搜索并重新链接缺失文件。</value></data>
   <data name="SearchDirectory" xml:space="preserve"><value>媒体文件夹</value></data>
   <data name="Search" xml:space="preserve"><value>搜索</value></data>

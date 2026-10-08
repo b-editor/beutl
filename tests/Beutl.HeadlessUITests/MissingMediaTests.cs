@@ -1,7 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -580,6 +582,10 @@ public class MissingMediaTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, 320, 540, "en")]
+    [TestCase(true, 320, 540, "en")]
+    [TestCase(false, 320, 540, "ja")]
+    [TestCase(true, 320, 540, "ja")]
     [TestCase(false, 360, 680, "en")]
     [TestCase(true, 360, 680, "en")]
     [TestCase(false, 400, 680, "ja")]
@@ -610,10 +616,9 @@ public class MissingMediaTests
             var texts = firstRow.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().ToArray();
             var kindText = texts.Single(text => text.Name == "MediaKindText");
             var nameText = texts.Single(text => text.Name == "MediaNameText");
-            var pathText = texts.Single(text => text.Name == "ExpectedPathText");
-            Assert.That(nameText.TranslatePoint(default, firstRow)!.Value.X,
-                Is.GreaterThanOrEqualTo(kindText.TranslatePoint(default, firstRow)!.Value.X + kindText.Bounds.Width + 7));
-            Assert.That(pathText.Bounds.Width, Is.GreaterThan(100));
+            Assert.That(nameText.TranslatePoint(default, firstRow)!.Value.Y,
+                Is.LessThan(kindText.TranslatePoint(default, firstRow)!.Value.Y));
+            Assert.That(firstRow.Bounds.Height, Is.LessThan(130), "Collapsed media rows keep their actions visible in a dock.");
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
             Assert.That(view.FindControl<Button>("FindFolderButton")!.Bounds.Width, Is.GreaterThan(0));
             foreach (var button in firstRow.GetVisualDescendants().OfType<Button>())
@@ -628,11 +633,16 @@ public class MissingMediaTests
             HeadlessTestHelpers.Render(3);
             Assert.That(vm.Rows[0].ReplacementPath.Value, Is.Null);
             Assert.That(vm.Error.Value, Is.Not.Null);
-            Assert.That(view.FindControl<Button>("CloseButton")!.IsEnabled, Is.True);
+            Assert.That(view.FindControl<Border>("ErrorBanner")!.IsVisible, Is.True);
+            var detailsToggle = firstRow.GetVisualDescendants().OfType<ToggleButton>().Single(button => button.Name == "DetailsToggle");
+            detailsToggle.IsChecked = true;
+            HeadlessTestHelpers.Render(3);
+            Assert.That(vm.Rows[0].IsExpanded.Value, Is.True);
+            Assert.That(firstRow.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "DetailsPanel").IsVisible, Is.True);
             Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
             using WriteableBitmap? frame = dialog.CaptureRenderedFrame();
             Assert.That(frame, Is.Not.Null);
-            string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-tool-{culture}-{(dark ? "dark" : "light")}-{width}.png");
+            string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-design-{culture}-{(dark ? "dark" : "light")}-{width}.png");
             Directory.CreateDirectory(Path.GetDirectoryName(output)!);
             frame!.Save(output, PngBitmapEncoderOptions.Default);
             TestContext.Out.WriteLine($"Capture: {output}");
@@ -640,6 +650,68 @@ public class MissingMediaTests
         finally
         {
             dialog.Close();
+            System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, "en")]
+    [TestCase(true, "ja")]
+    public async Task Repair_row_menu_preserves_offline_choices_and_the_empty_state_shows_completion(bool dark, string culture)
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await CreateEditorAsync();
+        string directory = NewDirectory();
+        string replacement = Path.Combine(directory, "replacement.png");
+        File.WriteAllBytes(replacement, s_png);
+        using (editor.HistoryManager.SuppressRecording()) AddImage(editor.Scene, Path.Combine(directory, "missing.png"));
+        var previousCulture = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(culture);
+        using var vm = new MissingMediaViewModel(editor);
+        var view = new MissingMediaView { DataContext = vm };
+        var window = new Window { Content = view, Width = 320, Height = 460, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var row = vm.Rows.Single();
+            var moreButton = view.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "MoreButton");
+            var flyout = (MenuFlyout)moreButton.Flyout!;
+            flyout.ShowAt(moreButton);
+            HeadlessTestHelpers.Render(3);
+            var menuItems = flyout.Items.OfType<MenuItem>().ToArray();
+            var offlineItem = menuItems.Single(item => item.Name == "KeepOfflineMenuItem");
+            Assert.That(menuItems.Single(item => item.Name == "MatchFolderMenuItem").DataContext, Is.SameAs(row));
+            offlineItem.IsChecked = true;
+            Assert.That(row.IsOffline.Value, Is.True);
+            Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Offline));
+            offlineItem.IsChecked = false;
+            flyout.Hide();
+            await vm.SetReplacementAsync(row, replacement);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(row.IsReady.Value, Is.True);
+            Assert.That(row.StateText.Value, Is.EqualTo(Beutl.Language.MissingMediaStrings.Ready));
+            Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.True);
+            using (WriteableBitmap? frame = window.CaptureRenderedFrame())
+            {
+                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-design-{culture}-ready.png");
+                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                frame!.Save(output, PngBitmapEncoderOptions.Default);
+            }
+            Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("EmptyText")!.IsEffectivelyVisible, Is.True);
+            Assert.That(view.FindControl<Button>("ApplyButton")!.IsEffectivelyVisible, Is.False);
+            using (WriteableBitmap? frame = window.CaptureRenderedFrame())
+            {
+                string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", $"missing-media-design-{culture}-complete.png");
+                frame!.Save(output, PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally
+        {
+            window.Close();
             System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
             await TestReset.ResetShellAsync();
         }

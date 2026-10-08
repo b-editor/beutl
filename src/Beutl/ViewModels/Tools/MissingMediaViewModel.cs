@@ -7,6 +7,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Services.PrimitiveImpls;
 using Reactive.Bindings;
+using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.ViewModels.Tools;
 
@@ -17,12 +18,28 @@ public sealed class MissingMediaRowViewModel : IDisposable
         Media = media;
         Elements = string.Join(", ", media.References.Select(reference => reference.Element?.Name)
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct());
+        IsReady = ReplacementPath.CombineLatest(IsOffline, (path, offline) => path != null && !offline)
+            .ToReadOnlyReactivePropertySlim();
+        HasIssue = Status.Select(status => status != MissingMediaStrings.Missing && status != MissingMediaStrings.Ready)
+            .ToReadOnlyReactivePropertySlim();
+        StateText = Status.CombineLatest(IsOffline, (status, offline) => (offline ? MissingMediaStrings.Offline
+                : status == MissingMediaStrings.Missing || status == MissingMediaStrings.Ready ? status : MissingMediaStrings.NeedsAttention) ?? string.Empty)
+            .ToReadOnlyReactivePropertySlim();
     }
 
     public MissingMedia Media { get; }
     public string Name => Media.Name;
     public string ExpectedLocation => Media.ExpectedUri?.LocalPath ?? Media.FontFamily!.Name;
     public string Elements { get; }
+    public Icon MediaIcon => Media.Kind switch
+    {
+        MissingMediaKind.Video => Icon.Video,
+        MissingMediaKind.Sound => Icon.MusicNote1,
+        MissingMediaKind.Image => Icon.Image,
+        MissingMediaKind.Cube => Icon.Color,
+        MissingMediaKind.Font => Icon.TextFont,
+        _ => Icon.Document
+    };
     public string Kind => Media.Kind switch
     {
         MissingMediaKind.Video => MissingMediaStrings.Video,
@@ -36,11 +53,19 @@ public sealed class MissingMediaRowViewModel : IDisposable
     public ReactivePropertySlim<string?> ReplacementPath { get; } = new();
     public ReactivePropertySlim<string> Status { get; } = new(MissingMediaStrings.Missing);
     public ReactivePropertySlim<bool> IsOffline { get; } = new();
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+    public ReadOnlyReactivePropertySlim<bool> IsReady { get; }
+    public ReadOnlyReactivePropertySlim<bool> HasIssue { get; }
+    public ReadOnlyReactivePropertySlim<string?> StateText { get; }
     internal IFileSource? ValidatedSource { get; set; }
     internal IReadOnlyList<string> FontReplacementFiles { get; set; } = [];
 
     public void Dispose()
     {
+        IsReady.Dispose();
+        HasIssue.Dispose();
+        StateText.Dispose();
+        IsExpanded.Dispose();
         ReplacementPath.Dispose();
         Status.Dispose();
         IsOffline.Dispose();
@@ -74,7 +99,6 @@ public sealed class MissingMediaViewModel : IToolContext
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
     public ReactivePropertySlim<bool> CanEdit { get; } = new(true);
     public ReactivePropertySlim<bool> CanApply { get; } = new();
-    public ReactivePropertySlim<bool> CanDismiss { get; } = new(true);
     public ReactivePropertySlim<string> Summary { get; } = new(string.Empty);
     public ReactivePropertySlim<string?> Error { get; } = new();
     internal CancellationToken CancellationToken => _token;
@@ -187,7 +211,6 @@ public sealed class MissingMediaViewModel : IToolContext
     {
         if (_disposed || !CanApply.Value) return false;
         SetBusy(true);
-        CanDismiss.Value = false;
         var dockable = _editor.DockHost.Factory.EnumerateTools().FirstOrDefault(tool => tool.ToolContext == this);
         if (dockable != null) dockable.CanClose = false;
         Error.Value = null;
@@ -269,7 +292,6 @@ public sealed class MissingMediaViewModel : IToolContext
             if (dockable != null) dockable.CanClose = true;
             if (!_disposed)
             {
-                CanDismiss.Value = true;
                 SetBusy(false);
             }
         }
@@ -304,7 +326,6 @@ public sealed class MissingMediaViewModel : IToolContext
         IsBusy.Dispose();
         CanEdit.Dispose();
         CanApply.Dispose();
-        CanDismiss.Dispose();
         IsSelected.Dispose();
         Header.Dispose();
         IsEmpty.Dispose();

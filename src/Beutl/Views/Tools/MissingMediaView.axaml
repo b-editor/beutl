@@ -1,64 +1,213 @@
 <UserControl x:Class="Beutl.Views.Tools.MissingMediaView"
-        xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:lang="using:Beutl.Language"
-        xmlns:vm="using:Beutl.ViewModels.Tools"
-        x:DataType="vm:MissingMediaViewModel"
-        x:CompileBindings="True">
-    <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto" RowSpacing="8">
-        <TextBlock Text="{x:Static lang:MissingMediaStrings.Description}" TextWrapping="Wrap" />
-        <StackPanel Grid.Row="1" Spacing="8" IsEnabled="{Binding CanEdit.Value}">
-            <TextBox Name="SearchDirectoryBox" PlaceholderText="{x:Static lang:MissingMediaStrings.SearchDirectory}"
-                     Text="{Binding SearchDirectory.Value, Mode=TwoWay}" />
-            <WrapPanel>
-                <Button Name="SearchButton" Margin="0,0,8,8" Content="{x:Static lang:MissingMediaStrings.Search}" Click="SearchClick" />
-                <Button Name="FindFolderButton" Margin="0,0,8,8" Content="{x:Static lang:MissingMediaStrings.FindInFolder}" Click="FindFolderClick" />
-                <Button Name="RefreshButton" Margin="0,0,0,8" Content="{x:Static lang:Strings.Refresh}" Click="RefreshClick" />
-            </WrapPanel>
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
+             x:DataType="vm:MissingMediaViewModel"
+             x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.mediaRow">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.mediaRow.offline">
+            <Setter Property="Opacity" Value="0.65" />
+        </Style>
+        <Style Selector="Border.statePill">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.ready">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.ready TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.issue">
+            <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.issue TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.offline">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="Border.statePill.offline TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+        <controls:ToolTabBar>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <TextBlock Text="{x:Static lang:MissingMediaStrings.PanelTitle}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                <Border Grid.Column="1" Padding="7,2" CornerRadius="4" VerticalAlignment="Center"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                    <TextBlock FontSize="11" Text="{Binding Rows.Count}" />
+                </Border>
+                <Button Name="RefreshButton" Grid.Column="2" IsEnabled="{Binding CanEdit.Value}"
+                        AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                        ToolTip.Tip="{x:Static lang:Strings.Refresh}" Click="RefreshClick"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                </Button>
+            </Grid>
+        </controls:ToolTabBar>
+
+        <StackPanel Grid.Row="1" Margin="12,10,12,12" Spacing="8" IsEnabled="{Binding CanEdit.Value}"
+                    IsVisible="{Binding !IsEmpty.Value}">
+            <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.SearchDirectory}" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                <TextBox Name="SearchDirectoryBox" Text="{Binding SearchDirectory.Value, Mode=TwoWay}"
+                         PlaceholderText="{x:Static lang:MissingMediaStrings.SearchDirectory}"
+                         AutomationProperties.Name="{x:Static lang:MissingMediaStrings.SearchDirectory}"
+                         ToolTip.Tip="{Binding SearchDirectory.Value}" />
+                <Button Name="FindFolderButton" Grid.Column="1" Click="FindFolderClick"
+                        AutomationProperties.Name="{x:Static lang:MissingMediaStrings.FindInFolder}"
+                        ToolTip.Tip="{x:Static lang:MissingMediaStrings.FindInFolder}">
+                    <icons:FluentIcon FontSize="16" Icon="Folder" />
+                </Button>
+            </Grid>
+            <Button Name="SearchButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="SearchClick"
+                    ToolTip.Tip="{x:Static lang:MissingMediaStrings.Description}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <icons:FluentIcon FontSize="16" Icon="Search" />
+                    <TextBlock Text="{x:Static lang:MissingMediaStrings.SearchAll}" />
+                </StackPanel>
+            </Button>
         </StackPanel>
-        <ProgressBar Grid.Row="2" Height="3" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
-        <ListBox Name="MissingMediaList" Grid.Row="3" ItemsSource="{Binding Rows}"
-                 IsEnabled="{Binding CanEdit.Value}">
+        <ProgressBar Grid.Row="2" Height="2" IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
+
+        <ListBox Name="MissingMediaList" Grid.Row="3" Margin="8,0,8,4" Background="Transparent" BorderThickness="0"
+                 ItemsSource="{Binding Rows}" IsEnabled="{Binding CanEdit.Value}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.Styles>
                 <Style Selector="ListBoxItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,0,6" />
                 </Style>
             </ListBox.Styles>
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:MissingMediaRowViewModel">
-                    <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6" Margin="0,6">
-                        <TextBlock Name="MediaKindText" VerticalAlignment="Top" Text="{Binding Kind}" Opacity="0.7" TextWrapping="Wrap" />
-                        <StackPanel Grid.Column="1" Spacing="3">
-                            <TextBlock Name="MediaNameText" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Name="ExpectedPathText" Text="{Binding ExpectedLocation}" Opacity="0.65" FontSize="11"
-                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ExpectedLocation}" />
-                            <TextBlock Text="{Binding Elements}" FontSize="11" TextTrimming="CharacterEllipsis"
-                                       IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                            <TextBlock Text="{Binding ReplacementPath.Value}" FontSize="11" TextTrimming="CharacterEllipsis"
-                                       ToolTip.Tip="{Binding ReplacementPath.Value}"
-                                       IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                            <TextBlock Text="{Binding Status.Value}" FontSize="11" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <WrapPanel Grid.Row="1" Grid.ColumnSpan="2">
-                            <Button Margin="0,0,6,4" FontSize="12" Padding="8,4" Content="{x:Static lang:MissingMediaStrings.Replace}" Click="ReplaceClick" />
-                            <Button Margin="0,0,6,4" FontSize="12" Padding="8,4" Content="{x:Static lang:MissingMediaStrings.MatchFolder}" Click="MatchFolderClick" />
-                            <CheckBox Margin="0,0,0,4" Content="{x:Static lang:MissingMediaStrings.KeepOffline}" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
-                        </WrapPanel>
-                    </Grid>
+                    <Border Classes="mediaRow" Classes.offline="{Binding IsOffline.Value}">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                <Border Width="32" Height="32" CornerRadius="6" VerticalAlignment="Top"
+                                        Background="{DynamicResource SubtleFillColorSecondaryBrush}" ToolTip.Tip="{Binding Kind}">
+                                    <icons:FluentIcon Icon="{Binding MediaIcon}" FontSize="18"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Name="MediaNameText" Text="{Binding Name}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                    <TextBlock Name="MediaKindText" Classes="secondary" Text="{Binding Kind}" />
+                                </StackPanel>
+                                <Border Grid.Column="2" VerticalAlignment="Top" Classes="statePill"
+                                        Classes.ready="{Binding IsReady.Value}" Classes.issue="{Binding HasIssue.Value}"
+                                        Classes.offline="{Binding IsOffline.Value}" ToolTip.Tip="{Binding Status.Value}">
+                                    <TextBlock FontSize="10" Text="{Binding StateText.Value}" />
+                                </Border>
+                            </Grid>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                                <Button Name="ReplaceButton" HorizontalAlignment="Left" FontSize="12" Padding="0,4"
+                                        Theme="{StaticResource TransparentButton}" Click="ReplaceClick"
+                                        Content="{x:Static lang:MissingMediaStrings.Replace}" />
+                                <ToggleButton Name="DetailsToggle" Grid.Column="1" Padding="6"
+                                              Theme="{StaticResource TransparentButton}" IsChecked="{Binding IsExpanded.Value, Mode=TwoWay}"
+                                              AutomationProperties.Name="{x:Static lang:Strings.ShowDetails}"
+                                              ToolTip.Tip="{x:Static lang:Strings.ShowDetails}">
+                                    <Panel>
+                                        <icons:FluentIcon FontSize="14" Icon="ChevronDown" IsVisible="{Binding !IsExpanded.Value}" />
+                                        <icons:FluentIcon FontSize="14" Icon="ChevronUp" IsVisible="{Binding IsExpanded.Value}" />
+                                    </Panel>
+                                </ToggleButton>
+                                <Button Name="MoreButton" Grid.Column="2" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                        AutomationProperties.Name="{x:Static lang:MissingMediaStrings.MediaActions}"
+                                        ToolTip.Tip="{x:Static lang:MissingMediaStrings.MediaActions}">
+                                    <Button.Flyout>
+                                        <MenuFlyout>
+                                            <MenuItem Name="MatchFolderMenuItem" Header="{x:Static lang:MissingMediaStrings.MatchFolder}"
+                                                      Click="MatchFolderClick" />
+                                            <Separator />
+                                            <MenuItem Name="KeepOfflineMenuItem" Header="{x:Static lang:MissingMediaStrings.KeepOffline}"
+                                                      ToggleType="CheckBox" IsChecked="{Binding IsOffline.Value, Mode=TwoWay}" />
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                    <icons:FluentIcon FontSize="16" Icon="MoreVertical" />
+                                </Button>
+                            </Grid>
+                            <Border Name="DetailsPanel" Grid.Row="2" Padding="0,8,0,0" IsVisible="{Binding IsExpanded.Value}"
+                                    BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.OriginalReference}" />
+                                    <SelectableTextBlock Name="ExpectedPathText" Text="{Binding ExpectedLocation}" Background="Transparent"
+                                                         FontSize="11" TextWrapping="Wrap" />
+                                    <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.UsedBy}"
+                                               IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <TextBlock FontSize="11" Text="{Binding Elements}" TextWrapping="Wrap"
+                                               IsVisible="{Binding Elements, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <TextBlock Classes="secondary" Text="{x:Static lang:MissingMediaStrings.ReplacementFile}"
+                                               IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <SelectableTextBlock FontSize="11" Text="{Binding ReplacementPath.Value}" TextWrapping="Wrap" Background="Transparent"
+                                                         IsVisible="{Binding ReplacementPath.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    <TextBlock FontSize="11" Text="{Binding Status.Value}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource SystemFillColorCriticalBrush}" IsVisible="{Binding HasIssue.Value}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <TextBlock Name="EmptyText" Grid.Row="3" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
-                   IsVisible="{Binding IsEmpty.Value}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" />
-        <TextBlock Name="ErrorText" Grid.Row="4" Text="{Binding Error.Value}" TextWrapping="Wrap" MaxHeight="72" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
-        <StackPanel Grid.Row="5" Spacing="8">
-            <TextBlock Name="SummaryText" Text="{Binding Summary.Value}" TextWrapping="Wrap" VerticalAlignment="Center" />
-            <WrapPanel>
-                <Button Name="CloseButton" Margin="0,0,8,4" Content="{x:Static lang:Strings.Close}"
-                        IsEnabled="{Binding CanDismiss.Value}" Click="CloseClick" />
-                <Button Name="ApplyButton" Margin="0,0,0,4" Content="{x:Static lang:MissingMediaStrings.ApplyAndSave}"
-                        IsEnabled="{Binding CanApply.Value}" Click="ApplyClick" Classes="accent" />
-            </WrapPanel>
+
+        <StackPanel Grid.Row="3" Margin="24" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding IsEmpty.Value}">
+            <Border Width="48" Height="48" CornerRadius="24" HorizontalAlignment="Center"
+                    Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}">
+                <icons:FluentIcon FontSize="24" Icon="Checkmark" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+            </Border>
+            <TextBlock Name="EmptyText" Text="{x:Static lang:MissingMediaStrings.NoMissingMedia}"
+                       FontSize="14" TextAlignment="Center" TextWrapping="Wrap" />
         </StackPanel>
+
+        <Border Name="ErrorBanner" Grid.Row="4" Margin="12,4" Padding="8" CornerRadius="6"
+                Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                IsVisible="{Binding Error.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <ScrollViewer MaxHeight="68" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock Name="ErrorText" Text="{Binding Error.Value}" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                </ScrollViewer>
+                <Button Grid.Column="1" Name="DismissErrorButton" VerticalAlignment="Top" Click="DismissErrorClick"
+                        AutomationProperties.Name="{x:Static lang:Strings.Close}" ToolTip.Tip="{x:Static lang:Strings.Close}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}">
+                    <icons:FluentIcon FontSize="12" Icon="Dismiss" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="5" Padding="12,10" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" IsVisible="{Binding !IsEmpty.Value}">
+            <StackPanel Spacing="8">
+                <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"
+                           TextWrapping="Wrap" ToolTip.Tip="{Binding Summary.Value}" />
+                <Button Name="ApplyButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Classes="accent"
+                        Content="{x:Static lang:MissingMediaStrings.ApplyAndSave}" IsEnabled="{Binding CanApply.Value}" Click="ApplyClick" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>
