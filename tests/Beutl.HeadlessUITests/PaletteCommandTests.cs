@@ -88,6 +88,22 @@ public class PaletteCommandTests
 
     private static string LastHistoryName(EditViewModel editor) => editor.HistoryManager.GetEntriesSnapshot()[^1].DisplayLabel;
 
+    private static CommandPaletteItemViewModel PaletteSplit(CommandPaletteViewModel palette)
+    {
+        return palette.FilteredCommands.Single(i => i.Command.Id == $"{typeof(TimelineTabExtension).FullName}.Split");
+    }
+
+    private static async Task UntilAsync(Func<bool> predicate, string message)
+    {
+        for (int i = 0; i < 100 && !predicate(); i++)
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10);
+        }
+
+        Assert.That(predicate(), Is.True, message);
+    }
+
     [AvaloniaTest]
     public async Task Goto_timecode_asks_for_the_timecode_in_the_palette()
     {
@@ -359,6 +375,33 @@ public class PaletteCommandTests
                 (TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
                 (TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(3)),
             }));
+    }
+
+    [AvaloniaTest]
+    public async Task The_open_palette_follows_the_playhead_and_the_selection_for_split()
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-split-follows-playhead");
+        Element element = await AddRectAsync(editor, 2, 4, 0);
+        IEditorSelection selection = editor.GetService<IEditorSelection>()!;
+        selection.SelectedObject.Value = element;
+        SetPlayhead(editor, 0);
+        CommandPaletteViewModel palette = TestShell.MainViewModel.CommandPalette;
+        try
+        {
+            palette.Open();
+            Assert.That(PaletteSplit(palette).IsEnabled, Is.False, "The playhead is before the clip.");
+
+            SetPlayhead(editor, 3);
+            await UntilAsync(() => PaletteSplit(palette).IsEnabled, "Split did not follow the playhead into the clip.");
+
+            selection.SelectedObject.Value = null;
+            await UntilAsync(() => !PaletteSplit(palette).IsEnabled, "Split did not follow the cleared selection.");
+            Assert.That(palette.Query.Value, Is.Empty);
+        }
+        finally
+        {
+            palette.Close();
+        }
     }
 
     [AvaloniaTest]

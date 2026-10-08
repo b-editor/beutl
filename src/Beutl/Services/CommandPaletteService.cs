@@ -97,14 +97,15 @@ public sealed class CommandPaletteService
                     {
                         if (lease.Extension is not IContextCommandHandler)
                             continue;
-                        hasStateNotifier = lease.Extension is IContextCommandStateNotifier;
+                        hasStateNotifier = lease.Extension is IContextCommandStateNotifier
+                            || (activeContext is not null && lease.Extension is IContextCommandEditorStateNotifier);
                     }
 
                     ExtensionId id = descriptor.Id;
                     IObservable<Unit>? extensionStateChanged = null;
                     if (hasStateNotifier && !extensionStateChanges.TryGetValue(id, out extensionStateChanged))
                     {
-                        extensionStateChanged = ObserveExtensionState(id);
+                        extensionStateChanged = ObserveExtensionState(id, activeContext);
                         extensionStateChanges.Add(id, extensionStateChanged);
                     }
                     IEditorContext? editorContext = activeContext;
@@ -172,7 +173,7 @@ public sealed class CommandPaletteService
         return result;
     }
 
-    private IObservable<Unit> ObserveExtensionState(ExtensionId id)
+    private IObservable<Unit> ObserveExtensionState(ExtensionId id, IEditorContext? editorContext)
     {
         return Observable.Create<Unit>(observer =>
         {
@@ -181,8 +182,16 @@ public sealed class CommandPaletteService
 
             try
             {
-                if (lease.Extension is IContextCommandStateNotifier notifier)
-                    return new CompositeDisposable(notifier.CanExecuteChanged.Subscribe(observer), lease);
+                IObservable<Unit>? stateChanged = (lease.Extension as IContextCommandStateNotifier)?.CanExecuteChanged;
+                // 拡張機能は全エディタで共有されるため、コマンドを評価するエディタを渡してその状態変化を受け取る。
+                if (editorContext is not null && lease.Extension is IContextCommandEditorStateNotifier editorNotifier)
+                {
+                    IObservable<Unit> editorStateChanged = editorNotifier.GetCanExecuteChanged(editorContext);
+                    stateChanged = stateChanged?.Merge(editorStateChanged) ?? editorStateChanged;
+                }
+
+                if (stateChanged is not null)
+                    return new CompositeDisposable(stateChanged.Subscribe(observer), lease);
             }
             catch
             {
