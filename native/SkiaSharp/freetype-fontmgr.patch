@@ -20,7 +20,7 @@
  
  SK_C_API sk_fontmgr_t* sk_fontmgr_create_default(void);
 +// Beutl rasterizes its content fonts with FreeType on Windows, where DirectWrite's grayscale
-+// coverage is too coarse for scaling text. Returns NULL when FreeType is not built in.
++// coverage is too coarse for scaling text. Only defined when FreeType is built in.
 +SK_C_API sk_fontmgr_t* sk_beutl_fontmgr_create_freetype(void);
  SK_C_API void sk_fontmgr_unref(sk_fontmgr_t*);
  SK_C_API int sk_fontmgr_count_families(sk_fontmgr_t*);
@@ -38,19 +38,17 @@
  #include "include/c/sk_typeface.h"
  
  #include "src/c/sk_types_priv.h"
-@@ -186,7 +190,15 @@
- #elif defined(SK_FONTMGR_FONTCONFIG_AVAILABLE)
-     return ToFontMgr(SkFontMgr_New_FontConfig(nullptr, SkFontScanner_Make_FreeType()).release());
- #else
-+    return ToFontMgr(SkFontMgr_New_Custom_Empty().release());
-+#endif
-+}
-+
-+sk_fontmgr_t* sk_beutl_fontmgr_create_freetype(void) {
-+#if defined(SK_FONTMGR_FREETYPE_EMPTY_AVAILABLE)
-     return ToFontMgr(SkFontMgr_New_Custom_Empty().release());
-+#else
-+    return nullptr;
+@@ -190,6 +194,13 @@
  #endif
  }
  
++#if defined(SK_FONTMGR_FREETYPE_EMPTY_AVAILABLE)
++// Left out otherwise, so the export check also catches the ARM64 build, which its x64 build host cannot run.
++sk_fontmgr_t* sk_beutl_fontmgr_create_freetype(void) {
++    return ToFontMgr(SkFontMgr_New_Custom_Empty().release());
++}
++#endif
++
+ void sk_fontmgr_unref(sk_fontmgr_t* fontmgr) {
+     AsFontMgr(fontmgr)->unref();
+ }

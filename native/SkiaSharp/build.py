@@ -162,13 +162,6 @@ def build(args):
         expected = tuple(map(int, SOURCE["nativeVersion"].split(".")[:2]))
         if (native.sk_version_get_milestone(), native.sk_version_get_increment()) != expected:
             raise SystemExit("Built libSkiaSharp has an unexpected native ABI version.")
-        if target_os == "win":
-            # The export links even when the FreeType font manager is compiled out; it then returns NULL.
-            native.sk_beutl_fontmgr_create_freetype.restype = ctypes.c_void_p
-            manager = native.sk_beutl_fontmgr_create_freetype()
-            if not manager:
-                raise SystemExit("Built libSkiaSharp has no FreeType font manager.")
-            native.sk_fontmgr_unref(ctypes.c_void_p(manager))
     else:
         exports = run("dumpbin", "/exports", library, capture_output=True, text=True).stdout
         if any(export not in exports for export in exports_for(args.rid)):
