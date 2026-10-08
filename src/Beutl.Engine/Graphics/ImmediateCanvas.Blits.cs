@@ -18,6 +18,7 @@ public partial class ImmediateCanvas
         using (SKImage image = surface.Snapshot())
             DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
                 SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
+        SurfaceSnapshot.Release(surface);
 
         if (!CanConsumeWithoutFlush(surface))
         {
@@ -40,6 +41,7 @@ public partial class ImmediateCanvas
             using (SKImage image = renderTarget.Value.Snapshot())
                 DrawTransferredImage(image, SKRect.Create(image.Width, image.Height),
                     SKRect.Create(point.X, point.Y, image.Width, image.Height), GetPointBlitSampling());
+            SurfaceSnapshot.Release(renderTarget.Value);
         }
         else
         {
@@ -199,18 +201,18 @@ public partial class ImmediateCanvas
         renderTarget.VerifyAccess();
         renderTarget.PrepareBackendForSkiaSampling();
 
-        using SKImage image = renderTarget.Value.Snapshot();
         PrepareBlitPaint(antialias: false);
-        var source = SKRect.Create(image.Width, image.Height);
-        var destination = SKRect.Create(x, y, image.Width, image.Height);
+        using (SKImage image = renderTarget.Value.Snapshot())
         using (PushDeviceSpace())
         {
             DrawTransferredImage(
                 image,
-                source,
-                destination,
+                SKRect.Create(image.Width, image.Height),
+                SKRect.Create(x, y, image.Width, image.Height),
                 new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None));
         }
+
+        SurfaceSnapshot.Release(renderTarget.Value);
     }
 
     /// <summary>
@@ -259,8 +261,9 @@ public partial class ImmediateCanvas
         }
         else
         {
-            using SKImage image = renderTarget.Value.Snapshot();
-            DrawImageScaled(image, dest);
+            using (SKImage image = renderTarget.Value.Snapshot())
+                DrawImageScaled(image, dest);
+            SurfaceSnapshot.Release(renderTarget.Value);
         }
 
         if (flushSource)
@@ -287,10 +290,14 @@ public partial class ImmediateCanvas
         VerifyNativeTargetOperation();
         PrepareBlitPaint(antialias: true);
 
-        using SKImage image = surface.Snapshot();
-        var src = SKRect.Create(image.Width, image.Height);
-        var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
-        DrawTransferredImage(image, src, dest, s_compositeSampling);
+        using (SKImage image = surface.Snapshot())
+        {
+            var src = SKRect.Create(image.Width, image.Height);
+            var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
+            DrawTransferredImage(image, src, dest, s_compositeSampling);
+        }
+
+        SurfaceSnapshot.Release(surface);
 
         if (!CanConsumeWithoutFlush(surface))
         {

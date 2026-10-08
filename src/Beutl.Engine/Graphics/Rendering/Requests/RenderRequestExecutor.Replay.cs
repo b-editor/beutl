@@ -163,12 +163,17 @@ internal sealed partial class RenderRequestExecutor
                 MaterializedRenderValue input = inputs[0];
                 ExecuteReplayIsland(
                     fragment,
-                    () => ExecuteCompiledShaderRunProgram(
-                        run,
-                        input,
-                        ShaderRunDestination.ForDirect(destination, directPlan),
-                        directPlan.OutputBounds,
-                        directPlan.RequiredRegion));
+                    () =>
+                    {
+                        ExecuteCompiledShaderRunProgram(
+                            run,
+                            input,
+                            ShaderRunDestination.ForDirect(destination, directPlan),
+                            directPlan.OutputBounds,
+                            directPlan.RequiredRegion);
+                        // The program has released its input snapshot; drop the cached one before the flush.
+                        SurfaceSnapshot.Release(input.Target.Value);
+                    });
                 return true;
             }
             finally

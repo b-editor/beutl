@@ -80,6 +80,8 @@ internal sealed partial class RenderRequestExecutor
                                 output,
                                 outputBounds,
                                 requiredRegion);
+                            // The program has released its input snapshot; drop the cached one before the flush.
+                            SurfaceSnapshot.Release(shaderInput.Target.Value);
                         }
                         finally
                         {

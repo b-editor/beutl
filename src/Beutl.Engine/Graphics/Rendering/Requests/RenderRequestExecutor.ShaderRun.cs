@@ -134,6 +134,8 @@ internal sealed partial class RenderRequestExecutor
                 ShaderRunDestination.ForMaterialized(output),
                 outputBounds,
                 requiredRegion);
+            // The program has released its input snapshot; drop the cached one before the flush.
+            SurfaceSnapshot.Release(input.Target.Value);
         }
 
         private void ExecuteCompiledShaderRunProgram(
