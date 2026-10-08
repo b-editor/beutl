@@ -17,6 +17,11 @@ REQUIRED_EXPORTS = {
     b"gr_beutl_backendrendertarget_get_vk_image_layout",
     b"gr_beutl_backendrendertarget_set_vk_image_layout",
 }
+WINDOWS_EXPORTS = {b"sk_beutl_fontmgr_create_freetype"}
+
+
+def required_exports(rid):
+    return REQUIRED_EXPORTS | (WINDOWS_EXPORTS if rid.startswith("win-") else set())
 
 
 def unpack(data, layout, offset):
@@ -114,10 +119,10 @@ def pe_exports(data, rid):
 
 def verify_binary(data, rid):
     exports = elf_exports(data, rid) if rid.startswith("linux-") else pe_exports(data, rid)
-    missing = REQUIRED_EXPORTS - exports
+    missing = required_exports(rid) - exports
     if missing:
         names = ", ".join(name.decode("ascii") for name in sorted(missing))
-        raise ValueError(f"{rid}: missing required Vulkan exports: {names}")
+        raise ValueError(f"{rid}: missing required exports: {names}")
 
 
 def verify(native_root, rids):

@@ -1,0 +1,41 @@
+--- a/include/c/sk_typeface.h
++++ b/include/c/sk_typeface.h
+@@ -68,6 +68,9 @@
+ // font manager
+ 
+ SK_C_API sk_fontmgr_t* sk_fontmgr_create_default(void);
++// Beutl rasterizes its content fonts with FreeType on Windows, where DirectWrite's grayscale
++// coverage is too coarse for scaling text. Returns NULL when FreeType is not built in.
++SK_C_API sk_fontmgr_t* sk_beutl_fontmgr_create_freetype(void);
+ SK_C_API void sk_fontmgr_unref(sk_fontmgr_t*);
+ SK_C_API int sk_fontmgr_count_families(sk_fontmgr_t*);
+ SK_C_API void sk_fontmgr_get_family_name(sk_fontmgr_t*, int index, sk_string_t* familyName);
+--- a/src/c/sk_typeface.cpp
++++ b/src/c/sk_typeface.cpp
+@@ -40,6 +40,10 @@
+ #include "include/ports/SkFontMgr_empty.h"
+ #endif
+ 
++#if defined(SK_FONTMGR_FREETYPE_EMPTY_AVAILABLE)
++#include "include/ports/SkFontMgr_empty.h"
++#endif
++
+ #include "include/c/sk_typeface.h"
+ 
+ #include "src/c/sk_types_priv.h"
+@@ -186,7 +190,15 @@
+ #elif defined(SK_FONTMGR_FONTCONFIG_AVAILABLE)
+     return ToFontMgr(SkFontMgr_New_FontConfig(nullptr, SkFontScanner_Make_FreeType()).release());
+ #else
++    return ToFontMgr(SkFontMgr_New_Custom_Empty().release());
++#endif
++}
++
++sk_fontmgr_t* sk_beutl_fontmgr_create_freetype(void) {
++#if defined(SK_FONTMGR_FREETYPE_EMPTY_AVAILABLE)
+     return ToFontMgr(SkFontMgr_New_Custom_Empty().release());
++#else
++    return nullptr;
+ #endif
+ }
+ 

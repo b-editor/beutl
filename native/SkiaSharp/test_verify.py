@@ -64,12 +64,12 @@ class NativeBinaryVerificationTests(unittest.TestCase):
 
     def test_each_required_export_is_checked(self):
         for rid in verify.RIDS:
-            for export in verify.REQUIRED_EXPORTS:
+            for export in verify.required_exports(rid):
                 with self.subTest(rid=rid, export=export):
                     original = self.binary(rid)
                     renamed = original.replace(export + b"\0", b"x" + export[1:] + b"\0")
                     self.assertNotEqual(renamed, original)
-                    self.assert_rejected_with_updated_hash(rid, renamed, "missing required Vulkan exports")
+                    self.assert_rejected_with_updated_hash(rid, renamed, "missing required exports")
 
     def test_export_names_without_definitions_do_not_pass(self):
         for rid in verify.RIDS:
@@ -87,8 +87,8 @@ class NativeBinaryVerificationTests(unittest.TestCase):
                     header = struct.unpack_from("<I", data, 60)[0]
                     # Removing the export directory does not remove the name strings from the DLL.
                     struct.pack_into("<II", data, header + 24 + 112, 0, 0)
-                self.assertTrue(all(export + b"\0" in data for export in verify.REQUIRED_EXPORTS))
-                self.assert_rejected_with_updated_hash(rid, data, "missing required Vulkan exports")
+                self.assertTrue(all(export + b"\0" in data for export in verify.required_exports(rid)))
+                self.assert_rejected_with_updated_hash(rid, data, "missing required exports")
 
     def test_truncated_binaries_fail_even_with_a_matching_hash(self):
         for rid in verify.RIDS:

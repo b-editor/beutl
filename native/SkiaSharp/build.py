@@ -27,6 +27,12 @@ EXPORTS = (
     "gr_beutl_backendrendertarget_get_vk_image_layout",
     "gr_beutl_backendrendertarget_set_vk_image_layout",
 )
+# Windows builds FreeType in for content text; DirectWrite stays the default font manager.
+WINDOWS_EXPORTS = ("sk_beutl_fontmgr_create_freetype",)
+
+
+def exports_for(rid):
+    return EXPORTS + (WINDOWS_EXPORTS if rid.startswith("win-") else ())
 
 
 def run(*args, cwd=None, **kwargs):
@@ -105,8 +111,11 @@ def build(args):
             settings["win_vc"] = Path(os.environ["VCINSTALLDIR"]).as_posix().rstrip("/")
         if "VCToolsVersion" in os.environ:
             settings["win_toolchain_version"] = os.environ["VCToolsVersion"]
+        # DirectWrite rasterizes grayscale glyphs with coarse coverage, so content text that scales
+        # flickers. FreeType comes in only behind the empty custom font manager Beutl creates itself.
         settings.update(skia_enable_fontmgr_win_gdi=False, skia_use_direct3d=True,
-                        skia_use_freetype=False, skia_enable_fontmgr_win=True)
+                        skia_use_freetype=True, skia_enable_fontmgr_win=True,
+                        skia_enable_fontmgr_custom_directory=False, skia_enable_fontmgr_custom_embedded=False)
         settings["extra_cflags"] += ["/MT", "/EHsc", "/guard:cf", "-D_HAS_AUTO_PTR_ETC=1"]
         settings["extra_ldflags"] = ["/guard:cf", "/DELAYLOAD:d3d12.dll", "/DELAYLOAD:dxgi.dll",
                                      "/DELAYLOAD:D3DCOMPILER_47.dll", "/DEFAULTLIB:delayimp"]
@@ -121,7 +130,7 @@ def build(args):
     library = output / (filename + "." + SOURCE["nativeVersion"] if target_os == "linux" else filename)
     if arch == host_arch:
         native = ctypes.CDLL(str(library))
-        for export in EXPORTS:
+        for export in exports_for(args.rid):
             getattr(native, export)
         native.sk_version_get_milestone.restype = ctypes.c_int
         native.sk_version_get_increment.restype = ctypes.c_int
@@ -130,8 +139,8 @@ def build(args):
             raise SystemExit("Built libSkiaSharp has an unexpected native ABI version.")
     else:
         exports = run("dumpbin", "/exports", library, capture_output=True, text=True).stdout
-        if any(export not in exports for export in EXPORTS):
-            raise SystemExit("Built libSkiaSharp is missing the Vulkan interop exports.")
+        if any(export not in exports for export in exports_for(args.rid)):
+            raise SystemExit("Built libSkiaSharp is missing Beutl's exports.")
 
     destination = args.output_dir.resolve() / "runtimes" / args.rid / "native"
     destination.mkdir(parents=True, exist_ok=True)
