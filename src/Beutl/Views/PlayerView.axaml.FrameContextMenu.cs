@@ -85,7 +85,7 @@ public partial class PlayerView
         }
     }
 
-    private static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
+    internal static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
     {
         FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
         options.SuggestedFileName = $"{name} {DateTime.Now:yyyy-dd-MM HHmmss}.png";
