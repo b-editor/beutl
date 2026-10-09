@@ -80,8 +80,8 @@ public class SkiaVulkanImageInitializationTests
             ((ITransparentClearableTexture)vulkanTexture).ClearToTransparent();
             vulkanTexture.PrepareForSkiaSampling(requireCompletion: true);
 
-            var target = (GRBackendRenderTarget)typeof(VulkanTexture2D).GetField(
-                "_skiaBackendRenderTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
+            var target = (GRBackendTexture)typeof(VulkanTexture2D).GetField(
+                "_skiaBackendTexture", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(vulkanTexture)!;
             Assert.That(SkiaVulkanInterop.GetImageLayout(target), Is.EqualTo(ImageLayout.TransferDstOptimal),
                 "Skia must observe the allocation clear, even when its first access is a snapshot.");

@@ -13,8 +13,7 @@ internal static class SkiaVulkanInterop
     {
         try
         {
-            // The pinned Skia SetVkImageLayout checks for null before accessing the target.
-            // These no-op calls resolve both exports without allocating a render target.
+            // Both exports ignore a null texture, so these calls resolve them without allocating one.
             GetImageLayout(nint.Zero, out _);
             SetImageLayout(nint.Zero, (uint)ImageLayout.Undefined);
         }
@@ -25,27 +24,27 @@ internal static class SkiaVulkanInterop
         }
     }
 
-    public static ImageLayout GetImageLayout(GRBackendRenderTarget target)
+    public static ImageLayout GetImageLayout(GRBackendTexture texture)
     {
-        bool success = GetImageLayout(target.Handle, out uint layout);
-        GC.KeepAlive(target);
+        bool success = GetImageLayout(texture.Handle, out uint layout);
+        GC.KeepAlive(texture);
         if (!success)
-            throw new InvalidOperationException("The Skia render target has no Vulkan image state.");
+            throw new InvalidOperationException("The Skia texture has no Vulkan image state.");
         return (ImageLayout)layout;
     }
 
-    public static void SetImageLayout(GRBackendRenderTarget target, ImageLayout layout)
+    public static void SetImageLayout(GRBackendTexture texture, ImageLayout layout)
     {
-        SetImageLayout(target.Handle, (uint)layout);
-        GC.KeepAlive(target);
+        SetImageLayout(texture.Handle, (uint)layout);
+        GC.KeepAlive(texture);
     }
 
     [DllImport("libSkiaSharp", CallingConvention = CallingConvention.Cdecl,
-        EntryPoint = "gr_beutl_backendrendertarget_get_vk_image_layout")]
+        EntryPoint = "gr_beutl_backendtexture_get_vk_image_layout")]
     [return: MarshalAs(UnmanagedType.I1)]
-    private static extern bool GetImageLayout(nint target, out uint layout);
+    private static extern bool GetImageLayout(nint texture, out uint layout);
 
     [DllImport("libSkiaSharp", CallingConvention = CallingConvention.Cdecl,
-        EntryPoint = "gr_beutl_backendrendertarget_set_vk_image_layout")]
-    private static extern void SetImageLayout(nint target, uint layout);
+        EntryPoint = "gr_beutl_backendtexture_set_vk_image_layout")]
+    private static extern void SetImageLayout(nint texture, uint layout);
 }
