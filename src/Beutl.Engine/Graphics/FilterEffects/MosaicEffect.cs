@@ -15,7 +15,9 @@ public partial class MosaicEffect : FilterEffect
     // The centre of an even tile is a pixel corner, where nearest sampling may take either neighbour - which
     // one varied with the texture size on both AMD Radeon and Apple's Metal, so a mosaic changed colour
     // between render scales. Sampling the centre of the pixel that starts there makes the choice explicit,
-    // and it is the pixel that bottom-right-exclusive coverage assigns the corner to.
+    // and it is the pixel that bottom-right-exclusive coverage assigns the corner to. The snap is made in this
+    // stage's device grid, so it settles the choice only while src is held at the working scale; an input
+    // at another density maps the snapped point onto its own grid, where it can land on a corner (#2723).
     private const string ShaderSource =
         """
         uniform shader src;
