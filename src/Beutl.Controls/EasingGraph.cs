@@ -13,16 +13,18 @@ public sealed class EasingGraph : TemplatedControl
     public static readonly StyledProperty<Easing?> EasingProperty
         = AvaloniaProperty.Register<EasingGraph, Easing?>("Easing");
 
+    public static readonly StyledProperty<double> StrokeThicknessProperty
+        = AvaloniaProperty.Register<EasingGraph, double>(nameof(StrokeThickness), 2.5);
+
     private readonly Pen _pen = new()
     {
         LineJoin = PenLineJoin.Round,
         LineCap = PenLineCap.Round,
-        Thickness = 2.5,
     };
 
     static EasingGraph()
     {
-        AffectsRender<EasingGraph>(EasingProperty);
+        AffectsRender<EasingGraph>(EasingProperty, StrokeThicknessProperty);
     }
 
     public Easing? Easing
@@ -31,10 +33,17 @@ public sealed class EasingGraph : TemplatedControl
         set => SetValue(EasingProperty, value);
     }
 
+    public double StrokeThickness
+    {
+        get => GetValue(StrokeThicknessProperty);
+        set => SetValue(StrokeThicknessProperty, value);
+    }
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
         _pen.Brush = BorderBrush;
+        _pen.Thickness = StrokeThickness;
 
         Easing? easing = Easing;
         Size size = Bounds.Size;

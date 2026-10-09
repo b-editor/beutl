@@ -1,0 +1,270 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
+                    xmlns:easings="using:Beutl.Animation.Easings"
+                    xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="300">
+            <StackPanel>
+                <local:EasingEditor EditorStyle="ListItem" Header="Property 1">
+                    <local:EasingEditor.Value>
+                        <easings:SplineEasing X1="0.25"
+                                              X2="0.25"
+                                              Y1="0.1"
+                                              Y2="1" />
+                    </local:EasingEditor.Value>
+                </local:EasingEditor>
+                <local:EasingEditor Header="Property 1">
+                    <local:EasingEditor.Value>
+                        <easings:BackEaseInOut />
+                    </local:EasingEditor.Value>
+                </local:EasingEditor>
+                <local:EasingEditor EditorStyle="Compact"
+                                    Header="Property 2"
+                                    KeyFrameCount="3">
+                    <local:EasingEditor.Value>
+                        <easings:SplineEasing X1="0.75"
+                                              X2="0.25"
+                                              Y1="-0.4"
+                                              Y2="1.4" />
+                    </local:EasingEditor.Value>
+                </local:EasingEditor>
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <DataTemplate x:Key="EasingEditorItemTemplate"
+                  x:CompileBindings="True"
+                  x:DataType="local:EasingItem">
+        <StackPanel Background="Transparent"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    ToolTip.Tip="{Binding Description}">
+            <controls:EasingGraph Width="16"
+                                  Height="16"
+                                  VerticalAlignment="Center"
+                                  BorderBrush="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Easing="{Binding Preview}"
+                                  StrokeThickness="1.5" />
+            <TextBlock VerticalAlignment="Center"
+                       Text="{Binding DisplayName}"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+    </DataTemplate>
+
+    <ControlTheme x:Key="{x:Type local:EasingCurveEditor}" TargetType="local:EasingCurveEditor">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+        <Setter Property="GridBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <Setter Property="CurveBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="HandleBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type local:EasingEditor}" TargetType="local:EasingEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <local:PropertyEditorGrid RowDefinitions="Auto,Auto">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   ClipToBounds="False"
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}" />
+
+                        <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                        <Grid Grid.Column="2"
+                              MinWidth="120"
+                              Margin="4"
+                              ColumnDefinitions="*,Auto">
+                            <ComboBox x:Name="PART_InnerComboBox"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                      ItemTemplate="{StaticResource EasingEditorItemTemplate}" />
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="1"
+                                        Margin="4,0,0,0"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="3"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+
+                        <local:EasingCurveEditor Name="PART_CurveEditor"
+                                                 Grid.Row="1"
+                                                 Grid.Column="2"
+                                                 Margin="4,0,4,4"
+                                                 HorizontalAlignment="Stretch"
+                                                 Easing="{TemplateBinding Value}"
+                                                 IsReadOnly="{TemplateBinding IsReadOnly}" />
+                    </local:PropertyEditorGrid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:compact">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       Grid.Row="0"
+                                       Margin="4,0,0,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       Text="{TemplateBinding Header}"
+                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}" />
+
+                            <ComboBox x:Name="PART_InnerComboBox"
+                                      Grid.Row="1"
+                                      Margin="4"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                      ItemTemplate="{StaticResource EasingEditorItemTemplate}" />
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Row="1"
+                                              Grid.Column="1"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+
+                            <local:EasingCurveEditor Name="PART_CurveEditor"
+                                                     Grid.Row="2"
+                                                     Margin="4,0,4,4"
+                                                     HorizontalAlignment="Stretch"
+                                                     Easing="{TemplateBinding Value}"
+                                                     IsReadOnly="{TemplateBinding IsReadOnly}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <ComboBox x:Name="PART_InnerComboBox"
+                                      Grid.Column="1"
+                                      Margin="0,4"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                      ItemTemplate="{StaticResource EasingEditorItemTemplate}" />
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:FluentIcon Icon="Delete" />
+                            </Button>
+
+                            <local:EasingCurveEditor Name="PART_CurveEditor"
+                                                     Grid.Row="1"
+                                                     Grid.Column="1"
+                                                     Margin="0,0,0,4"
+                                                     HorizontalAlignment="Stretch"
+                                                     Easing="{TemplateBinding Value}"
+                                                     IsReadOnly="{TemplateBinding IsReadOnly}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}"
+                                        ToolTip.Tip="{TemplateBinding HeaderTooltip}">
+                        <OptionsDisplayItem.ActionButton>
+                            <StackPanel Width="188" Spacing="4">
+                                <ComboBox x:Name="PART_InnerComboBox"
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EasingEditor}}}"
+                                          ItemTemplate="{StaticResource EasingEditorItemTemplate}" />
+                                <local:EasingCurveEditor Name="PART_CurveEditor"
+                                                         HorizontalAlignment="Stretch"
+                                                         Easing="{Binding Value, RelativeSource={RelativeSource AncestorType={x:Type local:EasingEditor}}}"
+                                                         IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource AncestorType={x:Type local:EasingEditor}}}" />
+                            </StackPanel>
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>

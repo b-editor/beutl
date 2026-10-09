@@ -5,6 +5,7 @@ using System.Numerics;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Beutl.Animation.Easings;
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
@@ -53,6 +54,12 @@ public static class PropertyEditorService
     private static BaseEditorViewModel? CreateEnumViewModel(IPropertyAdapter s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.PropertyType);
+        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+    }
+
+    private static BaseEditorViewModel? CreateEasingViewModel(IPropertyAdapter s)
+    {
+        Type type = typeof(EasingEditorViewModel<>).MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 
@@ -178,6 +185,7 @@ public static class PropertyEditorService
             new(typeof(CornerRadius), new(_ => new Vector4Editor<float>() { Theme = (ControlTheme)Avalonia.Application.Current!.FindResource("CornerRadiusEditorStyle")! }, s => new CornerRadiusEditorViewModel(s.ToTyped<CornerRadius>()))),
 
             new(typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>()))),
+            new(typeof(Easing), new(_ => new EasingEditor(), CreateEasingViewModel)),
 
             new(typeof(ImageSource), new(_ => new ImageSourceEditor(), s => new ImageSourceEditorViewModel(s.ToTyped<ImageSource?>()))),
             new(typeof(VideoSource), new(_ => new VideoSourceEditor(), s => new VideoSourceEditorViewModel(s.ToTyped<VideoSource?>()))),

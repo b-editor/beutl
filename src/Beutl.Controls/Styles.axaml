@@ -48,6 +48,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ThicknessEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/EasingEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StorageFileEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorComponentsEditor.axaml" />
