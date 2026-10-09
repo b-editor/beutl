@@ -252,6 +252,9 @@ public sealed class EasingCurveEditor : Control
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        // A second touch is implicitly captured too; losing that capture must not end this drag.
+        if (e.Pointer != _capturedPointer) return;
+
         CompleteDrag();
     }
 
@@ -274,7 +277,9 @@ public sealed class EasingCurveEditor : Control
 
         // A drag that ends where it began reports the original as both values, so the owner puts
         // the original instance back and drops the drag's pending writes instead of recording them.
-        bool unchanged = start.X1 == end.X1 && start.Y1 == end.Y1 && start.X2 == end.X2 && start.Y2 == end.Y2;
+        // Equals treats a NaN control point left untouched as unchanged, unlike ==.
+        bool unchanged = start.X1.Equals(end.X1) && start.Y1.Equals(end.Y1)
+                         && start.X2.Equals(end.X2) && start.Y2.Equals(end.Y2);
         Edited?.Invoke(this, new EasingCurveEditedEventArgs(start, unchanged ? start : end));
     }
 
@@ -404,6 +409,9 @@ public sealed class EasingCurveEditor : Control
     {
         double first = Distance(position, ToScreen(spline.X1, spline.Y1, range));
         double second = Distance(position, ToScreen(spline.X2, spline.Y2, range));
+        // A non-finite handle is not drawn, so it must never be hit; NaN would win every comparison below.
+        if (!double.IsFinite(first)) first = double.PositiveInfinity;
+        if (!double.IsFinite(second)) second = double.PositiveInfinity;
         if (Math.Min(first, second) > HitRadius) return ControlPoint.None;
 
         return first <= second ? ControlPoint.First : ControlPoint.Second;
