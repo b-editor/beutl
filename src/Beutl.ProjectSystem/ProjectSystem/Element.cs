@@ -19,6 +19,7 @@ public class Element : Hierarchical, INotifyEdited
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<bool> IsLockedProperty;
     public static readonly CoreProperty<ICoreList<EngineObject>> ObjectsProperty;
+    public static readonly CoreProperty<ElementGeneration?> GenerationProperty;
     private readonly HierarchicalList<EngineObject> _objects;
     private TimeSpan _start;
     private TimeSpan _length;
@@ -57,6 +58,12 @@ public class Element : Hierarchical, INotifyEdited
         ObjectsProperty = ConfigureProperty<ICoreList<EngineObject>, Element>(nameof(Objects))
             .Accessor(o => o.Objects)
             .Register();
+
+        GenerationProperty = ConfigureProperty<ElementGeneration?, Element>(nameof(Generation))
+            .Accessor(o => o.Generation, (o, v) => o.Generation = v)
+            .Register();
+
+        Hierarchy<Element>(GenerationProperty);
     }
 
     public Element()
@@ -114,6 +121,14 @@ public class Element : Hierarchical, INotifyEdited
 
     [NotAutoSerialized]
     public ICoreList<EngineObject> Objects => _objects;
+
+    /// <summary>How the element's media was made with AI, or null when it was not.</summary>
+    [NotAutoSerialized]
+    public ElementGeneration? Generation
+    {
+        get;
+        set => SetAndRaise(GenerationProperty, ref field, value);
+    }
 
     public void AddObject(EngineObject obj)
     {
@@ -178,6 +193,9 @@ public class Element : Hierarchical, INotifyEdited
     {
         base.Serialize(context);
         context.SetValue(nameof(Objects), Objects);
+        // Written only when present, so an element nothing generated saves as it always has.
+        if (Generation is { } generation)
+            context.SetValue(nameof(Generation), generation);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -195,6 +213,8 @@ public class Element : Hierarchical, INotifyEdited
                 context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
             }
         }
+
+        Generation = context.GetValue<ElementGeneration>(nameof(Generation));
     }
 
     public void CollectObjects(CompositionTarget target, IList<EngineObject> objects)

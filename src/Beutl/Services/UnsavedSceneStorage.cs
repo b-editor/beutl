@@ -161,8 +161,11 @@ internal static class UnsavedSceneStorage
                 Path.GetDirectoryName(sceneUri.LocalPath)!);
             var groups = new Dictionary<string, List<(IFileSource Source, Uri Original)>>(StringComparer.Ordinal);
             var seen = new HashSet<IFileSource>(ReferenceEqualityComparer.Instance);
+            // A generated element's history keeps files the scene does not show yet; they
+            // move with it, or switching back to an earlier take would find nothing.
             foreach (IFileSource source in scene.Children
-                         .SelectMany(element => ProxySourceEnumerator.EnumerateFileSources(element)))
+                         .SelectMany(element => ProxySourceEnumerator.EnumerateFileSources(element)
+                             .Concat(element.Generation?.EnumerateFileSources() ?? [])))
             {
                 if (!seen.Add(source))
                     continue;

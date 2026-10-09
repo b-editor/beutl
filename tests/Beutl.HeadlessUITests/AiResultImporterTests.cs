@@ -2,7 +2,9 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -446,6 +448,65 @@ public sealed class AiResultImporterTests
         finally
         {
             File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task FirstSave_RehomesTheFilesAGeneratedElementKeepsInItsHistory()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-unsaved-generation-history");
+        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
+        Scene scene = editor.Scene;
+        Uri savedSceneUri = scene.Uri!;
+        scene.Uri = null;
+        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        using var bitmap = new Bitmap(2, 2);
+        var importer = new AiResultImporter(
+            scene,
+            editor.GetRequiredService<IElementAdder>());
+
+        try
+        {
+            ElementAddResult result = await importer.ImportImageAsync(
+                bitmap,
+                new AiResultImportOptions(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, "Generated"));
+            HeadlessTestHelpers.Settle();
+            Assert.That(result.IsSuccess, Is.True, $"{result.Failure?.Message} {result.Failure?.Exception}");
+            Element element = result.Elements.Single();
+
+            // An earlier take that the element no longer shows, kept only by the history.
+            string earlierTake = Path.Combine(AiResultImporter.GetResourceDirectory(scene), $"{Guid.NewGuid():N}.png");
+            Assert.That(bitmap.Save(earlierTake, EncodedImageFormat.Png), Is.True);
+            var generation = new ElementGeneration { Operation = "image.edit.restyle" };
+            var take = new ElementGenerationTake { Image = ImageSource.Open(earlierTake), IsOriginal = true };
+            generation.Takes.Add(take);
+            element.Generation = generation;
+            editor.HistoryManager.Commit("generation");
+
+            scene.Uri = savedSceneUri;
+            Assert.That(await editor.SaveAsync(), Is.True);
+
+            string movedTake = take.Image!.Uri.LocalPath;
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(movedTake, Is.Not.EqualTo(earlierTake));
+                Assert.That(movedTake, Does.StartWith(Path.Combine(
+                    Path.GetDirectoryName(savedSceneUri.LocalPath)!,
+                    "resources",
+                    "ai")));
+                Assert.That(File.Exists(movedTake), Is.True);
+            }
+
+            await TestShell.Editor.CloseTabItem(tab);
+            Scene restored = CoreSerializer.RestoreFromUri<Scene>(savedSceneUri);
+            ElementGenerationTake restoredTake = restored.Children.Single().Generation!.Takes.Single();
+            Assert.That(restoredTake.Image?.Uri.LocalPath, Is.EqualTo(movedTake));
+        }
+        finally
+        {
+            if (Directory.Exists(ownedDirectory))
+                Directory.Delete(ownedDirectory, recursive: true);
         }
     }
 
