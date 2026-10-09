@@ -3411,7 +3411,4 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
-  <data name="VideoFiles" xml:space="preserve">
-    <value>동영상 파일</value>
-  </data>
 </root>

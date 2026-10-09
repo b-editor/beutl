@@ -218,7 +218,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         return
         [
-            new FilePickerFileType(Strings.VideoFiles) { Patterns = patterns }
+            new FilePickerFileType(Strings.MediaFiles) { Patterns = patterns }
         ];
     }
 

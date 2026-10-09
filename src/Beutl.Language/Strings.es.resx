@@ -3411,7 +3411,4 @@ cuando el registro del historial está activado.</value>
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
-  <data name="VideoFiles" xml:space="preserve">
-    <value>Archivos de vídeo</value>
-  </data>
 </root>

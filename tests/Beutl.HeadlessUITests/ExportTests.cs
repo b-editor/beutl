@@ -197,8 +197,8 @@ public class ExportTests
     }
 
     [AvaloniaTest]
-    [TestCase("en-US", "Video Files")]
-    [TestCase("ja-JP", "動画ファイル")]
+    [TestCase("en-US", "Media Files")]
+    [TestCase("ja-JP", "メディアファイル")]
     public async Task OutputViewModel_picker_combines_normalizes_and_deduplicates_all_encoders(
         string cultureName, string expectedName)
     {
@@ -210,8 +210,8 @@ public class ExportTests
         {
             editor.ExtensionProvider.AddExtensions(packageId,
             [
-                new PickerEncoderExtension(".mp4", "mkv", "*.mov", "clip-*.avi"),
-                new OtherPickerEncoderExtension("MP4", ".MKV", "*.MOV", "webm")
+                new PickerEncoderExtension(".mp4", "mkv", "*.mov", "clip-*.avi", ".wav"),
+                new OtherPickerEncoderExtension("MP4", ".MKV", "*.MOV", "webm", "mp3", "WAV")
             ]);
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
             using var output = new OutputViewModel(editor);
@@ -223,7 +223,7 @@ public class ExportTests
             {
                 Assert.That(choices[0].Name, Is.EqualTo(expectedName));
                 Assert.That(choices[0].Patterns,
-                    Is.EquivalentTo(new[] { "*.mp4", "*.mkv", "*.mov", "clip-*.avi", "*.webm" }));
+                    Is.EquivalentTo(new[] { "*.mp4", "*.mkv", "*.mov", "clip-*.avi", "*.wav", "*.webm", "*.mp3" }));
             });
         }
         finally
