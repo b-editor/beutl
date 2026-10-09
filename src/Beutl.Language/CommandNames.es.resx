@@ -206,4 +206,10 @@
   <data name="AddMarker" xml:space="preserve">
     <value>Agregar marcador</value>
   </data>
+  <data name="ApplyAiGeneration" xml:space="preserve">
+    <value>Aplicar generación con IA</value>
+  </data>
+  <data name="ChangeAiGenerationTake" xml:space="preserve">
+    <value>Cambiar toma de IA</value>
+  </data>
 </root>

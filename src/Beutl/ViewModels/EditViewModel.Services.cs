@@ -15,6 +15,8 @@ public partial class EditViewModel
     private Beutl.NodeGraph.Generative.IGenerativeNodeExecutor? _generativeNodeExecutor;
     private Beutl.NodeGraph.Generative.IGenerativeModelCatalog? _generativeModelCatalog;
     private Beutl.NodeGraph.Generative.IGenerativePromptLibrary? _generativePromptLibrary;
+    private Beutl.Editor.Components.TimelineTab.Generative.TimelineGenerationService? _timelineGeneration;
+    private Beutl.Editor.Services.AI.ITimelineAiHost? _timelineAiHost;
 
     public object? GetService(Type serviceType)
     {
@@ -146,6 +148,34 @@ public partial class EditViewModel
             }
 
             return _generativeNodeExecutor;
+        }
+
+        if (serviceType == typeof(Beutl.Editor.Components.TimelineTab.Generative.TimelineGenerationService))
+        {
+            // Runs on the same executor as the AI nodes, so it carries the same billing safeguards.
+            if (_timelineGeneration is null && !_disposed)
+            {
+                _timelineGeneration = new Beutl.Editor.Components.TimelineTab.Generative.TimelineGenerationService(
+                    Scene,
+                    HistoryManager,
+                    _elementAdder,
+                    () => GetService(typeof(Beutl.NodeGraph.Generative.IGenerativeNodeExecutor))
+                        as Beutl.NodeGraph.Generative.IGenerativeNodeExecutor,
+                    () => Beutl.Services.AI.AiResultImporter.GetResourceDirectory(Scene));
+            }
+
+            return _timelineGeneration;
+        }
+
+        if (serviceType == typeof(Beutl.Editor.Services.AI.ITimelineAiHost))
+        {
+            if (_timelineAiHost is null
+                && TryGetMainViewModel(out MainViewModel? main))
+            {
+                _timelineAiHost = main.CreateTimelineAiHost(this);
+            }
+
+            return _timelineAiHost;
         }
 
         if (serviceType.IsAssignableTo(typeof(INodeGraphMutationService)))

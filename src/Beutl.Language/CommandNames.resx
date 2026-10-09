@@ -203,4 +203,10 @@
   <data name="AddMarker" xml:space="preserve">
     <value>Add Marker</value>
   </data>
+  <data name="ApplyAiGeneration" xml:space="preserve">
+    <value>Apply AI generation</value>
+  </data>
+  <data name="ChangeAiGenerationTake" xml:space="preserve">
+    <value>Change AI take</value>
+  </data>
 </root>

@@ -373,6 +373,25 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         }
     }
 
+    /// <summary>
+    /// Selects the sound of one element, as when the timeline asks for subtitles of a clip.
+    /// Leaves the choice alone while a transcription runs, and when the element plays no sound file.
+    /// </summary>
+    internal bool TrySelectAudioSource(Guid elementId)
+    {
+        if (_disposed || IsTranscribing.Value)
+            return false;
+
+        LoadAudioSources();
+        AudioSourceItem? item = AudioSources.Value.FirstOrDefault(source =>
+            !source.IsSceneMix && source.ElementId == elementId);
+        if (item is null)
+            return false;
+
+        SelectedAudioSource.Value = item;
+        return true;
+    }
+
     private void LoadAudioSources()
     {
         if (_disposed)

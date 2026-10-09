@@ -3411,4 +3411,88 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
+  <data name="AiAddingResultToTimeline" xml:space="preserve">
+    <value>타임라인에 추가하는 중…</value>
+  </data>
+  <data name="AiGeneratedClip" xml:space="preserve">
+    <value>AI 클립</value>
+  </data>
+  <data name="AiNoRoomOnTimeline" xml:space="preserve">
+    <value>결과를 놓을 빈 레이어가 타임라인에 없습니다.</value>
+  </data>
+  <data name="AiTimelineDiscard" xml:space="preserve">
+    <value>삭제</value>
+  </data>
+  <data name="AiTimelineGenerateVideo" xml:space="preserve">
+    <value>동영상 생성</value>
+  </data>
+  <data name="AiTimelineLastFrame" xml:space="preserve">
+    <value>마지막</value>
+  </data>
+  <data name="AiTimelineLoadingModels" xml:space="preserve">
+    <value>모델을 불러오는 중…</value>
+  </data>
+  <data name="AiTimelineNoFirstFrame" xml:space="preserve">
+    <value>없음</value>
+  </data>
+  <data name="AiTimelineOpenAiTab" xml:space="preserve">
+    <value>AI 탭에서 열기</value>
+  </data>
+  <data name="AiTimelinePlanRequired" xml:space="preserve">
+    <value>AI 생성에는 Pro 플랜이 필요합니다.</value>
+  </data>
+  <data name="AiTimelinePromptPlaceholder" xml:space="preserve">
+    <value>생성할 내용을 설명하세요</value>
+  </data>
+  <data name="AiTimelineSecondsFormat" xml:space="preserve">
+    <value>{0}초</value>
+  </data>
+  <data name="AiTimelineSignInRequired" xml:space="preserve">
+    <value>AI 생성을 사용하려면 로그인하세요.</value>
+  </data>
+  <data name="AiTimelineVideoFromImage" xml:space="preserve">
+    <value>이 이미지로 동영상 생성…</value>
+  </data>
+  <data name="AiTimelineContinueVideo" xml:space="preserve">
+    <value>이어지는 동영상 생성…</value>
+  </data>
+  <data name="AiTimelineExtendVideo" xml:space="preserve">
+    <value>동영상 연장…</value>
+  </data>
+  <data name="AiTimelineEditVideo" xml:space="preserve">
+    <value>동영상 편집…</value>
+  </data>
+  <data name="AiTimelineSubtitles" xml:space="preserve">
+    <value>자막 생성…</value>
+  </data>
+  <data name="AiTimelineGenerateHere" xml:space="preserve">
+    <value>여기에 동영상 생성…</value>
+  </data>
+  <data name="AiTimelineRegenerate" xml:space="preserve">
+    <value>다시 생성</value>
+  </data>
+  <data name="AiTimelineEditAndRegenerate" xml:space="preserve">
+    <value>조건을 바꿔 다시 생성…</value>
+  </data>
+  <data name="AiTimelineTakes" xml:space="preserve">
+    <value>테이크</value>
+  </data>
+  <data name="AiTimelineOriginalTake" xml:space="preserve">
+    <value>원본</value>
+  </data>
+  <data name="AiTimelineGenerating" xml:space="preserve">
+    <value>생성 중…</value>
+  </data>
+  <data name="AiTimelineGenerationFailed" xml:space="preserve">
+    <value>생성에 실패했습니다</value>
+  </data>
+  <data name="AiTimelineGeneratedBadge" xml:space="preserve">
+    <value>AI로 생성됨</value>
+  </data>
+  <data name="AiTimelineExtendUnavailable" xml:space="preserve">
+    <value>클립의 끝이 파일의 끝과 같고, 정상 속도로 재생되며 반복하지 않을 때만 연장할 수 있습니다.</value>
+  </data>
+  <data name="AiTimelineNoFrame" xml:space="preserve">
+    <value>클립의 마지막 프레임을 읽을 수 없습니다.</value>
+  </data>
 </root>

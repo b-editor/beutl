@@ -3411,4 +3411,88 @@ when history recording is enabled.</value>
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
+  <data name="AiAddingResultToTimeline" xml:space="preserve">
+    <value>Adding to the timeline…</value>
+  </data>
+  <data name="AiGeneratedClip" xml:space="preserve">
+    <value>AI clip</value>
+  </data>
+  <data name="AiNoRoomOnTimeline" xml:space="preserve">
+    <value>There is no free layer on the timeline for the result.</value>
+  </data>
+  <data name="AiTimelineDiscard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="AiTimelineGenerateVideo" xml:space="preserve">
+    <value>Generate video</value>
+  </data>
+  <data name="AiTimelineLastFrame" xml:space="preserve">
+    <value>Last</value>
+  </data>
+  <data name="AiTimelineLoadingModels" xml:space="preserve">
+    <value>Loading models…</value>
+  </data>
+  <data name="AiTimelineNoFirstFrame" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="AiTimelineOpenAiTab" xml:space="preserve">
+    <value>Open in the AI tab</value>
+  </data>
+  <data name="AiTimelinePlanRequired" xml:space="preserve">
+    <value>AI generation needs the Pro plan.</value>
+  </data>
+  <data name="AiTimelinePromptPlaceholder" xml:space="preserve">
+    <value>Describe what to generate</value>
+  </data>
+  <data name="AiTimelineSecondsFormat" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="AiTimelineSignInRequired" xml:space="preserve">
+    <value>Sign in to use AI generation.</value>
+  </data>
+  <data name="AiTimelineVideoFromImage" xml:space="preserve">
+    <value>Generate video from this image…</value>
+  </data>
+  <data name="AiTimelineContinueVideo" xml:space="preserve">
+    <value>Generate what comes next…</value>
+  </data>
+  <data name="AiTimelineExtendVideo" xml:space="preserve">
+    <value>Extend video…</value>
+  </data>
+  <data name="AiTimelineEditVideo" xml:space="preserve">
+    <value>Edit video…</value>
+  </data>
+  <data name="AiTimelineSubtitles" xml:space="preserve">
+    <value>Generate subtitles…</value>
+  </data>
+  <data name="AiTimelineGenerateHere" xml:space="preserve">
+    <value>Generate video here…</value>
+  </data>
+  <data name="AiTimelineRegenerate" xml:space="preserve">
+    <value>Regenerate</value>
+  </data>
+  <data name="AiTimelineEditAndRegenerate" xml:space="preserve">
+    <value>Change and regenerate…</value>
+  </data>
+  <data name="AiTimelineTakes" xml:space="preserve">
+    <value>Takes</value>
+  </data>
+  <data name="AiTimelineOriginalTake" xml:space="preserve">
+    <value>Original</value>
+  </data>
+  <data name="AiTimelineGenerating" xml:space="preserve">
+    <value>Generating…</value>
+  </data>
+  <data name="AiTimelineGenerationFailed" xml:space="preserve">
+    <value>Generation failed</value>
+  </data>
+  <data name="AiTimelineGeneratedBadge" xml:space="preserve">
+    <value>Generated with AI</value>
+  </data>
+  <data name="AiTimelineExtendUnavailable" xml:space="preserve">
+    <value>A clip can be extended only when it ends where its file ends, plays at normal speed and does not loop.</value>
+  </data>
+  <data name="AiTimelineNoFrame" xml:space="preserve">
+    <value>The clip's last frame could not be read.</value>
+  </data>
 </root>

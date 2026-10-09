@@ -108,6 +108,25 @@ public partial class MainViewModel
         }
     }
 
+    internal Beutl.Editor.Services.AI.ITimelineAiHost CreateTimelineAiHost(EditViewModel editor)
+        => new TimelineAiHost(
+            this,
+            editor,
+            _beutlClients.AuthenticatedUser,
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>());
+
+    // The AI tab of a particular editor: the timeline asks for it to sign in or choose a plan.
+    internal async void OpenAiWorkspaceFor(EditViewModel editor)
+        => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoGeneration, editor);
+
+    /// <summary>Opens the subtitle page of an editor's AI tab on one element's sound.</summary>
+    internal async void OpenAiSubtitleFor(EditViewModel editor, Guid elementId)
+    {
+        if (await OpenAiWorkspaceAsync(AiWorkspaceSection.Subtitles, editor) is AiSubtitleDialogViewModel viewModel)
+            viewModel.TrySelectAudioSource(elementId);
+    }
+
     internal async void OpenAiVideoEditing()
         => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoEditing);
 

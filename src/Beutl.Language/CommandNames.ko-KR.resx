@@ -206,4 +206,10 @@
   <data name="AddMarker" xml:space="preserve">
     <value>마커 추가</value>
   </data>
+  <data name="ApplyAiGeneration" xml:space="preserve">
+    <value>AI 생성 적용</value>
+  </data>
+  <data name="ChangeAiGenerationTake" xml:space="preserve">
+    <value>AI 테이크 변경</value>
+  </data>
 </root>

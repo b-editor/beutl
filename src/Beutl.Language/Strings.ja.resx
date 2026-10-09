@@ -3406,4 +3406,88 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
+  <data name="AiAddingResultToTimeline" xml:space="preserve">
+    <value>タイムラインに追加しています…</value>
+  </data>
+  <data name="AiGeneratedClip" xml:space="preserve">
+    <value>AIクリップ</value>
+  </data>
+  <data name="AiNoRoomOnTimeline" xml:space="preserve">
+    <value>結果を置ける空きレイヤーがタイムラインにありません。</value>
+  </data>
+  <data name="AiTimelineDiscard" xml:space="preserve">
+    <value>破棄</value>
+  </data>
+  <data name="AiTimelineGenerateVideo" xml:space="preserve">
+    <value>動画を生成</value>
+  </data>
+  <data name="AiTimelineLastFrame" xml:space="preserve">
+    <value>最後</value>
+  </data>
+  <data name="AiTimelineLoadingModels" xml:space="preserve">
+    <value>モデルを読み込み中…</value>
+  </data>
+  <data name="AiTimelineNoFirstFrame" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="AiTimelineOpenAiTab" xml:space="preserve">
+    <value>AIタブで開く</value>
+  </data>
+  <data name="AiTimelinePlanRequired" xml:space="preserve">
+    <value>AI生成にはProプランが必要です。</value>
+  </data>
+  <data name="AiTimelinePromptPlaceholder" xml:space="preserve">
+    <value>生成したい内容を説明します</value>
+  </data>
+  <data name="AiTimelineSecondsFormat" xml:space="preserve">
+    <value>{0} 秒</value>
+  </data>
+  <data name="AiTimelineSignInRequired" xml:space="preserve">
+    <value>AI生成を使うにはサインインしてください。</value>
+  </data>
+  <data name="AiTimelineVideoFromImage" xml:space="preserve">
+    <value>この画像から動画を生成…</value>
+  </data>
+  <data name="AiTimelineContinueVideo" xml:space="preserve">
+    <value>続きの動画を生成…</value>
+  </data>
+  <data name="AiTimelineExtendVideo" xml:space="preserve">
+    <value>動画を延長…</value>
+  </data>
+  <data name="AiTimelineEditVideo" xml:space="preserve">
+    <value>動画を編集…</value>
+  </data>
+  <data name="AiTimelineSubtitles" xml:space="preserve">
+    <value>字幕を生成…</value>
+  </data>
+  <data name="AiTimelineGenerateHere" xml:space="preserve">
+    <value>ここに動画を生成…</value>
+  </data>
+  <data name="AiTimelineRegenerate" xml:space="preserve">
+    <value>再生成</value>
+  </data>
+  <data name="AiTimelineEditAndRegenerate" xml:space="preserve">
+    <value>条件を変えて再生成…</value>
+  </data>
+  <data name="AiTimelineTakes" xml:space="preserve">
+    <value>テイク</value>
+  </data>
+  <data name="AiTimelineOriginalTake" xml:space="preserve">
+    <value>元の素材</value>
+  </data>
+  <data name="AiTimelineGenerating" xml:space="preserve">
+    <value>生成中…</value>
+  </data>
+  <data name="AiTimelineGenerationFailed" xml:space="preserve">
+    <value>生成に失敗しました</value>
+  </data>
+  <data name="AiTimelineGeneratedBadge" xml:space="preserve">
+    <value>AIで生成</value>
+  </data>
+  <data name="AiTimelineExtendUnavailable" xml:space="preserve">
+    <value>クリップの終わりが素材の終わりと一致し、等速でループしていないときだけ延長できます。</value>
+  </data>
+  <data name="AiTimelineNoFrame" xml:space="preserve">
+    <value>クリップの最後のフレームを読み込めませんでした。</value>
+  </data>
 </root>

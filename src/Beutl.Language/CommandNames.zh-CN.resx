@@ -206,4 +206,10 @@
   <data name="AddMarker" xml:space="preserve">
     <value>添加标记</value>
   </data>
+  <data name="ApplyAiGeneration" xml:space="preserve">
+    <value>应用 AI 生成</value>
+  </data>
+  <data name="ChangeAiGenerationTake" xml:space="preserve">
+    <value>切换 AI 版本</value>
+  </data>
 </root>

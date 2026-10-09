@@ -199,4 +199,10 @@
   <data name="AddMarker" xml:space="preserve">
     <value>マーカーを追加</value>
   </data>
+  <data name="ApplyAiGeneration" xml:space="preserve">
+    <value>AI生成の適用</value>
+  </data>
+  <data name="ChangeAiGenerationTake" xml:space="preserve">
+    <value>AIテイクの切り替え</value>
+  </data>
 </root>

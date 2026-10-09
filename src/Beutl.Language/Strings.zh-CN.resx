@@ -3411,4 +3411,88 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
+  <data name="AiAddingResultToTimeline" xml:space="preserve">
+    <value>正在添加到时间线…</value>
+  </data>
+  <data name="AiGeneratedClip" xml:space="preserve">
+    <value>AI 片段</value>
+  </data>
+  <data name="AiNoRoomOnTimeline" xml:space="preserve">
+    <value>时间线上没有可放置结果的空闲图层。</value>
+  </data>
+  <data name="AiTimelineDiscard" xml:space="preserve">
+    <value>放弃</value>
+  </data>
+  <data name="AiTimelineGenerateVideo" xml:space="preserve">
+    <value>生成视频</value>
+  </data>
+  <data name="AiTimelineLastFrame" xml:space="preserve">
+    <value>尾帧</value>
+  </data>
+  <data name="AiTimelineLoadingModels" xml:space="preserve">
+    <value>正在加载模型…</value>
+  </data>
+  <data name="AiTimelineNoFirstFrame" xml:space="preserve">
+    <value>无</value>
+  </data>
+  <data name="AiTimelineOpenAiTab" xml:space="preserve">
+    <value>在 AI 标签页中打开</value>
+  </data>
+  <data name="AiTimelinePlanRequired" xml:space="preserve">
+    <value>AI 生成需要 Pro 方案。</value>
+  </data>
+  <data name="AiTimelinePromptPlaceholder" xml:space="preserve">
+    <value>描述要生成的内容</value>
+  </data>
+  <data name="AiTimelineSecondsFormat" xml:space="preserve">
+    <value>{0} 秒</value>
+  </data>
+  <data name="AiTimelineSignInRequired" xml:space="preserve">
+    <value>请登录以使用 AI 生成。</value>
+  </data>
+  <data name="AiTimelineVideoFromImage" xml:space="preserve">
+    <value>从此图像生成视频…</value>
+  </data>
+  <data name="AiTimelineContinueVideo" xml:space="preserve">
+    <value>生成后续视频…</value>
+  </data>
+  <data name="AiTimelineExtendVideo" xml:space="preserve">
+    <value>延长视频…</value>
+  </data>
+  <data name="AiTimelineEditVideo" xml:space="preserve">
+    <value>编辑视频…</value>
+  </data>
+  <data name="AiTimelineSubtitles" xml:space="preserve">
+    <value>生成字幕…</value>
+  </data>
+  <data name="AiTimelineGenerateHere" xml:space="preserve">
+    <value>在此处生成视频…</value>
+  </data>
+  <data name="AiTimelineRegenerate" xml:space="preserve">
+    <value>重新生成</value>
+  </data>
+  <data name="AiTimelineEditAndRegenerate" xml:space="preserve">
+    <value>更改后重新生成…</value>
+  </data>
+  <data name="AiTimelineTakes" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="AiTimelineOriginalTake" xml:space="preserve">
+    <value>原始素材</value>
+  </data>
+  <data name="AiTimelineGenerating" xml:space="preserve">
+    <value>正在生成…</value>
+  </data>
+  <data name="AiTimelineGenerationFailed" xml:space="preserve">
+    <value>生成失败</value>
+  </data>
+  <data name="AiTimelineGeneratedBadge" xml:space="preserve">
+    <value>AI 生成</value>
+  </data>
+  <data name="AiTimelineExtendUnavailable" xml:space="preserve">
+    <value>仅当片段结束于文件末尾、以正常速度播放且不循环时才能延长。</value>
+  </data>
+  <data name="AiTimelineNoFrame" xml:space="preserve">
+    <value>无法读取片段的最后一帧。</value>
+  </data>
 </root>

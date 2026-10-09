@@ -302,6 +302,8 @@ public sealed partial class EditViewModel
         Cleanup(_autoSaveCancellation.Cancel);
         Cleanup(DismissMissingMediaNotification);
         Cleanup(HasMediaRepairs.Dispose);
+        // Stops the timeline's generations before the scene they place results in goes away.
+        Cleanup(() => _timelineGeneration?.Dispose());
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         try
         {
