@@ -171,6 +171,11 @@ public class FormattedTextFallbackTests
     [TestCase("#\uFE0F")]
     [TestCase("*\uFE0F")]
     [TestCase("😀")]
+    [TestCase("\U0001F3FB")]
+    [TestCase("\U0001F3FC")]
+    [TestCase("\U0001F3FD")]
+    [TestCase("\U0001F3FE")]
+    [TestCase("\U0001F3FF")]
     [TestCase("👩‍💻")]
     [TestCase("👨‍👩‍👧‍👦")]
     [TestCase("👍🏽")]
@@ -189,6 +194,33 @@ public class FormattedTextFallbackTests
         {
             Assert.That(font.Typeface.FamilyName, Is.EqualTo(s_emojiFont.Name));
             Assert.That(image.Pixels.Count(pixel => pixel != SKColors.White), Is.GreaterThan(100));
+        });
+    }
+
+    [TestCase("\u2600\uFE0E")]
+    [TestCase("©\uFE0E")]
+    [TestCase("1\uFE0E")]
+    public void TextPresentation_WithAnEmojiOnlySelectedFont_UsesTextFallback(string value)
+    {
+        using FormattedText text = CreateText(value, s_emojiFont);
+        using FormattedText expected = CreateText(value, s_uiFont);
+        using SKFont primary = text.ToSKFont();
+        using var shaper = new TextShaper(primary.Typeface);
+        Assert.Multiple(() =>
+        {
+            Assert.That(primary.ContainsGlyph(value[0]), Is.True);
+            Assert.That(shaper.HasVariationGlyph(value[0], 0xFE0F), Is.True);
+            Assert.That(shaper.HasVariationGlyph(value[0], 0xFE0E), Is.False);
+        });
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(value.AsSpan(), primary, text.Style, text.Weight);
+        Assert.That(runs, Has.Count.EqualTo(1));
+        Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_uiFont.Name));
+        using SKBitmap actualImage = Draw(text);
+        using SKBitmap expectedImage = Draw(expected);
+        Assert.Multiple(() =>
+        {
+            Assert.That(ColorPixels(actualImage), Is.Empty);
+            Assert.That(actualImage.Bytes, Is.EqualTo(expectedImage.Bytes));
         });
     }
 

@@ -74,7 +74,15 @@ internal static class TextFontFallback
             {
                 if (rune.Value is >= 0xFE00 and <= 0xFE0F or >= 0xE0100 and <= 0xE01EF)
                 {
-                    // VS15/VS16 request text/emoji presentation, handled by EmojiPresentation.
+                    // VS16 is routed by EmojiPresentation. A VS16-only glyph mapping does not
+                    // cover VS15; ordinary text fonts can use their nominal glyph without a map.
+                    if (rune.Value == 0xFE0E && scalarCount > 0)
+                    {
+                        TextShaper shaper = GetShaper(font.Typeface);
+                        if (!shaper.HasVariationGlyph(previous, 0xFE0E)
+                            && shaper.HasVariationGlyph(previous, 0xFE0F))
+                            return false;
+                    }
                     // Other selectors require a cmap variation mapping; shaping alone can drop
                     // an unsupported selector and incorrectly claim the base glyph covers it.
                     if (rune.Value is not (0xFE0E or 0xFE0F) && scalarCount > 0
