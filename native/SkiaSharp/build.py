@@ -25,8 +25,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SOURCE = json.loads((HERE / "source.json").read_text())
 EXPORTS = (
-    "gr_beutl_backendrendertarget_get_vk_image_layout",
-    "gr_beutl_backendrendertarget_set_vk_image_layout",
+    "gr_beutl_backendtexture_get_vk_image_layout",
+    "gr_beutl_backendtexture_set_vk_image_layout",
+    "sk_beutl_surface_notify_content_will_change",
 )
 # Windows builds FreeType in for content text; DirectWrite stays the default font manager.
 WINDOWS_EXPORTS = ("sk_beutl_fontmgr_create_freetype",)

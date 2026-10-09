@@ -49,12 +49,14 @@ but the layer did not load, because a gate that observes nothing must not report
 Vulkan SDK it will fail for that reason — install the layer before enabling the variable.
 
 Vulkan builds require Beutl's libSkiaSharp, built from the exact Skia commit pinned by SkiaSharp 4.152.1.
-`native/SkiaSharp/vulkan-image-layout.patch` exposes the layout state shared by a backend render target
+`native/SkiaSharp/vulkan-image-layout.patch` exposes the layout state shared by a backend texture
 and its Skia surfaces. The backend retains that handle, reads its state after flushing Skia, and reports
 its own transitions through the same state. This includes allocation clears, snapshots and reused 3D
 surfaces; an initial `Undefined` layout must be replaced when the backend clears the image, before Skia
 can discard that clear. These paths are covered by `SkiaVulkanLayoutInteropTests` and
 `SkiaImageState_FollowsInitializationBeforeUntouchedSnapshot`.
+`native/SkiaSharp/surface-content-change.patch` lets the engine drop a surface's cached snapshot once
+its draws are recorded, so Skia can skip the copy it schedules for a snapshot of a wrapped texture.
 
 The pinned Linux x64/ARM64 and Windows x64/ARM64 binaries, build manifests and notices are committed
 under `src/Beutl.Engine/runtimes/`. Ordinary `dotnet build`, `dotnet test` and `dotnet run` use those
