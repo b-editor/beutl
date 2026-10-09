@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -74,6 +75,8 @@ public sealed class ElementTools(AgentSessionManager sessions) : ToolBase
                 };
 
                 EngineObject content = ContentFactory.Create(new ContentRequest(contentKind, mediaPath, text, shape));
+                Type contentType = content.GetType();
+                element.AccentColor = ElementAccentColorGenerator.GenerateColor(contentType.FullName ?? contentType.Name);
                 element.AddObject(content);
 
                 JsonArray elements = current["Elements"] as JsonArray

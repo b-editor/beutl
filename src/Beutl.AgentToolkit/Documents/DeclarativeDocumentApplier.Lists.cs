@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Collections;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -98,6 +99,14 @@ internal sealed partial class DeclarativeDocumentApplier
                     // AssignNewElementUri later rehomes it directly under the scene.
                     Uri? incomingBaseUri = ResolveIncomingBaseUri(scene.Uri, itemJson);
                     ApplyDetached(element, elementJson, incomingBaseUri);
+                    // Flow operators have a leading PortalObject; use the actual content type for its color.
+                    if (!elementJson.ContainsKey(nameof(Element.AccentColor))
+                        && element.Objects.FirstOrDefault(obj => obj is not PortalObject) is { } content)
+                    {
+                        Type contentType = content.GetType();
+                        element.AccentColor = ElementAccentColorGenerator.GenerateColor(contentType.FullName ?? contentType.Name);
+                    }
+
                     AssignNewElementUri(scene, element);
                 }
                 else
