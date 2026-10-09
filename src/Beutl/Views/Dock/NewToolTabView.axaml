@@ -15,30 +15,42 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <DataTemplate x:Key="ToolTemplate" x:DataType="dockVm:NewToolTabItem">
-            <Button AutomationProperties.Name="{Binding Header}"
-                    Classes="tool"
-                    Click="OnToolClick"
-                    IsEnabled="{Binding IsEnabled}"
-                    Theme="{StaticResource TransparentButton}"
-                    ToolTip.ShowOnDisabled="True"
-                    ToolTip.Tip="{Binding Header}">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                    <Border Classes="icon">
-                        <ui:FAIconSourceElement Width="18"
-                                                Height="18"
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                IconSource="{Binding Icon}" />
-                    </Border>
-                    <!--  Narrow columns wrap a long name onto a second line instead of cutting it off.  -->
-                    <TextBlock Grid.Column="1"
-                               VerticalAlignment="Center"
-                               MaxLines="2"
-                               Text="{Binding Header}"
-                               TextTrimming="CharacterEllipsis"
-                               TextWrapping="Wrap" />
-                </Grid>
-            </Button>
+            <!--  The pin button sits beside the tool button, not inside it, so each is its own target.  -->
+            <Panel Classes="row">
+                <Button AutomationProperties.Name="{Binding Header}"
+                        Classes="tool"
+                        Click="OnToolClick"
+                        IsEnabled="{Binding IsEnabled}"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.ShowOnDisabled="True"
+                        ToolTip.Tip="{Binding Header}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Border Classes="icon">
+                            <ui:FAIconSourceElement Width="18"
+                                                    Height="18"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    IconSource="{Binding Icon}" />
+                        </Border>
+                        <!--  Narrow columns wrap a long name onto a second line instead of cutting it off.  -->
+                        <TextBlock Grid.Column="1"
+                                   VerticalAlignment="Center"
+                                   MaxLines="2"
+                                   Text="{Binding Header}"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </Button>
+                <Button Classes="pin"
+                        Classes.pinned="{Binding IsPinned}"
+                        Click="OnPinClick"
+                        Theme="{StaticResource TransparentButton}">
+                    <Panel>
+                        <icons:FluentIcon Icon="Pin" IsVisible="{Binding !IsPinned}" />
+                        <icons:FluentIcon Icon="PinOff" IsVisible="{Binding IsPinned}" />
+                    </Panel>
+                </Button>
+            </Panel>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -48,7 +60,8 @@
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Padding" Value="6" />
+            <!--  The right padding keeps the name clear of the pin button.  -->
+            <Setter Property="Padding" Value="6,6,36,6" />
         </Style>
         <!--  The icon sits on a soft tile, which marks each row without boxing it in.  -->
         <Style Selector="Button.tool Border.icon">
@@ -63,15 +76,44 @@
         <Style Selector="Button.tool:disabled ui|FAIconSourceElement">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
         </Style>
+
+        <!--  Shown on hover or keyboard focus only, so the list stays quiet.  -->
+        <Style Selector="Button.pin">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="ToolTip.Tip" Value="{x:Static lang:Strings.NewToolTab_Pin}" />
+            <Setter Property="AutomationProperties.Name" Value="{x:Static lang:Strings.NewToolTab_Pin}" />
+        </Style>
+        <Style Selector="Button.pin.pinned">
+            <Setter Property="ToolTip.Tip" Value="{x:Static lang:Strings.NewToolTab_Unpin}" />
+            <Setter Property="AutomationProperties.Name" Value="{x:Static lang:Strings.NewToolTab_Unpin}" />
+        </Style>
+        <Style Selector="Panel.row:pointerover Button.pin">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Button.pin:focus-visible">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
         <Style Selector="TextBlock.section">
-            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Margin" Value="6,20,6,2" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
+        <Style Selector="TextBlock.section.first">
+            <Setter Property="Margin" Value="6,0,6,2" />
+        </Style>
     </UserControl.Styles>
 
-    <!--  A capped, centred column keeps a wide dock from scattering the tiles across the screen.  -->
+    <!--  A capped, centred column keeps a wide dock from scattering the tools across the screen.  -->
     <Grid RowDefinitions="Auto,*">
         <!--  Enter opens the first match, so it must not move focus away first.  -->
         <TextBox x:Name="SearchBox"
@@ -92,29 +134,26 @@
             </TextBox.InnerLeftContent>
         </TextBox>
 
+        <!--  The three lists share their grid layout, which the code-behind creates.  -->
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
             <StackPanel MaxWidth="720"
                         Margin="16,0,16,16"
-                        Spacing="8"
                         XYFocus.NavigationModes="Keyboard">
-                <!--
-                    Columns follow the page width: one in a side dock at its usual width, two when a
-                    little wider, and at most three, so even a wide dock keeps room between them.
-                    Every row is tall enough for two lines, so a wrapped name never changes its height.
-                -->
+                <TextBlock Classes="section first"
+                           IsVisible="{Binding !!PinnedItems.Count}"
+                           Text="{x:Static lang:Strings.NewToolTab_Pinned}" />
+                <ItemsRepeater x:Name="PinnedList"
+                               IsVisible="{Binding !!PinnedItems.Count}"
+                               ItemTemplate="{StaticResource ToolTemplate}"
+                               ItemsSource="{Binding PinnedItems}" />
+
+                <!--  Headed only when pinned tools sit above it.  -->
+                <TextBlock Classes="section"
+                           IsVisible="{Binding ShowsToolsHeader}"
+                           Text="{x:Static lang:Strings.Tools}" />
                 <ItemsRepeater x:Name="AvailableList"
                                ItemTemplate="{StaticResource ToolTemplate}"
-                               ItemsSource="{Binding AvailableItems}">
-                    <ItemsRepeater.Layout>
-                        <UniformGridLayout ItemsStretch="Fill"
-                                           MaximumRowsOrColumns="3"
-                                           MinColumnSpacing="16"
-                                           MinItemHeight="54"
-                                           MinItemWidth="168"
-                                           MinRowSpacing="2"
-                                           Orientation="Horizontal" />
-                    </ItemsRepeater.Layout>
-                </ItemsRepeater>
+                               ItemsSource="{Binding AvailableItems}" />
 
                 <TextBlock Margin="0,16"
                            HorizontalAlignment="Center"
@@ -122,25 +161,14 @@
                            IsVisible="{Binding !HasMatches}"
                            Text="{x:Static lang:Strings.NewToolTab_NoResults}" />
 
-                <!--  Open single-instance tools sit apart, so the grid above holds only what can be opened.  -->
-                <TextBlock Margin="6,20,6,2"
-                           Classes="section"
+                <!--  Open single-instance tools sit apart, so the lists above hold only what can be opened.  -->
+                <TextBlock Classes="section"
                            IsVisible="{Binding !!OpenItems.Count}"
                            Text="{x:Static lang:Strings.NewToolTab_AlreadyOpen}" />
                 <ItemsRepeater x:Name="OpenList"
                                IsVisible="{Binding !!OpenItems.Count}"
                                ItemTemplate="{StaticResource ToolTemplate}"
-                               ItemsSource="{Binding OpenItems}">
-                    <ItemsRepeater.Layout>
-                        <UniformGridLayout ItemsStretch="Fill"
-                                           MaximumRowsOrColumns="3"
-                                           MinColumnSpacing="16"
-                                           MinItemHeight="54"
-                                           MinItemWidth="168"
-                                           MinRowSpacing="2"
-                                           Orientation="Horizontal" />
-                    </ItemsRepeater.Layout>
-                </ItemsRepeater>
+                               ItemsSource="{Binding OpenItems}" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

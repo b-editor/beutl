@@ -2,8 +2,10 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.ViewModels.Dock;
 
@@ -17,6 +19,27 @@ public sealed partial class NewToolTabView : UserControl
     public NewToolTabView()
     {
         InitializeComponent();
+        foreach (ItemsRepeater list in (ItemsRepeater[])[PinnedList, AvailableList, OpenList])
+        {
+            list.Layout = CreateToolGridLayout();
+        }
+    }
+
+    // Columns follow the page width: one in a side dock at its usual width, two when a little wider,
+    // and at most three, so even a wide dock keeps room between them. Every row is tall enough for
+    // two lines, so a wrapped name never changes its height.
+    private static UniformGridLayout CreateToolGridLayout()
+    {
+        return new UniformGridLayout
+        {
+            Orientation = Orientation.Horizontal,
+            ItemsStretch = UniformGridLayoutItemsStretch.Fill,
+            MaximumRowsOrColumns = 3,
+            MinItemWidth = 168,
+            MinItemHeight = 54,
+            MinColumnSpacing = 16,
+            MinRowSpacing = 2,
+        };
     }
 
     private NewToolTabDockable? NewTab => DataContext as NewToolTabDockable;
@@ -37,6 +60,8 @@ public sealed partial class NewToolTabView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         Subscribe();
+        // A pin made on another page shows here too.
+        GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs.CollectionChanged += OnDockablesChanged;
         NewTab?.Refresh();
     }
 
@@ -44,6 +69,7 @@ public sealed partial class NewToolTabView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Unsubscribe();
+        GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs.CollectionChanged -= OnDockablesChanged;
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -114,7 +140,8 @@ public sealed partial class NewToolTabView : UserControl
         switch (e.Key)
         {
             case Key.Enter:
-                if (NewTab?.AvailableItems.FirstOrDefault() is { } first)
+                if (NewTab is { } newTab
+                    && newTab.PinnedItems.Concat(newTab.AvailableItems).FirstOrDefault() is { } first)
                 {
                     e.Handled = true;
                     Open(first);
@@ -123,10 +150,12 @@ public sealed partial class NewToolTabView : UserControl
                 break;
 
             case Key.Down:
-                if (NewTab is { AvailableItems.Count: > 0 })
+                if (NewTab is { } tab
+                    && (tab.PinnedItems.Count > 0 ? PinnedList : tab.AvailableItems.Count > 0 ? AvailableList : null) is { } list
+                    && FindToolButton(list.GetOrCreateElement(0)) is { } button)
                 {
                     e.Handled = true;
-                    AvailableList.GetOrCreateElement(0).Focus(NavigationMethod.Directional);
+                    button.Focus(NavigationMethod.Directional);
                 }
 
                 break;
@@ -139,6 +168,20 @@ public sealed partial class NewToolTabView : UserControl
         {
             Open(item);
         }
+    }
+
+    private void OnPinClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: NewToolTabItem item })
+        {
+            NewTab?.TogglePin(item.Extension);
+        }
+    }
+
+    // Each list element is a row panel holding the tool button and its pin button.
+    internal static Button? FindToolButton(Control row)
+    {
+        return (row as Panel)?.Children.OfType<Button>().FirstOrDefault(button => button.Classes.Contains("tool"));
     }
 
     private void Open(NewToolTabItem item)

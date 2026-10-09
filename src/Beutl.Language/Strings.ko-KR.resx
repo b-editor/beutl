@@ -3366,6 +3366,15 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="NewToolTab_AlreadyOpen" xml:space="preserve">
     <value>이미 열려 있음</value>
   </data>
+  <data name="NewToolTab_Pinned" xml:space="preserve">
+    <value>고정됨</value>
+  </data>
+  <data name="NewToolTab_Pin" xml:space="preserve">
+    <value>고정</value>
+  </data>
+  <data name="NewToolTab_Unpin" xml:space="preserve">
+    <value>고정 해제</value>
+  </data>
   <data name="GoToMarker" xml:space="preserve">
     <value>마커로 이동…</value>
   </data>

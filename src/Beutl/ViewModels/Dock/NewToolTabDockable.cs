@@ -1,4 +1,5 @@
-﻿using Dock.Model.Inpc.Controls;
+﻿using Beutl.Configuration;
+using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
 using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 
@@ -6,7 +7,13 @@ namespace Beutl.ViewModels.Dock;
 
 /// <summary>A tool the new-tab page offers.</summary>
 /// <param name="IsEnabled"><see langword="false"/> for a single-instance tool that is already open.</param>
-public sealed record NewToolTabItem(ToolTabExtension Extension, string Header, FAIconSource? Icon, bool IsEnabled);
+/// <param name="IsPinned">Whether the user pinned the tool to the top of the page.</param>
+public sealed record NewToolTabItem(
+    ToolTabExtension Extension,
+    string Header,
+    FAIconSource? Icon,
+    bool IsEnabled,
+    bool IsPinned);
 
 /// <summary>
 /// The empty tab the dock add button opens. It lists the tools and turns into the one the user
@@ -18,9 +25,11 @@ public sealed class NewToolTabDockable : Tool
     private readonly Dictionary<ToolTabExtension, FAIconSource?> _icons = [];
     private readonly Dictionary<ToolTabExtension, string?> _neutralHeaders = [];
     private NewToolTabItem[] _items = [];
+    private IReadOnlyList<NewToolTabItem> _pinnedItems = [];
     private IReadOnlyList<NewToolTabItem> _availableItems = [];
     private IReadOnlyList<NewToolTabItem> _openItems = [];
     private bool _hasMatches;
+    private bool _showsToolsHeader;
     private string _searchText = string.Empty;
 
     public NewToolTabDockable()
@@ -50,14 +59,24 @@ public sealed class NewToolTabDockable : Tool
         }
     }
 
-    /// <summary>Gets the tools that match <see cref="SearchText"/> and can be opened, as of the last <see cref="Refresh"/>.</summary>
+    /// <summary>Gets the pinned tools that match <see cref="SearchText"/> and can be opened, in pin order.</summary>
+    public IReadOnlyList<NewToolTabItem> PinnedItems
+    {
+        get => _pinnedItems;
+        private set => SetProperty(ref _pinnedItems, value);
+    }
+
+    /// <summary>
+    /// Gets the other tools that match <see cref="SearchText"/> and can be opened, as of the last
+    /// <see cref="Refresh"/>.
+    /// </summary>
     public IReadOnlyList<NewToolTabItem> AvailableItems
     {
         get => _availableItems;
         private set => SetProperty(ref _availableItems, value);
     }
 
-    /// <summary>Gets the single-instance tools that match <see cref="SearchText"/> but are already open.</summary>
+    /// <summary>Gets the single-instance tools, pinned or not, that match <see cref="SearchText"/> but are already open.</summary>
     public IReadOnlyList<NewToolTabItem> OpenItems
     {
         get => _openItems;
@@ -71,13 +90,20 @@ public sealed class NewToolTabDockable : Tool
         private set => SetProperty(ref _hasMatches, value);
     }
 
+    /// <summary>Gets whether the other tools need a heading to set them apart from the pinned ones.</summary>
+    public bool ShowsToolsHeader
+    {
+        get => _showsToolsHeader;
+        private set => SetProperty(ref _showsToolsHeader, value);
+    }
+
     /// <summary>
     /// Gets or sets whether the page should take keyboard focus the next time it is shown. Only the
     /// add button sets it, so a tab restored with the layout does not steal the editor's shortcuts.
     /// </summary>
     internal bool FocusOnShow { get; set; }
 
-    /// <summary>Re-reads the available tools and which single-instance tools are already open.</summary>
+    /// <summary>Re-reads the available tools, the pins, and which single-instance tools are already open.</summary>
     public void Refresh()
     {
         if (Factory is not BeutlDockFactory factory)
@@ -86,16 +112,36 @@ public sealed class NewToolTabDockable : Tool
         }
         else
         {
+            CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
             _items = factory.EnumerateToolTabExtensions()
                 .Select(extension => new NewToolTabItem(
                     extension,
                     extension.Header!,
                     GetIcon(extension),
-                    extension.CanMultiple || !factory.IsToolTabOpen(extension)))
+                    extension.CanMultiple || !factory.IsToolTabOpen(extension),
+                    pins.Contains(GetPinKey(extension))))
                 .ToArray();
         }
 
         ApplyFilter();
+    }
+
+    /// <summary>Pins <paramref name="extension"/> to the top of every new-tab page, or unpins it.</summary>
+    /// <remarks>Pins are a user preference, so they persist across projects.</remarks>
+    public void TogglePin(ToolTabExtension extension)
+    {
+        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        string key = GetPinKey(extension);
+        if (!pins.Remove(key))
+            pins.Add(key);
+
+        Refresh();
+    }
+
+    // The type name, like the layout's tool entries: unlike Name, it cannot collide across packages.
+    internal static string GetPinKey(ToolTabExtension extension)
+    {
+        return extension.GetType().FullName ?? extension.Name;
     }
 
     /// <summary>Opens <paramref name="extension"/> in place of this tab.</summary>
@@ -121,9 +167,15 @@ public sealed class NewToolTabDockable : Tool
         NewToolTabItem[] matches = query.Length == 0
             ? _items
             : _items.Where(item => Matches(item, query)).ToArray();
-        AvailableItems = matches.Where(item => item.IsEnabled).ToArray();
+        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        PinnedItems = matches
+            .Where(item => item.IsEnabled && item.IsPinned)
+            .OrderBy(item => pins.IndexOf(GetPinKey(item.Extension)))
+            .ToArray();
+        AvailableItems = matches.Where(item => item.IsEnabled && !item.IsPinned).ToArray();
         OpenItems = matches.Where(item => !item.IsEnabled).ToArray();
         HasMatches = matches.Length > 0;
+        ShowsToolsHeader = PinnedItems.Count > 0 && AvailableItems.Count > 0;
     }
 
     // The English label and the internal name are searched too, so an English name finds a tool in

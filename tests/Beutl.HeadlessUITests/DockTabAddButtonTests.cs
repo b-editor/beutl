@@ -9,6 +9,9 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Collections;
+using Beutl.Configuration;
+using Beutl.Editor.Components.CurvesTab;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Extensibility;
@@ -483,6 +486,104 @@ public class DockTabAddButtonTests
     }
 
     [AvaloniaTest]
+    public async Task Pinned_tools_lead_every_new_tab_and_stay_pinned()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-pins");
+        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        pins.Clear();
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 1000, Height = 800 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            BeutlDockFactory factory = editor.DockHost.Factory;
+            NewToolTabDockable left = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+            NewToolTabDockable bottom = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Bottom)!);
+            HeadlessTestHelpers.Settle();
+            NewToolTabView leftPage = view.GetVisualDescendants().OfType<NewToolTabView>()
+                .Single(page => ReferenceEquals(page.DataContext, left));
+
+            Button historyPin = FindPinButton(leftPage, HistoryTabExtension.Instance);
+            Assert.Multiple(() =>
+            {
+                Assert.That(left.PinnedItems, Is.Empty);
+                Assert.That(left.ShowsToolsHeader, Is.False, "Without pins the list needs no headings.");
+                Assert.That(ToolTip.GetTip(historyPin), Is.EqualTo(Strings.NewToolTab_Pin));
+            });
+
+            historyPin.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Settle();
+            FindPinButton(leftPage, CurvesTabExtension.Instance).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Settle();
+
+            ToolTabExtension[] pinnedOrder = [HistoryTabExtension.Instance, CurvesTabExtension.Instance];
+            Assert.Multiple(() =>
+            {
+                Assert.That(left.PinnedItems.Select(item => item.Extension), Is.EqualTo(pinnedOrder));
+                Assert.That(left.AvailableItems.Select(item => item.Extension), Has.None.AnyOf(pinnedOrder));
+                Assert.That(left.ShowsToolsHeader, Is.True);
+                Assert.That(ToolTip.GetTip(FindPinButton(leftPage, HistoryTabExtension.Instance)), Is.EqualTo(Strings.NewToolTab_Unpin));
+                // Pins are a user preference, saved with the settings rather than the project.
+                Assert.That(
+                    pins,
+                    Is.EqualTo(new[] { typeof(HistoryTabExtension).FullName, typeof(CurvesTabExtension).FullName }));
+                Assert.That(
+                    bottom.PinnedItems.Select(item => item.Extension),
+                    Is.EqualTo(pinnedOrder),
+                    "Another empty tab picks the pins up while it is shown.");
+            });
+
+            // A pinned tool that is already open waits with the other open tools.
+            Assert.That(left.Open(HistoryTabExtension.Instance), Is.True);
+            HeadlessTestHelpers.Settle();
+            NewToolTabView bottomPage = view.GetVisualDescendants().OfType<NewToolTabView>()
+                .Single(page => ReferenceEquals(page.DataContext, bottom));
+            Assert.Multiple(() =>
+            {
+                Assert.That(bottom.PinnedItems.Select(item => item.Extension), Is.EqualTo(new[] { CurvesTabExtension.Instance }));
+                Assert.That(
+                    bottom.OpenItems.Single(item => item.Extension == HistoryTabExtension.Instance).IsPinned,
+                    Is.True);
+            });
+
+            // Enter opens the first pinned tool.
+            bottomPage.SearchBox.Focus();
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            HeadlessTestHelpers.Settle();
+            Assert.That(
+                (factory.GetAnchoredDock(DockAnchor.Bottom)!.ActiveDockable as BeutlToolDockable)?.ToolContext.Extension,
+                Is.SameAs(CurvesTabExtension.Instance));
+
+            NewToolTabDockable third = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+            HeadlessTestHelpers.Settle();
+            NewToolTabView thirdPage = view.GetVisualDescendants().OfType<NewToolTabView>()
+                .Single(page => ReferenceEquals(page.DataContext, third));
+            FindPinButton(thirdPage, CurvesTabExtension.Instance).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pins, Is.EqualTo(new[] { typeof(HistoryTabExtension).FullName }));
+                Assert.That(third.PinnedItems, Is.Empty, "History is pinned but open.");
+                Assert.That(
+                    third.AvailableItems.Select(item => item.Extension),
+                    Does.Contain(CurvesTabExtension.Instance));
+            });
+        }
+        finally
+        {
+            pins.Clear();
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Empty_tab_follows_single_instance_tools_opened_and_closed_elsewhere()
     {
         await ResetProjectAsync();
@@ -727,19 +828,37 @@ public class DockTabAddButtonTests
         return root.GetVisualDescendants().OfType<ToolTabAddButton>().SingleOrDefault();
     }
 
-    // The lists virtualize, so a tool scrolled out of view has no button until one is requested.
-    private static Button FindToolButton(NewToolTabView page, ToolTabExtension extension)
+    // The lists virtualize, so a tool scrolled out of view has no row until one is requested.
+    private static Panel FindToolRow(NewToolTabView page, ToolTabExtension extension)
     {
         var newTab = (NewToolTabDockable)page.DataContext!;
-        (IReadOnlyList<NewToolTabItem> items, ItemsRepeater list) =
-            newTab.AvailableItems.Any(item => ReferenceEquals(item.Extension, extension))
-                ? (newTab.AvailableItems, page.AvailableList)
-                : (newTab.OpenItems, page.OpenList);
-        int index = items.ToList().FindIndex(item => ReferenceEquals(item.Extension, extension));
-        Assert.That(index, Is.GreaterThanOrEqualTo(0), $"{extension.Name} is not listed.");
-        var button = (Button)list.GetOrCreateElement(index);
-        Assert.That(button.DataContext, Is.SameAs(items[index]));
-        return button;
+        foreach ((IReadOnlyList<NewToolTabItem> items, ItemsRepeater list) in new[]
+                 {
+                     (newTab.PinnedItems, page.PinnedList),
+                     (newTab.AvailableItems, page.AvailableList),
+                     (newTab.OpenItems, page.OpenList),
+                 })
+        {
+            int index = items.ToList().FindIndex(item => ReferenceEquals(item.Extension, extension));
+            if (index < 0) continue;
+
+            var row = (Panel)list.GetOrCreateElement(index);
+            Assert.That(row.DataContext, Is.SameAs(items[index]));
+            return row;
+        }
+
+        Assert.Fail($"{extension.Name} is not listed.");
+        return null!;
+    }
+
+    private static Button FindToolButton(NewToolTabView page, ToolTabExtension extension)
+    {
+        return NewToolTabView.FindToolButton(FindToolRow(page, extension))!;
+    }
+
+    private static Button FindPinButton(NewToolTabView page, ToolTabExtension extension)
+    {
+        return FindToolRow(page, extension).Children.OfType<Button>().Single(button => button.Classes.Contains("pin"));
     }
 
     private static Point Center(Control control, Visual relativeTo)

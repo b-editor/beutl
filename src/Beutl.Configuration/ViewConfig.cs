@@ -18,9 +18,11 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<bool> ShowExactBoundariesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
+    public static readonly CoreProperty<CoreList<string>> PinnedToolTabsProperty;
     public static readonly CoreProperty<string?> LastOpenedProjectFileProperty;
     private readonly CoreList<string> _recentFiles = [];
     private readonly CoreList<string> _recentProjects = [];
+    private readonly CoreList<string> _pinnedToolTabs = [];
     private bool _showExactBoundaries = false;
 
     // Extension ids must remain outside BuiltinThemeIds, whose normalization defines reserved ids.
@@ -69,6 +71,10 @@ public sealed class ViewConfig : ConfigurationBase
             .Accessor(o => o.RecentProjects, (o, v) => o.RecentProjects = v)
             .Register();
 
+        PinnedToolTabsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(PinnedToolTabs))
+            .Accessor(o => o.PinnedToolTabs, (o, v) => o.PinnedToolTabs = v)
+            .Register();
+
         LastOpenedProjectFileProperty = ConfigureProperty<string?, ViewConfig>(nameof(LastOpenedProjectFile))
             .DefaultValue(null)
             .Register();
@@ -78,6 +84,7 @@ public sealed class ViewConfig : ConfigurationBase
     {
         _recentFiles.CollectionChanged += (_, _) => OnChanged();
         _recentProjects.CollectionChanged += (_, _) => OnChanged();
+        _pinnedToolTabs.CollectionChanged += (_, _) => OnChanged();
     }
 
     [NotAutoSerialized]
@@ -145,6 +152,17 @@ public sealed class ViewConfig : ConfigurationBase
         set => _recentProjects.Replace(value);
     }
 
+    /// <summary>
+    /// Gets or sets the tool tabs pinned to the top of the new-tab page, as extension type names in
+    /// the order they were pinned.
+    /// </summary>
+    [NotAutoSerialized]
+    public CoreList<string> PinnedToolTabs
+    {
+        get => _pinnedToolTabs;
+        set => _pinnedToolTabs.Replace(value);
+    }
+
     public string? LastOpenedProjectFile
     {
         get => GetValue(LastOpenedProjectFileProperty);
@@ -180,6 +198,11 @@ public sealed class ViewConfig : ConfigurationBase
             RecentProjects = recentProjects;
         }
 
+        if (context.GetValue<CoreList<string>>(nameof(PinnedToolTabs)) is { } pinnedToolTabs)
+        {
+            PinnedToolTabs = pinnedToolTabs;
+        }
+
         WindowPosition = null;
         if (context.GetValue<WindowPositionRecord?>(nameof(WindowPosition)) is { } pos)
         {
@@ -199,6 +222,7 @@ public sealed class ViewConfig : ConfigurationBase
         context.SetValue(nameof(Theme), Theme);
         context.SetValue(nameof(RecentFiles), RecentFiles);
         context.SetValue(nameof(RecentProjects), RecentProjects);
+        context.SetValue(nameof(PinnedToolTabs), PinnedToolTabs);
 
         if (WindowPosition.HasValue)
         {
