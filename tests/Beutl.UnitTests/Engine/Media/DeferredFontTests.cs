@@ -71,6 +71,50 @@ public class DeferredFontTests
         });
     }
 
+    [Test]
+    public void BundledFace_ReplacesALoadedDuplicateLazilyAndKeepsOtherStyles()
+    {
+        _ = TypefaceProvider.Typeface();
+        var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
+        var family = new FontFamily("Roboto");
+        var regular = new Typeface(family);
+        var medium = new Typeface(family, weight: FontWeight.Medium);
+        using (Stream stream = Open("Roboto-Regular.ttf"))
+            manager.AddFont(stream);
+        using (Stream stream = Open("Roboto-Medium.ttf"))
+            manager.AddFont(stream);
+        var previousNative = manager._fonts[family][regular];
+        var previousRender = manager.ResolveSkia(regular);
+        var previousMedium = manager.ResolveSkia(medium);
+        long previousRevision = manager.Revision;
+        int opens = 0;
+        manager.RegisterFont(regular, () =>
+        {
+            opens++;
+            return Open("Roboto-Regular.ttf");
+        });
+        long registeredRevision = manager.Revision;
+        Assert.Multiple(() =>
+        {
+            Assert.That(opens, Is.Zero);
+            Assert.That(registeredRevision, Is.GreaterThan(previousRevision));
+            Assert.That(manager.GetTypefaces(family), Has.Length.EqualTo(2));
+        });
+        var bundled = manager.ResolveSkia(regular);
+        Assert.Multiple(() =>
+        {
+            Assert.That(opens, Is.EqualTo(1));
+            Assert.That(bundled, Is.Not.SameAs(previousRender));
+            Assert.That(manager._fonts[family][regular], Is.Not.SameAs(previousNative));
+            Assert.That(previousNative.Handle, Is.Not.EqualTo(IntPtr.Zero));
+            Assert.That(previousRender.Handle, Is.Not.EqualTo(IntPtr.Zero));
+            Assert.That(manager.ResolveSkia(regular), Is.SameAs(bundled));
+            Assert.That(manager.ResolveSkia(medium), Is.SameAs(previousMedium));
+            Assert.That(opens, Is.EqualTo(1));
+            Assert.That(manager.Revision, Is.EqualTo(registeredRevision));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void LoadFailure_UsesDefaultFontWithoutRetrying(bool failOnOpen)

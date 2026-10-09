@@ -208,8 +208,10 @@ public sealed class FontManager
                 }
                 _deferredFonts.Add(typeface.FontFamily, fonts);
             }
-            if (fonts.TryAdd(typeface, new Lazy<SKTypeface?>(() => LoadRegisteredFont(typeface, openStream))))
-                Interlocked.Increment(ref _revision);
+            // The pinned bundled face takes precedence over an installed duplicate, without
+            // opening its stream until requested. Other styles in the family remain available.
+            fonts[typeface] = new Lazy<SKTypeface?>(() => LoadRegisteredFont(typeface, openStream));
+            Interlocked.Increment(ref _revision);
         }
     }
 
@@ -233,7 +235,7 @@ public sealed class FontManager
             face.Dispose();
             return null;
         }
-        if (!AddFont(face, typeface.Weight))
+        if (!AddFont(face, typeface.Weight, replaceExisting: true))
             face.Dispose();
         // Materializing a catalog entry does not change font selection, so leave Revision alone.
         return _fonts[typeface.FontFamily].Get(typeface);
@@ -309,7 +311,7 @@ public sealed class FontManager
         }
     }
 
-    private bool AddFont(SKTypeface typeface, FontWeight? weight = null)
+    private bool AddFont(SKTypeface typeface, FontWeight? weight = null, bool replaceExisting = false)
     {
         string familyName = typeface.FamilyName;
         var fontFamily = new FontFamily(familyName);
@@ -322,9 +324,10 @@ public sealed class FontManager
 
             if (exists)
             {
-                if (!value!.ContainsKey(tf))
+                if (!value!.ContainsKey(tf) || replaceExisting)
                 {
-                    value = value.Append(new(tf, typeface))
+                    // Replaced faces can still be held by renderers; keep their handles alive.
+                    value = value.Where(entry => entry.Key != tf).Append(new(tf, typeface))
                         .ToFrozenDictionary();
                     if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
                         deferred[tf] = new Lazy<SKTypeface?>(() => typeface);
