@@ -241,9 +241,11 @@ internal sealed class SpectralNoiseReducer
         Span<float> minimum = _subWindowMin;
         minimum.Fill(float.PositiveInfinity);
         int frames = 0;
+        long lastFrame = long.MinValue;
         for (long start = _origin; start + _frameSize <= limit; start += _hopSize)
         {
             AnalyzeFrame(start);
+            lastFrame = start;
             if (frames == 0)
             {
                 _power.CopyTo(_smoothedPower, 0);
@@ -271,18 +273,15 @@ internal sealed class SpectralNoiseReducer
         // any other sub-window.
         minimum.CopyTo(_subWindowMins);
         _subWindowLengths[0] = counted;
-        float seedBias = GetMinimumBias(counted);
-        for (int k = 0; k < _bins; k++)
-        {
-            // The smoothed power restarts at the noise floor rather than at a single periodogram.
-            _smoothedPower[k] = minimum[k] * seedBias;
-        }
-
         minimum.Fill(float.PositiveInfinity);
         _ringCount = 1;
         _ringIndex = 1;
         _subWindowFrames = 0;
         _seeded = true;
+
+        // Reading revisits these frames from the origin; counting them again would double the
+        // evidence the bias assumes. The smoothed power continues from the last of them.
+        _trackedUntil = lastFrame;
         UpdateNoise();
     }
 

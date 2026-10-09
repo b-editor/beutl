@@ -39,6 +39,7 @@ public sealed class NoiseReductionNode : AudioNode
     // Set when a graph update reuses this node: reused upstream nodes may now produce different
     // audio, so the input read ahead of the output and the noise floor learned from it are renewed.
     private bool _inputStale;
+    private Controls _processedControls;
 
     public NoiseReductionNode()
     {
@@ -56,8 +57,14 @@ public sealed class NoiseReductionNode : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: false));
 
-    // Called when a graph update reuses this node.
-    internal void InvalidateInput() => _inputStale = true;
+    // Called when a graph update reuses this node. An update that changed this effect's own controls
+    // left the upstream audio alone, so the buffered input and the learned noise floor stay valid,
+    // and relearning would mistake a sound held through the edit for noise.
+    internal void InvalidateInput()
+    {
+        if (ReadControls() == _processedControls)
+            _inputStale = true;
+    }
 
     public override AudioBuffer Flush(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: true));
@@ -253,6 +260,7 @@ public sealed class NoiseReductionNode : AudioNode
     private void CaptureSettings(AudioProcessContext context)
     {
         _sampler = context.AnimationSampler;
+        _processedControls = ReadControls();
         _animated = Reduction.Animation != null
                     || Sensitivity.Animation != null
                     || Smoothing.Animation != null
@@ -262,6 +270,16 @@ public sealed class NoiseReductionNode : AudioNode
             Sensitivity.CurrentValue,
             Smoothing.CurrentValue,
             Adaptation.CurrentValue);
+    }
+
+    // Animated controls are compared by animation; static ones by value.
+    private Controls ReadControls()
+    {
+        return new Controls(
+            Reduction.Animation, Reduction.Animation is null ? Reduction.CurrentValue : 0,
+            Sensitivity.Animation, Sensitivity.Animation is null ? Sensitivity.CurrentValue : 0,
+            Smoothing.Animation, Smoothing.Animation is null ? Smoothing.CurrentValue : 0,
+            Adaptation.Animation, Adaptation.Animation is null ? Adaptation.CurrentValue : 0);
     }
 
     // Animated parameters are evaluated once per frame, at the frame's center.
@@ -301,6 +319,16 @@ public sealed class NoiseReductionNode : AudioNode
         long remainder = position % hop;
         return position - (remainder < 0 ? remainder + hop : remainder);
     }
+
+    private readonly record struct Controls(
+        object? ReductionAnimation,
+        float Reduction,
+        object? SensitivityAnimation,
+        float Sensitivity,
+        object? SmoothingAnimation,
+        float Smoothing,
+        object? AdaptationAnimation,
+        float Adaptation);
 
     protected override void Dispose(bool disposing)
     {

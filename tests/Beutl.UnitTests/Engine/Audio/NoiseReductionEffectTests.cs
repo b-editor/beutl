@@ -107,6 +107,27 @@ public class NoiseReductionEffectTests
     }
 
     [Test]
+    public void GraphUpdate_ForOwnControlsKeepsTheStreamAndTheNoiseFloor()
+    {
+        var effect = new NoiseReductionEffect();
+        var source = new SignalSource(s_signal);
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, source);
+        using (node.Process(Context(0, SampleRate))) { }
+        long readEnd = source.LastReadEnd;
+        int requests = source.Starts.Count;
+
+        effect.Reduction.CurrentValue = 6;
+        context.BeginUpdate(context.Nodes.ToArray());
+        AudioNode reused = effect.CreateNode(context, source);
+        context.EndUpdate();
+        using (reused.Process(Context(SampleRate, SampleRate / 2))) { }
+
+        // The upstream audio did not change, so nothing is reread from before what was already read.
+        Assert.That(source.Starts.Skip(requests), Is.All.GreaterThanOrEqualTo(readEnd));
+    }
+
+    [Test]
     public void Properties_StartAtTheirDefaults()
     {
         var effect = new NoiseReductionEffect();
@@ -603,6 +624,8 @@ public class NoiseReductionEffectTests
     {
         public long LastReadEnd { get; private set; }
 
+        public List<long> Starts { get; } = [];
+
         public float Gain { get; set; } = 1;
 
         public override AudioBuffer Process(AudioProcessContext context)
@@ -610,6 +633,7 @@ public class NoiseReductionEffectTests
             long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
             int count = context.GetSampleCount();
             LastReadEnd = Math.Max(LastReadEnd, start + count);
+            Starts.Add(start);
             var buffer = new AudioBuffer(context.SampleRate, 2, count);
             for (int channel = 0; channel < 2; channel++)
             {

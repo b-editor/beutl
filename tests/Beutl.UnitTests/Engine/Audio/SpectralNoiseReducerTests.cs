@@ -271,6 +271,23 @@ public class SpectralNoiseReducerTests
     }
 
     [Test]
+    public void Seed_FramesAreNotCountedAgain()
+    {
+        float[] noise = Noise(SampleRate * 3, 0.05, 15);
+        var reducer = new SpectralNoiseReducer(SampleRate);
+        reducer.Reset(0, 0);
+        reducer.Write(Interleave(noise, 0));
+        reducer.Seed(SampleRate);
+        float[] seeded = reducer.NoiseEstimate.ToArray();
+
+        // Reading up to a frame before the seed's end processes only frames the seed already saw.
+        int read = SampleRate - reducer.FrameSize;
+        reducer.Read(new float[read], new float[read], _ => s_default);
+
+        Assert.That(reducer.NoiseEstimate.ToArray(), Is.EqualTo(seeded));
+    }
+
+    [Test]
     public void Read_ThrowsWithoutEnoughInput()
     {
         var reducer = new SpectralNoiseReducer(SampleRate);
