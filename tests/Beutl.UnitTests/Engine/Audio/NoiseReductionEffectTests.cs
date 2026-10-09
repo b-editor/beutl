@@ -157,6 +157,21 @@ public class NoiseReductionEffectTests
     }
 
     [Test]
+    public void Restart_MapsAFractionalStartToTheUpstreamSample()
+    {
+        NoiseReductionNode node = CreateNode(new SignalSource(s_signal), reduction: 0);
+
+        // 313 ticks are 1.5 samples at 48 kHz; upstream nodes truncate this start to sample 1.
+        var context = new AudioProcessContext(
+            new TimeRange(TimeSpan.FromTicks(313), AudioProcessContext.GetDurationForSampleCount(4800, SampleRate)),
+            SampleRate, new AnimationSampler(), null);
+        using AudioBuffer output = node.Process(context);
+        using AudioBuffer expected = new SignalSource(s_signal).Process(context);
+
+        Assert.That(output.GetChannelData(0).ToArray(), Is.EqualTo(expected.GetChannelData(0).ToArray()));
+    }
+
+    [Test]
     public void Process_ContinuousChunksMatchASingleRender()
     {
         NoiseReductionNode whole = CreateNode(new SignalSource(s_signal));

@@ -49,6 +49,10 @@ internal sealed class SpectralNoiseReducer
     private readonly float[] _smoothedPower;
     private readonly float[] _subWindowMin;
     private readonly float[] _subWindowMins;
+
+    // The frames each stored minimum covers. A changed adaptation time alters only the sub-windows
+    // collected after it, so the bias must follow the frames actually stored.
+    private readonly int[] _subWindowLengths;
     private readonly float[] _noise;
     private readonly float[] _cleanPower;
     private readonly float[] _gain;
@@ -102,6 +106,7 @@ internal sealed class SpectralNoiseReducer
         _smoothedPower = new float[_bins];
         _subWindowMin = new float[_bins];
         _subWindowMins = new float[_bins * SubWindowCount];
+        _subWindowLengths = new int[SubWindowCount];
         _noise = new float[_bins];
         _cleanPower = new float[_bins];
         _gain = new float[_bins];
@@ -167,6 +172,7 @@ internal sealed class SpectralNoiseReducer
         _ringCount = 0;
         _ringIndex = 0;
         Array.Fill(_subWindowMin, float.PositiveInfinity);
+        Array.Clear(_subWindowLengths);
         Array.Clear(_noise);
     }
 
@@ -223,7 +229,7 @@ internal sealed class SpectralNoiseReducer
     /// A stream that begins in the middle of speech would otherwise treat the first syllable as noise
     /// until a pause arrives. Does nothing when too little input is available.
     /// </summary>
-    public void Seed(long end, float adaptationSeconds)
+    public void Seed(long end)
     {
         long limit = Math.Min(Math.Min(end, _inputEnd), _paddingStart);
         Span<float> minimum = _subWindowMin;
@@ -255,27 +261,23 @@ internal sealed class SpectralNoiseReducer
             return;
         }
 
-        // Store the seed as if it were the minimum of a full window, so the window's own bias
-        // correction turns it back into this window's noise floor.
-        int windowFrames = SubWindowCount * GetSubWindowLength(adaptationSeconds);
+        // The seed becomes one stored minimum over the frames it saw and ages out of the window like
+        // any other sub-window.
+        minimum.CopyTo(_subWindowMins);
+        _subWindowLengths[0] = counted;
         float seedBias = GetMinimumBias(counted);
-        float storedScale = seedBias / GetMinimumBias(windowFrames);
         for (int k = 0; k < _bins; k++)
         {
-            float stored = minimum[k] * storedScale;
-            for (int u = 0; u < SubWindowCount; u++)
-                _subWindowMins[u * _bins + k] = stored;
-
             // The smoothed power restarts at the noise floor rather than at a single periodogram.
             _smoothedPower[k] = minimum[k] * seedBias;
         }
 
         minimum.Fill(float.PositiveInfinity);
-        _ringCount = SubWindowCount;
-        _ringIndex = 0;
+        _ringCount = 1;
+        _ringIndex = 1;
         _subWindowFrames = 0;
         _seeded = true;
-        UpdateNoise(GetSubWindowLength(adaptationSeconds));
+        UpdateNoise();
     }
 
     /// <summary>
@@ -404,22 +406,25 @@ internal sealed class SpectralNoiseReducer
         for (int k = 0; k < _bins; k++)
             _subWindowMin[k] = MathF.Min(_subWindowMin[k], _smoothedPower[k]);
 
-        int subWindowLength = GetSubWindowLength(adaptationSeconds);
-        if (++_subWindowFrames >= subWindowLength)
+        if (++_subWindowFrames >= GetSubWindowLength(adaptationSeconds))
         {
             _subWindowMin.CopyTo(_subWindowMins, _ringIndex * _bins);
+            _subWindowLengths[_ringIndex] = _subWindowFrames;
             _ringIndex = (_ringIndex + 1) % SubWindowCount;
             _ringCount = Math.Min(_ringCount + 1, SubWindowCount);
             Array.Fill(_subWindowMin, float.PositiveInfinity);
             _subWindowFrames = 0;
         }
 
-        UpdateNoise(subWindowLength);
+        UpdateNoise();
     }
 
-    private void UpdateNoise(int subWindowLength)
+    private void UpdateNoise()
     {
-        int frames = _ringCount * subWindowLength + _subWindowFrames;
+        int frames = _subWindowFrames;
+        for (int u = 0; u < _ringCount; u++)
+            frames += _subWindowLengths[u];
+
         if (frames == 0)
         {
             Array.Clear(_noise);

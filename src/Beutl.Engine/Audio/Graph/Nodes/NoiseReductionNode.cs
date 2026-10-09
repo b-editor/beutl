@@ -142,7 +142,10 @@ public sealed class NoiseReductionNode : AudioNode
     {
         SpectralNoiseReducer reducer = _reducer!;
         double start = context.TimeRange.Start.TotalSeconds;
-        long outputStart = (long)Math.Round(start * _sampleRate);
+
+        // Truncate like SourceNode and ResampleNode, so a start between samples maps to the sample
+        // the upstream delivers there.
+        long outputStart = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
         long seed = (long)(SeedSeconds * _sampleRate);
 
         // Never warm up on audio before the timeline origin; a clip's own start is its first sample.
@@ -157,7 +160,7 @@ public sealed class NoiseReductionNode : AudioNode
 
         long seedEnd = origin + seed;
         FillInput(seedEnd, context);
-        reducer.Seed(seedEnd, GetSettings(outputStart).AdaptationSeconds);
+        reducer.Seed(seedEnd);
     }
 
     // Live input up to the terminal, then the upstream's held tail, then silence.

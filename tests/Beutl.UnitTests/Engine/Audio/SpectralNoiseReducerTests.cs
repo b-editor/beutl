@@ -178,6 +178,33 @@ public class SpectralNoiseReducerTests
         Assert.That(positions.Zip(positions.Skip(1), (a, b) => b - a), Is.All.EqualTo(reducer.HopSize));
     }
 
+    [TestCase(0.5f, 10f)]
+    [TestCase(10f, 0.5f)]
+    public void ChangingTheAdaptationTime_KeepsTheNoiseFloorCalibrated(float before, float after)
+    {
+        // Twelve seconds fill even the ten-second window before the change.
+        float[] noise = Noise(SampleRate * 13, 0.05, 12);
+        var reducer = new SpectralNoiseReducer(SampleRate);
+        long change = SampleRate * 12 / reducer.HopSize * reducer.HopSize;
+        Func<long, NoiseReductionSettings> settingsAt = center => s_default with
+        {
+            AdaptationSeconds = center - reducer.FrameSize / 2 < change ? before : after
+        };
+        reducer.Reset(0, 0);
+        reducer.Write(noise.SelectMany(sample => new[] { sample, sample }).ToArray());
+        reducer.WritePadding(reducer.FrameSize * 2);
+        reducer.Seed(SampleRate);
+
+        // Reading up to the change processes every frame before it; one more hop processes the first
+        // frame with the new adaptation time and adds a single frame of evidence.
+        reducer.Read(new float[change], new float[change], settingsAt);
+        double beforeChange = MeanNoise(reducer);
+        reducer.Read(new float[reducer.HopSize], new float[reducer.HopSize], settingsAt);
+        double afterChange = MeanNoise(reducer);
+
+        Assert.That(Decibels(afterChange / beforeChange), Is.EqualTo(0).Within(0.25));
+    }
+
     [Test]
     public void Read_ThrowsWithoutEnoughInput()
     {
@@ -255,7 +282,7 @@ public class SpectralNoiseReducerTests
         reducer.Write(interleaved);
         reducer.WritePadding(reducer.FrameSize * 2);
         if (seed)
-            reducer.Seed(SampleRate, settings.AdaptationSeconds);
+            reducer.Seed(SampleRate);
 
         var outLeft = new float[left.Length];
         var outRight = new float[left.Length];
@@ -302,6 +329,15 @@ public class SpectralNoiseReducerTests
         }
 
         return data;
+    }
+
+    private static double MeanNoise(SpectralNoiseReducer reducer)
+    {
+        ReadOnlySpan<float> noise = reducer.NoiseEstimate;
+        double sum = 0;
+        for (int k = 8; k < noise.Length - 8; k++)
+            sum += noise[k];
+        return sum / (noise.Length - 16);
     }
 
     internal static float[] Add(float[] first, float[] second)
