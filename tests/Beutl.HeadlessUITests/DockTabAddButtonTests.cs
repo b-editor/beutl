@@ -805,7 +805,7 @@ public class DockTabAddButtonTests
             Assert.Multiple(() =>
             {
                 Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Contain(installed));
-                Assert.That(newTab.HasCachedEntries(installed), Is.True);
+                Assert.That(newTab.References(installed), Is.True);
             });
 
             _ = TestShell.Extensions.RemoveExtensions(packageId);
@@ -813,7 +813,58 @@ public class DockTabAddButtonTests
             Assert.Multiple(() =>
             {
                 Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Not.Contain(installed));
-                Assert.That(newTab.HasCachedEntries(installed), Is.False, "A removed tool must not stay cached.");
+                Assert.That(newTab.References(installed), Is.False, "A removed tool must not stay cached.");
+            });
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(packageId);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_hidden_empty_tab_does_not_hold_on_to_a_removed_tool()
+    {
+        const int packageId = -42_756;
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-hidden-release");
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+        var installed = new InstalledToolTabExtension();
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            BeutlDockFactory factory = editor.DockHost.Factory;
+            IToolDock left = factory.GetAnchoredDock(DockAnchor.Left)!;
+            IDockable neighbour = left.VisibleDockables!.OfType<BeutlToolDockable>().First();
+            NewToolTabDockable newTab = factory.OpenNewToolTab(left);
+            TestShell.Extensions.AddExtensions(packageId, [installed]);
+            HeadlessTestHelpers.Settle();
+            Assert.That(newTab.References(installed), Is.True);
+
+            // Another tab in the dock takes over, so no page shows the empty tab any more.
+            factory.SetActiveDockable(neighbour);
+            HeadlessTestHelpers.Settle();
+            Assert.That(
+                view.GetVisualDescendants().OfType<NewToolTabView>().Any(page => ReferenceEquals(page.DataContext, newTab)),
+                Is.False);
+
+            _ = TestShell.Extensions.RemoveExtensions(packageId);
+            HeadlessTestHelpers.Settle();
+            Assert.That(newTab.References(installed), Is.False, "A hidden tab hears no extension changes.");
+
+            factory.SetActiveDockable(newTab);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(newTab.AvailableItems, Is.Not.Empty, "Showing the tab again lists the tools again.");
+                Assert.That(newTab.References(installed), Is.False);
             });
         }
         finally

@@ -149,9 +149,23 @@ public sealed class NewToolTabDockable : Tool
         return TypeFormat.ToString(extension.GetType());
     }
 
-    internal bool HasCachedEntries(ToolTabExtension extension)
+    /// <summary>
+    /// Lets go of the listed tools while no page shows this tab, so a hidden tab does not keep a
+    /// removed package's tools alive. The next <see cref="Refresh"/> lists them again.
+    /// </summary>
+    internal void ReleaseItems()
     {
-        return _icons.ContainsKey(extension) || _neutralHeaders.ContainsKey(extension);
+        _items = [];
+        _icons.Clear();
+        _neutralHeaders.Clear();
+        ApplyFilter();
+    }
+
+    internal bool References(ToolTabExtension extension)
+    {
+        return _items.Any(item => item.Extension == extension)
+               || _icons.ContainsKey(extension)
+               || _neutralHeaders.ContainsKey(extension);
     }
 
     private static void PruneCache<T>(Dictionary<ToolTabExtension, T> cache, ToolTabExtension[] registered)

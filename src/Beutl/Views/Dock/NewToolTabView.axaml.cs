@@ -14,6 +14,8 @@ namespace Beutl.Views.Dock;
 public sealed partial class NewToolTabView : UserControl
 {
     private BeutlDockFactory? _factory;
+    // The tab this page last listed tools for, released once the page stops showing it.
+    private NewToolTabDockable? _shownTab;
     private bool _refreshQueued;
 
     public NewToolTabView()
@@ -50,6 +52,7 @@ public sealed partial class NewToolTabView : UserControl
         if (this.IsAttachedToVisualTree())
         {
             Subscribe();
+            Show(NewTab);
             NewTab?.Refresh();
             // A recycled page gets the next empty tab without loading again.
             TakeRequestedFocus();
@@ -62,6 +65,7 @@ public sealed partial class NewToolTabView : UserControl
         Subscribe();
         // A pin made on another page shows here too.
         GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs.CollectionChanged += OnDockablesChanged;
+        Show(NewTab);
         NewTab?.Refresh();
     }
 
@@ -70,6 +74,16 @@ public sealed partial class NewToolTabView : UserControl
         base.OnDetachedFromVisualTree(e);
         Unsubscribe();
         GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs.CollectionChanged -= OnDockablesChanged;
+        Show(null);
+    }
+
+    // A tab no page shows hears no extension changes, so it must not hold on to the tools it listed.
+    private void Show(NewToolTabDockable? newTab)
+    {
+        if (ReferenceEquals(_shownTab, newTab)) return;
+
+        _shownTab?.ReleaseItems();
+        _shownTab = newTab;
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
