@@ -74,6 +74,7 @@ internal sealed class SpectralNoiseReducer
     private int _blockCount;
 
     private int _trackedFrames;
+    private long _trackedUntil;
     private bool _seeded;
     private bool _hasCleanPower;
     private int _subWindowFrames;
@@ -143,9 +144,11 @@ internal sealed class SpectralNoiseReducer
     /// <summary>
     /// Starts a new stream whose input begins at <paramref name="origin"/>, a multiple of the hop size,
     /// and whose output begins at <paramref name="outputStart"/>. Input before the origin is silence,
-    /// and outputs between the origin and the output start are computed and discarded.
+    /// and outputs between the origin and the output start are computed and discarded. With
+    /// <paramref name="keepNoiseFloor"/>, the learned noise floor and gain history survive, and frames
+    /// replayed from the same timeline are not counted again.
     /// </summary>
-    public void Reset(long origin, long outputStart)
+    public void Reset(long origin, long outputStart, bool keepNoiseFloor = false)
     {
         if (FloorMod(origin, _hopSize) != 0)
             throw new ArgumentException("The origin must lie on the hop grid.", nameof(origin));
@@ -164,8 +167,11 @@ internal sealed class SpectralNoiseReducer
         Array.Clear(_overlapRight);
         _blockOffset = 0;
         _blockCount = 0;
+        if (keepNoiseFloor)
+            return;
 
         _trackedFrames = 0;
+        _trackedUntil = long.MinValue;
         _seeded = false;
         _hasCleanPower = false;
         _subWindowFrames = 0;
@@ -331,9 +337,12 @@ internal sealed class SpectralNoiseReducer
         double fraction = AnalyzeFrame(start);
         if (fraction >= MinFrameEnergyFraction)
         {
-            // Only frames made entirely of real input describe the noise floor.
-            if (fraction >= 1)
+            // Only frames made entirely of real input describe the noise floor, each one once.
+            if (fraction >= 1 && start > _trackedUntil)
+            {
                 TrackNoise(settings.AdaptationSeconds);
+                _trackedUntil = start;
+            }
 
             if (ComputeGains(settings))
                 ApplyCorrection();

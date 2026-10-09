@@ -206,6 +206,38 @@ public class SpectralNoiseReducerTests
     }
 
     [Test]
+    public void ResetKeepingTheNoiseFloor_ResumesWithoutRelearning()
+    {
+        float[] noise = Noise(SampleRate * 4, 0.05, 13);
+        var continuous = new SpectralNoiseReducer(SampleRate);
+        var (expected, _) = Run(continuous, noise, noise, s_default, 4800);
+
+        int resume = SampleRate * 2;
+        var resumed = new SpectralNoiseReducer(SampleRate);
+        resumed.Reset(0, 0);
+        resumed.Write(Interleave(noise, 0));
+        resumed.WritePadding(resumed.FrameSize * 2);
+        resumed.Seed(SampleRate);
+        resumed.Read(new float[resume], new float[resume], _ => s_default);
+        float[] learned = resumed.NoiseEstimate.ToArray();
+
+        // Replay half a second of the same timeline, as a node does when it refetches its input.
+        int origin = (resume - SampleRate / 2) / resumed.HopSize * resumed.HopSize;
+        resumed.Reset(origin, resume, keepNoiseFloor: true);
+        Assert.That(resumed.NoiseEstimate.ToArray(), Is.EqualTo(learned));
+
+        resumed.Write(Interleave(noise, origin));
+        resumed.WritePadding(resumed.FrameSize * 2);
+        var output = new float[noise.Length - resume];
+        resumed.Read(output, new float[output.Length], _ => s_default);
+
+        // Replayed frames are not counted twice, so the floor evolves as in an uninterrupted stream.
+        Assert.That(resumed.NoiseEstimate.ToArray(), Is.EqualTo(continuous.NoiseEstimate.ToArray()));
+        Assert.That(Decibels(Power(output, 0, output.Length) / Power(expected, resume, noise.Length)),
+            Is.EqualTo(0).Within(0.2));
+    }
+
+    [Test]
     public void Read_ThrowsWithoutEnoughInput()
     {
         var reducer = new SpectralNoiseReducer(SampleRate);
@@ -330,6 +362,9 @@ public class SpectralNoiseReducerTests
 
         return data;
     }
+
+    private static float[] Interleave(float[] mono, int start)
+        => mono.Skip(start).SelectMany(sample => new[] { sample, sample }).ToArray();
 
     private static double MeanNoise(SpectralNoiseReducer reducer)
     {

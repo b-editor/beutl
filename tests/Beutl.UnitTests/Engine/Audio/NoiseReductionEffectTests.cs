@@ -63,6 +63,29 @@ public class NoiseReductionEffectTests
     }
 
     [Test]
+    public void GraphUpdate_RefetchesAudioReadAheadOfTheOutput()
+    {
+        var effect = new NoiseReductionEffect();
+        effect.Reduction.CurrentValue = 0;
+        var source = new SignalSource(s_signal);
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, source);
+        using (node.Process(Context(0, SampleRate / 4))) { }
+
+        // The reused upstream node now produces quieter audio, as after a gain edit.
+        source.Gain = 0.5f;
+        context.BeginUpdate(context.Nodes.ToArray());
+        AudioNode reused = effect.CreateNode(context, source);
+        context.EndUpdate();
+        using AudioBuffer output = reused.Process(Context(SampleRate / 4, SampleRate / 4));
+
+        Assert.That(reused, Is.SameAs(node));
+        Assert.That(output.GetChannelData(0).ToArray(),
+            Is.EqualTo(s_signal.AsSpan(SampleRate / 4, SampleRate / 4).ToArray().Select(value => value * 0.5f)),
+            "Audio read ahead before the update must not play with the old upstream values.");
+    }
+
+    [Test]
     public void Properties_StartAtTheirDefaults()
     {
         var effect = new NoiseReductionEffect();
@@ -509,6 +532,8 @@ public class NoiseReductionEffectTests
     {
         public long LastReadEnd { get; private set; }
 
+        public float Gain { get; set; } = 1;
+
         public override AudioBuffer Process(AudioProcessContext context)
         {
             long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
@@ -521,7 +546,7 @@ public class NoiseReductionEffectTests
                 for (int i = 0; i < count; i++)
                 {
                     long index = start + i;
-                    data[i] = index >= 0 && index < samples.Length ? samples[index] : 0f;
+                    data[i] = index >= 0 && index < samples.Length ? Gain * samples[index] : 0f;
                 }
             }
 
