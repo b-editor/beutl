@@ -202,6 +202,45 @@ public class TimeStretchDrainTests
             "The limiter should prime its live lookahead instead of replaying the cached drain tail.");
     }
 
+    [TestCase(96000)]
+    [TestCase(1500)]
+    [TestCase(0)]
+    public void ClipShortening_DiscardsPostTrimLookahead(int oldClipFrames)
+    {
+        var effect = new TimeStretchEffect();
+        effect.Speed.CurrentValue = 50;
+        using var context = new AudioContext(SampleRate, 2);
+        var source = context.AddNode(new StepSource(600));
+        AudioNode stretched = effect.CreateNode(context, source);
+        AudioNode initial = stretched;
+        if (oldClipFrames > 0)
+        {
+            ClipNode clip = context.CreateClipNode(TimeSpan.Zero,
+                AudioProcessContext.GetDurationForSampleCount(oldClipFrames, SampleRate));
+            context.Connect(stretched, clip);
+            initial = clip;
+        }
+        using (initial.Process(Context(0, 128))) { }
+        Assert.That(source.LastReadEnd, Is.GreaterThan(600), "The initial lookahead must cover post-trim audio.");
+        int reads = source.ReadStarts.Count;
+
+        context.BeginUpdate(context.Nodes.ToArray());
+        context.AddNode(source);
+        AudioNode reused = effect.CreateNode(context, source);
+        ClipNode shortened = context.CreateClipNode(TimeSpan.Zero,
+            AudioProcessContext.GetDurationForSampleCount(1200, SampleRate));
+        context.Connect(reused, shortened);
+        context.EndUpdate();
+        using AudioBuffer output = shortened.Process(Context(128, 1072));
+
+        Assert.That(reused, Is.SameAs(stretched));
+        Assert.That(output.GetChannelData(0).ToArray(), Is.All.InRange(0.09999f, 0.10001f),
+            "Cached post-trim audio must not leak into the shortened clip.");
+        Assert.That(source.ReadStarts.Count, Is.GreaterThan(reads));
+        Assert.That(source.ReadStarts[reads], Is.EqualTo(64));
+        Assert.That(source.LastReadEnd, Is.LessThanOrEqualTo(600));
+    }
+
     private static AudioNode CreateLimiter(AudioContext context, AudioNode source, float lookahead = 1)
     {
         var effect = new LimiterEffect();

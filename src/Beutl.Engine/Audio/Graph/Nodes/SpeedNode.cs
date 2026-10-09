@@ -301,10 +301,13 @@ public sealed partial class SpeedNode : AudioNode
         // Per-sample speed buffer, sized to expectedOutputSampleCount and allocated every render —
         // rent from ArrayPool to avoid hot-path GC pressure. ProcessBufferWithVariableSpeed consumes
         // the span synchronously without retaining it, so the array is safe to return afterwards.
-        // Compute the pitch-preserving sample clock in integer ticks. TotalSeconds * sampleRate
-        // can fall just below an exact sample boundary and repeat the previous animation sample.
+        // Sample boundaries can fall between TimeSpan ticks. Round to the nearest logical sample
+        // so a timestamp rounded down to a tick does not repeat the previous animation sample.
+        Int128 samplePosition = (Int128)context.TimeRange.Start.Ticks * context.SampleRate;
         long startInSamples = PreservePitch
-            ? checked((long)((Int128)context.TimeRange.Start.Ticks * context.SampleRate / TimeSpan.TicksPerSecond))
+            ? checked((long)((samplePosition + (samplePosition < 0
+                ? -TimeSpan.TicksPerSecond / 2
+                : TimeSpan.TicksPerSecond / 2)) / TimeSpan.TicksPerSecond))
             : AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
         double[] speedsArray = ArrayPool<double>.Shared.Rent(expectedOutputSampleCount);
         try

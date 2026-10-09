@@ -248,6 +248,64 @@ public class TimeStretchEffectTests
             "Continuous playback must use the same integrated mapping as seeking.");
     }
 
+    [TestCase(48000, 1, false)]
+    [TestCase(48000, 37, false)]
+    [TestCase(48000, 128, false)]
+    [TestCase(44100, 1, false)]
+    [TestCase(44100, 37, false)]
+    [TestCase(48000, 1, true)]
+    [TestCase(44100, 37, true)]
+    public void Process_AnimatedSpeedWithRoundedDownTimestampsMatchesWholeRender(
+        int sampleRate, int chunkFrames, bool globalClock)
+    {
+        const int frames = 1024;
+        var effect = new TimeStretchEffect
+        {
+            TimeRange = new TimeRange(globalClock ? TimeSpan.FromSeconds(3) : TimeSpan.Zero, TimeSpan.FromSeconds(1))
+        };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
+        TimeSpan offset = globalClock ? effect.TimeRange.Start : TimeSpan.Zero;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = 50f, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = offset + TimeSpan.FromSeconds(frames / (double)sampleRate),
+            Value = 200f,
+            Easing = new LinearEasing()
+        });
+        effect.Speed.Animation = animation;
+        using var wholeNode = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        wholeNode.AddInput(new SignalNode(sampleRate, (_, index) => Sine(index, sampleRate, 440)));
+        using var chunkedNode = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        chunkedNode.AddInput(new SignalNode(sampleRate, (_, index) => Sine(index, sampleRate, 440)));
+        using AudioBuffer whole = wholeNode.Process(Context(0, frames, sampleRate));
+        var output = new float[frames];
+
+        for (int start = 0; start < frames; start += chunkFrames)
+        {
+            int count = Math.Min(chunkFrames, frames - start);
+            // Real playback timestamps can round down to the nearest representable tick.
+            var context = new AudioProcessContext(new TimeRange(
+                    TimeSpan.FromTicks((long)((Int128)start * TimeSpan.TicksPerSecond / sampleRate)),
+                    AudioProcessContext.GetDurationForSampleCount(count, sampleRate)),
+                sampleRate, new AnimationSampler(), null);
+            using AudioBuffer part = chunkedNode.Process(context);
+            part.GetChannelData(0).CopyTo(output.AsSpan(start, count));
+        }
+
+        double expected = 0;
+        for (int i = 0; i < frames; i++)
+            expected += animation.GetAnimatedValue(effect.TimeRange.Start + TimeSpan.FromSeconds(i / (double)sampleRate)) / 100d;
+        object processor = typeof(SpeedNode)
+            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(chunkedNode)!;
+        object stretcher = processor.GetType()
+            .GetField("_timeStretch", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
+        double position = (double)stretcher.GetType()
+            .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
+        Assert.That(position, Is.EqualTo(expected).Within(1e-8),
+            "Tick quantization must not repeat the previous output sample's speed.");
+        Assert.That(output, Is.EqualTo(whole.GetChannelData(0).ToArray()));
+    }
+
     [Test]
     public void Process_FortyMillisecondSourceAtFourTimesSpeedEndsAtTenMilliseconds()
     {

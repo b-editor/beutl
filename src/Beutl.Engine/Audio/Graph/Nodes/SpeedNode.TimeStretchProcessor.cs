@@ -60,13 +60,15 @@ public sealed partial class SpeedNode
             {
                 inputEnd = null;
             }
-            if (!draining && (_timeStretchDraining
+            bool boundaryShrank = inputEnd is { } newEnd
+                && (_timeStretchInputEnd is { } oldEnd ? newEnd < oldEnd : _srcReadPos > newEnd);
+            if (!draining && (_timeStretchDraining || boundaryShrank
                 || (_timeStretchFlushed && _timeStretchInputEnd is { } previousEnd
                     && (inputEnd is null || inputEnd > previousEnd))))
             {
-                // Differential updates can extend or remove a downstream clip without replacing
-                // this processor. A finished stream cannot accept more input. Re-anchor at the
-                // playback position, since lookahead or draining may have moved the read cursor ahead.
+                // Differential updates can change a downstream clip without replacing this processor.
+                // Re-anchor at the playback position to discard post-trim lookahead or reopen a
+                // finished stream, since lookahead or draining may have moved the read cursor ahead.
                 BeginStream(context.TimeRange.Start.TotalSeconds,
                     _speedNode.MapOutputTimeToSource(context.TimeRange.Start).TotalSeconds,
                     forceReanchor: true);
