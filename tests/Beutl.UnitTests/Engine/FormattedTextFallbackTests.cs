@@ -313,15 +313,18 @@ public class FormattedTextFallbackTests
     public void MixedEmoji_AlignsWithTheTextCapHeightAtEveryDensity(string family, float scale)
     {
         using FormattedText text = CreateText("H😀H", new FontFamily(family));
-        Rect letterBounds = text.ToGeometries()[0].Bounds;
-        FormattedText emoji = text.GetNonOutlineGlyph(1)!;
-        Rect emojiBounds = emoji.ActualBounds;
-        float letterCenter = (letterBounds.Top + letterBounds.Bottom) / 2;
-        float emojiCenter = (emojiBounds.Top + emojiBounds.Bottom) / 2;
-        Assert.That(emojiCenter, Is.EqualTo(letterCenter).Within(text.Size * 0.05f),
-            "The bitmap origin must not be added again to its contour bounding box.");
         using SKBitmap grouped = Draw(text, scale);
         using SKBitmap split = Draw(text, scale, split: true);
+        List<SKRectI> glyphBounds = RenderedGlyphBounds(grouped);
+        Assert.That(glyphBounds, Has.Count.EqualTo(3));
+        float emojiCenter = (glyphBounds[1].Top + glyphBounds[1].Bottom) / 2f;
+        foreach (int index in new[] { 0, 2 })
+        {
+            SKRectI letterBounds = glyphBounds[index];
+            float letterCenter = (letterBounds.Top + letterBounds.Bottom) / 2f;
+            Assert.That(emojiCenter, Is.EqualTo(letterCenter).Within(text.Size * scale * 0.05f + 1),
+                $"The rendered emoji must align with both letters at density {scale}.");
+        }
         Assert.That(ColorPixels(grouped), Is.EqualTo(ColorPixels(split)));
     }
 
@@ -517,6 +520,39 @@ public class FormattedTextFallbackTests
         }
         using SKImage image = surface.Snapshot();
         return SKBitmap.FromImage(image);
+    }
+
+    private static List<SKRectI> RenderedGlyphBounds(SKBitmap bitmap)
+    {
+        // The H, emoji and H are separated by blank columns, so their ink bounds
+        // can be measured without relying on unscaled layout or font metrics.
+        var bounds = new List<SKRectI>();
+        for (int x = 0; x < bitmap.Width; x++)
+        {
+            int top = bitmap.Height;
+            int bottom = -1;
+            for (int y = 0; y < bitmap.Height; y++)
+            {
+                if (bitmap.GetPixel(x, y) == SKColors.White)
+                    continue;
+                top = Math.Min(top, y);
+                bottom = y;
+            }
+
+            if (bottom < 0)
+                continue;
+            if (bounds.Count > 0 && bounds[^1].Right == x)
+            {
+                SKRectI previous = bounds[^1];
+                bounds[^1] = new SKRectI(previous.Left, Math.Min(previous.Top, top),
+                    x + 1, Math.Max(previous.Bottom, bottom + 1));
+            }
+            else
+            {
+                bounds.Add(new SKRectI(x, top, x + 1, bottom + 1));
+            }
+        }
+        return bounds;
     }
 
     private static Dictionary<int, SKColor> ColorPixels(SKBitmap bitmap)
