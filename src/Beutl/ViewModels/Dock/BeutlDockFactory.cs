@@ -23,7 +23,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     public override void OnFocusedDockableChanged(IDockable? dockable)
     {
-        if (dockable is BeutlToolDockable or PlayerToolDockable)
+        if (dockable is BeutlToolDockable or PlayerToolDockable or NewToolTabDockable)
             _recentTools.GetValue(dockable, _ => new()).Order = ++_activationOrder;
         base.OnFocusedDockableChanged(dockable);
     }
@@ -264,6 +264,8 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
+    internal Beutl.Api.Services.ExtensionProvider ExtensionProvider => editViewModel.ExtensionProvider;
+
     internal IEnumerable<ToolTabExtension> EnumerateToolTabExtensions()
     {
         return editViewModel.ExtensionProvider.AllExtensions
@@ -280,6 +282,39 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     internal bool OpenToolTab(ToolTabExtension extension, IToolDock target)
     {
         return editViewModel.DockHost.OpenToolTabFromExtension(extension, target);
+    }
+
+    /// <summary>Opens an empty tab in <paramref name="target"/> for the user to pick a tool from.</summary>
+    internal NewToolTabDockable OpenNewToolTab(IToolDock target)
+    {
+        var dockable = new NewToolTabDockable { FocusOnShow = true };
+        AddDockable(target, dockable);
+        SetActiveDockable(dockable);
+        SetFocusedDockable(target, dockable);
+        _anchorCacheDirty = true;
+        return dockable;
+    }
+
+    internal bool ReplaceNewToolTab(NewToolTabDockable newTab, ToolTabExtension extension)
+    {
+        return editViewModel.DockHost.ReplaceNewToolTab(newTab, extension);
+    }
+
+    // Takes the empty tab's place: same dock, same position in the strip.
+    internal BeutlToolDockable? ReplaceNewToolTab(NewToolTabDockable newTab, IToolContext context)
+    {
+        if (newTab.Owner is not IDock { VisibleDockables: { } siblings } zone) return null;
+        int index = siblings.IndexOf(newTab);
+        if (index < 0) return null;
+
+        var dockable = new BeutlToolDockable(context, editViewModel);
+        // Insert before removing, so the dock never empties and collapses in between.
+        InsertDockable(zone, dockable, index);
+        SetActiveDockable(dockable);
+        SetFocusedDockable(zone, dockable);
+        RemoveDockable(newTab, collapse: false);
+        _anchorCacheDirty = true;
+        return dockable;
     }
 
     internal void SetRootDock(IRootDock rootDock)

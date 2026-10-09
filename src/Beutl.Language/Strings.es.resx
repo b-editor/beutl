@@ -3363,6 +3363,24 @@ cuando el registro del historial está activado.</value>
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>Cambiar a la pestaña de herramienta anterior</value>
   </data>
+  <data name="NewToolTab_Search" xml:space="preserve">
+    <value>Buscar herramientas</value>
+  </data>
+  <data name="NewToolTab_NoResults" xml:space="preserve">
+    <value>No hay herramientas coincidentes</value>
+  </data>
+  <data name="NewToolTab_AlreadyOpen" xml:space="preserve">
+    <value>Ya está abierta</value>
+  </data>
+  <data name="NewToolTab_Pinned" xml:space="preserve">
+    <value>Fijadas</value>
+  </data>
+  <data name="NewToolTab_Pin" xml:space="preserve">
+    <value>Fijar</value>
+  </data>
+  <data name="NewToolTab_Unpin" xml:space="preserve">
+    <value>Desfijar</value>
+  </data>
   <data name="GoToMarker" xml:space="preserve">
     <value>Ir al marcador…</value>
   </data>

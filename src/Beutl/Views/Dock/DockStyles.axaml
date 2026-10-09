@@ -132,11 +132,11 @@
                                                         Height="28"
                                                         Margin="4,0"
                                                         Padding="0"
-                                                        AutomationProperties.Name="{x:Static lang:Strings.Add}"
+                                                        AutomationProperties.Name="{x:Static lang:Strings.NewTab}"
                                                         CornerRadius="{DynamicResource DockDocumentTabCreateButtonCornerRadius}"
                                                         IsTabStop="True"
                                                         Opacity="0"
-                                                        ToolTip.Tip="{x:Static lang:Strings.Add}">
+                                                        ToolTip.Tip="{x:Static lang:Strings.NewTab}">
                                     <icons:FluentIcon Icon="Add" />
                                 </local:ToolTabAddButton>
                             </Border>

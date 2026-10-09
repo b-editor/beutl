@@ -51,6 +51,7 @@ internal sealed class DockLayoutJsonReader
             "tool_dock" => RestoreToolDock(obj),
             "tool" => RestoreBeutlTool(obj),
             "player" => RestorePlayerDockable(),
+            "new_tab" => new NewToolTabDockable(),
             _ => null,
         };
     }
@@ -86,7 +87,7 @@ internal sealed class DockLayoutJsonReader
                 var layout = RestoreNode(layoutObj);
                 if (layout is null) continue;
 
-                if (!BeutlDockFactory.Traverse(layout).Any(i => i is BeutlToolDockable or PlayerToolDockable))
+                if (!BeutlDockFactory.Traverse(layout).Any(i => i is BeutlToolDockable or PlayerToolDockable or NewToolTabDockable))
                 {
                     continue;
                 }

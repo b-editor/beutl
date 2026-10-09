@@ -3358,6 +3358,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>前のツールタブに切り替え</value>
   </data>
+  <data name="NewToolTab_Search" xml:space="preserve">
+    <value>ツールを検索</value>
+  </data>
+  <data name="NewToolTab_NoResults" xml:space="preserve">
+    <value>一致するツールがありません</value>
+  </data>
+  <data name="NewToolTab_AlreadyOpen" xml:space="preserve">
+    <value>既に開いています</value>
+  </data>
+  <data name="NewToolTab_Pinned" xml:space="preserve">
+    <value>ピン留め</value>
+  </data>
+  <data name="NewToolTab_Pin" xml:space="preserve">
+    <value>ピン留めする</value>
+  </data>
+  <data name="NewToolTab_Unpin" xml:space="preserve">
+    <value>ピン留めを外す</value>
+  </data>
   <data name="GoToMarker" xml:space="preserve">
     <value>マーカーへ移動…</value>
   </data>

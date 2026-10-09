@@ -293,14 +293,16 @@ public sealed class TabSwitcherViewModel : IDisposable
 
     private static IEnumerable<IDockable> EnumerateTools(EditViewModel editor) =>
         BeutlDockFactory.Traverse(editor.DockHost.Layout.Value)
-            .Where(dockable => dockable is BeutlToolDockable or PlayerToolDockable)
+            .Where(dockable => dockable is BeutlToolDockable or PlayerToolDockable or NewToolTabDockable)
             .Distinct();
 
-    private static TabSwitcherItem CreateToolItem(IDockable tool) =>
-        new(tool.Title ?? "", tool is BeutlToolDockable tab ? tab.ToolContext.Extension.DisplayName : Strings.Preview,
-            Tool: tool, Icon: tool is BeutlToolDockable beutlTool
-                ? beutlTool.Icon
-                : new FluentIcons.Avalonia.Fluent.FluentIconSource { Icon = FluentIcons.Common.Icon.Play });
+    private static TabSwitcherItem CreateToolItem(IDockable tool) => tool switch
+    {
+        BeutlToolDockable tab => new(tool.Title ?? "", tab.ToolContext.Extension.DisplayName, Tool: tool, Icon: tab.Icon),
+        NewToolTabDockable newTab => new(tool.Title ?? "", Strings.NewTab, Tool: tool, Icon: newTab.Icon),
+        _ => new(tool.Title ?? "", Strings.Preview, Tool: tool,
+            Icon: new FluentIcons.Avalonia.Fluent.FluentIconSource { Icon = FluentIcons.Common.Icon.Play }),
+    };
 
     public void Close()
     {

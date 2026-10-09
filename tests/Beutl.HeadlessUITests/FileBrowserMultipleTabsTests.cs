@@ -10,9 +10,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Beutl.Views;
-using Beutl.Views.Dock;
 using Dock.Model.Controls;
-using FluentAvalonia.UI.Controls;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -205,19 +203,20 @@ public class FileBrowserMultipleTabsTests
     }
 
     [AvaloniaTest]
-    public async Task The_add_menu_keeps_the_file_browser_enabled_once_it_is_open()
+    public async Task The_new_tab_page_keeps_the_file_browser_enabled_once_it_is_open()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("filebrowser-add-menu");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+        Assert.That(FileBrowsers(editor), Is.Not.Empty);
 
-        var button = new ToolTabAddButton { DataContext = left };
-        FAMenuFlyout menu = button.CreateContextFlyout()!;
-        FAMenuFlyoutItem item = menu.Items
-            .Cast<FAMenuFlyoutItem>()
-            .Single(i => ReferenceEquals(i.DataContext, FileBrowserTabExtension.Instance));
+        NewToolTabDockable newTab = editor.DockHost.Factory.OpenNewToolTab(left);
+        newTab.Refresh();
+        NewToolTabItem? item = newTab.AvailableItems
+            .SingleOrDefault(i => ReferenceEquals(i.Extension, FileBrowserTabExtension.Instance));
 
-        Assert.That(item.IsEnabled, Is.True);
+        Assert.That(item, Is.Not.Null);
+        Assert.That(item!.IsEnabled, Is.True);
     }
 
     [AvaloniaTest]

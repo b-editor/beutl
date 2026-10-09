@@ -573,6 +573,36 @@ public sealed class TabSwitcherTests
     }
 
     [AvaloniaTest]
+    public async Task Empty_tab_is_listed_and_selecting_it_focuses_its_search_box()
+    {
+        await using var session = await Session.CreateAsync("new-tab-focus");
+        BeutlDockFactory factory = session.Editor.DockHost.Factory;
+        NewToolTabDockable newTab = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+        HeadlessTestHelpers.Render(2);
+        Views.Dock.NewToolTabView page = session.Window.GetVisualDescendants()
+            .OfType<Views.Dock.NewToolTabView>()
+            .Single(view => ReferenceEquals(view.DataContext, newTab));
+
+        session.Window.Activate();
+        session.Input.Focus();
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        int index = session.Switcher.Tools.ToList().FindIndex(item => ReferenceEquals(item.Tool, newTab));
+        Assert.That(index, Is.GreaterThanOrEqualTo(0));
+        TabSwitcherItem listed = session.Switcher.Tools[index];
+        Assert.Multiple(() =>
+        {
+            Assert.That(listed.Title, Is.EqualTo(Beutl.Language.Strings.NewTab));
+            Assert.That(listed.Icon, Is.SameAs(newTab.Icon));
+        });
+
+        session.Switcher.Select(TabSwitcherGroup.Tools, index);
+        session.Release(Key.LeftCtrl);
+        HeadlessTestHelpers.Render(2);
+
+        Assert.That(session.Window.FocusManager!.GetFocusedElement(), Is.SameAs(page.SearchBox));
+    }
+
+    [AvaloniaTest]
     [TestCase(1000, false)]
     [TestCase(1000, true)]
     [TestCase(420, false)]

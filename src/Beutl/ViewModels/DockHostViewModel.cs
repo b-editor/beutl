@@ -54,6 +54,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     public bool OpenToolTab(IToolContext item, IToolDock? target)
     {
+        return OpenToolTab(item, target, replacing: null);
+    }
+
+    private bool OpenToolTab(IToolContext item, IToolDock? target, NewToolTabDockable? replacing)
+    {
         _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
@@ -73,7 +78,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 return false;
             }
 
-            var dockable = Factory.AddTool(item, target);
+            var dockable = replacing is null
+                ? Factory.AddTool(item, target)
+                : Factory.ReplaceNewToolTab(replacing, item);
             if (dockable is null)
             {
                 _logger.LogWarning("No dock zone found for tool '{ToolTabName}'. ({SceneId})", item.Extension.Name, _sceneId);
@@ -141,13 +148,24 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     internal bool OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target)
     {
+        return OpenToolTabFromExtension(ext, target, replacing: null);
+    }
+
+    /// <summary>Opens <paramref name="ext"/> in place of an empty tab the add button opened.</summary>
+    internal bool ReplaceNewToolTab(NewToolTabDockable newTab, ToolTabExtension ext)
+    {
+        return OpenToolTabFromExtension(ext, target: null, replacing: newTab);
+    }
+
+    private bool OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target, NewToolTabDockable? replacing)
+    {
         if (!ext.TryCreateContext(_editViewModel, out IToolContext? tab)
             || tab is null)
         {
             return false;
         }
 
-        if (OpenToolTab(tab, target))
+        if (OpenToolTab(tab, target, replacing))
         {
             return true;
         }
@@ -219,7 +237,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 _sceneId);
         }
 
-        if (!Factory.EnumerateTools().Any())
+        if (!HasOpenTabs())
         {
             OpenDefaultTabs();
         }
@@ -309,12 +327,19 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         DisposeAll(previousTools, "replaced");
 
-        if (!Factory.EnumerateTools().Any())
+        if (!HasOpenTabs())
         {
             OpenDefaultTabs();
         }
 
         return true;
+    }
+
+    // An empty tab left open is part of the layout too, so restoring it must not add the default tools.
+    private bool HasOpenTabs()
+    {
+        return Factory.EnumerateTools().Any()
+               || BeutlDockFactory.Traverse(Layout.Value).OfType<NewToolTabDockable>().Any();
     }
 
     private void DisposeAll(IEnumerable<BeutlToolDockable> tools, string what)

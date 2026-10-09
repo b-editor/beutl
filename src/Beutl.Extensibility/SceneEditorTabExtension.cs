@@ -35,7 +35,7 @@ public abstract class ToolTabExtension : ViewExtension
     /// </remarks>
     public virtual bool ReuseContentAcrossActivation => false;
 
-    /// <summary>Gets the add-tab menu label, or <see langword="null"/> to hide the tool.</summary>
+    /// <summary>Gets the label in the tool pickers, or <see langword="null"/> to hide the tool from them.</summary>
     /// <remarks>Open tab titles come from <see cref="IToolContext.Header"/>.</remarks>
     public virtual string? Header => null;
 
@@ -47,7 +47,8 @@ public abstract class ToolTabExtension : ViewExtension
 
     /// <summary>Gets the icon shown at the left of the tool's dock tab, or <see langword="null"/> for none.</summary>
     /// <remarks>
-    /// Called once per opened tab, so the returned icon source belongs to that tab alone.
+    /// Called for each opened tab and wherever the host lists the tool (the tab switcher's create list
+    /// and the new-tab page), so keep it cheap and return a new icon source each time: the caller owns it.
     /// Uses FluentAvalonia 3's icon source contract: the Avalonia 12 host requires extensions to be
     /// rebuilt against the matching Beutl SDK, and overrides compiled with FluentAvalonia 2's
     /// IconSource return type are not binary compatible.

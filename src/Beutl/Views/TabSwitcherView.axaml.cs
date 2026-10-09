@@ -10,6 +10,7 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Beutl.Views.Dock;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 
@@ -230,6 +231,12 @@ public sealed partial class TabSwitcherView : UserControl
                 Visual? previewRoot = preview.Factory?.FindRoot(preview, _ => true)?.Window?.Host as Visual ?? main;
                 content = previewRoot?.GetVisualDescendants().OfType<PlayerView>()
                     .FirstOrDefault(view => ReferenceEquals(view.DataContext, preview.Player));
+            }
+            else if (item.Tool is NewToolTabDockable newTab)
+            {
+                Visual? newTabRoot = newTab.Factory?.FindRoot(newTab, _ => true)?.Window?.Host as Visual ?? main;
+                content = newTabRoot?.GetVisualDescendants().OfType<NewToolTabView>()
+                    .FirstOrDefault(view => ReferenceEquals(view.DataContext, newTab));
             }
             Control? focusTarget = content is PlayerView playerView
                 ? playerView.FindControl<Control>("framePanel")
