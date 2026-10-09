@@ -1881,6 +1881,7 @@ License: GPL-3+
  available from its matching release tag at https://github.com/b-editor/beutl/releases.
 
 Files: src/Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf
+ tests/Beutl.UnitTests/Assets/Font/BeutlTestSeparateEmoji.ttf
 Copyright: 2022 Google Inc.
 License: OFL-1.1
  This Font Software is licensed under the SIL Open Font License,

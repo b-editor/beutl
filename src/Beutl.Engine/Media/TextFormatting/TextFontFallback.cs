@@ -25,22 +25,30 @@ internal static class TextFontFallback
                 int length = StringInfo.GetNextTextElementLength(text[start..]);
                 ReadOnlySpan<char> cluster = text.Slice(start, length);
                 SKTypeface face = primary.Typeface;
-                if (emoji is not null && EmojiPresentation.IsEmoji(cluster)
-                    && GetFont(new Typeface(emoji)) is { } emojiFont && Covers(emojiFont, text, start, length))
+                SKFont? emojiFont = emoji is not null && EmojiPresentation.IsEmoji(cluster)
+                    ? GetFont(new Typeface(emoji)) : null;
+                bool emojiCovered = emojiFont is not null && Covers(emojiFont, text, start, length);
+                bool requireJoinedGlyph = emojiCovered && cluster.Contains('\u200D');
+                if (emojiCovered && (!requireJoinedGlyph || Covers(emojiFont!, text, start, length, true)))
                 {
-                    face = emojiFont.Typeface;
+                    face = emojiFont!.Typeface;
                 }
-                else if (!Covers(primary, text, start, length))
+                else if (!Covers(primary, text, start, length, requireJoinedGlyph))
                 {
+                    bool found = false;
                     foreach (FontFamily candidate in families)
                     {
                         if (GetFont(new Typeface(candidate, style, weight)) is { } fallbackFont
-                            && Covers(fallbackFont, text, start, length))
+                            && Covers(fallbackFont, text, start, length, requireJoinedGlyph))
                         {
                             face = fallbackFont.Typeface;
+                            found = true;
                             break;
                         }
                     }
+                    // If no font joins the sequence, display its component emoji instead of tofu.
+                    if (!found && emojiCovered)
+                        face = emojiFont!.Typeface;
                 }
 
                 // Keep adjacent text in the same font together, preserving kerning and ligatures.
@@ -64,7 +72,7 @@ internal static class TextFontFallback
 
         return runs;
 
-        bool Covers(SKFont font, ReadOnlySpan<char> content, int start, int length)
+        bool Covers(SKFont font, ReadOnlySpan<char> content, int start, int length, bool requireJoinedGlyph = false)
         {
             ReadOnlySpan<char> cluster = content.Slice(start, length);
             int scalarCount = 0;
@@ -97,7 +105,7 @@ internal static class TextFontFallback
                 previous = rune.Value;
                 scalarCount++;
             }
-            if (hasNominalGlyphs)
+            if (hasNominalGlyphs && !requireJoinedGlyph)
                 return true;
 
             // A surrogate pair is one scalar, while a combining sequence can normalize to
@@ -108,7 +116,7 @@ internal static class TextFontFallback
             using var buffer = new HarfBuzzSharp.Buffer();
             buffer.AddUtf16(content, start, length);
             buffer.GuessSegmentProperties();
-            return GetShaper(font.Typeface).HasGlyphs(buffer);
+            return GetShaper(font.Typeface).HasGlyphs(buffer, requireJoinedGlyph);
         }
 
         TextShaper GetShaper(SKTypeface face)

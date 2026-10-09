@@ -149,7 +149,8 @@ public class ReleaseLicensePackagingTests
             Assert.That(copyright, Does.Contain("/usr/share/common-licenses/GPL-3"));
             Assert.That(copyright, Does.Contain("/usr/lib/beutl/THIRD_PARTY_NOTICES.md"));
             Assert.That(copyright, Does.Contain(EncodeAsDebianFormattedText(thirdPartyNotices)));
-            const string emojiFiles = "Files: src/Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf";
+            const string emojiFiles = "Files: src/Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf"
+                                      + "\n tests/Beutl.UnitTests/Assets/Font/BeutlTestSeparateEmoji.ttf";
             string emojiLicense = File.ReadAllText(Path.Combine(repositoryRoot,
                 "src", "Beutl.Controls", "Assets", "Fonts", "NotoColorEmoji", "LICENSE.txt"));
             Assert.That(copyright, Does.Contain(

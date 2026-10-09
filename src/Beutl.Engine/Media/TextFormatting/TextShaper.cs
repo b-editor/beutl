@@ -79,9 +79,11 @@ internal sealed class TextShaper : IDisposable
     public bool HasVariationGlyph(int unicode, uint selector) =>
         _font.TryGetVariationGlyph(unicode, selector, out uint glyph) && glyph != 0;
 
-    public bool HasGlyphs(HarfBuzzSharp.Buffer buffer)
+    public bool HasGlyphs(HarfBuzzSharp.Buffer buffer, bool requireSingleGlyph = false)
     {
         _font.Shape(buffer);
+        if (requireSingleGlyph && buffer.Length != 1)
+            return false;
         foreach (GlyphInfo info in buffer.GetGlyphInfoSpan())
         {
             if (info.Codepoint == 0)

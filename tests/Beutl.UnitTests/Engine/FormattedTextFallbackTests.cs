@@ -15,6 +15,9 @@ public class FormattedTextFallbackTests
     private static readonly FontFamily s_uiFont = new("Noto Sans JP");
     private static readonly FontFamily s_emojiFont = new("Noto Color Emoji");
     private static readonly FontFamily s_chineseFont = new("Noto Sans SC");
+    private static readonly FontFamily s_joinedEmojiFont = new("Beutl Test Color Emoji");
+    // BeutlTestColorEmoji.ttf without GSUB, renamed under NotoColorEmoji-LICENSE.txt.
+    private static readonly FontFamily s_separateEmojiFont = new("Beutl Test Separate Emoji");
     // NotoSansJP-Regular.otf subset to U+0065 and U+00E9, without U+0301 in cmap.
     // Renamed under the adjacent BeutlTestComposedText-LICENSE.txt (SIL OFL 1.1).
     private static readonly FontFamily s_composedFont = new("Beutl Test Composed Text");
@@ -156,6 +159,54 @@ public class FormattedTextFallbackTests
         using SKBitmap actualImage = Draw(text);
         using SKBitmap expectedImage = Draw(expected);
         Assert.That(actualImage.Bytes, Is.EqualTo(expectedImage.Bytes));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void JoinedEmoji_PrefersACompleteFontOverSeparateComponentGlyphs(bool primaryHasJoinedGlyph)
+    {
+        const string value = "👩‍💻";
+        FontManager.Instance.SetFallbackFonts([s_joinedEmojiFont], s_separateEmojiFont);
+        using FormattedText text = CreateText(value, primaryHasJoinedGlyph ? s_joinedEmojiFont : null);
+        using FormattedText expected = CreateText(value, s_joinedEmojiFont);
+        using FormattedText separate = CreateText(value, s_separateEmojiFont);
+        using SKFont separateFont = separate.ToSKFont();
+        using var shaper = new TextShaper(separateFont.Typeface);
+        using var buffer = new HarfBuzzSharp.Buffer();
+        buffer.AddUtf16(value);
+        buffer.GuessSegmentProperties();
+        Assert.That(shaper.HasGlyphs(buffer), Is.True);
+        Assert.That(buffer.Length, Is.GreaterThan(1));
+        using SKFont primary = text.ToSKFont();
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(value.AsSpan(), primary, text.Style, text.Weight);
+        Assert.That(runs, Has.Count.EqualTo(1));
+        Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_joinedEmojiFont.Name));
+        Assert.That(text.ToGeometries().Length, Is.EqualTo(1));
+        using SKBitmap actualImage = Draw(text);
+        using SKBitmap expectedImage = Draw(expected);
+        Assert.That(actualImage.Bytes, Is.EqualTo(expectedImage.Bytes));
+    }
+
+    [Test]
+    public void JoinedEmoji_WithoutACompleteFont_StillDisplaysTheComponentEmoji()
+    {
+        FontManager.Instance.SetFallbackFonts([s_uiFont], s_separateEmojiFont);
+        using FormattedText text = CreateText("👩‍💻");
+        using SKFont primary = text.ToSKFont();
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
+        Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_separateEmojiFont.Name));
+        Assert.That(text.ToGeometries().Length, Is.GreaterThan(1));
+        using SKBitmap image = Draw(text);
+        Assert.That(ColorPixels(image).Count, Is.GreaterThan(100));
+    }
+
+    [Test]
+    public void NonEmojiText_WithAJoiner_KeepsTheSelectedFont()
+    {
+        using FormattedText text = CreateText("A\u200DB");
+        using SKFont primary = text.ToSKFont();
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
+        Assert.That(runs.All(run => ReferenceEquals(run.Typeface, primary.Typeface)), Is.True);
     }
 
     [TestCase("0\uFE0F")]
