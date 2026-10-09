@@ -118,7 +118,7 @@ public class TimeStretchEffectTests
     {
         var effect = new TimeStretchEffect();
         effect.Speed.CurrentValue = 50f;
-        using var node = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(ToneSource());
         using (node.Process(Context(0, SampleRate / 2))) { }
         effect.Speed.CurrentValue = 200f;
@@ -195,7 +195,7 @@ public class TimeStretchEffectTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + TimeSpan.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
         effect.Speed.Animation = animation;
         var source = ToneSource();
-        using var node = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(source);
 
         using AudioBuffer output = node.Process(Context(SampleRate, SampleRate));
@@ -227,7 +227,7 @@ public class TimeStretchEffectTests
             Easing = new LinearEasing()
         });
         effect.Speed.Animation = animation;
-        using var node = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(ToneSource());
 
         for (int start = 0; start < SampleRate; start += chunkFrames)
@@ -238,10 +238,10 @@ public class TimeStretchEffectTests
         double expected = 0;
         for (int i = 0; i < SampleRate; i++)
             expected += animation.Interpolate(TimeSpan.FromSeconds(i / (double)SampleRate)) / 100d;
-        object processor = typeof(SpeedNode)
+        object processor = typeof(TimeStretchNode)
             .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(node)!;
         object stretcher = processor.GetType()
-            .GetField("_timeStretch", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
+            .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
         double position = (double)stretcher.GetType()
             .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
         Assert.That(position, Is.EqualTo(expected).Within(1e-5),
@@ -273,9 +273,9 @@ public class TimeStretchEffectTests
             Easing = new LinearEasing()
         });
         effect.Speed.Animation = animation;
-        using var wholeNode = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        using var wholeNode = new TimeStretchNode { Speed = effect.Speed };
         wholeNode.AddInput(new SignalNode(sampleRate, (_, index) => Sine(index, sampleRate, 440)));
-        using var chunkedNode = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        using var chunkedNode = new TimeStretchNode { Speed = effect.Speed };
         chunkedNode.AddInput(new SignalNode(sampleRate, (_, index) => Sine(index, sampleRate, 440)));
         using AudioBuffer whole = wholeNode.Process(Context(0, frames, sampleRate));
         var output = new float[frames];
@@ -295,10 +295,10 @@ public class TimeStretchEffectTests
         double expected = 0;
         for (int i = 0; i < frames; i++)
             expected += animation.GetAnimatedValue(effect.TimeRange.Start + TimeSpan.FromSeconds(i / (double)sampleRate)) / 100d;
-        object processor = typeof(SpeedNode)
+        object processor = typeof(TimeStretchNode)
             .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(chunkedNode)!;
         object stretcher = processor.GetType()
-            .GetField("_timeStretch", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
+            .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
         double position = (double)stretcher.GetType()
             .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
         Assert.That(position, Is.EqualTo(expected).Within(1e-8),
@@ -335,7 +335,7 @@ public class TimeStretchEffectTests
         Assert.That(animation.Interpolate(TimeSpan.FromSeconds(0.4)), Is.LessThan(0),
             "This case must exercise an easing that would otherwise reverse the source mapping.");
         var source = ToneSource();
-        using var node = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        using var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(source);
 
         using AudioBuffer output = node.Process(Context(SampleRate / 2, SampleRate / 2));
@@ -512,7 +512,38 @@ public class TimeStretchEffectTests
         context.EndUpdate();
 
         Assert.That(reused, Is.SameAs(node));
-        Assert.That(((SpeedNode)reused).PreservePitch, Is.True);
+        Assert.That(reused, Is.TypeOf<TimeStretchNode>());
+    }
+
+    [TestCase(50f, 220d)]
+    [TestCase(200f, 880d)]
+    public void GraphUpdate_SharedSpeedPropertyKeepsBothNodeTypesAndPitchBehavior(float speed, double shiftedPitch)
+    {
+        var effect = new TimeStretchEffect();
+        effect.Speed.CurrentValue = speed;
+        using var context = new AudioContext(SampleRate, 2);
+        var source = context.AddNode(ToneSource());
+        AudioNode stretched = effect.CreateNode(context, source);
+        SpeedNode shifted = context.CreateSpeedNode(effect.Speed);
+        context.Connect(source, shifted);
+        using (stretched.Process(Context(0, SampleRate))) { }
+        using (shifted.Process(Context(0, SampleRate))) { }
+
+        context.BeginUpdate(context.Nodes.ToArray());
+        context.AddNode(source);
+        SpeedNode reusedShifted = context.CreateSpeedNode(effect.Speed);
+        context.Connect(source, reusedShifted);
+        AudioNode reusedStretched = effect.CreateNode(context, source);
+        context.EndUpdate();
+        using AudioBuffer stretchedOutput = reusedStretched.Process(Context(SampleRate, SampleRate));
+        using AudioBuffer shiftedOutput = reusedShifted.Process(Context(SampleRate, SampleRate));
+
+        Assert.That(reusedStretched, Is.SameAs(stretched).And.TypeOf<TimeStretchNode>());
+        Assert.That(reusedShifted, Is.SameAs(shifted));
+        Assert.That(EstimateFrequency(stretchedOutput.GetChannelData(0).Slice(SampleRate / 5, SampleRate / 2), SampleRate),
+            Is.EqualTo(440).Within(3));
+        Assert.That(EstimateFrequency(shiftedOutput.GetChannelData(0).Slice(SampleRate / 5, SampleRate / 2), SampleRate),
+            Is.EqualTo(shiftedPitch).Within(3));
     }
 
     [TestCase(50f, false)]
@@ -566,11 +597,11 @@ public class TimeStretchEffectTests
         Assert.That(restoredEffect.Speed.Animation.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(200f));
     }
 
-    private static SpeedNode CreateNode(float speed, AudioNode source)
+    private static TimeStretchNode CreateNode(float speed, AudioNode source)
     {
         var effect = new TimeStretchEffect();
         effect.Speed.CurrentValue = speed;
-        var node = new SpeedNode { Speed = effect.Speed, PreservePitch = true };
+        var node = new TimeStretchNode { Speed = effect.Speed };
         node.AddInput(source);
         return node;
     }

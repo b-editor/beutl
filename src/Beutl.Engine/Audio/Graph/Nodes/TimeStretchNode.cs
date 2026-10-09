@@ -3,10 +3,11 @@ using Beutl.Engine;
 
 namespace Beutl.Audio.Graph.Nodes;
 
-public sealed partial class SpeedNode : AudioNode, IAudioTimeMappingNode
+/// <summary>Changes playback speed while preserving the input pitch.</summary>
+public sealed partial class TimeStretchNode : AudioNode, IAudioTimeMappingNode
 {
-    private readonly AudioSpeedMapping _mapping = new();
-    private SpeedProcessor? _processor;
+    private readonly AudioSpeedMapping _mapping = new(Effects.TimeStretchParameters.Normalize, Effects.TimeStretchParameters.MinSpeed / 100d);
+    private TimeStretchProcessor? _processor;
     private int _lastSampleRate;
     private List<AudioNode>? _upstreamSnapshot;
 
@@ -38,14 +39,14 @@ public sealed partial class SpeedNode : AudioNode, IAudioTimeMappingNode
     {
         ArgumentNullException.ThrowIfNull(context);
         if (Inputs.Count != 1)
-            throw new InvalidOperationException("SpeedNode requires exactly one input.");
+            throw new InvalidOperationException("TimeStretchNode requires exactly one input.");
 
         int expectedOut = context.GetSampleCount();
         _mapping.Configure(context.SampleRate);
         bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(this, ref _upstreamSnapshot);
         if (_processor is null || _lastSampleRate != context.SampleRate || upstreamChanged)
         {
-            _processor = new SpeedProcessor(context.SampleRate, 2, this);
+            _processor = new TimeStretchProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
         }
         bool forceReanchor = _mapping.IsInvalidated && !draining;
@@ -76,7 +77,7 @@ public sealed partial class SpeedNode : AudioNode, IAudioTimeMappingNode
         try
         {
             Span<double> speeds = rented.AsSpan(0, expectedOut);
-            _mapping.FillSpeedCurve(context, speeds, draining, roundSampleClock: false);
+            _mapping.FillSpeedCurve(context, speeds, draining, roundSampleClock: true);
             return _processor!.ProcessBufferWithVariableSpeed(context, speeds, expectedOut, sourceStart, draining, forceReanchor);
         }
         finally

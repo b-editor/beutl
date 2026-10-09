@@ -26,9 +26,9 @@ public sealed partial class TimeStretchEffect : AudioEffect
     {
         var node = context.CreateNode(
             Speed,
-            static speed => new SpeedNode { Speed = speed, PreservePitch = true },
+            static speed => new TimeStretchNode { Speed = speed },
             static (speed, existing) => existing.Speed = speed,
-            static (speed, existing) => existing.PreservePitch && ReferenceEquals(existing.Speed, speed));
+            static (speed, existing) => ReferenceEquals(existing.Speed, speed));
         context.Connect(inputNode, node);
         return node;
     }

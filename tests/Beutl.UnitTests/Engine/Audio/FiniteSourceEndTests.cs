@@ -84,20 +84,25 @@ public class FiniteSourceEndTests
         });
         effect.Speed.Animation = animation;
         using var source = new FiniteSource(1.5);
-        using var speed = new SpeedNode { Speed = effect.Speed, PreservePitch = preservePitch };
+        using AudioNode speed = preservePitch
+            ? new TimeStretchNode { Speed = effect.Speed }
+            : new SpeedNode { Speed = effect.Speed };
         speed.AddInput(source);
 
         Assert.That(speed.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(48000).Within(1));
     }
 
-    [Test]
-    public void AnimatedEnd_IsCachedAndRecomputedAfterAnimationSourceOrRateChanges()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnimatedEnd_IsCachedAndRecomputedAfterAnimationSourceOrRateChanges(bool preservePitch)
     {
         var animation = new CountingAnimation();
         var property = Property.CreateAnimatable(100f);
         property.Animation = animation;
         using var source = new MutableFiniteSource { Seconds = 0.125 };
-        using var node = new SpeedNode { Speed = property };
+        using AudioNode node = preservePitch
+            ? new TimeStretchNode { Speed = property }
+            : new SpeedNode { Speed = property };
         node.AddInput(source);
         double? first = node.GetFiniteSourceEndSample(SampleRate);
         int calls = animation.Calls;

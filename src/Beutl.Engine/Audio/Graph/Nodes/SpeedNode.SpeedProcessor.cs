@@ -9,12 +9,6 @@ public sealed partial class SpeedNode
     {
         private const int BLOCK = 256;
 
-        // A chunk starting within this many samples of where the previous one ended is a continuation;
-        // anything further is a seek (scrub / loop / restart). Kept tiny on purpose: contiguous playback
-        // advances exactly (no jitter to absorb), so this slack only covers Ceiling rounding on a
-        // fractional final chunk. Widening it would mistake a short seek for a continuation.
-        private const double SeekToleranceSamples = 2.0;
-
         private readonly int _sampleRate;
         private readonly int _channels;
         private readonly SpeedNode _speedNode;
@@ -22,13 +16,7 @@ public sealed partial class SpeedNode
         private ResamplingMode _resamplingMode;
         private float _currentSpeed = 1.0f;
 
-        // Continuous-streaming state, persisted across chunks. The resampler retains filter history
-        // between chunks, so the source must be fed as one unbroken stream — re-seeking every chunk
-        // desynchronised the read position from that history and clicked at each boundary.
-        private long _srcReadPos;        // absolute next source sample to feed, in the source timeline
-        private double _nextOutputStart; // expected output start (seconds) of the next contiguous chunk
-        private bool _initialized;
-        private bool _sourceCursorMatchesOutputTimeline;
+        private readonly AudioSourceStream _stream;
 
         public SpeedProcessor(int sampleRate, int channels, SpeedNode speedNode)
         {
@@ -41,22 +29,17 @@ public sealed partial class SpeedNode
             _rs.SetFilterParms();
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
-            _timeStretch = speedNode.PreservePitch ? CreateTimeStretchProcessor(sampleRate, channels) : null;
+            _stream = new AudioSourceStream(sampleRate, channels, speedNode._mapping.MapOutputTimeToSource);
         }
 
-        public bool CanPassThroughDrain => !_initialized || _sourceCursorMatchesOutputTimeline;
+        public bool CanPassThroughDrain => _stream.CanPassThroughDrain;
 
         public void TrackPassthrough(AudioProcessContext context, int sampleCount)
         {
-            double outputStart = context.TimeRange.Start.TotalSeconds;
             _rs.Reset();
-            ResetTimeStretch();
-            _srcReadPos = (long)Math.Round(outputStart * _sampleRate) + sampleCount;
-            _nextOutputStart = outputStart + (double)sampleCount / _sampleRate;
+            _stream.TrackPassthrough(context, sampleCount);
             _currentSpeed = 1f;
             _resamplingMode = ResamplingMode.Passthrough;
-            _initialized = true;
-            _sourceCursorMatchesOutputTimeline = true;
         }
 
         private void ConfigureStaticResampling(float speed)
@@ -65,8 +48,6 @@ public sealed partial class SpeedNode
             _rs.SetFilterParms();
             _currentSpeed = speed;
             _resamplingMode = ResamplingMode.Static;
-            if (_timeStretch != null)
-                _timeStretch.Tempo = speed;
         }
 
         private void ConfigureVariableResampling(double speed)
@@ -84,82 +65,17 @@ public sealed partial class SpeedNode
         // change across contiguous chunks). Returns true on a seek.
         private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor = false)
         {
-            bool seek = !_initialized
-                || forceReanchor
-                || Math.Abs(outputStartSeconds - _nextOutputStart) * _sampleRate > SeekToleranceSamples;
+            bool seek = _stream.Begin(outputStartSeconds, sourceStartSeconds, forceReanchor);
             if (seek)
-            {
                 _rs.Reset();
-                ResetTimeStretch();
-                _srcReadPos = (long)Math.Round(sourceStartSeconds * _sampleRate);
-                _initialized = true;
-            }
-
             return seek;
         }
 
         // Reads exactly the requested source samples, continuing from the persistent cursor so the
         // stream never jumps between chunks. Advances the cursor by what was actually produced (short
         // only at end-of-source) and returns that count.
-        private int Read(
-            Span<float> buffer,
-            AudioProcessContext context,
-            bool draining)
-        {
-            if (buffer.IsEmpty)
-                return 0;
-
-            int requestedFrames = buffer.Length / _channels;
-            if (_timeStretch != null && _timeStretchInputEnd is { } end)
-            {
-                requestedFrames = (int)Math.Min(requestedFrames, Math.Max(0, end - _srcReadPos));
-                if (requestedFrames == 0)
-                    return 0;
-            }
-
-            // Derive each sub-range from the exact sample cursor to avoid repeated samples at fractional rates.
-            long sourceStartTicks = checked((long)Math.Ceiling(
-                _srcReadPos * (double)TimeSpan.TicksPerSecond / _sampleRate));
-            // TimeSpan.TotalSeconds can round an exact sample boundary just below its integer when
-            // the request is converted back by an upstream node. Bias only those boundaries forward;
-            // an unconditional tick would turn an otherwise contiguous drain into a two-tick gap.
-            if (AudioMath.TimeToSampleIndex(TimeSpan.FromTicks(sourceStartTicks), _sampleRate) < _srcReadPos)
-            {
-                sourceStartTicks = checked(sourceStartTicks + 1);
-            }
-            TimeSpan sourceStart = TimeSpan.FromTicks(sourceStartTicks);
-            var range = new TimeRange(
-                sourceStart,
-                AudioProcessContext.GetDurationForSampleCount(requestedFrames, _sampleRate));
-            var subContext = new AudioProcessContext(
-                range,
-                _sampleRate,
-                context.AnimationSampler,
-                context.OriginalTimeRange)
-            {
-                ProcessEndTime = context.ProcessEndTime is { } terminal
-                    ? _speedNode.MapOutputTimeToSource(terminal)
-                    : null
-            };
-
-            // Read consumes the child buffer fully into the interleaved span and never returns it, so
-            // dispose its pooled MemoryPool<float> lease here; otherwise every resampler iteration leaks
-            // one input buffer (matches the disposal contract the sibling audio nodes already honor).
-            using AudioBuffer result = draining
-                ? _speedNode.Inputs[0].Flush(subContext)
-                : _speedNode.Inputs[0].Process(subContext);
-            var leftData = result.GetChannelData(0);
-            var rightData = result.ChannelCount > 1 ? result.GetChannelData(1) : leftData;
-            int samplesToRead = Math.Min(requestedFrames, result.SampleCount);
-            for (int i = 0; i < samplesToRead; i++)
-            {
-                buffer[i * _channels] = leftData[i];
-                buffer[i * _channels + 1] = rightData[i];
-            }
-
-            _srcReadPos += samplesToRead;
-            return samplesToRead * _channels;
-        }
+        private int Read(Span<float> buffer, AudioProcessContext context, bool draining)
+            => _stream.Read(buffer, _speedNode.Inputs[0], context, draining);
 
         public AudioBuffer ProcessBuffer(
             AudioProcessContext context,
@@ -171,15 +87,15 @@ public sealed partial class SpeedNode
             double outputStart = context.TimeRange.Start.TotalSeconds;
 
             // A static-speed change across contiguous chunks is a source-position discontinuity that
-            // BeginStream's output-time comparison cannot see: output stays contiguous, but _srcReadPos
+            // BeginStream's output-time comparison cannot see: output stays contiguous, but the source cursor
             // (tracking the old speed) no longer maps to outputStart. Force a re-anchor to outputStart *
-            // speed. _initialized gates this so the first-chunk anchor still uses the normal seek path.
+            // speed. _stream.IsInitialized gates this so the first-chunk anchor still uses the normal seek path.
             bool configurationChanged = _resamplingMode != ResamplingMode.Static
                 || Math.Abs(_currentSpeed - speed) > 1e-4f;
             bool seek = BeginStream(
                 outputStart,
                 outputStart * speed,
-                forceReanchor: _initialized
+                forceReanchor: _stream.IsInitialized
                     && !draining
                     && (configurationChanged || forceReanchor));
 
@@ -190,9 +106,6 @@ public sealed partial class SpeedNode
             {
                 ConfigureStaticResampling(speed);
             }
-
-            if (_timeStretch != null)
-                return ProcessTimeStretch(context, default, speed, expectedOut, draining);
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             try
@@ -224,8 +137,7 @@ public sealed partial class SpeedNode
 
                 WriteAndPad(output, dst, framesDone, expectedOut);
                 // Advance only on full success.
-                _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
-                _sourceCursorMatchesOutputTimeline = false;
+                _stream.Complete(context, expectedOut);
                 return output;
             }
             catch
@@ -248,10 +160,7 @@ public sealed partial class SpeedNode
             BeginStream(
                 outputStart,
                 sourceStartSeconds,
-                forceReanchor: _initialized && !draining && forceReanchor);
-
-            if (_timeStretch != null)
-                return ProcessTimeStretch(context, speedCurve, 1f, expectedOut, draining);
+                forceReanchor: _stream.IsInitialized && !draining && forceReanchor);
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             try
@@ -290,8 +199,7 @@ public sealed partial class SpeedNode
 
                 WriteAndPad(output, dst, framesDone, expectedOut);
                 // Advance only on full success.
-                _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
-                _sourceCursorMatchesOutputTimeline = false;
+                _stream.Complete(context, expectedOut);
                 return output;
             }
             catch
