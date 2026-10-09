@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
+using Beutl.Services;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
@@ -109,6 +110,19 @@ internal partial class WebBrowserTabView
             return;
         }
         OnCancelBookmarkEditorClick(sender, e);
+    }
+
+    private void OnBookmarkCurrentPageClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not { HasWebAddress.Value: true } vm) return;
+        if (!vm.Profile.AddBookmark(vm.CurrentUri, vm.PageTitle ?? string.Empty))
+        {
+            NotificationService.ShowError(Strings.BrowserBookmarks,
+                string.Format(Strings.BrowserStorageError, vm.Profile.Error));
+            return;
+        }
+        NotificationService.ShowSuccess(Strings.BrowserBookmarks,
+            string.Format(Strings.BrowserBookmarkAdded, vm.Profile.Bookmarks[0].Title));
     }
 
     private void ShowBookmarkError(string message)

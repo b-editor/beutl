@@ -2756,6 +2756,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BrowserAddBookmark" xml:space="preserve">
     <value>ブックマークを追加</value>
   </data>
+  <data name="BrowserBookmarkThisPage" xml:space="preserve">
+    <value>このページをブックマーク</value>
+  </data>
+  <data name="BrowserBookmarkAdded" xml:space="preserve">
+    <value>「{0}」をブックマークに追加しました。</value>
+  </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>検索・プライバシー</value>
   </data>

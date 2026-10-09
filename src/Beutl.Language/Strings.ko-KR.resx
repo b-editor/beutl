@@ -2921,6 +2921,12 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="BrowserAddBookmark" xml:space="preserve">
     <value>북마크 추가</value>
   </data>
+  <data name="BrowserBookmarkThisPage" xml:space="preserve">
+    <value>이 페이지를 북마크에 추가</value>
+  </data>
+  <data name="BrowserBookmarkAdded" xml:space="preserve">
+    <value>'{0}'을(를) 북마크에 추가했습니다.</value>
+  </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>검색 및 개인 정보</value>
   </data>

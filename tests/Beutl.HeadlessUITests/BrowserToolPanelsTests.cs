@@ -20,6 +20,7 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 
 using FluentAvalonia.UI.Controls;
@@ -341,6 +342,86 @@ public class BrowserToolPanelsTests
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
+    [AvaloniaTest]
+    public void MenuBookmarksTheCurrentPageUnderItsTitleOrHost()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string file = Path.Combine(root, "profile.json");
+        var uri = new Uri("https://example.com/page");
+        var profile = new BrowserProfile(file);
+        using var vm = new WebBrowserTabViewModel(CreateContext(root), WebBrowserTabViewModel.BlankPage, profile);
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        var window = new Window { Content = view, Width = 640, Height = 480 };
+        INotificationServiceHandler? previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        try
+        {
+            window.Show();
+            Assert.That(IsMenuItemEnabled(view, Strings.BrowserBookmarkThisPage), Is.False);
+            OpenMenu(view, Strings.BrowserBookmarkThisPage);
+            Assert.That(profile.Bookmarks, Is.Empty);
+
+            vm.CompleteNavigation(uri, true, false, false);
+            vm.SetPageTitle(uri, "Example Page");
+            Assert.That(IsMenuItemEnabled(view, Strings.BrowserBookmarkThisPage), Is.True);
+            OpenMenu(view, Strings.BrowserBookmarkThisPage);
+            Assert.That(profile.Bookmarks, Is.EqualTo(new[] { new BrowserBookmark(uri.AbsoluteUri, "Example Page") }));
+            Notification notification = notifications.Notifications.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(notification.Type, Is.EqualTo(NotificationType.Success));
+                Assert.That(notification.Message, Is.EqualTo(string.Format(Strings.BrowserBookmarkAdded, "Example Page")));
+            });
+
+            vm.SetPageTitle(uri, null);
+            OpenMenu(view, Strings.BrowserBookmarkThisPage);
+            Assert.That(new BrowserProfile(file).Bookmarks,
+                Is.EqualTo(new[] { new BrowserBookmark(uri.AbsoluteUri, "example.com") }));
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler ?? notifications;
+            window.Close();
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    [AvaloniaTest]
+    public void BookmarkSaveFailuresAreReportedWithoutReplacingAPendingDownloadOffer()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var uri = new Uri("https://example.com/page");
+        var profile = new BrowserProfile(Path.Combine(root, "profile.json"), _ => throw new IOException("write denied"));
+        using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, profile);
+        using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
+        vm.CompleteNavigation(uri, true, false, false);
+        view.OnNativeDownloadRequested(new Uri("https://files.example/movie.mp4"), "movie.mp4", new IdleDownloadSource());
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        INotificationServiceHandler? previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        NotificationService.Handler = notifications;
+        try
+        {
+            OpenMenu(view, Strings.BrowserBookmarkThisPage);
+            Notification notification = notifications.Notifications.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(profile.Bookmarks, Is.Empty);
+                Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+                Assert.That(notification.Message, Is.EqualTo(string.Format(Strings.BrowserStorageError, "write denied")));
+                Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+                Assert.That(view.FindControl<TextBlock>("DownloadStatusText")!.Text, Is.EqualTo(Strings.BrowserPageDownloadRequest));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler ?? notifications;
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
     private static IEditorContext CreateContext(string root)
     {
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
@@ -356,6 +437,23 @@ public class BrowserToolPanelsTests
     {
         var menu = (FAMenuFlyout)view.FindControl<Button>("BrowserMenuButton")!.Flyout!;
         menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == text).RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+    }
+
+    private static bool IsMenuItemEnabled(WebBrowserTabView view, string text)
+    {
+        Button button = view.FindControl<Button>("BrowserMenuButton")!;
+        var menu = (FAMenuFlyout)button.Flyout!;
+        menu.ShowAt(button);
+        HeadlessTestHelpers.Render();
+        try
+        {
+            return menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Text == text).IsEffectivelyEnabled;
+        }
+        finally
+        {
+            menu.Hide();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     private static void AssertFits(WebBrowserTabView view)
@@ -378,6 +476,23 @@ public class BrowserToolPanelsTests
         Directory.CreateDirectory(directory);
         using var image = window.CaptureRenderedFrame();
         image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
+    }
+
+    private sealed class CaptureNotificationHandler : INotificationServiceHandler
+    {
+        public List<Notification> Notifications { get; } = [];
+
+        public void Show(Notification notification) => Notifications.Add(notification);
+    }
+
+    private sealed class IdleDownloadSource : IBrowserDownloadSource
+    {
+        public Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class PendingMediaHandler : HttpMessageHandler

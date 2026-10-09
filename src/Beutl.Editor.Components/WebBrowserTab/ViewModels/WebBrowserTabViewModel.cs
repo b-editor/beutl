@@ -68,6 +68,8 @@ internal sealed class WebBrowserTabViewModel : IToolContext
 
     internal Uri CurrentUri => _currentUri.Value;
 
+    internal string? PageTitle => _pageTitle.Value;
+
     public IReactiveProperty<string> Address => _address;
 
     public IReadOnlyList<string> AddressSuggestions => _addressSuggestions;

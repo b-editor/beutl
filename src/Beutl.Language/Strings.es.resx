@@ -2921,6 +2921,12 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="BrowserAddBookmark" xml:space="preserve">
     <value>Añadir marcador</value>
   </data>
+  <data name="BrowserBookmarkThisPage" xml:space="preserve">
+    <value>Añadir esta página a marcadores</value>
+  </data>
+  <data name="BrowserBookmarkAdded" xml:space="preserve">
+    <value>Se añadió «{0}» a los marcadores.</value>
+  </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>Búsqueda y privacidad</value>
   </data>
