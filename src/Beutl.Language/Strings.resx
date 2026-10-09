@@ -2762,6 +2762,12 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="BrowserAddBookmark" xml:space="preserve">
     <value>Add bookmark</value>
   </data>
+  <data name="BrowserBookmarkThisPage" xml:space="preserve">
+    <value>Bookmark this page</value>
+  </data>
+  <data name="BrowserBookmarkAdded" xml:space="preserve">
+    <value>Added "{0}" to bookmarks.</value>
+  </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>Search and privacy</value>
   </data>

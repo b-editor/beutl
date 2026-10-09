@@ -2921,6 +2921,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="BrowserAddBookmark" xml:space="preserve">
     <value>添加书签</value>
   </data>
+  <data name="BrowserBookmarkThisPage" xml:space="preserve">
+    <value>将此页添加到书签</value>
+  </data>
+  <data name="BrowserBookmarkAdded" xml:space="preserve">
+    <value>已将“{0}”添加到书签。</value>
+  </data>
   <data name="BrowserSettings" xml:space="preserve">
     <value>搜索与隐私</value>
   </data>

@@ -233,6 +233,10 @@
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.NewTab"
                                                  Click="OnNewTabClick"
                                                  Text="{x:Static lang:Strings.NewTab}" />
+                            <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.BookmarkCurrentPage"
+                                                 Click="OnBookmarkCurrentPageClick"
+                                                 IsEnabled="{Binding HasWebAddress.Value}"
+                                                 Text="{x:Static lang:Strings.BrowserBookmarkThisPage}" />
                             <ui:FAMenuFlyoutSeparator />
                             <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="WebBrowser.DownloadHistory"
                                                  Click="OnDownloadHistoryClick"
