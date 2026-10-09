@@ -149,6 +149,13 @@ public class ReleaseLicensePackagingTests
             Assert.That(copyright, Does.Contain("/usr/share/common-licenses/GPL-3"));
             Assert.That(copyright, Does.Contain("/usr/lib/beutl/THIRD_PARTY_NOTICES.md"));
             Assert.That(copyright, Does.Contain(EncodeAsDebianFormattedText(thirdPartyNotices)));
+            const string emojiFiles = "Files: src/Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf";
+            string emojiLicense = File.ReadAllText(Path.Combine(repositoryRoot,
+                "src", "Beutl.Controls", "Assets", "Fonts", "NotoColorEmoji", "LICENSE.txt"));
+            Assert.That(copyright, Does.Contain(
+                emojiFiles + "\nCopyright: 2022 Google Inc.\nLicense: OFL-1.1\n" + EncodeAsDebianFormattedText(emojiLicense)));
+            Assert.That(copyright.IndexOf(emojiFiles, StringComparison.Ordinal),
+                Is.GreaterThan(copyright.IndexOf("Files: *", StringComparison.Ordinal)));
             Assert.That(copyright, Does.Contain("FFmpeg4Sharp (Beutl.FFmpegWorker only)"));
             Assert.That(
                 copyright.IndexOf("Files: *", StringComparison.Ordinal),
