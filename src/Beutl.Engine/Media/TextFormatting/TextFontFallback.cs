@@ -67,30 +67,51 @@ internal static class TextFontFallback
         bool Covers(SKFont font, ReadOnlySpan<char> content, int start, int length)
         {
             ReadOnlySpan<char> cluster = content.Slice(start, length);
-            if (HasNominalGlyphs(font, cluster))
+            int scalarCount = 0;
+            int previous = 0;
+            bool hasNominalGlyphs = true;
+            foreach (Rune rune in cluster.EnumerateRunes())
+            {
+                if (rune.Value is >= 0xFE00 and <= 0xFE0F or >= 0xE0100 and <= 0xE01EF)
+                {
+                    // VS15/VS16 request text/emoji presentation, handled by EmojiPresentation.
+                    // Other selectors require a cmap variation mapping; shaping alone can drop
+                    // an unsupported selector and incorrectly claim the base glyph covers it.
+                    if (rune.Value is not (0xFE0E or 0xFE0F) && scalarCount > 0
+                        && !GetShaper(font.Typeface).HasVariationGlyph(previous, (uint)rune.Value))
+                        return false;
+                }
+                else if (Rune.GetUnicodeCategory(rune) is not (UnicodeCategory.Format or UnicodeCategory.Control)
+                         && !font.ContainsGlyph(rune.Value))
+                {
+                    hasNominalGlyphs = false;
+                }
+                previous = rune.Value;
+                scalarCount++;
+            }
+            if (hasNominalGlyphs)
                 return true;
 
             // A surrogate pair is one scalar, while a combining sequence can normalize to
             // a glyph the font has even when it lacks one of the individual cmap entries.
-            int scalarCount = 0;
-            foreach (Rune _ in cluster.EnumerateRunes())
-            {
-                if (++scalarCount > 1)
-                    break;
-            }
             if (scalarCount < 2)
                 return false;
 
-            shapers ??= [];
-            if (!shapers.TryGetValue(font.Typeface, out TextShaper? shaper))
-            {
-                shaper = new TextShaper(font.Typeface);
-                shapers.Add(font.Typeface, shaper);
-            }
             using var buffer = new HarfBuzzSharp.Buffer();
             buffer.AddUtf16(content, start, length);
             buffer.GuessSegmentProperties();
-            return shaper.HasGlyphs(buffer);
+            return GetShaper(font.Typeface).HasGlyphs(buffer);
+        }
+
+        TextShaper GetShaper(SKTypeface face)
+        {
+            shapers ??= [];
+            if (!shapers.TryGetValue(face, out TextShaper? shaper))
+            {
+                shaper = new TextShaper(face);
+                shapers.Add(face, shaper);
+            }
+            return shaper;
         }
 
         SKFont? GetFont(Typeface typeface)
@@ -104,18 +125,4 @@ internal static class TextFontFallback
         }
     }
 
-    private static bool HasNominalGlyphs(SKFont font, ReadOnlySpan<char> text)
-    {
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            // These control shaping rather than needing an independently visible glyph.
-            if (Rune.GetUnicodeCategory(rune) is UnicodeCategory.Format or UnicodeCategory.Control
-                || rune.Value is >= 0xFE00 and <= 0xFE0F or >= 0xE0100 and <= 0xE01EF)
-                continue;
-            if (!font.ContainsGlyph(rune.Value))
-                return false;
-        }
-
-        return true;
-    }
 }

@@ -76,6 +76,9 @@ internal sealed class TextShaper : IDisposable
         return new SKShaper.Result(codepoints, clusters, points, x);
     }
 
+    public bool HasVariationGlyph(int unicode, uint selector) =>
+        _font.TryGetVariationGlyph(unicode, selector, out uint glyph) && glyph != 0;
+
     public bool HasGlyphs(HarfBuzzSharp.Buffer buffer)
     {
         _font.Shape(buffer);

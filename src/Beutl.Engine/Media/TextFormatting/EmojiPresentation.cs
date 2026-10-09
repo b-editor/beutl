@@ -8,9 +8,8 @@ internal static class EmojiPresentation
     {
         if (cluster.Contains('\uFE0E'))
             return false;
-        // Keycap bases only become emoji with the enclosing keycap, not a lone VS16.
         if (cluster.Contains('\u20E3') || cluster.Contains('\u200D')
-            || (cluster.Contains('\uFE0F') && cluster[0] is not (>= '0' and <= '9' or '#' or '*')))
+            || cluster.Contains('\uFE0F'))
             return true;
         foreach (Rune rune in cluster.EnumerateRunes())
         {

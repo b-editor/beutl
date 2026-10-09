@@ -67,6 +67,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Assets\**\*.*" />
     <EmbeddedResource Include="..\..\src\Beutl.Controls\Assets\Fonts\NotoColorEmoji\NotoColorEmoji.ttf" LogicalName="NotoColorEmoji.ttf" />
+    <EmbeddedResource Include="..\..\src\Beutl.Controls\Assets\Fonts\NotoSansSC\NotoSansSC-Regular.otf" LogicalName="NotoSansSC-Regular.otf" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' != 'Debug'">

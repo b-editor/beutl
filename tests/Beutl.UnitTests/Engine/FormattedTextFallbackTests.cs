@@ -14,6 +14,7 @@ public class FormattedTextFallbackTests
 {
     private static readonly FontFamily s_uiFont = new("Noto Sans JP");
     private static readonly FontFamily s_emojiFont = new("Noto Color Emoji");
+    private static readonly FontFamily s_chineseFont = new("Noto Sans SC");
     // NotoSansJP-Regular.otf subset to U+0065 and U+00E9, without U+0301 in cmap.
     // Renamed under the adjacent BeutlTestComposedText-LICENSE.txt (SIL OFL 1.1).
     private static readonly FontFamily s_composedFont = new("Beutl Test Composed Text");
@@ -24,8 +25,11 @@ public class FormattedTextFallbackTests
     public void RegisterFonts()
     {
         _ = TypefaceProvider.Typeface();
-        using Stream stream = typeof(FormattedTextFallbackTests).Assembly.GetManifestResourceStream("NotoColorEmoji.ttf")!;
-        FontManager.Instance.AddFont(stream);
+        foreach (string file in new[] { "NotoColorEmoji.ttf", "NotoSansSC-Regular.otf" })
+        {
+            using Stream stream = typeof(FormattedTextFallbackTests).Assembly.GetManifestResourceStream(file)!;
+            FontManager.Instance.AddFont(stream);
+        }
     }
 
     [SetUp]
@@ -34,7 +38,7 @@ public class FormattedTextFallbackTests
         var previous = FontManager.Instance.GetFallbackFamilies();
         _previousFamilies = previous.Families;
         _previousEmoji = previous.Emoji;
-        FontManager.Instance.SetFallbackFonts([s_uiFont], s_emojiFont);
+        FontManager.Instance.SetFallbackFonts([s_uiFont, s_chineseFont], s_emojiFont);
     }
 
     [TearDown]
@@ -125,6 +129,47 @@ public class FormattedTextFallbackTests
         Assert.That(actualImage.Bytes, Is.EqualTo(expectedImage.Bytes));
     }
 
+    [TestCase("\u5140\uFE00", false)]
+    [TestCase("\u3402\U000E0100", true)]
+    public void VariationSequence_UsesTheFontWithTheRequestedVariant(string value, bool supplementary)
+    {
+        FontFamily primaryFamily = supplementary ? s_chineseFont : s_uiFont;
+        FontFamily fallbackFamily = supplementary ? s_uiFont : s_chineseFont;
+        FontManager.Instance.SetFallbackFonts([fallbackFamily], s_emojiFont);
+        using FormattedText text = CreateText(value, primaryFamily);
+        using FormattedText expected = CreateText(value, fallbackFamily);
+        using SKFont primary = text.ToSKFont();
+        using SKFont fallback = expected.ToSKFont();
+        using var primaryShaper = new TextShaper(primary.Typeface);
+        using var fallbackShaper = new TextShaper(fallback.Typeface);
+        int codepoint = supplementary ? 0x3402 : 0x5140;
+        uint selector = supplementary ? 0xE0100u : 0xFE00u;
+        Assert.Multiple(() =>
+        {
+            Assert.That(primary.ContainsGlyph(codepoint), Is.True);
+            Assert.That(primaryShaper.HasVariationGlyph(codepoint, selector), Is.False);
+            Assert.That(fallbackShaper.HasVariationGlyph(codepoint, selector), Is.True);
+        });
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(value.AsSpan(), primary, text.Style, text.Weight);
+        Assert.That(runs, Has.Count.EqualTo(1));
+        Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(fallbackFamily.Name));
+        using SKBitmap actualImage = Draw(text);
+        using SKBitmap expectedImage = Draw(expected);
+        Assert.That(actualImage.Bytes, Is.EqualTo(expectedImage.Bytes));
+    }
+
+    [TestCase("0\uFE0F")]
+    [TestCase("1\uFE0F")]
+    [TestCase("2\uFE0F")]
+    [TestCase("3\uFE0F")]
+    [TestCase("4\uFE0F")]
+    [TestCase("5\uFE0F")]
+    [TestCase("6\uFE0F")]
+    [TestCase("7\uFE0F")]
+    [TestCase("8\uFE0F")]
+    [TestCase("9\uFE0F")]
+    [TestCase("#\uFE0F")]
+    [TestCase("*\uFE0F")]
     [TestCase("😀")]
     [TestCase("👩‍💻")]
     [TestCase("👨‍👩‍👧‍👦")]
@@ -148,7 +193,7 @@ public class FormattedTextFallbackTests
     }
 
     [TestCase("123 #* ©")]
-    [TestCase("1\uFE0F #\uFE0F *\uFE0F")]
+    [TestCase("1\uFE0E #\uFE0E *\uFE0E")]
     [TestCase("©\uFE0E")]
     public void OrdinaryDigitsAndTextPresentation_KeepTheSelectedFont(string value)
     {
@@ -220,7 +265,7 @@ public class FormattedTextFallbackTests
             var block = new TextBlock
             {
                 FontFamily = { CurrentValue = new FontFamily("Roboto") },
-                Text = { CurrentValue = "AV 日本語 😀 👩‍💻\n123 © ©️ 1️⃣ 🇯🇵 👍🏽" },
+                Text = { CurrentValue = "AV 日本語 😀 👩‍💻\n123 © ©️ 1️⃣ 🇯🇵 👍🏽\n1\uFE0F #\uFE0F *\uFE0F 兀\uFE00" },
                 Size = { CurrentValue = 48f },
                 Spacing = { CurrentValue = 6f },
                 Fill = { CurrentValue = Brushes.Black },
