@@ -50,15 +50,28 @@ public sealed partial class SpeedNode
                 int latency = _speedNode.GetMaxInputLatency(_sampleRate, drain: true);
                 _timeStretchInputEnd = latency == int.MaxValue ? null : checked(_srcReadPos + latency);
             }
+            long? inputEnd = _timeStretchInputEnd;
             if (end is { } value && double.IsFinite(value))
             {
                 double rounded = Math.Round(value);
-                _timeStretchInputEnd = checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
+                inputEnd = checked((long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value)));
             }
             else if (!draining)
             {
-                _timeStretchInputEnd = null;
+                inputEnd = null;
             }
+            if (!draining && (_timeStretchDraining
+                || (_timeStretchFlushed && _timeStretchInputEnd is { } previousEnd
+                    && (inputEnd is null || inputEnd > previousEnd))))
+            {
+                // Differential updates can extend or remove a downstream clip without replacing
+                // this processor. A finished stream cannot accept more input. Re-anchor at the
+                // playback position, since lookahead or draining may have moved the read cursor ahead.
+                BeginStream(context.TimeRange.Start.TotalSeconds,
+                    _speedNode.MapOutputTimeToSource(context.TimeRange.Start).TotalSeconds,
+                    forceReanchor: true);
+            }
+            _timeStretchInputEnd = inputEnd;
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             float[] inputArray = ArrayPool<float>.Shared.Rent(TimeStretchFeedFrames * _channels);
             float[] outputArray = ArrayPool<float>.Shared.Rent(BLOCK * _channels);
@@ -85,7 +98,7 @@ public sealed partial class SpeedNode
                         {
                             _timeStretch.PutSamples(input[..(got * _channels)], got);
                         }
-                        if (got == 0 || (_timeStretchInputEnd is { } inputEnd && _srcReadPos >= inputEnd))
+                        if (got == 0 || (_timeStretchInputEnd is { } terminalSample && _srcReadPos >= terminalSample))
                         {
                             // A short/exhausted source must release its final processing window once.
                             _timeStretch.Flush();
