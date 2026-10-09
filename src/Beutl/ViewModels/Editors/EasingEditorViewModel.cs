@@ -37,9 +37,24 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Va
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } args)
+        if (e is not PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } args) return;
+
+        if (ReferenceEquals(args.OldValue, newValue))
+        {
+            // A drag that ended where it began: write the original back without committing. The
+            // drag's merged operation then changes nothing. Rolling the pending transaction back
+            // instead would also discard other features' uncommitted edits, such as a timeline nudge.
+            SetCurrentValueAndGetCoerced(newValue);
+        }
+        else
         {
             SetValue(args.OldValue as T, newValue);
+        }
+
+        if (sender is EasingEditor editor)
+        {
+            // A validator may keep the current value, which raises no change to refresh the editor.
+            editor.Value = EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue();
         }
     }
 }

@@ -312,7 +312,11 @@ public sealed class EasingEditorTests
         var curve = new EasingCurveEditor { Easing = spline };
         var commits = new List<EasingCurveEditedEventArgs>();
         curve.Editing += (_, e) => curve.Easing = e.NewValue;
-        curve.Edited += (_, e) => commits.Add(e);
+        curve.Edited += (_, e) =>
+        {
+            commits.Add(e);
+            curve.Easing = e.NewValue;
+        };
         var window = new Window { Content = curve, Width = 300, Height = 200 };
         try
         {
@@ -330,9 +334,248 @@ public sealed class EasingEditorTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(commits, Is.Empty);
+                Assert.That(commits, Has.Count.EqualTo(1));
+                Assert.That(commits[0].OldValue, Is.SameAs(spline));
+                Assert.That(commits[0].NewValue, Is.SameAs(spline), "An unchanged drag reports the original as the result.");
                 Assert.That(curve.Easing, Is.SameAs(spline));
             });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void An_unchanged_drag_commits_nothing_and_restores_the_original_instance()
+    {
+        var holder = new EasingHolder();
+        var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        holder.Curve.CurrentValue = original;
+        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Curve, holder));
+        using var _ = vm;
+        using var history = new HistoryScope(holder);
+        vm.Accept(new Services(history.History));
+        var editor = (EasingEditor)control;
+        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        try
+        {
+            window.Show();
+            EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            Point press = ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, press);
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(ToWindow(window, curve, 0.6, 0.6));
+            Assert.That(holder.Curve.CurrentValue, Is.Not.SameAs(original));
+            window.MouseMove(press);
+            window.MouseUp(press, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(editor.Value, Is.SameAs(original));
+                Assert.That(history.History.UndoCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void An_unchanged_drag_keeps_another_features_pending_edit()
+    {
+        var holder = new EasingHolder();
+        var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        holder.Curve.CurrentValue = original;
+        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Curve, holder));
+        using var _ = vm;
+        using var history = new HistoryScope(holder);
+        vm.Accept(new Services(history.History));
+        var editor = (EasingEditor)control;
+        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        try
+        {
+            window.Show();
+            EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            Point press = ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, press);
+            // Another feature's edit that has not been committed yet, like a timeline nudge.
+            Easing previous = holder.Spline.CurrentValue;
+            holder.Spline.CurrentValue = new SplineEasing(0.5f, 0.5f, 0.5f, 0.5f);
+            Assert.That(history.History.HasPendingOperations, Is.True);
+            Easing nudged = holder.Spline.CurrentValue;
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(ToWindow(window, curve, 0.6, 0.6));
+            window.MouseMove(press);
+            window.MouseUp(press, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Spline.CurrentValue, Is.SameAs(nudged), "The other edit must survive.");
+                Assert.That(history.History.HasPendingOperations, Is.True, "The drag must not commit the other edit early.");
+                Assert.That(history.History.UndoCount, Is.Zero);
+                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(editor.Value, Is.SameAs(original));
+            });
+
+            // The other edit is still in history, not only in the property.
+            history.History.Commit();
+            Assert.That(history.History.Undo(), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Spline.CurrentValue, Is.SameAs(previous));
+                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void A_rejected_easing_choice_keeps_showing_the_property_value()
+    {
+        var holder = new EasingHolder();
+        Easing original = holder.Bounded.CurrentValue;
+        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Bounded, holder));
+        using var _ = vm;
+        using var history = new HistoryScope(holder);
+        vm.Accept(new Services(history.History));
+        var editor = (EasingEditor)control;
+        var window = new Window { Content = editor, Width = 480, Height = 320 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            ComboBox comboBox = editor.GetVisualDescendants().OfType<ComboBox>().Single();
+
+            comboBox.SelectedItem = editor.Items!.Single(item => item.Type == typeof(ElasticEaseOut));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Bounded.CurrentValue, Is.SameAs(original));
+                Assert.That(editor.Value, Is.SameAs(original));
+                Assert.That(SelectedType(comboBox), Is.EqualTo(typeof(SplineEasing)));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Only_the_pointer_that_began_a_drag_moves_or_ends_it()
+    {
+        var curve = new EasingCurveEditor { Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1f) };
+        int edits = 0;
+        int commits = 0;
+        curve.Editing += (_, e) =>
+        {
+            edits++;
+            curve.Easing = e.NewValue;
+        };
+        curve.Edited += (_, _) => commits++;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            Point press = ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, press);
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+
+            var touch = new Pointer(Pointer.GetNextFreeId(), PointerType.Touch, isPrimary: false);
+            Point elsewhere = ToWindow(window, curve, 0.8, 0.8);
+            curve.RaiseEvent(new PointerEventArgs(InputElement.PointerMovedEvent, curve, touch, window, elsewhere,
+                0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other), KeyModifiers.None));
+            curve.RaiseEvent(new PointerReleasedEventArgs(curve, touch, window, elsewhere,
+                0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other), KeyModifiers.None, MouseButton.None));
+            // A real touch is implicitly captured, so its release also raises a capture loss.
+            curve.RaiseEvent(new PointerCaptureLostEventArgs(curve, touch));
+            Assert.Multiple(() =>
+            {
+                Assert.That(edits, Is.Zero);
+                Assert.That(commits, Is.Zero);
+                Assert.That(curve.IsDragging, Is.True);
+            });
+
+            Point end = ToWindow(window, curve, 0.5, 0.5);
+            window.MouseMove(end);
+            window.MouseUp(end, MouseButton.Left);
+            Assert.That((edits, commits), Is.EqualTo((1, 1)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public void A_non_finite_control_point_leaves_the_other_handle_editable(bool nanFirst)
+    {
+        var curve = new EasingCurveEditor
+        {
+            Easing = nanFirst ? new SplineEasing(0.25f, float.NaN, 0.75f, 1f) : new SplineEasing(0.25f, 0.1f, 0.75f, float.NaN)
+        };
+        int edits = 0;
+        curve.Editing += (_, _) => edits++;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            // Placed in the [0, 1] range, which the NaN handle must not turn into NaN.
+            Point finite = nanFirst ? ToWindow(window, curve, 0.75, 1) : ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, finite);
+
+            // Far from the drawable handle: the NaN handle must not be grabbed instead.
+            Drag(window, ToWindow(window, curve, 0.5, 0.5), ToWindow(window, curve, 0.6, 0.4));
+            Assert.That(edits, Is.Zero);
+
+            Drag(window, finite, ToWindow(window, curve, 0.4, 0.8));
+            Assert.That(edits, Is.GreaterThan(0));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void An_unchanged_drag_beside_a_non_finite_control_point_reports_the_original()
+    {
+        var spline = new SplineEasing(0.25f, float.NaN, 0.25f, 1f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var commits = new List<EasingCurveEditedEventArgs>();
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        curve.Edited += (_, e) => commits.Add(e);
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            Point press = ToWindow(window, curve, 0.25, 1);
+            WaitForHitTest(window, curve, press);
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(ToWindow(window, curve, 0.6, 0.6));
+            window.MouseMove(press);
+            window.MouseUp(press, MouseButton.Left);
+
+            Assert.That(commits, Has.Count.EqualTo(1));
+            Assert.That(commits[0].NewValue, Is.SameAs(spline));
         }
         finally
         {
@@ -522,7 +765,8 @@ public sealed class EasingEditorTests
 
     public sealed class NoOvershootAttribute : ValidationAttribute
     {
-        public override bool IsValid(object? value) => value is not (SplineEasing { Y1: > 1 } or SplineEasing { Y2: > 1 });
+        public override bool IsValid(object? value)
+            => value is not (SplineEasing { Y1: > 1 } or SplineEasing { Y2: > 1 } or ElasticEaseOut);
     }
 
     [Display(Name = "Custom wave", Description = "A registered test easing")]
