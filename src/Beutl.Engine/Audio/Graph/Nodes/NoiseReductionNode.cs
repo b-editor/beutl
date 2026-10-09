@@ -37,7 +37,7 @@ public sealed class NoiseReductionNode : AudioNode
     private long? _drainEnd;
 
     // Set when a graph update reuses this node: reused upstream nodes may now produce different
-    // audio, so the input read ahead of the output must be fetched again.
+    // audio, so the input read ahead of the output and the noise floor learned from it are renewed.
     private bool _inputStale;
 
     public NoiseReductionNode()
@@ -56,7 +56,7 @@ public sealed class NoiseReductionNode : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
         => RecordProcessedOutput(ProcessCore(context, draining: false));
 
-    // Called when a graph update reuses this node. The learned noise floor is kept.
+    // Called when a graph update reuses this node.
     internal void InvalidateInput() => _inputStale = true;
 
     public override AudioBuffer Flush(AudioProcessContext context)
@@ -158,11 +158,12 @@ public sealed class NoiseReductionNode : AudioNode
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the
             // sample the upstream delivers there.
             long outputStart = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
-            Restart(context, outputStart, terminal, keepNoiseFloor: false);
+            Restart(context, outputStart, terminal);
         }
         else if (_inputStale)
         {
-            Restart(context, _reducer.OutputPosition, terminal, keepNoiseFloor: true);
+            // A changed upstream gain or source would leave the old floor wrong until it aged out.
+            Restart(context, _reducer.OutputPosition, terminal);
         }
         else
         {
@@ -174,7 +175,7 @@ public sealed class NoiseReductionNode : AudioNode
 
     // Rereads the input from a pre-roll before the output, so any re-anchoring transient upstream lands
     // in audio that is never played.
-    private void Restart(AudioProcessContext context, long outputStart, long? terminal, bool keepNoiseFloor)
+    private void Restart(AudioProcessContext context, long outputStart, long? terminal)
     {
         SpectralNoiseReducer reducer = _reducer!;
         _inputStale = false;
@@ -184,13 +185,11 @@ public sealed class NoiseReductionNode : AudioNode
         long earliest = Math.Min(outputStart, 0);
         long origin = FloorToHop(Math.Max(earliest, outputStart - seed / 2), reducer.HopSize);
 
-        reducer.Reset(origin, outputStart, keepNoiseFloor);
+        reducer.Reset(origin, outputStart);
         _stream!.Begin(outputStart / (double)_sampleRate, origin / (double)_sampleRate, forceReanchor: true);
         _terminal = terminal;
         _liveEnd = null;
         _drainEnd = null;
-        if (keepNoiseFloor)
-            return;
 
         long seedEnd = origin + seed;
         FillInput(seedEnd, context);

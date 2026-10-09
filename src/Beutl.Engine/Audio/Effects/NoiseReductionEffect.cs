@@ -54,9 +54,9 @@ public sealed partial class NoiseReductionEffect : AudioEffect
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
-        // Reuse the node across graph updates, so editing a parameter does not relearn the noise floor.
-        // Reused upstream nodes may produce different audio after the update, so the node refetches
-        // what it has read ahead.
+        // Reuse the node across graph updates to keep its position in the stream. Reused upstream
+        // nodes may produce different audio after the update, so the node refetches what it has read
+        // ahead and relearns the noise floor from it.
         var node = context.CreateNode(
             this,
             static effect => new NoiseReductionNode

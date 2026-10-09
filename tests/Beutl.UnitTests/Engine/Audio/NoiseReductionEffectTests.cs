@@ -86,6 +86,27 @@ public class NoiseReductionEffectTests
     }
 
     [Test]
+    public void GraphUpdate_RelearnsTheNoiseFloorOfTheUpdatedUpstream()
+    {
+        var effect = new NoiseReductionEffect();
+        var source = new SignalSource(s_noise);
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode node = effect.CreateNode(context, source);
+        using (node.Process(Context(0, SampleRate * 2))) { }
+
+        // The reused upstream now plays the same noise 12 dB louder.
+        source.Gain = 4;
+        context.BeginUpdate(context.Nodes.ToArray());
+        AudioNode reused = effect.CreateNode(context, source);
+        context.EndUpdate();
+        using AudioBuffer output = reused.Process(Context(SampleRate * 2, SampleRate / 2));
+
+        float[] louder = s_noise.AsSpan(SampleRate * 2, SampleRate / 2).ToArray().Select(value => value * 4).ToArray();
+        Assert.That(Decibels(Power(output.GetChannelData(0).ToArray(), 0, louder.Length) / Power(louder, 0, louder.Length)),
+            Is.LessThan(-9), "The louder noise must not pass as signal while the old floor ages out.");
+    }
+
+    [Test]
     public void Properties_StartAtTheirDefaults()
     {
         var effect = new NoiseReductionEffect();
