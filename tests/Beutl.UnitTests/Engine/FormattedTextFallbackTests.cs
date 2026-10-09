@@ -311,6 +311,25 @@ public class FormattedTextFallbackTests
         using SKBitmap actual = Draw(text, 0.75f);
         using SKBitmap expected = Draw(fresh, 0.75f);
         Assert.That(actual.Bytes, Is.EqualTo(expected.Bytes));
+
+        // Place each grapheme independently in its visual order, from left to right.
+        using FormattedText leftEmoji = CreateText("😁", s_emojiFont);
+        using FormattedText rightEmoji = CreateText("😀", s_emojiFont);
+        using FormattedText hebrew = CreateText("א");
+        using var surface = SKSurface.Create(new SKImageInfo(900, 300));
+        surface.Canvas.Clear(SKColors.White);
+        surface.Canvas.Translate(16 * 0.75f, 100 * 0.75f);
+        using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+        float x = 0;
+        foreach (FormattedText part in new[] { leftEmoji, rightEmoji, hebrew })
+        {
+            part.Size = text.Size;
+            surface.Canvas.DrawText(part.GetTextBlob(0.75f), x, 0, paint);
+            x += part.Bounds.Width * 0.75f;
+        }
+        using SKImage image = surface.Snapshot();
+        using SKBitmap visualOrder = SKBitmap.FromImage(image);
+        Assert.That(actual.Bytes, Is.EqualTo(visualOrder.Bytes));
     }
 
     private static SKBitmap Draw(FormattedText text, float scale = 1f, bool split = false)

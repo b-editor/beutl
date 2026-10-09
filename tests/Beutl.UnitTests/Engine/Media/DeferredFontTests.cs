@@ -71,6 +71,36 @@ public class DeferredFontTests
         });
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    public void LoadFailure_UsesDefaultFontWithoutRetrying(bool failOnOpen)
+    {
+        _ = TypefaceProvider.Typeface();
+        var manager = (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
+        var typeface = new Typeface(new FontFamily("Unavailable deferred font"));
+        var fallback = manager.ResolveSkia(manager.DefaultTypeface);
+        int opens = 0;
+        manager.RegisterFont(typeface, () =>
+        {
+            opens++;
+            if (failOnOpen)
+                throw new IOException("Font asset is unavailable.");
+            var stream = new MemoryStream();
+            stream.Dispose();
+            return stream;
+        });
+        long revision = manager.Revision;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.TryResolveSkia(typeface, out _), Is.False);
+            Assert.That(manager.ResolveSkia(typeface), Is.SameAs(fallback));
+            Assert.That(manager.ResolveSkia(typeface), Is.SameAs(fallback));
+            Assert.That(opens, Is.EqualTo(1));
+            Assert.That(manager.Revision, Is.EqualTo(revision));
+        });
+    }
+
     private static Stream Open(string file) => typeof(DeferredFontTests).Assembly
         .GetManifestResourceStream("Beutl.UnitTests.Assets.Font." + file)!;
 }

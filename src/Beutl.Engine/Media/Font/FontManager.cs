@@ -215,8 +215,17 @@ public sealed class FontManager
 
     private SKTypeface? LoadRegisteredFont(Typeface typeface, Func<Stream> openStream)
     {
-        using Stream stream = openStream();
-        SKTypeface? face = SKTypeface.FromStream(stream);
+        SKTypeface? face;
+        try
+        {
+            using Stream stream = openStream();
+            face = SKTypeface.FromStream(stream);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load registered font {FontFamily}", typeface.FontFamily);
+            return null;
+        }
         if (face is null)
             return null;
         if (face.FamilyName != typeface.FontFamily.Name)
