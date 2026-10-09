@@ -497,6 +497,55 @@ public class TimeStretchEffectTests
         Assert.That(node.GetDrainLatencySamples(SampleRate), Is.EqualTo(expected));
     }
 
+    [TestCase(50f, 0, 0)]
+    [TestCase(50f, 200, 400)]
+    [TestCase(100f, 200, 200)]
+    [TestCase(200f, 201, 101)]
+    [TestCase(400f, int.MaxValue, int.MaxValue)]
+    [TestCase(25f, int.MaxValue - 1, int.MaxValue)]
+    public void EffectLatency_TransformsInputBudgetAndMatchesGraph(float speed, int inputLatency, int expected)
+    {
+        var effect = new TimeStretchEffect();
+        effect.Speed.CurrentValue = speed;
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode source = context.AddNode(new SignalNode(SampleRate, (_, _) => 0, latency: inputLatency));
+        AudioNode node = effect.CreateNode(context, source);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(effect.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(expected));
+            Assert.That(node.GetTotalLatencySamples(SampleRate), Is.EqualTo(expected));
+            Assert.That(effect.GetLatencySamples(SampleRate), Is.Zero);
+            Assert.That(node.GetLatencySamples(SampleRate), Is.Zero);
+        }
+    }
+
+    [TestCase(false, 400)]
+    [TestCase(true, 800)]
+    public void EffectLatency_AnimatedSpeedUsesConservativeBoundsAndMatchesGraph(bool unknownRange, int expected)
+    {
+        var effect = new TimeStretchEffect();
+        effect.Speed.CurrentValue = 200f;
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 200f,
+            Easing = unknownRange ? new UnknownRangeEasing() : new LinearEasing()
+        });
+        effect.Speed.Animation = animation;
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode source = context.AddNode(new SignalNode(SampleRate, (_, _) => 0, latency: 200));
+        AudioNode node = effect.CreateNode(context, source);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(effect.GetLatencySamples(SampleRate, 200), Is.EqualTo(expected));
+            Assert.That(node.GetTotalLatencySamples(SampleRate), Is.EqualTo(expected));
+        }
+    }
+
     [Test]
     public void CreateNode_ReusesTheProcessorAcrossGraphUpdates()
     {
@@ -546,18 +595,28 @@ public class TimeStretchEffectTests
             Is.EqualTo(shiftedPitch).Within(3));
     }
 
-    [TestCase(50f, false)]
-    [TestCase(200f, false)]
-    [TestCase(50f, true)]
-    [TestCase(200f, true)]
-    public void EffectGroup_ReportsTheSameScaledLatencyAsItsGraph(float speed, bool nested)
+    [TestCase(50f, false, true, 0, 960)]
+    [TestCase(200f, false, true, 0, 240)]
+    [TestCase(50f, true, true, 0, 960)]
+    [TestCase(200f, true, true, 0, 240)]
+    [TestCase(50f, false, true, 200, 1360)]
+    [TestCase(50f, false, false, 200, 880)]
+    [TestCase(50f, true, true, 200, 1360)]
+    [TestCase(50f, true, false, 200, 880)]
+    [TestCase(200f, true, true, 200, 340)]
+    [TestCase(200f, true, false, 200, 580)]
+    [TestCase(50f, true, true, int.MaxValue, int.MaxValue)]
+    [TestCase(200f, true, false, int.MaxValue, int.MaxValue)]
+    public void EffectGroup_ReportsTheSameScaledLatencyAsItsGraph(
+        float speed, bool nested, bool limiterFirst, int inputLatency, int expected)
     {
         var limiter = new LimiterEffect();
         limiter.Lookahead.CurrentValue = 10f;
         var stretch = new TimeStretchEffect();
         stretch.Speed.CurrentValue = speed;
         var group = new AudioEffectGroup();
-        group.Children.Add(limiter);
+        if (limiterFirst)
+            group.Children.Add(limiter);
         if (nested)
         {
             var inner = new AudioEffectGroup();
@@ -568,11 +627,17 @@ public class TimeStretchEffectTests
         {
             group.Children.Add(stretch);
         }
+        if (!limiterFirst)
+            group.Children.Add(limiter);
         using var context = new AudioContext(SampleRate, 2);
-        AudioNode output = group.CreateNode(context, ToneSource());
+        AudioNode source = context.AddNode(new SignalNode(SampleRate, (_, _) => 0, latency: inputLatency));
+        AudioNode output = group.CreateNode(context, source);
 
-        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(output.GetTotalLatencySamples(SampleRate)));
-        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo((int)(480 / (speed / 100d))));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(group.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(expected));
+            Assert.That(output.GetTotalLatencySamples(SampleRate), Is.EqualTo(expected));
+        }
     }
 
     [Test]
@@ -608,6 +673,11 @@ public class TimeStretchEffectTests
 
     private static SignalNode ToneSource()
         => new(SampleRate, (channel, index) => (channel == 0 ? 1 : -1) * Sine(index, SampleRate, 440));
+
+    private sealed class UnknownRangeEasing : Easing
+    {
+        public override float Ease(float progress) => progress;
+    }
 
     private static float Sine(long index, int sampleRate, double frequency)
         => (float)(0.5 * Math.Sin(2 * Math.PI * frequency * index / sampleRate));
