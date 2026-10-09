@@ -110,6 +110,12 @@ public partial class PlayerView
 
         public void OnPressed(PointerPressedEventArgs e)
         {
+            if (StopForPlayback())
+            {
+                e.Handled = true;
+                return;
+            }
+
             PointerPoint pointerPoint = e.GetCurrentPoint(Image);
             _lastPosition = pointerPoint.Position;
 
@@ -287,6 +293,8 @@ public partial class PlayerView
 
         public void OnMoved(PointerEventArgs e)
         {
+            if (StopForPlayback()) return;
+
             AvaPoint position = e.GetPosition(Image);
             AvaPoint delta = position - _lastPosition;
 
@@ -480,34 +488,42 @@ public partial class PlayerView
 
         public void OnReleased(PointerReleasedEventArgs e)
         {
-            if (_leftPressed && e.InitialPressMouseButton == MouseButton.Left)
+            if ((_leftPressed && e.InitialPressMouseButton == MouseButton.Left)
+                || (_rightPressed && e.InitialPressMouseButton == MouseButton.Right))
             {
-                _leftPressed = false;
-
-                if (_selectedObject != null)
-                {
-                    EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
-                }
-
-                _selectedObject = null;
-                _objectPositionKeyFrame = null;
-                _objectRotationKeyFrame = null;
-                _objectScaleKeyFrame = null;
-                _selectedGizmoAxis = GizmoAxis.None;
+                EndInteraction();
             }
-            else if (_rightPressed && e.InitialPressMouseButton == MouseButton.Right)
-            {
-                _rightPressed = false;
-                _positionKeyFrame = null;
-                _targetKeyFrame = null;
-                StopMovementTimer();
-                _pressedKeys.Clear();
-                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
-            }
+        }
+
+        public void EndInteraction()
+        {
+            bool commit = _rightPressed || (_leftPressed && _selectedObject != null);
+            _leftPressed = false;
+            _rightPressed = false;
+            _selectedObject = null;
+            _objectPositionKeyFrame = null;
+            _objectRotationKeyFrame = null;
+            _objectScaleKeyFrame = null;
+            _selectedGizmoAxis = GizmoAxis.None;
+            _positionKeyFrame = null;
+            _targetKeyFrame = null;
+            StopMovementTimer();
+            _pressedKeys.Clear();
+            if (commit) EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
+        }
+
+        // Input and timer callbacks can run before the UI-side IsPlaying subscription is delivered.
+        private bool StopForPlayback()
+        {
+            if (!ViewModel.IsPlaying.Value) return false;
+            EndInteraction();
+            return true;
         }
 
         public void OnWheelChanged(PointerWheelEventArgs e)
         {
+            if (StopForPlayback()) return;
+
             if (_camera != null)
             {
                 // カメラとシーンを探す（ホイール操作は単独で行われる可能性があるため）
@@ -546,6 +562,8 @@ public partial class PlayerView
 
         public void OnKeyDown(KeyEventArgs e)
         {
+            if (StopForPlayback()) return;
+
             if (!_rightPressed || _camera == null)
                 return;
 
@@ -641,6 +659,8 @@ public partial class PlayerView
 
         private void OnMovementTimerTick(object? sender, EventArgs e)
         {
+            if (StopForPlayback()) return;
+
             if (_camera == null || _pressedKeys.Count == 0 || !_rightPressed)
             {
                 StopMovementTimer();

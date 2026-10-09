@@ -269,12 +269,15 @@ public partial class PlayerView : UserControl
                 .Subscribe(_ => UpdateTransformHandles())
                 .DisposeWith(_disposables);
 
-            // Re-push the panel size when playback stops (skipped during playback).
+            // End in-flight camera edits when playback starts; re-push the panel size when it stops.
             vm.IsPlaying
                 .Skip(1)
-                .Where(playing => !playing)
                 .ObserveOnUIDispatcher()
-                .Subscribe(_ => UpdateMaxFrameSize())
+                .Subscribe(_ =>
+                {
+                    if (vm.IsPlaying.Value) FinishCameraInteraction();
+                    else UpdateMaxFrameSize();
+                })
                 .DisposeWith(_disposables);
 
             SubscribeTransformOverlay(vm);
