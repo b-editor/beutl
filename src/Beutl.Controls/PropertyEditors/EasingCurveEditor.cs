@@ -46,6 +46,8 @@ public sealed class EasingCurveEditor : Control
     private ControlPoint _hovered;
     private ControlPoint _dragging;
     private SplineEasing? _dragStart;
+    private Point _pressPosition;
+    private IPointer? _capturedPointer;
     // The vertical range follows the curve, so it is held still while a handle is dragged
     // or the plot would rescale under the pointer.
     private ValueRange? _frozenRange;
@@ -189,7 +191,7 @@ public sealed class EasingCurveEditor : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (IsReadOnly || IsDragging || Easing is not SplineEasing spline) return;
+        if (IsDragging || GetEditableSpline() is not { } spline) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
         ValueRange range = GetRange(spline);
@@ -198,8 +200,10 @@ public sealed class EasingCurveEditor : Control
 
         _dragging = hit;
         _dragStart = spline;
+        _pressPosition = e.GetPosition(this);
         _frozenRange = range;
         e.Pointer.Capture(this);
+        _capturedPointer = e.Pointer;
         e.Handled = true;
         InvalidateVisual();
     }
@@ -209,18 +213,22 @@ public sealed class EasingCurveEditor : Control
         base.OnPointerMoved(e);
         if (!IsDragging)
         {
-            UpdateHover(!IsReadOnly && Easing is SplineEasing hoverSpline
+            UpdateHover(GetEditableSpline() is { } hoverSpline
                 ? HitTest(e.GetPosition(this), hoverSpline, GetRange(hoverSpline))
                 : ControlPoint.None);
             return;
         }
 
-        if (Easing is not SplineEasing current || _frozenRange is not { } range) return;
+        if (Easing is not SplineEasing current || _dragStart is not { } start || _frozenRange is not { } range) return;
 
+        // The handle follows the pointer's offset from the press, so grabbing it off-centre does not
+        // make it jump, and returning to the press position restores the exact starting values.
         (double x, double y) = FromScreen(e.GetPosition(this), range);
+        (double pressX, double pressY) = FromScreen(_pressPosition, range);
+        (float startX, float startY) = _dragging == ControlPoint.First ? (start.X1, start.Y1) : (start.X2, start.Y2);
         // KeySpline rejects X outside [0, 1]; Y may overshoot to describe anticipation and overshoot.
-        float newX = (float)Math.Clamp(x, 0, 1);
-        float newY = (float)y;
+        float newX = (float)Math.Clamp(startX + (x - pressX), 0, 1);
+        float newY = (float)(startY + (y - pressY));
         if (!float.IsFinite(newY)) return;
 
         SplineEasing next = _dragging == ControlPoint.First
@@ -236,7 +244,6 @@ public sealed class EasingCurveEditor : Control
         if (!IsDragging) return;
 
         CompleteDrag();
-        e.Pointer.Capture(null);
         e.Handled = true;
     }
 
@@ -261,7 +268,15 @@ public sealed class EasingCurveEditor : Control
 
         SplineEasing? start = _dragStart;
         EndDrag();
-        if (start != null && Easing is SplineEasing end && !ReferenceEquals(start, end))
+        if (start == null || Easing is not SplineEasing end || ReferenceEquals(start, end)) return;
+
+        if (start.X1 == end.X1 && start.Y1 == end.Y1 && start.X2 == end.X2 && start.Y2 == end.Y2)
+        {
+            // A drag that ends where it began is no edit: put the original instance back instead
+            // of recording a replacement with equal values.
+            Editing?.Invoke(this, new EasingCurveEditedEventArgs(end, start));
+        }
+        else
         {
             Edited?.Invoke(this, new EasingCurveEditedEventArgs(start, end));
         }
@@ -276,10 +291,26 @@ public sealed class EasingCurveEditor : Control
 
     private void EndDrag()
     {
+        IPointer? pointer = _capturedPointer;
+        _capturedPointer = null;
         _dragging = ControlPoint.None;
         _dragStart = null;
         _frozenRange = null;
         InvalidateVisual();
+
+        // A drag can also end without a release (read-only, value replaced). The capture-lost
+        // callback this raises finds no drag left to complete.
+        if (pointer?.Captured == this)
+        {
+            pointer.Capture(null);
+        }
+    }
+
+    // A drag step copies the spline through its constructor, which would drop the type and state
+    // of a subclass from an extension, so only a plain SplineEasing is editable.
+    private SplineEasing? GetEditableSpline()
+    {
+        return !IsReadOnly && Easing is SplineEasing spline && spline.GetType() == typeof(SplineEasing) ? spline : null;
     }
 
     private void UpdateHover(ControlPoint hovered)
@@ -312,6 +343,9 @@ public sealed class EasingCurveEditor : Control
         InvalidateVisual();
     }
 
+    // Samples choose the viewport, not output bounds: the curve is drawn from these same samples,
+    // so every drawn point fits. Declared ranges are conservative (ElasticEaseOut declares [0, 2])
+    // and would leave much of the plot empty.
     private ValueRange GetRange(Easing? easing)
     {
         if (_frozenRange is { } frozen) return frozen;
@@ -439,7 +473,7 @@ public sealed class EasingCurveEditor : Control
 
     private void DrawHandles(DrawingContext context, SplineEasing spline, ValueRange range)
     {
-        using DrawingContext.PushedState _ = context.PushOpacity(IsReadOnly ? 0.5 : 1);
+        using DrawingContext.PushedState _ = context.PushOpacity(GetEditableSpline() == null ? 0.5 : 1);
         var linePen = new Pen(HandleBrush, 1);
         Point first = ToScreen(spline.X1, spline.Y1, range);
         Point second = ToScreen(spline.X2, spline.Y2, range);

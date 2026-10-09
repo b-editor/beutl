@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.ComponentModel.DataAnnotations;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -11,6 +12,7 @@ using Beutl.Editor.Observers;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 
@@ -53,6 +55,46 @@ public sealed class EasingEditorTests
 
         Assert.That(vm, Is.TypeOf<EasingEditorViewModel<SplineEasing>>());
         Assert.That(((EasingEditor)control).Items!.Select(item => item.Type), Is.EqualTo(new[] { typeof(SplineEasing) }));
+    }
+
+    [Test]
+    public void Registered_easings_follow_the_built_in_ones_with_their_display_names()
+    {
+        EasingItem[] items = EasingEditorItems.Create(
+            typeof(Easing),
+            [typeof(DisplayedEasing), typeof(AbstractEasing), typeof(ParameterizedEasing), typeof(ThrowingEasing), typeof(LinearEasing)],
+            _ => null);
+        EasingItem[] splines = EasingEditorItems.Create(
+            typeof(SplineEasing), [typeof(DisplayedEasing), typeof(DerivedSpline)], _ => null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(items[^1].Type, Is.EqualTo(typeof(DisplayedEasing)));
+            Assert.That(items[^1].DisplayName, Is.EqualTo("Custom wave"));
+            Assert.That(items[^1].Description, Is.EqualTo("A registered test easing"));
+            Assert.That(items.Count(item => item.Type == typeof(LinearEasing)), Is.EqualTo(1));
+            Assert.That(items.Select(item => item.Type),
+                Has.None.EqualTo(typeof(AbstractEasing))
+                    .And.None.EqualTo(typeof(ParameterizedEasing))
+                    .And.None.EqualTo(typeof(ThrowingEasing)));
+            Assert.That(splines.Select(item => item.Type), Is.EqualTo(new[] { typeof(SplineEasing), typeof(DerivedSpline) }));
+        });
+    }
+
+    [Test]
+    public void Library_registered_names_take_precedence_over_display_attributes()
+    {
+        var registration = new SingleTypeLibraryItem(
+            KnownLibraryItemFormats.Easing, typeof(DisplayedEasing), "Library wave", "Registered description");
+        EasingItem item = EasingEditorItems.Create(
+                typeof(Easing), [typeof(DisplayedEasing)], type => type == typeof(DisplayedEasing) ? registration : null)
+            .Single(item => item.Type == typeof(DisplayedEasing));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(item.DisplayName, Is.EqualTo("Library wave"));
+            Assert.That(item.Description, Is.EqualTo("Registered description"));
+        });
     }
 
     [AvaloniaTest]
@@ -171,6 +213,52 @@ public sealed class EasingEditorTests
     }
 
     [AvaloniaTest]
+    public void Rejected_drag_steps_keep_showing_the_property_value()
+    {
+        var holder = new EasingHolder();
+        Easing original = holder.Bounded.CurrentValue;
+        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Bounded, holder));
+        using var _ = vm;
+        using var history = new HistoryScope(holder);
+        vm.Accept(new Services(history.History));
+        var editor = (EasingEditor)control;
+        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        try
+        {
+            window.Show();
+            EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
+            Point start = ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, start);
+
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            // The validator rejects overshoot, so the property keeps its value and raises no change.
+            window.MouseMove(ToWindow(window, curve, 0.25, 1.4));
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Bounded.CurrentValue, Is.SameAs(original));
+                Assert.That(editor.Value, Is.SameAs(original));
+                Assert.That(curve.Easing, Is.SameAs(original));
+            });
+
+            Point end = ToWindow(window, curve, 0.4, 0.6);
+            window.MouseMove(end);
+            window.MouseUp(end, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(((SplineEasing)holder.Bounded.CurrentValue).Y1, Is.EqualTo(0.6).Within(0.01));
+                Assert.That(curve.Easing, Is.SameAs(holder.Bounded.CurrentValue));
+                Assert.That(history.History.UndoCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public void Curve_editor_holds_its_vertical_range_while_a_handle_leaves_the_unit_square()
     {
         var spline = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
@@ -218,6 +306,41 @@ public sealed class EasingEditorTests
     }
 
     [AvaloniaTest]
+    public void A_drag_back_to_the_press_position_restores_the_original_without_an_edit()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var commits = new List<EasingCurveEditedEventArgs>();
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        curve.Edited += (_, e) => commits.Add(e);
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            // Off-centre on the handle: the press alone must not move the control point.
+            Point press = ToWindow(window, curve, 0.25, 0.1) + new Vector(3, -2);
+            WaitForHitTest(window, curve, press);
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseMove(ToWindow(window, curve, 0.6, 0.6));
+            Assert.That(curve.Easing, Is.Not.SameAs(spline));
+            window.MouseMove(press);
+            window.MouseUp(press, MouseButton.Left);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(commits, Is.Empty);
+                Assert.That(curve.Easing, Is.SameAs(spline));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     public void Read_only_curve_editor_ignores_handle_drags()
     {
         var spline = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
@@ -237,6 +360,74 @@ public sealed class EasingEditorTests
 
             // The same gesture edits once the editor is writable, so the drag above did reach the handle.
             curve.IsReadOnly = false;
+            Drag(window, start, ToWindow(window, curve, 0.6, 0.6));
+            Assert.That(events, Is.GreaterThan(0));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Becoming_read_only_mid_drag_confirms_the_drag_and_releases_the_pointer()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        var curve = new EasingCurveEditor { Easing = spline };
+        var commits = new List<EasingCurveEditedEventArgs>();
+        int captureLost = 0;
+        curve.Editing += (_, e) => curve.Easing = e.NewValue;
+        curve.Edited += (_, e) => commits.Add(e);
+        curve.PointerCaptureLost += (_, _) => captureLost++;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            Point start = ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, start);
+
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            Point moved = ToWindow(window, curve, 0.5, 0.5);
+            window.MouseMove(moved);
+            curve.IsReadOnly = true;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(curve.IsDragging, Is.False);
+                Assert.That(captureLost, Is.EqualTo(1), "Ending the drag must release the pointer before the button is.");
+                Assert.That(commits, Has.Count.EqualTo(1));
+                Assert.That(commits[0].OldValue, Is.SameAs(spline));
+            });
+
+            window.MouseUp(moved, MouseButton.Left);
+            Assert.That(commits, Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Spline_subclasses_are_drawn_but_not_dragged()
+    {
+        var curve = new EasingCurveEditor { Easing = new DerivedSpline() };
+        int events = 0;
+        curve.Editing += (_, _) => events++;
+        curve.Edited += (_, _) => events++;
+        var window = new Window { Content = curve, Width = 300, Height = 200 };
+        try
+        {
+            window.Show();
+            Point start = ToWindow(window, curve, 0.25, 0.1);
+            WaitForHitTest(window, curve, start);
+
+            Drag(window, start, ToWindow(window, curve, 0.6, 0.6));
+            Assert.That(events, Is.Zero, "A drag step would turn the subclass into a plain SplineEasing.");
+
+            // A plain spline with the same control points is dragged by the same gesture.
+            curve.Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
             Drag(window, start, ToWindow(window, curve, 0.6, 0.6));
             Assert.That(events, Is.GreaterThan(0));
         }
@@ -323,6 +514,37 @@ public sealed class EasingEditorTests
         public IProperty<Easing> Curve { get; } = Property.Create<Easing>(new LinearEasing());
 
         public IProperty<SplineEasing> Spline { get; } = Property.Create(new SplineEasing());
+
+        // ScanProperties builds the validator from the property's attributes.
+        [NoOvershoot]
+        public IProperty<Easing> Bounded { get; } = Property.Create<Easing>(new SplineEasing(0.25f, 0.1f, 0.25f, 1f));
+    }
+
+    public sealed class NoOvershootAttribute : ValidationAttribute
+    {
+        public override bool IsValid(object? value) => value is not (SplineEasing { Y1: > 1 } or SplineEasing { Y2: > 1 });
+    }
+
+    [Display(Name = "Custom wave", Description = "A registered test easing")]
+    public sealed class DisplayedEasing : Easing
+    {
+        public override float Ease(float progress) => progress;
+    }
+
+    public abstract class AbstractEasing : Easing;
+
+    public sealed class ParameterizedEasing(float scale) : Easing
+    {
+        public override float Ease(float progress) => progress * scale;
+    }
+
+    public sealed class DerivedSpline() : SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+
+    public sealed class ThrowingEasing : Easing
+    {
+        public ThrowingEasing() => throw new InvalidOperationException("The extension is not ready.");
+
+        public override float Ease(float progress) => progress;
     }
 
     private sealed class HistoryScope : IDisposable
