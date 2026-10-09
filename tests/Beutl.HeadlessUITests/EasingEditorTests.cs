@@ -489,6 +489,8 @@ public sealed class EasingEditorTests
                 0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other), KeyModifiers.None));
             curve.RaiseEvent(new PointerReleasedEventArgs(curve, touch, window, elsewhere,
                 0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other), KeyModifiers.None, MouseButton.None));
+            // A real touch is implicitly captured, so its release also raises a capture loss.
+            curve.RaiseEvent(new PointerCaptureLostEventArgs(curve, touch));
             Assert.Multiple(() =>
             {
                 Assert.That(edits, Is.Zero);
