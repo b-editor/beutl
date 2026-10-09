@@ -87,6 +87,7 @@ public sealed partial class ElementView : UserControl
         // With the layer locked, clearing the element flag has no visible effect
         // (IsEditable stays false), so the toggle would read as broken.
         lockElement.IsEnabled = viewModel.LayerHeader.Value?.IsLocked.Value != true;
+        PopulateAiMenu(viewModel);
     }
 
     private void LockElement_Click(object? sender, RoutedEventArgs e)

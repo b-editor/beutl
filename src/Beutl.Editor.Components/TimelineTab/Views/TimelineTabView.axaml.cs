@@ -67,7 +67,11 @@ public sealed partial class TimelineTabView : UserControl
 
         if (TimelinePanel.ContextFlyout is FAMenuFlyout contextFlyout)
         {
-            contextFlyout.Opening += (_, _) => PopulateAddFromTemplateSubMenu();
+            contextFlyout.Opening += (_, _) =>
+            {
+                PopulateAddFromTemplateSubMenu();
+                UpdateGenerateHereMenuItem();
+            };
         }
     }
 
@@ -103,7 +107,8 @@ public sealed partial class TimelineTabView : UserControl
     {
         ViewModel = null;
 
-        TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
+        // Background, BPM grid and overlay are the panel's own; everything after them is added.
+        TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
         _selectedElement = null;
 
         _disposables.Clear();
@@ -122,6 +127,7 @@ public sealed partial class TimelineTabView : UserControl
         }));
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
+        AttachGeneration(vm);
 
         vm.Elements.TrackCollectionChanged(
                 AddElement,

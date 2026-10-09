@@ -204,6 +204,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         SubscribeToolMode(IsSlipMode);
         SubscribeToolMode(IsRollMode);
         SubscribeToolMode(IsSlideMode);
+        InitializeGeneration();
 
         // The Undo/Redo flush hook now lives in ElementNudgeService, wired to
         // HistoryManager.BeforeMutation by the editor context.
@@ -380,6 +381,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
+        DisposeGeneration();
         _disposables.Dispose();
         foreach (ElementViewModel? item in Elements.GetMarshal().Value)
         {

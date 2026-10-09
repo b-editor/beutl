@@ -73,6 +73,11 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        HasAiGeneration = element.GetObservable(Element.GenerationProperty)
+            .Select(generation => generation is not null)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         Name = element.GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
@@ -250,6 +255,9 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     public ReadOnlyReactivePropertySlim<bool> IsEditable { get; }
 
     public ReactiveProperty<string> Name { get; }
+
+    /// <summary>Whether AI made the element's media, which shows its badge.</summary>
+    public ReadOnlyReactivePropertySlim<bool> HasAiGeneration { get; }
 
     public ReactiveProperty<Thickness> Margin { get; }
 

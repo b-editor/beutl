@@ -209,6 +209,19 @@ public sealed partial class TimelineTabView
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
+            // A double-click on an empty stretch of a layer offers to fill it with a generated clip.
+            // The ruler shares this handler and has no layers to fill.
+            if (ReferenceEquals(sender, TimelinePanel)
+                && e.ClickCount == 2
+                && e.KeyModifiers == KeyModifiers.None
+                && !viewModel.IsRazorMode.Value
+                && viewModel.FindGenerationGapAtPointer() is { } gap)
+            {
+                e.Handled = true;
+                _ = viewModel.StartGapGenerationAsync(gap);
+                return;
+            }
+
             if (viewModel.IsRazorMode.Value)
             {
                 viewModel.RazorSplitAt(viewModel.ClickedFrame, acrossAllLayers: true);

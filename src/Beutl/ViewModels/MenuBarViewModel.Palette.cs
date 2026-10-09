@@ -19,6 +19,12 @@ public partial class MenuBarViewModel
         yield return new("MenuBar.PasteLayer", Strings.Paste, PasteLayer);
         yield return new("MenuBar.ResetDockLayout", Strings.ResetDockLayout, ResetDockLayout);
         yield return new("MenuBar.ShowSceneSettings", Strings.SceneSettings, ShowSceneSettings);
+        yield return new("MenuBar.ShowAiJobs", Strings.AiJobCenter, ShowAiJobs);
+        yield return new("MenuBar.GenerateImage", Strings.AiGenerateImage, GenerateImage);
+        yield return new("MenuBar.EditImage", Strings.AiEditImage, EditImage);
+        yield return new("MenuBar.GenerateVideo", Strings.AiGenerateVideo, GenerateVideo);
+        yield return new("MenuBar.EditVideo", Strings.AiVideoEditing, EditVideo);
+        yield return new("MenuBar.GenerateSubtitles", Strings.AiGenerateSubtitles, GenerateSubtitles);
     }
 
     // MainViewExtension の ContextCommand 名から MenuBar 上の ICommand への単一マッピング。

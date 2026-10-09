@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Editor.Components.TimelineTab.Views.TimelineTabView"
+﻿<UserControl x:Class="Beutl.Editor.Components.TimelineTab.Views.TimelineTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -291,6 +291,14 @@
                                                      Text="{x:Static lang:Strings.RippleEdit}" />
                         </ui:FAMenuFlyoutSubItem>
                         <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem x:Name="GenerateHereMenuItem"
+                                             usage:UsageTracking.Feature="Timeline.Ai.GenerateHere"
+                                             Click="GenerateHere_Click"
+                                             Text="{x:Static lang:Strings.AiTimelineGenerateHere}">
+                            <ui:FAMenuFlyoutItem.IconSource>
+                                <icons:FluentIconSource Icon="Sparkle" />
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
                         <ui:FAMenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:FAMenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.AddAdjustmentLayer"

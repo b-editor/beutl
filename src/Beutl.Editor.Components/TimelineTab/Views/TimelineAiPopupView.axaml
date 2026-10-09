@@ -1,0 +1,206 @@
+﻿<UserControl x:Class="Beutl.Editor.Components.TimelineTab.Views.TimelineAiPopupView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:gen="using:Beutl.Editor.Components.TimelineTab.Generative"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ng="using:Beutl.NodeGraph.Generative"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             Width="560"
+             d:DesignWidth="560"
+             x:CompileBindings="True"
+             x:DataType="gen:TimelineAiPopupViewModel"
+             mc:Ignorable="d">
+    <StackPanel Spacing="8">
+        <!-- Row 1: what to make, and the prompt. -->
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <StackPanel VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="6">
+                <icons:FluentIcon FontSize="18" Icon="Sparkle" />
+                <TextBlock VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           IsVisible="{Binding !CanChooseImageTask}"
+                           Text="{Binding Title}" />
+                <ComboBox x:Name="ImageTaskBox"
+                          MinWidth="150"
+                          IsEnabled="{Binding !IsRunning.Value}"
+                          IsVisible="{Binding CanChooseImageTask}"
+                          ItemsSource="{Binding ImageTasks}"
+                          SelectedItem="{Binding SelectedImageTask.Value}" />
+            </StackPanel>
+            <TextBox x:Name="PromptBox"
+                     Grid.Column="1"
+                     MaxHeight="96"
+                     AcceptsReturn="True"
+                     IsEnabled="{Binding !IsRunning.Value}"
+                     IsVisible="{Binding RequiresPrompt.Value}"
+                     PlaceholderText="{x:Static lang:Strings.AiTimelinePromptPlaceholder}"
+                     Text="{Binding Prompt.Value}"
+                     TextWrapping="Wrap" />
+            <Button Grid.Column="2"
+                    VerticalAlignment="Top"
+                    Classes="transparent"
+                    ToolTip.Tip="{x:Static lang:Strings.AiTimelineOpenAiTab}">
+                <icons:FluentIcon Icon="MoreHorizontal" />
+                <Button.Flyout>
+                    <ui:FAMenuFlyout>
+                        <ui:FAMenuFlyoutItem Command="{Binding OpenAiWorkspace}" Text="{x:Static lang:Strings.AiTimelineOpenAiTab}" />
+                        <ui:FAMenuFlyoutItem Command="{Binding Discard}" Text="{x:Static lang:Strings.AiTimelineDiscard}" />
+                    </ui:FAMenuFlyout>
+                </Button.Flyout>
+            </Button>
+        </Grid>
+
+        <!-- Row 2: the model and the shape of what comes back. -->
+        <WrapPanel ItemSpacing="8"
+                   LineSpacing="6"
+                   Orientation="Horizontal">
+            <ComboBox MinWidth="180"
+                      IsEnabled="{Binding !IsRunning.Value}"
+                      ItemsSource="{Binding Models.Value}"
+                      PlaceholderText="{x:Static lang:Strings.AiTimelineLoadingModels}"
+                      SelectedItem="{Binding SelectedModel.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="ng:GenerativeModelInfo">
+                        <TextBlock Opacity="{Binding IsAvailable, Converter={x:Static gen:TimelineAiPopupConverters.AvailableOpacity}}" Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ComboBox IsEnabled="{Binding !IsRunning.Value}"
+                      IsVisible="{Binding IsVideo}"
+                      ItemsSource="{Binding Resolutions.Value}"
+                      SelectedItem="{Binding SelectedResolution.Value}"
+                      ToolTip.Tip="{x:Static lang:Strings.AiVideoResolution}" />
+            <ComboBox IsEnabled="{Binding !IsRunning.Value}"
+                      IsVisible="{Binding IsVideo}"
+                      ItemsSource="{Binding AspectRatios.Value}"
+                      SelectedItem="{Binding SelectedAspectRatio.Value}"
+                      ToolTip.Tip="{x:Static lang:Strings.AiAspectRatio}" />
+            <TextBlock VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       IsVisible="{Binding IsVideo}"
+                       Text="{Binding FrameRateText}" />
+            <ComboBox IsEnabled="{Binding !IsRunning.Value}"
+                      IsVisible="{Binding HasDuration}"
+                      ItemsSource="{Binding Durations.Value}"
+                      SelectedItem="{Binding SelectedDuration.Value}"
+                      ToolTip.Tip="{x:Static lang:Strings.AiVideoDuration}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="x:Int32">
+                        <TextBlock Text="{Binding StringFormat={x:Static lang:Strings.AiTimelineSecondsFormat}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ToggleButton IsChecked="{Binding GenerateAudio.Value}"
+                          IsEnabled="{Binding !IsRunning.Value}"
+                          IsVisible="{Binding SupportsAudio.Value}"
+                          ToolTip.Tip="{x:Static lang:Strings.AiGenerateAudio}">
+                <icons:FluentIcon Icon="Speaker2" />
+            </ToggleButton>
+            <ComboBox IsEnabled="{Binding !IsRunning.Value}"
+                      IsVisible="{Binding ShowOutpaintExpansion.Value}"
+                      ItemsSource="{Binding OutpaintExpansions}"
+                      SelectedItem="{Binding SelectedOutpaintExpansion.Value}"
+                      ToolTip.Tip="{x:Static lang:Strings.AiEditOutpaintExpansion}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="x:Int32">
+                        <TextBlock Text="{Binding StringFormat={}{0}%}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </WrapPanel>
+
+        <!-- Row 3: what it starts from, and running it. -->
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <StackPanel IsVisible="{Binding HasFrames}"
+                        Orientation="Horizontal"
+                        Spacing="6">
+                <Border Height="48"
+                        MinWidth="48"
+                        Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                        CornerRadius="4"
+                        ClipToBounds="True"
+                        ToolTip.Tip="{x:Static lang:Strings.AiVideoFirstFrame}">
+                    <Panel>
+                        <Image Source="{Binding FirstFrame.Value}" Stretch="Uniform" />
+                        <TextBlock Margin="6,0"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="11"
+                                   IsVisible="{Binding FirstFrame.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                                   Text="{x:Static lang:Strings.AiTimelineNoFirstFrame}" />
+                    </Panel>
+                </Border>
+                <Button Height="48"
+                        MinWidth="48"
+                        Padding="4"
+                        Click="ChooseLastFrame_Click"
+                        IsEnabled="{Binding !IsRunning.Value}"
+                        IsVisible="{Binding SupportsLastFrame.Value}"
+                        ToolTip.Tip="{x:Static lang:Strings.AiVideoLastFrame}">
+                    <Panel>
+                        <Image Source="{Binding LastFrame.Value}" Stretch="Uniform" />
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding LastFrame.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <icons:FluentIcon FontSize="14" Icon="ImageAdd" />
+                            <TextBlock FontSize="11" Text="{x:Static lang:Strings.AiTimelineLastFrame}" />
+                        </StackPanel>
+                    </Panel>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{Binding Error.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding IsGated.Value}"
+                           Text="{Binding GateMessage.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding !IsGated.Value}"
+                           Text="{Binding Explanation.Value}"
+                           TextWrapping="Wrap" />
+                <TextBlock FontSize="12"
+                           IsVisible="{Binding IsRunning.Value}"
+                           Text="{Binding Status.Value}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <ProgressRing Width="20"
+                             Height="20"
+                             MinWidth="0"
+                             MinHeight="0"
+                                 IsIndeterminate="True"
+                                 IsVisible="{Binding IsRunning.Value}" />
+                <Button Command="{Binding Cancel}"
+                        Content="{x:Static lang:Strings.Cancel}"
+                        IsVisible="{Binding IsRunning.Value}" />
+                <Button Command="{Binding OpenAiWorkspace}"
+                        Content="{x:Static lang:Strings.AiTimelineOpenAiTab}"
+                        IsVisible="{Binding IsGated.Value}" />
+                <Button Classes="accent"
+                        Command="{Binding Generate}"
+                        IsVisible="{Binding !IsGated.Value}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <icons:FluentIcon Icon="Sparkle" />
+                        <TextBlock Text="{x:Static lang:Strings.AiGenerate}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</UserControl>
