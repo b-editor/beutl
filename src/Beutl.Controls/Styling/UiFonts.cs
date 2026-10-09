@@ -45,11 +45,23 @@ public static class UiFonts
     public static FontManagerOptions CreateFontManagerOptions(CultureInfo culture)
     {
         FontFamily[] families = GetOrderedFamilies(culture);
+        List<FontFallback> fallbacks = families.Select(family => new FontFallback { FontFamily = family }).ToList();
+        if (OperatingSystem.IsMacOS())
+        {
+            // Noto lacks some macOS keyboard glyphs, including Return. Prefer their monochrome
+            // system font before automatic fallback can select Apple Color Emoji.
+            fallbacks.Add(new FontFallback
+            {
+                FontFamily = new FontFamily("Lucida Grande"),
+                UnicodeRange = UnicodeRange.Parse("U+2190-21FF,U+2303,U+2318,U+2325,U+232B,U+238B,U+23CE,U+23CF,U+2423"),
+            });
+        }
+
         return new FontManagerOptions
         {
             DefaultFamilyName = string.Join(", ", families.Select(family => family.ToString())),
             // Also cover controls with an explicit font, such as monospace text boxes.
-            FontFallbacks = families.Select(family => new FontFallback { FontFamily = family }).ToArray(),
+            FontFallbacks = fallbacks,
         };
     }
 
