@@ -1,6 +1,4 @@
-﻿using System.IO.Enumeration;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -121,9 +119,7 @@ public class StorageFileEditor : StringEditor
 
             string name = Path.GetFileName(path);
             if (filters is not { Count: > 0 }
-                || filters.Any(type => type.Patterns?.Any(pattern =>
-                    pattern is "*" or "*.*"
-                    || FileSystemName.MatchesSimpleExpression(pattern, name, ignoreCase: true)) == true))
+                || filters.Any(type => FilePickerFileTypeMatcher.Matches(type, name)))
             {
                 return new FileInfo(path);
             }
