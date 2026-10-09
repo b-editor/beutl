@@ -98,7 +98,7 @@ public sealed partial class NewToolTabView : UserControl
         switch (e.Key)
         {
             case Key.Enter:
-                if (NewTab?.VisibleItems.FirstOrDefault(item => item.IsEnabled) is { } first)
+                if (NewTab?.AvailableItems.FirstOrDefault() is { } first)
                 {
                     e.Handled = true;
                     Open(first);
@@ -107,11 +107,10 @@ public sealed partial class NewToolTabView : UserControl
                 break;
 
             case Key.Down:
-                if (NewTab is { } newTab
-                    && newTab.VisibleItems.ToList().FindIndex(item => item.IsEnabled) is var index and >= 0)
+                if (NewTab is { AvailableItems.Count: > 0 })
                 {
                     e.Handled = true;
-                    ToolsList.GetOrCreateElement(index).Focus(NavigationMethod.Directional);
+                    AvailableList.GetOrCreateElement(0).Focus(NavigationMethod.Directional);
                 }
 
                 break;

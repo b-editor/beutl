@@ -4,6 +4,7 @@
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dockVm="using:Beutl.ViewModels.Dock"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -12,76 +13,111 @@
              x:CompileBindings="True"
              x:DataType="dockVm:NewToolTabDockable"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <DataTemplate x:Key="ToolTemplate" x:DataType="dockVm:NewToolTabItem">
+            <Button AutomationProperties.Name="{Binding Header}"
+                    Classes="tool"
+                    Click="OnToolClick"
+                    IsEnabled="{Binding IsEnabled}"
+                    ToolTip.Tip="{Binding Header}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <ui:FAIconSourceElement Width="20"
+                                            Height="20"
+                                            VerticalAlignment="Center"
+                                            IconSource="{Binding Icon}" />
+                    <TextBlock Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Text="{Binding Header}"
+                               TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <UserControl.Styles>
-        <!--  The tooltip is set by style, not locally, so the :disabled style below can replace it.  -->
-        <Style x:DataType="dockVm:NewToolTabItem" Selector="Button.tool">
+        <Style Selector="Button.tool">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="Padding" Value="8,6" />
-            <Setter Property="ToolTip.ShowOnDisabled" Value="True" />
-            <!--  Narrow docks trim long names.  -->
-            <Setter Property="ToolTip.Tip" Value="{Binding Header}" />
+            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="Padding" Value="12,6" />
         </Style>
-        <Style Selector="Button.tool:disabled">
-            <Setter Property="ToolTip.Tip" Value="{x:Static lang:Strings.NewToolTab_AlreadyOpen}" />
+        <Style Selector="Button.tool ui|FAIconSourceElement">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.tool:disabled ui|FAIconSourceElement">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
     </UserControl.Styles>
 
+    <!--  A capped, centred column keeps a wide dock from scattering the tiles across the screen.  -->
     <Grid RowDefinitions="Auto,*">
-        <controls:ToolTabBar>
-            <!--  Enter opens the first match, so it must not move focus away first.  -->
-            <TextBox x:Name="SearchBox"
-                     controls:TextBoxAttachment.EnterDownBehavior="None"
-                     AutomationProperties.Name="{x:Static lang:Strings.NewToolTab_Search}"
-                     Classes="clearButton"
-                     InputMethod.IsInputMethodEnabled="True"
-                     KeyDown="OnSearchBoxKeyDown"
-                     PlaceholderText="{x:Static lang:Strings.NewToolTab_Search}"
-                     Text="{Binding SearchText}" />
-        </controls:ToolTabBar>
+        <!--  Enter opens the first match, so it must not move focus away first.  -->
+        <TextBox x:Name="SearchBox"
+                 MaxWidth="800"
+                 Margin="16,16,16,8"
+                 controls:TextBoxAttachment.EnterDownBehavior="None"
+                 AutomationProperties.Name="{x:Static lang:Strings.NewToolTab_Search}"
+                 Classes="clearButton"
+                 InputMethod.IsInputMethodEnabled="True"
+                 KeyDown="OnSearchBoxKeyDown"
+                 PlaceholderText="{x:Static lang:Strings.NewToolTab_Search}"
+                 Text="{Binding SearchText}">
+            <TextBox.InnerLeftContent>
+                <icons:FluentIcon Margin="10,0,0,0"
+                                  FontSize="16"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Icon="Search" />
+            </TextBox.InnerLeftContent>
+        </TextBox>
 
-        <!--  Tiles reflow with the dock's width: one column in a side panel, a grid in the bottom panel.  -->
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
-            <ItemsRepeater x:Name="ToolsList"
-                           Margin="4"
-                           ItemsSource="{Binding VisibleItems}"
-                           XYFocus.NavigationModes="Keyboard">
-                <ItemsRepeater.Layout>
-                    <UniformGridLayout ItemsStretch="Fill"
-                                       MinColumnSpacing="2"
-                                       MinItemWidth="140"
-                                       MinRowSpacing="2"
-                                       Orientation="Horizontal" />
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                    <DataTemplate x:DataType="dockVm:NewToolTabItem">
-                        <Button AutomationProperties.Name="{Binding Header}"
-                                Classes="tool"
-                                Click="OnToolClick"
-                                IsEnabled="{Binding IsEnabled}"
-                                Theme="{StaticResource TransparentButton}">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                <ui:FAIconSourceElement Width="16"
-                                                        Height="16"
-                                                        VerticalAlignment="Center"
-                                                        IconSource="{Binding Icon}" />
-                                <TextBlock Grid.Column="1"
-                                           VerticalAlignment="Center"
-                                           Text="{Binding Header}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </Grid>
-                        </Button>
-                    </DataTemplate>
-                </ItemsRepeater.ItemTemplate>
-            </ItemsRepeater>
-        </ScrollViewer>
+            <StackPanel MaxWidth="800"
+                        Margin="16,8,16,16"
+                        Spacing="8"
+                        XYFocus.NavigationModes="Keyboard">
+                <!--  Tiles reflow with the dock's width: one column in a side panel, up to three across a wide one.  -->
+                <ItemsRepeater x:Name="AvailableList"
+                               ItemTemplate="{StaticResource ToolTemplate}"
+                               ItemsSource="{Binding AvailableItems}">
+                    <ItemsRepeater.Layout>
+                        <UniformGridLayout ItemsStretch="Fill"
+                                           MinColumnSpacing="6"
+                                           MinItemWidth="200"
+                                           MinRowSpacing="6"
+                                           Orientation="Horizontal" />
+                    </ItemsRepeater.Layout>
+                </ItemsRepeater>
 
-        <TextBlock Grid.Row="1"
-                   Margin="16"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Top"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                   IsVisible="{Binding !VisibleItems.Count}"
-                   Text="{x:Static lang:Strings.NewToolTab_NoResults}" />
+                <TextBlock Margin="0,16"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding !HasMatches}"
+                           Text="{x:Static lang:Strings.NewToolTab_NoResults}" />
+
+                <!--  Open single-instance tools sit apart, so the grid above holds only what can be opened.  -->
+                <TextBlock Margin="2,16,2,0"
+                           Classes="section"
+                           IsVisible="{Binding !!OpenItems.Count}"
+                           Text="{x:Static lang:Strings.NewToolTab_AlreadyOpen}" />
+                <ItemsRepeater x:Name="OpenList"
+                               IsVisible="{Binding !!OpenItems.Count}"
+                               ItemTemplate="{StaticResource ToolTemplate}"
+                               ItemsSource="{Binding OpenItems}">
+                    <ItemsRepeater.Layout>
+                        <UniformGridLayout ItemsStretch="Fill"
+                                           MinColumnSpacing="6"
+                                           MinItemWidth="200"
+                                           MinRowSpacing="6"
+                                           Orientation="Horizontal" />
+                    </ItemsRepeater.Layout>
+                </ItemsRepeater>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

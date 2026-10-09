@@ -277,7 +277,13 @@ public class DockTabAddButtonTests
             Assert.Multiple(() =>
             {
                 Assert.That(timelineButton.IsEnabled, Is.False, "An open single-instance tool cannot be added again.");
-                Assert.That(ToolTip.GetTip(timelineButton), Is.EqualTo(Strings.NewToolTab_AlreadyOpen));
+                Assert.That(
+                    newTab!.OpenItems.Select(item => item.Extension),
+                    Does.Contain(TimelineTabExtension.Instance),
+                    "Open tools are listed apart from the ones that can be opened.");
+                Assert.That(
+                    newTab.AvailableItems.Select(item => item.Extension),
+                    Does.Not.Contain(TimelineTabExtension.Instance));
                 Assert.That(historyButton.IsEnabled, Is.True);
                 Assert.That(ToolTip.GetTip(historyButton), Is.EqualTo(Strings.History));
             });
@@ -356,14 +362,15 @@ public class DockTabAddButtonTests
                 .OfType<TextBlock>()
                 .Single(text => text.Text == Strings.NewToolTab_NoResults);
 
-            Assert.That(newTab.VisibleItems, Has.Count.GreaterThan(1));
+            Assert.That(newTab.AvailableItems, Has.Count.GreaterThan(1));
             Assert.That(noResults.IsVisible, Is.False);
 
             newTab.SearchText = "no tool is called this";
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(newTab.VisibleItems, Is.Empty);
+                Assert.That(newTab.AvailableItems, Is.Empty);
+                Assert.That(newTab.OpenItems, Is.Empty);
                 Assert.That(noResults.IsVisible, Is.True);
             });
 
@@ -375,9 +382,11 @@ public class DockTabAddButtonTests
             Assert.Multiple(() =>
             {
                 Assert.That(
-                    newTab.VisibleItems.Select(item => item.Extension),
+                    newTab.AvailableItems.Select(item => item.Extension),
                     Is.EqualTo(new ToolTabExtension[] { HistoryTabExtension.Instance }));
-                Assert.That(newTab.VisibleItems[0].Header, Is.EqualTo(Strings.History).And.Not.EqualTo("History"));
+                Assert.That(newTab.OpenItems, Is.Empty);
+                Assert.That(noResults.IsVisible, Is.False);
+                Assert.That(newTab.AvailableItems[0].Header, Is.EqualTo(Strings.History).And.Not.EqualTo("History"));
             });
 
             page.SearchBox.Focus();
@@ -385,7 +394,7 @@ public class DockTabAddButtonTests
             HeadlessTestHelpers.Settle();
             Assert.That(
                 (TopLevel.GetTopLevel(page)!.FocusManager!.GetFocusedElement() as Control)?.DataContext,
-                Is.SameAs(newTab.VisibleItems[0]),
+                Is.SameAs(newTab.AvailableItems[0]),
                 "Down moves from the search box into the results.");
 
             page.SearchBox.Focus();
@@ -495,6 +504,56 @@ public class DockTabAddButtonTests
     }
 
     [AvaloniaTest]
+    public async Task A_layout_holding_only_an_empty_tab_restores_without_the_default_tools()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-only-new-tab");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        // The empty tab keeps the left dock alive, so the default tools would have a place to go.
+        factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+        foreach (BeutlToolDockable tool in factory.EnumerateTools().ToArray())
+        {
+            editor.DockHost.CloseToolTab(tool.ToolContext);
+        }
+
+        Assert.That(factory.EnumerateTools(), Is.Empty);
+
+        var json = new JsonObject();
+        editor.DockHost.WriteToJson(json);
+        JsonObject captured = editor.DockHost.CaptureLayout();
+
+        var restored = new DockHostViewModel("dock-tab-add-only-new-tab", editor);
+        try
+        {
+            restored.ReadFromJson(json);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored.Factory.EnumerateTools(), Is.Empty, "The empty tab is the user's layout, not a broken one.");
+                Assert.That(
+                    BeutlDockFactory.Traverse(restored.Layout.Value).OfType<NewToolTabDockable>().Count(),
+                    Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            restored.Dispose();
+        }
+
+        Assert.That(editor.DockHost.ApplyLayout(captured), Is.True);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.EnumerateTools(), Is.Empty, "Applying a saved layout keeps it as saved.");
+            Assert.That(
+                BeutlDockFactory.Traverse(editor.DockHost.Layout.Value).OfType<NewToolTabDockable>().Count(),
+                Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Extension_returning_success_with_a_null_context_is_rejected()
     {
         await ResetProjectAsync();
@@ -511,14 +570,18 @@ public class DockTabAddButtonTests
         return root.GetVisualDescendants().OfType<ToolTabAddButton>().SingleOrDefault();
     }
 
-    // The list virtualizes, so a tool scrolled out of view has no button until one is requested.
+    // The lists virtualize, so a tool scrolled out of view has no button until one is requested.
     private static Button FindToolButton(NewToolTabView page, ToolTabExtension extension)
     {
         var newTab = (NewToolTabDockable)page.DataContext!;
-        int index = newTab.VisibleItems.ToList().FindIndex(item => ReferenceEquals(item.Extension, extension));
+        (IReadOnlyList<NewToolTabItem> items, ItemsRepeater list) =
+            newTab.AvailableItems.Any(item => ReferenceEquals(item.Extension, extension))
+                ? (newTab.AvailableItems, page.AvailableList)
+                : (newTab.OpenItems, page.OpenList);
+        int index = items.ToList().FindIndex(item => ReferenceEquals(item.Extension, extension));
         Assert.That(index, Is.GreaterThanOrEqualTo(0), $"{extension.Name} is not listed.");
-        var button = (Button)page.ToolsList.GetOrCreateElement(index);
-        Assert.That(button.DataContext, Is.SameAs(newTab.VisibleItems[index]));
+        var button = (Button)list.GetOrCreateElement(index);
+        Assert.That(button.DataContext, Is.SameAs(items[index]));
         return button;
     }
 

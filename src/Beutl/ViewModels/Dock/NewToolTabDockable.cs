@@ -17,7 +17,9 @@ public sealed class NewToolTabDockable : Tool
     // Icon sources are cached so refreshing and filtering do not rebuild one per keystroke.
     private readonly Dictionary<ToolTabExtension, FAIconSource?> _icons = [];
     private NewToolTabItem[] _items = [];
-    private IReadOnlyList<NewToolTabItem> _visibleItems = [];
+    private IReadOnlyList<NewToolTabItem> _availableItems = [];
+    private IReadOnlyList<NewToolTabItem> _openItems = [];
+    private bool _hasMatches;
     private string _searchText = string.Empty;
 
     public NewToolTabDockable()
@@ -47,11 +49,25 @@ public sealed class NewToolTabDockable : Tool
         }
     }
 
-    /// <summary>Gets the tools that match <see cref="SearchText"/>, as of the last <see cref="Refresh"/>.</summary>
-    public IReadOnlyList<NewToolTabItem> VisibleItems
+    /// <summary>Gets the tools that match <see cref="SearchText"/> and can be opened, as of the last <see cref="Refresh"/>.</summary>
+    public IReadOnlyList<NewToolTabItem> AvailableItems
     {
-        get => _visibleItems;
-        private set => SetProperty(ref _visibleItems, value);
+        get => _availableItems;
+        private set => SetProperty(ref _availableItems, value);
+    }
+
+    /// <summary>Gets the single-instance tools that match <see cref="SearchText"/> but are already open.</summary>
+    public IReadOnlyList<NewToolTabItem> OpenItems
+    {
+        get => _openItems;
+        private set => SetProperty(ref _openItems, value);
+    }
+
+    /// <summary>Gets whether any tool, open or not, matches <see cref="SearchText"/>.</summary>
+    public bool HasMatches
+    {
+        get => _hasMatches;
+        private set => SetProperty(ref _hasMatches, value);
     }
 
     /// <summary>
@@ -101,9 +117,12 @@ public sealed class NewToolTabDockable : Tool
     private void ApplyFilter()
     {
         string query = _searchText.Trim();
-        VisibleItems = query.Length == 0
+        NewToolTabItem[] matches = query.Length == 0
             ? _items
             : _items.Where(item => Matches(item, query)).ToArray();
+        AvailableItems = matches.Where(item => item.IsEnabled).ToArray();
+        OpenItems = matches.Where(item => !item.IsEnabled).ToArray();
+        HasMatches = matches.Length > 0;
     }
 
     // The internal name is searched too, so an English name finds a tool in any UI language.

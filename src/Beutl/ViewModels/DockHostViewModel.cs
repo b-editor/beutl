@@ -237,7 +237,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 _sceneId);
         }
 
-        if (!Factory.EnumerateTools().Any())
+        if (!HasOpenTabs())
         {
             OpenDefaultTabs();
         }
@@ -327,12 +327,19 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         DisposeAll(previousTools, "replaced");
 
-        if (!Factory.EnumerateTools().Any())
+        if (!HasOpenTabs())
         {
             OpenDefaultTabs();
         }
 
         return true;
+    }
+
+    // An empty tab left open is part of the layout too, so restoring it must not add the default tools.
+    private bool HasOpenTabs()
+    {
+        return Factory.EnumerateTools().Any()
+               || BeutlDockFactory.Traverse(Layout.Value).OfType<NewToolTabDockable>().Any();
     }
 
     private void DisposeAll(IEnumerable<BeutlToolDockable> tools, string what)

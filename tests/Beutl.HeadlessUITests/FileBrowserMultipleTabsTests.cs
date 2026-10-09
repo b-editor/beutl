@@ -212,10 +212,11 @@ public class FileBrowserMultipleTabsTests
 
         NewToolTabDockable newTab = editor.DockHost.Factory.OpenNewToolTab(left);
         newTab.Refresh();
-        NewToolTabItem item = newTab.VisibleItems
-            .Single(i => ReferenceEquals(i.Extension, FileBrowserTabExtension.Instance));
+        NewToolTabItem? item = newTab.AvailableItems
+            .SingleOrDefault(i => ReferenceEquals(i.Extension, FileBrowserTabExtension.Instance));
 
-        Assert.That(item.IsEnabled, Is.True);
+        Assert.That(item, Is.Not.Null);
+        Assert.That(item!.IsEnabled, Is.True);
     }
 
     [AvaloniaTest]
