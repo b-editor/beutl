@@ -19,9 +19,39 @@ public class FrameImageSaveTests
     [Test]
     public void The_save_picker_only_offers_encodable_formats_while_open_keeps_decoder_formats()
     {
-        Assert.That(SharedFilePickerOptions.SaveImage().FileTypeChoices!.Single().Patterns,
+        FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+        Assert.That(options.DefaultExtension, Is.EqualTo("png"));
+        Assert.That(options.FileTypeChoices!.Single().Patterns,
             Is.EquivalentTo(new[] { "*.png", "*.jpg", "*.jpeg", "*.webp" }));
         Assert.That(SharedFilePickerOptions.OpenImage().FileTypeFilter!.Single().Patterns, Does.Contain("*.bmp").And.Contain("*.gif"));
+    }
+
+    [Test]
+    public async Task The_image_picker_passes_png_defaults_and_suggested_name_to_storage()
+    {
+        var folder = new Mock<IStorageFolder>(MockBehavior.Strict);
+        var file = new Mock<IStorageFile>(MockBehavior.Strict);
+        var storage = new Mock<IStorageProvider>(MockBehavior.Strict);
+        FilePickerSaveOptions? captured = null;
+        storage.Setup(value => value.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures))
+            .ReturnsAsync(folder.Object);
+        storage.Setup(value => value.SaveFilePickerAsync(It.IsAny<FilePickerSaveOptions>()))
+            .Callback<FilePickerSaveOptions>(options => captured = options)
+            .ReturnsAsync(file.Object);
+
+        IStorageFile? result = await PlayerView.SaveImageFilePicker("frame", storage.Object);
+
+        Assert.That(captured, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(captured!.DefaultExtension, Is.EqualTo("png"));
+            Assert.That(captured.SuggestedFileName, Does.StartWith("frame ").And.EndWith(".png"));
+            Assert.That(captured.SuggestedStartLocation, Is.SameAs(folder.Object));
+            Assert.That(captured.FileTypeChoices!.Single().Patterns,
+                Is.EquivalentTo(new[] { "*.png", "*.jpg", "*.jpeg", "*.webp" }));
+            Assert.That(result, Is.SameAs(file.Object));
+        });
+        storage.Verify(value => value.SaveFilePickerAsync(It.IsAny<FilePickerSaveOptions>()), Times.Once);
     }
 
     [Test]

@@ -91,6 +91,7 @@ public static class SharedFilePickerOptions
     {
         return new()
         {
+            DefaultExtension = "png",
             FileTypeChoices =
             [
                 new FilePickerFileType("PNG, JPEG, WebP")

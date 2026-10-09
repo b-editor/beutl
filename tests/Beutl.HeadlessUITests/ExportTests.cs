@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
@@ -196,6 +197,54 @@ public class ExportTests
     }
 
     [AvaloniaTest]
+    [TestCase("en-US", "Media Files")]
+    [TestCase("ja-JP", "メディアファイル")]
+    public async Task OutputViewModel_picker_combines_normalizes_and_deduplicates_all_encoders(
+        string cultureName, string expectedName)
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("exportpicker");
+        const int packageId = 274601;
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            editor.ExtensionProvider.AddExtensions(packageId,
+            [
+                new PickerEncoderExtension(".mp4", "mkv", "*.mov", "clip-*.avi", ".wav"),
+                new OtherPickerEncoderExtension("MP4", ".MKV", "*.MOV", "webm", "mp3", "WAV")
+            ]);
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+            using var output = new OutputViewModel(editor);
+
+            FilePickerFileType[] choices = output.GetFilePickerFileTypes();
+
+            Assert.That(choices, Has.Length.EqualTo(1));
+            Assert.Multiple(() =>
+            {
+                Assert.That(choices[0].Name, Is.EqualTo(expectedName));
+                Assert.That(choices[0].Patterns,
+                    Is.EquivalentTo(new[] { "*.mp4", "*.mkv", "*.mov", "clip-*.avi", "*.wav", "*.webm", "*.mp3" }));
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+            editor.ExtensionProvider.RemoveExtensions(packageId);
+        }
+    }
+
+    private class PickerEncoderExtension(params string[] extensions) : ControllableEncodingExtension
+    {
+        public override IEnumerable<string> SupportExtensions() => extensions;
+
+        public override EncodingController CreateController(string file)
+            => throw new InvalidOperationException("This test only inspects picker options.");
+    }
+
+    private sealed class OtherPickerEncoderExtension(params string[] extensions)
+        : PickerEncoderExtension(extensions);
+
+    [AvaloniaTest]
     public async Task OutputViewModel_flags_a_supersample_factor_that_exceeds_the_buffer_limit()
     {
         await ResetProjectAsync();
@@ -242,6 +291,7 @@ public class ExportTests
         // and CanEncode stays false (SelectedEncoder is still null).
         Assert.That(output.Encoders, Is.Empty);
         Assert.That(output.CanEncode.Value, Is.False);
+        Assert.That(output.GetFilePickerFileTypes(), Is.Empty);
     }
 
     // Exercise the export failure path with a fake FFmpeg error.
