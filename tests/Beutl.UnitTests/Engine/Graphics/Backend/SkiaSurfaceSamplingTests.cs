@@ -68,6 +68,43 @@ public class SkiaSurfaceSamplingTests
         });
     }
 
+    [Test]
+    public void ReleasedSnapshot_KeepsWhatWasDrawnWhenTheSourceIsOverwrittenBeforeTheFlush()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = CreateTarget();
+            using RenderTarget destination = CreateTarget();
+            source.BeginDraw();
+            source.Value.Canvas.Clear(SKColors.Red);
+
+            destination.BeginDraw();
+            source.PrepareBackendForSkiaSampling();
+            using (SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(source.Value))
+                destination.Value.Canvas.DrawImage(snapshot.Image, 0, 0, SKSamplingOptions.Default, null);
+
+            // With the copy skipped, the recorded draw reads the source itself, so it must still run before this.
+            source.BeginDraw();
+            source.Value.Canvas.Clear(SKColors.Blue);
+            context.SkiaContext.Flush(submit: true, synchronous: true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(CenterPixel(destination), Is.EqualTo(SKColors.Red));
+                Assert.That(CenterPixel(source), Is.EqualTo(SKColors.Blue), "The source was not overwritten.");
+            });
+        });
+    }
+
+    private static SKColor CenterPixel(RenderTarget target)
+    {
+        using var pixel = new SKBitmap(new SKImageInfo(1, 1, SKColorType.Rgba8888, SKAlphaType.Premul));
+        Assert.That(target.Value.ReadPixels(pixel.Info, pixel.GetPixels(), pixel.RowBytes, Size / 2, Size / 2), Is.True);
+        return pixel.GetPixel(0, 0);
+    }
+
     private static long BudgetGrowth(GRContext skia, RenderTarget source, RenderTarget destination, bool release)
     {
         Write(source);
@@ -77,10 +114,16 @@ public class SkiaSurfaceSamplingTests
 
         destination.BeginDraw();
         source.PrepareBackendForSkiaSampling();
-        using (SKImage image = source.Value.Snapshot())
-            destination.Value.Canvas.DrawImage(image, 0, 0, SKSamplingOptions.Default, null);
         if (release)
-            SurfaceSnapshot.Release(source.Value);
+        {
+            using SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(source.Value);
+            destination.Value.Canvas.DrawImage(snapshot.Image, 0, 0, SKSamplingOptions.Default, null);
+        }
+        else
+        {
+            using SKImage image = source.Value.Snapshot();
+            destination.Value.Canvas.DrawImage(image, 0, 0, SKSamplingOptions.Default, null);
+        }
         skia.Flush(submit: true, synchronous: true);
 
         skia.GetResourceCacheUsage(out _, out long after);
