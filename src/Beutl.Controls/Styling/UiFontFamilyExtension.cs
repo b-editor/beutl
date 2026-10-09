@@ -10,6 +10,9 @@ public sealed class UiFontFamilyExtension : MarkupExtension
 {
     public string? FamilyName { get; set; }
 
+    public bool ForShortcuts { get; set; }
+
     public override object ProvideValue(IServiceProvider serviceProvider) =>
-        FamilyName is { Length: > 0 } name ? UiFonts.GetEmbeddedFontFamily(name) : UiFonts.DefaultFontFamily;
+        FamilyName is { Length: > 0 } name ? UiFonts.GetEmbeddedFontFamily(name)
+        : ForShortcuts ? UiFonts.ShortcutFontFamily : UiFonts.DefaultFontFamily;
 }

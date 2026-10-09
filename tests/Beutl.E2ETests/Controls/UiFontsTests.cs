@@ -48,6 +48,28 @@ public class UiFontsTests
     }
 
     [AvaloniaTest]
+    [TestCase("en-US")]
+    [TestCase("ja-JP")]
+    [TestCase("zh-CN")]
+    [TestCase("ko-KR")]
+    public void Shortcut_font_is_scoped_and_keeps_the_bundled_language_order(string cultureName)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        FontFamily family = UiFonts.GetFontFamily(culture);
+        FontFamily shortcut = UiFonts.GetShortcutFontFamily(culture);
+        string[] expected = OperatingSystem.IsMacOS()
+            ? ["Lucida Grande", .. family.FamilyNames]
+            : [.. family.FamilyNames];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shortcut.FamilyNames, Is.EqualTo(expected));
+            Assert.That(UiFonts.CreateFontManagerOptions(culture).FontFallbacks!
+                .Select(fallback => fallback.FontFamily.Name), Is.EqualTo(family.FamilyNames));
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase("en-US", "Noto Sans")]
     [TestCase("es", "Noto Sans")]
     [TestCase("ja-JP", "Noto Sans JP")]

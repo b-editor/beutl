@@ -209,6 +209,45 @@ jobs:
           name: Coverage
           path: coveragereport
 
+  macos-font-tests:
+    permissions:
+      contents: read
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Test shortcut fonts and emoji on macOS
+        run: >-
+          dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
+          --configuration Release -f net10.0 --filter FullyQualifiedName~UIFontResourceTests
+          --logger trx --results-directory TestResults/macos-fonts
+
+      - name: Test shared font configuration on macOS
+        run: >-
+          dotnet test tests/Beutl.E2ETests/Beutl.E2ETests.csproj
+          --configuration Release -f net10.0 --filter FullyQualifiedName~Controls.UiFontsTests
+          --logger trx --results-directory TestResults/macos-fonts
+
+      - name: Save font test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: MacOSFontTestDiagnostics
+          path: TestResults/macos-fonts/
+          if-no-files-found: ignore
+          retention-days: 7
+
   mediafoundation-tests:
     permissions:
       contents: read

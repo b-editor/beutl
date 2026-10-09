@@ -23,6 +23,8 @@ public static class UiFonts
 
     public static FontFamily DefaultFontFamily => GetFontFamily(CultureInfo.CurrentUICulture);
 
+    public static FontFamily ShortcutFontFamily => GetShortcutFontFamily(CultureInfo.CurrentUICulture);
+
     internal static string[] ApplyCultureArgument(string[] args)
     {
         int index = Array.IndexOf(args, UiCultureArgument);
@@ -45,24 +47,20 @@ public static class UiFonts
     public static FontManagerOptions CreateFontManagerOptions(CultureInfo culture)
     {
         FontFamily[] families = GetOrderedFamilies(culture);
-        List<FontFallback> fallbacks = families.Select(family => new FontFallback { FontFamily = family }).ToList();
-        if (OperatingSystem.IsMacOS())
-        {
-            // Noto lacks some macOS keyboard glyphs, including Return. Prefer their monochrome
-            // system font before automatic fallback can select Apple Color Emoji.
-            fallbacks.Add(new FontFallback
-            {
-                FontFamily = new FontFamily("Lucida Grande"),
-                UnicodeRange = UnicodeRange.Parse("U+2190-21FF,U+2303,U+2318,U+2325,U+232B,U+238B,U+23CE,U+23CF,U+2423"),
-            });
-        }
-
         return new FontManagerOptions
         {
             DefaultFamilyName = string.Join(", ", families.Select(family => family.ToString())),
             // Also cover controls with an explicit font, such as monospace text boxes.
-            FontFallbacks = fallbacks,
+            FontFallbacks = families.Select(family => new FontFallback { FontFamily = family }).ToArray(),
         };
+    }
+
+    public static FontFamily GetShortcutFontFamily(CultureInfo culture)
+    {
+        // Keep the macOS keyboard font local to shortcut labels so ordinary text can use emoji.
+        return OperatingSystem.IsMacOS()
+            ? new FontFamily(string.Join(", ", GetOrderedFamilies(culture).Select(family => family.ToString()).Prepend("Lucida Grande")))
+            : GetFontFamily(culture);
     }
 
     private static FontFamily[] GetOrderedFamilies(CultureInfo culture)

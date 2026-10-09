@@ -3,5 +3,6 @@
                     xmlns:fonts="using:Beutl.Controls.Styling">
     <fonts:UiFontFamily x:Key="NotoSansJP" FamilyName="Noto Sans JP" />
     <fonts:UiFontFamily x:Key="BeutlUIFontFamily" />
+    <fonts:UiFontFamily x:Key="BeutlShortcutFontFamily" ForShortcuts="True" />
     <StaticResource x:Key="ContentControlThemeFontFamily" ResourceKey="BeutlUIFontFamily" />
 </ResourceDictionary>

@@ -4,11 +4,16 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Avalonia.Platform;
 using Beutl.Controls.Styling;
+using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -99,7 +104,7 @@ public class UIFontResourceTests
         if (!OperatingSystem.IsMacOS())
             Assert.Ignore("macOS uses symbolic shortcut labels and provides Lucida Grande.");
 
-        var family = UiFonts.GetFontFamily(CultureInfo.GetCultureInfo(cultureName));
+        var family = UiFonts.GetShortcutFontFamily(CultureInfo.GetCultureInfo(cultureName));
         Assert.That(GetShapedFontFamilies("↩⇞⇟⇥⌃⌥⌫⎋", family),
             Is.Not.Empty.And.All.EqualTo("Lucida Grande"));
     }
@@ -107,6 +112,8 @@ public class UIFontResourceTests
     [AvaloniaTest]
     [TestCase("😀")]
     [TestCase("⌚")]
+    [TestCase("\u21A9\uFE0F")]
+    [TestCase("\u23CF\uFE0F")]
     public void macOS_keyboard_fallback_keeps_emoji_in_an_emoji_font(string emoji)
     {
         if (!OperatingSystem.IsMacOS())
@@ -123,6 +130,54 @@ public class UIFontResourceTests
         text.Arrange(new Rect(text.DesiredSize));
         return text.TextLayout.TextLines.SelectMany(line => line.TextRuns).OfType<ShapedTextRun>()
             .Select(run => run.GlyphRun.GlyphTypeface.FamilyName).ToArray();
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Menu_shortcuts_and_explicit_shortcut_labels_use_the_shared_font(bool light)
+    {
+        using var theme = ThemeVariantScope.Use(light ? ThemeVariant.Light : ThemeVariant.Dark);
+        var anchor = new Button { Content = "Menu" };
+        var label = new TextBlock { Text = "↩⇥⌃⌥", Classes = { "shortcut" } };
+        var window = new Window { Content = new StackPanel { Children = { anchor, label } }, Width = 320, Height = 220 };
+        var flyout = new FAMenuFlyout();
+        FAMenuFlyoutItem[] items =
+        [
+            new FAMenuFlyoutItem { Text = "Rename", InputGesture = new KeyGesture(Key.Enter) },
+            new FAToggleMenuFlyoutItem { Text = "Toggle", InputGesture = new KeyGesture(Key.Enter) },
+            new FARadioMenuFlyoutItem { Text = "Radio", InputGesture = new KeyGesture(Key.Enter) },
+        ];
+        foreach (FAMenuFlyoutItem item in items)
+            flyout.Items.Add(item);
+        try
+        {
+            window.Show();
+            flyout.ShowAt(anchor);
+            HeadlessTestHelpers.Render(3);
+            var family = (FontFamily)Application.Current!.FindResource("BeutlShortcutFontFamily")!;
+            Assert.That(label.FontFamily, Is.EqualTo(family));
+            foreach (FAMenuFlyoutItem item in items)
+            {
+                var hint = item.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(text => text.Name == "KeyboardAcceleratorTextBlock");
+                Assert.That(hint.FontFamily, Is.EqualTo(family));
+                if (OperatingSystem.IsMacOS())
+                {
+                    // Headless uses textual key names; probe the actual macOS Return glyph in this template.
+                    hint.Text = "↩";
+                    HeadlessTestHelpers.Render();
+                    Assert.That(GetShapedFontFamilies(hint.Text, hint.FontFamily),
+                        Is.Not.Empty.And.All.EqualTo("Lucida Grande"));
+                }
+            }
+        }
+        finally
+        {
+            flyout.Hide();
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]

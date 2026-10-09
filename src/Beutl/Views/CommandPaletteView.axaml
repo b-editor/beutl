@@ -96,7 +96,8 @@
                                                    IsVisible="{Binding CategoryName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                    Text="{Binding CategoryName}"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <TextBlock FontSize="11"
+                                        <TextBlock Classes="shortcut"
+                                                   FontSize="11"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                    Text="{Binding Description}"
