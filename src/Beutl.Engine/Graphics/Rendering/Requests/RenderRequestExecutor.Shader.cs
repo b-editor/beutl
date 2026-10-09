@@ -244,7 +244,8 @@ internal sealed partial class RenderRequestExecutor
             Rect outputBounds,
             Rect requiredRegion)
         {
-            using SKImage inputImage = input.Target.Value.Snapshot();
+            using SurfaceSnapshot.Lease inputSnapshot = SurfaceSnapshot.Take(input.Target.Value);
+            SKImage inputImage = inputSnapshot.Image;
             ShaderEvaluationFrame frame = description.Kind == ShaderDescriptionKind.WholeSource
                 ? RasterShaderMapping.CreateWholeSourceFrame(
                     outputBounds,

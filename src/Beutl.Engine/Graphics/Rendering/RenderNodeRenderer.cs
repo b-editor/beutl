@@ -239,10 +239,10 @@ public sealed class RenderNodeRenderer : IDisposable
                 destination.DeviceOrigin);
             executionCanvas.Transform = destination.Transform;
             using (executionCanvas.PushDeviceSpace())
-            using (SKImage priorTarget = destination._renderTarget.Value.Snapshot())
+            using (SurfaceSnapshot.Lease priorTarget = SurfaceSnapshot.Take(destination._renderTarget.Value))
             using (var copyPaint = new SKPaint { BlendMode = SKBlendMode.Src })
             {
-                executionCanvas.Canvas.DrawImage(priorTarget, 0, 0, SKSamplingOptions.Default, copyPaint);
+                executionCanvas.Canvas.DrawImage(priorTarget.Image, 0, 0, SKSamplingOptions.Default, copyPaint);
             }
 
             destinationClip = PushExpandedDestinationClip(executionCanvas, destinationDeviceClip);
@@ -306,7 +306,8 @@ public sealed class RenderNodeRenderer : IDisposable
         if (selectedOutputBounds.Width == 0 || selectedOutputBounds.Height == 0)
             return;
 
-        using SKImage completedTarget = executionCanvas._renderTarget.Value.Snapshot();
+        using SurfaceSnapshot.Lease completedSnapshot = SurfaceSnapshot.Take(executionCanvas._renderTarget.Value);
+        SKImage completedTarget = completedSnapshot.Image;
         using (destination.PushClip(selectedOutputBounds))
         using (destination.PushDeviceSpace())
         using (var commitPaint = new SKPaint { BlendMode = SKBlendMode.Src })

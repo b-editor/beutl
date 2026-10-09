@@ -170,7 +170,8 @@ public partial class ImmediateCanvas
         renderTarget.VerifyAccess();
         renderTarget.PrepareBackendForSkiaSampling();
 
-        using SKImage image = renderTarget.Value.Snapshot();
+        using SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(renderTarget.Value);
+        SKImage image = snapshot.Image;
         PrepareBlitPaint(antialias: false);
         var source = SKRect.Create(image.Width, image.Height);
         var destination = SKRect.Create(x, y, image.Width, image.Height);
@@ -231,8 +232,8 @@ public partial class ImmediateCanvas
         }
         else
         {
-            using SKImage image = renderTarget.Value.Snapshot();
-            DrawImageScaled(image, dest);
+            using SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(renderTarget.Value);
+            DrawImageScaled(snapshot.Image, dest);
         }
 
         if (flushSource)
@@ -259,10 +260,14 @@ public partial class ImmediateCanvas
         VerifyNativeTargetOperation();
         PrepareBlitPaint(antialias: true);
 
-        using SKImage image = surface.Snapshot();
-        var src = SKRect.Create(image.Width, image.Height);
-        var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
-        Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
+        // Released before the flush below, so Skia can skip the copy it schedules for the snapshot.
+        using (SurfaceSnapshot.Lease snapshot = SurfaceSnapshot.Take(surface))
+        {
+            SKImage image = snapshot.Image;
+            var src = SKRect.Create(image.Width, image.Height);
+            var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
+            Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
+        }
 
         if (!CanConsumeWithoutFlush(surface))
         {

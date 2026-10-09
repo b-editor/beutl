@@ -108,7 +108,8 @@ internal static class FilterEffectStageFallbackExecutor
 
         try
         {
-            using SKImage inputImage = inputTarget.Value.Snapshot();
+            using SurfaceSnapshot.Lease inputSnapshot = SurfaceSnapshot.Take(inputTarget.Value);
+            SKImage inputImage = inputSnapshot.Image;
             RunShaderStage(
                 description,
                 input,
@@ -424,7 +425,8 @@ internal static class FilterEffectStageFallbackExecutor
 
         try
         {
-            using SKImage inputImage = inputTarget.Value.Snapshot();
+            using SurfaceSnapshot.Lease inputSnapshot = SurfaceSnapshot.Take(inputTarget.Value);
+            SKImage inputImage = inputSnapshot.Image;
             Rect? selectedBounds = RenderGeometryStage(
                 description,
                 input,
