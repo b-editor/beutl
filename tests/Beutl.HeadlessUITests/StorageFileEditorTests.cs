@@ -216,6 +216,7 @@ public class StorageFileEditorTests
     [TestCase("uti:public.movie", "sample.png", false)]
     [TestCase("uti:public.audiovisual-content", "sample.mp3", true)]
     [TestCase("uti:public.data", "LICENSE", true)]
+    [TestCase("uti:public.image", "sample.unknown", false)]
     [TestCase("uti:com.example.custom", "sample.png", false)]
     [TestCase("mime:image/png uti:public.jpeg", "sample.jpg", true)]
     [TestCase("mime:image/png uti:public.jpeg", "sample.gif", false)]
