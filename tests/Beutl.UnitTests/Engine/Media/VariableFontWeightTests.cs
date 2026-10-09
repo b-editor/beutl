@@ -36,7 +36,7 @@ public class VariableFontWeightTests
     {
         SKTypeface registered = FontManager.Instance._fonts[s_variable].Values.Single();
 
-        Assert.That(new Typeface(s_variable).ToSkia(), Is.SameAs(registered));
+        Assert.That(new Typeface(s_variable).ToSkia(), Is.SameAs(FontManager.Instance.GetRenderFace(registered)));
     }
 
     [Test]
@@ -60,7 +60,7 @@ public class VariableFontWeightTests
 
         SKTypeface resolved = new Typeface(roboto, FontStyle.Normal, FontWeight.Bold).ToSkia();
 
-        Assert.That(resolved, Is.SameAs(medium));
+        Assert.That(resolved, Is.SameAs(FontManager.Instance.GetRenderFace(medium)));
     }
 
     [TestCase("Noto Sans JP", "こんにちは、世界！ Hello", 1f)]

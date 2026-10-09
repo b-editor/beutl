@@ -6,5 +6,6 @@
   "commit": "723c5a03a7d18de5fb1a041e6cae2f09c4cb3c7e",
   "rid": "win-arm64",
   "patchSha256": "faac086edcbbe92f3063f104ef7645980535336692f7019ea2573bc65a5830f5",
-  "binarySha256": "11207267356ae5820740e7051ec8caa8f005cf78a52cb0188d4ebf304cca0320"
+  "freetypeFontMgrPatchSha256": "1fdc53111c983caeeddf636a5d13f81ed45c6a4bdd80d1def345737a4b009cf4",
+  "binarySha256": "52a52d3e6ed9503f5761c501df006f555d65045c602dfb6fe25a41aafbf49e1c"
 }

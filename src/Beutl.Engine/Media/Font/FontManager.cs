@@ -30,6 +30,7 @@ public sealed class FontManager
     // Variable typefaces moved to another weight, keyed by the typeface they were cloned from and the wght
     // value. Like the registered typefaces, they live as long as the manager.
     private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
+    private readonly RenderFaceCache _renderFaces = new(FreeTypeFonts.Manager);
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -407,7 +408,7 @@ public sealed class FontManager
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
             if (TryGetTypefaces(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
             {
-                return InstantiateWeight(typefaces.Get(typeface), typeface.Weight);
+                return InstantiateWeight(_renderFaces.Get(typefaces.Get(typeface)), typeface.Weight);
             }
 
             // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
@@ -421,9 +422,14 @@ public sealed class FontManager
             }
 
             return TryGetTypefaces(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
-                ? InstantiateWeight(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight)), typeface.Weight)
-                : SKTypeface.Default;
+                ? InstantiateWeight(_renderFaces.Get(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))), typeface.Weight)
+                : _renderFaces.Get(SKTypeface.Default);
         }
+    }
+
+    internal SKTypeface GetRenderFace(SKTypeface typeface)
+    {
+        lock (_gate) return _renderFaces.Get(typeface);
     }
 
     private bool TryGetTypefaces(FontFamily family, out FrozenDictionary<Typeface, SKTypeface> typefaces)
@@ -498,6 +504,32 @@ public sealed class FontManager
         {
             return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily);
         }
+    }
+}
+
+// Maps a matched typeface to the face text draws with. On Windows that face is FreeType's, created from the
+// same font data (see FreeTypeFonts); without a manager it is the typeface itself. FontManager holds _gate.
+internal sealed class RenderFaceCache(SKFontManager? manager)
+{
+    // Keyed by reference. Like the registered typefaces, the faces live as long as the cache.
+    private readonly Dictionary<SKTypeface, SKTypeface> _faces = [];
+
+    public SKTypeface Get(SKTypeface typeface)
+    {
+        if (manager is null)
+        {
+            return typeface;
+        }
+
+        if (!_faces.TryGetValue(typeface, out SKTypeface? face))
+        {
+            // CreateTypeface takes the stream over. A font the manager cannot open keeps drawing as is.
+            SKStreamAsset? stream = typeface.OpenStream(out int index);
+            face = (stream is null ? null : manager.CreateTypeface(stream, index)) ?? typeface;
+            _faces.Add(typeface, face);
+        }
+
+        return face;
     }
 }
 

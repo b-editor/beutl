@@ -17,6 +17,13 @@ REQUIRED_EXPORTS = {
     b"gr_beutl_backendrendertarget_get_vk_image_layout",
     b"gr_beutl_backendrendertarget_set_vk_image_layout",
 }
+WINDOWS_EXPORTS = {b"sk_beutl_fontmgr_create_freetype"}
+
+
+def required_exports(rid):
+    return REQUIRED_EXPORTS | (WINDOWS_EXPORTS if rid.startswith("win-") else set())
+
+
 # Mach-O CPU types of the slices the universal macOS runtime must carry.
 MACHO_SLICES = {0x0100000C: "arm64", 0x01000007: "x86_64"}
 
@@ -216,7 +223,7 @@ def verify_binary(data, rid):
         exports = macho_exports(data, rid)
     else:
         exports = elf_exports(data, rid) if rid.startswith("linux-") else pe_exports(data, rid)
-    missing = REQUIRED_EXPORTS - exports
+    missing = required_exports(rid) - exports
     if missing:
         names = ", ".join(name.decode("ascii") for name in sorted(missing))
         raise ValueError(f"{rid}: missing required exports: {names}")
