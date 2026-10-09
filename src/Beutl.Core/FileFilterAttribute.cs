@@ -7,7 +7,9 @@
 /// Every platform's picker reads <see cref="Patterns"/>, and the Windows picker reads nothing else.
 /// When patterns are given they alone decide which files can be dropped onto the editor.
 /// A filter without patterns matches dropped files by extension against a built-in list of common
-/// media types and refuses files outside it, so give patterns for custom file types.
+/// media types and refuses files outside it unless it lists a catch-all (<c>*/*</c>,
+/// <c>application/octet-stream</c>, <c>public.item</c> or <c>public.data</c>), so give patterns for
+/// custom file types.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
 public sealed class FileFilterAttribute(string name, params string[] patterns) : Attribute

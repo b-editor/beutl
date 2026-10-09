@@ -201,6 +201,7 @@ public class StorageFileEditorTests
     [TestCase("mime:image/png", "sample.jpg", false)]
     [TestCase("mime:image/*", "sample.webp", true)]
     [TestCase("mime:image/*", "sample.mp4", false)]
+    [TestCase("mime:IMAGE/*", "sample.png", true)]
     [TestCase("mime:audio/x-wav", "sample.wav", true)]
     [TestCase("mime:video/mp4", "sample.m4v", true)]
     [TestCase("mime:text/plain", "sample.csv", true)]
