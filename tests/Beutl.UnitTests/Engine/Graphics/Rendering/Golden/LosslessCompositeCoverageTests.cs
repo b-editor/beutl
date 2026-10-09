@@ -120,7 +120,7 @@ public sealed class LosslessCompositeCoverageTests
             using Bitmap expected = RenderThroughPipeline(plain, density, s_fractionalFrame);
             using Bitmap actual = RenderThroughPipeline(filtered, density, s_fractionalFrame);
 
-            AssertByteIdentical(
+            AssertIdenticalUpToHalfWriteTruncation(
                 expected,
                 actual,
                 $"identity typed shader at fractional device position and density {density}");
@@ -352,6 +352,43 @@ public sealed class LosslessCompositeCoverageTests
         });
     }
 
+    [TestCase(1f, false, TestName = "Mosaic_EvenTileCentre_SamplesThePixelStartingThere(1x, columns)")]
+    [TestCase(1f, true, TestName = "Mosaic_EvenTileCentre_SamplesThePixelStartingThere(1x, rows)")]
+    [TestCase(2f, false, TestName = "Mosaic_EvenTileCentre_SamplesThePixelStartingThere(2x, columns)")]
+    [TestCase(2f, true, TestName = "Mosaic_EvenTileCentre_SamplesThePixelStartingThere(2x, rows)")]
+    public void Mosaic_EvenTileCentre_SamplesThePixelStartingThere(float density, bool alongY)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            // An even tile's centre is a pixel corner. Two-device-pixel stripes put white on the pixel that
+            // starts there and black on the one before it, so a tile that reads the earlier neighbour turns
+            // black. Which neighbour unsnapped nearest sampling takes depends on the device and the texture
+            // size; this frame makes both AMD Radeon and Apple's Metal take the earlier one. The frame holds
+            // whole tiles only: a partial tile's centre lies past the source and clamps to its last pixel.
+            var mosaic = new MosaicEffect();
+            mosaic.TileSize.CurrentValue = new Size(8, 8);
+            mosaic.Origin.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+            var frame = new PixelSize(200, 200);
+            using Drawable.Resource plain = CreateDevicePixelStripes(frame, density, alongY, effect: null);
+            using Drawable.Resource filtered = CreateDevicePixelStripes(frame, density, alongY, mosaic);
+            using Bitmap source = RenderThroughPipeline(plain, density, frame);
+            using Bitmap actual = RenderThroughPipeline(filtered, density, frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    CountDarkPixels(source),
+                    Is.EqualTo(source.Width * source.Height / 2),
+                    "The fixture must alternate white and black on every device pixel along the tested axis.");
+                Assert.That(
+                    CountDarkPixels(actual),
+                    Is.Zero,
+                    "Every tile must take the pixel that starts at its centre, not the one before it.");
+            });
+        });
+    }
+
     [Test]
     public void ScaledComposite_StaysInsideTheSourceRange()
     {
@@ -469,6 +506,65 @@ public sealed class LosslessCompositeCoverageTests
         });
     }
 
+    /// <summary>
+    /// Asserts byte identity, except for the one half-float step a device that truncates half-float writes
+    /// adds to coverage rasterized at another absolute position.
+    /// </summary>
+    /// <remarks>
+    /// A typed shader materializes its input, so the filtered rectangle is rasterized into an intermediate at
+    /// the same device phase but a different absolute position than the unfiltered one. Interpolated coverage
+    /// then differs in its last float bits. Rounding to nearest hides that; truncation - AMD Radeon on Windows
+    /// does it - turns a coverage a hair below an exact value such as 0.625 into the half below it. Skia alone
+    /// shows the same drift on that device for one rectangle drawn at two integer-shifted positions, so the
+    /// step is the rasterizer's, not the shader path's, and a device that rounds is still held to byte
+    /// identity. Anything larger - a phase error or a resample - fails everywhere.
+    /// </remarks>
+    private static void AssertIdenticalUpToHalfWriteTruncation(Bitmap expected, Bitmap actual, string scenario)
+    {
+        int allowedSteps = DeviceTruncatesHalfWrites() ? 1 : 0;
+        int differing = 0;
+        int largestSteps = 0;
+        ReadOnlySpan<ushort> a = expected.GetPixelSpan<ushort>();
+        ReadOnlySpan<ushort> b = actual.GetPixelSpan<ushort>();
+        for (int index = 0; index < a.Length; index++)
+        {
+            int steps = Math.Abs(OrderedHalfBits(a[index]) - OrderedHalfBits(b[index]));
+            if (steps != 0)
+                differing++;
+            largestSteps = Math.Max(largestSteps, steps);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Width, Is.EqualTo(expected.Width));
+            Assert.That(actual.Height, Is.EqualTo(expected.Height));
+            Assert.That(largestSteps, Is.LessThanOrEqualTo(allowedSteps),
+                $"{scenario}: {differing} channels differ, by up to {largestSteps} half-float steps "
+                + $"({allowedSteps} allowed on this device).");
+        });
+    }
+
+    private static int OrderedHalfBits(ushort bits)
+        => (bits & 0x8000) != 0 ? -(bits & 0x7FFF) : bits;
+
+    /// <summary>
+    /// Writes the float just below 0.625, which half represents exactly, and reads back which half it became.
+    /// </summary>
+    private static bool DeviceTruncatesHalfWrites()
+    {
+        const string source = "uniform float value; half4 main(float2 p) { return float4(value, value, value, 1.0); }";
+        using SKRuntimeEffect effect = SKRuntimeEffect.CreateShader(source, out string? error)
+                                       ?? throw new InvalidOperationException(error);
+        var uniforms = new SKRuntimeEffectUniforms(effect) { ["value"] = MathF.BitDecrement(0.625f) };
+        using SKShader shader = effect.ToShader(uniforms);
+        using RenderTarget target = RenderTarget.Create(1, 1)
+                                    ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
+        using var paint = new SKPaint { Shader = shader, BlendMode = SKBlendMode.Src };
+        target.Value.Canvas.DrawRect(SKRect.Create(1, 1), paint);
+        using Bitmap result = target.Snapshot();
+        return result.GetPixelSpan<ushort>()[0] != BitConverter.HalfToUInt16Bits((Half)0.625f);
+    }
+
     private static Drawable.Resource CreateEllipse(FilterEffect? effect)
     {
         var shape = new EllipseShape();
@@ -493,6 +589,48 @@ public sealed class LosslessCompositeCoverageTests
         shape.AlignmentX.CurrentValue = alignmentX;
         shape.AlignmentY.CurrentValue = alignmentY;
         return Configure(shape, effect);
+    }
+
+    private static Drawable.Resource CreateDevicePixelStripes(
+        PixelSize frame,
+        float density,
+        bool alongY,
+        FilterEffect? effect)
+    {
+        // A period of two device pixels puts every pixel centre a quarter period inside a stop.
+        float period = 2 / density;
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = alongY
+            ? new RelativePoint(0, period, RelativeUnit.Absolute)
+            : new RelativePoint(period, 0, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
+        var shape = new RectShape();
+        shape.Width.CurrentValue = frame.Width;
+        shape.Height.CurrentValue = frame.Height;
+        shape.AlignmentX.CurrentValue = AlignmentX.Left;
+        shape.AlignmentY.CurrentValue = AlignmentY.Top;
+        shape.Fill.CurrentValue = stripes;
+        if (effect is not null)
+            shape.FilterEffect.CurrentValue = effect;
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static int CountDarkPixels(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int dark = 0;
+        for (int index = 0; index < pixels.Length; index += 4)
+        {
+            if ((float)BitConverter.UInt16BitsToHalf(pixels[index]) < 0.5f)
+                dark++;
+        }
+
+        return dark;
     }
 
     private static Drawable.Resource CreateText(FilterEffect? effect)
