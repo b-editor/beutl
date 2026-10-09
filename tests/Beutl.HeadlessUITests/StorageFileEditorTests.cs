@@ -196,6 +196,64 @@ public class StorageFileEditorTests
     }
 
     [AvaloniaTest]
+    [TestCase("mime:image/png", "sample.png", true)]
+    [TestCase("mime:image/png", "sample.PNG", true)]
+    [TestCase("mime:image/png", "sample.jpg", false)]
+    [TestCase("mime:image/*", "sample.webp", true)]
+    [TestCase("mime:image/*", "sample.mp4", false)]
+    [TestCase("mime:IMAGE/*", "sample.png", true)]
+    [TestCase("mime:audio/x-wav", "sample.wav", true)]
+    [TestCase("mime:video/x-avi", "sample.avi", true)]
+    [TestCase("mime:video/mp4", "sample.m4v", true)]
+    [TestCase("mime:text/plain", "sample.csv", true)]
+    [TestCase("mime:text/plain", "sample.png", false)]
+    [TestCase("mime:application/octet-stream", "LICENSE", true)]
+    [TestCase("mime:image/png", "sample.unknown", false)]
+    [TestCase("mime:application/x-custom", "sample.custom", false)]
+    [TestCase("uti:public.png", "sample.png", true)]
+    [TestCase("uti:public.png", "sample.jpg", false)]
+    [TestCase("uti:public.image", "sample.JPEG", true)]
+    [TestCase("uti:public.movie", "sample.mov", true)]
+    [TestCase("uti:public.movie", "sample.png", false)]
+    [TestCase("uti:public.audiovisual-content", "sample.mp3", true)]
+    [TestCase("uti:public.audio", "sample.aifc", true)]
+    [TestCase("uti:public.data", "LICENSE", true)]
+    [TestCase("uti:public.image", "sample.unknown", false)]
+    [TestCase("uti:com.example.custom", "sample.png", false)]
+    [TestCase("mime:image/png uti:public.jpeg", "sample.jpg", true)]
+    [TestCase("mime:image/png uti:public.jpeg", "sample.gif", false)]
+    [TestCase("pattern:*.png mime:image/* uti:public.image", "sample.png", true)]
+    [TestCase("pattern:*.png mime:image/* uti:public.image", "sample.jpg", false)]
+    public void Drop_matches_mime_types_and_utis_only_when_the_filter_has_no_patterns(string filter, string name, bool accepted)
+    {
+        string path = CreateFile(name);
+        var type = new FilePickerFileType("Files");
+        foreach (var group in filter.Split(' ').Select(x => x.Split(':', 2)).GroupBy(x => x[0], x => x[1]))
+        {
+            switch (group.Key)
+            {
+                case "pattern": type.Patterns = group.ToArray(); break;
+                case "mime": type.MimeTypes = group.ToArray(); break;
+                case "uti": type.AppleUniformTypeIdentifiers = group.ToArray(); break;
+            }
+        }
+        var editor = new StorageFileEditor { Header = "File", OpenOptions = new() { FileTypeFilter = [type] } };
+        var window = new Window { Content = editor, Width = 760, Height = 100 };
+        using var data = Transfer(StorageFile(path));
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TextBox input = GetInput(editor);
+            var over = RaiseDrag(input, DragDrop.DragOverEvent, data);
+            Assert.That(over.DragEffects, Is.EqualTo(accepted ? DragDropEffects.Copy : DragDropEffects.None));
+            RaiseDrag(input, DragDrop.DropEvent, data);
+            Assert.That(editor.Value?.FullName, Is.EqualTo(accepted ? path : null));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public void Drop_revalidates_changes_since_drag_enter(bool readOnly)

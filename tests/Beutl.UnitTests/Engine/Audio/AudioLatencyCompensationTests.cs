@@ -1400,6 +1400,8 @@ public class AudioLatencyCompensationTests
         effect.Lookahead.Animation = animation;
         Assert.That(effect.GetLatencySamples(SampleRate),
             Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)));
+        Assert.That(effect.GetLatencySamples(SampleRate, 200),
+            Is.EqualTo(200 + LookaheadSamples(LimiterParameters.MaxLookaheadMs)));
     }
 
     [Test]

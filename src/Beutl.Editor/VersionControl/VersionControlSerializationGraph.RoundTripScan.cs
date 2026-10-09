@@ -117,10 +117,36 @@ internal static partial class VersionControlSerializationGraph
                         opaquePath);
                 }
 
-                if (opaqueContract)
+                if (opaqueContract
+                    || (opaquePath && !IsFrameworkCollectionType(type)))
                 {
                     throw new InvalidDataException(
                         $"Cannot safely inspect opaque dictionary contract '{type.FullName}'.");
+                }
+
+                if (opaquePath)
+                {
+                    Type keyType = GetDictionaryKeyType(contract.DeclaredType)
+                                   ?? GetDictionaryKeyType(type)
+                                   ?? typeof(object);
+                    foreach (object? key in dictionary.Keys)
+                    {
+                        ScanRoundTrippedResources(
+                            key,
+                            new ScanContract(keyType, contract.Options),
+                            fileSourceIsAddressable: false,
+                            visited,
+                            opaquePath);
+                    }
+
+                    // Inspect the restored storage, including wrapped dictionaries and comparers.
+                    ScanOpaqueFields(
+                        value,
+                        GetInstanceFields(type),
+                        GetFieldContracts(type, contract.Options),
+                        contract.Options,
+                        visited,
+                        opaquePath);
                 }
 
                 return;
@@ -140,10 +166,24 @@ internal static partial class VersionControlSerializationGraph
                         opaquePath);
                 }
 
-                if (opaquePath)
+                if (opaqueContract
+                    || (opaquePath && !IsFrameworkCollectionType(type)))
                 {
                     throw new InvalidDataException(
                         $"Cannot safely inspect opaque collection contract '{type.FullName}'.");
+                }
+
+                if (opaquePath && !type.IsArray)
+                {
+                    // A standard collection below a custom converter is still inspectable. Scan its
+                    // storage too, so a read-only view cannot hide an opaque custom backing list.
+                    ScanOpaqueFields(
+                        value,
+                        GetInstanceFields(type),
+                        GetFieldContracts(type, contract.Options),
+                        contract.Options,
+                        visited,
+                        opaquePath);
                 }
 
                 return;
@@ -202,6 +242,15 @@ internal static partial class VersionControlSerializationGraph
                         opaquePath);
                 }
             }
+        }
+
+        private static bool IsFrameworkCollectionType(Type type)
+        {
+            // Framework collections span CoreLib and System.Collections. Compare the actual
+            // framework assemblies so extension subclasses cannot inherit this exemption.
+            return type.IsArray
+                   || type.Assembly == typeof(List<>).Assembly
+                   || type.Assembly == typeof(SortedSet<>).Assembly;
         }
 
         // An opaque value is scanned field by field, each under its JSON contract when it has one.
@@ -483,6 +532,13 @@ internal static partial class VersionControlSerializationGraph
             {
                 return null;
             }
+        }
+
+        private static Type? GetDictionaryKeyType(Type type)
+        {
+            return ArrayTypeHelpers.GetEntryType(type) is (Type keyType, _)
+                ? keyType
+                : null;
         }
 
         private static Type? GetDictionaryValueType(Type type)

@@ -170,6 +170,7 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
         {
             startInfo.ArgumentList.Add(argument);
         }
+        GitProcessEnvironment.ConfigureToolSearchPath(startInfo);
 
         using var timeoutCts = new CancellationTokenSource(_timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
