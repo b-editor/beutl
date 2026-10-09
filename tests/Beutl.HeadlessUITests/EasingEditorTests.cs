@@ -405,6 +405,7 @@ public sealed class EasingEditorTests
             Point press = ToWindow(window, curve, 0.25, 0.1);
             WaitForHitTest(window, curve, press);
             // Another feature's edit that has not been committed yet, like a timeline nudge.
+            Easing previous = holder.Spline.CurrentValue;
             holder.Spline.CurrentValue = new SplineEasing(0.5f, 0.5f, 0.5f, 0.5f);
             Assert.That(history.History.HasPendingOperations, Is.True);
             Easing nudged = holder.Spline.CurrentValue;
@@ -421,6 +422,15 @@ public sealed class EasingEditorTests
                 Assert.That(holder.Spline.CurrentValue, Is.SameAs(nudged), "The other edit must survive.");
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
+            });
+
+            // The other edit is still in history, not only in the property.
+            history.History.Commit();
+            Assert.That(history.History.Undo(), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Spline.CurrentValue, Is.SameAs(previous));
+                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
             });
         }
         finally
