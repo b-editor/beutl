@@ -9,6 +9,8 @@ using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
+using LiveMarkdown.Avalonia;
+
 namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
 public partial class PackageDetailsPage : UserControl
@@ -52,21 +54,35 @@ public partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel
             && viewModel.Package.WebSite.Value is string url)
         {
-            var dialog = new FAContentDialog()
-            {
-                Title = ExtensionsStrings.OpenUrl_Title,
-                Content = new SelectableTextBlock()
-                {
-                    Text = string.Format(ExtensionsStrings.OpenUrl_Content, url)
-                },
-                PrimaryButtonText = Strings.Open,
-                CloseButtonText = Strings.Cancel
-            };
+            await OpenUrlAsync(url);
+        }
+    }
 
-            if (await dialog.ShowAsync() is FAContentDialogResult.Primary)
+    private async void Markdown_LinkClick(object? sender, LinkClickedEventArgs e)
+    {
+        e.Handled = true;
+        if (e.HRef is { IsAbsoluteUri: true } uri && uri.Scheme is "https" or "http")
+        {
+            await OpenUrlAsync(uri.AbsoluteUri);
+        }
+    }
+
+    private static async Task OpenUrlAsync(string url)
+    {
+        var dialog = new FAContentDialog()
+        {
+            Title = ExtensionsStrings.OpenUrl_Title,
+            Content = new SelectableTextBlock()
             {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
-            }
+                Text = string.Format(ExtensionsStrings.OpenUrl_Content, url)
+            },
+            PrimaryButtonText = Strings.Open,
+            CloseButtonText = Strings.Cancel
+        };
+
+        if (await dialog.ShowAsync() is FAContentDialogResult.Primary)
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
         }
     }
 

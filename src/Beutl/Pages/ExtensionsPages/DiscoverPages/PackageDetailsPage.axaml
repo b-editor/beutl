@@ -2,9 +2,11 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
+             xmlns:md="using:LiveMarkdown.Avalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
@@ -14,7 +16,31 @@
              Focusable="True"
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="BorderColor" Color="{DynamicResource ControlStrokeColorDefault}" />
+            <SolidColorBrush x:Key="ForegroundColor" Color="{DynamicResource TextFillColorPrimary}" />
+            <SolidColorBrush x:Key="CardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
+            <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource ControlAltFillColorSecondary}" />
+            <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource TextFillColorPrimary}" />
+            <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource SystemAccentColor}" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+
     <UserControl.Styles>
+        <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
+        <Style Selector="md|MarkdownRenderer">
+            <Setter Property="CodeBlockColorTheme" Value="{Binding $self.ActualThemeVariant, Converter={x:Static converters:MarkdownConverters.CodeBlockTheme}}" />
+        </Style>
+        <Style Selector="md|MarkdownTextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BeutlUIFontFamily}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource TextOnAccentFillColorSelectedTextBrush}" />
+        </Style>
         <Style Selector="Border.card">
             <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
@@ -174,9 +200,10 @@
                                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-                        <SelectableTextBlock Margin="16"
-                                             Text="{Binding Package.Description.Value}"
-                                             TextWrapping="WrapWithOverflow" />
+                        <md:MarkdownRenderer x:Name="descriptionMarkdown"
+                                             Margin="16"
+                                             LinkClick="Markdown_LinkClick"
+                                             MarkdownBuilder="{Binding Package.Description.Value, Converter={x:Static converters:MarkdownConverters.ToBuilder}}" />
                     </StackPanel>
                 </Border>
 
@@ -194,9 +221,10 @@
                         <Border Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
                         <TextBlock Margin="16,16,16,0" Text="{Binding SelectedRelease.Value.Title.Value}" />
-                        <SelectableTextBlock Margin="16"
-                                             Text="{Binding SelectedRelease.Value.Body.Value}"
-                                             TextWrapping="WrapWithOverflow" />
+                        <md:MarkdownRenderer x:Name="releaseNotesMarkdown"
+                                             Margin="16"
+                                             LinkClick="Markdown_LinkClick"
+                                             MarkdownBuilder="{Binding SelectedRelease.Value.Body.Value, Converter={x:Static converters:MarkdownConverters.ToBuilder}}" />
                     </StackPanel>
                 </Border>
 
