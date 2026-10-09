@@ -76,16 +76,16 @@ public class BitmapView : Avalonia.Controls.Control
         base.OnPropertyChanged(change);
         if (change.Property == SourceProperty)
         {
-            if (_clonedSource != null)
-            {
-                _clonedSource.Dispose();
-                _clonedSource = null;
-            }
+            Ref<BtlBitmap>? source = Source;
+            Ref<BtlBitmap>? clone = source?.TryClone();
+            // Playback can dispose a superseded ref before its queued binding reaches the UI.
+            // Keep the displayed frame until a live replacement arrives; null explicitly clears it.
+            if (source != null && clone == null)
+                return;
 
-            if (Source != null)
-            {
-                _clonedSource = Source.TryClone();
-            }
+            Ref<BtlBitmap>? previous = _clonedSource;
+            _clonedSource = clone;
+            previous?.Dispose();
 
             var oldSize = _lastSourceSize;
             _lastSourceSize = GetSize();
@@ -98,7 +98,7 @@ public class BitmapView : Avalonia.Controls.Control
 
     private Size? GetSize()
     {
-        var source = Source;
+        var source = _clonedSource;
         return source?.Value is { IsDisposed: false, Width: var width, Height: var height }
             ? new Size(width, height)
             : null;

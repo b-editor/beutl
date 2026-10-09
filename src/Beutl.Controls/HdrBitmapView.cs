@@ -123,11 +123,16 @@ public partial class HdrBitmapView : NativeControlHost
 
         if (change.Property == SourceProperty)
         {
-            _clonedSource?.Dispose();
-            _clonedSource = null;
+            Ref<BtlBitmap>? source = Source;
+            Ref<BtlBitmap>? clone = source?.TryClone();
+            // A queued binding may carry a ref playback already disposed. Retain the last
+            // valid image and size until a live frame arrives, while null still clears them.
+            if (source != null && clone == null)
+                return;
 
-            if (Source != null)
-                _clonedSource = Source.TryClone();
+            Ref<BtlBitmap>? previous = _clonedSource;
+            _clonedSource = clone;
+            previous?.Dispose();
 
             var oldSize = _lastSourceSize;
             _lastSourceSize = GetSourceSize();
@@ -277,7 +282,7 @@ public partial class HdrBitmapView : NativeControlHost
 
     private Size? GetSourceSize()
     {
-        var source = Source;
+        var source = _clonedSource;
         return source?.Value is { IsDisposed: false, Width: var width, Height: var height }
             ? new Size(width, height)
             : null;
