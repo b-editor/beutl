@@ -17,6 +17,7 @@ using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
@@ -640,6 +641,28 @@ public sealed class SchemaGenerationTests
             Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("ColorShift"));
             Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("MosaicEffect"));
             Assert.That(glitchRecipe.Patch.ToJsonString(), Does.Contain("ShakeEffect"));
+        });
+    }
+
+    [Test]
+    public void Audio_effect_schema_exposes_every_builtin_audio_effect()
+    {
+        // Reflect over the engine, not LibraryService: headless hosts only see what TypeRegistration adds.
+        string[] builtinEffectTypes = typeof(AudioEffect).Assembly
+            .GetExportedTypes()
+            .Where(type => type.IsSubclassOf(typeof(AudioEffect))
+                           && !type.IsAbstract
+                           && !typeof(IFallback).IsAssignableFrom(type))
+            .Select(type => type.FullName!)
+            .ToArray();
+        var generator = new SchemaGenerator();
+        CapabilitySchema audioSchema = generator.Generate(categoryFilter: "AudioEffect");
+        string[] listedTypes = audioSchema.Types.Select(type => type.Type).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(listedTypes, Does.Contain(typeof(GateEffect).FullName));
+            Assert.That(listedTypes, Is.SupersetOf(builtinEffectTypes));
         });
     }
 
