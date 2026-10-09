@@ -347,7 +347,7 @@ public sealed class EasingEditorTests
     }
 
     [AvaloniaTest]
-    public void An_unchanged_drag_leaves_no_history_and_restores_the_original_instance()
+    public void An_unchanged_drag_commits_nothing_and_restores_the_original_instance()
     {
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
@@ -378,7 +378,6 @@ public sealed class EasingEditorTests
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
                 Assert.That(history.History.UndoCount, Is.Zero);
-                Assert.That(history.History.HasPendingOperations, Is.False, "The drag's writes must not wait for a later commit.");
             });
         }
         finally

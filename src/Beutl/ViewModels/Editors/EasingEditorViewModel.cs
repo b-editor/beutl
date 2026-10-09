@@ -2,10 +2,8 @@
 using Avalonia.Interactivity;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels.Editors;
@@ -13,9 +11,6 @@ namespace Beutl.ViewModels.Editors;
 public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : ValueEditorViewModel<T?>(property)
     where T : Easing
 {
-    // Whether other features had uncommitted operations when the current drag wrote its first step.
-    private bool? _pendingBeforeDrag;
-
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
@@ -35,7 +30,6 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Va
     {
         if (e is PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } && sender is EasingEditor editor)
         {
-            _pendingBeforeDrag ??= this.GetService<HistoryManager>()?.HasPendingOperations;
             // A validator may keep the current value, which raises no change to refresh the graph.
             editor.Value = SetCurrentValueAndGetCoerced(newValue);
         }
@@ -45,21 +39,12 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Va
     {
         if (e is not PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } args) return;
 
-        bool? pendingBeforeDrag = _pendingBeforeDrag;
-        _pendingBeforeDrag = null;
         if (ReferenceEquals(args.OldValue, newValue))
         {
-            // A drag that ended where it began: drop its pending writes instead of committing a no-op.
-            // Rolling back would also discard another feature's pending edits (a timeline nudge waits
-            // 300 ms to commit), so then the original is only written back and joins that transaction.
-            if (pendingBeforeDrag == false && IsElementEditable)
-            {
-                this.GetRequiredService<HistoryManager>().Rollback();
-            }
-            else
-            {
-                SetCurrentValueAndGetCoerced(newValue);
-            }
+            // A drag that ended where it began: write the original back without committing. The
+            // drag's merged operation then changes nothing. Rolling the pending transaction back
+            // instead would also discard other features' uncommitted edits, such as a timeline nudge.
+            SetCurrentValueAndGetCoerced(newValue);
         }
         else
         {
