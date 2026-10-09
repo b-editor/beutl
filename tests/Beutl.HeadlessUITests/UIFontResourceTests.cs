@@ -108,9 +108,13 @@ public class UIFontResourceTests
     }
 
     [AvaloniaTest]
-    public void NotoSansJP_is_registered_with_the_rendering_engine()
+    [TestCase("Noto Sans")]
+    [TestCase("Noto Sans JP")]
+    [TestCase("Noto Sans SC")]
+    [TestCase("Noto Sans KR")]
+    public void UIFont_is_registered_with_the_rendering_engine(string familyName)
     {
-        var family = new Beutl.Media.FontFamily("Noto Sans JP");
+        var family = new Beutl.Media.FontFamily(familyName);
         Beutl.Media.Typeface[] typefaces =
             [.. Beutl.Media.FontManager.Instance.GetTypefaces(family)];
 
@@ -125,5 +129,61 @@ public class UIFontResourceTests
             Assert.That(typefaces.Select(typeface => typeface.Weight),
                 Does.Contain(Beutl.Media.FontWeight.Bold));
         });
+    }
+
+    [AvaloniaTest]
+    public void NotoColorEmoji_is_bundled_and_registered_with_the_rendering_engine()
+    {
+        var uri = new Uri("avares://Beutl.Controls/Assets/Fonts/NotoColorEmoji/NotoColorEmoji.ttf");
+        Assert.Multiple(() =>
+        {
+            Assert.That(AssetLoader.Exists(uri), Is.True);
+            Assert.That(Beutl.Media.FontManager.Instance.IsRegistered(new Beutl.Media.FontFamily("Noto Color Emoji")), Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase("ja-JP", "Noto Sans JP", Beutl.Media.FontWeight.Regular)]
+    [TestCase("zh-CN", "Noto Sans SC", Beutl.Media.FontWeight.Regular)]
+    [TestCase("ko-KR", "Noto Sans KR", Beutl.Media.FontWeight.Regular)]
+    [TestCase("en-US", "Noto Sans JP", Beutl.Media.FontWeight.Regular)]
+    [TestCase("zh-CN", "Noto Sans SC", Beutl.Media.FontWeight.SemiBold)]
+    [TestCase("ko-KR", "Noto Sans KR", Beutl.Media.FontWeight.SemiBold)]
+    public void Text_fallback_uses_the_UI_language_order(
+        string cultureName, string expectedFamily, Beutl.Media.FontWeight weight)
+    {
+        using (Stream font = typeof(UIFontResourceTests).Assembly.GetManifestResourceStream("ProjectFontSecondFixture.ttf")!)
+            Beutl.Media.FontManager.Instance.AddFont(font);
+        CultureInfo previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+            App.RegisterBundledEngineFonts();
+            using var text = new Beutl.Media.TextFormatting.FormattedText
+            {
+                Font = new Beutl.Media.FontFamily("Roboto"),
+                Text = "骨",
+                Size = 64f,
+                Weight = weight,
+            };
+            using var expected = new Beutl.Media.TextFormatting.FormattedText
+            {
+                Font = new Beutl.Media.FontFamily(expectedFamily),
+                Text = "骨",
+                Size = 64f,
+                Weight = weight,
+            };
+            Assert.Multiple(() =>
+            {
+                Assert.That(text.ToGeometries().Length, Is.EqualTo(1));
+                Assert.That(text.ToGeometries()[0].Bounds, Is.EqualTo(expected.ToGeometries()[0].Bounds));
+                Assert.That(text.ToGeometries()[0].Bounds.IsEmpty, Is.False);
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+            App.RegisterBundledEngineFonts();
+        }
     }
 }

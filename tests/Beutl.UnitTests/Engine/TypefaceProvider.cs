@@ -15,6 +15,8 @@ public static class TypefaceProvider
         [
             "BeutlTestVariable.ttf",
             "BeutlTestColorEmoji.ttf",
+            "BeutlTestSeparateEmoji.ttf",
+            "BeutlTestComposedText.otf",
             "NotoSansJP-Black.otf",
             "NotoSansJP-Bold.otf",
             "NotoSansJP-Light.otf",

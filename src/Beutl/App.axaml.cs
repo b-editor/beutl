@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Controls.Styling;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Backend;
 using Beutl.Helpers;
@@ -32,13 +33,7 @@ namespace Beutl;
 
 public sealed class App : Application
 {
-    private static readonly string[] s_bundledEngineFonts =
-    [
-        "NotoSansJP-Regular.ttf",
-        "NotoSansJP-Medium.ttf",
-        "NotoSansJP-SemiBold.ttf",
-        "NotoSansJP-Bold.ttf",
-    ];
+    private static bool s_bundledEngineFontsRegistered;
     private static readonly ILogger s_logger = Log.CreateLogger<App>();
     private readonly TaskCompletionSource _windowOpenTcs = new();
     private FluentAvaloniaTheme? _theme;
@@ -87,12 +82,29 @@ public sealed class App : Application
 
     internal static void RegisterBundledEngineFonts()
     {
-        foreach (string fileName in s_bundledEngineFonts)
+        if (!s_bundledEngineFontsRegistered)
         {
-            using Stream stream = AssetLoader.Open(
-                new Uri($"avares://Beutl.Controls/Assets/Fonts/NotoSansJP/{fileName}"));
-            Media.FontManager.Instance.AddFont(stream);
+            foreach (string familyName in UiFonts.DefaultFontFamily.FamilyNames.Append("Noto Color Emoji"))
+            {
+                var root = new Uri($"avares://Beutl.Controls/Assets/Fonts/{familyName.Replace(" ", "")}/");
+                foreach (Uri uri in AssetLoader.GetAssets(root, null).OrderBy(uri => uri.AbsoluteUri, StringComparer.Ordinal))
+                {
+                    if (Path.GetExtension(uri.AbsolutePath) is not (".ttf" or ".otf"))
+                        continue;
+                    string weightName = Path.GetFileNameWithoutExtension(uri.AbsolutePath).Split('-')[^1];
+                    Media.FontWeight weight = Enum.TryParse(weightName, out Media.FontWeight parsedWeight)
+                        ? parsedWeight : Media.FontWeight.Regular;
+                    Media.FontManager.Instance.RegisterFont(
+                        new Media.Typeface(new Media.FontFamily(familyName), Media.FontStyle.Normal, weight),
+                        () => AssetLoader.Open(uri));
+                }
+            }
+            s_bundledEngineFontsRegistered = true;
         }
+
+        Media.FontManager.Instance.SetFallbackFonts(
+            UiFonts.DefaultFontFamily.FamilyNames.Select(name => new Media.FontFamily(name)),
+            new Media.FontFamily("Noto Color Emoji"));
     }
 
     private void ApplyDockStringOverrides()

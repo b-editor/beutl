@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Beutl.Configuration;
+using Beutl.Graphics;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
@@ -32,6 +33,9 @@ public sealed class FontManager
     private readonly Dictionary<(SKTypeface Typeface, float Weight), SKTypeface> _weightInstances = [];
     private readonly RenderFaceCache _renderFaces = new(FreeTypeFonts.Manager);
     private readonly string[] _fontDirs;
+    private FontFamily[] _fallbackFamilies = [];
+    private FontFamily? _emojiFamily;
+    private readonly Dictionary<FontFamily, Dictionary<Typeface, Lazy<SKTypeface?>>> _deferredFonts = [];
 
     private FontManager()
     {
@@ -152,7 +156,7 @@ public sealed class FontManager
             // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
             lock (_gate)
             {
-                return _fonts.Keys.Concat(_projectFonts.Keys).Distinct().ToArray();
+                return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys).Distinct().ToArray();
             }
         }
     }
@@ -161,11 +165,94 @@ public sealed class FontManager
     {
         get
         {
-            lock (_gate) return _fonts.Keys.Concat(_projectFonts.Keys).Distinct().Count();
+            lock (_gate) return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys).Distinct().Count();
         }
     }
 
     public Typeface DefaultTypeface { get; }
+
+    internal void SetFallbackFonts(IEnumerable<FontFamily> families, FontFamily? emojiFamily)
+    {
+        FontFamily[] fallbackFamilies = families.Distinct().ToArray();
+        lock (_gate)
+        {
+            if (_fallbackFamilies.SequenceEqual(fallbackFamilies) && _emojiFamily == emojiFamily)
+                return;
+
+            _fallbackFamilies = fallbackFamilies;
+            _emojiFamily = emojiFamily;
+            Interlocked.Increment(ref _revision);
+        }
+    }
+
+    internal (FontFamily[] Families, FontFamily? Emoji) GetFallbackFamilies()
+    {
+        lock (_gate)
+        {
+            // The array is replaced as a unit by SetFallbackFonts and is never mutated.
+            return (_fallbackFamilies, _emojiFamily);
+        }
+    }
+
+    internal void RegisterFont(Typeface typeface, Func<Stream> openStream)
+    {
+        lock (_gate)
+        {
+            if (!_deferredFonts.TryGetValue(typeface.FontFamily, out var fonts))
+            {
+                fonts = [];
+                if (_fonts.TryGetValue(typeface.FontFamily, out var loaded))
+                {
+                    foreach (var entry in loaded)
+                        fonts.Add(entry.Key, new Lazy<SKTypeface?>(() => entry.Value));
+                }
+                _deferredFonts.Add(typeface.FontFamily, fonts);
+            }
+            // The pinned bundled face takes precedence over an installed duplicate, without
+            // opening its stream until requested. Other styles in the family remain available.
+            fonts[typeface] = new Lazy<SKTypeface?>(() => LoadRegisteredFont(typeface, openStream));
+            Interlocked.Increment(ref _revision);
+        }
+    }
+
+    private SKTypeface? LoadRegisteredFont(Typeface typeface, Func<Stream> openStream)
+    {
+        SKTypeface? face;
+        try
+        {
+            using Stream stream = openStream();
+            face = SKTypeface.FromStream(stream);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load registered font {FontFamily}", typeface.FontFamily);
+            return null;
+        }
+        if (face is null)
+            return null;
+        if (face.FamilyName != typeface.FontFamily.Name)
+        {
+            face.Dispose();
+            return null;
+        }
+        if (!AddFont(face, typeface.Weight, replaceExisting: true))
+            face.Dispose();
+        // Materializing a catalog entry does not change font selection, so leave Revision alone.
+        return _fonts[typeface.FontFamily].Get(typeface);
+    }
+
+    internal bool TryResolveSkia(Typeface typeface, out SKTypeface face)
+    {
+        lock (_gate)
+        {
+            if (TryResolveTypeface(typeface, out face!))
+            {
+                face = InstantiateWeight(_renderFaces.Get(face), typeface.Weight);
+                return true;
+            }
+            return false;
+        }
+    }
 
     public void LoadProjectFonts(Project project)
     {
@@ -206,13 +293,15 @@ public sealed class FontManager
         }
     }
 
-    public void AddFont(Stream stream)
+    public void AddFont(Stream stream) => AddFont(stream, null);
+
+    internal void AddFont(Stream stream, FontWeight? weight)
     {
         SKTypeface? typeface = SKTypeface.FromStream(stream);
         if (typeface == null) return;
         // 重複登録された SKTypeface は AddFont 側で false が返るので、
         // 戻り値を無視せず必ず Dispose する。
-        if (!AddFont(typeface))
+        if (!AddFont(typeface, weight))
         {
             typeface.Dispose();
         }
@@ -222,10 +311,11 @@ public sealed class FontManager
         }
     }
 
-    private bool AddFont(SKTypeface typeface)
+    private bool AddFont(SKTypeface typeface, FontWeight? weight = null, bool replaceExisting = false)
     {
         string familyName = typeface.FamilyName;
         var fontFamily = new FontFamily(familyName);
+        var tf = new Typeface(fontFamily, typeface.FontSlant.ToFontStyle(), weight ?? (FontWeight)typeface.FontWeight);
 
         lock (_gate)
         {
@@ -234,13 +324,13 @@ public sealed class FontManager
 
             if (exists)
             {
-                var tf = Typeface.FromSKTypeface(typeface);
-
-                if (!value!.ContainsKey(tf))
+                if (!value!.ContainsKey(tf) || replaceExisting)
                 {
-                    value = value.Append(new(tf, typeface))
+                    // Replaced faces can still be held by renderers; keep their handles alive.
+                    value = value.Where(entry => entry.Key != tf).Append(new(tf, typeface))
                         .ToFrozenDictionary();
-
+                    if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
+                        deferred[tf] = new Lazy<SKTypeface?>(() => typeface);
                     return true;
                 }
                 else
@@ -250,7 +340,9 @@ public sealed class FontManager
             }
             else
             {
-                value = TypefaceCollection.Create([typeface]);
+                value = new Dictionary<Typeface, SKTypeface> { [tf] = typeface }.ToFrozenDictionary();
+                if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
+                    deferred[tf] = new Lazy<SKTypeface?>(() => typeface);
                 return true;
             }
         }
@@ -394,9 +486,11 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return TryGetTypefaces(fontFamily, out FrozenDictionary<Typeface, SKTypeface>? value)
-                ? value.Keys
-                : [];
+            if (_projectFonts.TryGetValue(fontFamily, out var project))
+                return project.Keys;
+            if (_deferredFonts.TryGetValue(fontFamily, out var deferred))
+                return [.. deferred.Keys];
+            return _fonts.TryGetValue(fontFamily, out var value) ? value.Keys : [];
         }
     }
 
@@ -406,9 +500,9 @@ public sealed class FontManager
         {
             // An unregistered family is ordinary input (uninstalled font, or a subfamily name such
             // as "Inter 28pt"), so this runs inside the render pass and must not throw.
-            if (TryGetTypefaces(typeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? typefaces))
+            if (TryResolveTypeface(typeface, out SKTypeface? face))
             {
-                return InstantiateWeight(_renderFaces.Get(typefaces.Get(typeface)), typeface.Weight);
+                return InstantiateWeight(_renderFaces.Get(face), typeface.Weight);
             }
 
             // ToSkia() runs per text layout, so an unregistered family in a multi-frame render
@@ -421,8 +515,8 @@ public sealed class FontManager
                     DefaultTypeface.FontFamily.Name);
             }
 
-            return TryGetTypefaces(DefaultTypeface.FontFamily, out FrozenDictionary<Typeface, SKTypeface>? fallback)
-                ? InstantiateWeight(_renderFaces.Get(fallback.Get(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight))), typeface.Weight)
+            return TryResolveTypeface(new Typeface(DefaultTypeface.FontFamily, typeface.Style, typeface.Weight), out var fallback)
+                ? InstantiateWeight(_renderFaces.Get(fallback), typeface.Weight)
                 : _renderFaces.Get(SKTypeface.Default);
         }
     }
@@ -432,8 +526,27 @@ public sealed class FontManager
         lock (_gate) return _renderFaces.Get(typeface);
     }
 
-    private bool TryGetTypefaces(FontFamily family, out FrozenDictionary<Typeface, SKTypeface> typefaces)
-        => _projectFonts.TryGetValue(family, out typefaces!) || _fonts.TryGetValue(family, out typefaces!);
+    private bool TryResolveTypeface(Typeface typeface, out SKTypeface face)
+    {
+        if (_projectFonts.TryGetValue(typeface.FontFamily, out var project))
+        {
+            face = project.Get(typeface);
+            return true;
+        }
+        if (_deferredFonts.TryGetValue(typeface.FontFamily, out var deferred)
+            && deferred.Get(typeface).Value is { } loaded)
+        {
+            face = loaded;
+            return true;
+        }
+        if (_fonts.TryGetValue(typeface.FontFamily, out var fonts))
+        {
+            face = fonts.Get(typeface);
+            return true;
+        }
+        face = null!;
+        return false;
+    }
 
     // A variable font registers once, as its default instance, so every weight resolves to that instance.
     // Move the matched typeface along its wght axis to the requested weight instead; a typeface without the
@@ -502,7 +615,7 @@ public sealed class FontManager
     {
         lock (_gate)
         {
-            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily);
+            return _projectFonts.ContainsKey(fontFamily) || _fonts.ContainsKey(fontFamily) || _deferredFonts.ContainsKey(fontFamily);
         }
     }
 }
@@ -549,14 +662,14 @@ internal static class TypefaceCollection
         return map.ToFrozenDictionary();
     }
 
-    public static SKTypeface Get(this FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface typeface)
+    public static TValue Get<TValue>(this IReadOnlyDictionary<Typeface, TValue> typefaces, Typeface typeface)
     {
         return GetNearestMatch(typefaces, typeface);
     }
 
-    private static SKTypeface GetNearestMatch(FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface key)
+    private static TValue GetNearestMatch<TValue>(IReadOnlyDictionary<Typeface, TValue> typefaces, Typeface key)
     {
-        if (typefaces.TryGetValue(key, out SKTypeface? typeface))
+        if (typefaces.TryGetValue(key, out TValue? typeface))
         {
             return typeface;
         }
@@ -592,6 +705,6 @@ internal static class TypefaceCollection
         }
 
         //Nothing was found so we try to get a regular typeface.
-        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ? typeface : typefaces.Values[0];
+        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ? typeface : typefaces.Values.First();
     }
 }
