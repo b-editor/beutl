@@ -269,13 +269,13 @@ public partial class PlayerView : UserControl
                 .Subscribe(_ => UpdateTransformHandles())
                 .DisposeWith(_disposables);
 
-            // End in-flight camera edits when playback starts; re-push the panel size when it stops.
+            // End in-flight edits on every start transition, including starts already followed by a stop.
             vm.IsPlaying
                 .Skip(1)
                 .ObserveOnUIDispatcher()
-                .Subscribe(_ =>
+                .Subscribe(playing =>
                 {
-                    if (vm.IsPlaying.Value) FinishCameraInteraction();
+                    if (playing) FinishEditingInteraction();
                     else UpdateMaxFrameSize();
                 })
                 .DisposeWith(_disposables);
@@ -351,7 +351,7 @@ public partial class PlayerView : UserControl
     {
         if (DataContext is not PlayerViewModel vm) return;
         // The overlay is hidden during playback; skip the blocking RenderThread query.
-        if (vm.IsPlaying.Value) return;
+        if (vm.IsPlaybackActive) return;
         if (!vm.IsMoveMode.Value)
         {
             ClearTransformHandleOverlay();
@@ -603,7 +603,7 @@ public partial class PlayerView : UserControl
 
             // Skip overlay updates while playing — RenderThread Invoke would block next-frame generation.
             // When playback stops, the IsPlaying subscriber triggers it once.
-            if (DataContext is PlayerViewModel { IsPlaying.Value: true }) return;
+            if (DataContext is PlayerViewModel { IsPlaybackActive: true }) return;
 
             UpdateTransformHandles();
         });

@@ -515,7 +515,7 @@ public partial class PlayerView
         // Input and timer callbacks can run before the UI-side IsPlaying subscription is delivered.
         private bool StopForPlayback()
         {
-            if (!ViewModel.IsPlaying.Value) return false;
+            if (!ViewModel.IsPlaybackActive) return false;
             EndInteraction();
             return true;
         }

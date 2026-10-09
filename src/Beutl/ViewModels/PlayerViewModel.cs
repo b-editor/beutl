@@ -357,6 +357,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
+    // The task spans loop re-arms and pause drains, where IsPlaying can already be false.
+    internal bool IsPlaybackActive => IsPlaying.Value || _isPausing || !Volatile.Read(ref _playbackTask).IsCompleted;
+
     public ReactivePropertySlim<float> PlaybackSpeed { get; } = new(1.0f);
 
     public ReactivePropertySlim<PlaybackDirection> PlaybackDirection { get; } = new(ViewModels.PlaybackDirection.Stopped);

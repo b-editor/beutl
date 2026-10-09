@@ -25,7 +25,7 @@ namespace Beutl.HeadlessUITests;
 
 [NonParallelizable]
 [TestFixture]
-public class PlayerViewPlaybackInputTests
+public partial class PlayerViewPlaybackInputTests
 {
     [AvaloniaTest]
     [TestCase(MouseButton.Left, false)]

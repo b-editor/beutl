@@ -125,11 +125,14 @@ public partial class PlayerView
     private IMouseControlHandler? _mouseState;
     private int _lastMouseMode = -1;
 
-    private void FinishCameraInteraction()
+    private void FinishEditingInteraction()
     {
-        if (_mouseState is not MouseControl3DCamera camera) return;
+        if (_mouseState is not (MouseControl3DCamera or MouseControlTransformHandles)) return;
+        IMouseControlHandler handler = _mouseState;
+        // Release capture only after detaching the handler, so CaptureLost cannot roll it back.
         _mouseState = null;
-        camera.EndInteraction();
+        if (handler is MouseControl3DCamera camera) camera.EndInteraction();
+        else if (handler is MouseControlTransformHandles transform) transform.EndInteraction();
     }
 
     private int GetMouseModeIndex(PlayerViewModel viewModel)
@@ -293,9 +296,9 @@ public partial class PlayerView
         {
             if (viewModel.IsCameraMode.Value)
             {
-                if (viewModel.IsPlaying.Value)
+                if (viewModel.IsPlaybackActive)
                 {
-                    FinishCameraInteraction();
+                    FinishEditingInteraction();
                     e.Handled = true;
                     return;
                 }
@@ -324,7 +327,7 @@ public partial class PlayerView
                 {
                     // Playback owns the render dispatcher until its producer exits. A synchronous
                     // hit-test here would block the UI until playback ends.
-                    if (viewModel.IsPlaying.Value)
+                    if (viewModel.IsPlaybackActive)
                     {
                         e.Handled = true;
                         return;
