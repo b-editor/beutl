@@ -28,27 +28,33 @@ internal static class TextFontFallback
                 SKFont? emojiFont = emoji is not null && EmojiPresentation.IsEmoji(cluster)
                     ? GetFont(new Typeface(emoji)) : null;
                 bool emojiCovered = emojiFont is not null && Covers(emojiFont, text, start, length);
-                bool requireJoinedGlyph = emojiCovered && cluster.Contains('\u200D');
+                bool requireJoinedGlyph = cluster.Contains('\u200D') && EmojiPresentation.IsEmoji(cluster);
                 if (emojiCovered && (!requireJoinedGlyph || Covers(emojiFont!, text, start, length, true)))
                 {
                     face = emojiFont!.Typeface;
                 }
                 else if (!Covers(primary, text, start, length, requireJoinedGlyph))
                 {
+                    SKTypeface? componentFace = emojiCovered ? emojiFont!.Typeface : null;
+                    if (componentFace is null && requireJoinedGlyph && Covers(primary, text, start, length))
+                        componentFace = primary.Typeface;
                     bool found = false;
                     foreach (FontFamily candidate in families)
                     {
-                        if (GetFont(new Typeface(candidate, style, weight)) is { } fallbackFont
-                            && Covers(fallbackFont, text, start, length, requireJoinedGlyph))
+                        if (GetFont(new Typeface(candidate, style, weight)) is not { } fallbackFont)
+                            continue;
+                        if (Covers(fallbackFont, text, start, length, requireJoinedGlyph))
                         {
                             face = fallbackFont.Typeface;
                             found = true;
                             break;
                         }
+                        if (componentFace is null && requireJoinedGlyph && Covers(fallbackFont, text, start, length))
+                            componentFace = fallbackFont.Typeface;
                     }
                     // If no font joins the sequence, display its component emoji instead of tofu.
-                    if (!found && emojiCovered)
-                        face = emojiFont!.Typeface;
+                    if (!found && componentFace is not null)
+                        face = componentFace;
                 }
 
                 // Keep adjacent text in the same font together, preserving kerning and ligatures.

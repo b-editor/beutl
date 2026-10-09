@@ -161,13 +161,16 @@ public class FormattedTextFallbackTests
         Assert.That(actualImage.Bytes, Is.EqualTo(expectedImage.Bytes));
     }
 
-    [TestCase(true)]
-    [TestCase(false)]
-    public void JoinedEmoji_PrefersACompleteFontOverSeparateComponentGlyphs(bool primaryHasJoinedGlyph)
+    [TestCase(true, true)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(false, false)]
+    public void JoinedEmoji_PrefersACompleteFontOverSeparateComponentGlyphs(bool primaryHasJoinedGlyph, bool emojiHasComponents)
     {
         const string value = "👩‍💻";
-        FontManager.Instance.SetFallbackFonts([s_joinedEmojiFont], s_separateEmojiFont);
-        using FormattedText text = CreateText(value, primaryHasJoinedGlyph ? s_joinedEmojiFont : null);
+        FontManager.Instance.SetFallbackFonts([s_joinedEmojiFont], emojiHasComponents ? s_separateEmojiFont : s_composedFont);
+        FontFamily? primaryFamily = primaryHasJoinedGlyph ? s_joinedEmojiFont : emojiHasComponents ? null : s_separateEmojiFont;
+        using FormattedText text = CreateText(value, primaryFamily);
         using FormattedText expected = CreateText(value, s_joinedEmojiFont);
         using FormattedText separate = CreateText(value, s_separateEmojiFont);
         using SKFont separateFont = separate.ToSKFont();
@@ -207,6 +210,19 @@ public class FormattedTextFallbackTests
         using SKFont primary = text.ToSKFont();
         List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
         Assert.That(runs.All(run => ReferenceEquals(run.Typeface, primary.Typeface)), Is.True);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void JoinedEmoji_WithMissingEmojiCoverageAndNoJoinedFont_PreservesComponents(bool primaryHasComponents)
+    {
+        FontManager.Instance.SetFallbackFonts([s_separateEmojiFont], s_composedFont);
+        using FormattedText text = CreateText("👩‍💻", primaryHasComponents ? s_separateEmojiFont : null);
+        using SKFont primary = text.ToSKFont();
+        List<TextFontFallback.Run> runs = TextFontFallback.GetRuns(text.Text.AsSpan(), primary, text.Style, text.Weight);
+        Assert.That(runs[0].Typeface.FamilyName, Is.EqualTo(s_separateEmojiFont.Name));
+        using SKBitmap image = Draw(text);
+        Assert.That(ColorPixels(image).Count, Is.GreaterThan(100));
     }
 
     [TestCase("0\uFE0F")]
