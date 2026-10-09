@@ -118,7 +118,7 @@ internal static partial class VersionControlSerializationGraph
                 }
 
                 if (opaqueContract
-                    || (opaquePath && type.Assembly != typeof(object).Assembly))
+                    || (opaquePath && !IsFrameworkCollectionType(type)))
                 {
                     throw new InvalidDataException(
                         $"Cannot safely inspect opaque dictionary contract '{type.FullName}'.");
@@ -142,7 +142,7 @@ internal static partial class VersionControlSerializationGraph
                 }
 
                 if (opaqueContract
-                    || (opaquePath && !type.IsArray && type.Assembly != typeof(object).Assembly))
+                    || (opaquePath && !IsFrameworkCollectionType(type)))
                 {
                     throw new InvalidDataException(
                         $"Cannot safely inspect opaque collection contract '{type.FullName}'.");
@@ -217,6 +217,15 @@ internal static partial class VersionControlSerializationGraph
                         opaquePath);
                 }
             }
+        }
+
+        private static bool IsFrameworkCollectionType(Type type)
+        {
+            // Framework collections span CoreLib and System.Collections. Compare the actual
+            // framework assemblies so extension subclasses cannot inherit this exemption.
+            return type.IsArray
+                   || type.Assembly == typeof(List<>).Assembly
+                   || type.Assembly == typeof(SortedSet<>).Assembly;
         }
 
         // An opaque value is scanned field by field, each under its JSON contract when it has one.

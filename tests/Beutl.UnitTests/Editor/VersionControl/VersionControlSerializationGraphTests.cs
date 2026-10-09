@@ -75,6 +75,69 @@ public class VersionControlSerializationGraphTests
         Assert.That(graph.UnaddressableFileSources, Does.Contain(uri));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Converted_sorted_dictionaries_can_be_inspected(bool empty)
+    {
+        var dictionary = new SortedDictionary<string, Comment>();
+        if (!empty)
+        {
+            dictionary.Add("comment", new Comment(TimeSpan.FromSeconds(1), "Hello"));
+        }
+
+        Assert.DoesNotThrow(() => Discover(new ConvertedValue<SortedDictionary<string, Comment>>([dictionary])));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Converted_sorted_sets_can_be_inspected(bool empty)
+    {
+        SortedSet<int> values = empty ? [] : [1, 2, 3];
+
+        Assert.DoesNotThrow(() => Discover(new ConvertedValue<SortedSet<int>>([values])));
+    }
+
+    [Test]
+    public void Resources_inside_converted_sorted_dictionaries_are_discovered()
+    {
+        var source = new ImageSource();
+        var uri = new Uri(Path.Combine(Path.GetTempPath(), "beutl-converted-sorted-dictionary.png"));
+        source.ReadFrom(uri);
+        var dictionary = new SortedDictionary<string, ImageSource> { ["image"] = source };
+
+        VersionControlSerializationGraph.SerializationGraph graph =
+            Discover(new ConvertedValue<SortedDictionary<string, ImageSource>>([dictionary]));
+
+        Assert.That(graph.UnaddressableFileSources, Does.Contain(uri));
+    }
+
+    [Test]
+    public void Converted_custom_sorted_dictionaries_are_still_rejected()
+    {
+        var dictionary = new CustomSortedCommentDictionary
+        {
+            ["comment"] = new Comment(TimeSpan.FromSeconds(1), "Hello"),
+        };
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() =>
+            Discover(new ConvertedValue<CustomSortedCommentDictionary>([dictionary])));
+
+        Assert.That(exception!.Message,
+            Does.Contain("opaque dictionary contract").And.Contain(nameof(CustomSortedCommentDictionary)));
+    }
+
+    [Test]
+    public void Converted_custom_sorted_sets_are_still_rejected()
+    {
+        var values = new CustomIntSortedSet { 1, 2, 3 };
+
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() =>
+            Discover(new ConvertedValue<CustomIntSortedSet>([values])));
+
+        Assert.That(exception!.Message,
+            Does.Contain("opaque collection contract").And.Contain(nameof(CustomIntSortedSet)));
+    }
+
     private static VersionControlSerializationGraph.SerializationGraph Discover<T>(T value)
         => VersionControlSerializationGraph.DiscoverSerializationGraph(new ValueProjectItem<T>
         {
@@ -228,6 +291,30 @@ public class VersionControlSerializationGraphTests
         {
             var source = new ImageSource();
             source.ReadFrom(new Uri(Path.Combine(Path.GetTempPath(), "beutl-hidden-dictionary.png")));
+            return source;
+        }
+    }
+
+    public sealed class CustomSortedCommentDictionary : SortedDictionary<string, Comment>
+    {
+        public ImageSource Source { get; } = CreateSource();
+
+        private static ImageSource CreateSource()
+        {
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(Path.Combine(Path.GetTempPath(), "beutl-hidden-sorted-dictionary.png")));
+            return source;
+        }
+    }
+
+    public sealed class CustomIntSortedSet : SortedSet<int>
+    {
+        public ImageSource Source { get; } = CreateSource();
+
+        private static ImageSource CreateSource()
+        {
+            var source = new ImageSource();
+            source.ReadFrom(new Uri(Path.Combine(Path.GetTempPath(), "beutl-hidden-sorted-set.png")));
             return source;
         }
     }
