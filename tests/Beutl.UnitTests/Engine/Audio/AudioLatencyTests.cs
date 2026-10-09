@@ -160,44 +160,76 @@ public class AudioLatencyTests
         Assert.That(replay.GetLatencySamples(SampleRate), Is.EqualTo(0), "AudioNode default is zero latency.");
     }
 
-    [Test]
-    public void Effects_GetLatencySamples_ZeroForNonLatencyEffects()
+    [TestCase(0)]
+    [TestCase(200)]
+    [TestCase(int.MaxValue)]
+    public void Effects_GetLatencySamples_PassThroughInputLatency(int inputLatency)
     {
+        var fallback = new FallbackAudioEffect();
         var compressor = new CompressorEffect();
         var equalizer = new EqualizerEffect();
+        var group = new AudioEffectGroup();
 
-        Assert.That(compressor.GetLatencySamples(SampleRate), Is.EqualTo(0));
-        Assert.That(equalizer.GetLatencySamples(SampleRate), Is.EqualTo(0));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fallback.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+            Assert.That(compressor.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+            Assert.That(equalizer.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+            Assert.That(group.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+        }
     }
 
-    [Test]
-    public void LimiterEffect_GetLatencySamples_MatchesNode()
+    [TestCase(0, 240)]
+    [TestCase(200, 440)]
+    [TestCase(int.MaxValue - 100, int.MaxValue)]
+    [TestCase(int.MaxValue, int.MaxValue)]
+    public void LimiterEffect_GetLatencySamples_MatchesGraphWithInputLatency(int inputLatency, int expected)
     {
         var effect = CreateLimiterEffect(5f);
-        using var node = CreateLimiterNode(5f);
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode source = context.AddNode(new FixedLatencyNode(inputLatency));
+        AudioNode node = effect.CreateNode(context, source);
 
-        Assert.That(effect.GetLatencySamples(SampleRate), Is.EqualTo(node.GetLatencySamples(SampleRate)));
-        Assert.That(effect.GetLatencySamples(SampleRate), Is.EqualTo(ExpectedLookaheadSamples(5f, SampleRate)));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(effect.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(expected));
+            Assert.That(node.GetTotalLatencySamples(SampleRate), Is.EqualTo(expected));
+            Assert.That(node.GetLatencySamples(SampleRate), Is.EqualTo(240));
+        }
     }
 
-    [Test]
-    public void LimiterEffect_GetLatencySamples_DisabledReportsZero()
+    [TestCase(0)]
+    [TestCase(200)]
+    [TestCase(int.MaxValue)]
+    public void Effects_GetLatencySamples_DisabledPassThroughInputLatency(int inputLatency)
     {
+        var fallback = new FallbackAudioEffect { IsEnabled = false };
         var effect = CreateLimiterEffect(5f);
         effect.IsEnabled = false;
+        var stretch = new TimeStretchEffect { IsEnabled = false };
+        stretch.Speed.CurrentValue = 50f;
+        var group = new AudioEffectGroup { IsEnabled = false };
+        group.Children.Add(new FixedLatencyEffect(-1));
 
-        Assert.That(effect.GetLatencySamples(SampleRate), Is.EqualTo(0));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fallback.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+            Assert.That(effect.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+            Assert.That(stretch.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+            Assert.That(group.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(inputLatency));
+        }
     }
 
-    [Test]
-    public void AudioEffectGroup_GetLatencySamples_SumsEnabledChildren()
+    [TestCase(0)]
+    [TestCase(200)]
+    public void AudioEffectGroup_GetLatencySamples_SumsEnabledChildren(int inputLatency)
     {
         var group = new AudioEffectGroup();
         group.Children.Add(CreateLimiterEffect(5f));
         group.Children.Add(CreateLimiterEffect(10f));
 
-        int expected = ExpectedLookaheadSamples(5f, SampleRate) + ExpectedLookaheadSamples(10f, SampleRate);
-        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(expected));
+        int expected = inputLatency + ExpectedLookaheadSamples(5f, SampleRate) + ExpectedLookaheadSamples(10f, SampleRate);
+        Assert.That(group.GetLatencySamples(SampleRate, inputLatency), Is.EqualTo(expected));
     }
 
     [Test]
@@ -209,8 +241,21 @@ public class AudioLatencyTests
         var group = new AudioEffectGroup();
         group.Children.Add(CreateLimiterEffect(5f));
         group.Children.Add(disabled);
+        group.Children.Add(new FixedLatencyEffect(-1) { IsEnabled = false });
+        var disabledGroup = new AudioEffectGroup { IsEnabled = false };
+        var stretch = new TimeStretchEffect();
+        stretch.Speed.CurrentValue = 50f;
+        disabledGroup.Children.Add(stretch);
+        group.Children.Add(disabledGroup);
+        using var context = new AudioContext(SampleRate, 2);
+        AudioNode source = context.AddNode(new FixedLatencyNode(200));
+        AudioNode output = group.CreateNode(context, source);
 
-        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(ExpectedLookaheadSamples(5f, SampleRate)));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(group.GetLatencySamples(SampleRate, 200), Is.EqualTo(200 + ExpectedLookaheadSamples(5f, SampleRate)));
+            Assert.That(output.GetTotalLatencySamples(SampleRate), Is.EqualTo(group.GetLatencySamples(SampleRate, 200)));
+        }
     }
 
     [Test]
@@ -236,11 +281,17 @@ public class AudioLatencyTests
         Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void AudioEffectGroup_GetLatencySamples_NegativeChildThrows(bool followedByUnbounded)
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void AudioEffectGroup_GetLatencySamples_NegativeChildThrows(bool precededByUnbounded, bool followedByUnbounded)
     {
         var group = new AudioEffectGroup();
+        if (precededByUnbounded)
+        {
+            group.Children.Add(new FixedLatencyEffect(int.MaxValue));
+        }
         group.Children.Add(new FixedLatencyEffect(-1));
         if (followedByUnbounded)
         {
@@ -556,24 +607,57 @@ public class AudioLatencyTests
         Assert.That(downstreamLimiter.GetTotalLatencySamples(SampleRate), Is.EqualTo(int.MaxValue));
     }
 
-    [TestCase(0)]
-    [TestCase(-1)]
-    public void GetLatencySamples_NonPositiveSampleRate_Throws(int sampleRate)
+    [TestCase(0, true, 0)]
+    [TestCase(-1, true, 200)]
+    [TestCase(0, true, int.MaxValue)]
+    [TestCase(0, false, 0)]
+    [TestCase(-1, false, 200)]
+    [TestCase(0, false, int.MaxValue)]
+    public void GetLatencySamples_NonPositiveSampleRate_Throws(int sampleRate, bool enabled, int inputLatency)
     {
         using var gain = new GainNode { Gain = Property.CreateAnimatable(100f) };
         using var limiterNode = CreateLimiterNode(5f);
         var limiterEffect = CreateLimiterEffect(5f);
-        var group = new AudioEffectGroup();
+        limiterEffect.IsEnabled = enabled;
+        var fallback = new FallbackAudioEffect { IsEnabled = enabled };
+        var stretch = new TimeStretchEffect { IsEnabled = enabled };
+        var group = new AudioEffectGroup { IsEnabled = enabled };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetLatencySamples(sampleRate));
-        Assert.Throws<ArgumentOutOfRangeException>(() => limiterEffect.GetLatencySamples(sampleRate));
-        Assert.Throws<ArgumentOutOfRangeException>(() => group.GetLatencySamples(sampleRate));
+        Assert.Throws<ArgumentOutOfRangeException>(() => fallback.GetLatencySamples(sampleRate, inputLatency));
+        Assert.Throws<ArgumentOutOfRangeException>(() => limiterEffect.GetLatencySamples(sampleRate, inputLatency));
+        Assert.Throws<ArgumentOutOfRangeException>(() => stretch.GetLatencySamples(sampleRate, inputLatency));
+        Assert.Throws<ArgumentOutOfRangeException>(() => group.GetLatencySamples(sampleRate, inputLatency));
 
         Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetTotalLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetTotalLatencySamples(sampleRate));
         using var speed = new SpeedNode { Speed = Property.CreateAnimatable(50f) };
         Assert.Throws<ArgumentOutOfRangeException>(() => speed.GetTotalLatencySamples(sampleRate));
+    }
+
+    [TestCase(-1, true)]
+    [TestCase(int.MinValue, true)]
+    [TestCase(-1, false)]
+    [TestCase(int.MinValue, false)]
+    public void Effects_GetLatencySamples_NegativeInputLatency_Throws(int inputLatency, bool enabled)
+    {
+        var fallback = new FallbackAudioEffect { IsEnabled = enabled };
+        var limiter = new LimiterEffect { IsEnabled = enabled };
+        var stretch = new TimeStretchEffect { IsEnabled = enabled };
+        var group = new AudioEffectGroup { IsEnabled = enabled };
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(() => fallback.GetLatencySamples(SampleRate, inputLatency),
+                Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("inputLatency"));
+            Assert.That(() => limiter.GetLatencySamples(SampleRate, inputLatency),
+                Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("inputLatency"));
+            Assert.That(() => stretch.GetLatencySamples(SampleRate, inputLatency),
+                Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("inputLatency"));
+            Assert.That(() => group.GetLatencySamples(SampleRate, inputLatency),
+                Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("inputLatency"));
+        }
     }
 
     private sealed class UnknownRangeEasing : Easing
@@ -587,7 +671,15 @@ internal sealed partial class FixedLatencyEffect(int latencySamples) : AudioEffe
 {
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode) => inputNode;
 
-    public override int GetLatencySamples(int sampleRate) => latencySamples;
+    public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
+    {
+        base.GetLatencySamples(sampleRate, inputLatency);
+        if (!IsEnabled)
+            return inputLatency;
+
+        // Deliberately invalid reports exercise the group's validation of external overrides.
+        return latencySamples < 0 ? latencySamples : AudioLatency.SaturatingAdd(inputLatency, latencySamples);
+    }
 }
 
 internal sealed class FixedLatencyNode(int latencySamples, bool overrideTotal = false) : AudioNode

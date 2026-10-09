@@ -95,15 +95,16 @@ public sealed partial class LimiterEffect : AudioEffect
         return limiterNode;
     }
 
-    public override int GetLatencySamples(int sampleRate)
+    public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        base.GetLatencySamples(sampleRate, inputLatency);
         if (!IsEnabled)
-            return 0;
+            return inputLatency;
 
         // Reserve the worst-case lookahead when automation is present.
-        return Lookahead.Animation != null
+        int latency = Lookahead.Animation != null
             ? ToLatencySamples(MaxLookaheadMs, sampleRate)
             : ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+        return AudioLatency.SaturatingAdd(inputLatency, latency);
     }
 }

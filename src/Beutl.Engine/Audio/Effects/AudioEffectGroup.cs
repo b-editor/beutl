@@ -22,20 +22,19 @@ public sealed partial class AudioEffectGroup : AudioEffect
     }
 
     // Report the same enabled serial cascade that CreateNode builds.
-    public override int GetLatencySamples(int sampleRate)
+    public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-        return GetOutputLatencySamples(sampleRate, 0);
-    }
-
-    internal override int GetOutputLatencySamples(int sampleRate, int inputLatency)
-    {
+        base.GetLatencySamples(sampleRate, inputLatency);
         if (!IsEnabled)
             return inputLatency;
 
-        foreach (AudioEffect item in Children)
+        foreach (AudioEffect item in Children.Where(item => item.IsEnabled))
         {
-            inputLatency = item.GetOutputLatencySamples(sampleRate, inputLatency);
+            int latency = item.GetLatencySamples(sampleRate, inputLatency);
+            if (latency < 0)
+                throw new InvalidOperationException($"{item.GetType().Name} reported a negative latency ({latency} samples).");
+
+            inputLatency = latency;
         }
 
         return inputLatency;

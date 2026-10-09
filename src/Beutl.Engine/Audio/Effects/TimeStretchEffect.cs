@@ -33,8 +33,9 @@ public sealed partial class TimeStretchEffect : AudioEffect
         return node;
     }
 
-    internal override int GetOutputLatencySamples(int sampleRate, int inputLatency)
+    public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
+        base.GetLatencySamples(sampleRate, inputLatency);
         if (!IsEnabled || inputLatency == 0 || inputLatency == int.MaxValue)
             return inputLatency;
 

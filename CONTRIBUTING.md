@@ -125,3 +125,7 @@ adding a dockable editor tool.
 Extensions built for Avalonia 11 must follow the
 [Avalonia 12 migration guide](docs/extension-authoring/avalonia-12-migration.md)
 before targeting the upgraded host.
+
+Extensions overriding `AudioEffect.GetLatencySamples` must follow the
+[audio effect latency migration guide](docs/extension-authoring/audio-effect-latency-migration.md)
+and rebuild against the accumulated-latency API.
