@@ -13,7 +13,7 @@ The extension defines:
 
 - `CanMultiple`: whether more than one context may be open.
 - `Header`: the label in the tool pickers (the new-tab page a dock's add button opens, the tool menu, and the tab switcher); `null` hides the tool from them.
-- `GetIcon`: the icon drawn left of the tab title; `null` leaves the tab text-only.
+- `GetIcon`: the icon drawn left of the tab title and beside the tool in the pickers; `null` leaves the tab text-only. The host calls it for each opened tab and for the lists that offer the tool (the tab switcher's create list and the new-tab page), so keep it cheap and return a new icon source each time.
 - `DefaultAnchor`: the initial `Left`, `Right`, `Bottom`, or `Player` dock.
 - `DefaultOrder`: ordering among tools with the same anchor.
 - `OpenByDefault`: whether a new editor opens the tool automatically.

@@ -113,7 +113,11 @@ public sealed class NewToolTabDockable : Tool
         else
         {
             CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
-            _items = factory.EnumerateToolTabExtensions()
+            ToolTabExtension[] extensions = factory.EnumerateToolTabExtensions().ToArray();
+            // Drop what a removed package left behind, so the page does not keep its tools alive.
+            PruneCache(_icons, extensions);
+            PruneCache(_neutralHeaders, extensions);
+            _items = extensions
                 .Select(extension => new NewToolTabItem(
                     extension,
                     extension.Header!,
@@ -138,10 +142,24 @@ public sealed class NewToolTabDockable : Tool
         Refresh();
     }
 
-    // The type name, like the layout's tool entries: unlike Name, it cannot collide across packages.
+    // The layout's tool identifier: it names the assembly, so same-named types from different
+    // packages stay apart, and it leaves out the version, so a pin survives a package update.
     internal static string GetPinKey(ToolTabExtension extension)
     {
-        return extension.GetType().FullName ?? extension.Name;
+        return TypeFormat.ToString(extension.GetType());
+    }
+
+    internal bool HasCachedEntries(ToolTabExtension extension)
+    {
+        return _icons.ContainsKey(extension) || _neutralHeaders.ContainsKey(extension);
+    }
+
+    private static void PruneCache<T>(Dictionary<ToolTabExtension, T> cache, ToolTabExtension[] registered)
+    {
+        foreach (ToolTabExtension stale in cache.Keys.Except(registered).ToArray())
+        {
+            cache.Remove(stale);
+        }
     }
 
     /// <summary>Opens <paramref name="extension"/> in place of this tab.</summary>

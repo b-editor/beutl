@@ -531,7 +531,11 @@ public class DockTabAddButtonTests
                 // Pins are a user preference, saved with the settings rather than the project.
                 Assert.That(
                     pins,
-                    Is.EqualTo(new[] { typeof(HistoryTabExtension).FullName, typeof(CurvesTabExtension).FullName }));
+                    Is.EqualTo(new[]
+                    {
+                        NewToolTabDockable.GetPinKey(HistoryTabExtension.Instance),
+                        NewToolTabDockable.GetPinKey(CurvesTabExtension.Instance),
+                    }));
                 Assert.That(
                     bottom.PinnedItems.Select(item => item.Extension),
                     Is.EqualTo(pinnedOrder),
@@ -568,7 +572,7 @@ public class DockTabAddButtonTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(pins, Is.EqualTo(new[] { typeof(HistoryTabExtension).FullName }));
+                Assert.That(pins, Is.EqualTo(new[] { NewToolTabDockable.GetPinKey(HistoryTabExtension.Instance) }));
                 Assert.That(third.PinnedItems, Is.Empty, "History is pinned but open.");
                 Assert.That(
                     third.AvailableItems.Select(item => item.Extension),
@@ -797,11 +801,20 @@ public class DockTabAddButtonTests
             // Package installs register from a worker thread.
             Task.Run(() => TestShell.Extensions.AddExtensions(packageId, [installed])).Wait();
             HeadlessTestHelpers.Settle();
-            Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Contain(installed));
+            newTab.SearchText = "installed";
+            Assert.Multiple(() =>
+            {
+                Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Contain(installed));
+                Assert.That(newTab.HasCachedEntries(installed), Is.True);
+            });
 
             _ = TestShell.Extensions.RemoveExtensions(packageId);
             HeadlessTestHelpers.Settle();
-            Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Not.Contain(installed));
+            Assert.Multiple(() =>
+            {
+                Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Not.Contain(installed));
+                Assert.That(newTab.HasCachedEntries(installed), Is.False, "A removed tool must not stay cached.");
+            });
         }
         finally
         {
@@ -809,6 +822,22 @@ public class DockTabAddButtonTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
+    }
+
+    [Test]
+    public void Pin_keys_name_the_assembly_but_not_its_version()
+    {
+        Type probe = typeof(PinKeyProbe.PinKeyProbeToolTabExtension);
+        string key = NewToolTabDockable.GetPinKey(new PinKeyProbe.PinKeyProbeToolTabExtension());
+        Assume.That(probe.FullName, Does.Not.Contain(probe.Assembly.GetName().Name));
+
+        Assert.Multiple(() =>
+        {
+            // Same-named types from two packages must not share a pin.
+            Assert.That(key, Does.Contain(probe.Assembly.GetName().Name));
+            // A package update must not drop its pins.
+            Assert.That(key, Does.Not.Contain(probe.Assembly.GetName().Version!.ToString()));
+        });
     }
 
     [AvaloniaTest]
