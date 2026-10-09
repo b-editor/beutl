@@ -139,6 +139,7 @@ public static class TypeRegistration
         Register<EqualizerEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<CompressorEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<LimiterEffect>(KnownLibraryItemFormats.AudioEffect);
+        Register<GateEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<TimeStretchEffect>(KnownLibraryItemFormats.AudioEffect);
     }
 
