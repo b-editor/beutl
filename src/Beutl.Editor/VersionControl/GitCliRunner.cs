@@ -524,6 +524,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
 
         ApplyEnvironmentOverrides(startInfo, _environmentOverrides);
         ApplyEnvironmentOverrides(startInfo, environmentOverrides);
+        GitProcessEnvironment.ConfigureToolSearchPath(startInfo);
 
         startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
         startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
