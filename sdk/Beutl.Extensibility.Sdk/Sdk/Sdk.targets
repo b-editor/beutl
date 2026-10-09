@@ -60,11 +60,14 @@
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
     <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
+    <!-- Build-time only: without PrivateAssets the generator becomes a dependency of the extension's package, which
+         Beutl then fails to resolve when installing it. -->
     <PackageReference
       Include="Beutl.Engine.SourceGenerators"
       OutputItemType="Analyzer"
       ReferenceOutputAssembly="false"
       Version="$(BeutlPackagesVersion)"
+      PrivateAssets="all"
       Condition="'$(BeutlAutoReferenceSourceGenerators)' == 'true'" />
   </ItemGroup>
 
