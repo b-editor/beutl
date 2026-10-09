@@ -14,8 +14,9 @@ internal static class FilePickerFileTypeMatcher
     private static readonly string[] s_anyMimeTypes = ["*/*", "application/octet-stream"];
     private static readonly string[] s_anyUniformTypeIdentifiers = ["public.item", "public.data"];
 
-    // Conformance follows macOS's UTType database; the MIME types add the shared-mime-info names
-    // Linux pickers use. Types macOS does not declare have no UTI.
+    // Conformance follows macOS's UTType database; the MIME types add the shared-mime-info names and
+    // aliases Linux pickers use, but not its subclass graph, which shifts between releases.
+    // Types macOS does not declare have no UTI.
     private static readonly FileType[] s_types =
     [
         new("public.image", "public.data public.content"),
@@ -26,54 +27,54 @@ internal static class FilePickerFileTypeMatcher
         new("com.microsoft.bmp", "public.image", "bmp dib", "image/bmp image/x-bmp image/x-ms-bmp"),
         new("org.webmproject.webp", "public.image", "webp", "image/webp"),
         new("public.tiff", "public.image", "tif tiff", "image/tiff"),
-        new("public.heic", "public.heif-standard", "heic", "image/heic image/heif"),
-        new("public.heif", "public.heif-standard", "heif hif", "image/heif image/heic"),
-        new("public.avif", "public.heif-standard", "avif", "image/avif"),
-        new("com.microsoft.ico", "public.image", "ico", "image/vnd.microsoft.icon image/x-icon"),
+        new("public.heic", "public.heif-standard", "heic", "image/heic image/heif image/heic-sequence image/heif-sequence"),
+        new("public.heif", "public.heif-standard", "heif hif", "image/heif image/heic image/heic-sequence image/heif-sequence"),
+        new("public.avif", "public.heif-standard", "avif", "image/avif image/avif-sequence"),
+        new("com.microsoft.ico", "public.image", "ico", "image/vnd.microsoft.icon image/x-icon application/ico image/ico image/icon image/x-ico text/ico"),
         new("public.svg-image", "public.image public.xml", "svg svgz", "image/svg+xml"),
 
         new("public.audiovisual-content", "public.data public.content"),
         new("public.movie", "public.audiovisual-content"),
-        new("public.mpeg-4", "public.movie", "mp4 mpg4", "video/mp4 video/mp4v-es"),
+        new("public.mpeg-4", "public.movie", "mp4 mpg4", "video/mp4 video/mp4v-es video/x-m4v"),
         new("com.apple.m4v-video", "public.mpeg-4", "m4v", "video/x-m4v"),
         new("com.apple.quicktime-movie", "public.movie", "mov qt", "video/quicktime"),
         new("org.webmproject.webm", "public.movie", "webm", "video/webm audio/webm"),
-        new("public.avi", "public.movie", "avi", "video/avi video/msvideo video/x-msvideo video/vnd.avi"),
-        new("public.mpeg", "public.movie", "mpg mpeg mpe", "video/mpeg video/mpg video/x-mpeg"),
+        new("public.avi", "public.movie", "avi", "video/avi video/msvideo video/x-msvideo video/vnd.avi video/x-avi video/divx video/vnd.divx"),
+        new("public.mpeg", "public.movie", "mpg mpeg mpe", "video/mpeg video/mpg video/x-mpeg video/mpeg-system video/x-mpeg-system video/x-mpeg2"),
         new("com.microsoft.windows-media-wmv", "com.microsoft.advanced-systems-format public.movie", "wmv", "video/x-ms-wmv"),
         new(null, "", "mkv", "video/matroska video/x-matroska"),
 
         new("public.audio", "public.audiovisual-content"),
-        new("public.mp3", "public.audio", "mp3", "audio/mpeg audio/mp3 audio/x-mp3 audio/x-mpeg"),
+        new("public.mp3", "public.audio", "mp3", "audio/mpeg audio/mp3 audio/x-mp3 audio/x-mpeg audio/x-mpg"),
         new("com.microsoft.waveform-audio", "public.audio", "wav wave", "audio/wav audio/wave audio/vnd.wave audio/x-wav"),
-        new("public.aifc-audio", "public.audio"),
+        new("public.aifc-audio", "public.audio", "aifc", "audio/x-aifc audio/x-aiffc"),
         new("public.aiff-audio", "public.aifc-audio", "aif aiff", "audio/aiff audio/x-aiff"),
         new("public.mpeg-4-audio", "public.audio", "", "audio/mp4"),
         new("com.apple.m4a-audio", "public.mpeg-4-audio", "m4a", "audio/x-m4a audio/m4a"),
         new("public.aac-audio", "public.audio", "aac", "audio/aac audio/x-aac"),
         new("org.xiph.flac", "public.audio", "flac", "audio/flac audio/x-flac"),
-        new("org.xiph.ogg-audio", "public.audio", "ogg oga opus", "audio/ogg audio/opus"),
+        new("org.xiph.ogg-audio", "public.audio", "ogg oga opus", "audio/ogg audio/opus audio/x-ogg"),
 
         new("public.text", "public.data public.content"),
         new("public.plain-text", "public.text", "txt text", "text/plain"),
-        new("public.comma-separated-values-text", "public.delimited-values-text public.plain-text", "csv", "text/csv text/comma-separated-values"),
+        new("public.comma-separated-values-text", "public.delimited-values-text public.plain-text", "csv", "text/csv text/comma-separated-values text/x-comma-separated-values text/x-csv"),
         new("public.json", "public.text", "json", "application/json"),
         new("public.xml", "public.text", "xml", "application/xml text/xml"),
         new("org.w3.webvtt", "public.text", "vtt", "text/vtt"),
-        new(null, "", "srt", "application/x-subrip"),
+        new(null, "", "srt", "application/x-subrip application/x-srt"),
         new(null, "", "ass ssa", "text/x-ssa"),
 
         new("public.3d-content", "public.content"),
         new("org.khronos.gltf", "public.3d-content public.json", "gltf", "model/gltf+json"),
         new("org.khronos.glb", "public.3d-content public.data", "glb", "model/gltf-binary"),
-        new("public.geometry-definition-format", "public.3d-content public.text", "obj", "model/obj"),
-        new("public.standard-tesselated-geometry-format", "public.3d-content public.data", "stl", "model/stl"),
+        new("public.geometry-definition-format", "public.3d-content public.text", "obj", "model/obj application/prs.wavefront-obj"),
+        new("public.standard-tesselated-geometry-format", "public.3d-content public.data", "stl", "model/stl model/x.stl-ascii model/x.stl-binary"),
 
         new("public.font", "public.data"),
         new("public.truetype-font", "public.font"),
-        new("public.truetype-ttf-font", "public.truetype-font", "ttf", "font/ttf"),
-        new("public.opentype-font", "public.font", "otf", "font/otf"),
-        new(null, "", "woff", "font/woff"),
+        new("public.truetype-ttf-font", "public.truetype-font", "ttf", "font/ttf application/x-font-ttf"),
+        new("public.opentype-font", "public.font", "otf", "font/otf application/x-font-otf"),
+        new(null, "", "woff", "font/woff application/font-woff"),
         new(null, "", "woff2", "font/woff2"),
     ];
 
