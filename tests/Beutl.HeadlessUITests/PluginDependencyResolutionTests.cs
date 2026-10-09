@@ -96,6 +96,23 @@ public class PluginDependencyResolutionTests
             Is.EqualTo(Path.GetFullPath(Path.Combine(current, "lib", "net10.0", _prefix + "Common.dll"))));
     }
 
+    // SDKs up to 2.0.0-preview.8 packed the build-time source generator as a dependency of every
+    // extension, and no source the installer searches publishes it (#2730).
+    [Test]
+    public async Task Installer_ignores_the_source_generator_that_older_sdks_listed_as_a_dependency()
+    {
+        string root = CreatePackageDependingOn("Root", "1.0.0", ("Beutl.Engine.SourceGenerators", "2.0.0-preview.8"));
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        PackageInstallContext context = installer.PrepareForInstall(_prefix + "Root", "1.0.0");
+
+        await installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance);
+
+        Assert.That(context.Phase, Is.EqualTo(PackageInstallPhase.ResolvedDependencies));
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Is.EqualTo(new[] { Identity("Root", "1.0.0") }));
+    }
+
     [TestCase("invalid-json")]
     [TestCase("missing-list")]
     [TestCase("wrong-root")]
@@ -207,6 +224,9 @@ public class PluginDependencyResolutionTests
     private PackageIdentity Identity(string name, string version) => new(_prefix + name, NuGetVersion.Parse(version));
 
     private string CreatePackage(string name, string version, params (string Name, string Version)[] dependencies)
+        => CreatePackageDependingOn(name, version, dependencies.Select(dependency => (_prefix + dependency.Name, dependency.Version)).ToArray());
+
+    private string CreatePackageDependingOn(string name, string version, params (string Id, string Version)[] dependencies)
     {
         PackageIdentity identity = Identity(name, version);
         string directory = Helper.PackagePathResolver.GetInstallPath(identity);
@@ -215,7 +235,7 @@ public class PluginDependencyResolutionTests
         new XElement("package", new XElement("metadata", new XElement("id", identity.Id), new XElement("version", version),
             new XElement("authors", "tests"), new XElement("description", "Package resolution fixture"),
             new XElement("dependencies", new XElement("group", new XAttribute("targetFramework", "net10.0"),
-                dependencies.Select(dependency => new XElement("dependency", new XAttribute("id", _prefix + dependency.Name),
+                dependencies.Select(dependency => new XElement("dependency", new XAttribute("id", dependency.Id),
                     new XAttribute("version", $"[{dependency.Version},)")))))))
             .Save(Path.Combine(directory, identity.Id + ".nuspec"));
         WriteAsset(directory, $"lib/net10.0/{identity.Id}.dll");

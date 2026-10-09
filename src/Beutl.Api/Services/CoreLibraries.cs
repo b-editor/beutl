@@ -114,6 +114,11 @@ internal static class CoreLibraries
 
     private static FrozenDictionary<string, string[]> PackageDepsMap => s_pkgMap.Value;
 
+    // Extensions packed by SDKs up to 2.0.0-preview.8 list the source generator as a dependency, but it
+    // only runs at build time and is not published on any source the installer searches.
+    private static bool IsBuildOnlyPackage(string name)
+        => string.Equals(name, "Beutl.Engine.SourceGenerators", StringComparison.OrdinalIgnoreCase);
+
     public static bool IncludedInRuntimeDependencies(string name, Version? version)
     {
         if (RuntimeDepsMap.TryGetValue(name, out string[]? versions))
@@ -135,6 +140,9 @@ internal static class CoreLibraries
 
     public static bool IncludedInPackageDependencies(string name, NuGetVersion version)
     {
+        if (IsBuildOnlyPackage(name))
+            return true;
+
         if (PackageDepsMap.TryGetValue(name, out string[]? installedVersions))
         {
             foreach (string v in installedVersions)
@@ -149,6 +157,9 @@ internal static class CoreLibraries
 
     public static bool IncludedInPackageDependencies(string name, VersionRange versionRange)
     {
+        if (IsBuildOnlyPackage(name))
+            return true;
+
         if (PackageDepsMap.TryGetValue(name, out string[]? installedVersions))
         {
             foreach (string v in installedVersions)
