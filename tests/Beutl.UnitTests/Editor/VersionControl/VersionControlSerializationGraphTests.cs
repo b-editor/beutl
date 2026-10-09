@@ -138,6 +138,56 @@ public class VersionControlSerializationGraphTests
             Does.Contain("opaque collection contract").And.Contain(nameof(CustomIntSortedSet)));
     }
 
+    [Test]
+    public void Converted_read_only_dictionaries_with_custom_backing_are_rejected()
+    {
+        InvalidDataException? exception = Assert.Throws<InvalidDataException>(() =>
+            Discover(new DictionaryStorageValue(DictionaryStorageKind.ReadOnlyCustom)));
+
+        Assert.That(exception!.Message,
+            Does.Contain("opaque dictionary contract").And.Contain(nameof(CustomCommentDictionary)));
+    }
+
+    [Test]
+    public void Resources_inside_restored_sorted_dictionary_keys_are_discovered()
+    {
+        VersionControlSerializationGraph.SerializationGraph graph =
+            Discover(new DictionaryStorageValue(DictionaryStorageKind.SortedKey));
+
+        Assert.That(graph.UnaddressableFileSources,
+            Does.Contain(ResourceUri("beutl-dictionary-key.png")));
+    }
+
+    [Test]
+    public void Resources_inside_restored_sorted_dictionary_comparers_are_discovered()
+    {
+        VersionControlSerializationGraph.SerializationGraph graph =
+            Discover(new DictionaryStorageValue(DictionaryStorageKind.RestoredComparer));
+
+        Assert.That(graph.UnaddressableFileSources,
+            Does.Contain(ResourceUri("beutl-restored-dictionary-comparer.png")));
+    }
+
+    [Test]
+    public void Comparers_discarded_by_a_dictionary_converter_do_not_introduce_resources()
+    {
+        VersionControlSerializationGraph.SerializationGraph graph =
+            Discover(new DictionaryStorageValue(DictionaryStorageKind.DiscardedComparer));
+
+        Assert.That(graph.UnaddressableFileSources,
+            Does.Not.Contain(ResourceUri("beutl-discarded-dictionary-comparer.png")));
+    }
+
+    private static Uri ResourceUri(string fileName)
+        => new(Path.Combine(Path.GetTempPath(), fileName));
+
+    private static ImageSource ResourceSource(string fileName)
+    {
+        var source = new ImageSource();
+        source.ReadFrom(ResourceUri(fileName));
+        return source;
+    }
+
     private static VersionControlSerializationGraph.SerializationGraph Discover<T>(T value)
         => VersionControlSerializationGraph.DiscoverSerializationGraph(new ValueProjectItem<T>
         {
@@ -317,5 +367,85 @@ public class VersionControlSerializationGraphTests
             source.ReadFrom(new Uri(Path.Combine(Path.GetTempPath(), "beutl-hidden-sorted-set.png")));
             return source;
         }
+    }
+
+    public enum DictionaryStorageKind
+    {
+        ReadOnlyCustom,
+        SortedKey,
+        RestoredComparer,
+        DiscardedComparer,
+    }
+
+    [JsonConverter(typeof(DictionaryStorageValueConverter))]
+    public sealed class DictionaryStorageValue
+    {
+        public DictionaryStorageValue(DictionaryStorageKind kind, bool restored = false)
+        {
+            Kind = kind;
+            var comment = new Comment(TimeSpan.FromSeconds(1), "Hello");
+            switch (kind)
+            {
+                case DictionaryStorageKind.ReadOnlyCustom:
+                    ReadOnly = new ReadOnlyDictionary<string, Comment>(new CustomCommentDictionary
+                    {
+                        ["comment"] = comment,
+                    });
+                    break;
+                case DictionaryStorageKind.SortedKey:
+                    SortedKeys = new SortedDictionary<ResourceKey, Comment>
+                    {
+                        [new ResourceKey()] = comment,
+                    };
+                    break;
+                case DictionaryStorageKind.RestoredComparer:
+                    SortedComparer = new SortedDictionary<string, Comment>(restored
+                        ? new ResourceComparer("beutl-restored-dictionary-comparer.png")
+                        : StringComparer.Ordinal)
+                    { ["comment"] = comment };
+                    break;
+                case DictionaryStorageKind.DiscardedComparer:
+                    SortedComparer = new SortedDictionary<string, Comment>(restored
+                        ? StringComparer.Ordinal
+                        : new ResourceComparer("beutl-discarded-dictionary-comparer.png"))
+                    { ["comment"] = comment };
+                    break;
+            }
+        }
+
+        public DictionaryStorageKind Kind { get; }
+
+        public ReadOnlyDictionary<string, Comment>? ReadOnly { get; }
+
+        public SortedDictionary<ResourceKey, Comment>? SortedKeys { get; }
+
+        public SortedDictionary<string, Comment>? SortedComparer { get; }
+    }
+
+    public sealed class DictionaryStorageValueConverter : JsonConverter<DictionaryStorageValue>
+    {
+        public override DictionaryStorageValue Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options)
+            => new((DictionaryStorageKind)reader.GetInt32(), restored: true);
+
+        // The token contains no file URI; Read reconstructs the dictionary's actual storage.
+        public override void Write(Utf8JsonWriter writer, DictionaryStorageValue value, JsonSerializerOptions options)
+            => writer.WriteNumberValue((int)value.Kind);
+    }
+
+    public sealed class ResourceKey : IComparable<ResourceKey>
+    {
+        public ImageSource Source { get; } = ResourceSource("beutl-dictionary-key.png");
+
+        public int CompareTo(ResourceKey? other) => other is null ? 1 : 0;
+    }
+
+    public sealed class ResourceComparer(string fileName) : IComparer<string>
+    {
+        public ImageSource Source { get; } = ResourceSource(fileName);
+
+        public int Compare(string? x, string? y) => StringComparer.Ordinal.Compare(x, y);
     }
 }

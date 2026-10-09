@@ -124,6 +124,31 @@ internal static partial class VersionControlSerializationGraph
                         $"Cannot safely inspect opaque dictionary contract '{type.FullName}'.");
                 }
 
+                if (opaquePath)
+                {
+                    Type keyType = GetDictionaryKeyType(contract.DeclaredType)
+                                   ?? GetDictionaryKeyType(type)
+                                   ?? typeof(object);
+                    foreach (object? key in dictionary.Keys)
+                    {
+                        ScanRoundTrippedResources(
+                            key,
+                            new ScanContract(keyType, contract.Options),
+                            fileSourceIsAddressable: false,
+                            visited,
+                            opaquePath);
+                    }
+
+                    // Inspect the restored storage, including wrapped dictionaries and comparers.
+                    ScanOpaqueFields(
+                        value,
+                        GetInstanceFields(type),
+                        GetFieldContracts(type, contract.Options),
+                        contract.Options,
+                        visited,
+                        opaquePath);
+                }
+
                 return;
             }
             else if (value is IEnumerable enumerable)
@@ -507,6 +532,13 @@ internal static partial class VersionControlSerializationGraph
             {
                 return null;
             }
+        }
+
+        private static Type? GetDictionaryKeyType(Type type)
+        {
+            return ArrayTypeHelpers.GetEntryType(type) is (Type keyType, _)
+                ? keyType
+                : null;
         }
 
         private static Type? GetDictionaryValueType(Type type)
