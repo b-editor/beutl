@@ -420,6 +420,8 @@ public sealed class EasingEditorTests
             Assert.Multiple(() =>
             {
                 Assert.That(holder.Spline.CurrentValue, Is.SameAs(nudged), "The other edit must survive.");
+                Assert.That(history.History.HasPendingOperations, Is.True, "The drag must not commit the other edit early.");
+                Assert.That(history.History.UndoCount, Is.Zero);
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
             });
