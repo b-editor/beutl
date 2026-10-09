@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Time.Testing;
 
@@ -53,6 +54,70 @@ public class GitCliRunnerTests : RealGitTestRepository
                 Is.EqualTo(Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM") is not null));
             Assert.That(noSystemConfig, Is.EqualTo(Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM")));
         });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task Push_uploads_lfs_media_with_a_minimal_mac_app_path()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Ignore("This reproduces the PATH inherited by a macOS GUI application.");
+        }
+        if (!File.Exists("/opt/homebrew/bin/git-lfs") && !File.Exists("/usr/local/bin/git-lfs"))
+        {
+            Assert.Ignore("Git LFS must be installed in a standard Homebrew location.");
+        }
+
+        const string appPath = "/usr/bin:/bin:/usr/sbin:/sbin";
+        string? originalPath = Environment.GetEnvironmentVariable("PATH");
+        try
+        {
+            Environment.SetEnvironmentVariable("PATH", appPath);
+            var locator = new GitInstallationLocator(new VersionControlConfig
+            {
+                GitExecutablePath = "/usr/bin/git",
+            });
+            GitAvailability availability = await locator.LocateAsync();
+            Assert.That(availability.LfsInstalled, Is.True,
+                "Discovery must find Homebrew's Git LFS when it is absent from the app's PATH.");
+
+            var runner = new GitCliRunner(
+                availability.GitPath!, TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            Task<GitCommandResult> RunAsync(params string[] arguments)
+                => runner.RunAsync(Repository, arguments, GitCommandOptions.Local, cancellation.Token);
+
+            string bareRepository = Path.Combine(CreateTemporaryDirectory(), "remote.git");
+            await RunAsync("init", "--bare", bareRepository);
+            await RunAsync("remote", "add", "origin", bareRepository);
+            await RunAsync("lfs", "install", "--local");
+            await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"),
+                "*.dat filter=lfs diff=lfs merge=lfs -text\n");
+            byte[] media = [0, 1, 2, 3, 255];
+            await File.WriteAllBytesAsync(Path.Combine(Root, "media.dat"), media);
+            await RunAsync("add", "--", ".gitattributes", "media.dat");
+            await RunAsync("commit", "-m", "test: commit LFS media");
+            GitCommandResult pointer = await RunAsync("show", "HEAD:media.dat");
+            Assert.That(pointer.Stdout, Does.StartWith("version https://git-lfs.github.com/spec/v1\n"));
+
+            await runner.RunAsync(Repository, ["push", "origin", "main"],
+                GitCommandOptions.Network, cancellation.Token);
+
+            string objectPath = Directory.EnumerateFiles(
+                Path.Combine(bareRepository, "lfs", "objects"), "*", SearchOption.AllDirectories).Single();
+            Assert.That(await File.ReadAllBytesAsync(objectPath, cancellation.Token), Is.EqualTo(media),
+                "The pre-push hook must upload the media, not just its Git LFS pointer.");
+            GitCommandResult remoteRef = await RunAsync(
+                "-C", bareRepository, "rev-parse", "refs/heads/main");
+            Assert.That(remoteRef.Stdout.Trim(), Is.EqualTo((await RunAsync("rev-parse", "HEAD")).Stdout.Trim()));
+            Assert.That(Environment.GetEnvironmentVariable("PATH"), Is.EqualTo(appPath),
+                "Only Git's child environment should change.");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", originalPath);
+        }
     }
 
     [Test]
