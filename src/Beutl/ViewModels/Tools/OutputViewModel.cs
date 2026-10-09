@@ -208,10 +208,18 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 .ToArray();
         }
 
-        return _editViewModel.ExtensionProvider
+        string[] patterns = _editViewModel.ExtensionProvider
             .GetExtensions<ControllableEncodingExtension>()
-            .Select(x => new FilePickerFileType(x.Name) { Patterns = ToPatterns(x) })
+            .SelectMany(ToPatterns)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+        if (patterns.Length == 0)
+            return [];
+
+        return
+        [
+            new FilePickerFileType(Strings.VideoFiles) { Patterns = patterns }
+        ];
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
