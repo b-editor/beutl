@@ -96,8 +96,7 @@
                                                    IsVisible="{Binding CategoryName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                    Text="{Binding CategoryName}"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Classes="shortcut"
-                                                   FontSize="11"
+                                        <TextBlock FontSize="11"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                    Text="{Binding Description}"
@@ -109,7 +108,8 @@
                                             Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
                                             CornerRadius="{DynamicResource ControlCornerRadius}"
                                             IsVisible="{Binding KeyGestureText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock FontSize="11"
+                                        <TextBlock Classes="shortcut"
+                                                   FontSize="11"
                                                    Text="{Binding KeyGestureText}" />
                                     </Border>
                                 </Grid>

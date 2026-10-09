@@ -230,7 +230,8 @@ jobs:
       - name: Test shortcut fonts and emoji on macOS
         run: >-
           dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
-          --configuration Release -f net10.0 --filter FullyQualifiedName~UIFontResourceTests
+          --configuration Release -f net10.0
+          --filter "FullyQualifiedName~UIFontResourceTests|FullyQualifiedName~CommandPaletteViewLayoutTests.Shortcut_font"
           --logger trx --results-directory TestResults/macos-fonts
 
       - name: Test shared font configuration on macOS
