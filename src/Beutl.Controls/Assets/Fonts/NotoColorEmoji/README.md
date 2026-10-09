@@ -4,11 +4,13 @@ Source: https://github.com/googlefonts/noto-emoji/blob/e20cbc2bbec1926686be9f9be
 
 Upstream SHA-256: `15671215ab769fdc7162a045d56fd7d7e477c51b04e6b3c761d914d8fdd6cc44`
 
-Bundled SHA-256: `190f0c0444c15f5985d8bbf7155ece65fa9a3b3f33191aae967ead077f7e06cc`
+Bundled SHA-256: `2760a3d00834ec87d02e91e5320443776a2271ab1160942ca45c24595b128235`
 
 The PNG strikes are repackaged as `sbix`, with two single-point contours per bitmap
 carrying its bounds for CoreText. This uses the same representation as the existing
 color emoji test fixture, so macOS can render the font as well as Windows and Linux.
+The `sbix` origin offsets are zero: when contours exist, bitmap placement is relative
+to the contour bounds' lower-left corner, which already carries the original bearings.
 PNG data, glyph IDs, advances and GSUB rules are preserved. The font is licensed
 under the adjacent `LICENSE.txt` (SIL Open Font License 1.1).
 

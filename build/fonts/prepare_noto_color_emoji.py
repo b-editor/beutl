@@ -44,8 +44,10 @@ def prepare(source: Path, destination: Path) -> None:
             y = metrics.BearingY - metrics.height
             strike.glyphs[name] = BitmapGlyph(
                 glyphName=name,
-                originOffsetX=x,
-                originOffsetY=y,
+                # With contours, sbix offsets are relative to the glyph bounding box's
+                # lower-left corner, where the bitmap is already positioned below.
+                originOffsetX=0,
+                originOffsetY=0,
                 graphicType="png ",
                 imageData=bitmap.imageData,
             )

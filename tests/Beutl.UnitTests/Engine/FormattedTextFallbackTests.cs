@@ -304,6 +304,27 @@ public class FormattedTextFallbackTests
         Assert.That(ColorPixels(image), Is.Empty);
     }
 
+    [TestCase("Roboto", 0.5f)]
+    [TestCase("Roboto", 1f)]
+    [TestCase("Roboto", 2f)]
+    [TestCase("Noto Sans JP", 0.5f)]
+    [TestCase("Noto Sans JP", 1f)]
+    [TestCase("Noto Sans JP", 2f)]
+    public void MixedEmoji_AlignsWithTheTextCapHeightAtEveryDensity(string family, float scale)
+    {
+        using FormattedText text = CreateText("H😀H", new FontFamily(family));
+        Rect letterBounds = text.ToGeometries()[0].Bounds;
+        FormattedText emoji = text.GetNonOutlineGlyph(1)!;
+        Rect emojiBounds = emoji.ActualBounds;
+        float letterCenter = (letterBounds.Top + letterBounds.Bottom) / 2;
+        float emojiCenter = (emojiBounds.Top + emojiBounds.Bottom) / 2;
+        Assert.That(emojiCenter, Is.EqualTo(letterCenter).Within(text.Size * 0.05f),
+            "The bitmap origin must not be added again to its contour bounding box.");
+        using SKBitmap grouped = Draw(text, scale);
+        using SKBitmap split = Draw(text, scale, split: true);
+        Assert.That(ColorPixels(grouped), Is.EqualTo(ColorPixels(split)));
+    }
+
     [TestCase(0.5f)]
     [TestCase(1f)]
     [TestCase(2f)]
