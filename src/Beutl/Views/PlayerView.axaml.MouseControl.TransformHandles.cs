@@ -133,6 +133,12 @@ public partial class PlayerView
 
         public void OnPressed(PointerPressedEventArgs e)
         {
+            if (StopForPlayback())
+            {
+                e.Handled = true;
+                return;
+            }
+
             PointerPoint pp = e.GetCurrentPoint(Image);
             if (!pp.Properties.IsLeftButtonPressed) return;
 
@@ -385,6 +391,8 @@ public partial class PlayerView
 
         public void OnMoved(PointerEventArgs e)
         {
+            if (StopForPlayback()) return;
+
             if (_press == null) return;
 
             // If undo/redo replaced the Transform between OnPressed and the first OnMoved, run Ensure
@@ -687,6 +695,13 @@ public partial class PlayerView
         public void OnReleased(PointerReleasedEventArgs e)
         {
             if (_press == null) return;
+            EndInteraction();
+            e.Handled = true;
+        }
+
+        public void EndInteraction()
+        {
+            if (_press == null) return;
 
             // If undo/redo replaced the Transform mid-drag (after the post-Ensure guard already ran),
             // _ensured.Group is detached — discard the pending commit. Click-only sessions skip this
@@ -700,7 +715,6 @@ public partial class PlayerView
                 View.framePanel.Cursor = null;
                 ResetSession();
                 _shift = false;
-                e.Handled = true;
                 return;
             }
 
@@ -712,7 +726,13 @@ public partial class PlayerView
             View.framePanel.Cursor = null;
             ResetSession();
             _shift = false;
-            e.Handled = true;
+        }
+
+        private bool StopForPlayback()
+        {
+            if (!ViewModel.IsPlaybackActive) return false;
+            EndInteraction();
+            return true;
         }
 
         // Rollback is a no-op after Commit (Commit clears the current transaction), but on abort/discard

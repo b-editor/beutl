@@ -125,6 +125,16 @@ public partial class PlayerView
     private IMouseControlHandler? _mouseState;
     private int _lastMouseMode = -1;
 
+    private void FinishEditingInteraction()
+    {
+        if (_mouseState is not (MouseControl3DCamera or MouseControlTransformHandles)) return;
+        IMouseControlHandler handler = _mouseState;
+        // Release capture only after detaching the handler, so CaptureLost cannot roll it back.
+        _mouseState = null;
+        if (handler is MouseControl3DCamera camera) camera.EndInteraction();
+        else if (handler is MouseControlTransformHandles transform) transform.EndInteraction();
+    }
+
     private int GetMouseModeIndex(PlayerViewModel viewModel)
     {
         if (viewModel.IsMoveMode.Value)
@@ -286,6 +296,13 @@ public partial class PlayerView
         {
             if (viewModel.IsCameraMode.Value)
             {
+                if (viewModel.IsPlaybackActive)
+                {
+                    FinishEditingInteraction();
+                    e.Handled = true;
+                    return;
+                }
+
                 if (point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed)
                 {
                     _mouseState = CreateMouseHandler(viewModel);
@@ -308,6 +325,14 @@ public partial class PlayerView
                 // it hit a handle (Kind == None takes the hit-test/double-click/translate-drag path).
                 if (viewModel.IsMoveMode.Value && point.Properties.IsLeftButtonPressed)
                 {
+                    // Playback owns the render dispatcher until its producer exits. A synchronous
+                    // hit-test here would block the UI until playback ends.
+                    if (viewModel.IsPlaybackActive)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
                     AvaPoint imagePoint = e.GetCurrentPoint(image).Position;
                     TransformHandlesOverlay.HandleKind kind = transformHandlesOverlay.HitTest(imagePoint);
                     var handler = CreateTransformHandlesHandler(viewModel, kind);
