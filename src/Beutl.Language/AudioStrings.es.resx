@@ -194,4 +194,31 @@
   <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
     <value>Cambia la velocidad de reproducción conservando el tono. 100% es la velocidad normal, 50% es la mitad y 200% es el doble.</value>
   </data>
+  <data name="NoiseReductionEffect" xml:space="preserve">
+    <value>Reducción de ruido</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction" xml:space="preserve">
+    <value>Reducción (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity" xml:space="preserve">
+    <value>Sensibilidad (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing" xml:space="preserve">
+    <value>Suavizado (%)</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation" xml:space="preserve">
+    <value>Tiempo de adaptación (s)</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction_Description" xml:space="preserve">
+    <value>Cuánto se atenúa el ruido detectado. 0 dB deja el audio sin cambios; los valores más altos eliminan más ruido, pero hacen más audibles los artefactos.</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity_Description" xml:space="preserve">
+    <value>Con qué facilidad el sonido cercano al nivel de ruido aprendido se trata como ruido. Súbela para ruido que fluctúa; bájala cuando se pierdan detalles suaves como respiraciones o consonantes.</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing_Description" xml:space="preserve">
+    <value>Con qué suavidad sigue la reducción al audio a lo largo del tiempo. Los valores altos evitan artefactos ondulantes en el ruido restante; los valores bajos reaccionan más rápido a los sonidos suaves.</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
+    <value>Cuánto audio pasado se usa para aprender el nivel de ruido. Los sonidos que duran más que este tiempo se tratan como ruido, así que usa tiempos más largos para música y más cortos para ruido que cambia.</value>
+  </data>
 </root>

@@ -190,4 +190,31 @@
   <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
     <value>音の高さを保ったまま再生速度を変更します。100%が通常速度、50%が半分、200%が2倍です。</value>
   </data>
+  <data name="NoiseReductionEffect" xml:space="preserve">
+    <value>ノイズ除去</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction" xml:space="preserve">
+    <value>低減量 (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity" xml:space="preserve">
+    <value>感度 (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing" xml:space="preserve">
+    <value>スムージング (%)</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation" xml:space="preserve">
+    <value>適応時間 (秒)</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction_Description" xml:space="preserve">
+    <value>検出したノイズを減衰させる量。0 dB では音声を変更せず、大きくするほどノイズを強く除去しますが、処理による違和感も目立ちやすくなります。</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity_Description" xml:space="preserve">
+    <value>学習したノイズレベルに近い音をどれだけノイズとみなすか。揺らぎのあるノイズには高くし、息づかいや子音などの小さな音が失われる場合は低くします。</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing_Description" xml:space="preserve">
+    <value>低減の度合いを時間方向にどれだけ滑らかに変化させるか。高くすると残ったノイズが揺らぐような違和感を防ぎ、低くすると小さな音への反応が速くなります。</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
+    <value>ノイズレベルを学習するために参照する過去の音声の長さ。これより長く続く音はノイズとみなされるため、音楽では長く、変化するノイズでは短くします。</value>
+  </data>
 </root>

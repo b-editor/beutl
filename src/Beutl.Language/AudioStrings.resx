@@ -195,4 +195,31 @@
   <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
     <value>Changes playback speed while preserving pitch. 100% is normal speed, 50% is half speed, and 200% is double speed.</value>
   </data>
+  <data name="NoiseReductionEffect" xml:space="preserve">
+    <value>Noise Reduction</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction" xml:space="preserve">
+    <value>Reduction (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity" xml:space="preserve">
+    <value>Sensitivity (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing" xml:space="preserve">
+    <value>Smoothing (%)</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation" xml:space="preserve">
+    <value>Adaptation Time (s)</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction_Description" xml:space="preserve">
+    <value>How much the detected noise is attenuated. 0 dB leaves the audio unchanged; higher values remove more noise but make artifacts more audible.</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity_Description" xml:space="preserve">
+    <value>How readily sound near the learned noise level is treated as noise. Raise it for noise that fluctuates; lower it when quiet details such as breaths or consonants are lost.</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing_Description" xml:space="preserve">
+    <value>How smoothly the reduction follows the audio over time. Higher values prevent warbling artifacts in the remaining noise; lower values react faster to quiet sounds.</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
+    <value>How much past audio the noise level is learned from. Sounds that last longer than this are treated as noise, so use longer times for music and shorter times for noise that changes.</value>
+  </data>
 </root>

@@ -194,4 +194,31 @@
   <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
     <value>음높이를 유지하면서 재생 속도를 변경합니다. 100%는 정상 속도, 50%는 절반 속도, 200%는 두 배 속도입니다.</value>
   </data>
+  <data name="NoiseReductionEffect" xml:space="preserve">
+    <value>노이즈 제거</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction" xml:space="preserve">
+    <value>감소량 (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity" xml:space="preserve">
+    <value>감도 (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing" xml:space="preserve">
+    <value>스무딩 (%)</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation" xml:space="preserve">
+    <value>적응 시간 (초)</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction_Description" xml:space="preserve">
+    <value>감지된 노이즈를 감쇠시키는 양입니다. 0dB는 오디오를 변경하지 않으며, 값이 클수록 노이즈를 더 많이 제거하지만 처리 흔적이 더 잘 들립니다.</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity_Description" xml:space="preserve">
+    <value>학습된 노이즈 레벨에 가까운 소리를 얼마나 쉽게 노이즈로 간주할지 정합니다. 변동하는 노이즈에는 높이고, 숨소리나 자음 같은 작은 소리가 사라질 때는 낮춥니다.</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing_Description" xml:space="preserve">
+    <value>감소 정도가 시간에 따라 얼마나 부드럽게 변하는지 정합니다. 값이 클수록 남은 노이즈가 일렁이는 현상을 막고, 작을수록 작은 소리에 더 빠르게 반응합니다.</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
+    <value>노이즈 레벨을 학습하는 데 사용하는 과거 오디오의 길이입니다. 이보다 오래 지속되는 소리는 노이즈로 간주되므로 음악에는 길게, 변하는 노이즈에는 짧게 설정합니다.</value>
+  </data>
 </root>

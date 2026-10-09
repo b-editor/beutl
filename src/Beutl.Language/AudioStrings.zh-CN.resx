@@ -194,4 +194,31 @@
   <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
     <value>保持音高的同时改变播放速度。100%为正常速度，50%为一半速度，200%为两倍速度。</value>
   </data>
+  <data name="NoiseReductionEffect" xml:space="preserve">
+    <value>降噪</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction" xml:space="preserve">
+    <value>降噪量 (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity" xml:space="preserve">
+    <value>灵敏度 (dB)</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing" xml:space="preserve">
+    <value>平滑度 (%)</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation" xml:space="preserve">
+    <value>适应时间 (秒)</value>
+  </data>
+  <data name="NoiseReductionEffect_Reduction_Description" xml:space="preserve">
+    <value>对检测到的噪声施加的衰减量。0 dB 保持音频不变；值越大去除的噪声越多，但处理痕迹也越明显。</value>
+  </data>
+  <data name="NoiseReductionEffect_Sensitivity_Description" xml:space="preserve">
+    <value>将接近已学习噪声电平的声音视为噪声的程度。对于起伏的噪声请调高；当呼吸声、辅音等细小声音丢失时请调低。</value>
+  </data>
+  <data name="NoiseReductionEffect_Smoothing_Description" xml:space="preserve">
+    <value>降噪程度随时间变化的平滑程度。值越大越能避免残余噪声出现颤动般的失真；值越小对细小声音的反应越快。</value>
+  </data>
+  <data name="NoiseReductionEffect_Adaptation_Description" xml:space="preserve">
+    <value>用于学习噪声电平的过往音频长度。持续时间超过该值的声音会被视为噪声，因此音乐请使用较长时间，变化的噪声请使用较短时间。</value>
+  </data>
 </root>

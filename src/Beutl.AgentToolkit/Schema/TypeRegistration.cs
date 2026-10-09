@@ -140,6 +140,7 @@ public static class TypeRegistration
         Register<CompressorEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<LimiterEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<TimeStretchEffect>(KnownLibraryItemFormats.AudioEffect);
+        Register<NoiseReductionEffect>(KnownLibraryItemFormats.AudioEffect);
     }
 
     private static void RegisterBrushes()
