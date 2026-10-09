@@ -121,9 +121,11 @@ public sealed class NoiseReductionNode : AudioNode
             if (!contiguous)
                 return false;
 
-            // The source is exhausted from the read position on; only the upstream's held tail follows.
-            if (_liveEnd is null)
-                EndLiveInput(_reducer.InputEnd);
+            // The source is exhausted where the last block ended. Live input read ahead of that
+            // boundary must not play, so reread up to it and drain the upstream from there.
+            long boundary = _reducer.OutputPosition;
+            if (_liveEnd is not { } liveUntil || liveUntil > boundary)
+                Restart(context, boundary, boundary, keepNoiseFloor: true);
             return true;
         }
 
@@ -135,11 +137,14 @@ public sealed class NoiseReductionNode : AudioNode
             : terminal is { } value && value < _reducer.InputEnd;
         if (!contiguous || terminalMoved)
         {
-            Restart(context, terminal, keepNoiseFloor: false);
+            // Truncate like SourceNode and ResampleNode, so a start between samples maps to the
+            // sample the upstream delivers there.
+            long outputStart = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
+            Restart(context, outputStart, terminal, keepNoiseFloor: false);
         }
         else if (_inputStale)
         {
-            Restart(context, terminal, keepNoiseFloor: true);
+            Restart(context, _reducer.OutputPosition, terminal, keepNoiseFloor: true);
         }
         else
         {
@@ -151,15 +156,10 @@ public sealed class NoiseReductionNode : AudioNode
 
     // Rereads the input from a pre-roll before the output, so any re-anchoring transient upstream lands
     // in audio that is never played.
-    private void Restart(AudioProcessContext context, long? terminal, bool keepNoiseFloor)
+    private void Restart(AudioProcessContext context, long outputStart, long? terminal, bool keepNoiseFloor)
     {
         SpectralNoiseReducer reducer = _reducer!;
         _inputStale = false;
-        double start = context.TimeRange.Start.TotalSeconds;
-
-        // Truncate like SourceNode and ResampleNode, so a start between samples maps to the sample
-        // the upstream delivers there.
-        long outputStart = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
         long seed = (long)(SeedSeconds * _sampleRate);
 
         // Never warm up on audio before the timeline origin; a clip's own start is its first sample.
@@ -167,7 +167,7 @@ public sealed class NoiseReductionNode : AudioNode
         long origin = FloorToHop(Math.Max(earliest, outputStart - seed / 2), reducer.HopSize);
 
         reducer.Reset(origin, outputStart, keepNoiseFloor);
-        _stream!.Begin(start, origin / (double)_sampleRate, forceReanchor: true);
+        _stream!.Begin(outputStart / (double)_sampleRate, origin / (double)_sampleRate, forceReanchor: true);
         _terminal = terminal;
         _liveEnd = null;
         _drainEnd = null;

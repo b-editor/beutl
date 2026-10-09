@@ -276,6 +276,28 @@ public class NoiseReductionEffectTests
     }
 
     [Test]
+    public void Flush_WithoutATerminalPlaysNoAudioReadAheadOfTheLastBlock()
+    {
+        NoiseReductionNode node = CreateNode(new SignalSource(s_signal), reduction: 0);
+        using (node.Process(Context(0, SampleRate))) { }
+
+        // Nothing upstream holds a tail, so the exhausted source leaves only silence.
+        using AudioBuffer tail = node.Flush(Context(SampleRate, 480));
+
+        Assert.That(tail.GetChannelData(0).ToArray(), Is.All.EqualTo(0f));
+    }
+
+    [Test]
+    public void Flush_WithoutATerminalDrainsTheUpstreamTailLikeAGraphWithoutTheEffect()
+    {
+        float[] withEffect = DrainWithoutTerminal(includeEffect: true);
+        float[] withoutEffect = DrainWithoutTerminal(includeEffect: false);
+
+        Assert.That(withEffect, Is.EqualTo(withoutEffect).Within(1e-6f));
+        Assert.That(withEffect, Has.Some.Not.EqualTo(0f), "The limiter holds its last 10 ms.");
+    }
+
+    [Test]
     public void Flush_AfterASeekReturnsSilence()
     {
         NoiseReductionNode node = CreateNode(new SignalSource(s_signal), reduction: 0);
@@ -487,6 +509,25 @@ public class NoiseReductionEffectTests
         context.Connect(node, clip);
         using AudioBuffer output = clip.Process(Context(0, duration + 960));
         return output.GetChannelData(0).ToArray();
+    }
+
+    private static float[] DrainWithoutTerminal(bool includeEffect)
+    {
+        var source = new SignalSource(s_signal);
+        var limiter = new LimiterEffect();
+        limiter.Lookahead.CurrentValue = 10;
+        limiter.Threshold.CurrentValue = -12;
+        var effect = new NoiseReductionEffect();
+        effect.Reduction.CurrentValue = 0;
+        using var context = new AudioContext(SampleRate, 2);
+        context.AddNode(source);
+        AudioNode node = limiter.CreateNode(context, source);
+        if (includeEffect)
+            node = effect.CreateNode(context, node);
+
+        using (node.Process(Context(0, SampleRate))) { }
+        using AudioBuffer tail = node.Flush(Context(SampleRate, 480));
+        return tail.GetChannelData(0).ToArray();
     }
 
     private static NoiseReductionNode CreateNode(AudioNode source, float reduction = DefaultReductionDb)
