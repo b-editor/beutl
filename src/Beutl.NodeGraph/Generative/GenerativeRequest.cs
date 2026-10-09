@@ -36,7 +36,15 @@ public abstract record GenerativeRequest
         CatalogOperationId = node.CatalogOperationId;
     }
 
-    public GenerativeNode Node { get; }
+    /// <summary>For a request no node makes, such as one started from the timeline.</summary>
+    protected GenerativeRequest(string catalogOperationId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(catalogOperationId);
+        CatalogOperationId = catalogOperationId;
+    }
+
+    /// <summary>The node that made the request, or null when it was made outside a graph.</summary>
+    public GenerativeNode? Node { get; }
 
     /// <summary>The operation whose models apply, captured with the rest of the inputs.</summary>
     public string CatalogOperationId { get; init; }
@@ -68,6 +76,10 @@ public abstract record GenerativeRequest
 public sealed record AiImageGenerationNodeRequest : GenerativeRequest
 {
     public AiImageGenerationNodeRequest(GenerativeNode node) : base(node)
+    {
+    }
+
+    public AiImageGenerationNodeRequest(string catalogOperationId) : base(catalogOperationId)
     {
     }
 
@@ -140,11 +152,31 @@ public static class AiImageEditTasks
         AiOutpaintExpansion.Percent50 => 50,
         _ => 25,
     };
+
+    /// <summary>
+    /// The canvas an outpaint sends: the picture with <paramref name="expansionPercent"/> of
+    /// its width added on the left and right, and of its height above and below.
+    /// </summary>
+    public static (int Width, int Height, int Horizontal, int Vertical) GetOutpaintDimensions(
+        int sourceWidth,
+        int sourceHeight,
+        int expansionPercent)
+    {
+        if (expansionPercent is < 1 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(expansionPercent));
+        int horizontal = Math.Max(1, checked((int)Math.Round(sourceWidth * expansionPercent / 100d)));
+        int vertical = Math.Max(1, checked((int)Math.Round(sourceHeight * expansionPercent / 100d)));
+        return (checked(sourceWidth + horizontal * 2), checked(sourceHeight + vertical * 2), horizontal, vertical);
+    }
 }
 
 public sealed record AiImageEditNodeRequest : GenerativeRequest
 {
     public AiImageEditNodeRequest(GenerativeNode node) : base(node)
+    {
+    }
+
+    public AiImageEditNodeRequest(string catalogOperationId) : base(catalogOperationId)
     {
     }
 
@@ -207,6 +239,10 @@ public sealed record AiVideoEditNodeRequest : GenerativeRequest
     {
     }
 
+    public AiVideoEditNodeRequest(string catalogOperationId) : base(catalogOperationId)
+    {
+    }
+
     public override GenerativeOperation Operation => GenerativeOperation.VideoEdit;
 
     public required AiVideoEditMode Mode { get; init; }
@@ -239,6 +275,10 @@ public sealed record GenerativeFileInput(string Name, string MediaType, byte[] C
 public sealed record AiVideoGenerationNodeRequest : GenerativeRequest
 {
     public AiVideoGenerationNodeRequest(GenerativeNode node) : base(node)
+    {
+    }
+
+    public AiVideoGenerationNodeRequest(string catalogOperationId) : base(catalogOperationId)
     {
     }
 
