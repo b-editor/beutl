@@ -157,31 +157,39 @@ internal sealed class WsolaTimeStretcher
             written += count;
             _sourcePosition = position;
             _sourcePositionCompensation = compensation;
+            if (startupSilence)
+            {
+                // Silence consumes source frames without generating a grain. Release it here,
+                // but retain the onset even when a fast tempo advances the cursor past it.
+                long consumed = checked((long)Math.Floor(position));
+                DiscardBefore(Math.Min(consumed, _initialOnset ?? _receivedInputFrames));
+            }
         }
         return written;
     }
 
     private bool GenerateGrain(double tempo)
     {
+        long initial = _initialOnset ?? 0;
         if (!_hasTail)
         {
             // A non-unity tempo needs a shorter first grain, so startup does not play a full
             // normal-speed block before the first tempo-adjusted alignment. For a finite source
             // shorter than a normal grain, use overlapping windows wholly inside the real data.
             _activeHopFrames = Math.Clamp((int)Math.Round(_hopFrames * Math.Min(tempo, 1 / tempo)), 16, _hopFrames);
-            _repeatShortSource = _finished && _receivedInputFrames < _hopFrames * 2;
+            long audibleFrames = _receivedInputFrames - initial;
+            _repeatShortSource = _finished && audibleFrames < _hopFrames * 2;
             if (_repeatShortSource)
             {
-                int limit = Math.Max(1, (int)(_receivedInputFrames / (4 * Math.Max(1, tempo))));
+                int limit = Math.Max(1, (int)(audibleFrames / (4 * Math.Max(1, tempo))));
                 _activeHopFrames = Math.Min(_activeHopFrames, limit);
             }
         }
         long target = checked((long)Math.Round(_sourcePosition));
-        long initial = _initialOnset ?? 0;
-        long first = _hasTail && !_repeatShortSource ? Math.Max(0, target - _searchFrames) : _hasTail ? 0 : initial;
+        long first = _hasTail && !_repeatShortSource ? Math.Max(0, target - _searchFrames) : initial;
         first = Math.Max(first, _inputStart);
         long last = _repeatShortSource
-            ? Math.Max(0, _receivedInputFrames - _activeHopFrames * 2)
+            ? Math.Max(first, _receivedInputFrames - _activeHopFrames * 2)
             : _hasTail ? target + _searchFrames : initial;
         DiscardBefore(first);
 

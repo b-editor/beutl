@@ -185,6 +185,129 @@ public class WsolaTimeStretcherTests
         Assert.That(first, Is.EqualTo((int)Math.Ceiling(120 / tempo)));
     }
 
+    [TestCase(0.25)]
+    [TestCase(1)]
+    [TestCase(4)]
+    public void StreamingSilence_KeepsTheInputBufferBounded(double tempo)
+    {
+        const int feedFrames = 1024;
+        const int feeds = 512;
+        var stretcher = new WsolaTimeStretcher(SampleRate, 2) { Tempo = tempo };
+        int initialCapacity = InputBuffer(stretcher).Length;
+        var input = new float[feedFrames * 2];
+        var output = new float[256 * 2];
+        int received = 0;
+
+        for (int i = 0; i < feeds; i++)
+        {
+            stretcher.PutSamples(input, feedFrames);
+            int made;
+            while ((made = stretcher.ReceiveSamples(output, 256)) > 0)
+                received += made;
+        }
+        stretcher.Flush();
+        int tail;
+        while ((tail = stretcher.ReceiveSamples(output, 256)) > 0)
+            received += tail;
+
+        Assert.That(received, Is.EqualTo((int)Math.Ceiling(feedFrames * feeds / tempo)));
+        Assert.That(output, Is.All.Zero);
+        Assert.That(InputBuffer(stretcher).Length, Is.LessThanOrEqualTo(initialCapacity),
+            "Consumed silence must not remain in the input buffer.");
+    }
+
+    [TestCase(0.25)]
+    [TestCase(0.6)]
+    [TestCase(4)]
+    public void StreamingLeadingSilence_PreservesTheOnsetAfterDiscardingInput(double tempo)
+    {
+        const int silenceFrames = 1024 * 128 + 200;
+        const int toneFrames = 4800;
+        var input = new float[(silenceFrames + toneFrames) * 2];
+        for (int i = silenceFrames; i < silenceFrames + toneFrames; i++)
+        {
+            input[i * 2] = 0.5f;
+            input[i * 2 + 1] = -0.5f;
+        }
+        var stretcher = new WsolaTimeStretcher(SampleRate, 2) { Tempo = tempo };
+        int initialCapacity = InputBuffer(stretcher).Length;
+        float[] output = Stretch(stretcher, input, 1024, 37);
+        int expectedOnset = (int)Math.Ceiling(silenceFrames / tempo);
+
+        Assert.That(Array.FindIndex(output, value => Math.Abs(value) > 1e-5), Is.EqualTo(expectedOnset * 2));
+        Assert.That(output.Length / 2, Is.EqualTo((int)Math.Ceiling((silenceFrames + toneFrames) / tempo)));
+        Assert.That(InputBuffer(stretcher).Length, Is.LessThanOrEqualTo(initialCapacity));
+    }
+
+    [TestCase(240, 200, 0.25, 37)]
+    [TestCase(240, 200, 0.5, 256)]
+    [TestCase(240, 200, 2, 1)]
+    [TestCase(240, 200, 4, 37)]
+    [TestCase(240, 239, 0.25, 256)]
+    [TestCase(240, 239, 0.5, 37)]
+    [TestCase(4800, 4760, 0.25, 37)]
+    [TestCase(1, 0, 0.25, 1)]
+    public void ShortAudibleTail_AfterLeadingSilenceProducesTheScaledLength(
+        int inputFrames, int onset, double tempo, int receiveFrames)
+    {
+        var input = new float[inputFrames * 2];
+        for (int i = onset; i < inputFrames; i++)
+        {
+            input[i * 2] = 0.5f;
+            input[i * 2 + 1] = -0.5f;
+        }
+        var stretcher = new WsolaTimeStretcher(SampleRate, 2) { Tempo = tempo };
+        float[] output = Stretch(stretcher, input, 1024, receiveFrames);
+
+        Assert.That(output.Length / 2, Is.EqualTo((int)Math.Ceiling(inputFrames / tempo)));
+        Assert.That(Array.FindIndex(output, value => Math.Abs(value) > 1e-5),
+            Is.EqualTo((int)Math.Ceiling(onset / tempo) * 2));
+        for (int i = 0; i < output.Length / 2; i++)
+            Assert.That(output[i * 2 + 1], Is.EqualTo(-output[i * 2]));
+        if (inputFrames - onset >= 4)
+        {
+            for (int i = (int)Math.Ceiling(onset / tempo); i < output.Length / 2; i++)
+                Assert.That(output[i * 2], Is.EqualTo(0.5f).Within(1e-6),
+                    "The short audible region must remain audible after its mapped onset.");
+        }
+    }
+
+    private static float[] Stretch(WsolaTimeStretcher stretcher, float[] input, int feedFrames, int receiveFrames)
+    {
+        var output = new float[receiveFrames * 2];
+        var received = new List<float>();
+        int fed = 0;
+        bool finished = false;
+        while (true)
+        {
+            int made = stretcher.ReceiveSamples(output, receiveFrames);
+            if (made > 0)
+            {
+                received.AddRange(output.AsSpan(0, made * 2));
+                continue;
+            }
+            if (fed < input.Length / 2)
+            {
+                int count = Math.Min(feedFrames, input.Length / 2 - fed);
+                stretcher.PutSamples(input.AsSpan(fed * 2, count * 2), count);
+                fed += count;
+            }
+            else if (!finished)
+            {
+                stretcher.Flush();
+                finished = true;
+            }
+            else
+            {
+                return received.ToArray();
+            }
+        }
+    }
+
+    private static float[] InputBuffer(WsolaTimeStretcher stretcher)
+        => (float[])typeof(WsolaTimeStretcher)
+            .GetField("_input", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
+
     private static double SourcePosition(WsolaTimeStretcher stretcher)
         => (double)typeof(WsolaTimeStretcher)
             .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
