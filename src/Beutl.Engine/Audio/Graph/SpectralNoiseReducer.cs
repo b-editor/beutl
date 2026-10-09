@@ -287,6 +287,38 @@ internal sealed class SpectralNoiseReducer
     }
 
     /// <summary>
+    /// Ends the real input at <paramref name="end"/>, between <see cref="OutputPosition"/> and
+    /// <see cref="InputEnd"/>. Input after it becomes silence, and the frames that reach the output
+    /// position are recomputed from the input kept before it, so no later audio leaks into the output.
+    /// The noise floor is kept.
+    /// </summary>
+    public void EndInputAt(long end)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(end, _outputPosition);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(end, _inputEnd);
+
+        // Frames that start a full frame before the output position never reach it, and PrepareWrite
+        // keeps a frame of input before the next frame for exactly this replay.
+        long replay = FloorToHop(_outputPosition) - (_frameSize - _hopSize);
+        if (replay < _inputBase)
+            throw new InvalidOperationException("The input needed to recompute the output was discarded.");
+
+        long cut = Math.Min(end, _paddingStart);
+        int count = (int)Math.Max(0, cut - replay);
+        int offset = (int)(replay - _inputBase);
+        var interleaved = new float[count * 2];
+        for (int i = 0; i < count; i++)
+        {
+            interleaved[i * 2] = _inputLeft[offset + i];
+            interleaved[i * 2 + 1] = _inputRight[offset + i];
+        }
+
+        Reset(replay, _outputPosition, keepNoiseFloor: true);
+        Write(interleaved);
+        WritePadding(0);
+    }
+
+    /// <summary>
     /// Produces the next output samples. <paramref name="settingsAt"/> receives the absolute position
     /// of each frame's center. Throws when <see cref="GetRequiredInputEnd"/> has not been satisfied.
     /// </summary>
@@ -551,15 +583,16 @@ internal sealed class SpectralNoiseReducer
         if (required <= _inputLeft.Length)
             return used;
 
-        // Input before the next frame has been emitted and is no longer read.
-        int discard = (int)(_nextFrame - _inputBase);
+        // Input before the next frame has been emitted. One frame of it stays for EndInputAt.
+        long discard = _nextFrame - _frameSize - _inputBase;
         if (discard > 0)
         {
-            Array.Copy(_inputLeft, discard, _inputLeft, 0, used - discard);
-            Array.Copy(_inputRight, discard, _inputRight, 0, used - discard);
-            _inputBase += discard;
-            used -= discard;
-            required -= discard;
+            int shift = (int)discard;
+            Array.Copy(_inputLeft, shift, _inputLeft, 0, used - shift);
+            Array.Copy(_inputRight, shift, _inputRight, 0, used - shift);
+            _inputBase += shift;
+            used -= shift;
+            required -= shift;
         }
 
         if (required > _inputLeft.Length)

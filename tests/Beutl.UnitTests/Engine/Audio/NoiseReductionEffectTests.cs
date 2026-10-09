@@ -288,13 +288,15 @@ public class NoiseReductionEffectTests
     }
 
     [Test]
-    public void Flush_WithoutATerminalDrainsTheUpstreamTailLikeAGraphWithoutTheEffect()
+    public void Flush_WithoutATerminalKeepsTheUpstreamStateIntact()
     {
         float[] withEffect = DrainWithoutTerminal(includeEffect: true);
         float[] withoutEffect = DrainWithoutTerminal(includeEffect: false);
 
-        Assert.That(withEffect, Is.EqualTo(withoutEffect).Within(1e-6f));
-        Assert.That(withEffect, Has.Some.Not.EqualTo(0f), "The limiter holds its last 10 ms.");
+        // The limiter's held 10 ms include the one-second echo, which survives only if the drain
+        // leaves the delay line upstream untouched.
+        Assert.That(withEffect, Is.EqualTo(withoutEffect));
+        Assert.That(withEffect, Has.Some.Not.EqualTo(0f));
     }
 
     [Test]
@@ -514,19 +516,26 @@ public class NoiseReductionEffectTests
     private static float[] DrainWithoutTerminal(bool includeEffect)
     {
         var source = new SignalSource(s_signal);
+        var delay = new DelayEffect();
+        delay.DelayTime.CurrentValue = 1000;
+        delay.Feedback.CurrentValue = 0;
+        delay.DryMix.CurrentValue = 100;
+        delay.WetMix.CurrentValue = 100;
+
+        // A 0 dB ceiling leaves the limiter transparent, so its tail is exactly the held samples.
         var limiter = new LimiterEffect();
         limiter.Lookahead.CurrentValue = 10;
-        limiter.Threshold.CurrentValue = -12;
+        limiter.Threshold.CurrentValue = 0;
         var effect = new NoiseReductionEffect();
         effect.Reduction.CurrentValue = 0;
         using var context = new AudioContext(SampleRate, 2);
         context.AddNode(source);
-        AudioNode node = limiter.CreateNode(context, source);
+        AudioNode node = limiter.CreateNode(context, delay.CreateNode(context, source));
         if (includeEffect)
             node = effect.CreateNode(context, node);
 
-        using (node.Process(Context(0, SampleRate))) { }
-        using AudioBuffer tail = node.Flush(Context(SampleRate, 480));
+        using (node.Process(Context(0, SampleRate * 2))) { }
+        using AudioBuffer tail = node.Flush(Context(SampleRate * 2, 480));
         return tail.GetChannelData(0).ToArray();
     }
 

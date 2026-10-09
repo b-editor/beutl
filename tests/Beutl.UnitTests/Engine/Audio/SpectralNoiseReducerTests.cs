@@ -237,6 +237,39 @@ public class SpectralNoiseReducerTests
             Is.EqualTo(0).Within(0.2));
     }
 
+    [TestCase(0f)]
+    [TestCase(12f)]
+    public void EndInputAt_LeaksNothingOfTheLaterInput(float reduction)
+    {
+        float[] noise = Noise(SampleRate * 2, 0.05, 14);
+        var settings = s_default with { ReductionDb = reduction };
+        var reducer = new SpectralNoiseReducer(SampleRate);
+        reducer.Reset(0, 0);
+
+        // Feed and read in small steps, as a node does, so emitted input is compacted away.
+        int boundary = SampleRate + 100;
+        for (int position = 0; position < boundary; position += 1000)
+        {
+            int count = Math.Min(1000, boundary - position);
+            while (reducer.InputEnd < reducer.GetRequiredInputEnd(position + count))
+                reducer.Write(Interleave(noise, (int)reducer.InputEnd, 4096));
+            reducer.Read(new float[count], new float[count], _ => settings);
+        }
+
+        reducer.EndInputAt(boundary + 300);
+        var tail = new float[reducer.FrameSize * 2];
+        reducer.WritePadding((int)(reducer.GetRequiredInputEnd(boundary + tail.Length) - reducer.InputEnd));
+        reducer.Read(tail, new float[tail.Length], _ => settings);
+
+        // The recomputed frames see silence after the end, so a frame after it nothing remains.
+        Assert.That(tail.AsSpan(300 + reducer.FrameSize).ToArray(), Is.All.EqualTo(0f));
+        if (reduction == 0)
+        {
+            Assert.That(tail.AsSpan(0, 300).ToArray(), Is.EqualTo(noise.AsSpan(boundary, 300).ToArray()));
+            Assert.That(tail.AsSpan(300).ToArray(), Is.All.EqualTo(0f));
+        }
+    }
+
     [Test]
     public void Read_ThrowsWithoutEnoughInput()
     {
@@ -363,8 +396,8 @@ public class SpectralNoiseReducerTests
         return data;
     }
 
-    private static float[] Interleave(float[] mono, int start)
-        => mono.Skip(start).SelectMany(sample => new[] { sample, sample }).ToArray();
+    private static float[] Interleave(float[] mono, int start, int count = int.MaxValue)
+        => mono.Skip(start).Take(count).SelectMany(sample => new[] { sample, sample }).ToArray();
 
     private static double MeanNoise(SpectralNoiseReducer reducer)
     {

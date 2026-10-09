@@ -121,11 +121,29 @@ public sealed class NoiseReductionNode : AudioNode
             if (!contiguous)
                 return false;
 
-            // The source is exhausted where the last block ended. Live input read ahead of that
-            // boundary must not play, so reread up to it and drain the upstream from there.
+            // The source is exhausted where the last block ended, so only the upstream's held tail
+            // may follow. The upstream has already run past that boundary and cannot be rewound
+            // without losing its state, such as a delay line's echoes. The live input read over the
+            // tail's span stands in for the tail, and anything read beyond it becomes silence.
             long boundary = _reducer.OutputPosition;
             if (_liveEnd is not { } liveUntil || liveUntil > boundary)
-                Restart(context, boundary, boundary, keepNoiseFloor: true);
+            {
+                int latency = GetMaxInputLatency(_sampleRate, drain: true);
+                long tailEnd = latency == int.MaxValue ? long.MaxValue : boundary + latency;
+                if (tailEnd < _reducer.InputEnd)
+                {
+                    _reducer.EndInputAt(tailEnd);
+                    _liveEnd = boundary;
+                    _drainEnd = _reducer.InputEnd;
+                }
+                else if (_liveEnd is null)
+                {
+                    // Everything read so far lies within the tail; the upstream drains the rest.
+                    _liveEnd = _reducer.InputEnd;
+                    _drainEnd = latency == int.MaxValue ? null : tailEnd;
+                }
+            }
+
             return true;
         }
 
