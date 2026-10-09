@@ -117,7 +117,8 @@ internal static partial class VersionControlSerializationGraph
                         opaquePath);
                 }
 
-                if (opaqueContract)
+                if (opaqueContract
+                    || (opaquePath && type.Assembly != typeof(object).Assembly))
                 {
                     throw new InvalidDataException(
                         $"Cannot safely inspect opaque dictionary contract '{type.FullName}'.");
