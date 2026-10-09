@@ -9,12 +9,21 @@ using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
+using LiveMarkdown.Avalonia;
+
 namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
 public partial class PackageDetailsPage : UserControl
 {
-    public PackageDetailsPage()
+    private readonly Action<string> _launchUrl;
+
+    public PackageDetailsPage() : this(url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" }))
     {
+    }
+
+    internal PackageDetailsPage(Action<string> launchUrl)
+    {
+        _launchUrl = launchUrl;
         InitializeComponent();
         AddHandler(FAFrame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
@@ -52,21 +61,38 @@ public partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel
             && viewModel.Package.WebSite.Value is string url)
         {
-            var dialog = new FAContentDialog()
-            {
-                Title = ExtensionsStrings.OpenUrl_Title,
-                Content = new SelectableTextBlock()
-                {
-                    Text = string.Format(ExtensionsStrings.OpenUrl_Content, url)
-                },
-                PrimaryButtonText = Strings.Open,
-                CloseButtonText = Strings.Cancel
-            };
+            await OpenUrlAsync(url);
+        }
+    }
 
-            if (await dialog.ShowAsync() is FAContentDialogResult.Primary)
+    private async void Markdown_LinkClick(object? sender, LinkClickedEventArgs e)
+    {
+        e.Handled = true;
+        if (e.HRef is { IsAbsoluteUri: true } uri && uri.Scheme is "https" or "http")
+        {
+            await OpenUrlAsync(uri.AbsoluteUri);
+        }
+    }
+
+    private async Task OpenUrlAsync(string url)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } owner)
+            return;
+
+        var dialog = new FAContentDialog()
+        {
+            Title = ExtensionsStrings.OpenUrl_Title,
+            Content = new SelectableTextBlock()
             {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
-            }
+                Text = string.Format(ExtensionsStrings.OpenUrl_Content, url)
+            },
+            PrimaryButtonText = Strings.Open,
+            CloseButtonText = Strings.Cancel
+        };
+
+        if (await dialog.ShowAsync(owner) is FAContentDialogResult.Primary)
+        {
+            _launchUrl(url);
         }
     }
 
