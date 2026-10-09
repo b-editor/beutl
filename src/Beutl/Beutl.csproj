@@ -72,6 +72,7 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="LiveMarkdown.Avalonia" />
+    <PackageReference Include="Markdig" />
     <!-- Microsoft.Extensions.DependencyInjection / .Logging are supplied by the
          Microsoft.AspNetCore.App FrameworkReference below, so referencing the packages here is
          redundant (NU1510). -->

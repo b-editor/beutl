@@ -8,6 +8,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:md="using:LiveMarkdown.Avalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:viewModels="using:Beutl.ViewModels.ExtensionsPages.DiscoverPages"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -21,17 +22,34 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml" />
             </ResourceDictionary.MergedDictionaries>
-            <SolidColorBrush x:Key="BorderColor" Color="{DynamicResource ControlStrokeColorDefault}" />
-            <SolidColorBrush x:Key="ForegroundColor" Color="{DynamicResource TextFillColorPrimary}" />
-            <SolidColorBrush x:Key="CardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
-            <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource ControlAltFillColorSecondary}" />
-            <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource TextFillColorPrimary}" />
-            <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource SystemAccentColor}" />
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="BorderColor" Color="{DynamicResource ControlStrokeColorDefault}" />
+                    <SolidColorBrush x:Key="ForegroundColor" Color="{DynamicResource TextFillColorPrimary}" />
+                    <SolidColorBrush x:Key="CardBackgroundColor" Color="{DynamicResource ControlFillColorDefault}" />
+                    <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource ControlAltFillColorSecondary}" />
+                    <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource TextFillColorPrimary}" />
+                    <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource SystemAccentColor}" />
+                    <SolidColorBrush x:Key="PackageCodeHeaderBackground" Color="{DynamicResource ControlStrokeColorDefault}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static sty:FluentAvaloniaTheme.HighContrastTheme}">
+                    <SolidColorBrush x:Key="BorderColor" Color="{DynamicResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ForegroundColor" Color="{DynamicResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="CardBackgroundColor" Color="{DynamicResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="SecondaryCardBackgroundColor" Color="{DynamicResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="CodeInlineColor" Color="{DynamicResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="QuoteBorderColor" Color="{DynamicResource SystemColorHotlightColor}" />
+                    <SolidColorBrush x:Key="PackageCodeHeaderBackground" Color="{DynamicResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <UserControl.Styles>
         <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml" />
+        <Style Selector="md|CodeBlock /template/ StackPanel > Border:nth-child(1)">
+            <Setter Property="Background" Value="{DynamicResource PackageCodeHeaderBackground}" />
+        </Style>
         <Style Selector="md|MarkdownRenderer">
             <Setter Property="CodeBlockColorTheme" Value="{Binding $self.ActualThemeVariant, Converter={x:Static converters:MarkdownConverters.CodeBlockTheme}}" />
         </Style>
@@ -203,7 +221,7 @@
                         <md:MarkdownRenderer x:Name="descriptionMarkdown"
                                              Margin="16"
                                              LinkClick="Markdown_LinkClick"
-                                             MarkdownBuilder="{Binding Package.Description.Value, Converter={x:Static converters:MarkdownConverters.ToBuilder}}" />
+                                             UpdateProducer="{Binding Package.Description.Value, Converter={x:Static converters:MarkdownConverters.ToProducer}}" />
                     </StackPanel>
                 </Border>
 
@@ -224,7 +242,7 @@
                         <md:MarkdownRenderer x:Name="releaseNotesMarkdown"
                                              Margin="16"
                                              LinkClick="Markdown_LinkClick"
-                                             MarkdownBuilder="{Binding SelectedRelease.Value.Body.Value, Converter={x:Static converters:MarkdownConverters.ToBuilder}}" />
+                                             UpdateProducer="{Binding SelectedRelease.Value.Body.Value, Converter={x:Static converters:MarkdownConverters.ToProducer}}" />
                     </StackPanel>
                 </Border>
 

@@ -15,8 +15,15 @@ namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
 public partial class PackageDetailsPage : UserControl
 {
-    public PackageDetailsPage()
+    private readonly Action<string> _launchUrl;
+
+    public PackageDetailsPage() : this(url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" }))
     {
+    }
+
+    internal PackageDetailsPage(Action<string> launchUrl)
+    {
+        _launchUrl = launchUrl;
         InitializeComponent();
         AddHandler(FAFrame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
@@ -67,8 +74,11 @@ public partial class PackageDetailsPage : UserControl
         }
     }
 
-    private static async Task OpenUrlAsync(string url)
+    private async Task OpenUrlAsync(string url)
     {
+        if (TopLevel.GetTopLevel(this) is not { } owner)
+            return;
+
         var dialog = new FAContentDialog()
         {
             Title = ExtensionsStrings.OpenUrl_Title,
@@ -80,9 +90,9 @@ public partial class PackageDetailsPage : UserControl
             CloseButtonText = Strings.Cancel
         };
 
-        if (await dialog.ShowAsync() is FAContentDialogResult.Primary)
+        if (await dialog.ShowAsync(owner) is FAContentDialogResult.Primary)
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
+            _launchUrl(url);
         }
     }
 
