@@ -2,8 +2,10 @@
 using Avalonia.Interactivity;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels.Editors;
@@ -37,9 +39,25 @@ public sealed class EasingEditorViewModel<T>(IPropertyAdapter<T?> property) : Va
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } args)
+        if (e is not PropertyEditorValueChangedEventArgs<Easing?> { NewValue: T newValue } args) return;
+
+        if (ReferenceEquals(args.OldValue, newValue))
+        {
+            // A drag that ended where it began: drop its pending writes instead of committing a no-op.
+            if (IsElementEditable)
+            {
+                this.GetRequiredService<HistoryManager>().Rollback();
+            }
+        }
+        else
         {
             SetValue(args.OldValue as T, newValue);
+        }
+
+        if (sender is EasingEditor editor)
+        {
+            // A validator may keep the current value, which raises no change to refresh the editor.
+            editor.Value = EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue();
         }
     }
 }

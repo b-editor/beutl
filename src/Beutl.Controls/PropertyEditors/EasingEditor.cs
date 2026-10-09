@@ -160,6 +160,7 @@ public class EasingEditor : PropertyEditor
 
     private void OnCurveEdited(object? sender, EasingCurveEditedEventArgs e)
     {
+        Value = e.NewValue;
         RaiseEvent(new PropertyEditorValueChangedEventArgs<Easing?>(e.NewValue, e.OldValue, ValueConfirmedEvent));
     }
 }

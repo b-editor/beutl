@@ -219,6 +219,8 @@ public sealed class EasingCurveEditor : Control
             return;
         }
 
+        // Only the pointer that began the drag moves the handle; another touch must not.
+        if (e.Pointer != _capturedPointer) return;
         if (Easing is not SplineEasing current || _dragStart is not { } start || _frozenRange is not { } range) return;
 
         // The handle follows the pointer's offset from the press, so grabbing it off-centre does not
@@ -241,7 +243,7 @@ public sealed class EasingCurveEditor : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (!IsDragging) return;
+        if (!IsDragging || e.Pointer != _capturedPointer) return;
 
         CompleteDrag();
         e.Handled = true;
@@ -270,16 +272,10 @@ public sealed class EasingCurveEditor : Control
         EndDrag();
         if (start == null || Easing is not SplineEasing end || ReferenceEquals(start, end)) return;
 
-        if (start.X1 == end.X1 && start.Y1 == end.Y1 && start.X2 == end.X2 && start.Y2 == end.Y2)
-        {
-            // A drag that ends where it began is no edit: put the original instance back instead
-            // of recording a replacement with equal values.
-            Editing?.Invoke(this, new EasingCurveEditedEventArgs(end, start));
-        }
-        else
-        {
-            Edited?.Invoke(this, new EasingCurveEditedEventArgs(start, end));
-        }
+        // A drag that ends where it began reports the original as both values, so the owner puts
+        // the original instance back and drops the drag's pending writes instead of recording them.
+        bool unchanged = start.X1 == end.X1 && start.Y1 == end.Y1 && start.X2 == end.X2 && start.Y2 == end.Y2;
+        Edited?.Invoke(this, new EasingCurveEditedEventArgs(start, unchanged ? start : end));
     }
 
     private void CancelDrag()
@@ -366,8 +362,14 @@ public sealed class EasingCurveEditor : Control
 
             if (easing is SplineEasing spline)
             {
-                minimum = Math.Min(minimum, Math.Min(spline.Y1, spline.Y2));
-                maximum = Math.Max(maximum, Math.Max(spline.Y1, spline.Y2));
+                foreach (float y in (ReadOnlySpan<float>)[spline.Y1, spline.Y2])
+                {
+                    if (float.IsFinite(y))
+                    {
+                        minimum = Math.Min(minimum, y);
+                        maximum = Math.Max(maximum, y);
+                    }
+                }
             }
         }
 
@@ -475,16 +477,18 @@ public sealed class EasingCurveEditor : Control
     {
         using DrawingContext.PushedState _ = context.PushOpacity(GetEditableSpline() == null ? 0.5 : 1);
         var linePen = new Pen(HandleBrush, 1);
-        Point first = ToScreen(spline.X1, spline.Y1, range);
-        Point second = ToScreen(spline.X2, spline.Y2, range);
-        context.DrawLine(linePen, ToScreen(0, 0, range), first);
-        context.DrawLine(linePen, ToScreen(1, 1, range), second);
-        DrawHandle(context, first, ControlPoint.First);
-        DrawHandle(context, second, ControlPoint.Second);
+        DrawHandle(context, linePen, ToScreen(0, 0, range), spline.X1, spline.Y1, range, ControlPoint.First);
+        DrawHandle(context, linePen, ToScreen(1, 1, range), spline.X2, spline.Y2, range, ControlPoint.Second);
     }
 
-    private void DrawHandle(DrawingContext context, Point center, ControlPoint point)
+    private void DrawHandle(
+        DrawingContext context, Pen linePen, Point anchor, float x, float y, ValueRange range, ControlPoint point)
     {
+        // SplineEasing accepts non-finite Y values, which have no position to draw.
+        if (!float.IsFinite(x) || !float.IsFinite(y)) return;
+
+        Point center = ToScreen(x, y, range);
+        context.DrawLine(linePen, anchor, center);
         double radius = _dragging == point || (!IsDragging && _hovered == point) ? ActiveHandleRadius : HandleRadius;
         context.DrawEllipse(HandleBrush, null, center, radius, radius);
     }
