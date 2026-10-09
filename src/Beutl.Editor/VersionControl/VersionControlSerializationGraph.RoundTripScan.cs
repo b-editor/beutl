@@ -140,10 +140,24 @@ internal static partial class VersionControlSerializationGraph
                         opaquePath);
                 }
 
-                if (opaquePath)
+                if (opaqueContract
+                    || (opaquePath && !type.IsArray && type.Assembly != typeof(object).Assembly))
                 {
                     throw new InvalidDataException(
                         $"Cannot safely inspect opaque collection contract '{type.FullName}'.");
+                }
+
+                if (opaquePath && !type.IsArray)
+                {
+                    // A standard collection below a custom converter is still inspectable. Scan its
+                    // storage too, so a read-only view cannot hide an opaque custom backing list.
+                    ScanOpaqueFields(
+                        value,
+                        GetInstanceFields(type),
+                        GetFieldContracts(type, contract.Options),
+                        contract.Options,
+                        visited,
+                        opaquePath);
                 }
 
                 return;
