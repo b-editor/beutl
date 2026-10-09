@@ -104,7 +104,7 @@ public sealed class LosslessCompositeCoverageTests
 
     [TestCase(0.25f)]
     [TestCase(0.75f)]
-    public void IdentityTypedShader_AtFractionalDevicePosition_IsByteIdenticalToUnfiltered(float density)
+    public void IdentityTypedShader_AtFractionalDevicePosition_MatchesUnfilteredUpToEdgeTruncation(float density)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -508,7 +508,7 @@ public sealed class LosslessCompositeCoverageTests
 
     /// <summary>
     /// Asserts byte identity, except for the one half-float step a device that truncates half-float writes
-    /// adds to coverage rasterized at another absolute position.
+    /// adds to anti-aliased edge coverage rasterized at another absolute position.
     /// </summary>
     /// <remarks>
     /// A typed shader materializes its input, so the filtered rectangle is rasterized into an intermediate at
@@ -516,31 +516,41 @@ public sealed class LosslessCompositeCoverageTests
     /// then differs in its last float bits. Rounding to nearest hides that; truncation - AMD Radeon on Windows
     /// does it - turns a coverage a hair below an exact value such as 0.625 into the half below it. Skia alone
     /// shows the same drift on that device for one rectangle drawn at two integer-shifted positions, so the
-    /// step is the rasterizer's, not the shader path's, and a device that rounds is still held to byte
-    /// identity. Anything larger - a phase error or a resample - fails everywhere.
+    /// step is the rasterizer's, not the shader path's. It can only land where the reference is partially
+    /// covered, so solid and empty pixels stay exact, as does every pixel on a device that rounds. Anything
+    /// larger - a phase error or a resample - fails everywhere.
     /// </remarks>
     private static void AssertIdenticalUpToHalfWriteTruncation(Bitmap expected, Bitmap actual, string scenario)
     {
-        int allowedSteps = DeviceTruncatesHalfWrites() ? 1 : 0;
+        int edgeSteps = DeviceTruncatesHalfWrites() ? 1 : 0;
         int differing = 0;
+        int exceeding = 0;
         int largestSteps = 0;
         ReadOnlySpan<ushort> a = expected.GetPixelSpan<ushort>();
         ReadOnlySpan<ushort> b = actual.GetPixelSpan<ushort>();
-        for (int index = 0; index < a.Length; index++)
+        for (int pixel = 0; pixel < a.Length; pixel += 4)
         {
-            int steps = Math.Abs(OrderedHalfBits(a[index]) - OrderedHalfBits(b[index]));
-            if (steps != 0)
+            float expectedAlpha = (float)BitConverter.UInt16BitsToHalf(a[pixel + 3]);
+            int allowedSteps = expectedAlpha is > 0 and < 1 ? edgeSteps : 0;
+            for (int index = pixel; index < pixel + 4; index++)
+            {
+                int steps = Math.Abs(OrderedHalfBits(a[index]) - OrderedHalfBits(b[index]));
+                if (steps == 0)
+                    continue;
                 differing++;
-            largestSteps = Math.Max(largestSteps, steps);
+                if (steps > allowedSteps)
+                    exceeding++;
+                largestSteps = Math.Max(largestSteps, steps);
+            }
         }
 
         Assert.Multiple(() =>
         {
             Assert.That(actual.Width, Is.EqualTo(expected.Width));
             Assert.That(actual.Height, Is.EqualTo(expected.Height));
-            Assert.That(largestSteps, Is.LessThanOrEqualTo(allowedSteps),
-                $"{scenario}: {differing} channels differ, by up to {largestSteps} half-float steps "
-                + $"({allowedSteps} allowed on this device).");
+            Assert.That(exceeding, Is.Zero,
+                $"{scenario}: {differing} channels differ, by up to {largestSteps} half-float steps; {exceeding} "
+                + $"exceed the allowance ({edgeSteps} at anti-aliased edges on this device, none elsewhere).");
         });
     }
 
@@ -555,7 +565,7 @@ public sealed class LosslessCompositeCoverageTests
         const string source = "uniform float value; half4 main(float2 p) { return float4(value, value, value, 1.0); }";
         using SKRuntimeEffect effect = SKRuntimeEffect.CreateShader(source, out string? error)
                                        ?? throw new InvalidOperationException(error);
-        var uniforms = new SKRuntimeEffectUniforms(effect) { ["value"] = MathF.BitDecrement(0.625f) };
+        using var uniforms = new SKRuntimeEffectUniforms(effect) { ["value"] = MathF.BitDecrement(0.625f) };
         using SKShader shader = effect.ToShader(uniforms);
         using RenderTarget target = RenderTarget.Create(1, 1)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
