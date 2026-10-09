@@ -117,7 +117,13 @@ public sealed class ResampleNode : AudioNode
 
         sourceStart = _sourceSampleCursor
             ?? AudioMath.TimeToSampleIndex(context.TimeRange.Start, SourceSampleRate);
-        long sourceEnd = CeilingSampleIndex(context.TimeRange.End, SourceSampleRate);
+
+        // Same-rate input passes through unchanged, so read exactly the requested block. A block
+        // addressed by sample index can end a tick past its last sample; rounding that end up would
+        // pull one extra sample and skip it on the next contiguous read.
+        long sourceEnd = SourceSampleRate == context.SampleRate
+            ? sourceStart + context.GetSampleCount()
+            : CeilingSampleIndex(context.TimeRange.End, SourceSampleRate);
         long sourceCount = Math.Max(0, sourceEnd - sourceStart);
         if (sourceCount > int.MaxValue)
         {
