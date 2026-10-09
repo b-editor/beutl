@@ -217,6 +217,7 @@ public static class LibraryRegistrar
                 .AddAudioEffect<LimiterEffect>(AudioStrings.LimiterEffect)
                 .AddAudioEffect<GateEffect>(AudioStrings.GateEffect)
                 .AddAudioEffect<TimeStretchEffect>(AudioStrings.TimeStretchEffect)
+                .AddAudioEffect<NoiseReductionEffect>(AudioStrings.NoiseReductionEffect)
             );
     }
 }

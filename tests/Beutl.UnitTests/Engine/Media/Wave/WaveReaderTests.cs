@@ -80,6 +80,23 @@ public class WaveReaderTests
     }
 
     [Test]
+    public void ReadAudio_StartsAtTheRequestedFrameForEveryOffset()
+    {
+        using var reader = new WaveReader(_file);
+
+        // Neighbouring frames differ by 5e-4, so the tolerance tells them apart.
+        for (int start = 0; start < FrameCount; start++)
+        {
+            Assert.That(reader.ReadAudio(start, 1, out Ref<IPcm>? sound), Is.True);
+            using (sound)
+            {
+                var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
+                Assert.That(pcm.DataSpan[0].Left, Is.EqualTo(SampleForFrame(start)).Within(1e-4f), $"start={start}");
+            }
+        }
+    }
+
+    [Test]
     public void ReadAudio_RequestCrossesEof_ReturnsShortReadOfActualSamples()
     {
         using var reader = new WaveReader(_file);

@@ -324,6 +324,30 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void ResampleNode_SameRateBlocksAtRoundedUpTimestampsStayContiguous()
+    {
+        const int sampleRate = 48000;
+
+        using var source = new RampInputNode(sampleRate);
+        using var resample = new ResampleNode { SourceSampleRate = sampleRate };
+        resample.AddInput(source);
+
+        // Readers that address samples by index round each start up to a whole tick, so a block's end
+        // can land just past its last sample.
+        long position = 23808;
+        foreach (int count in new[] { 16384, 16384, 15232, 1024, 1024 })
+        {
+            var start = TimeSpan.FromTicks(
+                (long)Math.Ceiling(position * (double)TimeSpan.TicksPerSecond / sampleRate));
+            using var output = resample.Process(ExactContext(start, count, sampleRate));
+
+            Assert.That(output.SampleCount, Is.EqualTo(count), $"block at {position}");
+            Assert.That(output.GetChannelData(0)[0], Is.EqualTo(position * 0.01f), $"block at {position}");
+            position += count;
+        }
+    }
+
+    [Test]
     public void ClipNode_TerminalWindow_AppendsRecoveredTail()
     {
         const float lookaheadMs = 5f;

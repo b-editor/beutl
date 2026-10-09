@@ -41,7 +41,8 @@ public sealed class WaveReader : MediaReader
         if (IsDisposed)
             return false;
 
-        _reader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
+        // Seek by bytes; CurrentTime rounds through a TimeSpan and lands many offsets a frame early.
+        _reader.Position = (long)start * _waveFormat.BlockAlign;
         sound = SampleProviderReader.ReadStereo(_provider, _waveFormat.SampleRate, length);
         return true;
     }

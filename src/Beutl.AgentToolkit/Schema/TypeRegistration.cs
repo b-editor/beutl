@@ -141,6 +141,7 @@ public static class TypeRegistration
         Register<LimiterEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<GateEffect>(KnownLibraryItemFormats.AudioEffect);
         Register<TimeStretchEffect>(KnownLibraryItemFormats.AudioEffect);
+        Register<NoiseReductionEffect>(KnownLibraryItemFormats.AudioEffect);
     }
 
     private static void RegisterBrushes()
