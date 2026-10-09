@@ -150,6 +150,33 @@ public class CommandPaletteViewLayoutTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Shortcut_font_applies_to_the_key_hint_and_keeps_description_styling(bool light)
+    {
+        using var theme = ThemeVariantScope.Use(light ? ThemeVariant.Light : ThemeVariant.Dark);
+        var (built, viewWindow, hostWindow) = BuildItem(320);
+        try
+        {
+            TextBlock hint = FindTextBlock(built, text => text == "Ctrl+P");
+            TextBlock description = FindTextBlock(built, text => text == DescriptionText);
+            Assert.Multiple(() =>
+            {
+                Assert.That(hint.Classes, Does.Contain("shortcut"));
+                Assert.That(description.Classes, Does.Not.Contain("shortcut"));
+                Assert.That(hint.FontFamily, Is.EqualTo(Application.Current!.FindResource("BeutlShortcutFontFamily")));
+                Assert.That(description.FontFamily, Is.EqualTo(Application.Current!.FindResource("BeutlUIFontFamily")));
+            });
+        }
+        finally
+        {
+            hostWindow.Close();
+            viewWindow.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(Key.OemPeriod, KeyModifiers.None, ".")]
     [TestCase(Key.OemComma, KeyModifiers.None, ",")]
     [TestCase(Key.OemPeriod, KeyModifiers.Alt, "Alt+.")]

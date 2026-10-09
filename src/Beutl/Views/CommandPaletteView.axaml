@@ -108,7 +108,8 @@
                                             Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
                                             CornerRadius="{DynamicResource ControlCornerRadius}"
                                             IsVisible="{Binding KeyGestureText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock FontSize="11"
+                                        <TextBlock Classes="shortcut"
+                                                   FontSize="11"
                                                    Text="{Binding KeyGestureText}" />
                                     </Border>
                                 </Grid>

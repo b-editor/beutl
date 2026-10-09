@@ -23,6 +23,8 @@ public static class UiFonts
 
     public static FontFamily DefaultFontFamily => GetFontFamily(CultureInfo.CurrentUICulture);
 
+    public static FontFamily ShortcutFontFamily => GetShortcutFontFamily(CultureInfo.CurrentUICulture);
+
     internal static string[] ApplyCultureArgument(string[] args)
     {
         int index = Array.IndexOf(args, UiCultureArgument);
@@ -51,6 +53,14 @@ public static class UiFonts
             // Also cover controls with an explicit font, such as monospace text boxes.
             FontFallbacks = families.Select(family => new FontFallback { FontFamily = family }).ToArray(),
         };
+    }
+
+    public static FontFamily GetShortcutFontFamily(CultureInfo culture)
+    {
+        // Keep the macOS keyboard font local to shortcut labels so ordinary text can use emoji.
+        return OperatingSystem.IsMacOS()
+            ? new FontFamily(string.Join(", ", GetOrderedFamilies(culture).Select(family => family.ToString()).Prepend("Lucida Grande")))
+            : GetFontFamily(culture);
     }
 
     private static FontFamily[] GetOrderedFamilies(CultureInfo culture)

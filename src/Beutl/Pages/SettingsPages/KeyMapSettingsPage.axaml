@@ -48,7 +48,7 @@
                                                         <Button Click="OnItemClicked"
                                                                 KeyDown="OnButtonKeyDown"
                                                                 Theme="{StaticResource TransparentButton}">
-                                                            <TextBlock Text="{Binding KeyGesture.Value}" />
+                                                            <TextBlock Classes="shortcut" Text="{Binding KeyGesture.Value}" />
                                                         </Button>
                                                     </OptionsDisplayItem.ActionButton>
                                                 </OptionsDisplayItem>
