@@ -185,4 +185,13 @@
   <data name="GateEffect_Range_Description" xml:space="preserve">
     <value>게이트가 닫혀 있는 동안 적용되는 감쇠입니다. 0은 게이팅을 비활성화하고, 더 음수 값은 더 강하게 감쇠합니다.</value>
   </data>
+  <data name="TimeStretchEffect" xml:space="preserve">
+    <value>타임 스트레치</value>
+  </data>
+  <data name="TimeStretchEffect_Speed" xml:space="preserve">
+    <value>속도 (%)</value>
+  </data>
+  <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
+    <value>음높이를 유지하면서 재생 속도를 변경합니다. 100%는 정상 속도, 50%는 절반 속도, 200%는 두 배 속도입니다.</value>
+  </data>
 </root>

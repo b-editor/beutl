@@ -249,6 +249,28 @@ public abstract class AudioNode : IDisposable
 
     public abstract AudioBuffer Process(AudioProcessContext context);
 
+    // Finite logical source end, expressed in this node's output timeline at sampleRate. A null
+    // result denotes an unknown/unbounded source. This is independent of zero-padded Process
+    // buffers: time-stretch readers need the real end even when every read has its requested size.
+    internal virtual double? GetFiniteSourceEndSample(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        if (_inputs.Count == 0)
+            return null;
+
+        double end = double.NegativeInfinity;
+        foreach (AudioNode input in _inputs)
+        {
+            if (input.GetFiniteSourceEndSample(sampleRate) is not { } inputEnd)
+                return null;
+            end = Math.Max(end, inputEnd);
+        }
+
+        int latency = GetLatencySamples(sampleRate);
+        AudioLatency.ThrowIfNegative(this, latency, "latency");
+        return latency == int.MaxValue ? null : end + latency;
+    }
+
     /// <summary>
     /// Applies this node's own processing to an already-produced <paramref name="input"/> buffer
     /// instead of pulling <see cref="Inputs"/>[0] itself. <see cref="Process"/> feeds it real upstream

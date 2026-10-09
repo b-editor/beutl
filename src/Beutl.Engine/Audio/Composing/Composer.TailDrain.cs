@@ -167,7 +167,7 @@ public partial class Composer
                     outputScale,
                     sampleRate / (double)resampleNode.SourceSampleRate);
             }
-            else if (node is SpeedNode speedNode)
+            else if (node is IAudioTimeMappingNode speedNode)
             {
                 if (speedNode.TryGetDrainSpeedFactor(sampleRate, out double drainSpeed))
                 {

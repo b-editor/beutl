@@ -185,4 +185,13 @@
   <data name="GateEffect_Range_Description" xml:space="preserve">
     <value>Atenuación aplicada mientras la puerta está cerrada. 0 desactiva la puerta; los valores más negativos atenúan con más fuerza.</value>
   </data>
+  <data name="TimeStretchEffect" xml:space="preserve">
+    <value>Estiramiento de tiempo</value>
+  </data>
+  <data name="TimeStretchEffect_Speed" xml:space="preserve">
+    <value>Velocidad (%)</value>
+  </data>
+  <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
+    <value>Cambia la velocidad de reproducción conservando el tono. 100% es la velocidad normal, 50% es la mitad y 200% es el doble.</value>
+  </data>
 </root>

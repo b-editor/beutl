@@ -185,4 +185,13 @@
   <data name="GateEffect_Range_Description" xml:space="preserve">
     <value>门关闭时施加的衰减。0 禁用门控；更负的值衰减更强。</value>
   </data>
+  <data name="TimeStretchEffect" xml:space="preserve">
+    <value>时间拉伸</value>
+  </data>
+  <data name="TimeStretchEffect_Speed" xml:space="preserve">
+    <value>速度 (%)</value>
+  </data>
+  <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
+    <value>保持音高的同时改变播放速度。100%为正常速度，50%为一半速度，200%为两倍速度。</value>
+  </data>
 </root>

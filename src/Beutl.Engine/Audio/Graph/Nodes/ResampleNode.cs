@@ -137,7 +137,10 @@ public sealed class ResampleNode : AudioNode
             new TimeRange(start, duration),
             SourceSampleRate,
             context.AnimationSampler,
-            context.OriginalTimeRange);
+            context.OriginalTimeRange)
+        {
+            ProcessEndTime = context.ProcessEndTime
+        };
     }
 
     private static long CeilingSampleIndex(TimeSpan time, int sampleRate)

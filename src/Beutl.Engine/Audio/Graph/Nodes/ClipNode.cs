@@ -18,6 +18,20 @@ public class ClipNode : AudioNode
 
     public TimeSpan Duration { get; set; } = TimeSpan.Zero;
 
+    internal override double? GetFiniteSourceEndSample(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        double start = Start.TotalSeconds * sampleRate;
+        double end = start + Duration.TotalSeconds * sampleRate;
+        int latency = GetMaxInputLatency(sampleRate, drain: false);
+        if (latency == int.MaxValue)
+            return null;
+        end += latency;
+        return base.GetFiniteSourceEndSample(sampleRate) is { } inputEnd
+            ? Math.Min(end, start + inputEnd)
+            : end;
+    }
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
         InlineDrainAttempted = false;
@@ -45,7 +59,12 @@ public class ClipNode : AudioNode
             newRange.SubtractStart(Start),
             context.SampleRate,
             context.AnimationSampler,
-            context.OriginalTimeRange);
+            context.OriginalTimeRange)
+        {
+            ProcessEndTime = context.ProcessEndTime is { } parentEnd
+                ? TimeSpan.FromTicks(Math.Min(Duration.Ticks, (parentEnd - Start).Ticks))
+                : Duration
+        };
         _lastProcessedLocalEnd = newRange.End - Start;
         using var buffer = Inputs[0].Process(clippedContext);
         var newBuffer = new AudioBuffer(

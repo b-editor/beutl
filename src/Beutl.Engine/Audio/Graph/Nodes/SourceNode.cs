@@ -10,6 +10,17 @@ public sealed class SourceNode : AudioNode
 {
     public (SoundSource.Resource Resource, int Version)? Source { get; set; }
 
+    internal override double? GetFiniteSourceEndSample(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        if (Source is not { } source || source.Resource.SampleRate <= 0)
+            return 0;
+
+        double seconds = source.Resource.MediaReader?.AudioInfo.Duration.ToDouble()
+            ?? source.Resource.Duration.TotalSeconds;
+        return double.IsFinite(seconds) && seconds >= 0 ? seconds * sampleRate : null;
+    }
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
         if (Source == null)

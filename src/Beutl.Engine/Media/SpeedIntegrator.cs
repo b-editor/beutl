@@ -13,6 +13,8 @@ public sealed class SpeedIntegrator : IDisposable
     private IAnimation<float>? _trackedAnimation;
     private int _sampleRate;
     private readonly Action? _invalidateCallback;
+    private Func<float, float>? _speedTransform;
+    internal int CacheVersion { get; private set; }
 
     public SpeedIntegrator(int sampleRate, Action? invalidateCallback = null)
     {
@@ -28,6 +30,20 @@ public sealed class SpeedIntegrator : IDisposable
             if (_sampleRate != value)
             {
                 _sampleRate = value;
+                Invalidate();
+            }
+        }
+    }
+
+    // A bounded audio time mapping must integrate the same clamped values that its DSP uses.
+    internal Func<float, float>? SpeedTransform
+    {
+        get => _speedTransform;
+        set
+        {
+            if (_speedTransform != value)
+            {
+                _speedTransform = value;
                 Invalidate();
             }
         }
@@ -79,6 +95,7 @@ public sealed class SpeedIntegrator : IDisposable
     /// </summary>
     public void Invalidate()
     {
+        CacheVersion++;
         _integralCache?.Clear();
         _greatestCachedSecond = -1;
         _invalidateCallback?.Invoke();
@@ -111,10 +128,28 @@ public sealed class SpeedIntegrator : IDisposable
         // Integrate speed in 1-second intervals from startSec to targetSec
         for (int sec = startSec; sec < targetSec; sec++)
         {
+            if (animation is KeyFrameAnimation<float> keyframes && keyframes.KeyFrames.Count > 0)
+            {
+                var first = (KeyFrame<float>)keyframes.KeyFrames[0];
+                var last = (KeyFrame<float>)keyframes.KeyFrames[^1];
+                int constantEnd = sec >= Math.Ceiling(last.KeyTime.TotalSeconds)
+                    ? targetSec
+                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.TotalSeconds));
+                if (constantEnd > sec)
+                {
+                    float constant = sec >= Math.Ceiling(last.KeyTime.TotalSeconds) ? last.Value : first.Value;
+                    constant = _speedTransform?.Invoke(constant) ?? constant;
+                    sum += constant / 100d * (constantEnd - sec);
+                    _integralCache![constantEnd] = sum;
+                    _greatestCachedSecond = Math.Max(_greatestCachedSecond, constantEnd);
+                    sec = constantEnd - 1;
+                    continue;
+                }
+            }
             for (int i = 0; i < _sampleRate; i++)
             {
                 double t = sec + (i / (double)_sampleRate);
-                float speed = animation.Interpolate(TimeSpan.FromSeconds(t));
+                float speed = SampleSpeed(animation, TimeSpan.FromSeconds(t));
                 sum += (speed / 100.0) / _sampleRate;
             }
             _integralCache![sec + 1] = sum;
@@ -129,7 +164,7 @@ public sealed class SpeedIntegrator : IDisposable
         for (long i = secStartInSamples; i < targetInSamples; i++)
         {
             double t = i / (double)_sampleRate;
-            float speed = animation.Interpolate(TimeSpan.FromSeconds(t));
+            float speed = SampleSpeed(animation, TimeSpan.FromSeconds(t));
             sum += (speed / 100.0) / _sampleRate;
         }
 
@@ -137,11 +172,17 @@ public sealed class SpeedIntegrator : IDisposable
         double fractionalSamples = (timeSpan.TotalSeconds * _sampleRate) - targetInSamples;
         if (fractionalSamples > 0)
         {
-            float speed = animation.Interpolate(timeSpan);
+            float speed = SampleSpeed(animation, timeSpan);
             sum += (speed / 100.0) * fractionalSamples / _sampleRate;
         }
 
         return TimeSpan.FromSeconds(sum);
+    }
+
+    private float SampleSpeed(IAnimation<float> animation, TimeSpan time)
+    {
+        float speed = animation.Interpolate(time);
+        return _speedTransform?.Invoke(speed) ?? speed;
     }
 
     private void OnAnimationEdited(object? sender, EventArgs e)

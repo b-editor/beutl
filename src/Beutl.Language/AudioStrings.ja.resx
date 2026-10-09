@@ -181,4 +181,13 @@
   <data name="GateEffect_Range_Description" xml:space="preserve">
     <value>ゲートが閉じている間に適用する減衰量。0 でゲートを無効化し、値が小さいほど強く減衰します。</value>
   </data>
+  <data name="TimeStretchEffect" xml:space="preserve">
+    <value>タイムストレッチ</value>
+  </data>
+  <data name="TimeStretchEffect_Speed" xml:space="preserve">
+    <value>速度 (%)</value>
+  </data>
+  <data name="TimeStretchEffect_Speed_Description" xml:space="preserve">
+    <value>音の高さを保ったまま再生速度を変更します。100%が通常速度、50%が半分、200%が2倍です。</value>
+  </data>
 </root>
