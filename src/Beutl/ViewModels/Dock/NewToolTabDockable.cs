@@ -16,6 +16,7 @@ public sealed class NewToolTabDockable : Tool
 {
     // Icon sources are cached so refreshing and filtering do not rebuild one per keystroke.
     private readonly Dictionary<ToolTabExtension, FAIconSource?> _icons = [];
+    private readonly Dictionary<ToolTabExtension, string?> _neutralHeaders = [];
     private NewToolTabItem[] _items = [];
     private IReadOnlyList<NewToolTabItem> _availableItems = [];
     private IReadOnlyList<NewToolTabItem> _openItems = [];
@@ -125,11 +126,36 @@ public sealed class NewToolTabDockable : Tool
         HasMatches = matches.Length > 0;
     }
 
-    // The internal name is searched too, so an English name finds a tool in any UI language.
-    private static bool Matches(NewToolTabItem item, string query)
+    // The English label and the internal name are searched too, so an English name finds a tool in
+    // any UI language.
+    private bool Matches(NewToolTabItem item, string query)
     {
         return item.Header.Contains(query, StringComparison.CurrentCultureIgnoreCase)
                || item.Extension.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+               || GetNeutralHeader(item.Extension)?.Contains(query, StringComparison.CurrentCultureIgnoreCase) == true
                || item.Extension.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    // Header reads localized resources for the current UI culture; the invariant culture resolves
+    // them to the neutral (English) ones. This also covers extensions with their own resources.
+    private string? GetNeutralHeader(ToolTabExtension extension)
+    {
+        if (!_neutralHeaders.TryGetValue(extension, out string? header))
+        {
+            CultureInfo culture = CultureInfo.CurrentUICulture;
+            try
+            {
+                CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+                header = extension.Header;
+            }
+            finally
+            {
+                CultureInfo.CurrentUICulture = culture;
+            }
+
+            _neutralHeaders[extension] = header;
+        }
+
+        return header;
     }
 }

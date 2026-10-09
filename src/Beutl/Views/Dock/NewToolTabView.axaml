@@ -19,16 +19,24 @@
                     Classes="tool"
                     Click="OnToolClick"
                     IsEnabled="{Binding IsEnabled}"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.ShowOnDisabled="True"
                     ToolTip.Tip="{Binding Header}">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                    <ui:FAIconSourceElement Width="20"
-                                            Height="20"
-                                            VerticalAlignment="Center"
-                                            IconSource="{Binding Icon}" />
+                    <Border Classes="icon">
+                        <ui:FAIconSourceElement Width="18"
+                                                Height="18"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                IconSource="{Binding Icon}" />
+                    </Border>
+                    <!--  Narrow columns wrap a long name onto a second line instead of cutting it off.  -->
                     <TextBlock Grid.Column="1"
                                VerticalAlignment="Center"
+                               MaxLines="2"
                                Text="{Binding Header}"
-                               TextTrimming="CharacterEllipsis" />
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap" />
                 </Grid>
             </Button>
         </DataTemplate>
@@ -37,9 +45,17 @@
     <UserControl.Styles>
         <Style Selector="Button.tool">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="6" />
+        </Style>
+        <!--  The icon sits on a soft tile, which marks each row without boxing it in.  -->
+        <Style Selector="Button.tool Border.icon">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
         </Style>
         <Style Selector="Button.tool ui|FAIconSourceElement">
             <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
@@ -59,8 +75,8 @@
     <Grid RowDefinitions="Auto,*">
         <!--  Enter opens the first match, so it must not move focus away first.  -->
         <TextBox x:Name="SearchBox"
-                 MaxWidth="800"
-                 Margin="16,16,16,8"
+                 MaxWidth="720"
+                 Margin="16,16,16,12"
                  controls:TextBoxAttachment.EnterDownBehavior="None"
                  AutomationProperties.Name="{x:Static lang:Strings.NewToolTab_Search}"
                  Classes="clearButton"
@@ -77,19 +93,25 @@
         </TextBox>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel MaxWidth="800"
-                        Margin="16,8,16,16"
+            <StackPanel MaxWidth="720"
+                        Margin="16,0,16,16"
                         Spacing="8"
                         XYFocus.NavigationModes="Keyboard">
-                <!--  Tiles reflow with the dock's width: one column in a side panel, up to three across a wide one.  -->
+                <!--
+                    Columns follow the page width: one in a side dock at its usual width, two when a
+                    little wider, and at most three, so even a wide dock keeps room between them.
+                    Every row is tall enough for two lines, so a wrapped name never changes its height.
+                -->
                 <ItemsRepeater x:Name="AvailableList"
                                ItemTemplate="{StaticResource ToolTemplate}"
                                ItemsSource="{Binding AvailableItems}">
                     <ItemsRepeater.Layout>
                         <UniformGridLayout ItemsStretch="Fill"
-                                           MinColumnSpacing="6"
-                                           MinItemWidth="200"
-                                           MinRowSpacing="6"
+                                           MaximumRowsOrColumns="3"
+                                           MinColumnSpacing="16"
+                                           MinItemHeight="54"
+                                           MinItemWidth="168"
+                                           MinRowSpacing="2"
                                            Orientation="Horizontal" />
                     </ItemsRepeater.Layout>
                 </ItemsRepeater>
@@ -101,7 +123,7 @@
                            Text="{x:Static lang:Strings.NewToolTab_NoResults}" />
 
                 <!--  Open single-instance tools sit apart, so the grid above holds only what can be opened.  -->
-                <TextBlock Margin="2,16,2,0"
+                <TextBlock Margin="6,20,6,2"
                            Classes="section"
                            IsVisible="{Binding !!OpenItems.Count}"
                            Text="{x:Static lang:Strings.NewToolTab_AlreadyOpen}" />
@@ -111,9 +133,11 @@
                                ItemsSource="{Binding OpenItems}">
                     <ItemsRepeater.Layout>
                         <UniformGridLayout ItemsStretch="Fill"
-                                           MinColumnSpacing="6"
-                                           MinItemWidth="200"
-                                           MinRowSpacing="6"
+                                           MaximumRowsOrColumns="3"
+                                           MinColumnSpacing="16"
+                                           MinItemHeight="54"
+                                           MinItemWidth="168"
+                                           MinRowSpacing="2"
                                            Orientation="Horizontal" />
                     </ItemsRepeater.Layout>
                 </ItemsRepeater>

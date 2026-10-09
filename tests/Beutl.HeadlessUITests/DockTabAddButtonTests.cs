@@ -9,6 +9,8 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
@@ -284,6 +286,9 @@ public class DockTabAddButtonTests
                 Assert.That(
                     newTab.AvailableItems.Select(item => item.Extension),
                     Does.Not.Contain(TimelineTabExtension.Instance));
+                // Disabled tiles keep their tooltip, which shows a name trimmed in a narrow dock.
+                Assert.That(ToolTip.GetShowOnDisabled(timelineButton), Is.True);
+                Assert.That(ToolTip.GetTip(timelineButton), Is.EqualTo(Strings.Timeline));
                 Assert.That(historyButton.IsEnabled, Is.True);
                 Assert.That(ToolTip.GetTip(historyButton), Is.EqualTo(Strings.History));
             });
@@ -301,6 +306,50 @@ public class DockTabAddButtonTests
                         .With.Property(nameof(BeutlToolDockable.ToolContext))
                         .With.Property(nameof(IToolContext.Extension)).SameAs(HistoryTabExtension.Instance));
                 Assert.That(target.ActiveDockable, Is.SameAs(target.VisibleDockables[^1]));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_recycled_page_takes_the_focus_its_next_empty_tab_asks_for()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-recycled-page");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        IToolDock target = factory.GetAnchoredDock(DockAnchor.Left)!;
+        NewToolTabDockable first = factory.OpenNewToolTab(target);
+        first.FocusOnShow = false;
+
+        var page = new NewToolTabView { DataContext = first };
+        var elsewhere = new TextBox();
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { elsewhere, page } },
+            Width = 600,
+            Height = 600,
+        };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(elsewhere.Focus(), Is.True);
+
+            // The dock's recycling template can hand an attached page to the next empty tab
+            // instead of loading a new one.
+            NewToolTabDockable second = factory.OpenNewToolTab(target);
+            page.DataContext = second;
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(page.SearchBox.IsFocused, Is.True);
+                Assert.That(second.FocusOnShow, Is.False, "A served request must not fire again later.");
             });
         }
         finally
@@ -330,7 +379,7 @@ public class DockTabAddButtonTests
         {
             Assert.That(target.VisibleDockables, Has.Count.EqualTo(before.Length + 1));
             Assert.That(
-                (target.VisibleDockables[0] as BeutlToolDockable)?.ToolContext.Extension,
+                (target.VisibleDockables![0] as BeutlToolDockable)?.ToolContext.Extension,
                 Is.SameAs(HistoryTabExtension.Instance));
             Assert.That(target.VisibleDockables.Skip(1), Is.EqualTo(before));
             Assert.That(newTab.Owner is IDock owner && owner.VisibleDockables!.Contains(newTab), Is.False);
@@ -389,6 +438,22 @@ public class DockTabAddButtonTests
                 Assert.That(newTab.AvailableItems[0].Header, Is.EqualTo(Strings.History).And.Not.EqualTo("History"));
             });
 
+            // The English label differs from the internal name (FileBrowser, NodeGraphTab).
+            foreach ((string query, ToolTabExtension expected) in new (string, ToolTabExtension)[]
+                     {
+                         ("Files", FileBrowserTabExtension.Instance),
+                         ("node graph", NodeGraphTabExtension.Instance),
+                     })
+            {
+                newTab.SearchText = query;
+                Assert.That(
+                    newTab.AvailableItems.Select(item => item.Extension),
+                    Does.Contain(expected),
+                    $"'{query}' should find {expected.Name} in the Japanese UI.");
+            }
+
+            newTab.SearchText = "history";
+            HeadlessTestHelpers.Settle();
             page.SearchBox.Focus();
             window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
             HeadlessTestHelpers.Settle();
@@ -554,6 +619,98 @@ public class DockTabAddButtonTests
     }
 
     [AvaloniaTest]
+    [TestCase(240, 1)]
+    [TestCase(320, 1)]
+    [TestCase(420, 2)]
+    [TestCase(1100, 3)]
+    public async Task Tool_grid_adds_columns_as_the_page_widens(int width, int columns)
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene($"dock-tab-add-columns-{width}");
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        // Japanese names are the longest and need the taller line box.
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        NewToolTabDockable newTab = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+        newTab.Refresh();
+        Assert.That(newTab.AvailableItems, Has.Count.GreaterThanOrEqualTo(8));
+
+        var page = new NewToolTabView { DataContext = newTab };
+        var window = new Window { Content = page, Width = width, Height = 600 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Control[] tiles = Enumerable.Range(0, 8)
+                .Select(index => page.AvailableList.TryGetElement(index))
+                .OfType<Control>()
+                .ToArray();
+            Assert.That(tiles, Has.Length.EqualTo(8));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tiles.Select(tile => Math.Round(tile.Bounds.X)).Distinct().Count(), Is.EqualTo(columns));
+                // Long names wrap rather than widen a tile past its column.
+                Assert.That(tiles.Max(tile => tile.Bounds.Right), Is.LessThanOrEqualTo(page.AvailableList.Bounds.Width + 0.5));
+                Assert.That(tiles.Select(tile => tile.Bounds.Height).Distinct().Count(), Is.EqualTo(1));
+                foreach (TextBlock name in tiles.SelectMany(tile => tile.GetVisualDescendants().OfType<TextBlock>()))
+                {
+                    Assert.That(
+                        name.TextLayout.TextLines.Any(line => line.HasCollapsed),
+                        Is.False,
+                        $"'{name.Text}' should wrap within two lines, not be cut off.");
+                }
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Empty_tab_lists_a_tool_installed_while_it_is_shown()
+    {
+        const int packageId = -42_755;
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-installed");
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+        var installed = new InstalledToolTabExtension();
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            BeutlDockFactory factory = editor.DockHost.Factory;
+            NewToolTabDockable newTab = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+            HeadlessTestHelpers.Settle();
+            Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Not.Contain(installed));
+
+            // Package installs register from a worker thread.
+            Task.Run(() => TestShell.Extensions.AddExtensions(packageId, [installed])).Wait();
+            HeadlessTestHelpers.Settle();
+            Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Contain(installed));
+
+            _ = TestShell.Extensions.RemoveExtensions(packageId);
+            HeadlessTestHelpers.Settle();
+            Assert.That(newTab.AvailableItems.Select(item => item.Extension), Does.Not.Contain(installed));
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(packageId);
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Extension_returning_success_with_a_null_context_is_rejected()
     {
         await ResetProjectAsync();
@@ -592,6 +749,33 @@ public class DockTabAddButtonTests
             relativeTo);
         Assert.That(point, Is.Not.Null);
         return point!.Value;
+    }
+
+    private sealed class InstalledToolTabExtension : ToolTabExtension
+    {
+        public override string Name => "Installed test tool";
+
+        public override string DisplayName => "Installed test tool";
+
+        public override string? Header => "Installed test tool";
+
+        public override bool CanMultiple => true;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = null;
+            return false;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = null;
+            return false;
+        }
     }
 
     private sealed class NullContextToolTabExtension : ToolTabExtension

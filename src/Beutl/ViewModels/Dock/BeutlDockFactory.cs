@@ -264,6 +264,8 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
+    internal Beutl.Api.Services.ExtensionProvider ExtensionProvider => editViewModel.ExtensionProvider;
+
     internal IEnumerable<ToolTabExtension> EnumerateToolTabExtensions()
     {
         return editViewModel.ExtensionProvider.AllExtensions

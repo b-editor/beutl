@@ -28,6 +28,8 @@ public sealed partial class NewToolTabView : UserControl
         {
             Subscribe();
             NewTab?.Refresh();
+            // A recycled page gets the next empty tab without loading again.
+            TakeRequestedFocus();
         }
     }
 
@@ -47,6 +49,11 @@ public sealed partial class NewToolTabView : UserControl
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
+        TakeRequestedFocus();
+    }
+
+    private void TakeRequestedFocus()
+    {
         if (NewTab is { FocusOnShow: true } newTab)
         {
             newTab.FocusOnShow = false;
@@ -54,7 +61,8 @@ public sealed partial class NewToolTabView : UserControl
         }
     }
 
-    // Single-instance tools opened or closed elsewhere change what this page can offer.
+    // Single-instance tools opened or closed elsewhere, and packages installed or removed while the
+    // page is shown, change what it can offer.
     private void Subscribe()
     {
         BeutlDockFactory? factory = NewTab?.Factory as BeutlDockFactory;
@@ -67,6 +75,7 @@ public sealed partial class NewToolTabView : UserControl
         factory.DockableAdded += OnDockablesChanged;
         factory.DockableRemoved += OnDockablesChanged;
         factory.DockableClosed += OnDockablesChanged;
+        factory.ExtensionProvider.ExtensionsChanged += OnExtensionsChanged;
     }
 
     private void Unsubscribe()
@@ -76,7 +85,14 @@ public sealed partial class NewToolTabView : UserControl
         _factory.DockableAdded -= OnDockablesChanged;
         _factory.DockableRemoved -= OnDockablesChanged;
         _factory.DockableClosed -= OnDockablesChanged;
+        _factory.ExtensionProvider.ExtensionsChanged -= OnExtensionsChanged;
         _factory = null;
+    }
+
+    // Raised on the thread that installed or removed the package.
+    private void OnExtensionsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() => OnDockablesChanged(sender, e));
     }
 
     private void OnDockablesChanged(object? sender, EventArgs e)
