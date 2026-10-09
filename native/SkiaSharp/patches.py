@@ -8,7 +8,8 @@ HERE = Path(__file__).resolve().parent
 
 
 def patches_for(rid):
-    patches = {"patchSha256": HERE / "vulkan-image-layout.patch"}
+    patches = {"patchSha256": HERE / "vulkan-image-layout.patch",
+               "surfaceContentChangePatchSha256": HERE / "surface-content-change.patch"}
     if rid.startswith("linux-"):
         patches["fontconfigPatchSha256"] = HERE / "fontconfig-missing-family.patch"
     if rid.startswith("win-"):

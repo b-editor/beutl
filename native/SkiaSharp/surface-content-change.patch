@@ -1,0 +1,33 @@
+diff --git a/include/c/sk_surface.h b/include/c/sk_surface.h
+index 3ab234a..0cd040e 100644
+--- a/include/c/sk_surface.h
++++ b/include/c/sk_surface.h
+@@ -30,6 +30,9 @@ SK_C_API sk_surface_t* sk_surface_new_metal_view(gr_recording_context_t* context
+ SK_C_API void sk_surface_unref(sk_surface_t*);
+ SK_C_API sk_canvas_t* sk_surface_get_canvas(sk_surface_t*);
+ SK_C_API sk_image_t* sk_surface_new_image_snapshot(sk_surface_t*);
++// Beutl drops a surface's cached snapshot once its draw is recorded, so Skia can skip the copy
++// it schedules for a snapshot of a wrapped backend texture.
++SK_C_API void sk_beutl_surface_notify_content_will_change(sk_surface_t* surface, bool retain);
+ SK_C_API sk_image_t* sk_surface_new_image_snapshot_with_crop(sk_surface_t* surface, const sk_irect_t* bounds);
+ SK_C_API void sk_surface_draw(sk_surface_t* surface, sk_canvas_t* canvas, float x, float y, const sk_paint_t* paint);
+ SK_C_API void sk_surface_draw_with_sampling(sk_surface_t* surface, sk_canvas_t* canvas, float x, float y, const sk_sampling_options_t* sampling, const sk_paint_t* paint);
+diff --git a/src/c/sk_surface.cpp b/src/c/sk_surface.cpp
+index 157a636..245d3cf 100644
+--- a/src/c/sk_surface.cpp
++++ b/src/c/sk_surface.cpp
+@@ -57,6 +57,14 @@ sk_image_t* sk_surface_new_image_snapshot(sk_surface_t* csurf) {
+     return ToImage(AsSurface(csurf)->makeImageSnapshot().release());
+ }
+ 
++void sk_beutl_surface_notify_content_will_change(sk_surface_t* csurf, bool retain) {
++    if (!csurf) {
++        return;
++    }
++    AsSurface(csurf)->notifyContentWillChange(retain ? SkSurface::kRetain_ContentChangeMode
++                                                     : SkSurface::kDiscard_ContentChangeMode);
++}
++
+ sk_image_t* sk_surface_new_image_snapshot_with_crop(sk_surface_t* surface, const sk_irect_t* bounds) {
+     return ToImage(AsSurface(surface)->makeImageSnapshot(*AsIRect(bounds)).release());
+ }

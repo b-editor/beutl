@@ -5,7 +5,8 @@
   "repository": "https://github.com/mono/skia.git",
   "commit": "723c5a03a7d18de5fb1a041e6cae2f09c4cb3c7e",
   "rid": "linux-x64",
-  "patchSha256": "faac086edcbbe92f3063f104ef7645980535336692f7019ea2573bc65a5830f5",
+  "patchSha256": "9fe788fc0cc5d4e5d702a8cbc6f8274757217efde20c558e05e1234dd00d2553",
+  "surfaceContentChangePatchSha256": "dab10c82eb9bdcdd6edde40d8b7b6e2bc50483ecc90fe0c8441190a64cd91726",
   "fontconfigPatchSha256": "0df2847359df09cc9eb00840b365d2d06af3ebf430170d5b0386ca1f7c5c0351",
-  "binarySha256": "cfd9ac6687e8b4c1687bee21fbc03e561d1e9f76e2648ebeaa0234454201a301"
+  "binarySha256": "38a77fdd7137502e7364b22bbf3984537769427d246f0c05b924825ddbbd666b"
 }

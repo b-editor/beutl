@@ -148,7 +148,8 @@ internal sealed partial class RenderRequestExecutor
                     outputDeviceBounds,
                     outputRasterBounds,
                     outputScale);
-            using SKImage inputImage = input.Target.Value.Snapshot();
+            using SurfaceSnapshot.Lease inputSnapshot = SurfaceSnapshot.Take(input.Target.Value);
+            SKImage inputImage = inputSnapshot.Image;
             ProgramCacheContextKey contextKey = CreateProgramContextKey(run.Program.Budget);
             using ProgramCacheLease<CachedSkRuntimeEffect> lease = AcquireProgram(run, contextKey);
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);

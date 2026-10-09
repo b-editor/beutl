@@ -495,7 +495,8 @@ public class CustomFilterEffectContext
 
         sourceTarget.PrepareForSampling(
             RenderTargetSamplingIntent.SameContextTextureSampling(destinationTarget.RawValue.Context));
-        using SKImage? image = sourceTarget.Value.Snapshot();
+        using SurfaceSnapshot.Lease sourceSnapshot = SurfaceSnapshot.Take(sourceTarget.Value);
+        SKImage? image = sourceSnapshot.Image;
         if (image is null)
         {
             ThrowIfDeliveryReadbackFailure(Intent, source.DeviceBounds);

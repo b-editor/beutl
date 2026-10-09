@@ -14,8 +14,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 RIDS = ("linux-x64", "linux-arm64", "win-x64", "win-arm64", "osx")
 REQUIRED_EXPORTS = {
-    b"gr_beutl_backendrendertarget_get_vk_image_layout",
-    b"gr_beutl_backendrendertarget_set_vk_image_layout",
+    b"gr_beutl_backendtexture_get_vk_image_layout",
+    b"gr_beutl_backendtexture_set_vk_image_layout",
+    b"sk_beutl_surface_notify_content_will_change",
 }
 WINDOWS_EXPORTS = {b"sk_beutl_fontmgr_create_freetype"}
 
