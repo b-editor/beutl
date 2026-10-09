@@ -17,6 +17,7 @@ internal static class DockLayoutJsonWriter
             IToolDock toolDock => SaveToolDock(toolDock, includeToolState),
             BeutlToolDockable tool => SaveBeutlTool(tool, includeToolState),
             PlayerToolDockable => new JsonObject { ["$type"] = "player" },
+            NewToolTabDockable => new JsonObject { ["$type"] = "new_tab" },
             _ => new JsonObject { ["$type"] = "unknown" },
         };
     }

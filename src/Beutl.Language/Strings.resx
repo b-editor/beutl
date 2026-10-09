@@ -3357,6 +3357,15 @@ when history recording is enabled.</value>
   <data name="TabSwitcher_PreviousTool" xml:space="preserve">
     <value>Switch to previous tool tab</value>
   </data>
+  <data name="NewToolTab_Search" xml:space="preserve">
+    <value>Search tools</value>
+  </data>
+  <data name="NewToolTab_NoResults" xml:space="preserve">
+    <value>No matching tools</value>
+  </data>
+  <data name="NewToolTab_AlreadyOpen" xml:space="preserve">
+    <value>Already open</value>
+  </data>
   <data name="GoToMarker" xml:space="preserve">
     <value>Go to marker…</value>
   </data>

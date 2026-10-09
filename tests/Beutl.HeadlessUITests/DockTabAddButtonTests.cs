@@ -1,12 +1,16 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -16,8 +20,7 @@ using Beutl.Views;
 using Beutl.Views.Dock;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
-
-using FluentAvalonia.UI.Controls;
+using Dock.Model.Core;
 
 namespace Beutl.HeadlessUITests;
 
@@ -227,10 +230,10 @@ public class DockTabAddButtonTests
     }
 
     [AvaloniaTest]
-    public async Task Add_menu_disables_open_singletons_and_opens_the_selected_tool_in_its_dock()
+    public async Task Add_button_opens_an_empty_tab_that_turns_into_the_picked_tool()
     {
         await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-menu");
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-new-tab");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -245,57 +248,249 @@ public class DockTabAddButtonTests
                 .OfType<ToolControl>()
                 .Single(control => ReferenceEquals(control.DataContext, target));
             ToolTabAddButton button = FindAddButton(targetControl)!;
+            int tabCount = target.VisibleDockables!.Count;
+
             Point buttonCenter = Center(button, window);
             window.MouseDown(buttonCenter, MouseButton.Left);
             window.MouseUp(buttonCenter, MouseButton.Left);
             HeadlessTestHelpers.Settle();
 
-            FAMenuFlyout? menu = button.ContextFlyout as FAMenuFlyout;
-            Assert.That(menu, Is.Not.Null);
-            Assert.That(menu!.IsOpen, Is.True);
-            FAMenuFlyoutItem[] items = menu.Items.Cast<FAMenuFlyoutItem>().ToArray();
-
-            FAMenuFlyoutItem timelineItem = items.Single(
-                item => ReferenceEquals(item.DataContext, TimelineTabExtension.Instance));
-            FAMenuFlyoutItem historyItem = items.Single(
-                item => ReferenceEquals(item.DataContext, HistoryTabExtension.Instance));
+            var newTab = target.VisibleDockables[^1] as NewToolTabDockable;
+            NewToolTabView? page = targetControl.GetVisualDescendants()
+                .OfType<NewToolTabView>()
+                .SingleOrDefault();
 
             Assert.Multiple(() =>
             {
-                Assert.That(timelineItem.IsEnabled, Is.False);
-                Assert.That(historyItem.IsEnabled, Is.True);
+                Assert.That(button.ContextFlyout, Is.Null, "The add button no longer opens a menu.");
+                Assert.That(target.VisibleDockables, Has.Count.EqualTo(tabCount + 1));
+                Assert.That(newTab, Is.Not.Null);
+                Assert.That(target.ActiveDockable, Is.SameAs(newTab));
+                Assert.That(newTab!.Title, Is.EqualTo(Strings.NewTab));
+                Assert.That(page, Is.Not.Null);
+                Assert.That(page!.DataContext, Is.SameAs(newTab));
+                Assert.That(page.SearchBox.IsFocused, Is.True, "Typing right away should search the tools.");
             });
 
-            historyItem.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
-            HeadlessTestHelpers.Settle();
+            Button timelineButton = FindToolButton(page!, TimelineTabExtension.Instance);
+            Button historyButton = FindToolButton(page!, HistoryTabExtension.Instance);
+            Assert.Multiple(() =>
+            {
+                Assert.That(timelineButton.IsEnabled, Is.False, "An open single-instance tool cannot be added again.");
+                Assert.That(ToolTip.GetTip(timelineButton), Is.EqualTo(Strings.NewToolTab_AlreadyOpen));
+                Assert.That(historyButton.IsEnabled, Is.True);
+                Assert.That(ToolTip.GetTip(historyButton), Is.EqualTo(Strings.History));
+            });
 
-            BeutlToolDockable? added = target.VisibleDockables?
-                .OfType<BeutlToolDockable>()
-                .SingleOrDefault(dockable => dockable.ToolContext.Extension == HistoryTabExtension.Instance);
+            historyButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
             {
-                Assert.That(added, Is.Not.Null);
-                Assert.That(target.ActiveDockable, Is.SameAs(added));
+                Assert.That(target.VisibleDockables, Has.Count.EqualTo(tabCount + 1));
+                Assert.That(target.VisibleDockables.OfType<NewToolTabDockable>(), Is.Empty);
+                Assert.That(
+                    target.VisibleDockables[^1],
+                    Is.InstanceOf<BeutlToolDockable>()
+                        .With.Property(nameof(BeutlToolDockable.ToolContext))
+                        .With.Property(nameof(IToolContext.Extension)).SameAs(HistoryTabExtension.Instance));
+                Assert.That(target.ActiveDockable, Is.SameAs(target.VisibleDockables[^1]));
             });
-
-            menu.Hide();
-            HeadlessTestHelpers.Settle();
-            // The button follows the last tab, so it moved when the new tab was added.
-            buttonCenter = Center(button, window);
-            window.MouseDown(buttonCenter, MouseButton.Right);
-            window.MouseUp(buttonCenter, MouseButton.Right);
-            HeadlessTestHelpers.Settle();
-
-            FAMenuFlyoutItem refreshedHistoryItem = menu.Items
-                .Cast<FAMenuFlyoutItem>()
-                .Single(item => ReferenceEquals(item.DataContext, HistoryTabExtension.Instance));
-            Assert.That(refreshedHistoryItem.IsEnabled, Is.False);
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Picked_tool_takes_the_empty_tabs_place_in_the_strip()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-in-place");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        IToolDock target = factory.GetAnchoredDock(DockAnchor.Left)!;
+        IDockable[] before = target.VisibleDockables!.ToArray();
+        Assert.That(before, Is.Not.Empty);
+
+        // The user may drag the empty tab before choosing; the tool must land where the tab is now.
+        var newTab = new NewToolTabDockable();
+        factory.InsertDockable(target, newTab, 0);
+
+        Assert.That(newTab.Open(HistoryTabExtension.Instance), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.VisibleDockables, Has.Count.EqualTo(before.Length + 1));
+            Assert.That(
+                (target.VisibleDockables[0] as BeutlToolDockable)?.ToolContext.Extension,
+                Is.SameAs(HistoryTabExtension.Instance));
+            Assert.That(target.VisibleDockables.Skip(1), Is.EqualTo(before));
+            Assert.That(newTab.Owner is IDock owner && owner.VisibleDockables!.Contains(newTab), Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Empty_tab_search_matches_display_and_internal_names_and_enter_opens_the_first_match()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-search");
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+
+        // The whole shell, as in the app: MainView is focusable, so a search box that let Enter move
+        // focus to an ancestor would never open the match.
+        var view = new MainView { DataContext = TestShell.MainViewModel };
+        var window = new Window { Content = view, Width = 1000, Height = 720 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            IToolDock target = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+            NewToolTabDockable newTab = editor.DockHost.Factory.OpenNewToolTab(target);
+            HeadlessTestHelpers.Settle();
+            NewToolTabView page = view.GetVisualDescendants().OfType<NewToolTabView>().Single();
+            TextBlock noResults = page.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Text == Strings.NewToolTab_NoResults);
+
+            Assert.That(newTab.VisibleItems, Has.Count.GreaterThan(1));
+            Assert.That(noResults.IsVisible, Is.False);
+
+            newTab.SearchText = "no tool is called this";
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(newTab.VisibleItems, Is.Empty);
+                Assert.That(noResults.IsVisible, Is.True);
+            });
+
+            // A Japanese UI still finds a tool by its English name.
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
+            newTab.Refresh();
+            newTab.SearchText = "  history ";
+            HeadlessTestHelpers.Settle();
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    newTab.VisibleItems.Select(item => item.Extension),
+                    Is.EqualTo(new ToolTabExtension[] { HistoryTabExtension.Instance }));
+                Assert.That(newTab.VisibleItems[0].Header, Is.EqualTo(Strings.History).And.Not.EqualTo("History"));
+            });
+
+            page.SearchBox.Focus();
+            window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+            HeadlessTestHelpers.Settle();
+            Assert.That(
+                (TopLevel.GetTopLevel(page)!.FocusManager!.GetFocusedElement() as Control)?.DataContext,
+                Is.SameAs(newTab.VisibleItems[0]),
+                "Down moves from the search box into the results.");
+
+            page.SearchBox.Focus();
+            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(target.VisibleDockables!.OfType<NewToolTabDockable>(), Is.Empty);
+                Assert.That(
+                    (target.ActiveDockable as BeutlToolDockable)?.ToolContext.Extension,
+                    Is.SameAs(HistoryTabExtension.Instance));
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Empty_tab_follows_single_instance_tools_opened_and_closed_elsewhere()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-live");
+
+        var view = new EditView { DataContext = editor };
+        var window = new Window { Content = view, Width = 900, Height = 700 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            BeutlDockFactory factory = editor.DockHost.Factory;
+            NewToolTabDockable newTab = factory.OpenNewToolTab(factory.GetAnchoredDock(DockAnchor.Left)!);
+            HeadlessTestHelpers.Settle();
+            NewToolTabView page = view.GetVisualDescendants().OfType<NewToolTabView>().Single();
+
+            Assert.That(FindToolButton(page, HistoryTabExtension.Instance).IsEnabled, Is.True);
+
+            Assert.That(
+                editor.DockHost.OpenToolTabFromExtension(
+                    HistoryTabExtension.Instance, factory.GetAnchoredDock(DockAnchor.Right)),
+                Is.True);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(FindToolButton(page, HistoryTabExtension.Instance).IsEnabled, Is.False);
+
+            BeutlToolDockable history = factory.EnumerateTools()
+                .Single(tool => tool.ToolContext.Extension == HistoryTabExtension.Instance);
+            editor.DockHost.CloseToolTab(history.ToolContext);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(FindToolButton(page, HistoryTabExtension.Instance).IsEnabled, Is.True);
+                Assert.That(page.DataContext, Is.SameAs(newTab));
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Empty_tab_is_saved_and_restored_in_its_place()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-persist");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        IToolDock left = factory.GetAnchoredDock(DockAnchor.Left)!;
+        var newTab = new NewToolTabDockable();
+        factory.InsertDockable(left, newTab, 0);
+        factory.SetActiveDockable(newTab);
+        int tabCount = left.VisibleDockables!.Count;
+
+        var json = new JsonObject();
+        editor.DockHost.WriteToJson(json);
+
+        var restored = new DockHostViewModel("dock-tab-add-persist", editor);
+        try
+        {
+            restored.ReadFromJson(json);
+            HeadlessTestHelpers.Settle();
+
+            IToolDock restoredLeft = restored.Factory.GetAnchoredDock(DockAnchor.Left)!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(restoredLeft.VisibleDockables, Has.Count.EqualTo(tabCount));
+                Assert.That(restoredLeft.VisibleDockables![0], Is.InstanceOf<NewToolTabDockable>());
+                Assert.That(restoredLeft.ActiveDockable, Is.SameAs(restoredLeft.VisibleDockables[0]));
+                Assert.That(
+                    ((NewToolTabDockable)restoredLeft.VisibleDockables[0]).FocusOnShow,
+                    Is.False,
+                    "A restored empty tab must not take the keyboard from the editor.");
+            });
+        }
+        finally
+        {
+            restored.Dispose();
         }
     }
 
@@ -314,6 +509,17 @@ public class DockTabAddButtonTests
     private static ToolTabAddButton? FindAddButton(Visual root)
     {
         return root.GetVisualDescendants().OfType<ToolTabAddButton>().SingleOrDefault();
+    }
+
+    // The list virtualizes, so a tool scrolled out of view has no button until one is requested.
+    private static Button FindToolButton(NewToolTabView page, ToolTabExtension extension)
+    {
+        var newTab = (NewToolTabDockable)page.DataContext!;
+        int index = newTab.VisibleItems.ToList().FindIndex(item => ReferenceEquals(item.Extension, extension));
+        Assert.That(index, Is.GreaterThanOrEqualTo(0), $"{extension.Name} is not listed.");
+        var button = (Button)page.ToolsList.GetOrCreateElement(index);
+        Assert.That(button.DataContext, Is.SameAs(newTab.VisibleItems[index]));
+        return button;
     }
 
     private static Point Center(Control control, Visual relativeTo)

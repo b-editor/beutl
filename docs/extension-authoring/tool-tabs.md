@@ -12,7 +12,7 @@ A tool tab has two cooperating types:
 The extension defines:
 
 - `CanMultiple`: whether more than one context may be open.
-- `Header`: the add-tab menu label; `null` hides the tool from that menu.
+- `Header`: the label in the tool pickers (the new-tab page a dock's add button opens, the tool menu, and the tab switcher); `null` hides the tool from them.
 - `GetIcon`: the icon drawn left of the tab title; `null` leaves the tab text-only.
 - `DefaultAnchor`: the initial `Left`, `Right`, `Bottom`, or `Player` dock.
 - `DefaultOrder`: ordering among tools with the same anchor.

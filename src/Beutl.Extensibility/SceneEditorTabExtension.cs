@@ -35,7 +35,7 @@ public abstract class ToolTabExtension : ViewExtension
     /// </remarks>
     public virtual bool ReuseContentAcrossActivation => false;
 
-    /// <summary>Gets the add-tab menu label, or <see langword="null"/> to hide the tool.</summary>
+    /// <summary>Gets the label in the tool pickers, or <see langword="null"/> to hide the tool from them.</summary>
     /// <remarks>Open tab titles come from <see cref="IToolContext.Header"/>.</remarks>
     public virtual string? Header => null;
 

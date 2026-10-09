@@ -5,6 +5,7 @@
              xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:dockFluent="using:Dock.Avalonia.Themes.Fluent"
              xmlns:dockVm="using:Beutl.ViewModels.Dock"
+             xmlns:dockViews="using:Beutl.Views.Dock"
              xmlns:views="using:Beutl.Views"
              x:Class="Beutl.HeadlessUITests.TestApp">
   <Application.Resources>
@@ -36,6 +37,9 @@
     </DataTemplate>
     <DataTemplate DataType="dockVm:PlayerToolDockable">
       <views:PlayerView DataContext="{Binding Player}" />
+    </DataTemplate>
+    <DataTemplate DataType="dockVm:NewToolTabDockable">
+      <dockViews:NewToolTabView />
     </DataTemplate>
   </Application.DataTemplates>
   <!--
