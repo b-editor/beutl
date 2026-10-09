@@ -13,6 +13,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
@@ -601,6 +602,18 @@ public sealed class SchemaGenerationTests
             Assert.That(titlePositions.Min(), Is.GreaterThan(-650));
             Assert.That(titlePositions.Max(), Is.GreaterThan(200));
         });
+    }
+
+    [Test]
+    public void Engine_object_schema_exposes_drawable_object_3d()
+    {
+        // The app adds it through LibraryRegistrar, which headless hosts never run.
+        var generator = new SchemaGenerator();
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(DrawableObject3D));
+
+        TypeDescriptor? drawableObject3D = schema.Types.SingleOrDefault(type => type.Type == typeof(DrawableObject3D).FullName);
+
+        Assert.That(drawableObject3D?.Category, Is.EqualTo(KnownLibraryItemFormats.EngineObject));
     }
 
     [Test]
