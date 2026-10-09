@@ -117,7 +117,8 @@ internal partial class WebBrowserTabView
         if (_viewModel is not { HasWebAddress.Value: true } vm) return;
         if (!vm.Profile.AddBookmark(vm.CurrentUri, vm.PageTitle ?? string.Empty))
         {
-            CheckProfileSave(false);
+            NotificationService.ShowError(Strings.BrowserBookmarks,
+                string.Format(Strings.BrowserStorageError, vm.Profile.Error));
             return;
         }
         NotificationService.ShowSuccess(Strings.BrowserBookmarks,

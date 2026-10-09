@@ -388,7 +388,7 @@ public class BrowserToolPanelsTests
     }
 
     [AvaloniaTest]
-    public void BookmarkingTheCurrentPageReportsAStorageFailureInsteadOfSuccess()
+    public void BookmarkSaveFailuresAreReportedWithoutReplacingAPendingDownloadOffer()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var uri = new Uri("https://example.com/page");
@@ -396,19 +396,23 @@ public class BrowserToolPanelsTests
         using var vm = new WebBrowserTabViewModel(CreateContext(root), uri, profile);
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
         vm.CompleteNavigation(uri, true, false, false);
+        view.OnNativeDownloadRequested(new Uri("https://files.example/movie.mp4"), "movie.mp4", new IdleDownloadSource());
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
         INotificationServiceHandler? previousHandler = NotificationService.Handler;
         var notifications = new CaptureNotificationHandler();
         NotificationService.Handler = notifications;
         try
         {
             OpenMenu(view, Strings.BrowserBookmarkThisPage);
+            Notification notification = notifications.Notifications.Single();
             Assert.Multiple(() =>
             {
                 Assert.That(profile.Bookmarks, Is.Empty);
-                Assert.That(notifications.Notifications, Is.Empty);
-                Assert.That(view.FindControl<Grid>("DownloadStatusPanel")!.IsVisible, Is.True);
-                Assert.That(view.FindControl<TextBlock>("DownloadStatusText")!.Text,
-                    Is.EqualTo(string.Format(Strings.BrowserStorageError, "write denied")));
+                Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+                Assert.That(notification.Message, Is.EqualTo(string.Format(Strings.BrowserStorageError, "write denied")));
+                Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+                Assert.That(view.FindControl<TextBlock>("DownloadStatusText")!.Text, Is.EqualTo(Strings.BrowserPageDownloadRequest));
             });
         }
         finally
@@ -479,6 +483,16 @@ public class BrowserToolPanelsTests
         public List<Notification> Notifications { get; } = [];
 
         public void Show(Notification notification) => Notifications.Add(notification);
+    }
+
+    private sealed class IdleDownloadSource : IBrowserDownloadSource
+    {
+        public Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class PendingMediaHandler : HttpMessageHandler
