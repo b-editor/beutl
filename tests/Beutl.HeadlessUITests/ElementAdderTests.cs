@@ -3,6 +3,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -65,6 +66,8 @@ public class ElementAdderTests
             Assert.That(created, Has.Count.EqualTo(2));
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Items, Has.Count.EqualTo(2));
+            Assert.That(created[0].AccentColor, Is.EqualTo(Color.Parse("#ffc9ba6f")));
+            Assert.That(created[1].AccentColor, Is.EqualTo(Color.Parse("#ffaac75a")));
             Assert.That(editor.Scene.Children.Select(element => element.Id), Is.EqualTo(createdIds));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(initialUndoCount + 1));
         }
