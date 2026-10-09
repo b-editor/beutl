@@ -220,6 +220,7 @@ public static class TypeRegistration
         Register<Sphere3D>(KnownLibraryItemFormats.EngineObject);
         Register<Plane3D>(KnownLibraryItemFormats.EngineObject);
         Register<Model3D>(KnownLibraryItemFormats.EngineObject);
+        Register<DrawableObject3D>(KnownLibraryItemFormats.EngineObject);
         Register<DirectionalLight3D>(KnownLibraryItemFormats.EngineObject);
         Register<PointLight3D>(KnownLibraryItemFormats.EngineObject);
         Register<SpotLight3D>(KnownLibraryItemFormats.EngineObject);
