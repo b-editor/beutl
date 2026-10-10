@@ -68,6 +68,16 @@ public sealed class ElementAttributeService : IElementAttributeService
         // Same backstop as SetAccentColor; the caller enforces the layer lock.
         if (element.IsLocked) return;
 
+        // At an end, a locked element after this one keeps deciding how the boundary blends when it sets
+        // an enter transition, so changing this side alone would show no difference.
+        if (edge == ElementEdge.End
+            && ElementTransitionEdits.FindPartner(element, edge) is { } locked
+            && ElementTransitionEdits.FindEditablePartner(element, edge) == null
+            && locked.EnterTransition is { IsEnabled: true })
+        {
+            return;
+        }
+
         Element? partner = ElementTransitionEdits.FindEditablePartner(element, edge);
         ClipTransition? own = ElementTransitionEdits.GetTransition(element, edge);
         ClipTransition? across = partner == null ? null : ElementTransitionEdits.GetTransition(partner, Opposite(edge));

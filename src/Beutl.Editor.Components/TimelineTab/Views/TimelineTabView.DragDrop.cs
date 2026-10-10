@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
@@ -56,7 +57,7 @@ public sealed partial class TimelineTabView
             if (e.DataTransfer.TryGetValue(BeutlDataFormats.ClipTransition) is { } transitionTypeName
                 && TypeFormat.ToType(transitionTypeName) is { } transitionType
                 && ElementTransitionEdits.IsTransitionType(transitionType)
-                && FindTransitionDropTarget(viewModel, pt) is { } target)
+                && FindTransitionDropTarget(viewModel, e, pt) is { } target)
             {
                 target.Element.ApplyTransition(target.Edge, transitionType);
             }
@@ -146,7 +147,7 @@ public sealed partial class TimelineTabView
         if (e.DataTransfer.Contains(BeutlDataFormats.ClipTransition))
         {
             e.DragEffects = ViewModel is { } viewModel
-                            && FindTransitionDropTarget(viewModel, e.GetPosition(TimelinePanel)) is { Element.IsEditable.Value: true }
+                            && FindTransitionDropTarget(viewModel, e, e.GetPosition(TimelinePanel)) is { Element.IsEditable.Value: true }
                 ? DragDropEffects.Copy
                 : DragDropEffects.None;
             return;
@@ -160,21 +161,25 @@ public sealed partial class TimelineTabView
         }
     }
 
-    // The element under the pointer and the edge of it the pointer is nearer.
+    // The element under the pointer and the edge of it the pointer is nearer. The element whose view the
+    // pointer is over wins, since clips that overlap on a layer are drawn one above the other.
     private static (ElementViewModel Element, ElementEdge Edge)? FindTransitionDropTarget(
-        TimelineTabViewModel viewModel, Point position)
+        TimelineTabViewModel viewModel, DragEventArgs e, Point position)
     {
         TimeSpan time = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale);
-        int layer = viewModel.ToLayerNumber(position.Y);
-        foreach (ElementViewModel element in viewModel.Elements)
+        ElementViewModel? element = (e.Source as Visual)?.FindAncestorOfType<ElementView>(includeSelf: true)?.DataContext
+            as ElementViewModel;
+        if (element == null)
         {
-            Element model = element.Model;
-            if (model.ZIndex != layer || !model.Range.Contains(time)) continue;
-
-            TimeSpan middle = model.Start + (model.Length / 2);
-            return (element, time < middle ? ElementEdge.Start : ElementEdge.End);
+            int layer = viewModel.ToLayerNumber(position.Y);
+            element = viewModel.Elements.FirstOrDefault(
+                item => item.Model.ZIndex == layer && item.Model.Range.Contains(time));
         }
 
-        return null;
+        if (element == null) return null;
+
+        Element model = element.Model;
+        TimeSpan middle = model.Start + (model.Length / 2);
+        return (element, time < middle ? ElementEdge.Start : ElementEdge.End);
     }
 }

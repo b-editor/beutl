@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
+using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -266,6 +267,46 @@ public class ElementTransitionTimelineTests
             => editor.FindToolTab<ObjectPropertyTabViewModel>()!.ChildContext.Value!.Properties
                 .OfType<EasingEditorViewModel<Easing>>()
                 .Single();
+    }
+
+    // A clip that overlaps another on its layer is drawn above it; a transition dropped on it goes to it,
+    // not to the clip beneath.
+    [AvaloniaTest]
+    public async Task ATransitionDroppedOnOverlappingClips_GoesToTheClipUnderThePointer()
+    {
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, ElementViewModel outgoing, _) = await OpenCut();
+            Element over = editor.Scene.Children.Last();
+            var shape = new RectShape();
+            var top = new Element { Start = TimeSpan.FromSeconds(0.5), Length = TimeSpan.FromSeconds(1), ZIndex = 0 };
+            top.Objects.Add(shape);
+            editor.Scene.Children.Add(top);
+            HeadlessTestHelpers.Settle(3);
+            ElementViewModel topViewModel = outgoing.Timeline.Elements.Single(item => item.Model == top);
+            (view, window) = Show(topViewModel);
+            Border border = FindElementView(view, topViewModel).FindControl<Border>("border")!;
+            Point point = new(3, border.Bounds.Height / 2);
+            using var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.Create(BeutlDataFormats.ClipTransition, TypeFormat.ToString(typeof(FadeTransition))));
+
+            border.RaiseEvent(new DragEventArgs(DragDrop.DropEvent, transfer, border, point, KeyModifiers.None));
+            HeadlessTestHelpers.Settle(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(top.EnterTransition, Is.TypeOf<FadeTransition>());
+                Assert.That(outgoing.Model.EnterTransition, Is.Null);
+                Assert.That(outgoing.Model.ExitTransition, Is.Null);
+                Assert.That(over.EnterTransition, Is.Null);
+            });
+        }
+        finally
+        {
+            Close(view, window);
+        }
     }
 
     [AvaloniaTest]

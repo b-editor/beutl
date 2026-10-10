@@ -71,6 +71,7 @@ public static class ElementTransitionEdits
         ArgumentNullException.ThrowIfNull(source);
         ClipTransition transition = CreateTransition(transitionType, source.Duration.CurrentValue);
         transition.Easing.CurrentValue = source.Easing.CurrentValue;
+        transition.Easing.Expression = source.Easing.Expression;
         transition.IsEnabled = source.IsEnabled;
         return transition;
     }

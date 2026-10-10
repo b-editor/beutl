@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -210,6 +211,40 @@ public class ElementAttributeServiceTests
     }
 
     [Test]
+    public void ApplyTransition_ChangingTheType_KeepsAnEasingExpression()
+    {
+        (_, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        var expression = new ConstantEasingExpression(new CubicEaseInOut());
+        incoming.EnterTransition!.Easing.Expression = expression;
+
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(WipeTransition));
+
+        Assert.That(incoming.EnterTransition?.Easing.Expression, Is.SameAs(expression));
+    }
+
+    // The element after a cut decides how the boundary blends, so when it is locked with an enter
+    // transition, picking a type at the end before it would commit a change nobody can see.
+    [Test]
+    public void ApplyTransition_AtAnEndBeforeALockedDecidingSide_ChangesNothing()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        incoming.EnterTransition = new WipeTransition();
+        incoming.IsLocked = true;
+        _history.Commit("lock");
+        int before = _history.UndoCount;
+
+        _service.ApplyTransition(outgoing, ElementEdge.End, typeof(FadeTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outgoing.ExitTransition, Is.Null);
+            Assert.That(incoming.EnterTransition, Is.TypeOf<WipeTransition>());
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
     public void ApplyTransition_OfTheSameType_ChangesNothing()
     {
         (_, Element incoming) = AddCut();
@@ -310,5 +345,18 @@ public class ElementAttributeServiceTests
         Element incoming = _harness.AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
         _history.Commit("cut");
         return (outgoing, incoming);
+    }
+
+    private sealed class ConstantEasingExpression(Easing value) : IExpression<Easing>
+    {
+        public string ExpressionString => "test constant";
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public Easing Evaluate(ExpressionContext context) => value;
     }
 }
