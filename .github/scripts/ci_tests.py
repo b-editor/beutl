@@ -2,20 +2,22 @@
 
 import argparse
 from pathlib import Path
+import re
 import shlex
 import subprocess
 import xml.etree.ElementTree as ET
 
 
-def partition(groups):
+def partition(groups, suffix=""):
     """Each group excludes earlier groups; the final group catches every new test."""
     filters = {}
     previous = []
     for name, prefixes in groups:
-        include = "|".join(f"FullyQualifiedName~{prefix}" for prefix in prefixes)
-        exclude = "&".join(f"FullyQualifiedName!~{prefix}" for prefix in previous)
-        filters[name] = "&".join(part for part in (f"({include})" if include else "", exclude) if part)
-        previous.extend(prefixes)
+        patterns = ["^" + re.escape(prefix) + suffix for prefix in prefixes]
+        include = " or ".join(f"class =~ '{pattern}'" for pattern in patterns)
+        exclude = " and ".join(f"class !~ '{pattern}'" for pattern in previous)
+        filters[name] = " and ".join(part for part in (f"({include})" if include else "", exclude) if part)
+        previous.extend(patterns)
     return filters
 
 
@@ -27,11 +29,13 @@ UNIT_FILTERS = partition([
     ("unit-git", ["Beutl.UnitTests.Editor.VersionControl."]),
     ("unit-other", []),
 ])
+# A prefix matching AssemblySetUp selects its entire subtree in NUnit. Matching
+# test fixture names keeps that namespace-wide SetUpFixture out of the partition.
 UI_FILTERS = partition([
     ("ui-a-g", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABCDEFG"]),
     ("ui-h-p", [f"Beutl.HeadlessUITests.{letter}" for letter in "HIJKLMNOP"]),
     ("ui-other", []),
-])
+], suffix=".*Tests$")
 FILTERS = UNIT_FILTERS | UI_FILTERS
 SHARDED_PROJECTS = {"Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests"}
 
@@ -71,10 +75,12 @@ def test_command(root, assembly, suite, validation):
         "--blame-hang", "--blame-hang-timeout", "5m", "--blame-hang-dump-type", "mini",
         "--blame-crash", "--blame-crash-dump-type", "mini",
     ]
-    if suite in FILTERS:
-        command.extend(["--filter", FILTERS[suite]])
     if not validation:
         command.extend(["--collect", "XPlat Code Coverage", "--settings", str(root / "coverlet.runsettings")])
+    if suite in FILTERS:
+        # Native Where filters avoid the adapter's AssemblySelectLimit, which
+        # otherwise discards VSTest selections over 2,000 tests and runs everything.
+        command.extend(["--", "NUnit.Where=" + FILTERS[suite], "NUnit.ExplicitMode=None"])
     return command
 
 

@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache/restore@v6.1.0
         with:
           path: ~/.nuget/packages
-          key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json') }}
+          key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', '!**/obj/**', '!**/bin/**') }}
           restore-keys: |
             dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-
 
@@ -149,21 +149,22 @@ jobs:
         uses: actions/cache/save@v6.1.0
         with:
           path: ~/.nuget/packages
-          key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json') }}
+          key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', '!**/obj/**', '!**/bin/**') }}
 
       # Archive test outputs once, including their copied app/worker dependencies.
       # Subprocess tests launch their own assembly or the worker copied next to it.
       # tar preserves executable bits; test jobs run DLLs directly, so they need no
-      # obj directories, package restore or repeated solution build.
+      # obj directories, package restore or repeated solution build. The SDK's
+      # RID graph preserves host-compatible native/managed fallbacks while other
+      # platforms' assets are omitted from this Linux-only test artifact.
       - name: Archive test binaries
         run: |
           coverlet_version=$(python3 -c 'import xml.etree.ElementTree as ET; print(next(p.attrib["Version"] for p in ET.parse("Directory.Packages.props").iter("PackageVersion") if p.attrib.get("Include") == "coverlet.collector"))')
           mkdir -p .ci-tools
           cp -a "$HOME/.nuget/packages/coverlet.collector/$coverlet_version/build/net10.0" .ci-tools/coverlet
-          {
-            printf '.ci-tools\0'
-            find tests -type d -path '*/bin/Debug/net10.0' -prune -print0
-          } | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/test-binaries.tar.zst"
+          python3 .github/scripts/archive_ci.py --rid linux-x64 \
+            --runtime-graph "$DOTNET_ROOT/sdk/$(dotnet --version)/PortableRuntimeIdentifierGraph.json" \
+            | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/test-binaries.tar.zst"
           du -h "$RUNNER_TEMP/test-binaries.tar.zst"
 
       - name: Share test binaries

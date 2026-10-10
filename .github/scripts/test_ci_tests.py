@@ -5,16 +5,43 @@ import unittest
 from unittest.mock import patch
 
 import ci_tests
+import archive_ci
 
 
 def matches(expression, name):
     # These filters use only parenthesized OR groups and AND exclusions.
-    return all(any((value not in name if operator == "!~" else value in name)
-                   for operator, value in re.findall(r"FullyQualifiedName(!~|~)([^|&()]+)", group))
-               for group in expression.split("&"))
+    return all(any((re.search(value, name) is None if operator == "!~" else re.search(value, name) is not None)
+                   for operator, value in re.findall(r"class (=~|!~) '([^']+)'", group))
+               for group in expression.split(" and "))
 
 
 class CiTestsTests(unittest.TestCase):
+    def test_runtime_graph_keeps_all_compatible_fallbacks(self):
+        graph = {
+            "linux-x64": {"#import": ["linux", "unix-x64"]},
+            "linux": {"#import": ["unix"]},
+            "unix-x64": {"#import": ["unix"]},
+            "unix": {"#import": ["any"]},
+            "any": {},
+        }
+        self.assertEqual(archive_ci.compatible_rids(graph, "linux-x64"), set(graph))
+        with self.assertRaises(KeyError):
+            archive_ci.compatible_rids(graph, "unknown-rid")
+
+    def test_archive_keeps_host_assets_and_nested_worker_assets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".ci-tools").mkdir()
+            project = root / "tests" / "ExampleTests" / "ExampleTests.csproj"
+            output = project.parent / "bin" / "Debug" / "net10.0"
+            for subdir in ["runtimes", "FFmpegWorker/runtimes"]:
+                for rid in ["linux-x64", "unix", "win-x64", "linux-arm64"]:
+                    (output / subdir / rid / "native").mkdir(parents=True)
+            with patch.object(archive_ci, "test_projects", return_value=[project]):
+                self.assertEqual(archive_ci.prepare_outputs(root, {"linux-x64", "unix"}), [root / ".ci-tools", output])
+            for subdir in ["runtimes", "FFmpegWorker/runtimes"]:
+                self.assertEqual({path.name for path in (output / subdir).iterdir()}, {"linux-x64", "unix"})
+
     def test_unit_shards_cover_each_test_once_including_new_namespaces(self):
         names = [
             "Beutl.UnitTests.Engine.Graphics.Particles.Fixture.Test",
@@ -36,8 +63,10 @@ class CiTestsTests(unittest.TestCase):
             name = f"Beutl.HeadlessUITests.{initial}Fixture.Test"
             with self.subTest(name=name):
                 self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
-        name = "Beutl.HeadlessUITests.PlayerTests.Test(Beutl.HeadlessUITests.AgentType)"
+        name = "Beutl.HeadlessUITests.PlayerTests"
         self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
+        for suite in ["ui-a-g", "ui-h-p"]:
+            self.assertFalse(matches(ci_tests.UI_FILTERS[suite], "Beutl.HeadlessUITests.AssemblySetUp"))
 
     def test_other_suite_follows_solution_and_excludes_helpers_and_sharded_projects(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -57,7 +86,10 @@ class CiTestsTests(unittest.TestCase):
         assembly = root / "tests/Beutl.UnitTests/bin/Debug/net10.0/Beutl.UnitTests.dll"
         normal = ci_tests.test_command(root, assembly, "unit-engine", False)
         validation = ci_tests.test_command(root, assembly, "unit-engine", True)
-        self.assertEqual(normal[normal.index("--filter") + 1], validation[validation.index("--filter") + 1])
+        self.assertEqual(normal[-2:], validation[-2:])
+        self.assertTrue(normal[-2].startswith("NUnit.Where="))
+        self.assertEqual(normal[-1], "NUnit.ExplicitMode=None")
+        self.assertNotIn("--filter", normal)
         self.assertIn("--collect", normal)
         self.assertNotIn("--collect", validation)
         self.assertIn("/repo/.ci-tools/coverlet", normal[normal.index("--test-adapter-path") + 1])
