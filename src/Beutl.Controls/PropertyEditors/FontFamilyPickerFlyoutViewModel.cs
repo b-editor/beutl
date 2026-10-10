@@ -52,7 +52,7 @@ public class FontFamilyPickerFlyoutViewModel
                 _highlightedFont = font;
             }
         });
-        ShowAll.Subscribe(_ => UpdateItems(highlightBestMatch: false));
+        ShowAll.Subscribe(_ => UpdateItems());
 
         IObservable<string?> searches = SearchText.Skip(1);
         if (searchDelay > TimeSpan.Zero)
@@ -80,7 +80,7 @@ public class FontFamilyPickerFlyoutViewModel
     {
         if (!string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal))
         {
-            UpdateItems(highlightBestMatch: true);
+            UpdateItems();
         }
     }
 
@@ -90,7 +90,7 @@ public class FontFamilyPickerFlyoutViewModel
 
         _pinnedItems.Add(font);
         SavePinnedItems();
-        UpdateItems(highlightBestMatch: false);
+        UpdateItems();
     }
 
     public void Unpin(PinnableLibraryItem item)
@@ -99,7 +99,7 @@ public class FontFamilyPickerFlyoutViewModel
 
         _pinnedItems.Remove(font);
         SavePinnedItems();
-        UpdateItems(highlightBestMatch: false);
+        UpdateItems();
     }
 
     private void SavePinnedItems()
@@ -115,10 +115,12 @@ public class FontFamilyPickerFlyoutViewModel
         return _pinnedItems.Contains(item);
     }
 
-    // highlightBestMatch moves the highlight to the first result, which a new search wants; otherwise
-    // the highlighted font stays highlighted.
-    private void UpdateItems(bool highlightBestMatch)
+    // A query applied for the first time moves the highlight to its best match, whatever rebuilt the list:
+    // pinning a font while the typing pause runs applies the new query too. Otherwise the highlighted font
+    // stays highlighted.
+    private void UpdateItems()
     {
+        bool highlightBestMatch = !string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal);
         _appliedSearchText = SearchText.Value;
         var query = FontFamilySearchQuery.Parse(_appliedSearchText);
         PinnableLibraryItem[] items;

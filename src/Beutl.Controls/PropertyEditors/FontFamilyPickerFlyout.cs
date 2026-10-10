@@ -70,8 +70,8 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
                     Dismissed?.Invoke(this, EventArgs.Empty);
                     Hide();
                     break;
-                // These act on the results, so show the results for everything typed so far first.
-                case Key.Enter or Key.Up or Key.Down:
+                // These move through the results, so show the results for everything typed so far first.
+                case Key.Up or Key.Down:
                     viewModel.FlushSearch();
                     break;
             }
@@ -102,6 +102,8 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
 
     protected override void OnConfirmed()
     {
+        // Enter, the checkmark and any other way of confirming pick from the results for everything typed.
+        viewModel.FlushSearch();
         Confirmed?.Invoke(this, EventArgs.Empty);
         Hide();
     }

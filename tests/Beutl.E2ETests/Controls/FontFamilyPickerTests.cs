@@ -116,6 +116,23 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
+    public void Pinning_while_a_search_waits_highlights_the_best_match_of_the_search()
+    {
+        // Pinning rebuilds the list, which applies the query still waiting out the typing pause.
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.FromHours(1));
+        viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
+
+        viewModel.SearchText.Value = "beta";
+        viewModel.Pin(Item(viewModel, "Noto Sans"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Names(viewModel), Is.EqualTo(new[] { "Beta Mono" }));
+            Assert.That(viewModel.SelectedItem.Value?.DisplayName, Is.EqualTo("Beta Mono"));
+        });
+    }
+
+    [AvaloniaTest]
     public void The_search_box_has_focus_when_the_picker_opens()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
@@ -163,6 +180,27 @@ public class FontFamilyPickerTests
 
         picker.Type("beta");
         picker.Press(Key.Enter, PhysicalKey.Enter);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmed, Is.True);
+            Assert.That(viewModel.SelectedItem.Value?.DisplayName, Is.EqualTo("Beta Mono"));
+            Assert.That(picker.Flyout.IsOpen, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public void The_checkmark_right_after_typing_confirms_the_best_match_for_the_typed_text()
+    {
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.FromHours(1));
+        viewModel.SelectedItem.Value = Item(viewModel, "Noto Serif");
+        using var picker = PickerHost.Open(viewModel);
+        bool confirmed = false;
+        picker.Flyout.Confirmed += (_, _) => confirmed = true;
+
+        picker.Type("beta");
+        picker.Find<Button>("AcceptButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        HeadlessTestHelpers.Render();
 
         Assert.Multiple(() =>
         {
