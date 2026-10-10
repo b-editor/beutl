@@ -16,7 +16,11 @@ internal sealed class AgentHostEndpointFailover : IDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<AgentHostEndpointFailover>();
     private readonly AgentHostInstanceRegistry _registry;
     private readonly AgentHostInstanceAuthentication _authentication;
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(1) };
+    // The proof must come from the requested listener, never a proxy or redirect target.
+    private readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
+    {
+        Timeout = TimeSpan.FromSeconds(1)
+    };
     private readonly AliasConfigurationProvider _provider = new();
     private readonly IConfigurationRoot _configuration;
     private readonly int _preferredPort;

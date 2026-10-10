@@ -10,6 +10,10 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -194,6 +198,58 @@ public sealed class AgentHostInstanceTests
         {
             await host.StopAsync();
             await foreign.StopAsync();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Redirected_identity_proof_never_advertises_the_untrusted_listener()
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        int preferredPort = AvailablePort();
+        var builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, preferredPort));
+        await using WebApplication redirector = builder.Build();
+        Uri? identityTarget = null;
+        int probes = 0;
+        int authenticatedRequests = 0;
+        var repeatedProbe = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        redirector.MapGet("/agent-host/identity", (HttpContext context) =>
+        {
+            if (context.Request.Headers.ContainsKey("Authorization"))
+                Interlocked.Increment(ref authenticatedRequests);
+            Uri? target = Volatile.Read(ref identityTarget);
+            if (target is null)
+                return Results.NotFound();
+            if (Interlocked.Increment(ref probes) >= 2)
+                repeatedProbe.TrySetResult();
+            return Results.Redirect(target + context.Request.QueryString.ToString());
+        });
+        await using var host = CreateHost(new EditorService(TestShell.Extensions), directory, preferredPort);
+        try
+        {
+            await redirector.StartAsync();
+            await host.StartAsync();
+            Volatile.Write(ref identityTarget, new Uri(host.EndpointUri!, "/agent-host/identity"));
+            // A second request means the first proof attempt completed and was evaluated.
+            await repeatedProbe.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(host);
+            Assert.Multiple(() =>
+            {
+                Assert.That(host.ConnectionUri, Is.EqualTo(host.EndpointUri));
+                Assert.That(host.ConnectionUri!.Port, Is.Not.EqualTo(preferredPort));
+                Assert.That(settings.LiveMcpUrl.Value, Is.EqualTo(host.EndpointUri!.ToString()));
+                Assert.That(Volatile.Read(ref authenticatedRequests), Is.Zero);
+            });
+            await using McpClient client = await ConnectAsync(host);
+            AssertSuccess(await client.CallToolAsync("list_instances"));
+        }
+        finally
+        {
+            await host.StopAsync();
+            await redirector.StopAsync();
             Directory.Delete(directory, true);
         }
     }
