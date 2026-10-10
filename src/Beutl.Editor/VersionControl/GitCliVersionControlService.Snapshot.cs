@@ -140,13 +140,14 @@ internal sealed partial class GitCliVersionControlService
                 return new CommitResult.SkippedNoIdentity();
             }
 
-            // The project can change while the identity prompt is open, and the large-media and
-            // ignored-files notices read what is about to be staged or left out.
-            status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+            // The project can change while the identity prompt is open, and the ignored-files and
+            // large-media notices read what is about to be left out or staged. The status is read
+            // after the ignored-files notice, which can wait on the user as well.
             await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
                 repository,
                 runner,
                 cancellationToken).ConfigureAwait(false);
+            status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         }
 
         await RaiseLargeMediaNoticeIfNeededAsync(
