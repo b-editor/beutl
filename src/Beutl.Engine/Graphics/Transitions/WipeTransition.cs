@@ -39,7 +39,7 @@ public sealed partial class WipeTransition : ClipTransition
         }
 
         // An opaque-to-clear ramp along Direction, laid across whatever bounds it is drawn into.
-        partial void PostUpdate(WipeTransition obj, CompositionContext context)
+        partial void PostReconcile(WipeTransition obj, CompositionContext context)
         {
             Vector direction = ClipTransitionContext.GetDirection(Direction);
             if (_brush == null)
