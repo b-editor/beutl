@@ -3078,7 +3078,7 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Null);
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<VersionControlLifecycleUnavailableException>(async () =>
                 await coordinator.CommitManualAsync("blocked alias"));
             Assert.That(shared.CommitAllCalls, Is.Zero);
 
@@ -3093,7 +3093,7 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Null);
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<VersionControlLifecycleUnavailableException>(async () =>
                 await coordinator.CommitManualAsync("blocked during hygiene"));
             Assert.That(shared.CommitAllCalls, Is.Zero);
 
@@ -7998,7 +7998,10 @@ public class VersionControlRestoreTests
             Assert.Multiple(() =>
             {
                 Assert.That(backendGateEntered, Is.True);
-                Assert.That(closedProjectPull, Is.TypeOf<RemoteOpResult.Failed>());
+                Assert.That(
+                    closedProjectPull,
+                    Is.EqualTo(new RemoteOpResult.Failed(
+                        "The open project changed while the pull was being prepared.")));
                 Assert.That(result,
                     Is.EqualTo(new RemoteOpResult.Failed(
                         Strings.VersionControl_PullTransitionUncertain)));
@@ -9718,6 +9721,106 @@ public class VersionControlRestoreTests
                 // The checkout itself runs uncancellable with the project closed.
                 Assert.That(projectWasOpenDuringPrefetch, Is.True);
             });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Pull_reports_a_missing_git_lfs_instead_of_a_changed_project()
+    {
+        const string LfsMissing = "Git LFS is not installed. Install Git LFS to pull this project.";
+        (RemoteOpResult result, bool projectStayedOpen, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-lfs-missing",
+                backend => backend.PrefetchCommitLfsObserver =
+                    () => throw new InvalidOperationException(LfsMissing),
+                checkpointFailure: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(new RemoteOpResult.Failed(LfsMissing)));
+            Assert.That(projectStayedOpen, Is.True);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Pull_reports_why_the_safety_checkpoint_could_not_be_created()
+    {
+        var failure = new ProjectCheckpointStagedChangesException();
+        (RemoteOpResult result, bool projectStayedOpen, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-checkpoint-failure",
+                configure: null,
+                checkpointFailure: failure);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(new RemoteOpResult.Failed(failure.Message)));
+            Assert.That(projectStayedOpen, Is.True);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    private static async Task<(RemoteOpResult Result, bool ProjectStayedOpen, int PullCalls)>
+        RunPullThatFailsBeforeClosingAsync(
+            string projectName,
+            Action<PullCycleTestBackend>? configure,
+            Exception? checkpointFailure)
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            Project project = await CreateProjectForFakeVersionControlAsync(projectName);
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
+            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                PreflightResult = new PullPreflightResult(
+                    new RemoteOpResult.Success(),
+                    RequiresTransition: true,
+                    "2222222222222222222222222222222222222222"),
+                CheckpointFailure = checkpointFailure,
+            };
+            configure?.Invoke(backend);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            RemoteOpResult result = await coordinator.PullAsync()
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Settle();
+
+            return (
+                result,
+                ReferenceEquals(TestShell.Project.CurrentProject.Value, project),
+                backend.PullCalls);
         }
         finally
         {
@@ -13245,6 +13348,8 @@ public class VersionControlRestoreTests
 
         public int SetLocalIdentityCalls { get; private set; }
 
+        public Exception? CheckpointFailure { get; init; }
+
         public int CheckpointCreateCalls { get; private set; }
 
         public int PreflightCalls { get; private set; }
@@ -13443,6 +13548,11 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             CheckpointCreateCalls++;
+            if (CheckpointFailure is not null)
+            {
+                throw CheckpointFailure;
+            }
+
             var checkpoint = new ProjectCheckpoint(
                 "refs/beutl/safety/test-checkpoint",
                 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
