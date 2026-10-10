@@ -60,7 +60,7 @@ public sealed partial class AiVideoEditNode : GenerativeNode, IPromptLibraryTarg
 
     public InputPort<string> Prompt { get; }
 
-    public InputPort<int> Duration { get; }
+    public new InputPort<int> Duration { get; }
 
     public InputPort<RenderNode?> CharacterImage { get; }
 

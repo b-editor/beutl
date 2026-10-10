@@ -58,7 +58,7 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
 
     public InputPort<string> Model { get; }
 
-    public InputPort<int> Duration { get; }
+    public new InputPort<int> Duration { get; }
 
     public InputPort<string> Resolution { get; }
 
