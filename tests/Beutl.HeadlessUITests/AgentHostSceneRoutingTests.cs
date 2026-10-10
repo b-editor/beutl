@@ -92,6 +92,69 @@ public sealed class AgentHostSceneRoutingTests
     }
 
     [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Copied_scenes_with_duplicate_ids_are_rejected_before_listing_or_editing(bool inProject)
+    {
+        (Scene first, _, string directory) = await CreateScenesAsync();
+        string originalPath = first.Uri!.LocalPath;
+        string copiedPath = Path.Combine(directory, "copied.scene");
+        File.Copy(originalPath, copiedPath);
+        if (!inProject)
+        {
+            await TestShell.Project.CloseProjectAsync();
+            TestShell.MainViewModel.MenuBar.OpenFileCore(originalPath);
+        }
+        TestShell.MainViewModel.MenuBar.OpenFileCore(copiedPath);
+        HeadlessTestHelpers.Settle();
+
+        Scene[] scenes = TestShell.Project.CurrentProject.Value is { } project
+            ? project.Items.OfType<Scene>().ToArray()
+            : TestShell.Editor.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>()
+                .Select(editor => editor.Scene).ToArray();
+        Scene original = scenes.Single(scene => scene.Uri!.LocalPath == originalPath);
+        Scene copied = scenes.Single(scene => scene.Uri!.LocalPath == copiedPath);
+        Assert.Multiple(() =>
+        {
+            Assert.That(copied, Is.Not.SameAs(original));
+            Assert.That(copied.Id, Is.EqualTo(original.Id), "Reproduce an imported copy's persisted ID collision.");
+            Assert.That(SelectedScene(), Is.SameAs(copied));
+        });
+        Guid sharedId = original.Id;
+        string originalName = original.Name;
+        string copiedName = copied.Name;
+        var visibleTab = TestShell.Editor.SelectedTabItem.Value;
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        Error(await client.CallToolAsync("list_scenes"), ErrorCode.ValidationRejected);
+        Error(await client.CallToolAsync("read_document", Target(sharedId)), ErrorCode.ValidationRejected);
+        var arguments = Target(sharedId);
+        arguments["schemaVersion"] = "1";
+        arguments["patch"] = new JsonObject { ["Name"] = "Wrong scene edited" };
+        Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
+        Assert.Multiple(() =>
+        {
+            Assert.That(original.Name, Is.EqualTo(originalName));
+            Assert.That(copied.Name, Is.EqualTo(copiedName));
+            Assert.That(original.Id, Is.EqualTo(sharedId));
+            Assert.That(copied.Id, Is.EqualTo(sharedId));
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(visibleTab));
+        });
+
+        await TestShell.Editor.CloseTabItem(visibleTab!, saveChanges: false);
+        TestShell.Project.CurrentProject.Value?.Items.Remove(copied);
+        TestShell.Editor.ActivateTabItem(original);
+        HeadlessTestHelpers.Settle();
+        JsonObject listing = Success(await client.CallToolAsync("list_scenes"));
+        Assert.That(listing["scenes"]!.AsArray().Count(scene => scene!["sceneId"]!.GetValue<string>() == sharedId.ToString()),
+            Is.EqualTo(1));
+        await RenameAsync(client, original, "Original edited after removing the copy");
+        Assert.That(original.Name, Is.EqualTo("Original edited after removing the copy"));
+    }
+
+    [AvaloniaTest]
     public async Task Scene_calls_reject_targets_while_project_tabs_are_disposing()
     {
         (Scene first, Scene second, string directory) = await CreateScenesAsync();

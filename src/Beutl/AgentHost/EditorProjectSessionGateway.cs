@@ -177,11 +177,30 @@ public sealed class EditorProjectSessionGateway(
     // Call only on the UI thread. An open project also exposes scenes whose tabs are closed;
     // without a project, standalone open scene tabs remain addressable.
     internal IReadOnlyList<Scene> GetScenes()
-        => projectService.CurrentProject.Value is { } project
+    {
+        Scene[] scenes = projectService.CurrentProject.Value is { } project
             ? project.Items.OfType<Scene>().ToArray()
             : editorService.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>()
                 .Where(editor => !editor.IsDisposingOrDisposed && editor.Scene is not null)
                 .Select(editor => editor.Scene).Distinct().ToArray();
+
+        // Copied scene files keep their persisted IDs. Do not publish ambiguous targets or
+        // let a request for one of them silently bind the first matching document.
+        var sceneIds = new HashSet<Guid>();
+        foreach (Scene scene in scenes)
+        {
+            if (!sceneIds.Add(scene.Id))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Multiple available scenes share sceneId '{scene.Id}'; live MCP cannot select a unique target.",
+                    "sceneId",
+                    "Ensure all available scenes have unique persisted IDs, then call list_scenes again."));
+            }
+        }
+
+        return scenes;
+    }
 
     public LiveEditingSession ResolveScene(Guid sceneId)
         => Dispatcher.UIThread.Invoke(() =>
