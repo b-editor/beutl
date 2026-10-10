@@ -213,7 +213,7 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
 
         LoadMoreCommand = new AsyncReactiveCommand()
-            .WithSubscribe(LoadMoreAsync)
+            .WithSubscribe(() => RunCommandAsync(LoadMoreAsync, nameof(LoadMoreCommand)))
             .DisposeWith(_disposables);
         BackToHistoryCommand = new ReactiveCommandSlim(ShowingDetail)
             .WithSubscribe(ShowHistory)
@@ -225,16 +225,22 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .WithSubscribe(() => PendingRepositoryAdoption.Value?.Respond(false))
             .DisposeWith(_disposables);
         EnableVersionControlCommand = new AsyncReactiveCommand(CanEnableVersionControl)
-            .WithSubscribe(EnableVersionControlAsync)
+            .WithSubscribe(() => RunCommandAsync(
+                EnableVersionControlAsync,
+                nameof(EnableVersionControlCommand)))
             .DisposeWith(_disposables);
         DownloadGitCommand = new AsyncReactiveCommand(IsUnavailable)
             .WithSubscribe(DownloadGitAsync)
             .DisposeWith(_disposables);
         RemoveStaleLockCommand = new AsyncReactiveCommand(HasRecoverableLock)
-            .WithSubscribe(RemoveStaleLockAsync)
+            .WithSubscribe(() => RunCommandAsync(
+                RemoveStaleLockAsync,
+                nameof(RemoveStaleLockCommand)))
             .DisposeWith(_disposables);
         RecoverPendingPullCommand = new AsyncReactiveCommand(HasPendingPullRecovery)
-            .WithSubscribe(RecoverPendingPullAsync)
+            .WithSubscribe(() => RunCommandAsync(
+                RecoverPendingPullAsync,
+                nameof(RecoverPendingPullCommand)))
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = ObserveCanMutate();
         CommitCommand = new AsyncReactiveCommand(
