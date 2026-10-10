@@ -227,7 +227,7 @@ public sealed class AgentHostAiToolsTests
         // With no model to check against, the lists the AI dialog offers stand in.
         ToolResult<AgentAiJobSnapshot> oddRatio = await tools.GenerateImage("a cat", aspectRatio: "17:3");
         ToolResult<AgentAiJobSnapshot> oddBackground = await tools.GenerateImage("a cat", background: "blurred");
-        // With no catalog, a named model would be sent as the service default.
+        // With no catalog, the executor cannot confirm a named model and refuses it.
         ToolResult<AgentAiJobSnapshot> unconfirmedModel = await tools.GenerateImage("a cat", model: "anything");
         // The executor checks against the fallback lists, which offer 4, 6 and 8 seconds.
         ToolResult<AgentAiJobSnapshot> fallbackDuration = await tools.GenerateVideo("a cat", durationSeconds: 7);

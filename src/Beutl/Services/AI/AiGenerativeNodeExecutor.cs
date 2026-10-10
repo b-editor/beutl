@@ -696,15 +696,18 @@ internal sealed class AiGenerativeNodeExecutor(
 
     /// <summary>
     /// The named model when it can start, or — for a node left on the default — the model
-    /// the dialog's picker would start on. Null when the catalog offers nothing, which lets
-    /// the server pick, as the dialog does.
+    /// the dialog's picker would start on. Null when the catalog offers nothing and the node
+    /// names no model, which lets the server pick, as the dialog does.
     /// </summary>
     private static GenerativeModelInfo? ResolveModel(string? modelId, IReadOnlyList<GenerativeModelInfo> offered)
     {
         if (modelId is not null)
         {
+            // A request sent without the model would run, and be charged, on the service default.
+            if (offered.Count == 0)
+                throw new GenerativeExecutionException(Strings.AiModelUnconfirmed);
             GenerativeModelInfo? named = offered.FirstOrDefault(model => model.Id == modelId);
-            if (offered.Count > 0 && named is not { IsAvailable: true })
+            if (named is not { IsAvailable: true })
                 throw new GenerativeExecutionException(Strings.AiModelUnavailable);
             return named;
         }
