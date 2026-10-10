@@ -16,7 +16,7 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public partial class TimelineTabView
 {
-    private Flyout? _generationFlyout;
+    private TimelineAiPopupFlyout? _generationFlyout;
 
     private void AttachGeneration(TimelineTabViewModel viewModel)
     {
@@ -76,11 +76,9 @@ public partial class TimelineTabView
         {
             PickImageFile = PickImageFileAsync,
         };
-        var flyout = new Flyout
+        var flyout = new TimelineAiPopupFlyout(popup)
         {
-            Content = new TimelineAiPopupView { DataContext = popup },
             Placement = PlacementMode.TopEdgeAlignedLeft,
-            ShowMode = FlyoutShowMode.Standard,
         };
         popup.CloseRequested += (_, _) => flyout.Hide();
         flyout.Closed += (_, _) =>
@@ -119,7 +117,9 @@ public partial class TimelineTabView
             AllowMultiple = false,
             FileTypeFilter = [FilePickerFileTypes.ImageAll],
         });
-        cancellationToken.ThrowIfCancellationRequested();
-        return files.Count == 1 ? files[0].TryGetLocalPath() : null;
+        // The popup may have closed while the dialog was open; then nothing waits for the file.
+        return files.Count == 1 && !cancellationToken.IsCancellationRequested
+            ? files[0].TryGetLocalPath()
+            : null;
     }
 }

@@ -245,6 +245,75 @@ public sealed class TimelineAiViewTests
     }
 
     [AvaloniaTest]
+    public async Task ClosingThePopupWhileAFileDialogIsOpenIsHarmless()
+    {
+        await TestReset.ResetShellAsync();
+        (_, TimelineTabViewModel timeline) = await OpenEditor("timeline-ai-popup-picker");
+        TimelineGenerationService service = timeline.GenerationService!;
+        TimelineGenerationJob job = service.Create(
+            TimelineGenerationTarget.ForGap(new TimelineGap(0, TimeSpan.Zero, null, null)),
+            new TimelineGenerationSpec { Kind = TimelineGenerationKind.Video, Prompt = "rain" },
+            new TimelineGenerationInputs());
+        var dialog = new TaskCompletionSource<string?>();
+        var popup = new TimelineAiPopupViewModel(job, service, new FakeCatalog(), null, null, 30)
+        {
+            PickImageFile = token =>
+            {
+                // The dialog answers whatever the popup did meanwhile.
+                token.Register(() => dialog.TrySetResult("/tmp/picked.png"));
+                return dialog.Task;
+            },
+        };
+
+        Task choosing = popup.ChooseLastFrameAsync();
+        popup.Dispose();
+        await choosing;
+
+        Assert.That(job.Inputs.Value.LastFramePath, Is.Null, "a closed popup takes nothing from the dialog");
+        service.Remove(job);
+    }
+
+    [AvaloniaTest]
+    public async Task ThePopupStaysOpenUntilItsCloseButtonIsPressed()
+    {
+        await TestReset.ResetShellAsync();
+        (_, TimelineTabViewModel timeline) = await OpenEditor("timeline-ai-popup-close");
+        TimelineGenerationService service = timeline.GenerationService!;
+        TimelineGenerationJob job = service.Create(
+            TimelineGenerationTarget.ForGap(new TimelineGap(0, TimeSpan.Zero, null, null)),
+            new TimelineGenerationSpec { Kind = TimelineGenerationKind.Video, Prompt = "rain" },
+            new TimelineGenerationInputs());
+        using var popup = new TimelineAiPopupViewModel(job, service, new FakeCatalog(), null, null, 30);
+        var anchor = new Button { Content = "anchor", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
+        var window = new Window { Content = anchor, Width = 900, Height = 600 };
+        window.Show();
+        try
+        {
+            HeadlessTestHelpers.Settle();
+            var flyout = new TimelineAiPopupFlyout(popup);
+            flyout.ShowAt(anchor);
+            HeadlessTestHelpers.Settle();
+
+            window.MouseDown(new AvaPoint(5, 5), MouseButton.Left);
+            window.MouseUp(new AvaPoint(5, 5), MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+            Assert.That(flyout.IsOpen, Is.True, "a click elsewhere, or a file dialog taking focus, leaves it open");
+
+            Button close = flyout.Presenter!.GetVisualDescendants().OfType<Button>()
+                .Single(button => button.Name == "CloseButton");
+            Assert.That(close.IsVisible, Is.True);
+            close.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Settle();
+            Assert.That(flyout.IsOpen, Is.False);
+        }
+        finally
+        {
+            window.Close();
+            service.Remove(job);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ASignedOutAccountSeesTheGateInsteadOfGenerate()
     {
         await TestReset.ResetShellAsync();

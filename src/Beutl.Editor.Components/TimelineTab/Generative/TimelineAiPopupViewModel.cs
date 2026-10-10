@@ -37,6 +37,7 @@ public sealed class TimelineAiPopupViewModel : IDisposable
     private readonly SynchronizationContext? _context = SynchronizationContext.Current;
     private bool _syncing;
     private bool _durationSuggested;
+    private bool _disposed;
     private int _modelLoad;
 
     public TimelineAiPopupViewModel(
@@ -278,10 +279,11 @@ public sealed class TimelineAiPopupViewModel : IDisposable
 
     public async Task ChooseLastFrameAsync()
     {
-        if (PickImageFile is not { } pick || IsRunning.Value)
+        if (_disposed || PickImageFile is not { } pick || IsRunning.Value)
             return;
         string? path = await pick(_lifetime.Token);
-        if (path is null)
+        // The popup can be closed, and its job discarded, while the file dialog is open.
+        if (path is null || _disposed)
             return;
         Job.Inputs.Value = Job.Inputs.Value with { LastFramePath = path };
     }
@@ -295,6 +297,9 @@ public sealed class TimelineAiPopupViewModel : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+        _disposed = true;
         _lifetime.Cancel();
         _lifetime.Dispose();
         _disposables.Dispose();

@@ -23,9 +23,16 @@ public partial class TimelineAiPopupView : UserControl
     {
         if (DataContext is not TimelineAiPopupViewModel viewModel)
             return;
-        if (viewModel.LastFrame.Value is not null)
-            viewModel.ClearLastFrame();
-        else
-            await viewModel.ChooseLastFrameAsync();
+        // An event handler: nothing above it would catch a failure, and the app would end.
+        try
+        {
+            if (viewModel.LastFrame.Value is not null)
+                viewModel.ClearLastFrame();
+            else
+                await viewModel.ChooseLastFrameAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 }

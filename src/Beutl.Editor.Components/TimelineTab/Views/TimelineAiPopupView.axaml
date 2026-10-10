@@ -15,22 +15,17 @@
              mc:Ignorable="d">
     <StackPanel Spacing="8">
         <!-- Row 1: what to make, and the prompt. -->
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-            <StackPanel VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="6">
-                <icons:FluentIcon FontSize="18" Icon="Sparkle" />
-                <TextBlock VerticalAlignment="Center"
-                           FontWeight="SemiBold"
-                           IsVisible="{Binding !CanChooseImageTask}"
-                           Text="{Binding Title}" />
-                <ComboBox x:Name="ImageTaskBox"
-                          MinWidth="150"
-                          IsEnabled="{Binding !IsRunning.Value}"
-                          IsVisible="{Binding CanChooseImageTask}"
-                          ItemsSource="{Binding ImageTasks}"
-                          SelectedItem="{Binding SelectedImageTask.Value}" />
-            </StackPanel>
+        <!-- Margins rather than column spacing: a hidden task box must not leave a gap. -->
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <!-- The title is on the panel's bar; an image edit can still switch its task here. -->
+            <ComboBox x:Name="ImageTaskBox"
+                      MinWidth="150"
+                      Margin="0,0,8,0"
+                      VerticalAlignment="Top"
+                      IsEnabled="{Binding !IsRunning.Value}"
+                      IsVisible="{Binding CanChooseImageTask}"
+                      ItemsSource="{Binding ImageTasks}"
+                      SelectedItem="{Binding SelectedImageTask.Value}" />
             <TextBox x:Name="PromptBox"
                      Grid.Column="1"
                      MaxHeight="96"
@@ -41,10 +36,16 @@
                      Text="{Binding Prompt.Value}"
                      TextWrapping="Wrap" />
             <Button Grid.Column="2"
+                    Width="32"
+                    Height="32"
+                    Margin="8,0,0,0"
+                    Padding="0"
                     VerticalAlignment="Top"
-                    Classes="transparent"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Theme="{StaticResource TransparentButton}"
                     ToolTip.Tip="{x:Static lang:Strings.AiTimelineOpenAiTab}">
-                <icons:FluentIcon Icon="MoreHorizontal" />
+                <icons:FluentIcon FontSize="16" Icon="MoreHorizontal" />
                 <Button.Flyout>
                     <ui:FAMenuFlyout>
                         <ui:FAMenuFlyoutItem Command="{Binding OpenAiWorkspace}" Text="{x:Static lang:Strings.AiTimelineOpenAiTab}" />
