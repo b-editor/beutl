@@ -160,10 +160,7 @@ public class ColorSpectrumTests
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render();
             Assert.That(spectrum.Bounds.Width, Is.EqualTo(360));
-            var bitmap = (WriteableBitmap)typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(spectrum)!;
-            Assert.That(bitmap.PixelSize, Is.EqualTo(new PixelSize(356, 356)));
+            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(356, 356)));
             AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 250));
         }
         finally
@@ -171,6 +168,34 @@ public class ColorSpectrumTests
             window.Close();
         }
     }
+
+    [AvaloniaTest]
+    public void Triangle_redraws_its_bitmap_when_the_render_scaling_changes()
+    {
+        var spectrum = new ColorSpectrum { Shape = FluentAvalonia.UI.Controls.ColorSpectrumShape.Triangle };
+        var window = new Window { Width = 260, Height = 260, Content = spectrum };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(256, 256)));
+
+            window.SetRenderScaling(2);
+            HeadlessTestHelpers.Settle();
+            HeadlessTestHelpers.Render();
+            Assert.That(spectrum.Bounds.Width, Is.EqualTo(260));
+            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(512, 512)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static WriteableBitmap TriangleBitmap(ColorSpectrum spectrum)
+        => (WriteableBitmap)typeof(ColorSpectrum)
+            .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(spectrum)!;
 
     private static Rect WheelRect(ColorSpectrum spectrum)
     {
