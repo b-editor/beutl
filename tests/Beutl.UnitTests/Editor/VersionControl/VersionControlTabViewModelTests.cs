@@ -1376,9 +1376,13 @@ public class VersionControlTabViewModelTests
         pendingUiAction!();
         Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
 
-        await viewModel.RemoveStaleLockAsync();
+        await viewModel.RemoveStaleLockCommand.ExecuteAsync();
 
-        Assert.That(viewModel.HasRecoverableLock.Value, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.False);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.False);
+        });
         recovery.Verify(
             x => x.RemoveRecoverableLockAsync(
                 It.Is<RepositoryLockInfo>(value => ReferenceEquals(value, expectedLock)),
@@ -1420,6 +1424,7 @@ public class VersionControlTabViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.True);
             Assert.That(
                 viewModel.StaleLockGuidance.Value,
                 Is.EqualTo(string.Format(
@@ -1427,6 +1432,106 @@ public class VersionControlTabViewModelTests
                     Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
                     expectedLock.LockPath)));
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Stale_lock_requiring_manual_removal_shows_the_guidance_without_a_remove_action(
+        bool offeredAfterBinding)
+    {
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(Path.GetTempPath(), "index.lock"),
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11),
+            requiresManualRemoval: true);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IRepositoryLockRecoveryService> recovery
+            = service.As<IRepositoryLockRecoveryService>();
+        using VersionControlTabViewModel viewModel = await CreateViewModelWithRecoverableLockAsync(
+            service,
+            recovery,
+            lockInfo,
+            offeredAfterBinding);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.False);
+            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.False);
+            Assert.That(
+                viewModel.StaleLockGuidance.Value,
+                Is.EqualTo(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                    lockInfo.LockPath)));
+        });
+        recovery.Verify(
+            x => x.RemoveRecoverableLockAsync(
+                It.IsAny<RepositoryLockInfo>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Removable_stale_lock_offers_the_remove_action_with_the_default_guidance(
+        bool offeredAfterBinding)
+    {
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(Path.GetTempPath(), "index.lock"),
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11),
+            requiresManualRemoval: false);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IRepositoryLockRecoveryService> recovery
+            = service.As<IRepositoryLockRecoveryService>();
+        using VersionControlTabViewModel viewModel = await CreateViewModelWithRecoverableLockAsync(
+            service,
+            recovery,
+            lockInfo,
+            offeredAfterBinding);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.True);
+            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.True);
+            Assert.That(
+                viewModel.StaleLockGuidance.Value,
+                Is.EqualTo(Strings.VersionControl_StaleLockGuidance));
+        });
+    }
+
+    private static async Task<VersionControlTabViewModel> CreateViewModelWithRecoverableLockAsync(
+        Mock<IProjectVersionControlService> service,
+        Mock<IRepositoryLockRecoveryService> recovery,
+        RepositoryLockInfo lockInfo,
+        bool offeredAfterBinding)
+    {
+        RepositoryLockInfo? currentLock = offeredAfterBinding ? null : lockInfo;
+        recovery.SetupGet(x => x.RecoverableLock).Returns(() => currentLock);
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false));
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            CreateServiceSource(service.Object),
+            versionControlCoordinator: null,
+            static action => action());
+        await viewModel.Initialization;
+        if (offeredAfterBinding)
+        {
+            currentLock = lockInfo;
+            recovery.Raise(
+                x => x.RecoverableLockAvailable += null,
+                service.Object,
+                lockInfo);
+        }
+
+        return viewModel;
     }
 
     [Test]

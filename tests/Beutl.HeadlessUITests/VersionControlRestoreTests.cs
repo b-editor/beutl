@@ -5737,6 +5737,146 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Removable_stale_lock_is_removed_only_after_consent()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            NotificationService.Handler = notifications;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-lock-removal-consent");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RemoveRecoverableLockResult = true,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            int confirmationCount = 0;
+            coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref confirmationCount);
+                return Task.FromResult(true);
+            };
+            var lockInfo = new RepositoryLockInfo(
+                Path.Combine(projectRoot, ".git", "index.lock"),
+                DateTimeOffset.UtcNow,
+                requiresManualRemoval: false);
+
+            backend.RaiseRecoverableLock(lockInfo);
+            await WaitUntilAsync(() =>
+                notifications.All.Any(notification =>
+                    notification.Message == Strings.VersionControl_StaleLockRemoved));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Volatile.Read(ref confirmationCount), Is.EqualTo(1));
+                Assert.That(backend.RemoveRecoverableLockCalls, Is.EqualTo(1));
+                Assert.That(backend.RecoverableLock, Is.Null);
+                Assert.That(
+                    notifications.All.Any(notification =>
+                        notification.Type == NotificationType.Warning),
+                    Is.False);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Stale_lock_requiring_manual_removal_warns_without_asking_for_consent()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            NotificationService.Handler = notifications;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-lock-manual-removal-only");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RemoveRecoverableLockResult = true,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            int confirmationCount = 0;
+            coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref confirmationCount);
+                return Task.FromResult(true);
+            };
+            var lockInfo = new RepositoryLockInfo(
+                Path.Combine(projectRoot, ".git", "index.lock"),
+                DateTimeOffset.UtcNow,
+                requiresManualRemoval: true);
+
+            backend.RaiseRecoverableLock(lockInfo);
+            await WaitUntilAsync(() =>
+                notifications.All.Any(notification =>
+                    notification.Type == NotificationType.Warning));
+
+            Notification warning = notifications.All.Single(notification =>
+                notification.Type == NotificationType.Warning);
+            Assert.Multiple(() =>
+            {
+                Assert.That(Volatile.Read(ref confirmationCount), Is.Zero);
+                Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
+                Assert.That(backend.RecoverableLock, Is.SameAs(lockInfo));
+                Assert.That(
+                    warning.Message,
+                    Is.EqualTo(string.Format(
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                        lockInfo.LockPath)));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Stale_lock_confirmation_is_not_reused_for_an_equal_replacement_offer()
     {
         await TestReset.ResetShellAsync();
