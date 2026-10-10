@@ -75,7 +75,7 @@ public sealed class AiAgentConfig : ConfigurationBase
             .DefaultValue("")
             .Register();
 
-        // Read legacy settings for one-time migration. New saves omit this property.
+        // Keep legacy settings until migration succeeds, then omit this property from new saves.
         LiveMcpTokenProperty = ConfigureProperty<string, AiAgentConfig>(nameof(LiveMcpToken))
             .DefaultValue("")
             .Register();
@@ -195,6 +195,9 @@ public sealed class AiAgentConfig : ConfigurationBase
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(LiveMcpToken), Unit.Default);
+        // A settings save (including startup failure recovery) must not erase the only copy
+        // of a legacy credential before the endpoint has durably migrated it.
+        if (string.IsNullOrWhiteSpace(LiveMcpToken))
+            context.SetValue(nameof(LiveMcpToken), Unit.Default);
     }
 }

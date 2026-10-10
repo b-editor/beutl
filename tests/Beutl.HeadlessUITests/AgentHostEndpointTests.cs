@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Reflection;
 using Avalonia.Headless.NUnit;
@@ -375,14 +376,61 @@ public sealed class AgentHostEndpointTests
         {
             await using var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), firstConfig, directory);
             await using var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), secondConfig, directory);
+            string firstInstanceId = first.InstanceId;
+            await first.StartAsync();
+            await second.StartAsync();
             Assert.Multiple(() =>
             {
+                Assert.That(first.InstanceId, Is.EqualTo(firstInstanceId));
                 Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
                 Assert.That(firstConfig.LiveMcpToken, Is.Empty);
                 Assert.That(secondConfig.LiveMcpToken, Is.Empty);
                 Assert.That(second.Token, Is.EqualTo(first.Token));
                 Assert.That(LiveMcpTokenStore.GetOrCreate(directory), Is.EqualTo(first.Token));
             });
+            using var http = new HttpClient();
+            using (HttpResponseMessage rejected = await http.GetAsync(new Uri(first.EndpointUri!, "/agent-host")))
+                Assert.That(rejected.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.Token);
+            foreach (AgentHostEndpoint endpoint in new[] { first, second })
+            {
+                AgentHostInstanceInfo? info = await http.GetFromJsonAsync<AgentHostInstanceInfo>(new Uri(endpoint.EndpointUri!, "/agent-host"));
+                Assert.That(info?.InstanceId, Is.EqualTo(endpoint.InstanceId));
+            }
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("live-mcp-token.json")]
+    [TestCase("settings.json")]
+    public async Task Invalid_credentials_fail_background_start_without_blocking_editor_construction(string fileName)
+    {
+        await TestReset.ResetShellAsync();
+        string directory = Directory.CreateTempSubdirectory("endpoint-invalid-token-").FullName;
+        string invalidPath = Path.Combine(directory, fileName);
+        File.WriteAllText(invalidPath, "{");
+        var config = new AiAgentConfig { LiveMcpToken = "pending-migration-token" };
+        try
+        {
+            await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config, directory);
+            Assert.That(File.Exists(Path.Combine(directory, "live-mcp-token.lock")), Is.False,
+                "Editor construction must not acquire the token store or wait for its lock.");
+            endpoint.StartInBackground();
+            Assert.ThrowsAsync<InvalidDataException>(async () => await endpoint.StartAsync());
+            using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(endpoint, config);
+            Assert.Multiple(() =>
+            {
+                Assert.That(endpoint.IsRunning, Is.False);
+                Assert.That(endpoint.EndpointUri, Is.Null);
+                Assert.That(endpoint.Token, Is.Empty);
+                Assert.That(config.LiveMcpToken, Is.EqualTo("pending-migration-token"));
+                Assert.That(File.ReadAllText(invalidPath), Is.EqualTo("{"));
+                Assert.That(settings.IsLiveMcpAvailable.Value, Is.False);
+                Assert.That(settings.LiveMcpAuthHeader.Value, Is.Empty);
+            });
+            if (fileName == "settings.json")
+                Assert.That(File.Exists(Path.Combine(directory, LiveMcpTokenStore.FileName)), Is.False);
         }
         finally { Directory.Delete(directory, true); }
     }

@@ -47,7 +47,6 @@ public class AiAgentConfigTests
             InstallLiveMcp = true,
             McpConfigFileName = "mcp.json",
             McpServersPropertyName = "mcpServers",
-            LiveMcpToken = "ABCDEF0123456789ABCDEF0123456789",
         };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -86,12 +85,16 @@ public class AiAgentConfigTests
     }
 
     [Test]
-    public void Legacy_token_can_be_loaded_for_migration_but_is_omitted_from_new_saves()
+    public void Legacy_token_is_preserved_until_migration_then_omitted_from_new_saves()
     {
         var config = new AiAgentConfig();
         CoreSerializer.PopulateFromJsonObject(config,
             new JsonObject { [nameof(AiAgentConfig.LiveMcpToken)] = "legacy-migration-token" });
         Assert.That(config.LiveMcpToken, Is.EqualTo("legacy-migration-token"));
+        Assert.That((string?)CoreSerializer.SerializeToJsonObject(config)[nameof(AiAgentConfig.LiveMcpToken)],
+            Is.EqualTo("legacy-migration-token"));
+
+        config.LiveMcpToken = "";
         Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey(nameof(AiAgentConfig.LiveMcpToken)), Is.False);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -20,14 +21,15 @@ public static class LiveMcpTokenStore
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
         string directory = Path.GetFullPath(profileDirectory);
         string path = Path.Combine(directory, FileName);
-        if (ReadToken(path) is { } existing)
-            return existing;
-
         Directory.CreateDirectory(directory);
         using FileStream lease = AcquireLock(Path.Combine(directory, LockFileName));
-        // Another process may have published the token while we waited for its lease.
+        // Readers also join the lease, so none can use a new token before its publisher syncs it.
         if (ReadToken(path) is { } published)
+        {
+            // A prior creator may have exited between rename and directory sync.
+            EnsureDirectorySynced(directory);
             return published;
+        }
 
         string token = ReadLegacyToken(Path.Combine(directory, "settings.json"))
                        ?? (!string.IsNullOrWhiteSpace(legacyToken) ? legacyToken : null)
@@ -55,14 +57,17 @@ public static class LiveMcpTokenStore
                 writer.Flush();
                 stream.Flush(flushToDisk: true);
             }
-            try { File.Move(temporary, path, overwrite: false); }
+            string publishedToken = token;
+            try { PublishFile(temporary, path); }
             catch (IOException)
             {
                 if (ReadToken(path) is { } winner)
-                    return winner;
-                throw;
+                    publishedToken = winner;
+                else
+                    throw;
             }
-            return token;
+            EnsureDirectorySynced(Path.GetDirectoryName(path)!);
+            return publishedToken;
         }
         finally
         {
@@ -157,6 +162,49 @@ public static class LiveMcpTokenStore
             }
         }
     }
+
+    private static void PublishFile(string temporary, string destination)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.Move(temporary, destination, overwrite: false);
+            return;
+        }
+
+        // No REPLACE_EXISTING: another publisher's credential must never be overwritten.
+        const uint WriteThrough = 0x8;
+        if (!MoveFileEx(temporary, destination, WriteThrough))
+            throw new IOException("Cannot publish the live MCP token store.",
+                new Win32Exception(Marshal.GetLastPInvokeError()));
+    }
+
+    private static void EnsureDirectorySynced(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        int descriptor = UnixOpen(directory, 0);
+        if (descriptor < 0)
+            throw new IOException($"Cannot open the live MCP token directory for sync (error {Marshal.GetLastPInvokeError()}).");
+        try
+        {
+            if (UnixFsync(descriptor) != 0)
+                throw new IOException($"Cannot sync the live MCP token directory (error {Marshal.GetLastPInvokeError()}).");
+        }
+        finally { UnixClose(descriptor); }
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool MoveFileEx(string existingFileName, string newFileName, uint flags);
+
+    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
+    private static extern int UnixOpen(string path, int flags);
+
+    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    private static extern int UnixFsync(int descriptor);
+
+    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+    private static extern int UnixClose(int descriptor);
 
     [DllImport("libc", EntryPoint = "flock", SetLastError = true)]
     private static extern int Flock(SafeFileHandle handle, int operation);

@@ -25,13 +25,13 @@ public sealed record ListAgentHostInstancesResponse(
 
 internal sealed class AgentHostInstanceRouter(
     AgentHostInstanceRegistry registry, ProjectService projects, EditorService editors,
-    string token, Func<string> workspaceRoot)
+    string token, Func<string> workspaceRoot, string? instanceId = null)
 {
     internal const string InstanceHeader = "X-Beutl-Instance-Id";
     private static readonly TimeSpan s_connectionTimeout = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly AgentHostInstanceAuthentication _authentication = new(token, Guid.NewGuid().ToString("N"));
+    private readonly AgentHostInstanceAuthentication _authentication = new(token, instanceId ?? Guid.NewGuid().ToString("N"));
 
     public string InstanceId => _authentication.InstanceId;
 

@@ -53,7 +53,7 @@ To see edits appear live in the running Beutl editor, connect to the **in-app en
 
 Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. The endpoint binds loopback only and authenticates agent connections via the `Authorization: Bearer <token>` header; the former `?token=` query form was removed so the secret never appears in URLs.
 
-The bearer token is shared by processes using the same Beutl profile and persists in its owner-private `live-mcp-token.json` file (`~/.beutl/live-mcp-token.json` by default, or under `BEUTL_HOME`). Initial generation and migration use a process-shared lock. Existing `AiAgent.LiveMcpToken` settings are migrated without changing their value; subsequent settings saves omit that field and cannot replace the dedicated token. An invalid token store is reported as an error instead of silently generating a replacement.
+The bearer token is shared by processes using the same Beutl profile and persists in its owner-private `live-mcp-token.json` file (`~/.beutl/live-mcp-token.json` by default, or under `BEUTL_HOME`). Initial generation and migration use a process-shared lock. Existing `AiAgent.LiveMcpToken` settings are migrated without changing their value; the legacy copy is retained until durable migration succeeds, then subsequent settings saves omit that field and cannot replace the dedicated token. Token-store initialization runs in the background; an invalid store leaves Live MCP unavailable and is reported as an error instead of stopping the editor or silently generating a replacement.
 
 ### Raw HTTP/SSE smoke test
 

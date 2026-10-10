@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using Avalonia.Threading;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
@@ -33,8 +34,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
     private readonly Func<CancellationToken, Task>? _beforeStart;
+    private readonly Func<string>? _tokenFactory;
+    private readonly string _instanceId = Guid.NewGuid().ToString("N");
     private readonly AgentHostInstanceRegistry _instanceRegistry;
-    private readonly AgentHostInstanceRouter _instanceRouter;
+    private AgentHostInstanceRouter? _instanceRouter;
     private readonly object _lifecycleLock = new();
     private readonly CancellationTokenSource _startupCancellation = new();
     private bool _stopRequested;
@@ -51,7 +54,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config,
         string? tokenStoreDirectory = null)
-        : this(projectService, editorService, DefaultPort, ResolveToken(config, tokenStoreDirectory), config)
+        : this(projectService, editorService, DefaultPort, "", config,
+            tokenFactory: () => ResolveToken(config, tokenStoreDirectory))
     {
     }
 
@@ -59,12 +63,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        string token = LiveMcpTokenStore.GetOrCreate(
+        return LiveMcpTokenStore.GetOrCreate(
             tokenStoreDirectory ?? BeutlEnvironment.GetHomeDirectoryPath(), config.LiveMcpToken);
-        // Clear the migrated setting only after the dedicated token has been durably published.
-        // Global configuration auto-save now omits it, so stale settings cannot rotate the token.
-        config.LiveMcpToken = "";
-        return token;
     }
 
     // Prefer the workspace the user chose on the AI Agents settings page (read at start, so a
@@ -116,7 +116,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         string token,
         AiAgentConfig config,
         Func<CancellationToken, Task>? beforeStart = null,
-        string? registryDirectory = null)
+        string? registryDirectory = null,
+        Func<string>? tokenFactory = null)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -125,7 +126,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             throw new ArgumentOutOfRangeException(nameof(preferredPort));
         }
 
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token) && tokenFactory is null)
         {
             throw new ArgumentException("Token must not be empty.", nameof(token));
         }
@@ -135,16 +136,24 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _config = config;
         _preferredPort = preferredPort;
         _beforeStart = beforeStart;
+        _tokenFactory = tokenFactory;
         Token = token;
         _instanceRegistry = new AgentHostInstanceRegistry(registryDirectory
             ?? Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "agent-hosts"));
-        _instanceRouter = new AgentHostInstanceRouter(
-            _instanceRegistry, projectService, editorService, token, () => ResolveWorkspaceRoot(config));
+        if (tokenFactory is null)
+            _instanceRouter = CreateInstanceRouter(token);
     }
 
-    public string Token { get; }
+    public string Token { get; private set; }
 
-    public string InstanceId => _instanceRouter.InstanceId;
+    public string InstanceId => _instanceId;
+
+    private AgentHostInstanceRouter InstanceRouter => _instanceRouter
+        ?? throw new InvalidOperationException("The live MCP credentials have not been initialized.");
+
+    private AgentHostInstanceRouter CreateInstanceRouter(string token)
+        => new(_instanceRegistry, _projectService, _editorService, token,
+            () => ResolveWorkspaceRoot(_config), _instanceId);
 
     public Uri? EndpointUri
     {
@@ -217,6 +226,24 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     {
         if (_beforeStart is { } beforeStart)
             await beforeStart(cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_tokenFactory is { } tokenFactory)
+        {
+            // This path runs on the shared startup task, away from editor construction.
+            // Store failures are observed by StartInBackground without stopping the editor.
+            string token = tokenFactory();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!string.IsNullOrWhiteSpace(_config.LiveMcpToken))
+            {
+                // Only remove the legacy copy after durable publication. Configuration events
+                // and their auto-save must stay on the UI thread with other settings changes.
+                await Dispatcher.UIThread.InvokeAsync(() => _config.LiveMcpToken = "",
+                    DispatcherPriority.Normal, cancellationToken);
+            }
+            Token = token;
+            _instanceRouter = CreateInstanceRouter(token);
+        }
 
         int port = _preferredPort;
         while (true)
@@ -390,7 +417,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
-            .AddSingleton(_instanceRouter)
+            .AddSingleton(InstanceRouter)
             .AddSingleton<LiveSessionSource>()
             .AddSingleton<IProjectSessionGateway, EditorProjectSessionGateway>()
             .AddSingleton<AgentSessionManager>()
@@ -425,9 +452,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         app.Use(RequireToken);
         app.MapGet("/agent-host/identity", (string? challenge) =>
             AgentHostInstanceAuthentication.IsValidChallenge(challenge)
-                ? Results.Json(_instanceRouter.CreateIdentityProof(challenge!))
+                ? Results.Json(InstanceRouter.CreateIdentityProof(challenge!))
                 : Results.BadRequest());
-        app.MapGet("/agent-host", (CancellationToken cancellationToken) => _instanceRouter.GetInfoAsync(cancellationToken));
+        app.MapGet("/agent-host", (CancellationToken cancellationToken) => InstanceRouter.GetInfoAsync(cancellationToken));
         app.MapMcp("/mcp");
         return app;
     }
@@ -502,7 +529,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         if (authorization is null
             || !authorization.StartsWith(scheme, StringComparison.Ordinal)
             || !(FixedTimeTokenEquals(authorization[scheme.Length..], Token)
-                 || _instanceRouter.IsForwardToken(authorization[scheme.Length..])))
+                 || InstanceRouter.IsForwardToken(authorization[scheme.Length..])))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
