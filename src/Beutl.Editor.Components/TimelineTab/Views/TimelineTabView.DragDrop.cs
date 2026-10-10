@@ -50,6 +50,19 @@ public sealed partial class TimelineTabView
 
             e.Handled = true;
         }
+        else if (e.DataTransfer.Contains(BeutlDataFormats.ClipTransition))
+        {
+            // A transition dropped on an element goes to the edge nearer the pointer.
+            if (e.DataTransfer.TryGetValue(BeutlDataFormats.ClipTransition) is { } transitionTypeName
+                && TypeFormat.ToType(transitionTypeName) is { } transitionType
+                && ElementTransitionEdits.IsTransitionType(transitionType)
+                && FindTransitionDropTarget(viewModel, pt) is { } target)
+            {
+                target.Element.ApplyTransition(target.Edge, transitionType);
+            }
+
+            e.Handled = true;
+        }
         else if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
@@ -130,11 +143,38 @@ public sealed partial class TimelineTabView
             e.DragEffects = storage.IsCurrent() ? DragDropEffects.Copy : DragDropEffects.None;
             return;
         }
+        if (e.DataTransfer.Contains(BeutlDataFormats.ClipTransition))
+        {
+            e.DragEffects = ViewModel is { } viewModel
+                            && FindTransitionDropTarget(viewModel, e.GetPosition(TimelinePanel)) is { Element.IsEditable.Value: true }
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            return;
+        }
+
         if (e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
             || e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
+    }
+
+    // The element under the pointer and the edge of it the pointer is nearer.
+    private static (ElementViewModel Element, ElementEdge Edge)? FindTransitionDropTarget(
+        TimelineTabViewModel viewModel, Point position)
+    {
+        TimeSpan time = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale);
+        int layer = viewModel.ToLayerNumber(position.Y);
+        foreach (ElementViewModel element in viewModel.Elements)
+        {
+            Element model = element.Model;
+            if (model.ZIndex != layer || !model.Range.Contains(time)) continue;
+
+            TimeSpan middle = model.Start + (model.Length / 2);
+            return (element, time < middle ? ElementEdge.Start : ElementEdge.End);
+        }
+
+        return null;
     }
 }

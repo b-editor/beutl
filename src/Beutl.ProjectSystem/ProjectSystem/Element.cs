@@ -1,9 +1,11 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Transitions;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -19,12 +21,16 @@ public class Element : Hierarchical, INotifyEdited
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<bool> IsLockedProperty;
     public static readonly CoreProperty<ICoreList<EngineObject>> ObjectsProperty;
+    public static readonly CoreProperty<ClipTransition?> EnterTransitionProperty;
+    public static readonly CoreProperty<ClipTransition?> ExitTransitionProperty;
     private readonly HierarchicalList<EngineObject> _objects;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
     private bool _isEnabled = true;
     private bool _isLocked;
+    private ClipTransition? _enterTransition;
+    private ClipTransition? _exitTransition;
 
     static Element()
     {
@@ -57,6 +63,16 @@ public class Element : Hierarchical, INotifyEdited
         ObjectsProperty = ConfigureProperty<ICoreList<EngineObject>, Element>(nameof(Objects))
             .Accessor(o => o.Objects)
             .Register();
+
+        EnterTransitionProperty = ConfigureProperty<ClipTransition?, Element>(nameof(EnterTransition))
+            .Accessor(o => o.EnterTransition, (o, v) => o.EnterTransition = v)
+            .Register();
+
+        ExitTransitionProperty = ConfigureProperty<ClipTransition?, Element>(nameof(ExitTransition))
+            .Accessor(o => o.ExitTransition, (o, v) => o.ExitTransition = v)
+            .Register();
+
+        Hierarchy<Element>(EnterTransitionProperty, ExitTransitionProperty);
     }
 
     public Element()
@@ -114,6 +130,28 @@ public class Element : Hierarchical, INotifyEdited
 
     [NotAutoSerialized]
     public ICoreList<EngineObject> Objects => _objects;
+
+    /// <summary>
+    /// Gets or sets this element's side of the transition at its start: how it blends in from the adjacent
+    /// element before it on the same layer, or from nothing when there is none.
+    /// </summary>
+    [NotAutoSerialized]
+    public ClipTransition? EnterTransition
+    {
+        get => _enterTransition;
+        set => SetAndRaise(EnterTransitionProperty, ref _enterTransition, value);
+    }
+
+    /// <summary>
+    /// Gets or sets this element's side of the transition at its end: how it blends out into the adjacent
+    /// element after it on the same layer, or into nothing when there is none.
+    /// </summary>
+    [NotAutoSerialized]
+    public ClipTransition? ExitTransition
+    {
+        get => _exitTransition;
+        set => SetAndRaise(ExitTransitionProperty, ref _exitTransition, value);
+    }
 
     public void AddObject(EngineObject obj)
     {
@@ -178,6 +216,15 @@ public class Element : Hierarchical, INotifyEdited
     {
         base.Serialize(context);
         context.SetValue(nameof(Objects), Objects);
+        if (EnterTransition != null)
+        {
+            context.SetValue(nameof(EnterTransition), EnterTransition);
+        }
+
+        if (ExitTransition != null)
+        {
+            context.SetValue(nameof(ExitTransition), ExitTransition);
+        }
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -195,6 +242,9 @@ public class Element : Hierarchical, INotifyEdited
                 context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
             }
         }
+
+        EnterTransition = context.GetValue<ClipTransition>(nameof(EnterTransition));
+        ExitTransition = context.GetValue<ClipTransition>(nameof(ExitTransition));
     }
 
     public void CollectObjects(CompositionTarget target, IList<EngineObject> objects)
@@ -242,7 +292,7 @@ public class Element : Hierarchical, INotifyEdited
                 TimeRange oldRange = GetOldRange();
                 Edited?.Invoke(this, new ElementEditedEventArgs
                 {
-                    AffectedRange = [newRange, oldRange]
+                    AffectedRange = GetAffectedRanges(newRange, oldRange)
                 });
             }
             else if (e.Property == ZIndexProperty)
@@ -254,11 +304,42 @@ public class Element : Hierarchical, INotifyEdited
 
                 Edited?.Invoke(this, EventArgs.Empty);
             }
+            else if (e.Property == EnterTransitionProperty || e.Property == ExitTransitionProperty)
+            {
+                var change = (CorePropertyChangedEventArgs<ClipTransition?>)args;
+                if (change.OldValue != null)
+                {
+                    change.OldValue.Edited -= OnObjectEdited;
+                }
+
+                if (change.NewValue != null)
+                {
+                    change.NewValue.Edited += OnObjectEdited;
+                }
+
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
             else if (e.Property == IsEnabledProperty)
             {
                 Edited?.Invoke(this, EventArgs.Empty);
             }
         }
+    }
+
+    // A transition draws this element past its own range and the adjacent element past theirs, so moving
+    // it changes the frames of every transition it took part in before and takes part in after.
+    private ImmutableArray<TimeRange> GetAffectedRanges(TimeRange newRange, TimeRange oldRange)
+    {
+        ImmutableArray<TimeRange>.Builder ranges = ImmutableArray.CreateBuilder<TimeRange>(4);
+        ranges.Add(newRange);
+        ranges.Add(oldRange);
+        if (HierarchicalParent is Scene scene)
+        {
+            ranges.AddRange(ElementTransitions.GetRegionsNear(scene, newRange));
+            ranges.AddRange(ElementTransitions.GetRegionsNear(scene, oldRange));
+        }
+
+        return ranges.DrainToImmutable();
     }
 
     private void UpdateObjectFromElement(EngineObject obj)

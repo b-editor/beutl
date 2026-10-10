@@ -7,6 +7,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
@@ -18,6 +19,8 @@ public sealed class SceneCompositor : ICompositor
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
     private readonly object _resourceCacheLock = new();
+    // One presenter per transition draws it for this compositor; it lives as long as the transition does.
+    private readonly ConditionalWeakTable<ClipTransition, ClipTransitionPresenter> _transitionPresenters = new();
 
     // Mute flags are read live from the layers inside the snapshot, so only the
     // lookup shape (membership, ZIndex) and HasSolo require invalidation.
@@ -191,6 +194,65 @@ public sealed class SceneCompositor : ICompositor
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
+        if (context.Target == CompositionTarget.Graphics
+            && ElementTransitions.TryGetActive(element, context.Time, out TransitionBoundary boundary))
+        {
+            CollectTransition(boundary, context);
+            return;
+        }
+
+        CollectElementObjects(element, context, tmpObjects);
+    }
+
+    // Evaluates both elements of an active boundary transition, each at its own time, and hands them to
+    // the transition's presenter, which takes the place of both elements' drawables in the flow.
+    private void CollectTransition(in TransitionBoundary boundary, CompositorContext context)
+    {
+        using var from = new PooledList<EngineObject.Resource>();
+        using var to = new PooledList<EngineObject.Resource>();
+        using var tmpObjects = new PooledList<EngineObject>();
+        IList<EngineObject.Resource>? oldFlow = context.Flow;
+        TimeSpan time = context.Time;
+        try
+        {
+            if (boundary.Outgoing is { } outgoing)
+            {
+                context.Flow = from;
+                context.Time = boundary.GetOutgoingTime(time);
+                CollectElementObjects(outgoing, context, tmpObjects);
+            }
+
+            if (boundary.Incoming is { } incoming)
+            {
+                context.Flow = to;
+                context.Time = boundary.GetIncomingTime(time);
+                CollectElementObjects(incoming, context, tmpObjects);
+            }
+        }
+        finally
+        {
+            context.Flow = oldFlow;
+            context.Time = time;
+        }
+
+        var transitionResource = (ClipTransition.Resource)GetOrCreateResource(boundary.Transition, context);
+        ClipTransitionPresenter presenter = _transitionPresenters.GetValue(
+            boundary.Transition,
+            static _ => new ClipTransitionPresenter());
+        int zIndex = (boundary.Incoming ?? boundary.Outgoing)!.ZIndex;
+        if (presenter.ZIndex != zIndex)
+        {
+            presenter.ZIndex = zIndex;
+        }
+
+        var presenterResource = (ClipTransitionPresenter.Resource)GetOrCreateResource(presenter, context);
+        presenterResource.SetInputs(transitionResource, from.Span, to.Span, boundary.GetProgress(time));
+        oldFlow?.Add(presenterResource);
+    }
+
+    private void CollectElementObjects(
+        Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
+    {
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;
@@ -280,15 +342,39 @@ public sealed class SceneCompositor : ICompositor
                     currentElements.OrderedAdd(item, x => x.ZIndex);
                 }
             }
-
-            return;
+        }
+        else
+        {
+            foreach (Element item in Scene.Children)
+            {
+                if (!item.IsEnabled || !item.Range.Contains(time)) continue;
+                if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+                currentElements.OrderedAdd(item, x => x.ZIndex);
+            }
         }
 
-        foreach (Element item in Scene.Children)
+        if (target == CompositionTarget.Graphics)
         {
-            if (!item.IsEnabled || !item.Range.Contains(time)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex);
+            KeepOneElementPerTransition(time, currentElements);
+        }
+    }
+
+    // Both elements of a boundary are drawn by its transition, so when both fall on this frame (they
+    // overlap, or touch within the tolerance) only the first stays in the list to collect it.
+    private static void KeepOneElementPerTransition(TimeSpan time, PooledList<Element> currentElements)
+    {
+        for (int i = 0; i < currentElements.Count; i++)
+        {
+            if (ElementTransitions.TryGetActive(currentElements[i], time, out TransitionBoundary boundary)
+                && boundary is { Outgoing: { } outgoing, Incoming: { } incoming })
+            {
+                Element partner = ReferenceEquals(currentElements[i], outgoing) ? incoming : outgoing;
+                int index = currentElements.IndexOf(partner);
+                if (index > i)
+                {
+                    currentElements.RemoveAt(index);
+                }
+            }
         }
     }
 

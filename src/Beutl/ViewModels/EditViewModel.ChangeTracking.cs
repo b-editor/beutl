@@ -249,7 +249,16 @@ public partial class EditViewModel
 
     private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
     {
-        return [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty)];
+        List<TimeRange> ranges = [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty)];
+        // A clip boundary transition draws its elements past their own ranges, so the frames it plays over
+        // change along with either element.
+        int count = ranges.Count;
+        for (int i = 0; i < count; i++)
+        {
+            ranges.AddRange(ElementTransitions.GetRegionsNear(Scene, ranges[i]));
+        }
+
+        return ranges;
     }
 
     private IEnumerable<TimeRange> GetAffectedTimeRangesFromOperation(ChangeOperation operation)

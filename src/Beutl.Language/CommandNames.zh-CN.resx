@@ -206,4 +206,16 @@
   <data name="AddMarker" xml:space="preserve">
     <value>添加标记</value>
   </data>
+  <data name="AddTransition" xml:space="preserve">
+    <value>添加转场</value>
+  </data>
+  <data name="ChangeTransition" xml:space="preserve">
+    <value>更改转场</value>
+  </data>
+  <data name="RemoveTransition" xml:space="preserve">
+    <value>移除转场</value>
+  </data>
+  <data name="ChangeTransitionDuration" xml:space="preserve">
+    <value>更改转场时长</value>
+  </data>
 </root>

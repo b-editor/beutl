@@ -197,6 +197,13 @@
                     </ui:FAToggleMenuFlyoutItem.Styles>
                 </ui:FAToggleMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
+                <!--  Items are filled from the library each time the menu opens; see OnContextFlyoutOpening.  -->
+                <ui:FAMenuFlyoutSubItem x:Name="transitionMenu" Text="{x:Static lang:GraphicsStrings.ClipTransition}">
+                    <ui:FAMenuFlyoutSubItem.IconSource>
+                        <icons:FluentIconSource Icon="SlideTransition" />
+                    </ui:FAMenuFlyoutSubItem.IconSource>
+                </ui:FAMenuFlyoutSubItem>
+                <ui:FAMenuFlyoutSeparator />
                 <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.SaveAsTemplate"
                                      Click="SaveAsTemplate_Click"
                                      Text="{x:Static lang:Strings.SaveAsTemplate}">
@@ -236,6 +243,44 @@
                                        WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
                 </Panel>
             </Border>
+            <!--  This element's parts of the transitions at its start and end. Double-click edits one; dragging
+                  its inner edge changes the duration this element adds.  -->
+            <Panel x:Name="enterTransitionPart"
+                   Width="{Binding EnterTransitionPart.Value.Width}"
+                   Margin="{Binding EnterTransitionPart.Value.Margin}"
+                   HorizontalAlignment="Left"
+                   IsVisible="{Binding EnterTransitionPart.Value.IsVisible}"
+                   ToolTip.Tip="{Binding EnterTransitionPart.Value.ToolTip}">
+                <v:TransitionRamp Background="#24000000"
+                                  Easing="{Binding EnterTransitionPart.Value.Easing}"
+                                  EndFraction="{Binding EnterTransitionPart.Value.EndFraction}"
+                                  Fill="#50000000"
+                                  StartFraction="{Binding EnterTransitionPart.Value.StartFraction}" />
+                <Border x:Name="enterTransitionHandle"
+                        Width="6"
+                        IsVisible="{Binding EnterTransitionPart.Value.IsResizable}"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        Cursor="SizeWestEast" />
+            </Panel>
+            <Panel x:Name="exitTransitionPart"
+                   Width="{Binding ExitTransitionPart.Value.Width}"
+                   Margin="{Binding ExitTransitionPart.Value.Margin}"
+                   HorizontalAlignment="Left"
+                   IsVisible="{Binding ExitTransitionPart.Value.IsVisible}"
+                   ToolTip.Tip="{Binding ExitTransitionPart.Value.ToolTip}">
+                <v:TransitionRamp Background="#24000000"
+                                  Easing="{Binding ExitTransitionPart.Value.Easing}"
+                                  EndFraction="{Binding ExitTransitionPart.Value.EndFraction}"
+                                  Fill="#50000000"
+                                  StartFraction="{Binding ExitTransitionPart.Value.StartFraction}" />
+                <Border x:Name="exitTransitionHandle"
+                        Width="6"
+                        IsVisible="{Binding ExitTransitionPart.Value.IsResizable}"
+                        HorizontalAlignment="Left"
+                        Background="Transparent"
+                        Cursor="SizeWestEast" />
+            </Panel>
             <!-- The lock glyph owns a column, so the label clears it by layout instead of by a
                  reserved margin; a hidden glyph measures to zero and the label keeps its own inset. -->
             <Grid ColumnDefinitions="Auto,*">

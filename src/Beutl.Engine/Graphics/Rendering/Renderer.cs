@@ -582,7 +582,11 @@ public class Renderer : IRenderer
             // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
             if (entry.Renderer.HitTest(point))
             {
-                return entry.Node.Drawable?.Resource.GetOriginal();
+                Drawable.Resource? hit = entry.Node.Drawable?.Resource;
+                // A transition's presenter is not part of the document; select the clip it draws instead.
+                return hit is Transitions.ClipTransitionPresenter.Resource presenter
+                    ? presenter.GetHitTestTarget()
+                    : hit?.GetOriginal();
             }
         }
 

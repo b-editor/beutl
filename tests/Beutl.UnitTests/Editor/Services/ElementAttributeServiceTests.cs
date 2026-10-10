@@ -1,5 +1,7 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Animation.Easings;
+using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
@@ -139,5 +141,174 @@ public class ElementAttributeServiceTests
     public void SetLocked_NullElement_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => _service.SetLocked(null!, true));
+    }
+
+    [Test]
+    public void ApplyTransition_AtACut_CentresTheDefaultOnItWithOneCommit()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        int before = _history.UndoCount;
+
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(outgoing.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+
+        _history.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(incoming.EnterTransition, Is.Null);
+            Assert.That(outgoing.ExitTransition, Is.Null);
+        });
+    }
+
+    [Test]
+    public void ApplyTransition_AtALoneEdge_GivesItTheWholeDefault()
+    {
+        Element element = AddElement();
+
+        _service.ApplyTransition(element, ElementEdge.End, typeof(FadeTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.ExitTransition?.Duration.CurrentValue, Is.EqualTo(ClipTransition.DefaultDuration));
+            Assert.That(element.ExitTransition, Is.TypeOf<FadeTransition>());
+        });
+    }
+
+    [Test]
+    public void ApplyTransition_OnAnExistingBoundary_ChangesBothSidesTypeAndKeepsTheirTiming()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        ClipTransition enter = incoming.EnterTransition!;
+        var easing = new CubicEaseInOut();
+        enter.Duration.CurrentValue = TimeSpan.FromSeconds(1);
+        enter.Easing.CurrentValue = easing;
+        _history.Commit("duration");
+        int before = _history.UndoCount;
+
+        _service.ApplyTransition(outgoing, ElementEdge.End, typeof(WipeTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(incoming.EnterTransition, Is.TypeOf<WipeTransition>());
+            Assert.That(outgoing.ExitTransition, Is.TypeOf<WipeTransition>());
+            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition?.Easing.CurrentValue, Is.SameAs(easing));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+
+        _history.Undo();
+        Assert.That(incoming.EnterTransition, Is.SameAs(enter), "undo brings back the transition it replaced");
+    }
+
+    [Test]
+    public void ApplyTransition_OfTheSameType_ChangesNothing()
+    {
+        (_, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        ClipTransition enter = incoming.EnterTransition!;
+        int before = _history.UndoCount;
+
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(incoming.EnterTransition, Is.SameAs(enter));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [TestCase(typeof(ClipTransition))]
+    [TestCase(typeof(FallbackClipTransition))]
+    [TestCase(typeof(Element))]
+    public void ApplyTransition_RejectsATypeThatIsNotACreatableTransition(Type type)
+    {
+        Element element = AddElement();
+
+        Assert.Throws<ArgumentException>(() => _service.ApplyTransition(element, ElementEdge.Start, type));
+    }
+
+    [Test]
+    public void RemoveTransition_ClearsBothSidesOfTheBoundary()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        int before = _history.UndoCount;
+
+        _service.RemoveTransition(incoming, ElementEdge.Start);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(incoming.EnterTransition, Is.Null);
+            Assert.That(outgoing.ExitTransition, Is.Null);
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void ApplyTransition_LeavesALockedPartnerAlone()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        outgoing.IsLocked = true;
+        _history.Commit("lock");
+
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outgoing.ExitTransition, Is.Null);
+            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(ClipTransition.DefaultDuration));
+        });
+    }
+
+    [Test]
+    public void ApplyTransition_LockedElement_IsIgnored()
+    {
+        Element element = AddElement();
+        element.IsLocked = true;
+        _history.Commit("lock");
+        int before = _history.UndoCount;
+
+        _service.ApplyTransition(element, ElementEdge.Start, typeof(CrossDissolveTransition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.EnterTransition, Is.Null);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void SetTransitionDuration_ChangesOnlyThisSide()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        int before = _history.UndoCount;
+
+        _service.SetTransitionDuration(incoming, ElementEdge.Start, TimeSpan.FromSeconds(1));
+        _service.SetTransitionDuration(incoming, ElementEdge.Start, TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(incoming.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1), "an unchanged duration must not commit");
+        });
+    }
+
+    private (Element Outgoing, Element Incoming) AddCut()
+    {
+        Element outgoing = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element incoming = _harness.AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        _history.Commit("cut");
+        return (outgoing, incoming);
     }
 }
