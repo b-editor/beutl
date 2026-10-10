@@ -318,7 +318,9 @@ public sealed partial class AiSubtitleDialogViewModel
         ImportCaptions = new AsyncReactiveCommand()
             .WithSubscribe(ImportCaptionsCore)
             .DisposeWith(_captionDisposables);
-        ExportCaptions = new AsyncReactiveCommand(HasValidCues)
+        // An observable, not the property itself: given a writable property, AsyncReactiveCommand
+        // shares it as its own busy state and would overwrite the validation result while exporting.
+        ExportCaptions = new AsyncReactiveCommand(HasValidCues.AsObservable())
             .WithSubscribe(ExportCaptionsCore)
             .DisposeWith(_captionDisposables);
         AddCue = new ReactiveCommand().DisposeWith(_captionDisposables);

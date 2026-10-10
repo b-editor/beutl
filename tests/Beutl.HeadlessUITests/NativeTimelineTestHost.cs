@@ -25,6 +25,9 @@ internal static partial class NativeTimelineTestHost
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args is ["--agent-host-instance", string directory, string name, string port])
+            return AgentHostInstanceTestWorker.Run(directory, name, int.Parse(port, System.Globalization.CultureInfo.InvariantCulture));
+
         if (!OperatingSystem.IsMacOS() || args is not ["--native-timeline-scroll"])
             return 64;
 

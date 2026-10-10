@@ -179,12 +179,19 @@ public sealed partial class TimelineTabView
         TimelineTabViewModel viewModel = ViewModel;
         viewModel.ClearSelected();
 
-        Rect rect = overlay.SelectionRange.Normalize();
+        // Hit-test only existing rows inside the visible scroll viewport.
+        var bounds = new Rect(0, 0, TimelinePanel.Bounds.Width,
+            viewModel.LayerHeaders.Sum(layer => layer.Height.Value));
+        var viewport = new Rect(new Point(ContentScroll.Offset.X, ContentScroll.Offset.Y), ContentScroll.Viewport);
+        Rect rect = overlay.SelectionRange.Normalize().Intersect(bounds).Intersect(viewport);
+        if (rect == default) return;
+
         var startTime = rect.Left.PixelToTimeSpan(viewModel.Options.Value.Scale);
         var endTime = rect.Right.PixelToTimeSpan(viewModel.Options.Value.Scale);
         var timeRange = TimeRange.FromRange(startTime, endTime);
 
-        int startLayer = viewModel.ToLayerNumber(rect.Top);
+        // Layer lookup includes a row's bottom edge; start strictly inside the selection.
+        int startLayer = viewModel.ToLayerNumber(Math.BitIncrement(rect.Top));
         int endLayer = viewModel.ToLayerNumber(rect.Bottom);
 
         foreach (ElementViewModel item in viewModel.Elements)

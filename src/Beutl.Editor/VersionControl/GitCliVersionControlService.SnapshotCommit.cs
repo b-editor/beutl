@@ -896,16 +896,10 @@ internal sealed partial class GitCliVersionControlService
                 "A commit hook removed content or introduced a non-regular project tree entry.");
         }
 
-        await ValidateFinalHookProjectGraphAsync(
-                repository,
-                runner,
-                hookTree,
-                finalModes,
-                cancellationToken)
-            .ConfigureAwait(false);
+        EnsureHookKeptProjectFile(repository, finalModes);
     }
 
-    private bool IsHookWritableSnapshotPath(
+    private static bool IsHookWritableSnapshotPath(
         RepositoryInfo repository,
         string repositoryRelativePath)
     {
@@ -935,20 +929,14 @@ internal sealed partial class GitCliVersionControlService
             return false;
         }
 
-        return !IsTemporaryProjectFile(projectRelativePath)
-               || _requiredTemporaryProjectPaths.Any(requiredPath =>
-                   AreSameProjectRelativePath(
-                       repository.ProjectRoot,
-                       requiredPath,
-                       projectRelativePath));
+        return !IsTemporaryProjectFile(projectRelativePath);
     }
 
-    private async Task ValidateFinalHookProjectGraphAsync(
+    // The changed-path check above already refuses a hook that adds or rewrites a non-regular entry,
+    // so the project file only has to remain: an unchanged project file may be a symbolic link.
+    private void EnsureHookKeptProjectFile(
         RepositoryInfo repository,
-        IGitCliRunner runner,
-        string hookTree,
-        IReadOnlyDictionary<string, string> finalModes,
-        CancellationToken cancellationToken)
+        IReadOnlyDictionary<string, string> finalModes)
     {
         if (_projectFile is null
             || !RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, _projectFile))
@@ -959,71 +947,10 @@ internal sealed partial class GitCliVersionControlService
         string projectFileRepositoryPath = GetRepositoryRelativeProjectFilePath(
             repository,
             _projectFile);
-        if (!finalModes.TryGetValue(projectFileRepositoryPath, out string? projectMode)
-            || !IsRegularFileMode(projectMode))
+        if (!finalModes.ContainsKey(projectFileRepositoryPath))
         {
             throw new InvalidOperationException(
                 "A commit hook removed the project file from the snapshot tree.");
-        }
-
-        string temporaryRoot = CreateUniqueTempPath("beutl-hook-graph");
-        string materializedRepositoryRoot = Path.Combine(temporaryRoot, "tree");
-        try
-        {
-            Directory.CreateDirectory(materializedRepositoryRoot);
-            Dictionary<string, long> graphFiles = await ListHistoricalGraphFilesAsync(
-                    repository,
-                    runner,
-                    hookTree,
-                    projectFileRepositoryPath,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            IReadOnlySet<string> serializedPaths = await ReadMaterializedSerializedPathsAsync(
-                    repository,
-                    runner,
-                    hookTree,
-                    materializedRepositoryRoot,
-                    projectFileRepositoryPath,
-                    graphFiles,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            string[] finalTemporaryPaths = serializedPaths
-                .Where(static path => IsTemporaryProjectFile(path))
-                .ToArray();
-            if (finalTemporaryPaths.Length != _requiredTemporaryProjectPaths.Count
-                || finalTemporaryPaths.Any(finalPath =>
-                    !_requiredTemporaryProjectPaths.Any(currentPath =>
-                        AreSameProjectRelativePath(
-                            repository.ProjectRoot,
-                            finalPath,
-                            currentPath)))
-                || _requiredTemporaryProjectPaths.Any(currentPath =>
-                    !finalTemporaryPaths.Any(finalPath =>
-                        AreSameProjectRelativePath(
-                            repository.ProjectRoot,
-                            currentPath,
-                            finalPath))))
-            {
-                throw new InvalidOperationException(
-                    "A commit hook changed the set of required temporary project files.");
-            }
-
-            foreach (string projectRelativePath in serializedPaths)
-            {
-                string repositoryRelativePath = repository.Pathspec == "."
-                    ? projectRelativePath
-                    : repository.Pathspec + "/" + projectRelativePath;
-                if (!finalModes.TryGetValue(repositoryRelativePath, out string? mode)
-                    || !IsRegularFileMode(mode))
-                {
-                    throw new InvalidOperationException(
-                        $"A commit hook left required project content '{projectRelativePath}' out of the snapshot tree.");
-                }
-            }
-        }
-        finally
-        {
-            TryDeleteHistoricalGraphDirectory(temporaryRoot);
         }
     }
 

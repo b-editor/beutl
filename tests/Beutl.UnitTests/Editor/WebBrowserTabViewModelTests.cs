@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia.Platform;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
@@ -32,23 +31,6 @@ public class WebBrowserTabViewModelTests
             Assert.That(viewModel.AddressSuggestions[0], Is.EqualTo("https://example.com/100"));
             Assert.That(viewModel.AddressSuggestions, Is.Unique);
             Assert.That(viewModel.AddressSuggestions, Does.Not.Contain("https://example.com/0"));
-        });
-    }
-
-    [Test]
-    public void MacOSEnvironment_AddsSafariIdentificationBeforeNavigation()
-    {
-        // Avalonia creates these event args internally; this test only exercises their settings.
-        var environment = (AppleWKWebViewEnvironmentRequestedEventArgs)RuntimeHelpers.GetUninitializedObject(
-            typeof(AppleWKWebViewEnvironmentRequestedEventArgs));
-        environment.NonPersistentDataStore = true;
-
-        WebBrowserTabView.ConfigureMacOSWebViewEnvironment(null, environment);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(environment.ApplicationNameForUserAgent, Is.EqualTo("Safari/605.1.15"));
-            Assert.That(environment.NonPersistentDataStore, Is.True);
         });
     }
 

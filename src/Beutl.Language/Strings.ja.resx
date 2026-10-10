@@ -2377,6 +2377,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
     <value>プロジェクトファイルは保存されましたが、履歴の自動スナップショットを記録できませんでした。Git リポジトリを確認してから、もう一度保存してください。</value>
   </data>
+  <data name="VersionControl_SaveSnapshotFailedFormat" xml:space="preserve">
+    <value>プロジェクトファイルは保存されましたが、履歴の自動スナップショットを記録できませんでした。Git リポジトリを確認してから、もう一度保存してください。{0}</value>
+  </data>
   <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
     <value>復元には失敗しましたが、元のプロジェクトは復旧されました。安全のためブランチ '{0}' を保持しています。他の Git ワークツリーで使用されていないことを確認してから、外部の Git ツールで手動削除してください。</value>
   </data>
@@ -2431,6 +2434,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git がこのプロジェクトのフォルダーを確認できなかったため、バージョン管理なしで開きました。{0}</value>
+  </data>
+  <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
+    <value>このプロジェクトでバージョン管理を有効にできませんでした。{0}</value>
   </data>
   <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
     <value>中断した pull の復旧が必要かどうかを確認できなかったため、プロジェクトを開きませんでした。{0}</value>
@@ -2522,6 +2528,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>ブランチ名</value>
   </data>
+  <data name="VersionControl_BranchNameUnavailableFormat" xml:space="preserve">
+    <value>ブランチ '{0}' を作成できませんでした。Git のブランチ名として無効か、既存のブランチと競合しています。</value>
+  </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>新しいブランチに復元</value>
   </data>
@@ -2570,6 +2579,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>リモートに接続しました。</value>
   </data>
+  <data name="VersionControl_RemoteConnectFailedFormat" xml:space="preserve">
+    <value>リモートに接続できませんでした。{0}</value>
+  </data>
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>バージョンをプッシュしています…</value>
   </data>
@@ -2579,11 +2591,17 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
     <value>リモート操作が完了しました。</value>
   </data>
+  <data name="VersionControl_RemoteOperationFailedFormat" xml:space="preserve">
+    <value>リモート操作を完了できませんでした。{0}</value>
+  </data>
   <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
     <value>リモート操作をキャンセルしました。</value>
   </data>
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>大きなメディアは Git LFS で保存されます。リモートホスティングでは、LFS のストレージ容量と帯域幅に上限が適用される場合があります。</value>
+  </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>リポジトリの ignore ルールにより、次のプロジェクト内のファイルはバージョンに保存されません: {0}</value>
   </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0} は大きなファイルですが、Git LFS が有効ではありません。コミットするとリポジトリ履歴のサイズが恒久的に増える可能性があります。コミットは続行されます。</value>

@@ -335,7 +335,7 @@ internal partial class VersionControlCoordinator
                 PublishNotification(() =>
                     NotificationService.ShowWarning(
                         Strings.VersionControl,
-                        Strings.VersionControl_SaveSnapshotFailed));
+                        FormatSnapshotFailure(ex)));
             }
         }
     }

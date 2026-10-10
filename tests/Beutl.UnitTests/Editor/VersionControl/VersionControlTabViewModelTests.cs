@@ -717,6 +717,40 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Download_command_opens_the_git_downloads_page_without_touching_the_unavailable_state()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(GitAvailability.NotInstalled);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        Uri? launchedUri = null;
+        bool? unavailableDuringLaunch = null;
+        bool? canExecuteDuringLaunch = null;
+        viewModel.LaunchUriAsync = uri =>
+        {
+            launchedUri = uri;
+            unavailableDuringLaunch = viewModel.IsUnavailable.Value;
+            canExecuteDuringLaunch = viewModel.DownloadGitCommand.CanExecute();
+            return Task.FromResult(true);
+        };
+        await viewModel.Initialization;
+        Assert.That(viewModel.DownloadGitCommand.CanExecute(), Is.True);
+
+        await viewModel.DownloadGitCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                launchedUri,
+                Is.EqualTo(new Uri("https://git-scm.com/downloads")));
+            Assert.That(unavailableDuringLaunch, Is.True);
+            Assert.That(canExecuteDuringLaunch, Is.False);
+            Assert.That(viewModel.IsUnavailable.Value, Is.True);
+            Assert.That(viewModel.DownloadGitCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Conflicted_repository_collapses_to_external_resolution_guidance()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -1437,9 +1471,13 @@ public class VersionControlTabViewModelTests
         pendingUiAction!();
         Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
 
-        await viewModel.RemoveStaleLockAsync();
+        await viewModel.RemoveStaleLockCommand.ExecuteAsync();
 
-        Assert.That(viewModel.HasRecoverableLock.Value, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.False);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.False);
+        });
         recovery.Verify(
             x => x.RemoveRecoverableLockAsync(
                 It.Is<RepositoryLockInfo>(value => ReferenceEquals(value, expectedLock)),
@@ -1481,6 +1519,7 @@ public class VersionControlTabViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.True);
             Assert.That(
                 viewModel.StaleLockGuidance.Value,
                 Is.EqualTo(string.Format(
@@ -1488,6 +1527,106 @@ public class VersionControlTabViewModelTests
                     Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
                     expectedLock.LockPath)));
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Stale_lock_requiring_manual_removal_shows_the_guidance_without_a_remove_action(
+        bool offeredAfterBinding)
+    {
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(Path.GetTempPath(), "index.lock"),
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11),
+            requiresManualRemoval: true);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IRepositoryLockRecoveryService> recovery
+            = service.As<IRepositoryLockRecoveryService>();
+        using VersionControlTabViewModel viewModel = await CreateViewModelWithRecoverableLockAsync(
+            service,
+            recovery,
+            lockInfo,
+            offeredAfterBinding);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.False);
+            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.False);
+            Assert.That(
+                viewModel.StaleLockGuidance.Value,
+                Is.EqualTo(string.Format(
+                    CultureInfo.CurrentCulture,
+                    Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                    lockInfo.LockPath)));
+        });
+        recovery.Verify(
+            x => x.RemoveRecoverableLockAsync(
+                It.IsAny<RepositoryLockInfo>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Removable_stale_lock_offers_the_remove_action_with_the_default_guidance(
+        bool offeredAfterBinding)
+    {
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(Path.GetTempPath(), "index.lock"),
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11),
+            requiresManualRemoval: false);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IRepositoryLockRecoveryService> recovery
+            = service.As<IRepositoryLockRecoveryService>();
+        using VersionControlTabViewModel viewModel = await CreateViewModelWithRecoverableLockAsync(
+            service,
+            recovery,
+            lockInfo,
+            offeredAfterBinding);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.CanRemoveStaleLock.Value, Is.True);
+            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.True);
+            Assert.That(
+                viewModel.StaleLockGuidance.Value,
+                Is.EqualTo(Strings.VersionControl_StaleLockGuidance));
+        });
+    }
+
+    private static async Task<VersionControlTabViewModel> CreateViewModelWithRecoverableLockAsync(
+        Mock<IProjectVersionControlService> service,
+        Mock<IRepositoryLockRecoveryService> recovery,
+        RepositoryLockInfo lockInfo,
+        bool offeredAfterBinding)
+    {
+        RepositoryLockInfo? currentLock = offeredAfterBinding ? null : lockInfo;
+        recovery.SetupGet(x => x.RecoverableLock).Returns(() => currentLock);
+        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, [], false));
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var viewModel = new VersionControlTabViewModel(
+            Mock.Of<ToolTabExtension>(),
+            Mock.Of<IEditorContext>(),
+            CreateServiceSource(service.Object),
+            versionControlCoordinator: null,
+            static action => action());
+        await viewModel.Initialization;
+        if (offeredAfterBinding)
+        {
+            currentLock = lockInfo;
+            recovery.Raise(
+                x => x.RecoverableLockAvailable += null,
+                service.Object,
+                lockInfo);
+        }
+
+        return viewModel;
     }
 
     [Test]
@@ -1642,6 +1781,51 @@ public class VersionControlTabViewModelTests
         coordinator.Verify(x => x.RecoverPendingPullAsync(
             recovery.Id,
             It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Test]
+    public async Task Recover_command_hides_the_banner_after_a_successful_recovery()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var recovery = new ProjectRecoveryInfo(
+            "11111111111111111111111111111111",
+            "project.bep",
+            DateTimeOffset.UtcNow);
+        IReadOnlyList<ProjectRecoveryInfo> currentRecoveries = [recovery];
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => currentRecoveries);
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        bool? bannerDuringRecovery = null;
+        bool? canExecuteDuringRecovery = null;
+        coordinator.Setup(x => x.RecoverPendingPullAsync(
+                recovery.Id,
+                It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                bannerDuringRecovery = viewModel.HasPendingPullRecovery.Value;
+                canExecuteDuringRecovery = viewModel.RecoverPendingPullCommand.CanExecute();
+                currentRecoveries = [];
+            })
+            .ReturnsAsync(new ProjectRecoveryResult.RestoredOriginal());
+        await viewModel.Initialization;
+        Assert.That(viewModel.RecoverPendingPullCommand.CanExecute(), Is.True);
+
+        await viewModel.RecoverPendingPullCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bannerDuringRecovery, Is.True);
+            Assert.That(canExecuteDuringRecovery, Is.False);
+            Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+            Assert.That(viewModel.RecoverPendingPullCommand.CanExecute(), Is.False);
+        });
+        coordinator.Verify(x => x.RecoverPendingPullAsync(
+            recovery.Id,
+            CancellationToken.None), Times.Once);
     }
 
     [Test]
@@ -2905,6 +3089,40 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Remote_operation_fault_tells_the_user_what_Git_reported()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/repo.git")]);
+        var failure = new GitOperationException(
+            128,
+            "fatal: unable to access 'https://example.invalid/repo.git/': simulated TLS failure");
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.PushAsync(
+                It.IsAny<IProgress<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        using var notifications = NotificationCapture.Install();
+
+        await viewModel.PushAsync();
+
+        Beutl.Services.Notification notification = notifications.All.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(notification.Title, Is.EqualTo(Strings.VersionControl_ErrorTitle));
+            Assert.That(
+                notification.Message,
+                Is.EqualTo(string.Format(
+                    Strings.VersionControl_RemoteOperationFailedFormat,
+                    failure.Message)));
+            Assert.That(notification.Message, Does.Contain("simulated TLS failure"));
+            Assert.That(viewModel.IsRemoteOperationRunning.Value, Is.False);
+        });
+    }
+
+    [Test]
     public async Task Push_command_contains_post_success_refresh_fault_and_reenables()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -3190,6 +3408,39 @@ public class VersionControlTabViewModelTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(viewModel.HasRemote.Value, Is.False);
+            Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Set_remote_fault_tells_the_user_what_Git_reported()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var failure = new GitOperationException(
+            255,
+            "error: could not lock config file .git/config: Permission denied");
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.SetRemoteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object, coordinator.Object);
+        viewModel.RequestRemoteUrlAsync = (_, _) =>
+            Task.FromResult<string?>("https://example.invalid/repository.git");
+        await viewModel.Initialization;
+        using var notifications = NotificationCapture.Install();
+
+        await viewModel.SetRemoteAsync();
+
+        Beutl.Services.Notification notification = notifications.All.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(notification.Title, Is.EqualTo(Strings.VersionControl_ErrorTitle));
+            Assert.That(
+                notification.Message,
+                Is.EqualTo(string.Format(
+                    Strings.VersionControl_RemoteConnectFailedFormat,
+                    failure.Message)));
+            Assert.That(notification.Message, Does.Contain("Permission denied"));
             Assert.That(viewModel.HasRemote.Value, Is.False);
             Assert.That(viewModel.SetRemoteCommand.CanExecute(), Is.True);
         });
@@ -3926,6 +4177,45 @@ public class VersionControlTabViewModelTests
             : OperatingSystem.IsMacOS()
                 ? Strings.VersionControl_InstallGitMacOS
                 : Strings.VersionControl_InstallGitLinux;
+    }
+
+    // NotificationService.Handler is process-global, so a test installs this only around the call it
+    // observes and puts the previous handler back.
+    private sealed class NotificationCapture : Beutl.Services.INotificationServiceHandler, IDisposable
+    {
+        // The Handler setter rejects null, so the field itself is read and restored: a capture must not
+        // stay installed after its test when no handler was installed before it.
+        private static readonly System.Reflection.FieldInfo s_handlerField =
+            typeof(Beutl.Services.NotificationService).GetField(
+                "s_handler",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(nameof(Beutl.Services.NotificationService), "s_handler");
+
+        private readonly object? _previous;
+
+        private NotificationCapture()
+        {
+            _previous = s_handlerField.GetValue(null);
+        }
+
+        public System.Collections.Concurrent.ConcurrentQueue<Beutl.Services.Notification> All { get; } = new();
+
+        public static NotificationCapture Install()
+        {
+            var capture = new NotificationCapture();
+            Beutl.Services.NotificationService.Handler = capture;
+            return capture;
+        }
+
+        public void Show(Beutl.Services.Notification notification)
+        {
+            All.Enqueue(notification);
+        }
+
+        public void Dispose()
+        {
+            s_handlerField.SetValue(null, _previous);
+        }
     }
 
     private static CommitInfo CreateCommit(int index, SnapshotKind kind)

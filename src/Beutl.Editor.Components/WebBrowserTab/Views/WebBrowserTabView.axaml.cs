@@ -164,10 +164,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         NativeWebView webView = _createWebView(downloadInitialMedia || _viewModel.Profile.BlockAds ? WebBrowserTabViewModel.BlankPage : initialUri);
         _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
             downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus);
-        if (OperatingSystem.IsMacOS())
-        {
-            webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
-        }
+        webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
         webView.AdapterCreated += OnAdapterCreated;
         webView.AdapterDestroyed += OnAdapterDestroyed;
         webView.NavigationStarted += OnNavigationStarted;
@@ -184,17 +181,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             {
                 if (ReferenceEquals(_viewModel, initiatingViewModel)) _ = DownloadMediaAsync(initialUri, null);
             });
-        }
-    }
-
-    internal static void ConfigureMacOSWebViewEnvironment(object? sender, WebViewEnvironmentRequestedEventArgs e)
-    {
-        if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple)
-        {
-            // WKWebView omits Safari's product token, so Google serves its basic HTML UI.
-            // Append the compatibility token while retaining the system's OS and WebKit UA.
-            // EnvironmentRequested runs before the first navigation; AdapterCreated is too late.
-            apple.ApplicationNameForUserAgent = "Safari/605.1.15";
         }
     }
 
@@ -408,7 +394,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
-        _webView.EnvironmentRequested -= ConfigureMacOSWebViewEnvironment;
+        _webView.EnvironmentRequested -= BrowserWebViewEnvironment.Configure;
         _webView.AdapterCreated -= OnAdapterCreated;
         _webView.AdapterDestroyed -= OnAdapterDestroyed;
         _nativeDownloadHandler?.Dispose();

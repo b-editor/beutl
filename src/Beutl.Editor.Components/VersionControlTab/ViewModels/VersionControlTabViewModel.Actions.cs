@@ -174,13 +174,11 @@ internal partial class VersionControlTabViewModel
             expectedLock,
             CancellationToken.None);
         RepositoryLockInfo? remainingLock = _lockRecoveryService.RecoverableLock;
+        CanRemoveStaleLock.Value = remainingLock is { RequiresManualRemoval: false };
         HasRecoverableLock.Value = remainingLock is not null;
         if (!removed && remainingLock is not null)
         {
-            StaleLockGuidance.Value = string.Format(
-                CultureInfo.CurrentCulture,
-                Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-                remainingLock.LockPath);
+            StaleLockGuidance.Value = FormatStaleLockManualRemovalGuidance(remainingLock);
         }
     }
 

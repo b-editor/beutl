@@ -621,7 +621,7 @@ public class GitInstallationLocatorTests
     {
         using var process = new Process();
 
-        Assert.DoesNotThrow(() => ProcessGitInstallationProbe.TryKillProcessTree(process));
+        Assert.DoesNotThrow(() => GitProcess.KillProcessTree(process));
     }
 
     [Test]
@@ -629,9 +629,27 @@ public class GitInstallationLocatorTests
     {
         using Process process = Process.GetCurrentProcess();
 
-        Assert.DoesNotThrow(() => ProcessGitInstallationProbe.TryKillProcessTree(
+        Assert.DoesNotThrow(() => GitProcess.KillProcessTree(
             process,
             static _ => throw new AggregateException("A descendant could not be terminated.")));
+    }
+
+    // On Unix nothing reserves the id of a reaped process, so it may already belong to another one.
+    [Test]
+    public async Task Cancellation_cleanup_leaves_an_exited_process_alone_on_unix()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("On Windows the handle Process holds keeps the id reserved after the exit.");
+        }
+
+        using Process process = Process.Start("/bin/sh", ["-c", "exit 0"]);
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        bool killed = false;
+
+        GitProcess.KillProcessTree(process, _ => killed = true);
+
+        Assert.That(killed, Is.False);
     }
 
     [Test]
@@ -725,8 +743,10 @@ public class GitInstallationLocatorTests
         }
     }
 
+    // The wrapper's exit is the probe's result; a descendant still holding the pipes only delays it
+    // by the drain period.
     [Test]
-    public async Task Process_probe_timeout_bounds_readers_held_by_an_exited_wrapper()
+    public async Task Process_probe_bounds_readers_held_after_the_wrapper_exits()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -739,8 +759,8 @@ public class GitInstallationLocatorTests
         Task<GitProbeResult>? probeTask = null;
         try
         {
-            var probe = new ProcessGitInstallationProbe(TimeSpan.FromMilliseconds(250));
-            string command = $"(sleep 5; /bin/echo child-output && printf success > {QuoteForPosixShell(childSucceededPath)}) & child=$!; printf '%s' \"$child\" > {QuoteForPosixShell(childPidPath)}; exit 0";
+            var probe = new ProcessGitInstallationProbe(TimeSpan.FromSeconds(10));
+            string command = $"(sleep 5; /bin/echo child-output && printf success > {QuoteForPosixShell(childSucceededPath)}) & child=$!; printf '%s' \"$child\" > {QuoteForPosixShell(childPidPath)}; printf version; exit 0";
             var stopwatch = Stopwatch.StartNew();
 
             probeTask = probe.RunAsync("/bin/sh", ["-c", command], CancellationToken.None);
@@ -748,7 +768,8 @@ public class GitInstallationLocatorTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(result.ExitCode, Is.EqualTo(-1));
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(result.Stdout, Is.EqualTo("version"));
                 Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
             });
             Assert.That(File.Exists(childPidPath), Is.True);
@@ -841,7 +862,7 @@ public class GitInstallationLocatorTests
         try
         {
             using Process process = Process.GetProcessById(processId);
-            ProcessGitInstallationProbe.TryKillProcessTree(process);
+            GitProcess.KillProcessTree(process);
         }
         catch (ArgumentException)
         {
