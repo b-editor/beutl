@@ -120,6 +120,53 @@ public class TransformHandlesOverlayTests
         }
     }
 
+    // The turned rectangle's box starts at (-24, -24) in its own space, so the opposite edge is not where an
+    // anchor taken from the origin would put it.
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Dragging_an_edge_takes_it_to_the_pointer_and_keeps_the_opposite_edge(bool shift)
+    {
+        GpuTestGate.EnsureAvailable();
+        (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.TurnedBlurredRect);
+        try
+        {
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            AvaPoint[] before = Corners(overlay);
+            // Pull the right edge 30 px outward along the turned box's width.
+            Avalonia.Vector across = before[1] - before[0];
+            AvaPoint from = Midpoint(before[1], before[2]);
+            AvaPoint to = from + (across / across.Length * 30);
+            Assert.That(overlay.HitTest(from), Is.EqualTo(TransformHandlesOverlay.HandleKind.Right));
+
+            RawInputModifiers modifiers = shift ? RawInputModifiers.Shift : RawInputModifiers.None;
+            window.MouseDown(ToWindow(view, window, from), MouseButton.Left, modifiers);
+            window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton | modifiers);
+            window.MouseUp(ToWindow(view, window, to), MouseButton.Left, modifiers);
+            await RenderPreview(editor);
+
+            AvaPoint[] after = Corners(overlay);
+            AvaPoint grabbed = Midpoint(after[1], after[2]);
+            AvaPoint opposite = Midpoint(after[3], after[0]);
+            AvaPoint oppositeBefore = Midpoint(before[3], before[0]);
+            double widthRatio = AvaPoint.Distance(after[0], after[1]) / across.Length;
+            double heightRatio = AvaPoint.Distance(after[0], after[3]) / AvaPoint.Distance(before[0], before[3]);
+            Assert.Multiple(() =>
+            {
+                Assert.That(grabbed.X, Is.EqualTo(to.X).Within(0.5), "grabbed edge X");
+                Assert.That(grabbed.Y, Is.EqualTo(to.Y).Within(0.5), "grabbed edge Y");
+                Assert.That(opposite.X, Is.EqualTo(oppositeBefore.X).Within(0.5), "opposite edge X");
+                Assert.That(opposite.Y, Is.EqualTo(oppositeBefore.Y).Within(0.5), "opposite edge Y");
+                // Shift scales the height by the width's ratio; without it only the width changes.
+                Assert.That(heightRatio, Is.EqualTo(shift ? widthRatio : 1).Within(0.005), "height ratio");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static Drawable Create(Content content)
     {
         switch (content)
@@ -208,6 +255,8 @@ public class TransformHandlesOverlayTests
             return new AvaPoint(p.X * overlay.FrameScale, p.Y * overlay.FrameScale);
         })];
     }
+
+    private static AvaPoint Midpoint(AvaPoint a, AvaPoint b) => new((a.X + b.X) / 2, (a.Y + b.Y) / 2);
 
     private static AvaPoint ToWindow(PlayerView view, Window window, AvaPoint imagePoint)
         => view.image.TranslatePoint(imagePoint, window)!.Value;

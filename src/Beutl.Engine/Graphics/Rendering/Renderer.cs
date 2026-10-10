@@ -490,13 +490,14 @@ public class Renderer : IRenderer
     private RenderNodeRenderer CreateEntryRenderer(
         RenderNode node,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
-        RenderCacheOptions? cacheOptions = null)
+        RenderCacheOptions? cacheOptions = null,
+        Rect? targetDomain = null)
         => new(
             node,
             new RenderNodeRenderRequest
             {
                 Intent = Intent,
-                TargetDomain = new Rect(default, FrameSize.ToSize(1)),
+                TargetDomain = targetDomain ?? new Rect(default, FrameSize.ToSize(1)),
                 OutputScale = OutputScale,
                 MaxWorkingScale = MaxWorkingScale,
                 CacheOptions = cacheOptions ?? CacheOptions,
@@ -766,8 +767,9 @@ public class Renderer : IRenderer
     /// the matrix that places that space in the frame.
     /// </summary>
     /// <returns>
-    /// <see langword="null"/> when the drawable is not in the current frame, draws nothing, or does not draw its
-    /// content under a transform of its own the way <see cref="Drawable.Render"/> does.
+    /// <see langword="null"/> when the drawable is not in the current frame, draws nothing, does not draw its
+    /// content under a transform of its own the way <see cref="Drawable.Render"/> does, or is drawn under a
+    /// perspective transform that takes part of the box past its camera plane.
     /// </returns>
     /// <remarks>
     /// The bounds are what <see cref="GetBoundary"/> measures before the transform maps them, so the box they make
@@ -796,28 +798,54 @@ public class Renderer : IRenderer
             return null;
         }
 
+        // The content reaches the frame through the transforms and clips above it. Content sized by the frame it
+        // draws into, such as an effect without bounds of its own, is therefore measured against the frame mapped
+        // back into its space, the way those nodes map it when the whole drawable is measured.
+        Rect domain = new(default, FrameSize.ToSize(1));
+        Matrix outerMatrix = Matrix.Identity;
+        foreach (RenderNode node in drawn.Path)
+        {
+            switch (node)
+            {
+                case TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer:
+                    if (!outer.Transform.TryInvert(out Matrix outerInverse)) return null;
+                    domain = domain.TransformToAABB(outerInverse);
+                    outerMatrix = outer.Transform * outerMatrix;
+                    break;
+                case RectClipRenderNode { Operation: ClipOperation.Intersect } clip:
+                    domain = domain.Intersect(clip.Clip);
+                    break;
+            }
+        }
+
+        if (!transform.Transform.TryInvert(out Matrix inverse)) return null;
+        domain = domain.TransformToAABB(inverse);
+        if (!HasArea(domain)) return null;
+
         Rect bounds = default;
         foreach (RenderNode content in transform.Children)
         {
-            using RenderNodeRenderer renderer = CreateEntryRenderer(content);
+            using RenderNodeRenderer renderer = CreateEntryRenderer(content, targetDomain: domain);
             bounds = bounds.Union(renderer.Measure().QueryBounds);
         }
 
-        if (!RenderRectValidation.IsFiniteNonNegative(bounds) || bounds.Width == 0 || bounds.Height == 0)
-        {
-            return null;
-        }
+        if (!HasArea(bounds)) return null;
 
-        Matrix matrix = transform.Transform;
-        for (int i = drawn.Path.Length - 1; i >= 0; i--)
+        // A perspective transform maps the corners onto the quad drawn between them only while all of them stay in
+        // front of its camera plane. A corner past it is reflected through the origin, where GetBoundary clips.
+        Matrix matrix = transform.Transform * outerMatrix;
+        if (matrix.ContainsPerspective())
         {
-            if (drawn.Path[i] is TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer)
+            foreach (Point corner in (ReadOnlySpan<Point>)[bounds.TopLeft, bounds.TopRight, bounds.BottomRight, bounds.BottomLeft])
             {
-                matrix *= outer.Transform;
+                if (!(matrix.GetTransformDivisor(corner) >= Rect.DefaultNearPlane)) return null;
             }
         }
 
         return (bounds, matrix);
+
+        static bool HasArea(Rect rect)
+            => RenderRectValidation.IsFiniteNonNegative(rect) && rect.Width > 0 && rect.Height > 0;
     }
 
     /// <summary>Recalculates and caches current-frame bounds for drawables at the specified z-index.</summary>

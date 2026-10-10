@@ -71,6 +71,55 @@ public class RendererLocalBoundaryTests
         });
     }
 
+    // A transform effect applied to its target has no bounds of its own: it covers the frame, mapped back through
+    // the transform the drawable is drawn under. Measured against the unmapped frame, the box would be a copy of
+    // the frame moved by that transform.
+    [TestCase(0f)]
+    [TestCase(30f)]
+    public void LocalBoundary_OfContentThatFillsTheFrame_MapsOntoTheBoundary(float rotation)
+    {
+        var rect = new RectShape();
+        rect.Width.CurrentValue = 100;
+        rect.Height.CurrentValue = 60;
+        var effect = new TransformEffect();
+        effect.Transform.CurrentValue = new RotationTransform(10);
+        ((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children.Add(effect);
+        var transform = (TransformGroup)rect.Transform.CurrentValue!;
+        transform.Children.Add(new TranslateTransform(50, 30));
+        transform.Children.Add(new RotationTransform(rotation));
+
+        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) =
+            Measure(renderer => (renderer.GetBoundary(rect), renderer.GetLocalBoundary(rect)), rect);
+
+        Assert.That(local, Is.Not.Null);
+        AssertRect(MapToAABB(local!.Value.Bounds, local.Value.Transform), boundary!.Value);
+    }
+
+    // Past the camera plane a perspective transform reflects corners through the origin instead of mapping them
+    // onto the drawn quad. The rectangle stays in front of the plane but its blur reaches past it, so only the box
+    // of what it draws would be misplaced.
+    [Test]
+    public void LocalBoundary_IsNull_WhenItsBoxReachesPastTheCameraPlane()
+    {
+        RectShape rect = CreateBlurredRect(rotation: 0);
+        ((Blur)((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children[0]).Sigma.CurrentValue = new Size(20, 20);
+        // The divisor is 1 - 0.012 * (x - 50) about the rectangle's centre: from 0.4 to 1.6 across its 100 px,
+        // and below zero 60 px further right, where the blur still draws.
+        rect.Transform.CurrentValue = new MatrixTransform(new Matrix(
+            1, 0, -0.012f,
+            0, 1, 0,
+            0, 0, 1));
+
+        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) =
+            Measure(renderer => (renderer.GetBoundary(rect), renderer.GetLocalBoundary(rect)), rect);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(boundary, Is.Not.Null, "The rectangle is drawn.");
+            Assert.That(local, Is.Null);
+        });
+    }
+
     [Test]
     public void LocalBoundary_IsNull_WithoutATransformOfItsOwn_OrOutsideTheFrame()
     {
