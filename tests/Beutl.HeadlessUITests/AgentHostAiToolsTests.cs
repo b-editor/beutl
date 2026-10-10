@@ -216,6 +216,12 @@ public sealed class AgentHostAiToolsTests
         ToolResult<AgentAiJobSnapshot> unknownModel = await tools.GenerateImage("a cat", model: "nope");
         backend.Models.Clear();
         ToolResult<AgentAiJobSnapshot> negativeSeed = await tools.GenerateImage("a cat", seed: -1);
+        // With no catalog, a named model would be sent as the service default.
+        ToolResult<AgentAiJobSnapshot> unconfirmedModel = await tools.GenerateImage("a cat", model: "anything");
+        // The executor checks against the fallback lists, which offer 4, 6 and 8 seconds.
+        ToolResult<AgentAiJobSnapshot> fallbackDuration = await tools.GenerateVideo("a cat", durationSeconds: 7);
+        ToolResult<AgentAiJobSnapshot> editDuration = await tools.EditVideo(WriteFile("e.mp4"), "rain", mode: "edit", durationSeconds: 6);
+        ToolResult<AgentAiJobSnapshot> corruptReference = await tools.GenerateImage("a cat", referenceImagePaths: [WriteFile("bad.png")]);
         backend.ReferenceBudget = 10;
         ToolResult<AgentAiJobSnapshot> overBudget = await tools.GenerateImage("a cat", referenceImagePaths: [WritePng("budget.png")]);
 
@@ -239,6 +245,12 @@ public sealed class AgentHostAiToolsTests
             Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unknownModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(negativeSeed.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(unconfirmedModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(fallbackDuration.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(editDuration.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(corruptReference.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+            Assert.That(corruptReference.Error?.Target, Is.EqualTo("referenceImagePaths[0]"), "errors name the tool argument");
+            Assert.That(hugePicture.Error?.Target, Is.EqualTo("sourcePath"));
             Assert.That(overBudget.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "the references come to more than the catalog's budget");
             Assert.That(backend.Requests, Is.Empty);
         });

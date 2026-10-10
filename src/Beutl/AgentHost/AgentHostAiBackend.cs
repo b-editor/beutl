@@ -4,6 +4,7 @@ using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
+using Beutl.ViewModels.Dialogs;
 
 namespace Beutl.AgentHost;
 
@@ -151,15 +152,43 @@ internal sealed class AgentHostAiBackend(
                     throw new AgentAiException(Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed, failure.Message);
                 }
 
+                // Checked as the subtitle flow checks a part before accepting it: times inside the part,
+                // in order, so offsetting them cannot overlap the next part.
+                double partSeconds = chunk.UploadedDuration.TotalSeconds;
+                AiTranscriptionSegment[] partSegments;
+                try
+                {
+                    partSegments = AiSubtitleDialogViewModel.ValidateTranscriptionSegments(response.Segments, partSeconds);
+                }
+                catch (InvalidDataException)
+                {
+                    throw new AgentAiException(
+                        Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed,
+                        "The transcription service returned timings outside the audio it was sent.");
+                }
+
                 double offset = start / (double)sampleRate;
                 detected ??= response.Language;
-                foreach (AiTranscriptionSegment segment in response.Segments)
+                foreach (AiTranscriptionSegment segment in partSegments)
                     segments.Add(new AgentTranscriptSegment(segment.Start + offset, segment.End + offset, segment.Text));
                 if (response.Words is { } chunkWords)
                 {
                     hasWords = true;
                     foreach (AiTranscriptionWord word in chunkWords)
-                        words.Add(new AgentTranscriptWord(word.Start + offset, word.End + offset, word.Word));
+                    {
+                        // Words only refine the segments, so one with unusable times is left out.
+                        if (word is null
+                            || !double.IsFinite(word.Start)
+                            || !double.IsFinite(word.End)
+                            || word.Start < 0
+                            || word.End < word.Start
+                            || word.Start > partSeconds)
+                        {
+                            continue;
+                        }
+
+                        words.Add(new AgentTranscriptWord(word.Start + offset, Math.Min(word.End, partSeconds) + offset, word.Word));
+                    }
                 }
 
                 if (chunk.SourceSampleCount < length)

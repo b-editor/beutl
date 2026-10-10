@@ -180,6 +180,10 @@ public sealed class AgentHostAiBackendTests
             next = new StubAudioReader(16_000, 16_000);
             AgentAiException? refused = await CatchAsync(
                 CreateBackend(transcription: new StubTranscription { Error = new AiUsageLimitExceededException() }), path);
+            next = new StubAudioReader(16_000, 16_000);
+            // A one-second part cannot have speech ending at five seconds.
+            AgentAiException? badTimes = await CatchAsync(
+                CreateBackend(transcription: new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 5, Text = "late" }] }), path);
 
             Assert.Multiple(() =>
             {
@@ -187,6 +191,7 @@ public sealed class AgentHostAiBackendTests
                 Assert.That(tooLong?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
                 Assert.That(noCredits?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
                 Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
+                Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
                 Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
             });
         }
@@ -292,6 +297,8 @@ public sealed class AgentHostAiBackendTests
     {
         public Exception? Error { get; init; }
 
+        public AiTranscriptionSegment[]? Segments { get; init; }
+
         public List<AiTranscriptionRequest> Requests { get; } = [];
 
         public Task<AiTranscriptionResponse> TranscribeAsync(AiTranscriptionRequest request, CancellationToken cancellationToken)
@@ -302,9 +309,10 @@ public sealed class AgentHostAiBackendTests
             string text = $"part {Requests.Count}";
             return Task.FromResult(new AiTranscriptionResponse(
                 null,
-                [new AiTranscriptionSegment { Start = 1, End = 2, Text = text }],
+                Segments ?? [new AiTranscriptionSegment { Start = 1, End = 2, Text = text }],
                 "ja",
-                [new AiTranscriptionWord { Start = 1, End = 2, Word = text }]));
+                // The second word has no usable time and is left out of the transcript.
+                [new AiTranscriptionWord { Start = 1, End = 2, Word = text }, new AiTranscriptionWord { Start = -1, End = 0, Word = "?" }]));
         }
     }
 

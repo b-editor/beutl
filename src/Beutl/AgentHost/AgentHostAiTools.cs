@@ -119,7 +119,7 @@ internal sealed class AgentHostAiTools(
             if (referencePaths.Length > maxReferences)
                 throw Invalid($"At most {maxReferences} reference pictures are accepted.", "referenceImagePaths");
             GenerativeImageInput[] references = referencePaths
-                .Select((path, index) => ReadImage(scene, path, $"reference-{index + 1}", AiRequestLimits.MaxImageUploadBytes))
+                .Select((path, index) => ReadImage(scene, path, $"reference-{index + 1}", $"referenceImagePaths[{index}]", AiRequestLimits.MaxImageUploadBytes))
                 .ToArray();
             IReadOnlyList<string> backgrounds = Offered(chosen?.Image?.Backgrounds, GenerativeImageCapabilities.DefaultBackgrounds);
             string chosenBackground = string.IsNullOrWhiteSpace(background)
@@ -171,7 +171,7 @@ internal sealed class AgentHostAiTools(
                 ? AiRequestLimits.MaxPromptLength - AiGenerativeNodeExecutor.OutpaintInstruction.Length - 1
                 : AiRequestLimits.MaxPromptLength;
             string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt, maxPrompt) : null;
-            GenerativeImageInput image = ReadImage(scene, sourcePath, "source", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
+            GenerativeImageInput image = ReadImage(scene, sourcePath, "source", "sourcePath", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
             if (editTask == AiImageEditTask.Outpaint)
                 RequireOutpaintCanvas(size, outpaintExpansionPercent);
             return new AiImageEditNodeRequest($"image.edit.{taskId}")
@@ -239,19 +239,18 @@ internal sealed class AgentHostAiTools(
                 ? GenerativeShapeSuggestion.NearestAspectRatio(
                     Offered(offered?.AspectRatios, GenerativeVideoCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
                 : aspectRatio.Trim();
-            if (offered is not null)
-            {
-                string id = chosen!.Id;
-                RequireOffered(duration, offered.DurationChoices, id, "durationSeconds");
-                RequireOffered(chosenResolution, offered.ResolutionChoices, id, "resolution");
-                RequireOffered(ratio, offered.AspectRatioChoices, id, "aspectRatio");
-                if (firstFramePath is not null && !offered.SupportsFirstFrame)
-                    throw Invalid($"The model '{id}' does not start from a picture.", "firstFramePath");
-                if (lastFramePath is not null && !offered.SupportsLastFrame)
-                    throw Invalid($"The model '{id}' does not end on a picture.", "lastFramePath");
-                if (firstFramePath is null && !offered.SupportsPromptToVideo)
-                    throw Invalid($"The model '{id}' needs a picture to start from.", "firstFramePath");
-            }
+            // Against the fallback lists too when the catalog names no model, as the executor checks them.
+            GenerativeVideoCapabilities limits = offered ?? GenerativeVideoCapabilities.Unrestricted;
+            string id = chosen?.Id ?? "the service default";
+            RequireOffered(duration, limits.DurationChoices, id, "durationSeconds");
+            RequireOffered(chosenResolution, limits.ResolutionChoices, id, "resolution");
+            RequireOffered(ratio, limits.AspectRatioChoices, id, "aspectRatio");
+            if (firstFramePath is not null && !limits.SupportsFirstFrame)
+                throw Invalid($"The model '{id}' does not start from a picture.", "firstFramePath");
+            if (lastFramePath is not null && !limits.SupportsLastFrame)
+                throw Invalid($"The model '{id}' does not end on a picture.", "lastFramePath");
+            if (firstFramePath is null && !limits.SupportsPromptToVideo)
+                throw Invalid($"The model '{id}' needs a picture to start from.", "firstFramePath");
 
             return new AiVideoGenerationNodeRequest("video.generate")
             {
@@ -261,8 +260,8 @@ internal sealed class AgentHostAiTools(
                 AspectRatio = ratio,
                 GenerateAudio = generateAudio,
                 Seed = seed,
-                FirstFrame = firstFramePath is null ? null : ReadImage(scene, firstFramePath, "first-frame", AiRequestLimits.MaxFrameUploadBytes),
-                LastFrame = lastFramePath is null ? null : ReadImage(scene, lastFramePath, "last-frame", AiRequestLimits.MaxFrameUploadBytes),
+                FirstFrame = firstFramePath is null ? null : ReadImage(scene, firstFramePath, "first-frame", "firstFramePath", AiRequestLimits.MaxFrameUploadBytes),
+                LastFrame = lastFramePath is null ? null : ReadImage(scene, lastFramePath, "last-frame", "lastFramePath", AiRequestLimits.MaxFrameUploadBytes),
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
                 ParameterFingerprint = GenerativeFingerprint.Combine(
@@ -294,8 +293,8 @@ internal sealed class AgentHostAiTools(
             bool extend = modeId == "extend";
             string text = RequirePrompt(prompt, MaxPromptLength(chosen?.Video));
             int duration = extend ? durationSeconds ?? DefaultDuration(chosen?.Video) : 0;
-            if (extend && chosen?.Video is { } offered)
-                RequireOffered(duration, offered.DurationChoices, chosen.Id, "durationSeconds");
+            if (extend)
+                RequireOffered(duration, (chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted).DurationChoices, chosen?.Id ?? "the service default", "durationSeconds");
             (GenerativeFileInput source, double seconds) = ReadVideo(scene, sourcePath);
             // As the executor checks the clip against the model before anything is reserved.
             GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
@@ -320,6 +319,8 @@ internal sealed class AgentHostAiTools(
         {
             if (modeId is not ("edit" or "extend"))
                 throw Invalid($"Unknown mode '{mode}'. Use edit or extend.", "mode");
+            if (modeId == "edit" && durationSeconds is not null)
+                throw Invalid("An edit keeps the clip's own length; durationSeconds is only for mode extend.", "durationSeconds");
         });
     }
 
@@ -344,7 +345,7 @@ internal sealed class AgentHostAiTools(
                 throw Invalid($"'{language}' is not a two-letter ISO 639-1 language code such as ja or en.", "language");
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             // Transcription has no executor to resolve the default model, so the one chosen here is sent.
-            GenerativeModelInfo? chosen = await ResolveModelAsync("audio.transcribe", model, cancellationToken).ConfigureAwait(false);
+            GenerativeModelInfo? chosen = await ResolveModelAsync("audio.transcribe", model, cancellationToken, sendsNamedModel: true).ConfigureAwait(false);
             string? modelId = chosen?.Id ?? NormalizeModel(model);
             Scene? scene = await FindSceneAsync().ConfigureAwait(false);
             string path = RequireFile(scene, sourcePath, "sourcePath");
@@ -457,7 +458,13 @@ internal sealed class AgentHostAiTools(
 
     // As the executor resolves it: the named model, or the default one the account can use. An empty
     // catalog (offline) leaves the choice to the service, with the AI tab's fallback lists.
-    private async Task<GenerativeModelInfo?> ResolveModelAsync(string operation, string? model, CancellationToken cancellationToken)
+    // The executor sends only a model it finds in the catalog; with an empty catalog a named model
+    // would quietly become the service default, so it is refused unless the caller sends the id itself.
+    private async Task<GenerativeModelInfo?> ResolveModelAsync(
+        string operation,
+        string? model,
+        CancellationToken cancellationToken,
+        bool sendsNamedModel = false)
     {
         IReadOnlyList<GenerativeModelInfo> offered =
             await backend.GetModelsAsync(operation, cancellationToken).ConfigureAwait(false);
@@ -466,6 +473,15 @@ internal sealed class AgentHostAiTools(
             GenerativeModelInfo? named = offered.FirstOrDefault(candidate => candidate.Id == id);
             if (offered.Count > 0 && named is not { IsAvailable: true })
                 throw Invalid($"The model '{id}' is not available for {operation}. Call list_ai_models(\"{operation}\") for the ones this account can use.", "model");
+            if (named is null && !sendsNamedModel)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"The model catalog could not be loaded, so the model '{id}' cannot be confirmed and would be replaced by the service default.",
+                    "model",
+                    "Retry once list_ai_models lists it, or omit model to use the service default."));
+            }
+
             return named;
         }
 
@@ -637,12 +653,13 @@ internal sealed class AgentHostAiTools(
             : throw new ReconcileException(new ToolError(ErrorCode.MediaNotFound, $"No file exists at '{path}'.", target));
     }
 
-    private GenerativeImageInput ReadImage(Scene scene, string path, string name, long maxBytes)
-        => ReadImage(scene, path, name, maxBytes, out _);
+    // name is the upload's file name; target is the tool argument an error points at.
+    private GenerativeImageInput ReadImage(Scene scene, string path, string name, string target, long maxBytes)
+        => ReadImage(scene, path, name, target, maxBytes, out _);
 
-    private GenerativeImageInput ReadImage(Scene scene, string path, string name, long maxBytes, out PixelSize size)
+    private GenerativeImageInput ReadImage(Scene scene, string path, string name, string target, long maxBytes, out PixelSize size)
     {
-        string full = RequireFile(scene, path, name);
+        string full = RequireFile(scene, path, target);
         try
         {
             // Size and dimensions are checked before decoding, as the AI dialogs check them, so a
@@ -651,7 +668,7 @@ internal sealed class AgentHostAiTools(
             size = new PixelSize(bitmap.Width, bitmap.Height);
             using var stream = new MemoryStream();
             if (!bitmap.Save(stream, EncodedImageFormat.Png))
-                throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", name));
+                throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", target));
             return new GenerativeImageInput($"{name}.png", stream.ToArray());
         }
         catch (InvalidDataException)
@@ -659,11 +676,11 @@ internal sealed class AgentHostAiTools(
             throw new ReconcileException(new ToolError(
                 ErrorCode.MediaUnsupported,
                 $"'{path}' is not a picture the AI service accepts: it must be a readable image of at most {maxBytes / (1024 * 1024)} MB and {AiImageDecodeValidator.MaxDimension} pixels a side.",
-                name));
+                target));
         }
         catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException)
         {
-            throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", name));
+            throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", target));
         }
     }
 
