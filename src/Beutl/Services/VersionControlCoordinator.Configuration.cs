@@ -1,47 +1,75 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Avalonia.Threading;
+using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    private async Task<GitAvailability> GetAvailabilityTrackedAsync(
-        CancellationToken cancellationToken)
+    private async Task<GitAvailability> GetAvailabilityCoreAsync(CancellationToken cancellationToken)
     {
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             _lifetimeCancellation.Token);
+        // A probe that a newer one overtook leaves IsGitAvailable to the newer one.
+        object probe = new();
+        _latestAvailabilityProbe = probe;
+        GitAvailability availability = await _installationLocator.LocateAsync(
+            linkedCancellation.Token);
+        linkedCancellation.Token.ThrowIfCancellationRequested();
+        if (!_disposed && ReferenceEquals(_latestAvailabilityProbe, probe))
+        {
+            SetState(_state with
+            {
+                IsGitAvailable = availability.State == GitAvailabilityState.Installed,
+            });
+        }
+
+        return availability;
+    }
+
+    private void StartAvailabilityRefresh()
+    {
+        if (!_disposed)
+        {
+            _ = RefreshAvailabilityAsync();
+        }
+    }
+
+    private async Task RefreshAvailabilityAsync()
+    {
+        using RunningWork work = BeginWork();
         try
         {
-            int revision = Interlocked.Increment(ref _availabilityRevision);
-            GitAvailability availability = await _installationLocator.LocateAsync(
-                linkedCancellation.Token);
-            linkedCancellation.Token.ThrowIfCancellationRequested();
-            bool schedulePublication = false;
-            lock (_stateGate)
+            await GetAvailabilityCoreAsync(_lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed)
             {
-                if (!_disposed && revision == Volatile.Read(ref _availabilityRevision))
-                {
-                    schedulePublication = TransitionStateLocked(
-                        _state with
-                        {
-                            IsGitAvailable = availability.State == GitAvailabilityState.Installed,
-                        });
-                }
+                SetState(_state with { IsGitAvailable = false });
             }
 
-            SchedulePublicationDrain(schedulePublication);
-
-            return availability;
-        }
-        finally
-        {
-            FinishAvailabilityOperation();
+            _logger.LogWarning(ex, "Failed to refresh Git availability.");
         }
     }
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)
     {
+        if (!_dispatcher.CheckAccess())
+        {
+            _dispatcher.Post(() => OnVersionControlConfigChanged(sender, e), DispatcherPriority.Normal);
+            return;
+        }
+
+        if (_disposed)
+        {
+            return;
+        }
+
         bool executablePathChanged =
             TryCaptureGitExecutablePathChange(out string? executablePath);
         bool useLfsWhenAvailableChanged = TryCaptureUseLfsWhenAvailableChange(
@@ -56,7 +84,6 @@ internal partial class VersionControlCoordinator
         {
             QueueConfigurationActivation(
                 project,
-                executablePath,
                 useLfsWhenAvailable,
                 rediscoverUnassociatedBackend: executablePathChanged,
                 reapplyTrackedRepositoryHygiene: useLfsWhenAvailableChanged);
@@ -68,245 +95,134 @@ internal partial class VersionControlCoordinator
     private bool TryCaptureGitExecutablePathChange(out string? executablePath)
     {
         executablePath = NormalizeGitExecutablePath(_config.GitExecutablePath);
-        lock (_stateGate)
+        if (NullablePathsEqual(executablePath, _observedGitExecutablePath))
         {
-            if (_disposed
-                || NullablePathsEqual(executablePath, _observedGitExecutablePath))
-            {
-                return false;
-            }
-
-            _observedGitExecutablePath = executablePath;
-            return true;
+            return false;
         }
+
+        _observedGitExecutablePath = executablePath;
+        return true;
     }
 
     private bool TryCaptureUseLfsWhenAvailableChange(out bool useLfsWhenAvailable)
     {
         useLfsWhenAvailable = _config.UseLfsWhenAvailable;
-        lock (_stateGate)
+        if (useLfsWhenAvailable == _observedUseLfsWhenAvailable)
         {
-            if (_disposed || useLfsWhenAvailable == _observedUseLfsWhenAvailable)
-            {
-                return false;
-            }
-
-            _observedUseLfsWhenAvailable = useLfsWhenAvailable;
-            if (_state.OwnedService?.Repository is not null)
-            {
-                _repositoryHygieneConfigurationDirty = true;
-            }
-
-            return true;
+            return false;
         }
+
+        _observedUseLfsWhenAvailable = useLfsWhenAvailable;
+        if (_state.OwnedService?.Repository is not null)
+        {
+            _repositoryHygieneConfigurationDirty = true;
+        }
+
+        return true;
     }
 
+    // A version-control operation that closed and reopened the project kept its backend, so an LFS setting
+    // that changed meanwhile is applied to that backend now.
     private void QueueRepositoryHygieneConfigurationIfDirty(Project project)
     {
-        string? executablePath;
-        bool useLfsWhenAvailable;
-        lock (_stateGate)
+        if (_repositoryHygieneConfigurationDirty)
         {
-            if (_disposed
-                || !_repositoryHygieneConfigurationDirty
-                || !ReferenceEquals(_projectService.CurrentProject.Value, project))
-            {
-                return;
-            }
-
-            executablePath = _observedGitExecutablePath;
-            useLfsWhenAvailable = _observedUseLfsWhenAvailable;
+            QueueConfigurationActivation(
+                project,
+                _observedUseLfsWhenAvailable,
+                rediscoverUnassociatedBackend: false,
+                reapplyTrackedRepositoryHygiene: true);
         }
-
-        QueueConfigurationActivation(
-            project,
-            executablePath,
-            useLfsWhenAvailable,
-            rediscoverUnassociatedBackend: false,
-            reapplyTrackedRepositoryHygiene: true);
     }
 
+    // A changed Git executable rediscovers the repository of a project that is not tracked yet, and a
+    // changed LFS setting applies the repository hygiene to a tracked one. Changes that arrive before the
+    // previous one ran are merged into it.
     private void QueueConfigurationActivation(
         Project project,
-        string? executablePath,
         bool useLfsWhenAvailable,
         bool rediscoverUnassociatedBackend,
         bool reapplyTrackedRepositoryHygiene)
     {
         string projectRoot = GetProjectRoot(project);
-        CancellationTokenSource? activeCancellation = null;
-        lock (_stateGate)
+        if (_disposed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
         {
-            if (_disposed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
-            {
-                return;
-            }
-
-            if (_state.ProjectRoot is { } stateRoot
-                && PathsEqual(stateRoot, projectRoot)
-                && _state.OwnedService?.Repository is not null
-                && !reapplyTrackedRepositoryHygiene)
-            {
-                return;
-            }
-
-            ConfigurationActivationRequest? pending = _pendingConfigurationActivation;
-            _pendingConfigurationActivation = new ConfigurationActivationRequest(
-                ++_nextConfigurationActivationRevision,
-                project,
-                projectRoot,
-                executablePath,
-                useLfsWhenAvailable,
-                rediscoverUnassociatedBackend
-                || pending?.RediscoverUnassociatedBackend == true,
-                reapplyTrackedRepositoryHygiene
-                || pending?.ReapplyTrackedRepositoryHygiene == true);
-            if (rediscoverUnassociatedBackend)
-            {
-                activeCancellation = _configurationActivationCancellation;
-            }
-        }
-
-        CancelConfigurationActivation(activeCancellation);
-        TryStartPendingConfigurationActivation();
-    }
-
-    private void TryStartPendingConfigurationActivation()
-    {
-        ConfigurationActivationStart? activationStart;
-        lock (_stateGate)
-        {
-            activationStart = TryPreparePendingConfigurationActivationLocked();
-        }
-
-        StartConfigurationActivation(activationStart);
-    }
-
-    private ConfigurationActivationStart? TryPreparePendingConfigurationActivationLocked()
-    {
-        ConfigurationActivationRequest? request = _pendingConfigurationActivation;
-        if (_disposed)
-        {
-            _pendingConfigurationActivation = null;
-            return null;
-        }
-
-        if (request is null || _configurationActivationActive)
-        {
-            return null;
-        }
-
-        Project? currentProject = _projectService.CurrentProject.Value;
-        if (!ReferenceEquals(currentProject, request.Project))
-        {
-            _pendingConfigurationActivation = null;
-            return null;
+            return;
         }
 
         if (_state.ProjectRoot is { } stateRoot
-            && !PathsEqual(stateRoot, request.ProjectRoot))
+            && PathsEqual(stateRoot, projectRoot)
+            && _state.OwnedService?.Repository is not null
+            && !reapplyTrackedRepositoryHygiene)
         {
-            _pendingConfigurationActivation = null;
-            return null;
+            return;
         }
 
-        if (IsVersionControlWorkActiveLocked())
+        ConfigurationActivationRequest? pending = _pendingConfigurationActivation;
+        _pendingConfigurationActivation = new ConfigurationActivationRequest(
+            project,
+            projectRoot,
+            useLfsWhenAvailable,
+            rediscoverUnassociatedBackend
+            || pending?.RediscoverUnassociatedBackend == true,
+            reapplyTrackedRepositoryHygiene
+            || pending?.ReapplyTrackedRepositoryHygiene == true);
+        // A rediscovery for an executable that changed again starts over with the newer one.
+        if (rediscoverUnassociatedBackend && _activation is { IsRediscovery: true } rediscovery)
         {
-            return null;
+            CancelActivation(rediscovery);
         }
 
-        IProjectVersionControlBackend? trackedService = null;
-        if (_state.ProjectRoot is { } trackedRoot
-            && PathsEqual(trackedRoot, request.ProjectRoot)
-            && _state.OwnedService?.Repository is not null)
-        {
-            if (!request.ReapplyTrackedRepositoryHygiene)
-            {
-                _pendingConfigurationActivation = null;
-                return null;
-            }
-
-            trackedService = _state.OwnedService;
-        }
-        else if (!request.RediscoverUnassociatedBackend)
-        {
-            _pendingConfigurationActivation = null;
-            return null;
-        }
-
-        CancellationToken operationEpochCancellation = (_operationEpochCancellation
-                                                          ?? throw new ObjectDisposedException(
-                                                              nameof(VersionControlCoordinator)))
-            .Token;
-        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            _lifetimeCancellation.Token,
-            operationEpochCancellation);
-        _pendingConfigurationActivation = null;
-        _configurationActivationActive = true;
-        _configurationActivationCancellation = cancellation;
-        _operationUsers++;
-        return new ConfigurationActivationStart(request, cancellation, trackedService);
+        StartConfigurationActivation();
     }
 
-    private bool IsVersionControlWorkActiveLocked()
+    private void StartConfigurationActivation()
     {
-        return _operationCloseBarrierActive
-               || _closeBarrierUsers != 0
-               || _operationUsers != 0
-               || _lifecycleUsers != 0
-               || _activationSetupUsers != 0
-               || _activation is not null;
-    }
-
-    private void StartConfigurationActivation(ConfigurationActivationStart? activationStart)
-    {
-        if (activationStart is not null)
+        if (_configurationActivationRunning
+            || _disposed
+            || _pendingConfigurationActivation is null)
         {
-            _ = RunConfigurationActivationAsync(activationStart);
+            return;
         }
+
+        _configurationActivationRunning = true;
+        _ = RunConfigurationActivationsAsync();
     }
 
-    private async Task RunConfigurationActivationAsync(ConfigurationActivationStart activationStart)
+    // Applies the queued changes one after another under the operation gate, so no operation runs between
+    // them, after any activation in progress has decided how the project is tracked.
+    private async Task RunConfigurationActivationsAsync()
     {
-        ConfigurationActivationRequest request = activationStart.Request;
-        CancellationTokenSource cancellation = activationStart.Cancellation;
-        bool retry = false;
+        using RunningWork work = BeginWork();
         try
         {
-            cancellation.Token.ThrowIfCancellationRequested();
-            if (activationStart.TrackedService is { } trackedService)
+            while (_activation is { } activation)
             {
-                await trackedService.EnsureRepositoryHygieneAsync(cancellation.Token)
-                    .ConfigureAwait(false);
-                cancellation.Token.ThrowIfCancellationRequested();
-                lock (_stateGate)
-                {
-                    if (ReferenceEquals(_state.OwnedService, trackedService)
-                        && trackedService.Repository is not null
-                        && request.UseLfsWhenAvailable == _observedUseLfsWhenAvailable)
-                    {
-                        _repositoryHygieneConfigurationDirty = false;
-                    }
-                }
-            }
-            else
-            {
-                ActivationContext? activation = await StartProjectActivationAsync(
-                        request.Project,
-                        internalTransition: false,
-                        cancellation.Token)
-                    .ConfigureAwait(false);
-                if (activation is not null)
-                {
-                    await activation.Completion.ConfigureAwait(false);
-                }
+                await activation.Completion.WaitAsync(_lifetimeCancellation.Token);
             }
 
-            cancellation.Token.ThrowIfCancellationRequested();
+            using OperationLease operation = await BeginOperationAsync(CancellationToken.None);
+            while (true)
+            {
+                while (_activation is { } activation)
+                {
+                    await activation.Completion.WaitAsync(operation.CancellationToken);
+                }
+
+                if (TakePendingConfigurationActivation() is not { } start)
+                {
+                    break;
+                }
+
+                await RunConfigurationActivationAsync(start, operation.CancellationToken);
+            }
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (Exception ex)
+            when (ex is OperationCanceledException or VersionControlLifecycleUnavailableException
+                  || ex is ObjectDisposedException && _disposed)
         {
-            retry = true;
+            // A close or the disposal stopped the changes. A close that leaves the project open starts
+            // them again.
         }
         catch (Exception ex)
         {
@@ -314,175 +230,91 @@ internal partial class VersionControlCoordinator
         }
         finally
         {
-            FinishConfigurationActivation(activationStart, retry);
+            _configurationActivationRunning = false;
         }
     }
 
-    private void FinishConfigurationActivation(
-        ConfigurationActivationStart activationStart,
-        bool retry)
+    private async Task RunConfigurationActivationAsync(
+        ConfigurationActivationStart start,
+        CancellationToken cancellationToken)
     {
-        ConfigurationActivationRequest request = activationStart.Request;
-        CancellationTokenSource cancellation = activationStart.Cancellation;
-        TaskCompletionSource? configurationActivationQuiesced = null;
-        TaskCompletionSource? operationsQuiesced = null;
-        ConfigurationActivationStart? nextActivation = null;
-        lock (_stateGate)
-        {
-            if (ReferenceEquals(_configurationActivationCancellation, cancellation))
-            {
-                _configurationActivationCancellation = null;
-            }
-
-            _configurationActivationActive = false;
-            configurationActivationQuiesced = _configurationActivationQuiesced;
-            _configurationActivationQuiesced = null;
-            _operationUsers--;
-
-            bool retryTargetStillCurrent = activationStart.TrackedService is { } trackedService
-                ? request.ReapplyTrackedRepositoryHygiene
-                  && request.UseLfsWhenAvailable == _observedUseLfsWhenAvailable
-                  && ReferenceEquals(_state.OwnedService, trackedService)
-                  && trackedService.Repository is not null
-                : request.RediscoverUnassociatedBackend
-                  && NullablePathsEqual(
-                      _observedGitExecutablePath,
-                      request.ExecutablePath)
-                  && _state.OwnedService?.Repository is null;
-            if (retry
-                && !_disposed
-                && request.Revision == _nextConfigurationActivationRevision
-                && _pendingConfigurationActivation is null
-                && ReferenceEquals(_projectService.CurrentProject.Value, request.Project)
-                && (_state.ProjectRoot is null
-                    || PathsEqual(_state.ProjectRoot, request.ProjectRoot))
-                && retryTargetStillCurrent)
-            {
-                _pendingConfigurationActivation = request;
-            }
-
-            nextActivation = TryPreparePendingConfigurationActivationLocked();
-            if (_operationUsers == 0)
-            {
-                operationsQuiesced = _operationsQuiesced;
-                _operationsQuiesced = null;
-            }
-        }
-
+        ConfigurationActivationRequest request = start.Request;
         try
         {
-            cancellation.Dispose();
-        }
-        finally
-        {
-            try
+            if (start.TrackedService is { } trackedService)
             {
-                StartConfigurationActivation(nextActivation);
-            }
-            finally
-            {
-                configurationActivationQuiesced?.TrySetResult();
-                operationsQuiesced?.TrySetResult();
-            }
-        }
-    }
-
-    private void CancelConfigurationActivation(CancellationTokenSource? cancellation)
-    {
-        try
-        {
-            cancellation?.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "A Git configuration activation cancellation callback failed.");
-        }
-    }
-
-    private void StartAvailabilityRefresh()
-    {
-        lock (_stateGate)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _availabilityUsers++;
-        }
-
-        _ = RefreshAvailabilityAsync();
-    }
-
-    private async Task RefreshAvailabilityAsync()
-    {
-        try
-        {
-            await GetAvailabilityAsync(_lifetimeCancellation.Token);
-        }
-        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
-        {
-            return;
-        }
-        catch (ObjectDisposedException) when (_disposed)
-        {
-            return;
-        }
-        catch (Exception ex)
-        {
-            bool schedulePublication = false;
-            lock (_stateGate)
-            {
-                if (!_disposed)
+                await trackedService.EnsureRepositoryHygieneAsync(cancellationToken);
+                if (ReferenceEquals(_state.OwnedService, trackedService)
+                    && trackedService.Repository is not null
+                    && request.UseLfsWhenAvailable == _observedUseLfsWhenAvailable)
                 {
-                    schedulePublication = TransitionStateLocked(
-                        _state with { IsGitAvailable = false });
+                    _repositoryHygieneConfigurationDirty = false;
                 }
             }
+            else if (ActivateProject(
+                         request.Project,
+                         newProject: false,
+                         preparedNewProject: null,
+                         cancellationToken,
+                         isRediscovery: true) is { } activation)
+            {
+                // A newer executable cancels this activation and leaves its change queued instead.
+                await activation.Completion;
+            }
 
-            SchedulePublicationDrain(schedulePublication);
-            _logger.LogWarning(ex, "Failed to refresh Git availability.");
+            cancellationToken.ThrowIfCancellationRequested();
         }
-        finally
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            FinishAvailabilityOperation();
+            // Tried again if a close stopped it and then left the project open.
+            _pendingConfigurationActivation ??= request;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to apply a version-control configuration change.");
         }
     }
 
-    private void FinishAvailabilityOperation()
+    private ConfigurationActivationStart? TakePendingConfigurationActivation()
     {
-        TaskCompletionSource? quiesced = null;
-        lock (_stateGate)
+        while (_pendingConfigurationActivation is { } request)
         {
-            _availabilityUsers--;
-            if (_availabilityUsers == 0 && _disposed)
+            _pendingConfigurationActivation = null;
+            if (_disposed
+                || !ReferenceEquals(_projectService.CurrentProject.Value, request.Project)
+                || _state.ProjectRoot is { } stateRoot && !PathsEqual(stateRoot, request.ProjectRoot))
             {
-                quiesced = _availabilityQuiesced;
+                continue;
+            }
+
+            if (_state.ProjectRoot is not null && _state.OwnedService?.Repository is not null)
+            {
+                if (request.ReapplyTrackedRepositoryHygiene)
+                {
+                    return new ConfigurationActivationStart(request, _state.OwnedService);
+                }
+            }
+            else if (request.RediscoverUnassociatedBackend)
+            {
+                return new ConfigurationActivationStart(request, TrackedService: null);
             }
         }
 
-        quiesced?.TrySetResult();
+        return null;
     }
 
     private static string? NormalizeGitExecutablePath(string? path)
         => string.IsNullOrWhiteSpace(path) ? null : path;
 
     private sealed record ConfigurationActivationRequest(
-        long Revision,
         Project Project,
         string ProjectRoot,
-        string? ExecutablePath,
         bool UseLfsWhenAvailable,
         bool RediscoverUnassociatedBackend,
         bool ReapplyTrackedRepositoryHygiene);
 
     private sealed record ConfigurationActivationStart(
         ConfigurationActivationRequest Request,
-        CancellationTokenSource Cancellation,
         IProjectVersionControlBackend? TrackedService);
 }

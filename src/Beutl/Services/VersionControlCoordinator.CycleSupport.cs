@@ -1,5 +1,4 @@
-﻿using Avalonia.Threading;
-using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -9,62 +8,33 @@ internal partial class VersionControlCoordinator
     private const string CombinedFailureMessage =
         "The version-control operation and recovery both failed.";
 
-    private async Task<IDisposable> SuspendEditorsAsync(CancellationToken cancellationToken)
+    // Shows the activity and suspends the editors together, and the returned handle undoes both in the
+    // reverse order, so a render never shows the editors disabled without the activity over them.
+    private IDisposable SuspendEditorsBehindActivity(ProjectLifecycleActivity activity)
     {
-        if (_dispatcher.CheckAccess())
+        IDisposable presentation = _editorService.BeginLifecycleActivity(activity);
+        try
         {
-            return _editorService.SuspendEditors();
+            return new PresentedEditorSuspension(_editorService.SuspendEditors(), presentation);
         }
-
-        return await _dispatcher.InvokeAsync(
-            () => _editorService.SuspendEditors(),
-            DispatcherPriority.Normal,
-            cancellationToken);
+        catch
+        {
+            presentation.Dispose();
+            throw;
+        }
     }
 
-    // Shows the activity and suspends the editors in one dispatcher job, and the returned handle undoes both
-    // in the reverse order. Beginning the activity off the UI thread would publish it only after the editors
-    // are disabled, and a render in between would show them disabled without it.
-    private async Task<IDisposable> SuspendEditorsBehindActivityAsync(
-        ProjectLifecycleActivity activity,
+    // The backend starts an exclusive operation from its own gate continuation, which runs on the thread
+    // pool whenever another Git command held the gate. The operations suspend the editors and close and
+    // reopen the project, so they are brought back to the UI thread first.
+    private Task<TResult> ExecuteExclusiveOnUiThreadAsync<TResult>(
+        IProjectVersionControlBackend service,
+        Func<IProjectVersionControlTransaction, Task<TResult>> operation,
         CancellationToken cancellationToken)
     {
-        if (_dispatcher.CheckAccess())
-        {
-            return Suspend();
-        }
-
-        return await _dispatcher.InvokeAsync(Suspend, DispatcherPriority.Normal, cancellationToken);
-
-        IDisposable Suspend()
-        {
-            IDisposable presentation = _editorService.BeginLifecycleActivity(activity);
-            try
-            {
-                return new PresentedEditorSuspension(_editorService.SuspendEditors(), presentation);
-            }
-            catch
-            {
-                presentation.Dispose();
-                throw;
-            }
-        }
-    }
-
-    private async Task ReleaseEditorSuspensionAsync(IDisposable? suspension)
-    {
-        if (suspension is null)
-        {
-            return;
-        }
-
-        if (_dispatcher.CheckAccess())
-        {
-            suspension.Dispose();
-            return;
-        }
-
-        await _dispatcher.InvokeAsync(suspension.Dispose);
+        return service.ExecuteExclusiveAsync(
+            transaction => RunOnUiThreadAsync(() => operation(transaction)),
+            cancellationToken);
     }
 
     private static bool BranchTipsEqual(CheckedOutBranchTip left, CheckedOutBranchTip right)
@@ -137,20 +107,14 @@ internal partial class VersionControlCoordinator
 
     private IProjectVersionControlBackend? GetOperationReadyBackend()
     {
-        lock (_stateGate)
-        {
-            return ReferenceEquals(_state.OwnedService, _state.VisibleService)
-                ? _state.OwnedService
-                : null;
-        }
+        return ReferenceEquals(_state.OwnedService, _state.VisibleService)
+            ? _state.OwnedService
+            : null;
     }
 
     private IProjectVersionControlBackend? GetOwnedBackend()
     {
-        lock (_stateGate)
-        {
-            return _state.OwnedService;
-        }
+        return _state.OwnedService;
     }
 
     private Project GetOpenProject()

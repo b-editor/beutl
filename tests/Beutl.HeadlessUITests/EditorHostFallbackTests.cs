@@ -172,15 +172,19 @@ public class EditorHostFallbackTests
         string projectFile = Path.Combine(directory, "Opening project.bep");
         string otherFile = Path.Combine(directory, "Another project.bep");
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource<ProjectService.ProjectOpenPreparation?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int attempts = 0;
-        Func<ProjectService.ProjectOpenAttempt, CancellationToken, Task<ProjectService.ProjectOpenPreparation?>>
-            preflight = (_, _) =>
-            {
-                attempts++;
-                started.TrySetResult();
-                return release.Task;
-            };
+        // Holds the open inside its transition. Neither file is a valid project, so a released open still
+        // fails after the handlers, and the failing case fails in them.
+        Func<string, Task> opening = _ =>
+        {
+            attempts++;
+            started.TrySetResult();
+            return release.Task;
+        };
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(projectFile, "{}");
+        File.WriteAllText(otherFile, "{}");
 
         var view = new EditorHostFallback();
         var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
@@ -190,7 +194,7 @@ public class EditorHostFallbackTests
             Height = 720,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
         };
-        TestShell.Project.OpeningPreflight += preflight;
+        TestShell.Project.Opening += opening;
         try
         {
             recentFiles.Replace([projectFile, otherFile]);
@@ -262,7 +266,7 @@ public class EditorHostFallbackTests
             if (fail)
                 release.TrySetException(new IOException("Project opening failed."));
             else
-                release.TrySetResult(null);
+                release.TrySetResult();
             await WaitForOpeningToEndAsync(view);
             HeadlessTestHelpers.Render();
             Assert.That(list.GetVisualDescendants().OfType<FluentAvalonia.UI.Controls.FAProgressRing>()
@@ -270,19 +274,20 @@ public class EditorHostFallbackTests
         }
         finally
         {
-            release.TrySetResult(null);
+            release.TrySetResult();
             try
             {
                 await WaitForOpeningToEndAsync(view);
             }
             finally
             {
-                TestShell.Project.OpeningPreflight -= preflight;
+                TestShell.Project.Opening -= opening;
                 window.Close();
                 host.DataContext = null;
                 recentFiles.Replace(original);
                 HeadlessTestHelpers.Settle();
                 await TestReset.ResetShellAsync();
+                Directory.Delete(directory, recursive: true);
             }
         }
     }

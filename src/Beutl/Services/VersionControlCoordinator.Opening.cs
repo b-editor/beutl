@@ -4,16 +4,20 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    private async Task InspectProjectOpeningAsync(string projectFile)
+    private Task InspectProjectOpeningAsync(string projectFile)
     {
-        using NonTransactionalOperationLease? operation =
-            TryBeginNonTransactionalOperation(CancellationToken.None);
-        if (operation is null)
+        return RunOnUiThreadAsync(() => InspectProjectOpeningCoreAsync(projectFile));
+    }
+
+    // Reads the project's files only, so it needs no operation gate, and the disposal stops it.
+    private async Task InspectProjectOpeningCoreAsync(string projectFile)
+    {
+        if (_disposed)
         {
             return;
         }
 
-        CancellationToken cancellationToken = operation.CancellationToken;
+        CancellationToken cancellationToken = _lifetimeCancellation.Token;
         string? markerFile = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
             cancellationToken);

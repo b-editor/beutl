@@ -38,9 +38,6 @@ public sealed partial class ProjectService
 
     internal event Func<ProjectCloseContext, CancellationToken, Task>? ClosingFinalizing;
 
-    internal event Func<ProjectOpenAttempt, CancellationToken, Task<ProjectOpenPreparation?>>?
-        OpeningPreflight;
-
     internal event Func<string, Task>? Opening;
 
     internal event Func<Project, Task>? Opened;
@@ -68,7 +65,7 @@ public sealed partial class ProjectService
     public async Task OpenProject(string file)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
-        ProjectOpenAttempt attempt = BeginOpenAttempt(file);
+        ProjectOpenAttempt attempt = BeginOpenAttempt();
         try
         {
             try
@@ -80,24 +77,8 @@ public sealed partial class ProjectService
                 return;
             }
 
-            IReadOnlyList<ProjectOpenPreparation> preparations;
-            try
-            {
-                preparations = await NotifyOpeningPreflightAsync(attempt);
-            }
-            catch (OperationCanceledException) when (attempt.IsCancellationRequested)
-            {
-                return;
-            }
-            finally
-            {
-                EndOpenPreflight();
-            }
-
-            // A missing file is worth a transition only when a preparation can bring it back: an
-            // interrupted pull leaves it missing and its recovery is one of these preparations.
-            // Deciding before the transition also keeps a plainly deleted project from taking one.
-            if (preparations.Count == 0 && !File.Exists(file))
+            // Reported before taking a transition, so a deleted project holds up no other project change.
+            if (!File.Exists(file))
             {
                 ReportUnavailableProjectFile(file);
                 return;
@@ -121,17 +102,6 @@ public sealed partial class ProjectService
                 if (!attempt.TryBeginApply())
                 {
                     return;
-                }
-
-                foreach (ProjectOpenPreparation preparation in preparations)
-                {
-                    ProjectOpenPreparationResult result = await preparation.ApplyAsync(
-                        transition.Context,
-                        CancellationToken.None);
-                    if (result == ProjectOpenPreparationResult.Abort)
-                    {
-                        return;
-                    }
                 }
 
                 await OpenProjectCoreAsync(file, transition.Context);

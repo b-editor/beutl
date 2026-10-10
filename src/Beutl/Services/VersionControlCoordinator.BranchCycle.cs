@@ -15,7 +15,8 @@ internal partial class VersionControlCoordinator
                 Project project = GetOpenProject();
                 string projectFile = GetProjectFile(project);
                 IProjectVersionControlBackend ownedService = GetTrackedBackend();
-                return await ownedService.ExecuteExclusiveAsync(
+                return await ExecuteExclusiveOnUiThreadAsync(
+                    ownedService,
                     async service =>
                     {
                         if (create)

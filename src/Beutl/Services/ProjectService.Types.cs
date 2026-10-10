@@ -93,16 +93,6 @@ public partial class ProjectService
         private bool _cancellationInProgress;
         private bool _disposeCancellationWhenCancelCompletes;
 
-        internal ProjectOpenAttempt(long id, string projectFile)
-        {
-            Id = id;
-            ProjectFile = projectFile;
-        }
-
-        internal long Id { get; }
-
-        internal string ProjectFile { get; }
-
         internal CancellationToken CancellationToken => _cancellation.Token;
 
         internal bool IsCancellationRequested => _cancellation.IsCancellationRequested;
@@ -175,13 +165,6 @@ public partial class ProjectService
         }
     }
 
-    internal abstract class ProjectOpenPreparation
-    {
-        internal abstract Task<ProjectOpenPreparationResult> ApplyAsync(
-            ProjectTransitionContext transition,
-            CancellationToken cancellationToken);
-    }
-
     internal sealed class ProjectTransitionScope : IAsyncDisposable
     {
         private ProjectService? _owner;
@@ -223,12 +206,6 @@ public partial class ProjectService
         Cancelled,
         Completed,
     }
-}
-
-internal enum ProjectOpenPreparationResult
-{
-    Proceed,
-    Abort,
 }
 
 internal enum ProjectTransitionPurpose
