@@ -10,7 +10,10 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 internal static class BrowserWebViewEnvironment
 {
     private static readonly Lazy<string> s_webView2UserDataFolder = new(() => PrepareWebView2UserDataFolder(
-        Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebView2"), Environment.ProcessPath));
+        Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebView2"),
+        // A moved folder keeps its permissions. Only an elevated process can move one from under Program Files,
+        // and those permissions would deny the user's later unelevated runs.
+        Environment.IsPrivilegedProcess ? null : Environment.ProcessPath));
 
     internal static void Configure(object? sender, WebViewEnvironmentRequestedEventArgs e)
     {
@@ -31,7 +34,8 @@ internal static class BrowserWebViewEnvironment
     }
 
     // Earlier versions left the profile in WebView2's default folder; moving it keeps the user's sign-ins.
-    internal static string PrepareWebView2UserDataFolder(string folder, string? processPath)
+    internal static string PrepareWebView2UserDataFolder(string folder, string? processPath,
+        Action<string, string>? moveDirectory = null)
     {
         string? legacyFolder = processPath == null ? null : processPath + ".WebView2";
         try
@@ -39,7 +43,7 @@ internal static class BrowserWebViewEnvironment
             if (!Directory.Exists(folder) && Directory.Exists(legacyFolder))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(folder)!);
-                Directory.Move(legacyFolder, folder);
+                (moveDirectory ?? Directory.Move)(legacyFolder, folder);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -103,7 +103,31 @@ public class BrowserWebViewEnvironmentTests
         string processPath = Path.Combine(_root, "app", "Beutl.exe");
         string legacyFolder = processPath + ".WebView2";
         Directory.CreateDirectory(legacyFolder);
-        // A file where the parent directory belongs makes the move fail on every platform.
+        File.WriteAllText(Path.Combine(legacyFolder, "Local State"), "legacy");
+        string folder = Path.Combine(_root, "home", "browser", "WebView2");
+
+        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, processPath,
+            (_, _) => throw new IOException("The profile is in use."));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(folder));
+            Assert.That(File.ReadAllText(Path.Combine(legacyFolder, "Local State")), Is.EqualTo("legacy"));
+            Assert.That(Directory.Exists(folder), Is.False);
+        });
+        // WebView2 creates the new profile itself; the location must still accept it.
+        Directory.CreateDirectory(result);
+        File.WriteAllText(Path.Combine(result, "Local State"), "new");
+        Assert.That(File.ReadAllText(Path.Combine(result, "Local State")), Is.EqualTo("new"));
+    }
+
+    [Test]
+    public void PrepareWebView2UserDataFolder_DoesNotThrowWhenTheDestinationCannotBeCreated()
+    {
+        string processPath = Path.Combine(_root, "app", "Beutl.exe");
+        string legacyFolder = processPath + ".WebView2";
+        Directory.CreateDirectory(legacyFolder);
+        // A file where the parent directory belongs makes the migration fail on every platform.
         File.WriteAllText(Path.Combine(_root, "browser"), "");
         string folder = Path.Combine(_root, "browser", "WebView2");
 
