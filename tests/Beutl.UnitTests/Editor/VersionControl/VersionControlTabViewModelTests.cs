@@ -693,6 +693,40 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    public async Task Download_command_opens_the_git_downloads_page_without_touching_the_unavailable_state()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(GitAvailability.NotInstalled);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        Uri? launchedUri = null;
+        bool? unavailableDuringLaunch = null;
+        bool? canExecuteDuringLaunch = null;
+        viewModel.LaunchUriAsync = uri =>
+        {
+            launchedUri = uri;
+            unavailableDuringLaunch = viewModel.IsUnavailable.Value;
+            canExecuteDuringLaunch = viewModel.DownloadGitCommand.CanExecute();
+            return Task.FromResult(true);
+        };
+        await viewModel.Initialization;
+        Assert.That(viewModel.DownloadGitCommand.CanExecute(), Is.True);
+
+        await viewModel.DownloadGitCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                launchedUri,
+                Is.EqualTo(new Uri("https://git-scm.com/downloads")));
+            Assert.That(unavailableDuringLaunch, Is.True);
+            Assert.That(canExecuteDuringLaunch, Is.False);
+            Assert.That(viewModel.IsUnavailable.Value, Is.True);
+            Assert.That(viewModel.DownloadGitCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Conflicted_repository_collapses_to_external_resolution_guidance()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -1508,6 +1542,51 @@ public class VersionControlTabViewModelTests
         await viewModel.RecoverPendingPullAsync();
 
         Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+    }
+
+    [Test]
+    public async Task Recover_command_hides_the_banner_after_a_successful_recovery()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var recovery = new ProjectRecoveryInfo(
+            "11111111111111111111111111111111",
+            "project.bep",
+            DateTimeOffset.UtcNow);
+        IReadOnlyList<ProjectRecoveryInfo> currentRecoveries = [recovery];
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => currentRecoveries);
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        bool? bannerDuringRecovery = null;
+        bool? canExecuteDuringRecovery = null;
+        coordinator.Setup(x => x.RecoverPendingPullAsync(
+                recovery.Id,
+                It.IsAny<CancellationToken>()))
+            .Callback(() =>
+            {
+                bannerDuringRecovery = viewModel.HasPendingPullRecovery.Value;
+                canExecuteDuringRecovery = viewModel.RecoverPendingPullCommand.CanExecute();
+                currentRecoveries = [];
+            })
+            .ReturnsAsync(new ProjectRecoveryResult.RestoredOriginal());
+        await viewModel.Initialization;
+        Assert.That(viewModel.RecoverPendingPullCommand.CanExecute(), Is.True);
+
+        await viewModel.RecoverPendingPullCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bannerDuringRecovery, Is.True);
+            Assert.That(canExecuteDuringRecovery, Is.False);
+            Assert.That(viewModel.HasPendingPullRecovery.Value, Is.False);
+            Assert.That(viewModel.RecoverPendingPullCommand.CanExecute(), Is.False);
+        });
+        coordinator.Verify(x => x.RecoverPendingPullAsync(
+            recovery.Id,
+            CancellationToken.None), Times.Once);
     }
 
     [Test]
