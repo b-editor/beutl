@@ -284,7 +284,7 @@ public class ElementTransitionTimelineTests
         TimelineTabView? view = null;
         try
         {
-            (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
+            (EditViewModel editor, ElementViewModel outgoing, ElementViewModel incoming) = await OpenCut();
             (view, window) = Show(incoming);
             incoming.ApplyTransition(ElementEdge.Start, typeof(CrossDissolveTransition));
             HeadlessTestHelpers.Settle(3);
@@ -297,6 +297,9 @@ public class ElementTransitionTimelineTests
             HeadlessTestHelpers.Settle(3);
             bool readOnlyOnceLocked = unlocked.IsReadOnly.Value;
             bool typeEditableOnceLocked = TransitionTabOf(editor).CanEdit.Value;
+            // From the outgoing side the tool shows the locked incoming side, which decides the boundary.
+            outgoing.EditTransition(ElementEdge.End);
+            bool typeEditableFromOutgoing = TransitionTabOf(editor).CanEdit.Value;
 
             Assert.Multiple(() =>
             {
@@ -304,6 +307,7 @@ public class ElementTransitionTimelineTests
                 Assert.That(typeEditableWhileUnlocked, Is.True);
                 Assert.That(readOnlyOnceLocked, Is.True);
                 Assert.That(typeEditableOnceLocked, Is.False);
+                Assert.That(typeEditableFromOutgoing, Is.False);
             });
         }
         finally

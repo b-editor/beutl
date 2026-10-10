@@ -23,6 +23,7 @@ public sealed class TransitionTabViewModel : IToolContext
     private Element? _element;
     private ElementEdge _edge;
     private IDisposable? _editability;
+    private Element? _editabilityOwner;
 
     public TransitionTabViewModel(EditViewModel editViewModel)
     {
@@ -85,7 +86,7 @@ public sealed class TransitionTabViewModel : IToolContext
         _edge = edge;
         EdgeName.Value = edge == ElementEdge.Start ? Strings.EnterTransition : Strings.ExitTransition;
         _editability?.Dispose();
-        _editability = ElementEditability.Observe(element).Subscribe(editable => CanEdit.Value = editable);
+        _editability = null;
         Refresh();
     }
 
@@ -113,23 +114,46 @@ public sealed class TransitionTabViewModel : IToolContext
         if (_element is { HierarchicalParent: null })
         {
             _element = null;
-            _editability?.Dispose();
-            _editability = null;
         }
 
         HasTarget.Value = _element != null;
         ClipTransition? transition = _element == null ? null : ElementTransitionEdits.GetDecidingTransition(_element, _edge);
-        if (ReferenceEquals(transition, Transition.Value)) return;
-
-        Transition.Value = transition;
-        Properties.Value?.Dispose();
-        Properties.Value = null;
-        if (transition != null)
+        if (!ReferenceEquals(transition, Transition.Value))
         {
-            var properties = new PropertiesEditorViewModel(transition, _editViewModel.ExtensionProvider);
-            NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, properties);
-            Properties.Value = properties;
+            Transition.Value = transition;
+            Properties.Value?.Dispose();
+            Properties.Value = null;
+            if (transition != null)
+            {
+                var properties = new PropertiesEditorViewModel(transition, _editViewModel.ExtensionProvider);
+                NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, properties);
+                Properties.Value = properties;
+            }
         }
+
+        UpdateEditability();
+    }
+
+    // The type and the transition change through both the open element and the element that owns the
+    // shown transition, which is the one across the edge when its side decides how the boundary blends;
+    // either being locked refuses the change.
+    private void UpdateEditability()
+    {
+        Element? owner = Transition.Value?.FindHierarchicalParent<Element>() ?? _element;
+        if (_editability != null && ReferenceEquals(owner, _editabilityOwner)) return;
+
+        _editability?.Dispose();
+        _editability = null;
+        _editabilityOwner = owner;
+        if (_element is not { } element)
+        {
+            CanEdit.Value = false;
+            return;
+        }
+
+        _editability = ElementEditability.Observe(element)
+            .CombineLatest(ElementEditability.Observe(owner), (open, owning) => open && owning)
+            .Subscribe(editable => CanEdit.Value = editable);
     }
 
     // The child editors follow the lock of the element that owns the transition they edit.
