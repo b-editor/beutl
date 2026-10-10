@@ -193,6 +193,23 @@ public sealed class AiAgentConfig : ConfigurationBase
         }
     }
 
+    // Property names of the separate MCP options of earlier versions, read once for migration.
+    private const string LegacyInstallStdioMcp = "InstallStdioMcp";
+    private const string LegacyInstallLiveMcp = "InstallLiveMcp";
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        // Earlier versions had separate stdio and live MCP options. A profile that turned both off
+        // opted out of MCP; keep that choice instead of re-enabling the unified option.
+        if (!context.Contains(nameof(InstallMcp))
+            && context.Contains(LegacyInstallStdioMcp) && context.Contains(LegacyInstallLiveMcp)
+            && !context.GetValue<bool>(LegacyInstallStdioMcp) && !context.GetValue<bool>(LegacyInstallLiveMcp))
+        {
+            InstallMcp = false;
+        }
+    }
+
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);

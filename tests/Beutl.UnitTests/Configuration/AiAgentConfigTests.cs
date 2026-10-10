@@ -85,6 +85,27 @@ public class AiAgentConfigTests
     }
 
     [Test]
+    public void Legacy_profiles_that_turned_both_mcp_options_off_stay_opted_out()
+    {
+        var optedOut = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(optedOut,
+            new JsonObject { ["InstallStdioMcp"] = false, ["InstallLiveMcp"] = false });
+        var liveOnly = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(liveOnly,
+            new JsonObject { ["InstallStdioMcp"] = false, ["InstallLiveMcp"] = true });
+        var explicitOn = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(explicitOn,
+            new JsonObject { ["InstallStdioMcp"] = false, ["InstallLiveMcp"] = false, [nameof(AiAgentConfig.InstallMcp)] = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(optedOut.InstallMcp, Is.False);
+            Assert.That(liveOnly.InstallMcp, Is.True);
+            Assert.That(explicitOn.InstallMcp, Is.True);
+        });
+    }
+
+    [Test]
     public void Legacy_token_is_preserved_until_migration_then_omitted_from_new_saves()
     {
         var config = new AiAgentConfig();

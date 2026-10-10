@@ -480,11 +480,13 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
         // The layout advances once this install replaced the MCP entry, when the user opted out of
         // MCP altogether, or when the selected target cannot take an MCP entry at all, so there is
-        // nothing to migrate there. A missing launcher or a failed CLI registration keeps the older
-        // layout, so the migration notice returns on the next start instead of being lost.
+        // nothing to migrate there. A missing launcher, a failed CLI registration or an invalid MCP
+        // configuration (a relative CODEX_HOME) keeps the older layout, so the migration notice
+        // returns on the next start instead of being lost.
         bool mcpSettled = installedMcp
                           || !InstallMcp.Value
-                          || (targets.McpConfigFileName is null && !targets.UseCliForMcp);
+                          || (targets.McpConfigurationError is null
+                              && targets.McpConfigFileName is null && !targets.UseCliForMcp);
         int mcpLayout = mcpSettled
             ? AgentToolkitInstallManifest.CurrentMcpLayout
             : previous?.McpLayout ?? 0;
