@@ -1,0 +1,129 @@
+# This workflow is managed by gh actions-lock.
+
+# TEMPORARY: runs the release packaging for Linux ARM64 on a pull request and starts the results on
+# real ARM64 runners. Remove this file (and its actions.lock entry) before merging.
+name: Linux ARM64 packaging check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  determine-version:
+    uses: ./.github/workflows/build-version.yml
+
+  build-executable:
+    needs: [ determine-version ]
+    uses: ./.github/workflows/build-executable.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+      asmVer: ${{ needs.determine-version.outputs.asmVer }}
+      infoVer: ${{ needs.determine-version.outputs.infoVer }}
+
+  build-debian-package:
+    needs: [ determine-version, build-executable ]
+    uses: ./.github/workflows/build-debian-package.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      simpleVer: ${{ needs.determine-version.outputs.simpleVer }}
+      revision: ${{ needs.determine-version.outputs.revision }}
+
+  build-flatpak-package:
+    needs: [ determine-version, build-executable ]
+    uses: ./.github/workflows/build-flatpak-package.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+
+  start-debian-package:
+    needs: [ determine-version, build-debian-package ]
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: ubuntu22.04_arm64
+          path: artifacts
+
+      - name: Install the package with its dependencies
+        run: |
+          deb=$(ls artifacts/beutl_*_arm64.deb)
+          dpkg-deb -f "$deb" Package Version Architecture Depends
+          sudo apt-get update
+          sudo apt-get install -y "./$deb" xvfb imagemagick
+          file /usr/lib/beutl/Beutl
+
+      - name: Load the bundled native libraries
+        run: |
+          cd /usr/lib/beutl
+          for lib in libSkiaSharp.so libHarfBuzzSharp.so libvulkan.so libvk_swiftshader.so libshaderc_shared.so \
+                     libassimp.so.5 libassimp.so.6 libopenal.so libporta_pty.so; do
+            python3 -c 'import ctypes, sys; ctypes.CDLL(sys.argv[1])' "$PWD/$lib"
+            echo "Loaded $lib"
+          done
+
+      - name: Start Beutl
+        run: |
+          mkdir -p diagnostics
+          xvfb-run -a -s '-screen 0 1600x900x24' bash -euc '
+            beutl > diagnostics/stdout.log 2>&1 &
+            pid=$!
+            sleep 60
+            import -window root diagnostics/debian-arm64.png
+            kill -0 "$pid"
+            kill "$pid"
+          '
+
+      - name: Save diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: debian-arm64-start
+          path: |
+            diagnostics/
+            ~/.beutl/log/
+          if-no-files-found: ignore
+
+  start-flatpak-bundle:
+    needs: [ determine-version, build-flatpak-package ]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: beutl-flatpak-arm64-${{ needs.determine-version.outputs.semVer }}
+          path: artifacts
+
+      - name: Install the bundle
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak xvfb imagemagick dbus-x11
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive artifacts/Beutl-arm64-*.flatpak
+          flatpak info --user net.beditor.Beutl
+
+      - name: Start Beutl
+        run: |
+          mkdir -p diagnostics
+          dbus-run-session -- xvfb-run -a -s '-screen 0 1600x900x24' bash -euc '
+            flatpak run net.beditor.Beutl > diagnostics/stdout.log 2>&1 &
+            pid=$!
+            sleep 90
+            import -window root diagnostics/flatpak-arm64.png
+            kill -0 "$pid"
+            kill "$pid"
+          '
+
+      - name: Save diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: flatpak-arm64-start
+          path: |
+            diagnostics/
+            ~/.beutl/log/
+          if-no-files-found: ignore
