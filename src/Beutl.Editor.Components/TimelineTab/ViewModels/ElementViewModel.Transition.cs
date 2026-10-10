@@ -101,7 +101,7 @@ public sealed partial class ElementViewModel
     // The type of the transition at edge, as the boundary blends; null when the edge has none.
     public Type? GetTransitionType(ElementEdge edge)
     {
-        return GetBoundary(edge)?.Transition.GetType();
+        return GetTransition(edge)?.GetType();
     }
 
     public bool HasTransitionPartner(ElementEdge edge)
@@ -126,13 +126,20 @@ public sealed partial class ElementViewModel
     // Opens the side that decides how the boundary blends in the property tab.
     public void EditTransition(ElementEdge edge)
     {
-        if (GetBoundary(edge) is not { } boundary) return;
+        if (GetTransition(edge) is not { } transition) return;
 
         IEditorContext editorContext = Timeline.EditorContext;
         ObjectPropertyTabViewModel tab = editorContext.FindToolTab<ObjectPropertyTabViewModel>()
                                          ?? new ObjectPropertyTabViewModel(editorContext);
-        tab.NavigateCore(boundary.Transition, false, null);
+        tab.NavigateCore(transition, false, null);
         editorContext.OpenToolTab(tab);
+    }
+
+    // The side that decides how the boundary at edge blends, or this element's own side there when it
+    // blends nothing (it is disabled or has no length), so it can still be edited or removed.
+    private ClipTransition? GetTransition(ElementEdge edge)
+    {
+        return GetBoundary(edge)?.Transition ?? ElementTransitionEdits.GetTransition(Model, edge);
     }
 
     // The duration this element's own side adds at edge, or none when it sets no transition there.
@@ -183,6 +190,13 @@ public sealed partial class ElementViewModel
     private void UpdateTransitionParts()
     {
         if (_isDisposed) return;
+
+        if (!Timeline.MayTakePartInTransition(Model))
+        {
+            _enterPart.Value = TransitionPartLayout.Hidden;
+            _exitPart.Value = TransitionPartLayout.Hidden;
+            return;
+        }
 
         float scale = Timeline.Options.Value.Scale;
         _enterPart.Value = CreatePart(ElementEdge.Start, scale);

@@ -57,17 +57,21 @@ public abstract partial class ClipTransition : EngineObject
 
     public partial class Resource
     {
-        // Draws one frame of the transition. One that does not draw its own, such as a transition whose
-        // type could not be loaded, cross-dissolves.
-        internal virtual void Draw(TransitionDrawing drawing)
+        /// <summary>
+        /// Draws one frame of the transition. A transition that does not draw its own, such as one whose
+        /// type could not be loaded, cross-dissolves.
+        /// </summary>
+        public virtual void Draw(ClipTransitionContext context)
         {
-            drawing.DrawCrossDissolve();
+            context.DrawCrossDissolve();
         }
 
-        // A brush the transition draws with belongs to its resource alone, so it is reconciled here rather
-        // than through a property; a change moves this resource's version so a cached recording is not
-        // replayed.
-        private protected void Reconcile<TBrush, TResource>(TBrush brush, ref TResource? resource, CompositionContext context)
+        /// <summary>
+        /// Brings the resource of a brush owned by this resource up to date. A brush the transition draws
+        /// with belongs to its resource alone, so it is reconciled here rather than through a property; a
+        /// change moves this resource's version so a cached recording is not replayed.
+        /// </summary>
+        protected void Reconcile<TBrush, TResource>(TBrush brush, ref TResource? resource, CompositionContext context)
             where TBrush : Brush
             where TResource : Brush.Resource
         {

@@ -3,12 +3,16 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Transitions;
 
-// Draws one frame of a clip boundary transition from the evaluated content of both sides.
-internal readonly struct TransitionDrawing(
-    GraphicsContext2D graphics,
-    IReadOnlyList<Drawable.Resource> from,
-    IReadOnlyList<Drawable.Resource> to,
-    float progress)
+/// <summary>
+/// One frame of a clip boundary transition: the evaluated content of both sides, how far the transition
+/// has played, and the drawing steps the built-in transitions are made of.
+/// </summary>
+/// <remarks>
+/// A transition draws itself by overriding <see cref="ClipTransition.Resource.Draw"/> and drawing
+/// <see cref="From"/> and <see cref="To"/> into <see cref="Graphics"/>, either through the steps here or
+/// directly.
+/// </remarks>
+public readonly struct ClipTransitionContext
 {
     // A wipe edge of zero width still gets a one-unit ramp so it stays antialiased.
     private const float WipeEdgeWidth = 1;
@@ -20,6 +24,35 @@ internal readonly struct TransitionDrawing(
     // How far a cross zoom magnifies: the outgoing clip zooms in to this scale and the incoming clip
     // settles from it.
     private const float ZoomScale = 2;
+
+    private readonly GraphicsContext2D graphics;
+    private readonly IReadOnlyList<Drawable.Resource> from;
+    private readonly IReadOnlyList<Drawable.Resource> to;
+    private readonly float progress;
+
+    internal ClipTransitionContext(
+        GraphicsContext2D graphics,
+        IReadOnlyList<Drawable.Resource> from,
+        IReadOnlyList<Drawable.Resource> to,
+        float progress)
+    {
+        this.graphics = graphics;
+        this.from = from;
+        this.to = to;
+        this.progress = progress;
+    }
+
+    /// <summary>The context the transition draws into, covering the whole frame.</summary>
+    public GraphicsContext2D Graphics => graphics;
+
+    /// <summary>The outgoing side's drawables, bottom first; empty when nothing comes before.</summary>
+    public IReadOnlyList<Drawable.Resource> From => from;
+
+    /// <summary>The incoming side's drawables, bottom first; empty when nothing comes after.</summary>
+    public IReadOnlyList<Drawable.Resource> To => to;
+
+    /// <summary>How far the transition has played, from 0 to 1, after its easing.</summary>
+    public float Progress => progress;
 
     public static Vector GetDirection(ClipTransitionDirection direction)
     {
@@ -39,7 +72,7 @@ internal readonly struct TransitionDrawing(
 
     // Summing premultiplied colour keeps two opaque clips opaque whenever the weights add up to one;
     // drawing one over the other would let the layers beneath show through the middle.
-    private void DrawWeighted(float fromWeight, float toWeight)
+    public void DrawWeighted(float fromWeight, float toWeight)
     {
         using (PushIsolation())
         {
@@ -118,7 +151,7 @@ internal readonly struct TransitionDrawing(
             {
                 using (graphics.PushClip(band, ClipOperation.Difference))
                 {
-                    DrawIsolated(from);
+                    DrawClip(from);
                 }
             }
 
@@ -127,7 +160,7 @@ internal readonly struct TransitionDrawing(
                 using (graphics.PushBlendMode(BlendMode.Plus))
                 using (graphics.PushClip(band))
                 {
-                    DrawIsolated(to);
+                    DrawClip(to);
                 }
             }
         }
@@ -176,7 +209,7 @@ internal readonly struct TransitionDrawing(
             {
                 using (graphics.PushOpacityMask(mask, maskBounds, invert: true))
                 {
-                    DrawIsolated(from);
+                    DrawClip(from);
                 }
             }
 
@@ -185,7 +218,7 @@ internal readonly struct TransitionDrawing(
                 using (graphics.PushBlendMode(BlendMode.Plus))
                 using (graphics.PushOpacityMask(mask, maskBounds))
                 {
-                    DrawIsolated(to);
+                    DrawClip(to);
                 }
             }
         }
@@ -216,7 +249,7 @@ internal readonly struct TransitionDrawing(
         using (graphics.PushTransform(transform))
         using (graphics.PushClip(new Rect(graphics.Size)))
         {
-            DrawIsolated(drawables);
+            DrawClip(drawables);
         }
     }
 
@@ -227,13 +260,15 @@ internal readonly struct TransitionDrawing(
         using (graphics.PushBlendMode(blendMode))
         using (graphics.PushOpacity(Math.Min(weight, 1)))
         {
-            DrawIsolated(drawables);
+            DrawClip(drawables);
         }
     }
 
-    // One isolated group per clip, so the opacity or mask around it applies to the clip as a whole rather
-    // than to each of its drawables.
-    private void DrawIsolated(IReadOnlyList<Drawable.Resource> drawables)
+    /// <summary>
+    /// Draws one side as a single group, so an opacity, mask or blend mode pushed around it applies to the
+    /// side as a whole rather than to each of its drawables.
+    /// </summary>
+    public void DrawClip(IReadOnlyList<Drawable.Resource> drawables)
     {
         using (PushIsolation())
         {
@@ -244,9 +279,11 @@ internal readonly struct TransitionDrawing(
         }
     }
 
-    // Composites everything inside it into its own layer first, so the Plus blend combines the two clips
-    // with each other and not with the layers beneath.
-    private PushedState PushIsolation()
+    /// <summary>
+    /// Composites everything drawn inside it into its own layer first, so a <see cref="BlendMode.Plus"/>
+    /// blend combines the two sides with each other and not with the layers beneath.
+    /// </summary>
+    public PushedState PushIsolation()
     {
         return graphics.PushNode(
             true,

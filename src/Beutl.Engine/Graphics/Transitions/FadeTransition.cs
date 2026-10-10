@@ -17,9 +17,9 @@ public sealed partial class FadeTransition : ClipTransition
 
     public new partial class Resource
     {
-        internal override void Draw(TransitionDrawing drawing)
+        public override void Draw(ClipTransitionContext context)
         {
-            drawing.DrawThrough(fill: null);
+            context.DrawThrough(fill: null);
         }
     }
 }

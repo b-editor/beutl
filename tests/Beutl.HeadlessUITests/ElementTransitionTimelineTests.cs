@@ -108,6 +108,7 @@ public class ElementTransitionTimelineTests
             Border handle = FindElementView(view, incoming).FindControl<Border>("enterTransitionHandle")!;
             Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
             Point release = press + new Vector(quarter, 0);
+            WaitForHitTest(window, handle, press);
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
             window.MouseMove(release, RawInputModifiers.LeftMouseButton);
@@ -153,6 +154,76 @@ public class ElementTransitionTimelineTests
         finally
         {
             GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            Close(view, window);
+        }
+    }
+
+    // 0.25 s is seven and a half frames at 30 fps, so snapping the duration on a press without a drag
+    // would change it.
+    [AvaloniaTest]
+    public async Task PressingAHandleWithoutDragging_LeavesTheDurationAlone()
+    {
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
+            (view, window) = Show(incoming);
+            incoming.ApplyTransition(ElementEdge.Start, typeof(CrossDissolveTransition));
+            HeadlessTestHelpers.Settle(3);
+            HeadlessTestHelpers.Render(5);
+            int undoCount = editor.HistoryManager.UndoCount;
+            Border handle = FindElementView(view, incoming).FindControl<Border>("enterTransitionHandle")!;
+            Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
+            WaitForHitTest(window, handle, press);
+
+            window.MouseMove(press);
+            window.MouseDown(press, MouseButton.Left);
+            window.MouseUp(press, MouseButton.Left);
+            HeadlessTestHelpers.Settle(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(incoming.Model.EnterTransition!.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+            });
+        }
+        finally
+        {
+            Close(view, window);
+        }
+    }
+
+    // A disabled transition draws no ramp, but the timeline still offers to edit and remove it.
+    [AvaloniaTest]
+    public async Task ADisabledTransition_StaysEditableAndRemovable()
+    {
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
+            (view, window) = Show(incoming);
+            var transition = new FadeTransition { IsEnabled = false };
+            incoming.Model.EnterTransition = transition;
+            HeadlessTestHelpers.Settle(3);
+
+            bool partVisible = incoming.EnterTransitionPart.Value.IsVisible;
+            Type? type = incoming.GetTransitionType(ElementEdge.Start);
+            incoming.EditTransition(ElementEdge.Start);
+            object? edited = editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target;
+            incoming.RemoveTransition(ElementEdge.Start);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(partVisible, Is.False);
+                Assert.That(type, Is.EqualTo(typeof(FadeTransition)));
+                Assert.That(edited, Is.SameAs(transition));
+                Assert.That(incoming.Model.EnterTransition, Is.Null);
+            });
+        }
+        finally
+        {
             Close(view, window);
         }
     }
@@ -219,6 +290,20 @@ public class ElementTransitionTimelineTests
         {
             Close(view, window);
         }
+    }
+
+    // Avalonia's headless hit test answers only after the window has rendered a frame, so a press made
+    // before then lands on nothing.
+    private static void WaitForHitTest(Window window, Visual target, Point point)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            HeadlessTestHelpers.Render();
+            if (window.InputHitTest(point) is Visual hit && (hit == target || target.IsVisualAncestorOf(hit)))
+                return;
+        }
+
+        Assert.Fail($"{target.Name} never became hit-testable at {point}.");
     }
 
     // Clicks once and lets the double-click window (500 ms by default) pass first. The first press on an

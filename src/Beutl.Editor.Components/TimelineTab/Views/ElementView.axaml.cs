@@ -187,12 +187,15 @@ public sealed partial class ElementView : UserControl
     }
 
     // The side grows by however far the pointer has moved since the press, away from its edge, snapped to
-    // frames and kept within the element.
+    // frames and kept within the element. A press without a drag keeps the duration as it is, even when it
+    // is not a whole number of frames.
     private TimeSpan GetDraggedTransitionDuration(ElementViewModel viewModel, ElementEdge edge, PointerEventArgs e)
     {
+        double delta = e.GetPosition(border).X - _transitionDragStartX;
+        if (delta == 0) return _transitionDragStartDuration;
+
         float scale = viewModel.Timeline.Options.Value.Scale;
         int rate = FrameRateOf(viewModel);
-        double delta = e.GetPosition(border).X - _transitionDragStartX;
         if (edge == ElementEdge.End) delta = -delta;
 
         TimeSpan duration = (_transitionDragStartDuration + delta.PixelToTimeSpan(scale)).RoundToRate(rate);

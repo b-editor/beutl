@@ -26,22 +26,22 @@ public sealed partial class WipeTransition : ClipTransition
         private LinearGradientBrush? _brush;
         private LinearGradientBrush.Resource? _mask;
 
-        internal override void Draw(TransitionDrawing drawing)
+        public override void Draw(ClipTransitionContext context)
         {
             if (_mask is { } mask)
             {
-                drawing.DrawWipe(mask, Direction);
+                context.DrawWipe(mask, Direction);
             }
             else
             {
-                base.Draw(drawing);
+                base.Draw(context);
             }
         }
 
         // An opaque-to-clear ramp along Direction, laid across whatever bounds it is drawn into.
         partial void PostUpdate(WipeTransition obj, CompositionContext context)
         {
-            Vector direction = TransitionDrawing.GetDirection(Direction);
+            Vector direction = ClipTransitionContext.GetDirection(Direction);
             if (_brush == null)
             {
                 _brush = new LinearGradientBrush();

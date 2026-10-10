@@ -22,15 +22,15 @@ public sealed partial class IrisTransition : ClipTransition
         private RadialGradientBrush? _brush;
         private RadialGradientBrush.Resource? _mask;
 
-        internal override void Draw(TransitionDrawing drawing)
+        public override void Draw(ClipTransitionContext context)
         {
             if (_mask is { } mask)
             {
-                drawing.DrawIris(mask);
+                context.DrawIris(mask);
             }
             else
             {
-                base.Draw(drawing);
+                base.Draw(context);
             }
         }
 
@@ -41,7 +41,7 @@ public sealed partial class IrisTransition : ClipTransition
             {
                 _brush = new RadialGradientBrush();
                 _brush.GradientStops.Add(new GradientStop(Colors.White, 0));
-                _brush.GradientStops.Add(new GradientStop(Colors.White, TransitionDrawing.IrisSolidFraction));
+                _brush.GradientStops.Add(new GradientStop(Colors.White, ClipTransitionContext.IrisSolidFraction));
                 _brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 1));
             }
 

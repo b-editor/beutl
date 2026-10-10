@@ -18,7 +18,7 @@ internal sealed partial class ClipTransitionPresenter : Drawable
         var r = (Resource)resource;
         if (r.TransitionResource is not { IsDisposed: false } transition) return;
 
-        transition.Draw(new TransitionDrawing(context, r.From, r.To, r.Progress));
+        transition.Draw(new ClipTransitionContext(context, r.From, r.To, r.Progress));
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

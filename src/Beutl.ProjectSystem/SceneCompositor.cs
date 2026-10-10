@@ -333,11 +333,12 @@ public sealed class SceneCompositor : ICompositor
     private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
+        bool graphics = target == CompositionTarget.Graphics;
         if (snapshot.ByZIndex.Count == 0)
         {
             foreach (Element item in Scene.Children)
             {
-                if (item.IsEnabled && item.Range.Contains(time))
+                if (item.IsEnabled && CoversTime(item, time, graphics))
                 {
                     currentElements.OrderedAdd(item, x => x.ZIndex);
                 }
@@ -347,25 +348,56 @@ public sealed class SceneCompositor : ICompositor
         {
             foreach (Element item in Scene.Children)
             {
-                if (!item.IsEnabled || !item.Range.Contains(time)) continue;
+                if (!item.IsEnabled || !CoversTime(item, time, graphics)) continue;
                 if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
                 currentElements.OrderedAdd(item, x => x.ZIndex);
             }
         }
 
-        if (target == CompositionTarget.Graphics)
+        if (graphics)
         {
             KeepOneElementPerTransition(time, currentElements);
         }
     }
 
-    // Both elements of a boundary are drawn by its transition, so when both fall on this frame (they
-    // overlap, or touch within the tolerance) only the first stays in the list to collect it.
-    private static void KeepOneElementPerTransition(TimeSpan time, PooledList<Element> currentElements)
+    // Two elements that touch within the tolerance can leave a gap of up to that tolerance between them,
+    // which their transition spans; a frame inside it still has to reach the transition through them.
+    private static bool CoversTime(Element item, TimeSpan time, bool graphics)
     {
+        if (item.Range.Contains(time)) return true;
+        if (!graphics) return false;
+
+        TimeSpan tolerance = ElementTransitions.AdjacencyTolerance;
+        return time >= item.Start - tolerance
+               && time < item.Range.End + tolerance
+               && ElementTransitions.TryGetActive(item, time, out _);
+    }
+
+    // Both elements of a boundary are drawn by its transition, so when both fall on this frame (they
+    // overlap, or touch within the tolerance) only the first stays in the list to collect it. Past the
+    // transition the incoming element has taken over, so an outgoing element that runs on beyond it (the
+    // two overlap and the span stops at the incoming element's middle) stays hidden.
+    private void KeepOneElementPerTransition(TimeSpan time, PooledList<Element> currentElements)
+    {
+        HashSet<Element> participants = ElementTransitions.GetParticipants(Scene);
+        if (participants.Count == 0) return;
+
+        for (int i = currentElements.Count - 1; i >= 0; i--)
+        {
+            Element element = currentElements[i];
+            if (participants.Contains(element)
+                && ElementTransitions.GetBoundaryAtEnd(element) is { Incoming: { } next } end
+                && time >= end.Region.End
+                && currentElements.Contains(next))
+            {
+                currentElements.RemoveAt(i);
+            }
+        }
+
         for (int i = 0; i < currentElements.Count; i++)
         {
-            if (ElementTransitions.TryGetActive(currentElements[i], time, out TransitionBoundary boundary)
+            if (participants.Contains(currentElements[i])
+                && ElementTransitions.TryGetActive(currentElements[i], time, out TransitionBoundary boundary)
                 && boundary is { Outgoing: { } outgoing, Incoming: { } incoming })
             {
                 Element partner = ReferenceEquals(currentElements[i], outgoing) ? incoming : outgoing;

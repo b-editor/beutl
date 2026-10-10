@@ -269,6 +269,60 @@ public class TransitionRenderTests
         });
     }
 
+    // A transition defined outside the engine, as an extension would, draws itself instead of falling back
+    // to a cross dissolve.
+    [Test]
+    public void ATransitionDefinedOutsideTheEngine_DrawsItself()
+    {
+        Bgra8888 early = RenderCenter(new CutAtTheMiddleTransition(), progress: 0.25);
+        Bgra8888 late = RenderCenter(new CutAtTheMiddleTransition(), progress: 0.75);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(IsRed(early), Is.True, $"before the middle {early}");
+            Assert.That(IsBlue(late), Is.True, $"after the middle {late}");
+        });
+    }
+
+    // The incoming clip is a left half drawn first and a small square in the top right drawn last; a click
+    // selects whichever is under it, and the outgoing clip where neither is.
+    [Test]
+    public void HitTest_InsideATransitionSelectsTheDrawableUnderThePoint()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            RectShape outgoingShape = CreateRect(s_red);
+            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            outgoing.Objects.Add(outgoingShape);
+            scene.Children.Add(outgoing);
+
+            RectShape leftHalf = CreateLeftHalf(s_blue);
+            RectShape corner = CreateRect(s_blue);
+            corner.Width.CurrentValue = 8;
+            corner.Height.CurrentValue = 8;
+            corner.AlignmentX.CurrentValue = AlignmentX.Right;
+            corner.AlignmentY.CurrentValue = AlignmentY.Top;
+            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            incoming.Objects.Add(leftHalf);
+            incoming.Objects.Add(corner);
+            incoming.EnterTransition = new CrossDissolveTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            scene.Children.Add(incoming);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.HitTest(frame, new Point(4, Height / 2f)), Is.SameAs(leftHalf));
+                Assert.That(renderer.HitTest(frame, new Point(Width - 3, 3)), Is.SameAs(corner));
+                Assert.That(renderer.HitTest(frame, new Point((Width * 3) / 4f, Height - 3)), Is.SameAs(outgoingShape));
+            });
+        });
+    }
+
     private static ClipTransition CreateDirectional(Type type, ClipTransitionDirection direction)
     {
         if (type == typeof(PushTransition)) return new PushTransition { Direction = { CurrentValue = direction } };
@@ -342,5 +396,23 @@ public class TransitionRenderTests
         shape.Height.CurrentValue = Height;
         shape.Fill.CurrentValue = new SolidColorBrush(color);
         return shape;
+    }
+}
+
+// Draws the outgoing clip up to the middle of the transition and the incoming clip after it, through the
+// same public hook an extension's transition overrides.
+public sealed partial class CutAtTheMiddleTransition : ClipTransition
+{
+    public CutAtTheMiddleTransition()
+    {
+        ScanProperties<CutAtTheMiddleTransition>();
+    }
+
+    public new partial class Resource
+    {
+        public override void Draw(ClipTransitionContext context)
+        {
+            context.DrawClip(context.Progress < 0.5f ? context.From : context.To);
+        }
     }
 }

@@ -585,12 +585,51 @@ public class Renderer : IRenderer
                 Drawable.Resource? hit = entry.Node.Drawable?.Resource;
                 // A transition's presenter is not part of the document; select the clip it draws instead.
                 return hit is Transitions.ClipTransitionPresenter.Resource presenter
-                    ? presenter.GetHitTestTarget()
+                    ? HitTestTransition(entry.Node, presenter, point)
                     : hit?.GetOriginal();
             }
         }
 
         return null;
+    }
+
+    // The drawable a point inside a transition lands on: the incoming side's drawables, then the outgoing
+    // side's, each topmost first, are hit-tested on their own.
+    private Drawable? HitTestTransition(
+        DrawableRenderNode node, Transitions.ClipTransitionPresenter.Resource presenter, Point point)
+    {
+        var children = new Dictionary<Drawable.Resource, DrawableRenderNode>(ReferenceEqualityComparer.Instance);
+        CollectDrawableNodes(node, children);
+        foreach (IReadOnlyList<Drawable.Resource> side in (ReadOnlySpan<IReadOnlyList<Drawable.Resource>>)[presenter.To, presenter.From])
+        {
+            for (int i = side.Count - 1; i >= 0; i--)
+            {
+                if (!children.TryGetValue(side[i], out DrawableRenderNode? child)) continue;
+
+                using RenderNodeRenderer renderer = CreateEntryRenderer(child);
+                if (renderer.HitTest(point))
+                {
+                    return side[i].GetOriginal();
+                }
+            }
+        }
+
+        return presenter.GetHitTestTarget();
+    }
+
+    private static void CollectDrawableNodes(ContainerRenderNode container, Dictionary<Drawable.Resource, DrawableRenderNode> nodes)
+    {
+        foreach (RenderNode child in container.Children)
+        {
+            if (child is DrawableRenderNode { Drawable.Resource: { } resource } drawable)
+            {
+                nodes.TryAdd(resource, drawable);
+            }
+            else if (child is ContainerRenderNode inner)
+            {
+                CollectDrawableNodes(inner, nodes);
+            }
+        }
     }
 
     public Rect[] GetBoundaries(int zIndex)

@@ -289,6 +289,9 @@ public class Element : Hierarchical, INotifyEdited
                     obj.TimeRange = newRange;
                 }
 
+                if (EnterTransition != null) EnterTransition.TimeRange = newRange;
+                if (ExitTransition != null) ExitTransition.TimeRange = newRange;
+
                 TimeRange oldRange = GetOldRange();
                 Edited?.Invoke(this, new ElementEditedEventArgs
                 {
@@ -314,6 +317,10 @@ public class Element : Hierarchical, INotifyEdited
 
                 if (change.NewValue != null)
                 {
+                    // Animations evaluate against the owner's range, as they do for the element's objects.
+                    // The transition is not made a time anchor, so its range is not saved under the key its
+                    // own Duration property uses.
+                    change.NewValue.TimeRange = Range;
                     change.NewValue.Edited += OnObjectEdited;
                 }
 

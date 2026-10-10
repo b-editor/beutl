@@ -131,6 +131,8 @@ public partial class EditViewModel
             if (ElementUsesAnySource(element, changedSources))
             {
                 affectedRanges.Add(element.Range);
+                // A transition draws the clip past its own range, holding its edge frame there.
+                affectedRanges.AddRange(ElementTransitions.GetRegionsNear(Scene, element.Range));
             }
         }
 

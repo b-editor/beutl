@@ -97,12 +97,40 @@ internal static class ElementTransitions
         return false;
     }
 
+    // The elements that can take part in a boundary transition: those that set an active side, and those
+    // adjacent across such a side. No other element has a boundary at either end, so callers that look
+    // at every element skip the neighbour searches for the rest; a scene without transitions costs one
+    // pass.
+    public static HashSet<Element> GetParticipants(Scene scene)
+    {
+        HashSet<Element>? participants = null;
+        ReadOnlySpan<Element> children = scene.Children.GetMarshal().Value;
+        foreach (Element element in children)
+        {
+            bool enter = IsActive(element.EnterTransition);
+            bool exit = IsActive(element.ExitTransition);
+            if (!enter && !exit) continue;
+
+            participants ??= [];
+            participants.Add(element);
+            foreach (Element other in children)
+            {
+                if ((enter && AreAdjacent(other, element)) || (exit && AreAdjacent(element, other)))
+                {
+                    participants.Add(other);
+                }
+            }
+        }
+
+        return participants ?? [];
+    }
+
     // The spans of every boundary transition that overlap range or touch either end of it. A transition
     // draws its elements past their own ranges, so its frames change whenever theirs do.
     public static List<TimeRange> GetRegionsNear(Scene scene, TimeRange range)
     {
         var regions = new List<TimeRange>();
-        foreach (Element element in scene.Children.GetMarshal().Value)
+        foreach (Element element in GetParticipants(scene))
         {
             if (GetBoundaryAtStart(element) is { } start && Touches(start.Region, range))
             {

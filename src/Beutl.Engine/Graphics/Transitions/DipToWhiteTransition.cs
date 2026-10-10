@@ -22,9 +22,9 @@ public sealed partial class DipToWhiteTransition : ClipTransition
         private SolidColorBrush? _brush;
         private SolidColorBrush.Resource? _fill;
 
-        internal override void Draw(TransitionDrawing drawing)
+        public override void Draw(ClipTransitionContext context)
         {
-            drawing.DrawThrough(_fill);
+            context.DrawThrough(_fill);
         }
 
         partial void PostUpdate(DipToWhiteTransition obj, CompositionContext context)

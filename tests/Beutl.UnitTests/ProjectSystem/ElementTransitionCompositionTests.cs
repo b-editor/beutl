@@ -201,6 +201,87 @@ public class ElementTransitionCompositionTests
         Assert.That(SinglePresenter(frame).From.Select(r => r.GetOriginal()), Is.EqualTo(new Drawable[] { cut.OutgoingShape }));
     }
 
+    // The tolerance also accepts a gap: a frame inside it belongs to neither element's own range but is
+    // still inside their transition.
+    [Test]
+    public void AFrameInsideAToleratedGap_IsDrawnByTheTransition()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_gap", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        cut.Outgoing.Length = Seconds(2) - TimeSpan.FromTicks(1);
+        cut.Incoming.EnterTransition = Transition(1);
+        using var compositor = new SceneCompositor(harness.Scene);
+
+        CompositionFrame frame = compositor.EvaluateGraphics(Seconds(2) - TimeSpan.FromTicks(1));
+
+        Assert.That(SinglePresenter(frame).From.Select(r => r.GetOriginal()), Is.EqualTo(new Drawable[] { cut.OutgoingShape }));
+    }
+
+    // Overlapping elements whose span stops at the incoming element's middle: once the transition has
+    // handed over, the outgoing element must not show again for the rest of its range.
+    [Test]
+    public void AnOutgoingElementThatRunsOnPastItsTransition_StaysHidden()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_handed_over", duration: Seconds(10));
+        var outgoingShape = new RectShape();
+        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(5));
+        outgoing.Objects.Add(outgoingShape);
+        var incomingShape = new EllipseShape();
+        Element incoming = harness.AddElement(Seconds(2), Seconds(4));
+        incoming.Objects.Add(incomingShape);
+        incoming.EnterTransition = Transition(0.5);
+        incoming.ExitTransition = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene);
+
+        TimeRange? region = ElementTransitions.GetBoundaryAtStart(incoming)?.Region;
+        CompositionFrame after = compositor.EvaluateGraphics(Seconds(4.5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(region, Is.EqualTo(TimeRange.FromRange(Seconds(2), Seconds(4))));
+            Assert.That(Originals(after), Is.EqualTo(new Drawable[] { incomingShape }));
+        });
+    }
+
+    [Test]
+    public void TheParticipants_AreTheElementsOnEitherSideOfAnActiveTransition()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_participants", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        Element unrelated = harness.AddElement(Seconds(6), Seconds(1));
+        HashSet<Element> without = ElementTransitions.GetParticipants(harness.Scene);
+        cut.Outgoing.ExitTransition = Transition(0.5);
+
+        HashSet<Element> with = ElementTransitions.GetParticipants(harness.Scene);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(without, Is.Empty);
+            Assert.That(with, Is.EquivalentTo(new[] { cut.Outgoing, cut.Incoming }));
+            Assert.That(with, Does.Not.Contain(unrelated));
+        });
+    }
+
+    // An extension's transition may animate its properties, which evaluate against the owner's range.
+    [Test]
+    public void ATransition_FollowsTheRangeOfItsElement()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_range", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        ClipTransition transition = Transition(0.5);
+
+        cut.Incoming.EnterTransition = transition;
+        TimeRange assigned = transition.TimeRange;
+        cut.Incoming.Start = Seconds(3);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(assigned, Is.EqualTo(new TimeRange(Seconds(2), Seconds(2))));
+            Assert.That(transition.TimeRange, Is.EqualTo(new TimeRange(Seconds(3), Seconds(2))));
+            Assert.That(transition.IsTimeAnchor, Is.False, "the range is not saved with the transition");
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {

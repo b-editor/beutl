@@ -21,9 +21,9 @@ public sealed partial class SlideTransition : ClipTransition
 
     public new partial class Resource
     {
-        internal override void Draw(TransitionDrawing drawing)
+        public override void Draw(ClipTransitionContext context)
         {
-            drawing.DrawSlide(Direction);
+            context.DrawSlide(Direction);
         }
     }
 }

@@ -21,9 +21,9 @@ public sealed partial class SplitTransition : ClipTransition
 
     public new partial class Resource
     {
-        internal override void Draw(TransitionDrawing drawing)
+        public override void Draw(ClipTransitionContext context)
         {
-            drawing.DrawSplit(Orientation);
+            context.DrawSplit(Orientation);
         }
     }
 }
