@@ -389,7 +389,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         double frameRate = videoSettings.FrameRate.ToDouble();
         if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
-        long totalFrames = (long)Math.Round(Model.Duration.TotalSeconds * frameRate);
+        // The number of frames the frame provider renders
+        long totalFrames = FrameProviderImpl.ToFrameCount(Model.Duration, videoSettings.FrameRate);
         TotalFrames.Value = totalFrames;
         FrameProgressText.Value = $"0 / {totalFrames}";
 
