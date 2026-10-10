@@ -312,8 +312,9 @@ internal sealed partial class GitCliVersionControlService
                 ? new CommitRevision.Known(head)
                 : new CommitRevision.Unavailable();
         }
-        catch (GitOperationException)
+        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
         {
+            // The snapshot is saved either way; only which commit it is stays unknown.
             return new CommitRevision.Unavailable();
         }
     }

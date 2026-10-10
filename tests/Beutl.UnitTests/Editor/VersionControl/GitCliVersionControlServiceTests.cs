@@ -5662,6 +5662,33 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // Git has saved the snapshot once git commit returns, so a lookup that times out afterwards leaves
+    // only which commit it is unknown.
+    [Test]
+    public async Task CommitAllAsync_reports_a_saved_snapshot_when_looking_it_up_times_out()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "initial\n");
+        var runner = new TimingOutSnapshotLookupRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult commitCount = await RunGitAsync("rev-list", "--count", "HEAD");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Unavailable())));
+            Assert.That(commitCount.Stdout.Trim(), Is.EqualTo("1"));
+            Assert.That(runner.TimeoutCount, Is.EqualTo(1));
+        });
+    }
+
     [Test]
     public async Task InitializeAsync_succeeds_when_status_refresh_fails_after_initial_commit()
     {
@@ -8038,6 +8065,52 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                        && arguments.Count > 1
                        && arguments[1] is "add" or "set-url");
         }
+    }
+
+    // Times out the first rev-list --parents after the snapshot commit, as the local timeout would.
+    private sealed class TimingOutSnapshotLookupRunner(IGitCliRunner inner) : IGitCliRunner
+    {
+        private bool _committed;
+
+        public int TimeoutCount { get; private set; }
+
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public async Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (_committed && arguments is ["rev-list", "--parents", ..])
+            {
+                _committed = false;
+                TimeoutCount++;
+                throw new TimeoutException("Git did not finish within 00:00:30.");
+            }
+
+            GitCommandResult result = await inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+            if (arguments.Contains("commit") && arguments.Contains("--only"))
+            {
+                _committed = true;
+            }
+
+            return result;
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class FailingPostCommitRevisionRunner(IGitCliRunner inner) : IGitCliRunner
