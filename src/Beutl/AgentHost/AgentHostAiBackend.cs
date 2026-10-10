@@ -117,11 +117,22 @@ internal sealed class AgentHostAiBackend(
             try
             {
                 SpeechWaveChunkResult chunk;
-                using (stream)
+                try
                 {
-                    chunk = await Task.Run(
-                        () => SpeechWaveEncoder.WriteSpeechWave(reader, checked((int)start), length, stream, cancellationToken),
-                        cancellationToken).ConfigureAwait(false);
+                    using (stream)
+                    {
+                        chunk = await Task.Run(
+                            () => SpeechWaveEncoder.WriteSpeechWave(reader, checked((int)start), length, stream, cancellationToken),
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                }
+                // The file opened but its audio could not be read: the input's fault, as for a file
+                // that does not open, not a service failure worth retrying.
+                catch (Exception ex) when (ex is SubtitleInputException or IOException or InvalidDataException)
+                {
+                    throw new AgentAiException(
+                        Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+                        $"The audio could not be decoded from {TimeSpan.FromSeconds(start / (double)sampleRate):hh\\:mm\\:ss} on.");
                 }
 
                 if (chunk.SourceSampleCount <= 0)

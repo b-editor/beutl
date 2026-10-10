@@ -185,6 +185,8 @@ public sealed class AgentHostAiBackendTests
             next = new StubAudioReader(16_000, 16_000);
             AgentAiException? refused = await CatchAsync(
                 CreateBackend(transcription: new StubTranscription { Error = new AiUsageLimitExceededException() }), path);
+            next = new StubAudioReader(16_000, 16_000) { Readable = false };
+            AgentAiException? undecodable = await CatchAsync(CreateBackend(transcription: transcription), path);
             next = new StubAudioReader(16_000, 16_000);
             // A one-second part cannot have speech ending at five seconds.
             AgentAiException? badTimes = await CatchAsync(
@@ -197,6 +199,7 @@ public sealed class AgentHostAiBackendTests
                 Assert.That(noCredits?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
                 Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiUnavailable), "out of credits is the account's state, not a failed request");
                 Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
+                Assert.That(undecodable?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "it opened, but its audio does not decode");
                 Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
             });
         }
@@ -379,6 +382,8 @@ public sealed class AgentHostAiBackendTests
     {
         public bool Audio { get; init; } = true;
 
+        public bool Readable { get; init; } = true;
+
         public override VideoStreamInfo VideoInfo
             => throw new InvalidOperationException("The test reader has no video stream.");
 
@@ -396,6 +401,12 @@ public sealed class AgentHostAiBackendTests
 
         public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
+            if (!Readable)
+            {
+                sound = null;
+                return false;
+            }
+
             int decoded = (int)Math.Clamp(totalSamples - start, 0, length);
             var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
             pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));

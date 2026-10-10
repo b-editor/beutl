@@ -490,7 +490,12 @@ internal sealed class AgentHostAiTools(
         if (NormalizeModel(model) is { } id)
         {
             GenerativeModelInfo? named = offered.FirstOrDefault(candidate => candidate.Id == id);
-            if (offered.Count > 0 && named is not { IsAvailable: true })
+            // While the plan cannot be read every model reads unavailable. A request that sends the
+            // id itself lets the service decide; the executor refuses an unavailable model, so a
+            // generation is still refused here.
+            bool refused = named is null
+                || (!named.IsAvailable && (backend.KnowsModelAvailability || !sendsNamedModel));
+            if (offered.Count > 0 && refused)
                 throw Invalid($"The model '{id}' is not available for {operation}. Call list_ai_models(\"{operation}\") for the ones this account can use.", "model");
             if (named is null && !sendsNamedModel)
             {

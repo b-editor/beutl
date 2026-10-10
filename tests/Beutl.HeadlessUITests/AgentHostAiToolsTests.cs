@@ -406,10 +406,22 @@ public sealed class AgentHostAiToolsTests
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
 
+        backend.Models["audio.transcribe"] = [new GenerativeModelInfo("whisper", "Whisper", IsDefault: true, IsAvailable: false, Image: null)];
+
         ToolResult<AgentAiJobSnapshot> result = await tools.GenerateImage("a cat", aspectRatio: "1:1", waitSeconds: 10);
+        // Transcription sends the id itself, so the service decides on a named model too.
+        ToolResult<AgentAiJobSnapshot> transcript = await tools.TranscribeAudio(WriteFile("voice.wav"), model: "whisper", waitSeconds: 10);
+        // The executor refuses a model the catalog marks unavailable, so a named one is refused here.
+        ToolResult<AgentAiJobSnapshot> named = await tools.GenerateImage("a cat", model: "square");
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(backend.Requests.Single().ModelId, Is.Null, "the service picks the model");
+        Assert.That(transcript.IsSuccess, Is.True, transcript.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(backend.Requests.Single().ModelId, Is.Null, "the service picks the model");
+            Assert.That(backend.TranscribedModels.Single(), Is.EqualTo("whisper"));
+            Assert.That(named.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        });
     }
 
     [AvaloniaTest]
