@@ -62,6 +62,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         InstallSubagents = new ReactivePropertySlim<bool>(_config.InstallSubagents).DisposeWith(_disposables);
         InstallStdioMcp = new ReactivePropertySlim<bool>(_config.InstallStdioMcp).DisposeWith(_disposables);
         InstallLiveMcp = new ReactivePropertySlim<bool>(_config.InstallLiveMcp).DisposeWith(_disposables);
+        FollowLiveMcpEdits = new ReactivePropertySlim<bool>(_config.FollowLiveMcpEdits).DisposeWith(_disposables);
         LiveMcpUrl = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         LiveMcpAuthHeader = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         IsLiveMcpAvailable = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
@@ -130,6 +131,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<bool> InstallStdioMcp { get; }
 
     public ReactivePropertySlim<bool> InstallLiveMcp { get; }
+
+    public ReactivePropertySlim<bool> FollowLiveMcpEdits { get; }
 
     public ReactivePropertySlim<string> LiveMcpUrl { get; }
 
@@ -363,6 +366,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         InstallSubagents.Skip(1).Subscribe(v => _config.InstallSubagents = v).DisposeWith(_disposables);
         InstallStdioMcp.Skip(1).Subscribe(v => _config.InstallStdioMcp = v).DisposeWith(_disposables);
         InstallLiveMcp.Skip(1).Subscribe(v => _config.InstallLiveMcp = v).DisposeWith(_disposables);
+        FollowLiveMcpEdits.Skip(1).Subscribe(v => _config.FollowLiveMcpEdits = v).DisposeWith(_disposables);
         McpCommand.Skip(1).Subscribe(v => _config.StdioCommand = v).DisposeWith(_disposables);
         McpArguments.Skip(1).Subscribe(v => _config.StdioArguments = v).DisposeWith(_disposables);
     }

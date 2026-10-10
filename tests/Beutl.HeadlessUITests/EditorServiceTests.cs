@@ -460,6 +460,25 @@ public sealed class EditorServiceTests
     }
 
     [Test]
+    public async Task Running_outputs_list_a_profile_only_while_it_runs()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        var context = new StubEditorContext();
+        editorService.TabItems.Add(new EditorTabItem(context));
+        var outputContext = new StubOutputContext(context.Object);
+        using var output = new OutputProfileItem(outputContext, context, editorService);
+        Assert.That(editorService.RunningOutputs.Value, Is.Empty);
+
+        Assert.That(output.TryStart(out Task? execution), Is.True);
+        await outputContext.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(editorService.RunningOutputs.Value, Is.EqualTo(new[] { output }));
+
+        outputContext.Finish();
+        await execution!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(editorService.RunningOutputs.Value, Is.Empty);
+    }
+
+    [Test]
     public void Output_started_during_a_worktree_mutation_is_rejected_without_leaking_a_lease()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });

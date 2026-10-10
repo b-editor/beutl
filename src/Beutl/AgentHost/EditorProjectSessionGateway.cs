@@ -12,7 +12,8 @@ namespace Beutl.AgentHost;
 public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
-    IWorkspaceGuard workspace) : IProjectSessionGateway
+    IWorkspaceGuard workspace,
+    AgentEditFollower? follower = null) : IProjectSessionGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
@@ -171,7 +172,7 @@ public sealed class EditorProjectSessionGateway(
                 scene.Id.ToString()));
         }
 
-        return LiveEditingSession.Create(new EditViewModelLiveBinding(editViewModel));
+        return LiveEditingSession.Create(new EditViewModelLiveBinding(editViewModel, follower));
     }
 
     // Call only on the UI thread. An open project also exposes scenes whose tabs are closed;

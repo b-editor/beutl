@@ -22,6 +22,7 @@ public sealed class AiAgentConfig : ConfigurationBase
     public static readonly CoreProperty<string> LiveMcpTokenProperty;
     public static readonly CoreProperty<string> StdioCommandProperty;
     public static readonly CoreProperty<string> StdioArgumentsProperty;
+    public static readonly CoreProperty<bool> FollowLiveMcpEditsProperty;
 
     static AiAgentConfig()
     {
@@ -88,6 +89,12 @@ public sealed class AiAgentConfig : ConfigurationBase
 
         StdioArgumentsProperty = ConfigureProperty<string, AiAgentConfig>(nameof(StdioArguments))
             .DefaultValue("")
+            .Register();
+
+        // Experimental: move the editor to each live MCP edit and rendered frame. Off by default
+        // because it takes over the selection, playhead and scroll position.
+        FollowLiveMcpEditsProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(FollowLiveMcpEdits))
+            .DefaultValue(false)
             .Register();
     }
 
@@ -181,6 +188,12 @@ public sealed class AiAgentConfig : ConfigurationBase
     {
         get => GetValue(StdioArgumentsProperty);
         set => SetValue(StdioArgumentsProperty, value);
+    }
+
+    public bool FollowLiveMcpEdits
+    {
+        get => GetValue(FollowLiveMcpEditsProperty);
+        set => SetValue(FollowLiveMcpEditsProperty, value);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

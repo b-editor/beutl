@@ -198,6 +198,15 @@
                             </ctrls:OptionsDisplayItem.Content>
                         </ctrls:OptionsDisplayItem>
 
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_FollowLiveMcpEdits_Description}"
+                                                  Header="{x:Static lang:SettingsStrings.AiAgents_FollowLiveMcpEdits}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch Classes="left"
+                                              IsChecked="{Binding FollowLiveMcpEdits.Value}"
+                                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
                         <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Advanced_Description}"
                                                   Expands="True"
                                                   Header="{x:Static lang:SettingsStrings.AiAgents_Advanced}">

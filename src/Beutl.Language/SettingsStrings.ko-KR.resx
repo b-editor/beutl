@@ -490,6 +490,14 @@
     <value>MCP 클라이언트용 연결 URL입니다. 아래 인증 헤더를 모든 요청과 함께 보내세요. 비밀번호처럼 취급하세요</value>
     <comment />
   </data>
+  <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
+    <value>Live MCP 편집 따라가기(실험적)</value>
+    <comment />
+  </data>
+  <data name="AiAgents_FollowLiveMcpEdits_Description" xml:space="preserve">
+    <value>Live MCP 클라이언트가 편집한 요소로 선택, 재생 위치, 타임라인 스크롤, 속성을 이동하고 render_still로 렌더링한 프레임으로도 이동합니다</value>
+    <comment />
+  </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
     <value>고급</value>
     <comment />

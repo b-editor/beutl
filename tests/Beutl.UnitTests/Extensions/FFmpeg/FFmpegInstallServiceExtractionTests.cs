@@ -40,12 +40,12 @@ public sealed class FFmpegInstallServiceExtractionTests
     [TestCase("../ffmpeg-evil/payload.dll", "ffmpeg-evil/payload.dll")]
     [TestCase("bin/../../ffmpeg-evil/payload.dll", "ffmpeg-evil/payload.dll")]
     [TestCase("../payload.dll", "payload.dll")]
-    public void ExtractZip_RejectsEntriesOutsideTheDestination(string entryName, string escapedPath)
+    public async Task ExtractZip_RejectsEntriesOutsideTheDestination(string entryName, string escapedPath)
     {
         string destination = Path.Combine(_root, "ffmpeg");
         string zip = CreateZip((entryName, "payload"));
 
-        Assert.ThrowsAsync<InvalidOperationException>(() => ExtractZipAsync(zip, destination));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ExtractZipAsync(zip, destination));
         Assert.That(File.Exists(Path.Combine(_root, escapedPath)), Is.False);
     }
 

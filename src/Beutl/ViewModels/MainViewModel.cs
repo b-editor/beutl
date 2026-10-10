@@ -90,6 +90,15 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        // Agents generate with the signed-in account and the AI nodes' executor.
+        _agentHostEndpoint.AiBackend = new AgentHostAiBackend(
+            () => _beutlClients.AuthenticatedUser.Value,
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiTranscriptionService>(),
+            CreateGenerativeModelCatalog,
+            CreateGenerativeNodeExecutor,
+            _beutlClients.GetResource<IAiModelCatalogService>());
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestRecoveryStore(Path.Combine(
@@ -128,6 +137,14 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
             _editorService.ProjectVersionControlService,
             _versionControlCoordinator.IsGitAvailable,
             _versionControlCoordinator);
+        Status = new TitleBarStatusViewModel(
+            IsRunningStartupTasks,
+            _editorService,
+            _agentHostEndpoint,
+            _beutlClients.AuthenticatedUser,
+            _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
+            OpenAiJobCenter);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -180,6 +197,8 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
     internal TitleBarBranchViewModel TitleBarBranch { get; }
+
+    public TitleBarStatusViewModel Status { get; }
 
     public EditorHostViewModel EditorHost { get; }
 

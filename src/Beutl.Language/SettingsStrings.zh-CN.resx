@@ -490,6 +490,14 @@
     <value>MCP 客户端的连接 URL。每次请求都发送下面的身份验证标头——像对待密码一样对待它</value>
     <comment />
   </data>
+  <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
+    <value>跟随 Live MCP 编辑（实验性）</value>
+    <comment />
+  </data>
+  <data name="AiAgents_FollowLiveMcpEdits_Description" xml:space="preserve">
+    <value>将选择、播放头、时间轴滚动位置和属性移动到 Live MCP 客户端编辑的元素，并移动到它用 render_still 渲染的帧</value>
+    <comment />
+  </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
     <value>高级</value>
     <comment />

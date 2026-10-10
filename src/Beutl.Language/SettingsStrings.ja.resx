@@ -486,6 +486,14 @@
     <value>MCP クライアント用の接続 URL。下の認証ヘッダーを全リクエストに付与してください（ヘッダーはパスワードと同様に扱ってください）</value>
     <comment/>
   </data>
+  <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
+    <value>Live MCP の編集を追跡（実験的）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_FollowLiveMcpEdits_Description" xml:space="preserve">
+    <value>Live MCP クライアントが編集した要素へ選択・再生位置・タイムラインのスクロール・プロパティを移動し、render_still で描画したフレームへも移動します</value>
+    <comment/>
+  </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
     <value>詳細設定</value>
     <comment/>

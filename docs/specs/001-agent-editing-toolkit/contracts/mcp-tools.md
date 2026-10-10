@@ -238,6 +238,43 @@ Request cancellation of a running background render/export job.
 - **Output**: same snapshot shape as `read_render_job`. A still-running job transitions to `cancelled` once it observes the request (the per-job `CancellationToken` is plumbed through `StillRenderer`/`VideoExporter`).
 - **Errors**: `stale_handle` (unknown `jobId`).
 
+## AI generation *(in-app host only)*
+
+These tools run Beutl's cloud AI on the account signed in to the running app, through the same executor as the AI generation nodes, and **each call is a paid request**. They are not offered by the stdio host. Results are files saved next to the open scene (`resources/ai`); the tools never edit the scene — place a result with `apply_edit` (`SourceImage.Source` / `SourceVideo.Source` set to the returned path) or pass it to another AI tool. Input files (`sourcePath`, `referenceImagePaths`, `firstFramePath`, `lastFramePath`) are uploaded to the service, so they must resolve, after following links, inside the workspace or the open scene's `resources/ai`; relative paths are workspace-relative.
+
+Generation tools start a job and wait up to `waitSeconds` (0–110, default 45; other values are refused) for it. A job still running returns `{ status: "Running", jobId }`; call `read_ai_job` to wait again. The job manager keeps the most recent 128 finished jobs, pruned as jobs finish. Every argument is checked before a job starts, so a refused call costs nothing. Omitted settings are chosen from what the named or default model offers, as the AI tab's controls are; the AI tab's fallback lists apply when the catalog cannot be reached.
+
+- **Errors**: `ai_unavailable` (not signed in, no AI plan, the host has no API clients, or the catalog lists models for the operation but none the account can use; while the account's plan cannot be read the catalog marks every model unavailable, and the request goes to the service instead), `no_active_editor_session` (no scene open to save results next to), `validation_rejected` (missing prompt, unknown operation, task, mode or model, `waitSeconds` out of range, an outpaint expansion other than 10/25/50, more reference pictures than the model takes, `generateAudio` for a model without sound, an aspect ratio, background, duration, resolution, frame or seed the named or default model does not take, a negative seed, a prompt over 4000 characters or the model's own limit (an outpaint's counts the instruction the executor puts in front), an outpaint canvas over 8192 pixels a side, a language that is not an ISO 639-1 code, `durationSeconds` for `edit_video` mode `edit`, a prompt for `remove_background` or `upscale`, `outpaintExpansionPercent` for a task other than `outpaint`, a named model the catalog could not be loaded to confirm (the executor would send the service default instead), reference pictures over the catalog's total budget, a source clip larger or longer than the model takes, a last frame without a first), `workspace_boundary` (an input outside the workspace and the scene's AI results; checked before the file's existence), `media_not_found` / `media_unsupported` (input files, including pictures over the upload size or 8192 pixels a side, checked before decoding, and an outpaint whose widened canvas is over the upload size as PNG, recordings too long to transcribe, and audio that fails to decode or that a decoder returns in pieces too short to read to the end; a file that reports a length past its last sample ends where its audio does), `ai_generation_failed` (the service refused or failed; the job's `errorMessage` says why, and an unexpected error's details stay in the app's log; a job refused for being signed out, without a plan or out of credits reports `ai_unavailable` instead, since retrying will not help), `ai_job_not_found`.
+
+### `list_ai_models`
+- **Input**: `{ "operation": "image.generate" | "image.edit.<task>" | "video.generate" | "video.edit" | "video.extend" | "audio.transcribe" }`.
+- **Output**: `{ "operation", "models": [ { "id", "label", "isDefault", "isAvailable", "aspectRatios", "backgrounds", "maxReferenceImages", "durationsSeconds", "resolutions", "supportsAudio", "supportsFirstFrame", "supportsLastFrame", "supportsSeed", "supportsPromptToVideo" } ] }` — a `null` list means the model publishes none. Only the capabilities of the operation asked for are reported (image fields for `image.*`, video fields for `video.*`).
+
+### `generate_image`
+- **Input**: `{ "prompt": string, "aspectRatio"?: string, "background"?: "auto" | "opaque" | "transparent", "model"?: string, "seed"?: number, "referenceImagePaths"?: string[], "waitSeconds"?: number }`. The aspect ratio defaults to the one the model offers nearest the scene, the background to `auto` (or the model's first). At most 4 reference pictures, fewer when the model takes fewer.
+- **Output**: an AI job snapshot (below) whose output is a PNG.
+
+### `edit_image`
+- **Input**: `{ "sourcePath": string, "task": "remove_background" | "upscale" | "restyle" | "remove_object" | "outpaint", "prompt"?: string, "outpaintExpansionPercent"?: 10 | 25 | 50, "model"?: string, "waitSeconds"?: number }`. `restyle`, `remove_object` and `outpaint` need a prompt.
+
+### `generate_video`
+- **Input**: `{ "prompt": string, "durationSeconds"?: number, "resolution"?: string, "aspectRatio"?: string, "generateAudio"?: boolean, "firstFramePath"?: string, "lastFramePath"?: string, "model"?: string, "seed"?: number, "waitSeconds"?: number }`. Resolution and aspect ratio default to the model's choices nearest the scene, the duration to 6 seconds (or the model's first). `generateAudio` is refused for a model whose `supportsAudio` is false rather than quietly dropped.
+
+### `edit_video`
+- **Input**: `{ "sourcePath": string, "prompt": string, "mode"?: "edit" | "extend", "durationSeconds"?: number, "model"?: string, "waitSeconds"?: number }`. mp4 or webm up to 32 MB, opened before the job starts so a file that is not a clip is `media_unsupported`. An extension returns the whole clip with the new part at the end; its duration defaults to 6 seconds (or the model's first).
+
+### `transcribe_audio`
+- **Input**: `{ "sourcePath": string, "language"?: string, "model"?: string, "waitSeconds"?: number }`. Any decodable audio or video file; long files are sent in ten-minute parts. Each part's segments are checked as the subtitle flow checks them (in order, inside the part) before they are offset; words with no text, unusable times, out of order or overlapping the word before, are left out. A recording longer than `int.MaxValue` samples (about 12.4 hours at 48 kHz) is refused before the first part is sent.
+- **Output**: a job snapshot whose `output.transcript` is `{ "language", "segments": [ { "start", "end", "text" } ], "words": [ { "start", "end", "word" } ] | null }`, times in seconds from the start of the file.
+
+### `list_ai_jobs`
+- **Input**: `{}`.
+- **Output**: `{ "jobs": [ <job snapshot> ] }`, newest first: running jobs and the 128 most recently finished. A job keeps running when the call that started it is cancelled or its connection drops; an agent finds it here instead of starting another paid request.
+
+### `read_ai_job` / `cancel_ai_job`
+- **Input**: `{ "jobId": string, "waitSeconds"?: number }` / `{ "jobId": string }`.
+- **Output**: `{ "jobId", "operation", "status": "Running" | "Succeeded" | "Failed" | "Cancelled", "statusText", "elapsedSeconds", "output": { "outputPath", "mediaKind": "image" | "video" | "transcript", "modelId", "seed", "transcript" } | null, "errorCode", "errorMessage", "nextStep" }`. Cancelling stops the job's work in the app and ends it `Cancelled` with no output; a request the service already accepted is still charged, and its result can be collected from the AI tab's job history.
+
 ## Extension tools *(in-app host only)*
 
 Installed extensions can add tools through `McpToolExtension` (see the [MCP tool extension guide](../../../extension-authoring/mcp-tools.md)). They are listed and called like built-in tools, appear and disappear with their package without restarting the endpoint, and receive the same strict-argument check and `instanceId` routing. A built-in tool always wins a name collision. `tools/list` reflects the extensions loaded in the connected instance.
@@ -246,7 +283,7 @@ Installed extensions can add tools through `McpToolExtension` (see the [MCP tool
 ## Cross-cutting contract rules
 
 - **Host output lease**: direct `RenderTools` callers pass an `IOutputOperationLeaseProvider`, using `StandaloneOutputOperationLeaseProvider.Instance` outside the editor. DI and in-app hosts register their host-backed provider so render/export jobs cannot overlap a conflicting workspace operation.
-- **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded.
+- **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded, except the in-app AI tools' inputs, which are uploaded off the machine.
 - **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored. Names matching a `patternProperties` pattern (ECMAScript semantics) are accepted. A tool whose input schema sets `additionalProperties` to anything but `false`, or combines subschemas or uses `$ref` at the top level, is not checked.
 - **Atomicity**: `apply_edit` commits as exactly one undoable transaction; a mid-batch failure rolls back wholly (FR-012).
 - **Validation surfaced**: coercion/rejection is always reported in the result, never silently applied (FR-007).

@@ -11,6 +11,7 @@
     <EmbeddedResource Update="MessageStrings.resx" />
     <EmbeddedResource Update="MissingMediaStrings.resx" />
     <EmbeddedResource Update="SettingsStrings.resx" />
+    <EmbeddedResource Update="StatusStrings.resx" />
     <EmbeddedResource Update="Strings.resx" />
     <EmbeddedResource Update="TutorialStrings.resx" />
     <EmbeddedResource Update="AudioStrings.resx" />

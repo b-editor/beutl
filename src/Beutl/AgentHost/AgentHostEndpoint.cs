@@ -39,6 +39,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly AgentHostInstanceRegistry _instanceRegistry;
     private AgentHostInstanceRouter? _instanceRouter;
     private readonly ExtensionMcpToolCatalog _extensionTools;
+    private readonly AgentEditFollower _editFollower;
     private readonly object _lifecycleLock = new();
     private readonly CancellationTokenSource _startupCancellation = new();
     private bool _stopRequested;
@@ -144,6 +145,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         if (tokenFactory is null)
             _instanceRouter = CreateInstanceRouter(token);
         _extensionTools = new ExtensionMcpToolCatalog(editorService);
+        _editFollower = new AgentEditFollower(editorService, config);
     }
 
     public string Token { get; private set; }
@@ -156,6 +158,12 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private AgentHostInstanceRouter CreateInstanceRouter(string token)
         => new(_instanceRegistry, _projectService, _editorService, token,
             () => ResolveWorkspaceRoot(_config), _instanceId);
+
+    /// <summary>
+    /// The application's AI services for the AI tools. Set once the API clients exist; until then,
+    /// and in hosts without them, the AI tools report that generation is unavailable.
+    /// </summary>
+    internal IAgentAiBackend? AiBackend { get; set; }
 
     public Uri? EndpointUri
     {
@@ -421,6 +429,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
             .AddSingleton(InstanceRouter)
+            .AddSingleton(_editFollower)
             .AddSingleton<EditorProjectSessionGateway>()
             .AddSingleton<IProjectSessionGateway>(services => services.GetRequiredService<EditorProjectSessionGateway>())
             .AddSingleton<CompositionPlanStore>()
@@ -434,7 +443,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<AudioRhythmAnalyzer>()
             .AddSingleton<EncoderRegistration>()
             .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>();
+            .AddSingleton<RenderJobManager>()
+            .AddSingleton<AgentAiJobManager>()
+            .AddSingleton<IAgentAiBackend>(_ => AiBackend ?? UnavailableAgentAiBackend.Instance);
 
         builder.Services
             .AddMcpServer()
@@ -450,6 +461,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithRequestFilters(filters =>
             {
                 AgentHostInstanceRouter.AddFilters(filters);
+                AgentEditFollower.AddFilters(filters);
                 AgentHostSceneRouter.AddFilters(filters);
                 filters.AddCallToolFilter(next => (context, cancellationToken) =>
                     _extensionTools.TryCreateRemovedToolResult(context, out var removed)
@@ -463,7 +475,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
             .WithTools<HistoryTools>()
-            .WithTools<RenderTools>();
+            .WithTools<RenderTools>()
+            .WithTools<AgentHostAiTools>();
 
         WebApplication app = builder.Build();
         app.Use(RequireToken);

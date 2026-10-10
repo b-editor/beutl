@@ -21,7 +21,7 @@ public partial class TextBlock : Drawable
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Size), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Size { get; } = Property.CreateAnimatable<float>(12);
+    public IProperty<float> Size { get; } = Property.CreateAnimatable<float>(72);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontFamily), ResourceType = typeof(GraphicsStrings))]
