@@ -342,7 +342,7 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
 
-        string? stash = await StashProjectChangesAsync(repository, runner, cancellationToken)
+        bool stashed = await StashProjectChangesAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         try
         {
@@ -357,8 +357,8 @@ internal sealed partial class GitCliVersionControlService
         catch (GitOperationException mergeFailure)
         {
             CaptureRecoverableLock(mergeFailure);
-            string? failedPop = stash is not null
-                ? await TryPopStashAsync(repository, runner, stash).ConfigureAwait(false)
+            string? failedPop = stashed
+                ? await TryPopStashAsync(repository, runner).ConfigureAwait(false)
                 : null;
             await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
             return failedPop is null
@@ -371,15 +371,15 @@ internal sealed partial class GitCliVersionControlService
                         PullStashMessage),
                     failedPop));
         }
-        catch when (stash is not null)
+        catch when (stashed)
         {
             // A failure that is not Git's own still puts the local changes back.
-            await TryPopStashAsync(repository, runner, stash).ConfigureAwait(false);
+            await TryPopStashAsync(repository, runner).ConfigureAwait(false);
             throw;
         }
 
-        string? failedRestore = stash is not null
-            ? await TryPopStashAsync(repository, runner, stash).ConfigureAwait(false)
+        string? failedRestore = stashed
+            ? await TryPopStashAsync(repository, runner).ConfigureAwait(false)
             : null;
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
         return failedRestore is null
@@ -392,9 +392,9 @@ internal sealed partial class GitCliVersionControlService
                 failedRestore));
     }
 
-    // Returns the stash entry Git made, or null: git stash push succeeds without one when the project
-    // has nothing to stash. The snapshot pathspecs keep .beutl state and .tmp files where they are.
-    private async Task<string?> StashProjectChangesAsync(
+    // Returns whether Git made a stash entry: git stash push succeeds without one when the project has
+    // nothing to stash. The snapshot pathspecs keep .beutl state and .tmp files where they are.
+    private async Task<bool> StashProjectChangesAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -418,58 +418,22 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         string? current = await TryResolveCommitAsync(repository, runner, "refs/stash", CancellationToken.None)
             .ConfigureAwait(false);
-        return string.Equals(previous, current, StringComparison.OrdinalIgnoreCase) ? null : current;
+        return !string.Equals(previous, current, StringComparison.OrdinalIgnoreCase);
     }
 
     // Returns null once the stash entry is applied and dropped. Otherwise git stash pop keeps the entry
     // and this returns what Git reported, which is empty for a plain conflict because Git names the
-    // conflicted files on its standard output. The entry is found by its commit, because a hook run by
-    // the merge may push another one on top of it.
-    private async Task<string?> TryPopStashAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string stashCommit)
+    // conflicted files on its standard output.
+    private async Task<string?> TryPopStashAsync(RepositoryInfo repository, IGitCliRunner runner)
     {
         try
         {
-            GitCommandResult entries = await runner.RunAsync(
+            await runner.RunAsync(
                     repository,
-                    ["stash", "list", "--format=%H"],
-                    GitCommandOptions.Local,
+                    [.. s_lfsPathFilterOverrides, "stash", "pop"],
+                    new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            int position = entries.Stdout
-                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .ToList()
-                .FindIndex(entry => string.Equals(entry, stashCommit, StringComparison.OrdinalIgnoreCase));
-            if (position < 0)
-            {
-                return $"The stash entry {stashCommit} is no longer in the stash list.";
-            }
-
-            string entry = $"stash@{{{position}}}";
-            try
-            {
-                // --index brings back what was staged as well. Git refuses before touching anything
-                // when the staged changes no longer apply, and the changes then come back unstaged.
-                await runner.RunAsync(
-                        repository,
-                        [.. s_lfsPathFilterOverrides, "stash", "pop", "--index", entry],
-                        new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-            }
-            catch (GitOperationException ex)
-                when (ex.Stderr.Contains("Try without --index", StringComparison.OrdinalIgnoreCase))
-            {
-                await runner.RunAsync(
-                        repository,
-                        [.. s_lfsPathFilterOverrides, "stash", "pop", entry],
-                        new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-            }
-
             return null;
         }
         catch (GitOperationException ex)

@@ -989,34 +989,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [Test]
-    public async Task InitializeAsync_allows_a_tracked_project_file_that_an_ignore_rule_matches()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        Directory.CreateDirectory(Path.Combine(Root, "scenes"));
-        await File.WriteAllTextAsync(Path.Combine(Root, "scenes", "main.scene"), "{}\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/scenes/\n");
-        // Git keeps tracking a file that was added despite a rule matching it.
-        await RunGitAsync("add", "--force", "--", ".gitignore", "scenes/main.scene");
-        await RunGitAsync("commit", "-m", "track a scene beneath an ignored folder");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner());
-
-        await service.InitializeAsync(
-            new InitOptions(Repository, UseLfsWhenAvailable: false),
-            CancellationToken.None);
-
-        GitCommandResult tree = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.Repository, Is.Not.Null);
-            Assert.That(tree.Stdout, Does.Contain("scenes/main.scene"));
-        });
-    }
-
     [TestCase(".DS_Store", ".DS_Store")]
     [TestCase("grade.cube", "*.cube")]
     public async Task InitializeAsync_allows_globally_ignored_unreferenced_resources_in_a_new_repository(
@@ -2804,212 +2776,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitAllAsync_does_not_name_a_commit_that_a_post_commit_hook_added()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await WriteHookAsync(
-            "post-commit",
-            "test -n \"$BEUTL_TEST_INNER_COMMIT\" && exit 0\n"
-            + "BEUTL_TEST_INNER_COMMIT=1 git commit --allow-empty --no-verify -q -m 'hook commit'\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string snapshotSubject = (await RunGitAsync("show", "-s", "--format=%s", "HEAD~1")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Unavailable())));
-            Assert.That(snapshotSubject, Is.EqualTo("beutl: snapshot on save"));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_reports_a_saved_snapshot_when_a_post_commit_hook_leaves_the_branch()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await WriteHookAsync("post-commit", "git switch -q --orphan elsewhere\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string mainSubject = (await RunGitAsync("show", "-s", "--format=%s", "main")).Stdout.Trim();
-        string mainTip = (await RunGitAsync("rev-parse", "main")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(mainTip))));
-            Assert.That(mainSubject, Is.EqualTo("beutl: snapshot on save"));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_does_not_name_a_sibling_commit_a_post_commit_hook_switches_to()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await RunGitAsync("switch", "-q", "-c", "sibling");
-        await File.WriteAllTextAsync(Path.Combine(Root, "sibling.txt"), "sibling\n");
-        await RunGitAsync("add", "--", "sibling.txt");
-        await RunGitAsync("commit", "-q", "-m", "sibling commit");
-        await RunGitAsync("switch", "-q", "main");
-        await WriteHookAsync("post-commit", "git switch -q sibling\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string mainTip = (await RunGitAsync("rev-parse", "main")).Stdout.Trim();
-        Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(mainTip))));
-    }
-
-    [Test]
-    public async Task CommitAllAsync_records_a_message_longer_than_a_command_line_argument()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        // Longer than the 128 KiB one argument may take on Linux and the 32,767-character Windows
-        // command line.
-        string body = string.Join('\n', Enumerable.Repeat(new string('x', 99), 2048));
-        string message = "manual snapshot\n\n" + body;
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            message,
-            SnapshotKind.Manual,
-            CancellationToken.None);
-
-        string recorded = (await RunGitAsync("show", "-s", "--format=%B", "HEAD")).Stdout;
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-            Assert.That(recorded, Does.StartWith(message));
-            Assert.That(recorded, Does.Contain("Beutl-Snapshot: manual"));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_reports_a_lock_taken_before_git_commit_reads_a_long_message()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        // Larger than a pipe buffer, so Git exits on the lock before reading all of it.
-        string message = "manual snapshot\n\n"
-                         + string.Join('\n', Enumerable.Repeat(new string('x', 99), 4096));
-        var runner = new LockBeforeCommitRunner(CreateRunner(), lockPath);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        try
-        {
-            GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
-                async () => await service.CommitAllAsync(
-                    message,
-                    SnapshotKind.Manual,
-                    CancellationToken.None));
-
-            Assert.That(exception!.IsRepositoryLockFailure, Is.True);
-        }
-        finally
-        {
-            File.Delete(lockPath);
-        }
-    }
-
-    private sealed class LockBeforeCommitRunner(IGitCliRunner inner, string lockPath) : IGitCliRunner
-    {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            if (arguments.FirstOrDefault() == "commit")
-            {
-                File.WriteAllText(lockPath, string.Empty);
-            }
-
-            return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    [Test]
-    public async Task CommitAllAsync_reports_a_snapshot_saved_before_its_post_commit_hook_is_cancelled()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This test uses a POSIX shell hook that waits.");
-        }
-
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string started = Path.Combine(Root, "post-commit-started");
-        await WriteHookAsync("post-commit", $"touch '{started}'\nsleep 30\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-        using var cancellation = new CancellationTokenSource();
-
-        Task<CommitResult> commit = service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            cancellation.Token);
-        Stopwatch waited = Stopwatch.StartNew();
-        while (!File.Exists(started) && waited.Elapsed < TimeSpan.FromSeconds(10))
-        {
-            await Task.Delay(20);
-        }
-
-        cancellation.Cancel();
-        CommitResult result = await commit.WaitAsync(TimeSpan.FromSeconds(20));
-
-        string mainTip = (await RunGitAsync("rev-parse", "main")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(File.Exists(started), Is.True);
-            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(mainTip))));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_leaves_a_manual_message_to_verbatim_cleanup()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await RunGitAsync("config", "commit.cleanup", "verbatim");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        await service.CommitAllAsync(
-            "  indented subject  \n\nbody\n\n",
-            SnapshotKind.Manual,
-            CancellationToken.None);
-
-        string recorded = (await RunGitAsync("show", "-s", "--format=%B", "HEAD")).Stdout;
-        Assert.That(recorded, Does.StartWith("  indented subject  \n\nbody\n\nBeutl-Snapshot: manual"));
-    }
-
-    [Test]
     public async Task CommitAllAsync_names_the_snapshot_commit_it_made()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
@@ -3752,44 +3518,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(status, Is.Empty);
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("later\n"));
             Assert.That(File.ReadAllText(Path.Combine(Root, "later.belm")), Is.EqualTo("later\n"));
-        });
-    }
-
-    // The safety snapshot cannot hold an ignored file, so a restore that would replace one is refused
-    // before any file changes.
-    [Test]
-    public async Task RestoreProjectTreeAsync_refuses_to_overwrite_an_ignored_file_the_target_tracks()
-    {
-        await CommitFileAsync("project.bep", "target\n", "target");
-        await CommitFileAsync("notes.txt", "tracked notes\n", "notes");
-        string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await RunGitAsync("rm", "-q", "--", "notes.txt");
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "notes.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "later\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "later");
-        string laterSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await File.WriteAllTextAsync(Path.Combine(Root, "notes.txt"), "private notes\n");
-        using var service = CreateService();
-
-        InvalidOperationException? refusal = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.ExecuteExclusiveAsync(
-                transaction => transaction.RestoreProjectTreeAsync(
-                    targetSha,
-                    "beutl: restore target",
-                    SnapshotKind.Restore,
-                    CancellationToken.None),
-                CancellationToken.None));
-
-        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string status = (await RunGitAsync("status", "--porcelain", "--untracked-files=all")).Stdout;
-        Assert.Multiple(() =>
-        {
-            Assert.That(refusal?.Message, Does.Contain("notes.txt"));
-            Assert.That(head, Is.EqualTo(laterSha));
-            Assert.That(status, Is.Empty);
-            Assert.That(File.ReadAllText(Path.Combine(Root, "notes.txt")), Is.EqualTo("private notes\n"));
-            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("later\n"));
         });
     }
 
@@ -5524,30 +5252,33 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    // Git has saved the snapshot once git commit returns, so a lookup that times out afterwards leaves
-    // only which commit it is unknown.
+    // Nothing outside the project is staged, so the snapshot commits the index as staged instead of
+    // reading the changed files through their clean filters again, as git commit --only would.
     [Test]
-    public async Task CommitAllAsync_reports_a_saved_snapshot_when_looking_it_up_times_out()
+    public async Task CommitAllAsync_runs_the_clean_filter_once_for_a_changed_file()
     {
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "initial\n");
-        var runner = new TimingOutSnapshotLookupRunner(CreateRunner());
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
+        string filterLog = Path.Combine(CreateTemporaryDirectory(), "clean.log");
+        string logPath = filterLog.Replace('\\', '/');
+        await RunGitAsync("config", "filter.count.clean", $"sh -c 'echo clean >> \"{logPath}\"; cat'");
+        await RunGitAsync("config", "filter.count.smudge", "cat");
+        await CommitFileAsync(".gitattributes", "*.mp4 filter=count\n", "attributes");
+        string media = Path.Combine(Root, "clip.mp4");
+        await File.WriteAllTextAsync(media, "media\n");
+        // Old enough that Git does not treat the staged entry as racily clean and read it again.
+        File.SetLastWriteTimeUtc(media, DateTime.UtcNow.AddMinutes(-1));
+        using var service = CreateService();
 
         CommitResult result = await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
             CancellationToken.None);
 
-        GitCommandResult commitCount = await RunGitAsync("rev-list", "--count", "HEAD");
+        GitCommandResult recorded = await RunGitAsync("show", "HEAD:clip.mp4");
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Unavailable())));
-            Assert.That(commitCount.Stdout.Trim(), Is.EqualTo("1"));
-            Assert.That(runner.TimeoutCount, Is.EqualTo(1));
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(recorded.Stdout, Is.EqualTo("media\n"));
+            Assert.That(File.ReadAllLines(filterLog), Has.Length.EqualTo(1));
         });
     }
 
@@ -7923,52 +7654,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         }
     }
 
-    // Times out the first rev-list --parents after the snapshot commit, as the local timeout would.
-    private sealed class TimingOutSnapshotLookupRunner(IGitCliRunner inner) : IGitCliRunner
-    {
-        private bool _committed;
-
-        public int TimeoutCount { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            if (_committed && arguments is ["rev-list", "--parents", ..])
-            {
-                _committed = false;
-                TimeoutCount++;
-                throw new TimeoutException("Git did not finish within 00:00:30.");
-            }
-
-            GitCommandResult result = await inner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken,
-                stderrProgress);
-            if (arguments.Contains("commit") && arguments.Contains("--only"))
-            {
-                _committed = true;
-            }
-
-            return result;
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
     private sealed class FailingPostCommitRevisionRunner(IGitCliRunner inner) : IGitCliRunner
     {
         private int _commitCompleted;
@@ -8251,9 +7936,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         SnapshotKind kind)
     {
         return arguments.FirstOrDefault() == "commit"
-               && options.StandardInput?.Contains(
-                   $"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}",
-                   StringComparison.Ordinal) == true;
+               && arguments.Contains($"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}");
     }
 
     private sealed class FailingIdentityEmailWriteRunner(

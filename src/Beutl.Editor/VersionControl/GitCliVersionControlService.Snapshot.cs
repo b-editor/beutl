@@ -52,16 +52,13 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        // Before the no-changes check: a project folder that is ignored as a whole never changes. Before
-        // the status is read, too, so an edit made while the notice is shown is part of this snapshot.
+        WorkspaceStatus status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        ThrowIfConflicted(status);
+        // Before the no-changes check: a project folder that is ignored as a whole never changes.
         await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
             repository,
             runner,
             cancellationToken).ConfigureAwait(false);
-        WorkspaceStatus status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
-        ThrowIfConflicted(status);
-        await EnsureProjectFileIsVersionedAsync(repository, runner, cancellationToken)
-            .ConfigureAwait(false);
         if (status.IsClean)
         {
             return new CommitResult.NoChanges();
@@ -82,14 +79,6 @@ internal sealed partial class GitCliVersionControlService
             {
                 return new CommitResult.SkippedNoIdentity();
             }
-
-            // The project can change while the identity prompt is open, and the large-media and
-            // ignored-files notices read what is about to be staged or left out.
-            status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
-            await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
-                repository,
-                runner,
-                cancellationToken).ConfigureAwait(false);
         }
 
         await RaiseLargeMediaNoticeIfNeededAsync(
@@ -128,10 +117,6 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         await EnsureNoNestedRepositoryWouldBeStagedAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        // Checked again right before staging: a notice or prompt shown since can have given the user
-        // time to change the ignore rules.
-        await EnsureProjectFileIsVersionedAsync(repository, runner, cancellationToken)
-            .ConfigureAwait(false);
         IReadOnlyList<string> pathspecs = CreateSnapshotPathspecs(repository);
         var pathspecOptions = new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
         {
@@ -143,28 +128,38 @@ internal sealed partial class GitCliVersionControlService
                 pathspecOptions,
                 cancellationToken)
             .ConfigureAwait(false);
-        try
+        GitCommandOptions stagedOptions = pathspecOptions with { ExecutionKind = GitCommandExecutionKind.Local };
+        GitCommandResult projectStaged = await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--name-only", "--no-renames", "-z", "--", .. pathspecs],
+                stagedOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        int projectStagedCount = GitCliRunner.SplitNullSeparated(projectStaged.Stdout).Count;
+        if (projectStagedCount == 0)
         {
-            // Exit code 1 means the index differs from HEAD within the project.
-            await runner.RunAsync(
-                    repository,
-                    ["diff", "--cached", "--quiet", "--", .. pathspecs],
-                    pathspecOptions with { ExecutionKind = GitCommandExecutionKind.Local },
-                    cancellationToken)
-                .ConfigureAwait(false);
             return null;
         }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-        }
 
-        // The message goes through standard input, so its length is not bound by the command line.
+        GitCommandResult allStaged = await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--name-only", "--no-renames", "-z"],
+                stagedOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        // git commit --only reads the project's changed files from the worktree again, through their
+        // clean filters, which for Git LFS media means reading whole files once more. It is needed only
+        // to leave something the user staged outside the project out of the snapshot.
+        bool stagedOutsideProject = GitCliRunner.SplitNullSeparated(allStaged.Stdout).Count != projectStagedCount;
+
         var arguments = new List<string>
         {
             "commit",
             "--quiet",
-            "--only",
-            "--file=-",
+            "-m",
+            message.Trim(),
+            "-m",
+            $"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}",
         };
         if (kind != SnapshotKind.Manual)
         {
@@ -173,94 +168,34 @@ internal sealed partial class GitCliVersionControlService
             arguments.Add("--no-gpg-sign");
         }
 
-        arguments.Add("--");
-        arguments.AddRange(pathspecs);
-        string branchRef = await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
-            .ConfigureAwait(false);
-        string? parent = await TryResolveCommitAsync(repository, runner, branchRef, cancellationToken)
-            .ConfigureAwait(false);
+        if (stagedOutsideProject)
+        {
+            arguments.Add("--only");
+            arguments.Add("--");
+            arguments.AddRange(pathspecs);
+        }
+
         // Hooks and a signer are the user's own programs and can wait on the user, so only
         // cancellation stops them.
-        try
-        {
-            await runner.RunAsync(
-                    repository,
-                    arguments,
-                    pathspecOptions with
-                    {
-                        ExecutionKind = GitCommandExecutionKind.LocalUnbounded,
-                        EnvironmentOverrides = new Dictionary<string, string?> { ["GIT_EDITOR"] = ":" },
-                        StandardInput = CreateSnapshotCommitMessage(message, kind),
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // A post-commit hook runs once the commit is made, so cancelling it does not undo the
-            // snapshot; a commit that already moved the branch is reported as saved.
-            if (await ObserveSnapshotCommitAsync(repository, runner, branchRef, parent)
-                    .ConfigureAwait(false) is CommitRevision.Known published)
-            {
-                return published;
-            }
-
-            throw;
-        }
-
-        return await ObserveSnapshotCommitAsync(repository, runner, branchRef, parent)
+        await runner.RunAsync(
+                repository,
+                arguments,
+                pathspecOptions with
+                {
+                    ExecutionKind = GitCommandExecutionKind.LocalUnbounded,
+                    EnvironmentOverrides = new Dictionary<string, string?> { ["GIT_EDITOR"] = ":" },
+                },
+                cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static string CreateSnapshotCommitMessage(string message, SnapshotKind kind)
-    {
-        // Only the line breaks at the end make way for the trailer; the rest is left to Git's cleanup
-        // mode, which may be verbatim.
-        return $"{message.TrimEnd('\r', '\n')}\n\nBeutl-Snapshot: {kind.ToString().ToLowerInvariant()}\n";
-    }
-
-    // git commit moves the branch HEAD named when it ran. A post-commit hook or another Git process
-    // can switch HEAD afterwards, which leaves that branch on the snapshot, or move the branch itself,
-    // so the branch names this snapshot only while it is a child of the commit it was made on.
-    // Otherwise the snapshot is still saved, but which commit it is cannot be told.
-    private static async Task<CommitRevision> ObserveSnapshotCommitAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string branchRef,
-        string? parent)
-    {
-        try
-        {
-            string? head = await TryResolveCommitAsync(
-                    repository,
-                    runner,
-                    branchRef,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            if (head is null)
-            {
-                return new CommitRevision.Unavailable();
-            }
-
-            GitCommandResult parents = await runner.RunAsync(
-                    repository,
-                    ["rev-list", "--parents", "-n", "1", head],
-                    GitCommandOptions.Local,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            string[] ids = parents.Stdout.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            bool madeOnParent = parent is null
-                ? ids.Length == 1
-                : ids.Length == 2 && string.Equals(ids[1], parent, StringComparison.OrdinalIgnoreCase);
-            return madeOnParent
-                ? new CommitRevision.Known(head)
-                : new CommitRevision.Unavailable();
-        }
-        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
-        {
-            // The snapshot is saved either way; only which commit it is stays unknown.
-            return new CommitRevision.Unavailable();
-        }
+        GitCommandResult head = await runner.RunAsync(
+                repository,
+                ["rev-parse", "--verify", "HEAD"],
+                GitCommandOptions.Local,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        string commit = head.Stdout.Trim();
+        GitRevisionValidator.ValidateCommitId(commit, nameof(commit));
+        return new CommitRevision.Known(commit);
     }
 
     // Restores the project scope from the source commit and records it as a snapshot. git restore runs
@@ -302,20 +237,6 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.SkippedNoIdentity();
         }
 
-        // The safety snapshot leaves ignored files out, so git restore would replace one at a path the
-        // source tracks with nothing to restore it from. The pull and the branch switch refuse the same.
-        string? ignoredCollision = await FindIgnoredPathRestoredFromAsync(
-                repository,
-                runner,
-                source,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (ignoredCollision is not null)
-        {
-            throw new InvalidOperationException(
-                $"Restoring the project would overwrite the ignored file '{ignoredCollision}'.");
-        }
-
         CommitRevision? revision;
         try
         {
@@ -339,7 +260,7 @@ internal sealed partial class GitCliVersionControlService
             catch (Exception rollbackFailure)
             {
                 throw new AggregateException(
-                    "The project could not be restored, and its files could not be put back to the checked-out version. That version still holds the project as it was before the restore.",
+                    "The project could not be restored, and its files could not be put back to the checked-out version.",
                     restoreFailure,
                     rollbackFailure);
             }
@@ -351,72 +272,6 @@ internal sealed partial class GitCliVersionControlService
         return revision is null
             ? new CommitResult.NoChanges()
             : new CommitResult.Committed(revision);
-    }
-
-    // Paths the source adds to HEAD are untracked here; one that exists on disk and that an ignore rule
-    // matches is a file the restore would overwrite.
-    private async Task<string?> FindIgnoredPathRestoredFromAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string source,
-        CancellationToken cancellationToken)
-    {
-        GitCommandResult added = await runner.RunAsync(
-                repository,
-                [
-                    "diff",
-                    "--name-only",
-                    "--no-renames",
-                    "--diff-filter=A",
-                    "-z",
-                    "HEAD",
-                    source,
-                    "--",
-                    .. CreateSnapshotPathspecs(repository),
-                ],
-                GitCommandOptions.Local with { UseLiteralPathspecs = false },
-                cancellationToken)
-            .ConfigureAwait(false);
-        string repositoryRoot = Path.GetFullPath(repository.RepoRoot);
-        string[] existingPaths = GitCliRunner.SplitNullSeparated(added.Stdout)
-            .Where(path =>
-            {
-                try
-                {
-                    string fullPath = Path.GetFullPath(Path.Combine(repositoryRoot, path));
-                    return File.Exists(fullPath) || Directory.Exists(fullPath);
-                }
-                catch (Exception ex) when (ex is ArgumentException
-                                               or NotSupportedException
-                                               or PathTooLongException)
-                {
-                    // A name this platform cannot hold cannot exist on disk either.
-                    return false;
-                }
-            })
-            .ToArray();
-        if (existingPaths.Length == 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            GitCommandResult ignored = await runner.RunAsync(
-                    repository,
-                    ["check-ignore", "--stdin", "-z"],
-                    new GitCommandOptions(
-                        GitCommandExecutionKind.Local,
-                        StandardInput: string.Join('\0', existingPaths) + '\0',
-                        UseLiteralPathspecs: false),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return GitCliRunner.SplitNullSeparated(ignored.Stdout).FirstOrDefault();
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return null;
-        }
     }
 
     private Task<GitCommandResult> RestoreProjectScopeAsync(
@@ -438,48 +293,6 @@ internal sealed partial class GitCliVersionControlService
             ],
             new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs) { UseLiteralPathspecs = false },
             cancellationToken);
-    }
-
-    // The project file is what a version reopens, so a rule that ignores it, such as a global *.bep,
-    // would leave every snapshot unable to restore the project. That one rule is refused instead of
-    // only reported; a tracked project file is recorded whatever the ignore rules say.
-    private async Task EnsureProjectFileIsVersionedAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        // A project file that is gone is not one the ignore rules left out.
-        if (_projectFile is null
-            || !RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, _projectFile)
-            || !File.Exists(_projectFile))
-        {
-            return;
-        }
-
-        string path = GetRepositoryRelativeProjectFilePath(repository, _projectFile);
-        try
-        {
-            // Exit code 1: not ignored. Git never reports a tracked file as ignored. check-ignore reads
-            // its input as pathspecs and refuses literal magic, so :(top) keeps a leading colon in a
-            // folder name from being read as magic.
-            await runner.RunAsync(
-                    repository,
-                    ["check-ignore", "--stdin", "-z"],
-                    new GitCommandOptions(
-                        GitCommandExecutionKind.Local,
-                        StandardInput: $":(top){path}\0",
-                        UseLiteralPathspecs: false),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException(
-            $"The repository's ignore rules leave the project file '{path}' out of versions. "
-            + "Update the ignore rules so the project file can be recorded.");
     }
 
     private IReadOnlyList<string> CreateSnapshotPathspecs(RepositoryInfo repository)
