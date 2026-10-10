@@ -167,6 +167,43 @@ public class TransformHandlesOverlayTests
         }
     }
 
+    // A view detached and attached again, such as one moved to another dock, keeps the box on the drawable when
+    // the preview image changes size afterwards.
+    [AvaloniaTest]
+    public async Task Transform_box_stays_on_the_drawable_after_the_view_is_attached_again()
+    {
+        GpuTestGate.EnsureAvailable();
+        (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(Content.ShadowedEllipse);
+        try
+        {
+            window.Content = null;
+            HeadlessTestHelpers.Render();
+            window.Content = view;
+            HeadlessTestHelpers.Render();
+            window.Width = 800;
+            window.Height = 600;
+            HeadlessTestHelpers.Render();
+            await RenderPreview(editor);
+
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            BtlRect boundary = await GetBoundary(editor, drawable);
+            AvaPoint expected = view.image.TranslatePoint(
+                new AvaPoint(boundary.Left * overlay.FrameScale, boundary.Top * overlay.FrameScale), window)!.Value;
+            AvaPoint drawn = overlay.TranslatePoint(Corners(overlay)[0], window)!.Value;
+            // Layout rounding can put the overlay a pixel away from the image it is sized to. A view that stopped
+            // following the image is off by half the change in the image's size instead, 117 by 88 px here.
+            Assert.Multiple(() =>
+            {
+                Assert.That(drawn.X, Is.EqualTo(expected.X).Within(1.5), "box left in the window");
+                Assert.That(drawn.Y, Is.EqualTo(expected.Y).Within(1.5), "box top in the window");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static Drawable Create(Content content)
     {
         switch (content)

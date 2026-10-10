@@ -127,7 +127,15 @@ public partial class PlayerView : UserControl
     private void SetupImageControl()
     {
         var config = GlobalConfiguration.Instance.EditorConfig;
-        SwapImageControl(config.UseHdrPreview);
+        // A view attached again keeps its image control unless the preview mode changed while it was detached.
+        if (image == null || (image is HdrBitmapView) != config.UseHdrPreview)
+        {
+            SwapImageControl(config.UseHdrPreview);
+        }
+        else
+        {
+            SubscribeImageBounds();
+        }
 
         _imageConfigSubscription = config.GetObservable(EditorConfig.UseHdrPreviewProperty)
             .Skip(1)
@@ -166,7 +174,14 @@ public partial class PlayerView : UserControl
         // Insert after imageBackground, before pathEditorView
         framePanel.Children.Insert(1, newImage);
 
-        _boundsSubscription = newImage.GetObservable(BoundsProperty)
+        SubscribeImageBounds();
+    }
+
+    // The layers above the preview take the image's size. The current bounds arrive on subscribing.
+    private void SubscribeImageBounds()
+    {
+        _boundsSubscription?.Dispose();
+        _boundsSubscription = image.GetObservable(BoundsProperty)
             .Subscribe(bounds =>
             {
                 imageBackground.Width = bounds.Width;
@@ -182,6 +197,13 @@ public partial class PlayerView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        // Detaching ends the image subscriptions. A view attached again, such as one moved to another dock, takes
+        // them up again; otherwise the layers above the preview keep their old size and drift off the image.
+        if (_imageConfigSubscription == null)
+        {
+            SetupImageControl();
+        }
+
         _scalingTopLevel = TopLevel.GetTopLevel(this);
         if (_scalingTopLevel is { } topLevel)
         {
@@ -200,7 +222,9 @@ public partial class PlayerView : UserControl
         _scalingTopLevel = null;
         base.OnDetachedFromVisualTree(e);
         _imageConfigSubscription?.Dispose();
+        _imageConfigSubscription = null;
         _boundsSubscription?.Dispose();
+        _boundsSubscription = null;
 
         InvalidateTransformHandleResource();
 
