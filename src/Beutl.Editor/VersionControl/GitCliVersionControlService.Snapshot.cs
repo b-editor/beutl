@@ -219,7 +219,9 @@ internal sealed partial class GitCliVersionControlService
 
         arguments.Add("--");
         arguments.AddRange(pathspecs);
-        string? parent = await TryResolveCommitAsync(repository, runner, "HEAD", cancellationToken)
+        string branchRef = await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        string? parent = await TryResolveCommitAsync(repository, runner, branchRef, cancellationToken)
             .ConfigureAwait(false);
         // Hooks and a signer are the user's own programs and can wait on the user, so only
         // cancellation stops them.
@@ -234,7 +236,8 @@ internal sealed partial class GitCliVersionControlService
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        return await ObserveSnapshotCommitAsync(repository, runner, parent).ConfigureAwait(false);
+        return await ObserveSnapshotCommitAsync(repository, runner, branchRef, parent)
+            .ConfigureAwait(false);
     }
 
     private static string CreateSnapshotCommitMessage(string message, SnapshotKind kind)
@@ -242,12 +245,14 @@ internal sealed partial class GitCliVersionControlService
         return $"{message.Trim()}\n\nBeutl-Snapshot: {kind.ToString().ToLowerInvariant()}\n";
     }
 
-    // A post-commit hook or another Git process can move HEAD once the commit is made, so HEAD names
-    // this snapshot only while it is a child of the commit it was made on. Otherwise the snapshot is
-    // still saved, but which commit it is cannot be told.
+    // git commit moves the branch HEAD named when it ran. A post-commit hook or another Git process
+    // can switch HEAD afterwards, which leaves that branch on the snapshot, or move the branch itself,
+    // so the branch names this snapshot only while it is a child of the commit it was made on.
+    // Otherwise the snapshot is still saved, but which commit it is cannot be told.
     private static async Task<CommitRevision> ObserveSnapshotCommitAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
+        string branchRef,
         string? parent)
     {
         try
@@ -255,7 +260,7 @@ internal sealed partial class GitCliVersionControlService
             string? head = await TryResolveCommitAsync(
                     repository,
                     runner,
-                    "HEAD",
+                    branchRef,
                     CancellationToken.None)
                 .ConfigureAwait(false);
             if (head is null)

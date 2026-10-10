@@ -2840,11 +2840,34 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
 
         string mainSubject = (await RunGitAsync("show", "-s", "--format=%s", "main")).Stdout.Trim();
+        string mainTip = (await RunGitAsync("rev-parse", "main")).Stdout.Trim();
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Unavailable())));
+            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(mainTip))));
             Assert.That(mainSubject, Is.EqualTo("beutl: snapshot on save"));
         });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_does_not_name_a_sibling_commit_a_post_commit_hook_switches_to()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("switch", "-q", "-c", "sibling");
+        await File.WriteAllTextAsync(Path.Combine(Root, "sibling.txt"), "sibling\n");
+        await RunGitAsync("add", "--", "sibling.txt");
+        await RunGitAsync("commit", "-q", "-m", "sibling commit");
+        await RunGitAsync("switch", "-q", "main");
+        await WriteHookAsync("post-commit", "git switch -q sibling\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string mainTip = (await RunGitAsync("rev-parse", "main")).Stdout.Trim();
+        Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(mainTip))));
     }
 
     [Test]
