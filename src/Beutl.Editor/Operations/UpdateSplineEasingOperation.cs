@@ -54,6 +54,9 @@ public sealed class UpdateSplineEasingOperation(
         }
     }
 
+    // float.Equals, unlike ==, treats an untouched NaN control point as unchanged.
+    public bool IsNoop => NewValue.Equals(OldValue);
+
     public bool TryMerge(ChangeOperation other)
     {
         if (other is not UpdateSplineEasingOperation op)

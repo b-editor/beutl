@@ -65,6 +65,14 @@ public sealed class HistoryTransaction
                 {
                     _operations.RemoveAt(i);
                     _applied.RemoveAt(i);
+                    // Writes that returned to the starting value leave nothing to undo. Keeping
+                    // them would turn the next commit, from any feature, into an empty entry.
+                    if (mergableChangeOperation.IsNoop)
+                    {
+                        _operations.RemoveAt(j);
+                        _applied.RemoveAt(j);
+                        i--;
+                    }
                     break;
                 }
             }

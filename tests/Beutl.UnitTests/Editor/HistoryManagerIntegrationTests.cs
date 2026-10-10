@@ -1,7 +1,11 @@
-﻿using Beutl.Collections;
+﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Logging;
 using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
@@ -413,6 +417,161 @@ public class HistoryManagerIntegrationTests
 
         // Assert - No new operations should be recorded from undo/redo
         Assert.That(_historyManager.UndoCount, Is.EqualTo(undoCount));
+    }
+
+    #endregion
+
+    #region Edits Returning to Their Starting Value
+
+    // A drag in a number editor writes values as it moves and skips its own commit when it ends
+    // where it began. The next commit, from any feature, must not turn those writes into an entry.
+    [Test]
+    public void EditReturningToStartingValue_LeavesNothingToCommit()
+    {
+        _root.IntValue = 5;
+        _root.IntValue = 0;
+
+        Assert.That(_historyManager.HasPendingOperations, Is.False);
+        _historyManager.Commit("Export");
+        Assert.That(_historyManager.CanUndo, Is.False);
+    }
+
+    [Test]
+    public void EditReturningToStartingValue_KeepsRedoHistory()
+    {
+        _root.IntValue = 100;
+        _historyManager.Commit("Change IntValue");
+        _historyManager.Undo();
+
+        _root.DoubleValue = 1.5;
+        _root.DoubleValue = 0.0;
+        _historyManager.Commit("Export");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_historyManager.CanUndo, Is.False);
+            Assert.That(_historyManager.CanRedo, Is.True);
+        });
+        Assert.That(_historyManager.Redo(), Is.True);
+        Assert.That(_root.IntValue, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void EditReturningToStartingValue_KeepsEditsRecordedInBetween()
+    {
+        _root.IntValue = 5;
+        _root.StringValue = "Nudged";
+        _root.DoubleValue = 2.0;
+        _root.IntValue = 0;
+
+        _historyManager.Commit("Nudge");
+        Assert.That(_historyManager.UndoCount, Is.EqualTo(1));
+
+        _historyManager.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(_root.StringValue, Is.Null);
+            Assert.That(_root.DoubleValue, Is.EqualTo(0.0));
+            Assert.That(_root.IntValue, Is.Zero);
+        });
+
+        _historyManager.Redo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(_root.StringValue, Is.EqualTo("Nudged"));
+            Assert.That(_root.DoubleValue, Is.EqualTo(2.0));
+            Assert.That(_root.IntValue, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void EditPassingThroughStartingValue_RecordsTheFinalValue()
+    {
+        _root.IntValue = 5;
+        _root.IntValue = 0;
+        _root.IntValue = -3;
+        _historyManager.Commit("Change IntValue");
+
+        _historyManager.Undo();
+        Assert.That(_root.IntValue, Is.Zero);
+        _historyManager.Redo();
+        Assert.That(_root.IntValue, Is.EqualTo(-3));
+    }
+
+    [Test]
+    public void TextTypedBackToStartingValue_LeavesNothingToCommit()
+    {
+        _root.StringValue = "Title";
+        _historyManager.Commit("Set title");
+
+        _root.StringValue = "Titl";
+        // A text box produces an equal string, not the same instance.
+        _root.StringValue = new string("Title".AsSpan());
+
+        Assert.That(_historyManager.HasPendingOperations, Is.False);
+        _historyManager.Commit("Export");
+        Assert.That(_historyManager.UndoCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void EnginePropertyReturningToStartingValue_LeavesNothingToCommit()
+    {
+        var model = new TestEngineModel();
+        using var harness = new HistoryHarness(model);
+
+        model.Value.CurrentValue = 5f;
+        model.Value.CurrentValue = 0f;
+
+        Assert.That(harness.History.HasPendingOperations, Is.False);
+    }
+
+    [Test]
+    public void SplineHandleDraggedBackToStart_LeavesNothingToCommit()
+    {
+        var spline = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
+        using var harness = new HistoryHarness(new KeyFrame<float> { Easing = spline });
+
+        spline.X1 = 0.6f;
+        spline.Y1 = 0.4f;
+        spline.X1 = 0.25f;
+        spline.Y1 = 0.1f;
+
+        Assert.That(harness.History.HasPendingOperations, Is.False);
+    }
+
+    [Test]
+    public void AnimationSetBackToTheSameInstance_LeavesNothingToCommit()
+    {
+        var model = new TestEngineModel();
+        using var harness = new HistoryHarness(model);
+        var original = new KeyFrameAnimation<float>();
+        model.Value.Animation = original;
+        harness.History.Commit("Animate");
+
+        model.Value.Animation = new KeyFrameAnimation<float>();
+        model.Value.Animation = original;
+
+        Assert.That(harness.History.HasPendingOperations, Is.False);
+    }
+
+    // An engine property replaces its expression by reference, so swapping in an equal expression
+    // that is not the same instance is still a change that undo has to revert.
+    [Test]
+    public void ExpressionReplacedByEqualInstance_StaysUndoable()
+    {
+        var model = new TestEngineModel();
+        using var harness = new HistoryHarness(model);
+        var original = new EquatableExpression(1f);
+        model.Value.Expression = original;
+        harness.History.Commit("Set expression");
+
+        model.Value.Expression = null;
+        model.Value.Expression = new EquatableExpression(1f);
+        Assert.That(harness.History.HasPendingOperations, Is.True);
+        harness.History.Commit("Replace expression");
+
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.That(model.Value.Expression, Is.SameAs(original));
     }
 
     #endregion
@@ -868,6 +1027,31 @@ public class HistoryManagerIntegrationTests
         {
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
+        }
+    }
+
+    [SuppressResourceClassGeneration]
+    private class TestEngineModel : EngineObject
+    {
+        public TestEngineModel()
+        {
+            Value = Property.CreateAnimatable(0f);
+            ScanProperties<TestEngineModel>();
+        }
+
+        public IProperty<float> Value { get; }
+    }
+
+    private sealed record EquatableExpression(float Value) : IExpression<float>
+    {
+        public string ExpressionString => string.Empty;
+
+        public float Evaluate(ExpressionContext context) => Value;
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
         }
     }
 
