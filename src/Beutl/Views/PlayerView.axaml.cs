@@ -127,7 +127,15 @@ public partial class PlayerView : UserControl
     private void SetupImageControl()
     {
         var config = GlobalConfiguration.Instance.EditorConfig;
-        SwapImageControl(config.UseHdrPreview);
+        // A view attached again keeps its image control unless the preview mode changed while it was detached.
+        if (image == null || (image is HdrBitmapView) != config.UseHdrPreview)
+        {
+            SwapImageControl(config.UseHdrPreview);
+        }
+        else
+        {
+            SubscribeImageBounds();
+        }
 
         _imageConfigSubscription = config.GetObservable(EditorConfig.UseHdrPreviewProperty)
             .Skip(1)
@@ -166,7 +174,14 @@ public partial class PlayerView : UserControl
         // Insert after imageBackground, before pathEditorView
         framePanel.Children.Insert(1, newImage);
 
-        _boundsSubscription = newImage.GetObservable(BoundsProperty)
+        SubscribeImageBounds();
+    }
+
+    // The layers above the preview take the image's size. The current bounds arrive on subscribing.
+    private void SubscribeImageBounds()
+    {
+        _boundsSubscription?.Dispose();
+        _boundsSubscription = image.GetObservable(BoundsProperty)
             .Subscribe(bounds =>
             {
                 imageBackground.Width = bounds.Width;
@@ -182,6 +197,13 @@ public partial class PlayerView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        // Detaching ends the image subscriptions. A view attached again, such as one moved to another dock, takes
+        // them up again; otherwise the layers above the preview keep their old size and drift off the image.
+        if (_imageConfigSubscription == null)
+        {
+            SetupImageControl();
+        }
+
         _scalingTopLevel = TopLevel.GetTopLevel(this);
         if (_scalingTopLevel is { } topLevel)
         {
@@ -200,7 +222,9 @@ public partial class PlayerView : UserControl
         _scalingTopLevel = null;
         base.OnDetachedFromVisualTree(e);
         _imageConfigSubscription?.Dispose();
+        _imageConfigSubscription = null;
         _boundsSubscription?.Dispose();
+        _boundsSubscription = null;
 
         InvalidateTransformHandleResource();
 
@@ -389,7 +413,7 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
+        (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
         try
         {
             BtlDrawable target = drawable;
@@ -423,7 +447,7 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        transformHandlesOverlay.Update(drawable, element, s.localSize, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
+        transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
     }
 
     // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
@@ -445,9 +469,10 @@ public partial class PlayerView : UserControl
         return drawable;
     }
 
-    // Use an independent Resource on RenderThread so we evaluate animations against ctxTime
-    // without piggybacking on the renderer's cached render node.
-    private (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
+    // The box comes from the frame the renderer last drew. The pivot (and the fallback layout box) use an
+    // independent Resource on RenderThread so we evaluate animations against ctxTime without piggybacking
+    // on the renderer's cached render node.
+    private (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
         SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, TimeSpan ctxTime)
     {
         BtlRect? bounds = renderer.GetBoundary(target);
@@ -472,13 +497,21 @@ public partial class PlayerView : UserControl
         BtlSize localSize = target.MeasureInternal(availableSize, resource);
         if (localSize.Width <= 0 || localSize.Height <= 0) return null;
 
-        BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
         BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);
 
-        // userMatrix omits FilterEffect-induced offsets; align against rendered bounds.
+        // The box is what the drawable draws (glyph extents, effects, offset geometry), measured inside its
+        // transform: it turns with the drawable, and its axis-aligned extent is the boundary drawn in the frame.
+        if (renderer.GetLocalBoundary(target) is { } drawn)
+        {
+            return (drawn.Bounds, drawn.Transform, pivot);
+        }
+
+        // A drawable that does not draw under a transform of its own gets its layout box instead. userMatrix
+        // omits FilterEffect-induced offsets; align against rendered bounds.
+        BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
         BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value, new BtlRect(availableSize));
 
-        return ((BtlSize, BtlMatrix, BtlPoint)?)(localSize, adjusted, pivot);
+        return (new BtlRect(localSize), adjusted, pivot);
     }
 
     private void ClearTransformHandleOverlay()

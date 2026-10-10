@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -361,6 +362,92 @@ public class TransitionRenderTests
                 Assert.That(renderer.HitTest(frame, new Point((Width * 3) / 4f, Height / 2f)), Is.SameAs(outgoingShape));
                 Assert.That(cornerBounds?.Left, Is.EqualTo((Width / 2f) - 8).Within(0.5f), "the selection follows the push");
                 Assert.That(cornerBounds?.Width, Is.EqualTo(8).Within(0.5f));
+            });
+        });
+    }
+
+    // The preview's transform handles sit on the box a drawable draws in its own space, so inside a moving
+    // transition that box has to be placed through the transition too.
+    [Test]
+    public void LocalBoundary_InsideAMovingTransitionIsPlacedWhereTheDrawableIsShown()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            outgoing.Objects.Add(CreateRect(s_red));
+            scene.Children.Add(outgoing);
+
+            RectShape corner = CreateRect(s_blue);
+            corner.Width.CurrentValue = 8;
+            corner.Height.CurrentValue = 8;
+            corner.AlignmentX.CurrentValue = AlignmentX.Right;
+            corner.AlignmentY.CurrentValue = AlignmentY.Top;
+            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            incoming.Objects.Add(corner);
+            incoming.EnterTransition = new PushTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            scene.Children.Add(incoming);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
+
+            (Rect Bounds, Matrix Transform)? local = renderer.GetLocalBoundary(corner);
+
+            Assert.That(local, Is.Not.Null);
+            (Rect bounds, Matrix transform) = local!.Value;
+            Point topLeft = transform.Transform(bounds.TopLeft);
+            Point bottomRight = transform.Transform(bounds.BottomRight);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bounds.Width, Is.EqualTo(8).Within(0.5f));
+                Assert.That(bounds.Height, Is.EqualTo(8).Within(0.5f));
+                Assert.That(topLeft.X, Is.EqualTo((Width / 2f) - 8).Within(0.5f), "the box follows the push");
+                Assert.That(topLeft.Y, Is.EqualTo(0).Within(0.5f));
+                Assert.That(bottomRight.X, Is.EqualTo(Width / 2f).Within(0.5f));
+                Assert.That(bottomRight.Y, Is.EqualTo(8).Within(0.5f));
+            });
+        });
+    }
+
+    // A split clips the incoming clip to a band and the outgoing clip to the rest. A drawable sized by the frame
+    // gets its layout box rather than either part, so it keeps the same box on whichever side of the split it is.
+    [Test]
+    public void LocalBoundary_InsideASplitIsNotCutToTheSplitsBand()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            outgoing.Objects.Add(CreateRect(s_red));
+            scene.Children.Add(outgoing);
+
+            RectShape fillsTheFrame = CreateRect(s_blue);
+            fillsTheFrame.Width.CurrentValue = 16;
+            fillsTheFrame.Height.CurrentValue = 8;
+            var effect = new TransformEffect();
+            effect.Transform.CurrentValue = new RotationTransform(10);
+            ((FilterEffectGroup)fillsTheFrame.FilterEffect.CurrentValue!).Children.Add(effect);
+            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            incoming.Objects.Add(fillsTheFrame);
+            incoming.EnterTransition = new SplitTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            scene.Children.Add(incoming);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
+
+            (Rect Bounds, Matrix Transform)? local = renderer.GetLocalBoundary(fillsTheFrame);
+
+            Assert.That(local, Is.Not.Null);
+            Rect box = local!.Value.Bounds.TransformToAABB(local.Value.Transform);
+            // The 16 x 8 rectangle sits at the frame's centre; the band is the middle 32 px of the frame.
+            Assert.Multiple(() =>
+            {
+                Assert.That(box.X, Is.EqualTo((Width - 16) / 2f).Within(0.5f), "the box is not cut to the band");
+                Assert.That(box.Y, Is.EqualTo((Height - 8) / 2f).Within(0.5f));
+                Assert.That(box.Width, Is.EqualTo(16).Within(0.5f));
+                Assert.That(box.Height, Is.EqualTo(8).Within(0.5f));
             });
         });
     }

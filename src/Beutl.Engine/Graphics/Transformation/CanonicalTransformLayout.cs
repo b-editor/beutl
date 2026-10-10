@@ -29,12 +29,15 @@ internal static class CanonicalTransformLayout
         bool groupChanged = false;
         if (drawable.Transform.CurrentValue is not TransformGroup tg)
         {
+            Transform? existing = drawable.Transform.CurrentValue;
             var newGroup = new TransformGroup();
-            if (drawable.Transform.CurrentValue is Transform existing)
+            // The group takes the transform's place first. Added while the drawable still owned it, the transform
+            // would stay in the group's children but lose its parent when the drawable released it.
+            drawable.Transform.CurrentValue = newGroup;
+            if (existing != null)
             {
                 newGroup.Children.Add(existing);
             }
-            drawable.Transform.CurrentValue = newGroup;
             tg = newGroup;
             groupChanged = true;
         }

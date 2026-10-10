@@ -12,7 +12,7 @@ using AvaVector = Avalonia.Vector;
 using BtlDrawable = Beutl.Graphics.Drawable;
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
-using BtlSize = Beutl.Graphics.Size;
+using BtlRect = Beutl.Graphics.Rect;
 using Element = Beutl.ProjectSystem.Element;
 
 namespace Beutl.Views;
@@ -31,6 +31,13 @@ internal sealed class TransformHandlesOverlay : Control
     private static readonly IPen s_handleStroke = new ImmutablePen(s_accentFill, 1.5);
     private static readonly IPen s_boxStroke = new ImmutablePen(s_accentFill, 1.0);
 
+    private static readonly HandleKind[] s_cornerKinds =
+        [HandleKind.TopLeft, HandleKind.TopRight, HandleKind.BottomRight, HandleKind.BottomLeft];
+
+    // The edge from corner i to corner i + 1.
+    private static readonly HandleKind[] s_edgeKinds =
+        [HandleKind.Top, HandleKind.Right, HandleKind.Bottom, HandleKind.Left];
+
     private static readonly Cursor s_cursorCorner1 = new(StandardCursorType.TopLeftCorner);
     private static readonly Cursor s_cursorCorner2 = new(StandardCursorType.TopRightCorner);
     private static readonly Cursor s_cursorNS = new(StandardCursorType.SizeNorthSouth);
@@ -40,7 +47,7 @@ internal sealed class TransformHandlesOverlay : Control
 
     private BtlDrawable? _drawable;
     private Element? _element;
-    private BtlSize _localSize;
+    private BtlRect _localBounds;
     private BtlMatrix _userMatrix = BtlMatrix.Identity;
     private double _frameScale = 1.0;
     private readonly AvaPoint[] _imageCorners = new AvaPoint[4];
@@ -48,8 +55,8 @@ internal sealed class TransformHandlesOverlay : Control
 
     private bool HasShape =>
         _drawable != null
-        && _localSize.Width > 0
-        && _localSize.Height > 0
+        && _localBounds.Width > 0
+        && _localBounds.Height > 0
         && _frameScale > 0
         && _userMatrix.HasInverse;
 
@@ -77,7 +84,8 @@ internal sealed class TransformHandlesOverlay : Control
 
     public Element? Element => _element;
 
-    public BtlSize LocalSize => _localSize;
+    // The box in the drawable's own space, which does not have to start at its origin.
+    public BtlRect LocalBounds => _localBounds;
 
     public BtlMatrix UserMatrix => _userMatrix;
 
@@ -90,7 +98,7 @@ internal sealed class TransformHandlesOverlay : Control
     public void Update(
         BtlDrawable? drawable,
         Element? element,
-        BtlSize localSize,
+        BtlRect localBounds,
         BtlMatrix userMatrix,
         BtlPoint pivotLocal,
         AvaSize imageSize,
@@ -98,7 +106,7 @@ internal sealed class TransformHandlesOverlay : Control
     {
         if (ReferenceEquals(_drawable, drawable)
             && ReferenceEquals(_element, element)
-            && _localSize == localSize
+            && _localBounds == localBounds
             && _userMatrix == userMatrix
             && _frameScale == frameScale
             && PivotLocal == pivotLocal)
@@ -108,12 +116,12 @@ internal sealed class TransformHandlesOverlay : Control
 
         _drawable = drawable;
         _element = element;
-        _localSize = localSize;
+        _localBounds = localBounds;
         _userMatrix = userMatrix;
         _frameScale = frameScale;
         PivotLocal = pivotLocal;
 
-        if (drawable != null && localSize.Width > 0 && localSize.Height > 0 && frameScale > 0 && !userMatrix.HasInverse)
+        if (drawable != null && localBounds.Width > 0 && localBounds.Height > 0 && frameScale > 0 && !userMatrix.HasInverse)
         {
             s_logger.LogDebug(
                 "TransformHandlesOverlay: userMatrix non-invertible, hiding overlay. Drawable={DrawableType}",
@@ -128,7 +136,7 @@ internal sealed class TransformHandlesOverlay : Control
     {
         _drawable = null;
         _element = null;
-        _localSize = default;
+        _localBounds = default;
         _userMatrix = BtlMatrix.Identity;
         InvalidateVisual();
     }
@@ -137,12 +145,10 @@ internal sealed class TransformHandlesOverlay : Control
     {
         if (!HasShape) return;
 
-        double w = _localSize.Width;
-        double h = _localSize.Height;
-        _imageCorners[0] = LocalToImage(0, 0);
-        _imageCorners[1] = LocalToImage(w, 0);
-        _imageCorners[2] = LocalToImage(w, h);
-        _imageCorners[3] = LocalToImage(0, h);
+        _imageCorners[0] = LocalToImage(_localBounds.Left, _localBounds.Top);
+        _imageCorners[1] = LocalToImage(_localBounds.Right, _localBounds.Top);
+        _imageCorners[2] = LocalToImage(_localBounds.Right, _localBounds.Bottom);
+        _imageCorners[3] = LocalToImage(_localBounds.Left, _localBounds.Bottom);
         _pivotImage = LocalToImage(PivotLocal.X, PivotLocal.Y);
     }
 
@@ -226,15 +232,32 @@ internal sealed class TransformHandlesOverlay : Control
         if (AvaPoint.Distance(imagePoint, _pivotImage) <= centerTol)
             return HandleKind.Center;
 
-        if (AvaPoint.Distance(imagePoint, _imageCorners[0]) <= tol) return HandleKind.TopLeft;
-        if (AvaPoint.Distance(imagePoint, _imageCorners[1]) <= tol) return HandleKind.TopRight;
-        if (AvaPoint.Distance(imagePoint, _imageCorners[2]) <= tol) return HandleKind.BottomRight;
-        if (AvaPoint.Distance(imagePoint, _imageCorners[3]) <= tol) return HandleKind.BottomLeft;
+        // On a box only a few pixels across the handles overlap, so the nearest one is the one aimed at.
+        HandleKind nearest = HandleKind.None;
+        double nearestDistance = double.PositiveInfinity;
+        for (int i = 0; i < 4; i++)
+        {
+            double distance = AvaPoint.Distance(imagePoint, _imageCorners[i]);
+            if (distance <= tol && distance < nearestDistance)
+            {
+                nearest = s_cornerKinds[i];
+                nearestDistance = distance;
+            }
+        }
 
-        if (HitEdge(imagePoint, _imageCorners[0], _imageCorners[1])) return HandleKind.Top;
-        if (HitEdge(imagePoint, _imageCorners[1], _imageCorners[2])) return HandleKind.Right;
-        if (HitEdge(imagePoint, _imageCorners[2], _imageCorners[3])) return HandleKind.Bottom;
-        if (HitEdge(imagePoint, _imageCorners[3], _imageCorners[0])) return HandleKind.Left;
+        if (nearest != HandleKind.None) return nearest;
+
+        for (int i = 0; i < 4; i++)
+        {
+            double distance = EdgeHandleDistance(imagePoint, _imageCorners[i], _imageCorners[(i + 1) % 4]);
+            if (distance < nearestDistance)
+            {
+                nearest = s_edgeKinds[i];
+                nearestDistance = distance;
+            }
+        }
+
+        if (nearest != HandleKind.None) return nearest;
 
         // Rotate: within RotateOuterDistance from a corner and outside the polygon.
         if (!IsPointInsidePolygon(imagePoint))
@@ -252,17 +275,20 @@ internal sealed class TransformHandlesOverlay : Control
         return HandleKind.None;
     }
 
-    private static bool HitEdge(AvaPoint p, AvaPoint a, AvaPoint b)
+    // How far p is from the edge handle between a and b, or infinity when p is outside it.
+    private static double EdgeHandleDistance(AvaPoint p, AvaPoint a, AvaPoint b)
     {
         AvaVector edge = b - a;
         double len = edge.Length;
-        if (len < 1e-6) return false;
+        if (len < 1e-6) return double.PositiveInfinity;
         AvaVector u = edge / len;
         AvaPoint mid = new((a.X + b.X) / 2, (a.Y + b.Y) / 2);
         AvaVector d = p - mid;
         double along = d.X * u.X + d.Y * u.Y;
         double perp = d.X * -u.Y + d.Y * u.X;
-        return Math.Abs(along) <= EdgeHandleLength / 2 + 2 && Math.Abs(perp) <= HandleSize / 2 + 2;
+        return Math.Abs(along) <= EdgeHandleLength / 2 + 2 && Math.Abs(perp) <= HandleSize / 2 + 2
+            ? AvaPoint.Distance(p, mid)
+            : double.PositiveInfinity;
     }
 
     private bool IsPointInsidePolygon(AvaPoint p)

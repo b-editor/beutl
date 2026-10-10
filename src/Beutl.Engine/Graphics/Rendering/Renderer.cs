@@ -490,13 +490,14 @@ public class Renderer : IRenderer
     private RenderNodeRenderer CreateEntryRenderer(
         RenderNode node,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
-        RenderCacheOptions? cacheOptions = null)
+        RenderCacheOptions? cacheOptions = null,
+        Rect? targetDomain = null)
         => new(
             node,
             new RenderNodeRenderRequest
             {
                 Intent = Intent,
-                TargetDomain = new Rect(default, FrameSize.ToSize(1)),
+                TargetDomain = targetDomain ?? new Rect(default, FrameSize.ToSize(1)),
                 OutputScale = OutputScale,
                 MaxWorkingScale = MaxWorkingScale,
                 CacheOptions = cacheOptions ?? CacheOptions,
@@ -644,9 +645,9 @@ public class Renderer : IRenderer
         }
     }
 
-    // The bounds of drawable as an active transition draws it: measured on its own, cut to the clips the
-    // transition draws it within and mapped out through the transforms. Null when no transition draws it.
-    private Rect? GetTransitionedBoundary(Drawable drawable)
+    // The node an active transition draws drawable with, and the container nodes above it, outermost first.
+    // Null when no transition draws it.
+    private (DrawableRenderNode Node, RenderNode[] Path)? FindTransitionedNode(Drawable drawable)
     {
         foreach (Entry entry in _allCurrentEntries)
         {
@@ -657,14 +658,24 @@ public class Renderer : IRenderer
             CollectDrawableNodes(entry.Node, [], children);
             foreach (KeyValuePair<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)> child in children)
             {
-                if (!ReferenceEquals(child.Key.GetOriginal(), drawable)) continue;
-
-                using RenderNodeRenderer renderer = CreateEntryRenderer(child.Value.Node);
-                return MapOutOfDrawable(renderer.Measure().QueryBounds, child.Value.Path);
+                if (ReferenceEquals(child.Key.GetOriginal(), drawable))
+                {
+                    return child.Value;
+                }
             }
         }
 
         return null;
+    }
+
+    // The bounds of drawable as an active transition draws it: measured on its own, cut to the clips the
+    // transition draws it within and mapped out through the transforms. Null when no transition draws it.
+    private Rect? GetTransitionedBoundary(Drawable drawable)
+    {
+        if (FindTransitionedNode(drawable) is not { } child) return null;
+
+        using RenderNodeRenderer renderer = CreateEntryRenderer(child.Node);
+        return MapOutOfDrawable(renderer.Measure().QueryBounds, child.Path);
     }
 
     private static Rect MapOutOfDrawable(Rect bounds, RenderNode[] path)
@@ -749,6 +760,96 @@ public class Renderer : IRenderer
                 drawable.GetType().Name, RuntimeHelpers.GetHashCode(drawable));
         }
         return null;
+    }
+
+    /// <summary>
+    /// Gets the current-frame bounds of a drawable in its own space, inside the transform it is drawn under, with
+    /// the matrix that places that space in the frame.
+    /// </summary>
+    /// <returns>
+    /// <see langword="null"/> when the drawable is not in the current frame, draws nothing, does not draw its
+    /// content under a transform of its own the way <see cref="Drawable.Render"/> does, or is drawn under a
+    /// perspective transform that takes part of the box past its camera plane.
+    /// </returns>
+    /// <remarks>
+    /// The bounds are what <see cref="GetBoundary"/> measures before the transform maps them, so the box they make
+    /// turns with a rotated drawable and its axis-aligned extent is that boundary. Content sized by the frame it
+    /// draws into rather than by itself, such as an effect without bounds of its own, has no such box: its boundary
+    /// is the frame however the drawable is transformed, so the drawable's layout box is returned for it instead. A
+    /// drawable an active transition draws is placed through the transition's transforms too; the transition's clips
+    /// are not applied.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
+    internal (Rect Bounds, Matrix Transform)? GetLocalBoundary(Drawable drawable)
+    {
+        _dispatcher.VerifyAccess();
+        (DrawableRenderNode Node, RenderNode[] Path)? found = FindTransitionedNode(drawable);
+        if (found is null
+            && _nodeCache.TryGetValue(drawable, out Entry? entry)
+            && _allCurrentEntries.Contains(entry))
+        {
+            found = (entry.Node, []);
+        }
+
+        // Drawable.Render pushes the blend mode, then the transform its content is drawn under.
+        if (found is not { } drawn
+            || drawn.Node.Children is not [BlendModeRenderNode
+            {
+                Children: [TransformRenderNode { TransformOperator: TransformOperator.Prepend } transform],
+            }])
+        {
+            return null;
+        }
+
+        Rect bounds = MeasureContent(null);
+        if (!HasArea(bounds)) return null;
+
+        // Content sized by the frame answers any frame with that frame. Measured against a frame moved off its own,
+        // it gives other bounds, and its box would snap back to the frame after every scale.
+        Rect frame = new(default, FrameSize.ToSize(1));
+        if (MeasureContent(frame.Translate(new Vector(frame.Width, frame.Height))) != bounds)
+        {
+            if (drawn.Node.Drawable?.Resource is not { } resource) return null;
+            bounds = new Rect(resource.RequireOriginal().MeasureInternal(frame.Size, resource));
+            if (!HasArea(bounds)) return null;
+        }
+
+        Matrix outerMatrix = Matrix.Identity;
+        foreach (RenderNode node in drawn.Path)
+        {
+            if (node is TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer)
+            {
+                outerMatrix = outer.Transform * outerMatrix;
+            }
+        }
+
+        // A perspective transform maps the corners onto the quad drawn between them only while all of them stay in
+        // front of its camera plane. A corner past it is reflected through the origin, where GetBoundary clips.
+        Matrix matrix = transform.Transform * outerMatrix;
+        if (matrix.ContainsPerspective())
+        {
+            foreach (Point corner in (ReadOnlySpan<Point>)[bounds.TopLeft, bounds.TopRight, bounds.BottomRight, bounds.BottomLeft])
+            {
+                if (!(matrix.GetTransformDivisor(corner) >= Rect.DefaultNearPlane)) return null;
+            }
+        }
+
+        return (bounds, matrix);
+
+        Rect MeasureContent(Rect? targetDomain)
+        {
+            Rect measured = default;
+            foreach (RenderNode content in transform.Children)
+            {
+                using RenderNodeRenderer renderer = CreateEntryRenderer(content, targetDomain: targetDomain);
+                measured = measured.Union(renderer.Measure().QueryBounds);
+            }
+
+            return measured;
+        }
+
+        static bool HasArea(Rect rect)
+            => RenderRectValidation.IsFiniteNonNegative(rect) && rect.Width > 0 && rect.Height > 0;
     }
 
     /// <summary>Recalculates and caches current-frame bounds for drawables at the specified z-index.</summary>

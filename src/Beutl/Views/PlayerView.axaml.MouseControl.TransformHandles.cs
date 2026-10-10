@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 using AvaPoint = Avalonia.Point;
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
-using BtlSize = Beutl.Graphics.Size;
+using BtlRect = Beutl.Graphics.Rect;
 
 namespace Beutl.Views;
 
@@ -32,13 +32,16 @@ public partial class PlayerView
             Drawable Drawable,
             Element? Element,
             double FrameScale,
-            BtlSize LocalSize,
+            BtlRect LocalBounds,
             BtlMatrix StartUserMatrix,
             BtlMatrix InvStartUserMatrix,
             BtlPoint PivotLocal,
             AvaPoint PivotImage,
             AvaPoint StartImagePos,
-            Transform? PressTransform);
+            Transform? PressTransform,
+            // Whether StartUserMatrix is the matrix the drawable was drawn with. A body drag only moves the drawable,
+            // so it records no pivot.
+            bool HasDrawingMatrix);
 
         private sealed class EnsuredState
         {
@@ -49,6 +52,10 @@ public partial class PlayerView
             public required TransformGroup Group { get; init; }
             // null = non-invertible (HandleTranslate will abort).
             public BtlMatrix? InvPostMatrixOfT { get; init; }
+            // Takes the group's output into the frame: the pivot's offset back, the alignment and anything above
+            // the drawable. null when the press-time matrix cannot be split there (a singular group). A body drag
+            // records no pivot, so only the linear part holds for it, which is all a move goes through.
+            public BtlMatrix? AfterGroup { get; init; }
             public required BtlMatrix RotationMatrix { get; init; }
             public required float StartTransX { get; init; }
             public required float StartTransY { get; init; }
@@ -156,12 +163,12 @@ public partial class PlayerView
             Drawable? drawable = overlay.Drawable;
             Element? element = overlay.Element;
             double frameScale = overlay.FrameScale;
-            BtlSize localSize = overlay.LocalSize;
+            BtlRect localBounds = overlay.LocalBounds;
             BtlMatrix startUserMatrix = overlay.UserMatrix;
             BtlPoint pivotLocal = overlay.PivotLocal;
 
             if (drawable == null || element == null || frameScale <= 0
-                || localSize.Width <= 0 || localSize.Height <= 0
+                || localBounds.Width <= 0 || localBounds.Height <= 0
                 || !startUserMatrix.TryInvert(out BtlMatrix invStartUserMatrix))
             {
                 _logger.LogWarning(
@@ -179,13 +186,14 @@ public partial class PlayerView
                 Drawable: drawable,
                 Element: element,
                 FrameScale: frameScale,
-                LocalSize: localSize,
+                LocalBounds: localBounds,
                 StartUserMatrix: startUserMatrix,
                 InvStartUserMatrix: invStartUserMatrix,
                 PivotLocal: pivotLocal,
                 PivotImage: pivotImage,
                 StartImagePos: startImagePos,
-                PressTransform: drawable.Transform.CurrentValue);
+                PressTransform: drawable.Transform.CurrentValue,
+                HasDrawingMatrix: true);
 
             _ensured = null;
 
@@ -221,14 +229,17 @@ public partial class PlayerView
             AvaPoint scaledStartPosition = new(imagePos.X / frameScale, imagePos.Y / frameScale);
 
             Drawable? drawable;
+            BtlMatrix? drawingMatrix;
             try
             {
-                drawable = RenderThread.Dispatcher.Invoke(() =>
+                (drawable, drawingMatrix) = RenderThread.Dispatcher.Invoke(() =>
                 {
-                    var compositor = EditViewModel.Renderer.Value.Compositor;
-                    var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                    return EditViewModel.Renderer.Value.HitTest(compositionFrame,
+                    SceneRenderer renderer = EditViewModel.Renderer.Value;
+                    var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                    Drawable? hit = renderer.HitTest(compositionFrame,
                         new((float)scaledStartPosition.X, (float)scaledStartPosition.Y));
+                    // The hit-test has just put the renderer on this frame, so it draws the drawable as shown.
+                    return (hit, hit is null ? null : renderer.GetLocalBoundary(hit)?.Transform);
                 });
             }
             catch (OperationCanceledException ocex)
@@ -280,17 +291,22 @@ public partial class PlayerView
                 EditorSelection.SelectedObject.Value = element;
             }
 
+            // A body drag moves the drawable through the matrix it is drawn with, a transition above it included,
+            // whether or not the press is what selects it.
+            BtlMatrix invDrawingMatrix = BtlMatrix.Identity;
+            bool hasDrawing = drawingMatrix is { } matrix && matrix.TryInvert(out invDrawingMatrix);
             _press = new PressState(
                 Drawable: drawable,
                 Element: element,
                 FrameScale: frameScale,
-                LocalSize: default,
-                StartUserMatrix: BtlMatrix.Identity,
-                InvStartUserMatrix: BtlMatrix.Identity,
+                LocalBounds: default,
+                StartUserMatrix: hasDrawing ? drawingMatrix!.Value : BtlMatrix.Identity,
+                InvStartUserMatrix: invDrawingMatrix,
                 PivotLocal: default,
                 PivotImage: default,
                 StartImagePos: imagePos,
-                PressTransform: drawable.Transform.CurrentValue);
+                PressTransform: drawable.Transform.CurrentValue,
+                HasDrawingMatrix: hasDrawing);
             _ensured = null;
 
             // Capture the pointer so a translate drag started here still delivers Released even when
@@ -355,8 +371,19 @@ public partial class PlayerView
             KeyFrameState<float>? kfScaleY = FindKf(ensured.Scale.ScaleY);
             KeyFrameState<float>? kfRotation = FindKf(ensured.Rotation.Rotation);
 
-            BtlMatrix? invPostMatrixOfT = ensured.PostMatrixOfT.TryInvert(out BtlMatrix invPostT) ? invPostT : null;
             BtlMatrix rotationMatrix = ensured.Rotation.CreateMatrix(ctx);
+            // The press-time box was drawn through (-pivot) · group · AfterGroup.
+            BtlMatrix intoGroup = BtlMatrix.CreateTranslation(-_press.PivotLocal.X, -_press.PivotLocal.Y)
+                * ensured.Group.CreateMatrix(ctx);
+            BtlMatrix? afterGroup = _press.HasDrawingMatrix && intoGroup.TryInvert(out BtlMatrix outOfGroup)
+                ? outOfGroup * _press.StartUserMatrix
+                : null;
+            // A translate moves the drawable through everything applied after it, a transition's zoom included.
+            BtlMatrix afterTranslate = afterGroup is { } groupToFrame
+                && !(ensured.PostMatrixOfT * groupToFrame).ContainsPerspective()
+                    ? ensured.PostMatrixOfT * groupToFrame
+                    : ensured.PostMatrixOfT;
+            BtlMatrix? invPostMatrixOfT = afterTranslate.TryInvert(out BtlMatrix invPostT) ? invPostT : null;
 
             _ensured = new EnsuredState
             {
@@ -365,6 +392,7 @@ public partial class PlayerView
                 Rotation = ensured.Rotation,
                 Group = ensured.Group,
                 InvPostMatrixOfT = invPostMatrixOfT,
+                AfterGroup = afterGroup,
                 RotationMatrix = rotationMatrix,
                 StartTransX = startTransX,
                 StartTransY = startTransY,
@@ -518,8 +546,8 @@ public partial class PlayerView
             double newWidth = grabLeft ? (anchorX - currentLocal.X) : (currentLocal.X - anchorX);
             double newHeight = grabTop ? (anchorY - currentLocal.Y) : (currentLocal.Y - anchorY);
 
-            double ratioX = newWidth / press.LocalSize.Width;
-            double ratioY = newHeight / press.LocalSize.Height;
+            double ratioX = newWidth / press.LocalBounds.Width;
+            double ratioY = newHeight / press.LocalBounds.Height;
 
             if (_shift)
             {
@@ -548,7 +576,7 @@ public partial class PlayerView
             if (horizontal)
             {
                 double newWidth = grabLeft ? (anchorX - currentLocal.X) : (currentLocal.X - anchorX);
-                double ratioX = newWidth / press.LocalSize.Width;
+                double ratioX = newWidth / press.LocalBounds.Width;
                 newScaleX = (float)(ensured.StartScaleX * ratioX);
                 if (_shift)
                 {
@@ -558,7 +586,7 @@ public partial class PlayerView
             else
             {
                 double newHeight = grabTop ? (anchorY - currentLocal.Y) : (currentLocal.Y - anchorY);
-                double ratioY = newHeight / press.LocalSize.Height;
+                double ratioY = newHeight / press.LocalBounds.Height;
                 newScaleY = (float)(ensured.StartScaleY * ratioY);
                 if (_shift)
                 {
@@ -622,8 +650,10 @@ public partial class PlayerView
             WriteScalar(ensured.Scale.ScaleY, ensured.KfScaleY, ensured.KfStartScaleY, deltaScaleY, newScaleY);
         }
 
-        // Compensate the anchor shift caused by a scale change via the operative Translate; see
-        // <see cref="TransformHandleMath.ComputePivotTranslationDelta"/> for the derivation.
+        // Compensate the anchor shift caused by a scale change via the operative Translate. The translate is solved
+        // from the group as the new scale leaves it, so the anchor stays put whatever order the group's transforms
+        // are in and whatever uniform Scale they carry; a group that cannot be solved falls back to the canonical
+        // [T, R, S] formula in <see cref="TransformHandleMath.ComputePivotTranslationDelta"/>.
         private void ApplyScaleWithPivotCorrection(
             PressState press, EnsuredState ensured,
             float newScaleX, float newScaleY, double anchorX, double anchorY)
@@ -631,12 +661,13 @@ public partial class PlayerView
             ApplyScale(ensured, newScaleX, newScaleY);
             if (_press == null) return;
 
-            (float deltaTx, float deltaTy) = TransformHandleMath.ComputePivotTranslationDelta(
-                ensured.StartScaleX, ensured.StartScaleY,
-                newScaleX, newScaleY,
-                anchorX, anchorY,
-                press.PivotLocal.X, press.PivotLocal.Y,
-                ensured.RotationMatrix);
+            (float deltaTx, float deltaTy) = SolveAnchorTranslation(press, ensured, anchorX, anchorY)
+                ?? TransformHandleMath.ComputePivotTranslationDelta(
+                    ensured.StartScaleX, ensured.StartScaleY,
+                    newScaleX, newScaleY,
+                    anchorX, anchorY,
+                    press.PivotLocal.X, press.PivotLocal.Y,
+                    ensured.RotationMatrix);
             float newTx = ensured.StartTransX + deltaTx;
             float newTy = ensured.StartTransY + deltaTy;
 
@@ -652,6 +683,50 @@ public partial class PlayerView
             WriteScalar(ensured.Translate.Y, ensured.KfTransY, ensured.KfStartTransY, deltaTy, newTy);
         }
 
+        // The operative Translate's change from its start value that draws the anchor where the press-time box did,
+        // or null when the matrices do not allow solving it. A drawn point moves by delta · L when the translate
+        // moves by delta, L being the linear part of everything applied after the translate.
+        private (float dx, float dy)? SolveAnchorTranslation(
+            PressState press, EnsuredState ensured, double anchorX, double anchorY)
+        {
+            if (ensured.AfterGroup is not { } afterGroup) return null;
+
+            var ctx = new CompositionContext(Clock.CurrentTime.Value);
+            BtlMatrix toFrame = BtlMatrix.CreateTranslation(-press.PivotLocal.X, -press.PivotLocal.Y)
+                * ensured.Group.CreateMatrix(ctx) * afterGroup;
+            BtlMatrix afterTranslate = MatrixAfter(ensured.Group, ensured.Translate, ctx) * afterGroup;
+            float det = (afterTranslate.M11 * afterTranslate.M22) - (afterTranslate.M12 * afterTranslate.M21);
+            if (toFrame.ContainsPerspective() || afterTranslate.ContainsPerspective()
+                || !float.IsFinite(det) || MathF.Abs(det) < 1e-6f)
+            {
+                return null;
+            }
+
+            var anchor = new BtlPoint((float)anchorX, (float)anchorY);
+            BtlPoint target = press.StartUserMatrix.Transform(anchor);
+            BtlPoint drawn = toFrame.Transform(anchor);
+            float ex = target.X - drawn.X;
+            float ey = target.Y - drawn.Y;
+            float dx = ((ex * afterTranslate.M22) - (ey * afterTranslate.M21)) / det;
+            float dy = ((ey * afterTranslate.M11) - (ex * afterTranslate.M12)) / det;
+
+            return (ensured.Translate.X.GetValue(ctx) + dx - ensured.StartTransX,
+                ensured.Translate.Y.GetValue(ctx) + dy - ensured.StartTransY);
+        }
+
+        // The enabled transforms the group applies after the given one, which are the ones before it in the list.
+        private static BtlMatrix MatrixAfter(TransformGroup group, Transform transform, CompositionContext ctx)
+        {
+            BtlMatrix after = BtlMatrix.Identity;
+            foreach (Transform child in group.Children)
+            {
+                if (ReferenceEquals(child, transform)) break;
+                if (child.IsEnabled) after = child.CreateMatrix(ctx) * after;
+            }
+
+            return after;
+        }
+
         private static BtlPoint ImagePointToStartLocal(PressState press, AvaPoint img)
         {
             double sceneX = img.X / press.FrameScale;
@@ -659,20 +734,19 @@ public partial class PlayerView
             return press.InvStartUserMatrix.Transform(new BtlPoint((float)sceneX, (float)sceneY));
         }
 
-        // Anchors are local-rect coordinates (0,0)-(w,h). Drawable.GetTransformMatrix assumes the same
-        // origin; for Shapes whose Geometry.Bounds.Position != (0,0) the overlay can misalign — that is
-        // a rendering-model limitation, out of scope here. Each anchor is the OPPOSITE corner/edge of
-        // the grabbed handle (so the grabbed side moves while the anchor stays put).
+        // Anchors are points on the overlay's box, in the drawable's own space (the space PivotLocal is in).
+        // The box need not start at (0,0): it follows what the drawable draws, such as a drop shadow or a
+        // geometry whose bounds start elsewhere. Each anchor is the OPPOSITE corner/edge of the grabbed
+        // handle (so the grabbed side moves while the anchor stays put).
         private static (double X, double Y) CornerAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
-            BtlSize size = press.LocalSize;
-            double w = size.Width, h = size.Height;
+            BtlRect bounds = press.LocalBounds;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.TopLeft => (w, h),
-                TransformHandlesOverlay.HandleKind.TopRight => (0, h),
-                TransformHandlesOverlay.HandleKind.BottomRight => (0, 0),
-                TransformHandlesOverlay.HandleKind.BottomLeft => (w, 0),
+                TransformHandlesOverlay.HandleKind.TopLeft => (bounds.Right, bounds.Bottom),
+                TransformHandlesOverlay.HandleKind.TopRight => (bounds.Left, bounds.Bottom),
+                TransformHandlesOverlay.HandleKind.BottomRight => (bounds.Left, bounds.Top),
+                TransformHandlesOverlay.HandleKind.BottomLeft => (bounds.Right, bounds.Top),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Corner anchor requested for non-corner HandleKind."),
             };
         }
@@ -681,14 +755,14 @@ public partial class PlayerView
         // Shift-dragging an edge introduce sideways drift on the orthogonal axis.
         private static (double X, double Y) EdgeAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
-            BtlSize size = press.LocalSize;
-            double w = size.Width, h = size.Height;
+            BtlRect bounds = press.LocalBounds;
+            BtlPoint center = bounds.Center;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.Top => (w * 0.5, h),
-                TransformHandlesOverlay.HandleKind.Bottom => (w * 0.5, 0),
-                TransformHandlesOverlay.HandleKind.Left => (w, h * 0.5),
-                TransformHandlesOverlay.HandleKind.Right => (0, h * 0.5),
+                TransformHandlesOverlay.HandleKind.Top => (center.X, bounds.Bottom),
+                TransformHandlesOverlay.HandleKind.Bottom => (center.X, bounds.Top),
+                TransformHandlesOverlay.HandleKind.Left => (bounds.Right, center.Y),
+                TransformHandlesOverlay.HandleKind.Right => (bounds.Left, center.Y),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Edge anchor requested for non-edge HandleKind."),
             };
         }
