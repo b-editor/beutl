@@ -23,9 +23,13 @@ internal sealed class VersionControlCommitViewModel : IDisposable
             relativeTimeFormatter.Format(commit.AuthorDate));
         AbsoluteLocalDate = relativeTimeFormatter.FormatAbsoluteLocal(commit.AuthorDate);
         RestoreCommand = new AsyncReactiveCommand()
-            .WithSubscribe(() => _owner.RestoreAsync(Commit));
+            .WithSubscribe(() => _owner.RunCommandAsync(
+                () => _owner.RestoreAsync(Commit),
+                nameof(RestoreCommand)));
         RestoreToNewBranchCommand = new AsyncReactiveCommand()
-            .WithSubscribe(() => _owner.RestoreToNewBranchAsync(Commit));
+            .WithSubscribe(() => _owner.RunCommandAsync(
+                () => _owner.RestoreToNewBranchAsync(Commit),
+                nameof(RestoreToNewBranchCommand)));
     }
 
     public CommitInfo Commit { get; }
