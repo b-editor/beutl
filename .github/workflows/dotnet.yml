@@ -151,7 +151,8 @@ jobs:
           path: ~/.nuget/packages
           key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json') }}
 
-      # Archive the build once, including app/worker outputs used by subprocess tests.
+      # Archive test outputs once, including their copied app/worker dependencies.
+      # Subprocess tests launch their own assembly or the worker copied next to it.
       # tar preserves executable bits; test jobs run DLLs directly, so they need no
       # obj directories, package restore or repeated solution build.
       - name: Archive test binaries
@@ -161,8 +162,9 @@ jobs:
           cp -a "$HOME/.nuget/packages/coverlet.collector/$coverlet_version/build/net10.0" .ci-tools/coverlet
           {
             printf '.ci-tools\0'
-            find src tests external -type d -name bin -prune -print0
+            find tests -type d -path '*/bin/Debug/net10.0' -prune -print0
           } | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/test-binaries.tar.zst"
+          du -h "$RUNNER_TEMP/test-binaries.tar.zst"
 
       - name: Share test binaries
         uses: actions/upload-artifact@v7.0.1
