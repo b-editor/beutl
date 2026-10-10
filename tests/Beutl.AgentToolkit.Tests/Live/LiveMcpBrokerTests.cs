@@ -1,4 +1,6 @@
 ﻿using System.IO.Pipelines;
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
@@ -178,6 +180,53 @@ public sealed class LiveMcpBrokerTests
         {
             stop.Cancel();
             await watcher;
+        }
+    }
+
+    [Test]
+    public async Task Watcher_keeps_asking_for_an_editor_that_does_not_answer_with_growing_delays()
+    {
+        await using InProcessServer server = await InProcessServer.StartAsync(Workspace, Registry, () => "test-token");
+        using var changes = new SemaphoreSlim(0);
+        await using IAsyncDisposable subscription = server.Client.RegisterNotificationHandler(
+            NotificationMethods.ToolListChangedNotification, (_, _) =>
+            {
+                changes.Release();
+                return default;
+            });
+        await server.Client.ListToolsAsync();
+        // An editor whose port accepts connections but closes them at once: alive, yet not answering.
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        Task closing = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                    (await listener.AcceptTcpClientAsync()).Dispose();
+            }
+            catch (ObjectDisposedException) { }
+            catch (SocketException) { }
+        });
+        using var stop = new CancellationTokenSource();
+        Task watcher = server.Broker.WatchAsync(TimeSpan.FromMilliseconds(50), stop.Token);
+        try
+        {
+            var registry = new AgentHostInstanceRegistry(Registry);
+            using AgentHostInstanceLease lease = registry.Register(Guid.NewGuid().ToString("N"), new Uri($"http://127.0.0.1:{port}/mcp"));
+            Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "A starting editor is announced.");
+            Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("list_scenes"));
+            // Without any registry change, the watcher keeps asking the client to list again.
+            for (int i = 0; i < 3; i++)
+                Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, $"Retry {i + 1} is announced.");
+        }
+        finally
+        {
+            stop.Cancel();
+            await watcher;
+            listener.Stop();
+            await closing;
         }
     }
 
