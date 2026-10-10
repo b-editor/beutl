@@ -631,6 +631,28 @@ public class UpdateNodeMemberOperationTests
         Assert.That(op.IsNoop, Is.False);
     }
 
+    private static IEnumerable<TestCaseData> AnimationAndExpressionReplacements()
+    {
+        yield return new TestCaseData(
+                "Property.Animation", new KeyFrameAnimation<float>(), new KeyFrameAnimation<float>())
+            .SetArgDisplayNames("Animation");
+        yield return new TestCaseData(
+                "Property.Expression", new StringExpression<float>("1"), new StringExpression<float>("1"))
+            .SetArgDisplayNames("Expression");
+    }
+
+    [TestCaseSource(nameof(AnimationAndExpressionReplacements))]
+    public void IsNoop_IsTrue_WhenAnAnimationOrExpressionReturnsToTheSameInstance(
+        string propertyPath, object original, object replacement)
+    {
+        var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f);
+        var op = CreateOp(nodeMember, propertyPath, replacement, original);
+
+        op.TryMerge(CreateOp(nodeMember, propertyPath, original, replacement));
+
+        Assert.That(op.IsNoop, Is.True);
+    }
+
     #endregion
 
     #region SequenceNumber Tests

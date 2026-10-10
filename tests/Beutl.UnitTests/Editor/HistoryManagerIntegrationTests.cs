@@ -539,6 +539,21 @@ public class HistoryManagerIntegrationTests
         Assert.That(harness.History.HasPendingOperations, Is.False);
     }
 
+    [Test]
+    public void AnimationSetBackToTheSameInstance_LeavesNothingToCommit()
+    {
+        var model = new TestEngineModel();
+        using var harness = new HistoryHarness(model);
+        var original = new KeyFrameAnimation<float>();
+        model.Value.Animation = original;
+        harness.History.Commit("Animate");
+
+        model.Value.Animation = new KeyFrameAnimation<float>();
+        model.Value.Animation = original;
+
+        Assert.That(harness.History.HasPendingOperations, Is.False);
+    }
+
     // An engine property replaces its expression by reference, so swapping in an equal expression
     // that is not the same instance is still a change that undo has to revert.
     [Test]
