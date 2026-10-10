@@ -922,8 +922,8 @@ public class DrawableBrushThumbnailTests
 
     private static void UpdateResource(DrawableBrush.Resource resource, DrawableBrush drawableBrush)
     {
-        bool updateOnly = false;
-        resource.Update(drawableBrush, new CompositionContext(TimeSpan.Zero), ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(drawableBrush, new CompositionContext(TimeSpan.Zero), ref versionBumped);
     }
 
     private static bool CanLock(WriteableBitmap bitmap)
@@ -1010,7 +1010,7 @@ internal sealed partial class DisposalTrackingDrawableBrush : DrawableBrush
     {
         private DisposalTrackingDrawableBrush? _owner;
 
-        partial void PostUpdate(DisposalTrackingDrawableBrush obj, CompositionContext context)
+        partial void PostReconcile(DisposalTrackingDrawableBrush obj, CompositionContext context)
         {
             _owner = obj;
             int updateCount = Interlocked.Increment(ref obj._resourceUpdateCalls);

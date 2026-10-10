@@ -693,6 +693,30 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    [NonParallelizable]
+    public async Task Enable_command_reports_a_failing_shell_flow_instead_of_faulting()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.SetupGet(x => x.Repository).Returns(() => null);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        var failure = new InvalidOperationException("The shell could not initialize the repository.");
+        viewModel.RequestEnableVersionControlAsync = () => Task.FromException(failure);
+        await viewModel.Initialization;
+        using var notifications = VersionControlNotificationCapture.Install();
+
+        await Assert.DoesNotThrowAsync(() => viewModel.EnableVersionControlCommand.ExecuteAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, failure.Message),
+                Is.True);
+            Assert.That(viewModel.IsEnablingVersionControl.Value, Is.False);
+            Assert.That(viewModel.EnableVersionControlCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Download_command_opens_the_git_downloads_page_without_touching_the_unavailable_state()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -911,6 +935,43 @@ public class VersionControlTabViewModelTests
         service.Verify(
             x => x.GetHistoryAsync(50, 50, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task Load_more_command_reports_history_failures_and_reenables()
+    {
+        CommitInfo[] firstPage = Enumerable.Range(0, VersionControlTabViewModel.HistoryPageSize)
+            .Select(index => CreateCommit(index, SnapshotKind.Save))
+            .ToArray();
+        var failure = new GitOperationException(128, "fatal: bad object");
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                0,
+                VersionControlTabViewModel.HistoryPageSize,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(firstPage);
+        service.Setup(x => x.GetHistoryAsync(
+                VersionControlTabViewModel.HistoryPageSize,
+                VersionControlTabViewModel.HistoryPageSize,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        using var notifications = VersionControlNotificationCapture.Install();
+
+        await Assert.DoesNotThrowAsync(() => viewModel.LoadMoreCommand.ExecuteAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, failure.Message),
+                Is.True);
+            Assert.That(viewModel.Commits, Has.Count.EqualTo(firstPage.Length));
+            Assert.That(viewModel.HasMoreHistory.Value, Is.True);
+            Assert.That(viewModel.IsLoading.Value, Is.False);
+            Assert.That(viewModel.LoadMoreCommand.CanExecute(), Is.True);
+        });
     }
 
     [Test]
@@ -1569,6 +1630,38 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    [NonParallelizable]
+    public async Task Remove_stale_lock_command_reports_removal_failures_and_keeps_the_banner()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IRepositoryLockRecoveryService> recovery
+            = service.As<IRepositoryLockRecoveryService>();
+        var expectedLock = new RepositoryLockInfo(
+            Path.Combine(Path.GetTempPath(), "index.lock"),
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11));
+        var failure = new IOException("The lock file is in use by another process.");
+        recovery.SetupGet(x => x.RecoverableLock).Returns(expectedLock);
+        recovery.Setup(x => x.RemoveRecoverableLockAsync(
+                expectedLock,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await viewModel.Initialization;
+        using var notifications = VersionControlNotificationCapture.Install();
+
+        await Assert.DoesNotThrowAsync(() => viewModel.RemoveStaleLockCommand.ExecuteAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, failure.Message),
+                Is.True);
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+            Assert.That(viewModel.RemoveStaleLockCommand.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Pending_pull_recovery_signal_refreshes_the_same_service_and_runs_recovery()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -1647,6 +1740,47 @@ public class VersionControlTabViewModelTests
         await viewModel.RecoverPendingPullAsync();
 
         Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task Recover_pending_pull_command_reports_coordinator_failures_and_allows_a_retry()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var recovery = new ProjectRecoveryInfo(
+            "11111111111111111111111111111111",
+            "project.bep",
+            DateTimeOffset.UtcNow);
+        var failure = new GitOperationException(128, "fatal: unable to read tree");
+        coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([recovery]);
+        coordinator.Setup(x => x.RecoverPendingPullAsync(
+                recovery.Id,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        await viewModel.Initialization;
+        using var notifications = VersionControlNotificationCapture.Install();
+
+        await Assert.DoesNotThrowAsync(() => viewModel.RecoverPendingPullCommand.ExecuteAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, failure.Message),
+                Is.True);
+            Assert.That(viewModel.HasPendingPullRecovery.Value, Is.True);
+            Assert.That(viewModel.RecoverPendingPullCommand.CanExecute(), Is.True);
+        });
+
+        await viewModel.RecoverPendingPullCommand.ExecuteAsync();
+        coordinator.Verify(x => x.RecoverPendingPullAsync(
+            recovery.Id,
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Test]
@@ -2420,6 +2554,65 @@ public class VersionControlTabViewModelTests
                 "restored-version",
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task History_restore_commands_report_coordinator_failures_and_allow_a_retry()
+    {
+        CommitInfo commit = CreateCommit(1, SnapshotKind.Save);
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        service.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        var restoreFailure = new GitOperationException(
+            128,
+            "git-lfs filter-process: git-lfs: command not found");
+        var branchFailure = new InvalidOperationException(
+            "The branch ref changed while the restore safety snapshot was committed.");
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(x => x.RestoreAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(restoreFailure);
+        coordinator.Setup(x => x.RestoreToNewBranchAsync(
+                commit.Sha,
+                "restored-version",
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(branchFailure);
+        using VersionControlTabViewModel viewModel = CreateViewModel(
+            service.Object,
+            coordinator.Object);
+        viewModel.RequestBranchNameAsync =
+            _ => Task.FromResult<string?>("restored-version");
+        await viewModel.Initialization;
+        VersionControlCommitViewModel item = viewModel.Commits.Single();
+        using var notifications = VersionControlNotificationCapture.Install();
+
+        await Assert.DoesNotThrowAsync(() => item.RestoreCommand.ExecuteAsync());
+        await Assert.DoesNotThrowAsync(() => item.RestoreToNewBranchCommand.ExecuteAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, restoreFailure.Message),
+                Is.True);
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, branchFailure.Message),
+                Is.True);
+            Assert.That(item.RestoreCommand.CanExecute(), Is.True);
+            Assert.That(item.RestoreToNewBranchCommand.CanExecute(), Is.True);
+        });
+
+        // A failed restore releases the restore request, so the next one reaches the coordinator.
+        await item.RestoreCommand.ExecuteAsync();
+        coordinator.Verify(
+            x => x.RestoreAsync(
+                commit.Sha,
+                It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
     }
 
     [Test]

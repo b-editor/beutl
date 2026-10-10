@@ -289,7 +289,7 @@ public static partial class ProxySourceEnumerator
                     {
                         // A time controller remaps composition time, so neither the element-local window
                         // nor the scene-time window still maps — drop both to the conservative full walk.
-                        // PostUpdate renders context.Get(Target), so resolve an expression-supplied one.
+                        // PostReconcile renders context.Get(Target), so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             target, walkContext with { SceneWindow = null }, skipDisabledElements))
                             yield return source;

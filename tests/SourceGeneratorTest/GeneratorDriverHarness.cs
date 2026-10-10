@@ -59,7 +59,7 @@ internal static class GeneratorDriverHarness
         namespace Beutl.Engine
         {
             // The generated list path treats an IListProperty<T> member as both an IProperty (scanned,
-            // validated) and an IList<T> (passed to CompareAndUpdateList), mirroring the real interface.
+            // validated) and an IList<T> (passed to ResourceReconciler.ReconcileChildren), mirroring the real interface.
             public interface IListProperty<T> : IProperty, System.Collections.Generic.IList<T> { }
 
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Property)]

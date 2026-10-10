@@ -81,8 +81,8 @@ public partial class ShakeEffect : FilterEffect
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -101,18 +101,18 @@ public partial class ShakeEffect : FilterEffect
 
         public float Time => _time;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
 
-            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthX, ref _strengthX, ref updateOnly);
-            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthY, ref _strengthY, ref updateOnly);
-            CompareAndUpdate(context, ((ShakeEffect)obj).Speed, ref _speed, ref updateOnly);
+            ResourceReconciler.ReconcileValue(this, context, ((ShakeEffect)obj).StrengthX, ref _strengthX, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, ((ShakeEffect)obj).StrengthY, ref _strengthY, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, ((ShakeEffect)obj).Speed, ref _speed, ref versionBumped);
 
             float oldTime = _time;
             _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
             // ReSharper disable once CompareOfFloatsByEqualityOperator
-            if (!updateOnly && oldTime != _time)
+            if (!versionBumped && oldTime != _time)
             {
                 Version++;
             }

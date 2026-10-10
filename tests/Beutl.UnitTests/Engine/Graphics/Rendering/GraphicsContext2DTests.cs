@@ -47,8 +47,8 @@ public class GraphicsContext2DTests
         }
 
         ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
-        var updateOnly = false;
-        resource.Update(drawable, CompositionContext.Default, ref updateOnly);
+        var versionBumped = false;
+        resource.Reconcile(drawable, CompositionContext.Default, ref versionBumped);
 
         bool triggered = false;
         RenderNode? untrackedNode = null;

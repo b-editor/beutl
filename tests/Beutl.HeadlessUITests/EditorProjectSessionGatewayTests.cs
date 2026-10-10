@@ -20,17 +20,13 @@ public class EditorProjectSessionGatewayTests
         return location;
     }
 
-    private static (EditorProjectSessionGateway Gateway, AgentSessionManager Sessions) CreateGateway(
+    private static EditorProjectSessionGateway CreateGateway(
         string? workspaceRoot = null)
     {
-        var sessions = new AgentSessionManager();
-        var gateway = new EditorProjectSessionGateway(
+        return new EditorProjectSessionGateway(
             TestShell.Project,
             TestShell.Editor,
-            new LiveSessionSource(),
-            sessions,
             new WorkspaceGuard(workspaceRoot ?? BeutlHomeIsolation.CurrentHome!));
-        return (gateway, sessions);
     }
 
     private static async Task<ReconcileException?> ExpectRejectionAsync(Func<ValueTask<ProjectSessionResult>> action)
@@ -61,7 +57,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string projectFile = CreateProjectFilesOnDisk("gateway-open", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, AgentSessionManager sessions) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
 
         ProjectSessionResult result = await gateway.OpenProjectAsync(projectFile);
         HeadlessTestHelpers.Settle();
@@ -71,10 +67,8 @@ public class EditorProjectSessionGatewayTests
             Assert.That(TestShell.Project.IsOpened.Value, Is.True);
             Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(projectFile));
             Assert.That(result.Session.Source, Is.EqualTo(EditingSessionSource.LiveEditor));
-            Assert.That(sessions.CurrentSession, Is.Not.Null);
-            Assert.That(sessions.CurrentSession!.SessionId, Is.EqualTo(result.Session.SessionId));
-            Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value, Is.InstanceOf<EditViewModel>());
-            var editViewModel = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Assert.That(TestShell.Editor.TryGetTabItem(result.Session.Root, out var tab), Is.True);
+            var editViewModel = (EditViewModel)tab!.Context.Value;
             Assert.That(editViewModel.Scene, Is.SameAs(result.Session.Root));
         });
     }
@@ -85,7 +79,7 @@ public class EditorProjectSessionGatewayTests
         await TestReset.ResetShellAsync();
         string first = CreateProjectFilesOnDisk("gateway-first", TimeSpan.FromSeconds(4));
         string second = CreateProjectFilesOnDisk("gateway-second", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(first);
         HeadlessTestHelpers.Settle();
 
@@ -105,7 +99,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string projectFile = CreateProjectFilesOnDisk("gateway-reattach", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(projectFile);
         HeadlessTestHelpers.Settle();
         Project opened = BeutlApplication.Current.Project!;
@@ -133,7 +127,7 @@ public class EditorProjectSessionGatewayTests
             Assert.Ignore("Requires a case-sensitive filesystem.");
         ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
             second, 64, 64, 30, TimeSpan.FromSeconds(1), Name: "Second")));
-        (EditorProjectSessionGateway gateway, AgentSessionManager sessions) = CreateGateway(root);
+        EditorProjectSessionGateway gateway = CreateGateway(root);
         ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
 
         ReconcileException? rejection = await ExpectRejectionAsync(() => gateway.OpenProjectAsync(second));
@@ -142,7 +136,6 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.That(rejection!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(opened.Project));
-            Assert.That(sessions.CurrentSession, Is.SameAs(opened.Session));
         });
     }
 
@@ -160,7 +153,7 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.Ignore("Symlink creation is not available in this environment.");
         }
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
 
         ProjectSessionResult reattached = await gateway.OpenProjectAsync(Path.Combine(alias, Path.GetFileName(first)));
@@ -174,7 +167,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string path = Path.Combine(NewWorkspace("gateway-create"), "fresh.bep");
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
 
         ProjectSessionResult result = await gateway.CreateProjectAsync(new ProjectCreateOptions(
             path, 800, 450, 24, TimeSpan.FromSeconds(6)));
@@ -196,7 +189,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string first = CreateProjectFilesOnDisk("gateway-create-guard", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(first);
         HeadlessTestHelpers.Settle();
         string second = Path.Combine(NewWorkspace("gateway-create-second"), "other.bep");
@@ -217,7 +210,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string openPath = CreateProjectFilesOnDisk("gateway-create-samepath", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(openPath);
         HeadlessTestHelpers.Settle();
         Project openedProject = BeutlApplication.Current.Project!;
@@ -235,13 +228,14 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
-    public async Task AddScene_adds_saves_and_shows_the_scene()
+    public async Task AddScene_adds_saves_without_selecting_the_scene()
     {
         await TestReset.ResetShellAsync();
         string projectFile = CreateProjectFilesOnDisk("gateway-addscene", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(projectFile);
         HeadlessTestHelpers.Settle();
+        var selectedTab = TestShell.Editor.SelectedTabItem.Value;
 
         ProjectSceneResult added = await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
             320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
@@ -251,9 +245,7 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.That(added.Project.Items.OfType<Scene>().Count(), Is.EqualTo(2));
             Assert.That(File.Exists(added.Scene.Uri!.LocalPath), Is.True);
-            var editViewModel = TestShell.Editor.SelectedTabItem.Value?.Context.Value as EditViewModel;
-            Assert.That(editViewModel?.Scene, Is.SameAs(added.Scene));
-            // The live session must be rebound to the newly activated scene, not left on the first.
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(selectedTab));
             Assert.That(added.Session.Root, Is.SameAs(added.Scene));
         });
     }
@@ -264,7 +256,7 @@ public class EditorProjectSessionGatewayTests
         await TestReset.ResetShellAsync();
         string firstProject = CreateProjectFilesOnDisk("gateway-stale-first", TimeSpan.FromSeconds(4));
         string secondProject = CreateProjectFilesOnDisk("gateway-stale-second", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(firstProject);
         HeadlessTestHelpers.Settle();
 
@@ -301,7 +293,7 @@ public class EditorProjectSessionGatewayTests
     {
         await TestReset.ResetShellAsync();
         string projectPath = CreateProjectFilesOnDisk("addscene-rollback", TimeSpan.FromSeconds(4));
-        (EditorProjectSessionGateway gateway, _) = CreateGateway();
+        EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(projectPath);
         HeadlessTestHelpers.Settle();
         string[] originalSceneUris = BeutlApplication.Current.Project!.Items.OfType<Scene>()
@@ -349,7 +341,7 @@ public class EditorProjectSessionGatewayTests
             Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
                 outsideProject, 640, 360, 30, TimeSpan.FromSeconds(4)));
             ProjectOperations.Save(project);
-            (EditorProjectSessionGateway gateway, _) = CreateGateway();
+            EditorProjectSessionGateway gateway = CreateGateway();
             ProjectSessionResult opened = await gateway.OpenProjectAsync(outsideProject);
             HeadlessTestHelpers.Settle();
 

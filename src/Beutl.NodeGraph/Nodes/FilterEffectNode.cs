@@ -64,8 +64,8 @@ public partial class FilterEffectNode<T> : ConfigureNode
             else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
             {
                 resource = filterEffect;
-                bool updateOnly = false;
-                resource.Update(node.Object, context, ref updateOnly);
+                bool versionBumped = false;
+                resource.Reconcile(node.Object, context, ref versionBumped);
                 fen.Update(resource);
             }
         }

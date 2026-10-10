@@ -53,8 +53,8 @@ public sealed partial class VideoSourceNode : GraphNode
             }
             else
             {
-                bool updateOnly = false;
-                _sourceResource!.Update(source, context, ref updateOnly);
+                bool versionBumped = false;
+                _sourceResource!.Reconcile(source, context, ref versionBumped);
             }
 
             TimeSpan time = Time;

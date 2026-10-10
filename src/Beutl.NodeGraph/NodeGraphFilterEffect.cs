@@ -32,9 +32,9 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public override Resource ToResource(CompositionContext context)
     {
-        bool updateOnly = false;
+        bool versionBumped = false;
         var resource = new Resource();
-        resource.Update(this, context, ref updateOnly);
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -69,9 +69,9 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
                 (node, resource) => node.Update(resource));
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
 
             if (obj is NodeGraphFilterEffect filterEffect)
             {
@@ -91,7 +91,7 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
                     DisableResourceShare = context.DisableResourceShare;
                     Snapshot.Build(Model, context);
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
             else

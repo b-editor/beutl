@@ -215,8 +215,8 @@ public class GLSLShaderTests
             using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
             foreach (float time in new[] { 0.25f, 0.75f })
             {
-                bool updateOnly = false;
-                resource.Update(effect, new CompositionContext(TimeSpan.FromSeconds(time)), ref updateOnly);
+                bool versionBumped = false;
+                resource.Reconcile(effect, new CompositionContext(TimeSpan.FromSeconds(time)), ref versionBumped);
                 using var context = new FilterEffectContext(new Rect(0, 0, 4, 4));
                 context.ApplyTransactional(effect, resource);
                 using var targets = new EffectTargets { new EffectTarget(source, new Rect(0, 0, 4, 4)) };

@@ -31,7 +31,7 @@ public sealed partial class DipToColorTransition : ClipTransition
             context.DrawThrough(_fill);
         }
 
-        partial void PostUpdate(DipToColorTransition obj, CompositionContext context)
+        partial void PostReconcile(DipToColorTransition obj, CompositionContext context)
         {
             UpdateDipFill(ref _brush, ref _fill, Color, context);
         }

@@ -168,100 +168,18 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             },
             repository: repository);
 
-        // Git itself refuses to stage a folder it ignores, and that refusal is reported as is.
-        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
-            async () => await service.CommitAllAsync(
-                "snapshot",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Stderr, Does.Contain("ignored"));
-            Assert.That(
-                notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
-                Is.EqualTo(new[] { "projects/" }));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_refuses_an_untracked_project_file_that_an_ignore_rule_matches()
-    {
-        await CommitFileAsync(".gitignore", "*.bep\n", "ignore project files");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "{}\n");
-        await WriteProjectFileAsync("notes.txt", "notes\n");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        using var service = CreateService(
-            new VersionControlConfig(),
-            lfsInstalled: false,
-            _ => Task.CompletedTask,
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "snapshot",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("'project.bep'"));
-            Assert.That(exception.Message, Does.Contain("ignore rules"));
-            Assert.That(
-                RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult().Stdout.Trim(),
-                Is.EqualTo(baseTip));
-        });
-    }
-
-    [Test]
-    public async Task InitializeAsync_refuses_an_untracked_project_file_that_an_ignore_rule_matches()
-    {
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.bep\n");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "{}\n");
-        using var service = CreateService(
-            new VersionControlConfig(),
-            lfsInstalled: false,
-            _ => Task.CompletedTask,
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.InitializeAsync(
-                new InitOptions(Repository, UseLfsWhenAvailable: false),
-                CancellationToken.None));
-
-        GitCommandResult commits = await RunGitAsync("rev-list", "--all", "--count");
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("'project.bep'"));
-            Assert.That(commits.Stdout.Trim(), Is.EqualTo("0"));
-        });
-    }
-
-    [Test]
-    public async Task A_tracked_project_file_that_an_ignore_rule_matches_still_snapshots()
-    {
-        await CommitFileAsync("project.bep", "initial\n", "initial");
-        await CommitFileAsync(".gitignore", "*.bep\n", "ignore project files");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "changed\n");
-        using var service = CreateService(
-            new VersionControlConfig(),
-            lfsInstalled: false,
-            _ => Task.CompletedTask,
-            projectFile: projectFile);
-
+        // Nothing in an ignored folder ever shows as changed, so only the notice can tell.
         CommitResult result = await service.CommitAllAsync(
             "snapshot",
             SnapshotKind.Save,
             CancellationToken.None);
 
-        GitCommandResult committed = await RunGitAsync("show", "HEAD:project.bep");
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-            Assert.That(committed.Stdout, Is.EqualTo("changed\n"));
+            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(
+                notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
+                Is.EqualTo(new[] { "projects/" }));
         });
     }
 

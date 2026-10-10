@@ -181,8 +181,8 @@ public partial class SourceVideo : IThumbnailsProvider
                         PreferProxy = preferProxy,
                         PreferredProxyPreset = preferredProxyPreset,
                     };
-                    bool updateOnly = false;
-                    resource.Update(this, ctx, ref updateOnly);
+                    bool versionBumped = false;
+                    resource.Reconcile(this, ctx, ref versionBumped);
 
                     using (var gctx = new GraphicsContext2D(node, new Size((int)thumbWidth, maxHeight)))
                     using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,

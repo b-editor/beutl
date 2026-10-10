@@ -19,8 +19,8 @@ public class EngineObject
     public virtual Resource ToResource(CompositionContext context)
     {
         var resource = new EngineObject.Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -28,7 +28,7 @@ public class EngineObject
     {
         private EngineObject? _original;
 
-        public int Version { get; protected set; }
+        public int Version { get; set; }
 
         public bool IsAttached => _original is not null;
 
@@ -41,7 +41,7 @@ public class EngineObject
                 + "so it has no backing engine object to dispatch to.");
         }
 
-        public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public virtual void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
             _original = obj;
         }
@@ -54,112 +54,115 @@ public class EngineObject
         protected virtual void Dispose(bool disposing)
         {
         }
+    }
+}
 
-        protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field, ref bool updateOnly)
+public static class ResourceReconciler
+{
+    public static void ReconcileValue<TValue>(EngineObject.Resource owner, CompositionContext context, IProperty<TValue> prop, ref TValue field, ref bool versionBumped)
+    {
+        TValue newValue = context.Get(prop);
+        TValue oldValue = field;
+        field = newValue;
+        if (versionBumped)
         {
-            TValue newValue = context.Get(prop);
-            TValue oldValue = field;
-            field = newValue;
-            if (updateOnly)
-            {
-                return;
-            }
-            if (!EqualityComparer<TValue>.Default.Equals(newValue, oldValue))
-            {
-                Version++;
-                updateOnly = true;
-            }
+            return;
         }
-
-        protected void CompareAndUpdateList<TItem, TResource>(CompositionContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
+        if (!EqualityComparer<TValue>.Default.Equals(newValue, oldValue))
         {
-            for (int i = 0; i < prop.Count; i++)
+            owner.Version++;
+            versionBumped = true;
+        }
+    }
+
+    public static void ReconcileChildren<TItem, TResource>(EngineObject.Resource owner, CompositionContext context, IList<TItem> prop, ref List<TResource> field, ref bool versionBumped) where TItem : EngineObject where TResource : EngineObject.Resource
+    {
+        for (int i = 0; i < prop.Count; i++)
+        {
+            var child = prop[i];
+            if (i < field.Count)
             {
-                var child = prop[i];
-                if (i < field.Count)
+                var item = field[i];
+                if (item.GetOriginal() != child)
                 {
-                    var item = field[i];
-                    if (item.GetOriginal() != child)
-                    {
-                        item = (TResource)child.ToResource(context);
-                        field[i] = item;
-                        Version++;
-                        updateOnly = true;
-                    }
-                    else
-                    {
-                        var oldVersion = item.Version;
-                        item.Update(child, context, ref updateOnly);
-                        if (!updateOnly && oldVersion != item.Version)
-                        {
-                            Version++;
-                            updateOnly = true;
-                        }
-                    }
+                    item = (TResource)child.ToResource(context);
+                    field[i] = item;
+                    owner.Version++;
+                    versionBumped = true;
                 }
                 else
                 {
-                    var item = (TResource)child.ToResource(context);
-                    field.Add(item);
-                    if (!updateOnly)
+                    var oldVersion = item.Version;
+                    item.Reconcile(child, context, ref versionBumped);
+                    if (!versionBumped && oldVersion != item.Version)
                     {
-                        Version++;
-                        updateOnly = true;
-                    }
-                }
-            }
-            while (field.Count > prop.Count)
-            {
-                field.RemoveAt(field.Count - 1);
-            }
-        }
-        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop, ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
-        {
-            var value = context.Get(prop);
-            if (value is null)
-            {
-                if (field is not null)
-                {
-                    field.Dispose();
-                    field = null;
-                    if (!updateOnly)
-                    {
-                        Version++;
-                        updateOnly = true;
+                        owner.Version++;
+                        versionBumped = true;
                     }
                 }
             }
             else
             {
-                if (field is null)
+                var item = (TResource)child.ToResource(context);
+                field.Add(item);
+                if (!versionBumped)
                 {
+                    owner.Version++;
+                    versionBumped = true;
+                }
+            }
+        }
+        while (field.Count > prop.Count)
+        {
+            field.RemoveAt(field.Count - 1);
+        }
+    }
+    public static void ReconcileChild<TObject, TResource>(EngineObject.Resource owner, CompositionContext context, IProperty<TObject> prop, ref TResource? field, ref bool versionBumped) where TObject : EngineObject? where TResource : EngineObject.Resource
+    {
+        var value = context.Get(prop);
+        if (value is null)
+        {
+            if (field is not null)
+            {
+                field.Dispose();
+                field = null;
+                if (!versionBumped)
+                {
+                    owner.Version++;
+                    versionBumped = true;
+                }
+            }
+        }
+        else
+        {
+            if (field is null)
+            {
+                field = (TResource)value.ToResource(context);
+                if (!versionBumped)
+                {
+                    owner.Version++;
+                    versionBumped = true;
+                }
+            }
+            else
+            {
+                if (field.GetOriginal() != value)
+                {
+                    var oldField = field;
                     field = (TResource)value.ToResource(context);
-                    if (!updateOnly)
-                    {
-                        Version++;
-                        updateOnly = true;
-                    }
+                    owner.Version++;
+                    versionBumped = true;
+                    oldField.Dispose();
                 }
                 else
                 {
-                    if (field.GetOriginal() != value)
+                    var oldVersion = field.Version;
+                    var _ = false;
+                    field.Reconcile(value, context, ref _);
+                    if (!versionBumped && oldVersion != field.Version)
                     {
-                        var oldField = field;
-                        field = (TResource)value.ToResource(context);
-                        Version++;
-                        updateOnly = true;
-                        oldField.Dispose();
-                    }
-                    else
-                    {
-                        var oldVersion = field.Version;
-                        var _ = false;
-                        field.Update(value, context, ref _);
-                        if (!updateOnly && oldVersion != field.Version)
-                        {
-                            Version++;
-                            updateOnly = true;
-                        }
+                        owner.Version++;
+                        versionBumped = true;
                     }
                 }
             }

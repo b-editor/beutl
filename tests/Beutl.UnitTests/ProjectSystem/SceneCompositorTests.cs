@@ -1280,8 +1280,8 @@ public class SceneCompositorTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new CallbackResource(onDispose);
-            bool updateOnly = true;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = true;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 
@@ -1325,7 +1325,7 @@ internal sealed partial class CountingAudioObject : EngineObject, IFlowOperator
 
     public partial class Resource
     {
-        partial void PostUpdate(CountingAudioObject obj, CompositionContext context)
+        partial void PostReconcile(CountingAudioObject obj, CompositionContext context)
         {
             obj.UpdateCount++;
         }
@@ -1344,7 +1344,7 @@ internal sealed partial class SceneCompositorContextCaptureDrawable : Drawable
 
     public partial class Resource
     {
-        partial void PostUpdate(SceneCompositorContextCaptureDrawable obj, CompositionContext context)
+        partial void PostReconcile(SceneCompositorContextCaptureDrawable obj, CompositionContext context)
         {
             obj.CapturedContexts.Add(new CapturedCompositionContext(
                 context.PreferProxy));

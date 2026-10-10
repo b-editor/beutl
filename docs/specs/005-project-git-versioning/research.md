@@ -42,7 +42,7 @@ Each entry records a decision that resolves an unknown from the Technical Contex
 - macOS: `git` on PATH → `/usr/bin/git` only if Xcode CLT is actually installed (`xcode-select -p` succeeds; the bare stub otherwise triggers Apple's CLT install dialog) → `/opt/homebrew/bin/git` → `/usr/local/bin/git`.
 - Windows: `where.exe git` → `%ProgramFiles%\Git\cmd\git.exe`.
 - Linux: `git` on PATH.
-- Validate with `git --version` and enforce a minimum version floor (2.36+, for `git hook run`, `git switch`, worktree, and the required plumbing behavior). Repository initialization uses `git init` followed by `git symbolic-ref HEAD refs/heads/main` so the branch name remains explicit and consistent.
+- Validate with `git --version` and enforce a minimum version floor (2.36+, for `git ls-tree --format`, `git switch`, worktree, and the required plumbing behavior). Repository initialization uses `git init` followed by `git symbolic-ref HEAD refs/heads/main` so the branch name remains explicit and consistent.
 - Bound each subprocess probe to 5 seconds and the complete ordered discovery pass to a shared 10-second budget, while preserving caller cancellation. If the shared budget expires after Git validation but during the LFS probe, report Git as installed with LFS unavailable.
 
 **Rationale**: macOS GUI apps launch with a minimal PATH; the CLT stub is a well-known trap that would pop an OS dialog from inside Beutl. A shared deadline prevents several missing or stalled candidates from multiplying the per-process timeout into an unbounded GUI wait.

@@ -41,8 +41,8 @@ public sealed class VideoSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -115,9 +115,9 @@ public sealed class VideoSource : MediaSource
             return _counter.Value.ReadVideo(frame, out bitmap);
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             var videoSource = (VideoSource)obj;
             IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
             // Compare only THIS source's proxy version so a proxy change to another
@@ -158,10 +158,10 @@ public sealed class VideoSource : MediaSource
                 LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
                 RecordLoadedState(videoSource, context, proxyResolverVersion);
 
-                if (!updateOnly)
+                if (!versionBumped)
                 {
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
         }

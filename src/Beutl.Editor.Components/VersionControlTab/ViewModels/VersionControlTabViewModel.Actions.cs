@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Beutl.Editor.Components.VersionControl.ViewModels;
+using Beutl.Editor.VersionControl;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
@@ -209,6 +210,11 @@ internal partial class VersionControlTabViewModel
         {
             Volatile.Write(ref _pendingRecoveryRequestActive, 0);
         }
+    }
+
+    internal Task RunCommandAsync(Func<Task> operation, string commandName)
+    {
+        return VersionControlCommandBoundary.RunAsync(operation, _logger, commandName);
     }
 
     private async Task<bool> RunRestoreRequestAsync(Func<Task<bool>> operation)

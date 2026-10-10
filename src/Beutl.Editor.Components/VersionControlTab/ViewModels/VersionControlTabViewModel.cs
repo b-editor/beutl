@@ -217,7 +217,7 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
 
         LoadMoreCommand = new AsyncReactiveCommand()
-            .WithSubscribe(LoadMoreAsync)
+            .WithSubscribe(() => RunCommandAsync(LoadMoreAsync, nameof(LoadMoreCommand)))
             .DisposeWith(_disposables);
         BackToHistoryCommand = new ReactiveCommandSlim(ShowingDetail)
             .WithSubscribe(ShowHistory)
@@ -229,7 +229,9 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .WithSubscribe(() => PendingRepositoryAdoption.Value?.Respond(false))
             .DisposeWith(_disposables);
         EnableVersionControlCommand = new AsyncReactiveCommand(CanEnableVersionControl)
-            .WithSubscribe(EnableVersionControlAsync)
+            .WithSubscribe(() => RunCommandAsync(
+                EnableVersionControlAsync,
+                nameof(EnableVersionControlCommand)))
             .DisposeWith(_disposables);
         // An observable, not the property itself: given a writable property, AsyncReactiveCommand
         // shares it as its own busy state and sets it to false while running, so DownloadGitAsync
@@ -240,12 +242,16 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
         // An observable, not the property itself: given a writable property, AsyncReactiveCommand
         // shares it as its own busy state and sets it back to true after a successful removal.
         RemoveStaleLockCommand = new AsyncReactiveCommand(CanRemoveStaleLock.AsObservable())
-            .WithSubscribe(RemoveStaleLockAsync)
+            .WithSubscribe(() => RunCommandAsync(
+                RemoveStaleLockAsync,
+                nameof(RemoveStaleLockCommand)))
             .DisposeWith(_disposables);
         // An observable for the same reason: a shared property is set back to true when the command
         // finishes, which brought the banner back after a successful recovery.
         RecoverPendingPullCommand = new AsyncReactiveCommand(HasPendingPullRecovery.AsObservable())
-            .WithSubscribe(RecoverPendingPullAsync)
+            .WithSubscribe(() => RunCommandAsync(
+                RecoverPendingPullAsync,
+                nameof(RecoverPendingPullCommand)))
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = ObserveCanMutate();
         CommitCommand = new AsyncReactiveCommand(

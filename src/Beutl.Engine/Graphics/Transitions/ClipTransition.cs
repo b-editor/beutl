@@ -84,8 +84,8 @@ public abstract partial class ClipTransition : EngineObject
             }
 
             int version = resource.Version;
-            bool updateOnly = false;
-            resource.Update(brush, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(brush, context, ref versionBumped);
             if (resource.Version != version)
             {
                 Version++;

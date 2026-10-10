@@ -327,18 +327,4 @@ internal sealed partial class GitCliVersionControlService
             }
         }
     }
-
-    private static async Task RestoreFailedIndexSnapshotAsync(
-        string indexPath,
-        IndexFileSnapshot beforeAdd,
-        IndexFileSnapshot afterAdd)
-    {
-        await ApplyIndexSnapshotAsync(
-                indexPath,
-                expectedCurrent: afterAdd,
-                replacement: beforeAdd,
-                mismatchMessage:
-                    $"The Git index '{indexPath}' changed after staging; its prior bytes were not restored.")
-            .ConfigureAwait(false);
-    }
 }

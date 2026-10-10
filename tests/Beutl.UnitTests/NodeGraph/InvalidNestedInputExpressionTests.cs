@@ -58,8 +58,8 @@ public class InvalidNestedInputExpressionTests
         void CheckFallback()
         {
             Evaluate(graph);
-            bool updateOnly = false;
-            resource.Update(shared, CompositionContext.Default, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(shared, CompositionContext.Default, ref versionBumped);
             Assert.Multiple(() =>
             {
                 Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Error));

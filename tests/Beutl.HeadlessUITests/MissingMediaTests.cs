@@ -326,8 +326,8 @@ public partial class MissingMediaTests
         CubeFile original = resource.Cube!;
         Assert.That(original, Is.Not.Null);
         ResourceRelocationService.RelinkFileSource(source, new Uri(second));
-        bool updateOnly = false;
-        resource.Update(source, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(source, CompositionContext.Default, ref versionBumped);
         Assert.That(resource.Cube, Is.Not.SameAs(original));
         Assert.That(resource.Cube!.Data[0].X, Is.EqualTo(1));
         string invalid = Path.Combine(directory, "truncated.cube");
@@ -377,8 +377,8 @@ public partial class MissingMediaTests
         await vm.SetReplacementAsync(vm.Rows.Single(), fontPath);
         await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-        bool updateOnly = false;
-        textResource.Update(text, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        textResource.Reconcile(text, CompositionContext.Default, ref versionBumped);
         Assert.That(textResource.GetTextElements(), Is.Not.SameAs(fallbackText), "Relinking refreshes a cached fallback font without changing the text.");
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
         Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(projectPath)!, "resources", "fonts", "renamed-font.ttf")), Is.True);
@@ -448,8 +448,8 @@ public partial class MissingMediaTests
         imageResource.Bitmap!.Save(capture, EncodedImageFormat.Png);
         File.WriteAllBytes(Path.Combine(directory, "restored.png"), s_png);
         ResourceRelocationService.RelinkFileSource(image, new Uri(Path.Combine(directory, "restored.png")));
-        bool updateOnly = false;
-        imageResource.Update(image, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        imageResource.Reconcile(image, CompositionContext.Default, ref versionBumped);
         Assert.That(imageResource.IsOffline, Is.False);
         Assert.That(imageResource.FrameSize.Width, Is.EqualTo(1));
     }
@@ -522,12 +522,12 @@ public partial class MissingMediaTests
         using var shared = source.ToResource(CompositionContext.Default);
         Assert.That(shared.Cube, Is.Not.Null);
         ResourceRelocationService.RelinkFileSource(source, source.Uri);
-        bool updateOnly = false;
-        existing.Update(source, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
         Assert.That(existing.Cube, Is.Not.Null);
         Assert.That(existing.Cube, Is.Not.SameAs(shared.Cube));
         CubeFile recovered = existing.Cube!;
-        existing.Update(source, CompositionContext.Default, ref updateOnly);
+        existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
         Assert.That(existing.Cube, Is.SameAs(recovered), "An unchanged source should not reopen on every frame.");
     }
 
@@ -553,21 +553,21 @@ public partial class MissingMediaTests
             Assert.That(Reader(existing), Is.Null);
             File.WriteAllBytes(path, [1]);
             ResourceRelocationService.RelinkFileSource(source, source.Uri);
-            bool updateOnly = false;
-            existing.Update(source, CompositionContext.Default, ref updateOnly);
-            second.Update(source, CompositionContext.Default, ref updateOnly);
+            bool versionBumped = false;
+            existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
+            second.Reconcile(source, CompositionContext.Default, ref versionBumped);
             Assert.That(Reader(existing), Is.Not.Null);
             Assert.That(Reader(second), Is.SameAs(Reader(existing)));
             Assert.That(decoder.OpenCount, Is.EqualTo(1));
             using var shared = source.ToResource(CompositionContext.Default);
             MediaReader previous = Reader(shared)!;
             ResourceRelocationService.RelinkFileSource(source, source.Uri);
-            existing.Update(source, CompositionContext.Default, ref updateOnly);
-            second.Update(source, CompositionContext.Default, ref updateOnly);
+            existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
+            second.Reconcile(source, CompositionContext.Default, ref versionBumped);
             Assert.That(Reader(existing), Is.Not.SameAs(previous));
             Assert.That(decoder.OpenCount, Is.EqualTo(2));
-            existing.Update(source, CompositionContext.Default, ref updateOnly);
-            second.Update(source, CompositionContext.Default, ref updateOnly);
+            existing.Reconcile(source, CompositionContext.Default, ref versionBumped);
+            second.Reconcile(source, CompositionContext.Default, ref versionBumped);
             Assert.That(decoder.OpenCount, Is.EqualTo(2), "The relink should cause a single shared reopen, not repeated opens per frame.");
         }
         finally { DecoderRegistry.Unregister(decoder); }

@@ -136,7 +136,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         public float Time { get; private set; }
 
-        partial void PostUpdate(GLSLScriptEffect obj, CompositionContext context)
+        partial void PostReconcile(GLSLScriptEffect obj, CompositionContext context)
         {
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

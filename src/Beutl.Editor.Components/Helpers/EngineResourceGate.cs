@@ -8,10 +8,10 @@ namespace Beutl.Editor.Components.Helpers;
 /// </summary>
 /// <remarks>
 /// A versioned resource is rebuilt in place, so the dispatcher that owns it is a writer every other thread
-/// races: <c>CompareAndUpdateList</c> replaces the entries of the lists the resource owns and disposes the
-/// ones it drops, and <c>CompareAndUpdate</c> overwrites its values. Holding this while rebuilding and while
-/// reading is what keeps a reader from landing midway through one. The release runs here too, so a handle
-/// that outlives its subscription can tell that the resource behind it is gone.
+/// races: <c>ResourceReconciler.ReconcileChildren</c> replaces the entries of the lists the resource owns and
+/// disposes the ones it drops, and <c>ResourceReconciler.ReconcileValue</c> overwrites its values. Holding this
+/// while rebuilding and while reading is what keeps a reader from landing midway through one. The release runs
+/// here too, so a handle that outlives its subscription can tell that the resource behind it is gone.
 /// </remarks>
 internal sealed class EngineResourceGate
 {
