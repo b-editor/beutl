@@ -128,7 +128,7 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
         public override SoundSource.Resource? GetSoundSource() => null;
 
-        partial void PreUpdate(SoundGroup obj, CompositionContext context)
+        partial void PreReconcile(SoundGroup obj, CompositionContext context)
         {
             if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
                 Version++;

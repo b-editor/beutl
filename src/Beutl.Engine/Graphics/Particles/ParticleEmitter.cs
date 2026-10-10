@@ -185,8 +185,8 @@ public partial class ParticleEmitter : Drawable
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -233,46 +233,46 @@ public partial class ParticleEmitter : Drawable
             return _simulator.GetAliveParticles();
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
 
             var emitter = (ParticleEmitter)obj;
 
             var versionBefore = Version;
-            CompareAndUpdate(context, emitter.Seed, ref _seed, ref updateOnly);
-            CompareAndUpdate(context, emitter.EmitterShape, ref _emitterShape, ref updateOnly);
-            CompareAndUpdate(context, emitter.EmitterWidth, ref _emitterWidth, ref updateOnly);
-            CompareAndUpdate(context, emitter.EmitterHeight, ref _emitterHeight, ref updateOnly);
-            CompareAndUpdate(context, emitter.MaxParticles, ref _maxParticles, ref updateOnly);
-            CompareAndUpdate(context, emitter.PrewarmDuration, ref _prewarmDuration, ref updateOnly);
-            CompareAndUpdate(context, emitter.EmissionRate, ref _emissionRate, ref updateOnly);
-            CompareAndUpdate(context, emitter.Lifetime, ref _lifetime, ref updateOnly);
-            CompareAndUpdate(context, emitter.LifetimeRandom, ref _lifetimeRandom, ref updateOnly);
-            CompareAndUpdate(context, emitter.Speed, ref _speed, ref updateOnly);
-            CompareAndUpdate(context, emitter.SpeedRandom, ref _speedRandom, ref updateOnly);
-            CompareAndUpdate(context, emitter.Direction, ref _direction, ref updateOnly);
-            CompareAndUpdate(context, emitter.Spread, ref _spread, ref updateOnly);
-            CompareAndUpdate(context, emitter.Gravity, ref _gravity, ref updateOnly);
-            CompareAndUpdate(context, emitter.AirResistance, ref _airResistance, ref updateOnly);
-            CompareAndUpdate(context, emitter.TurbulenceStrength, ref _turbulenceStrength, ref updateOnly);
-            CompareAndUpdate(context, emitter.TurbulenceScale, ref _turbulenceScale, ref updateOnly);
-            CompareAndUpdate(context, emitter.TurbulenceSpeed, ref _turbulenceSpeed, ref updateOnly);
-            CompareAndUpdate(context, emitter.ParticleSize, ref _particleSize, ref updateOnly);
-            CompareAndUpdate(context, emitter.SizeRandom, ref _sizeRandom, ref updateOnly);
-            CompareAndUpdate(context, emitter.ParticleColor, ref _color, ref updateOnly);
-            CompareAndUpdate(context, emitter.ParticleOpacity, ref _particleOpacity, ref updateOnly);
-            CompareAndUpdate(context, emitter.InitialRotation, ref _initialRotation, ref updateOnly);
-            CompareAndUpdate(context, emitter.InitialRotationRandom, ref _initialRotationRandom, ref updateOnly);
-            CompareAndUpdate(context, emitter.AngularVelocity, ref _angularVelocity, ref updateOnly);
-            CompareAndUpdate(context, emitter.EndSizeMultiplier, ref _endSizeMultiplier, ref updateOnly);
-            CompareAndUpdate(context, emitter.EndOpacityMultiplier, ref _endOpacityMultiplier, ref updateOnly);
-            CompareAndUpdate(context, emitter.EndColor, ref _endColor, ref updateOnly);
-            CompareAndUpdate(context, emitter.UseEndColor, ref _useEndColor, ref updateOnly);
+            ResourceReconciler.ReconcileValue(this, context, emitter.Seed, ref _seed, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EmitterShape, ref _emitterShape, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EmitterWidth, ref _emitterWidth, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EmitterHeight, ref _emitterHeight, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.MaxParticles, ref _maxParticles, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.PrewarmDuration, ref _prewarmDuration, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EmissionRate, ref _emissionRate, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.Lifetime, ref _lifetime, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.LifetimeRandom, ref _lifetimeRandom, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.Speed, ref _speed, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.SpeedRandom, ref _speedRandom, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.Direction, ref _direction, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.Spread, ref _spread, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.Gravity, ref _gravity, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.AirResistance, ref _airResistance, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.TurbulenceStrength, ref _turbulenceStrength, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.TurbulenceScale, ref _turbulenceScale, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.TurbulenceSpeed, ref _turbulenceSpeed, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.ParticleSize, ref _particleSize, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.SizeRandom, ref _sizeRandom, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.ParticleColor, ref _color, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.ParticleOpacity, ref _particleOpacity, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.InitialRotation, ref _initialRotation, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.InitialRotationRandom, ref _initialRotationRandom, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.AngularVelocity, ref _angularVelocity, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EndSizeMultiplier, ref _endSizeMultiplier, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EndOpacityMultiplier, ref _endOpacityMultiplier, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.EndColor, ref _endColor, ref versionBumped);
+            ResourceReconciler.ReconcileValue(this, context, emitter.UseEndColor, ref _useEndColor, ref versionBumped);
             var paramChanged = versionBefore != Version;
 
             // Update particle drawable resource
-            CompareAndUpdateObject(context, emitter.ParticleDrawable, ref _particleDrawable, ref updateOnly);
+            ResourceReconciler.ReconcileChild(this, context, emitter.ParticleDrawable, ref _particleDrawable, ref versionBumped);
 
             // Time tracking
             double oldTime = _time;
@@ -322,7 +322,7 @@ public partial class ParticleEmitter : Drawable
 
             // Always increment version since particles move every frame
             // ReSharper disable once CompareOfFloatsByEqualityOperator
-            if (!updateOnly && oldTime != _time)
+            if (!versionBumped && oldTime != _time)
             {
                 Version++;
             }

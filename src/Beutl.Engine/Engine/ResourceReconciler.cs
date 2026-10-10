@@ -5,6 +5,126 @@ namespace Beutl.Engine;
 
 public static class ResourceReconciler
 {
+    /// <summary>
+    /// Copies the current value of <paramref name="property"/> into <paramref name="field"/>, stepping
+    /// <paramref name="owner"/>'s <see cref="EngineObject.Resource.Version"/> when the value changed.
+    /// </summary>
+    public static void ReconcileValue<TValue>(
+        EngineObject.Resource owner, CompositionContext context, IProperty<TValue> property,
+        ref TValue field, ref bool versionBumped)
+    {
+        TValue newValue = context.Get(property);
+        TValue oldValue = field;
+        field = newValue;
+        if (versionBumped)
+        {
+            return;
+        }
+
+        if (!EqualityComparer<TValue>.Default.Equals(newValue, oldValue))
+        {
+            owner.Version++;
+            versionBumped = true;
+        }
+    }
+
+    /// <summary>
+    /// Makes <paramref name="field"/> the resource of the object <paramref name="property"/> currently holds -
+    /// creating, replacing, reconciling or disposing it - and steps <paramref name="owner"/>'s
+    /// <see cref="EngineObject.Resource.Version"/> when that changed it.
+    /// </summary>
+    public static void ReconcileChild<TObject, TResource>(
+        EngineObject.Resource owner, CompositionContext context, IProperty<TObject> property,
+        ref TResource? field, ref bool versionBumped)
+        where TObject : EngineObject? where TResource : EngineObject.Resource
+    {
+        var value = context.Get(property);
+        if (value is null)
+        {
+            if (field is not null)
+            {
+                field.Dispose();
+                field = null;
+                owner.BumpVersion(ref versionBumped);
+            }
+        }
+        else
+        {
+            if (field is null)
+            {
+                field = (TResource)value.ToResource(context);
+                owner.BumpVersion(ref versionBumped);
+            }
+            else
+            {
+                if (field.GetOriginal() != value)
+                {
+                    var oldField = field;
+                    field = (TResource)value.ToResource(context);
+                    owner.Version++;
+                    versionBumped = true;
+                    oldField.Dispose();
+                }
+                else if (ReconcileInPlace(field, value, context))
+                {
+                    owner.BumpVersion(ref versionBumped);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Makes <paramref name="field"/> hold one resource per item of <paramref name="items"/>, in order -
+    /// creating, replacing, reconciling or disposing them - and steps <paramref name="owner"/>'s
+    /// <see cref="EngineObject.Resource.Version"/> when that changed any of them.
+    /// </summary>
+    public static void ReconcileChildren<TItem, TResource>(
+        EngineObject.Resource owner, CompositionContext context, IList<TItem> items,
+        ref List<TResource> field, ref bool versionBumped)
+        where TItem : EngineObject where TResource : EngineObject.Resource
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            var child = items[i];
+            if (i < field.Count)
+            {
+                var item = field[i];
+                if (item.GetOriginal() != child)
+                {
+                    var oldItem = item;
+                    item = (TResource)child.ToResource(context);
+                    field[i] = item;
+                    owner.Version++;
+                    versionBumped = true;
+                    oldItem.Dispose();
+                }
+                else if (ReconcileInPlace(item, child, context))
+                {
+                    owner.BumpVersion(ref versionBumped);
+                }
+            }
+            else
+            {
+                var item = (TResource)child.ToResource(context);
+                field.Add(item);
+                owner.BumpVersion(ref versionBumped);
+            }
+        }
+
+        if (!versionBumped && field.Count != items.Count)
+        {
+            owner.Version++;
+            versionBumped = true;
+        }
+
+        while (field.Count > items.Count)
+        {
+            var oldItem = field[^1];
+            field.RemoveAt(field.Count - 1);
+            oldItem.Dispose();
+        }
+    }
+
     public static void ReconcileListFromFlow<TItem, TResource>(
         CompositionContext context, IListProperty<TItem> property,
         IList<TResource> consumed, List<TResource> field,
@@ -82,7 +202,7 @@ public static class ResourceReconciler
                     changed = true;
                     oldItem.Dispose();
                 }
-                else if (UpdateInPlace(item, child, context))
+                else if (ReconcileInPlace(item, child, context))
                 {
                     changed = true;
                 }
@@ -139,7 +259,7 @@ public static class ResourceReconciler
                     changed = true;
                     oldField.Dispose();
                 }
-                else if (UpdateInPlace(field, value, context))
+                else if (ReconcileInPlace(field, value, context))
                 {
                     changed = true;
                 }
@@ -148,11 +268,11 @@ public static class ResourceReconciler
     }
 
     // Reconciles a resource against the object it was built from and reports whether that moved its Version.
-    internal static bool UpdateInPlace(EngineObject.Resource resource, EngineObject original, CompositionContext context)
+    internal static bool ReconcileInPlace(EngineObject.Resource resource, EngineObject original, CompositionContext context)
     {
         int oldVersion = resource.Version;
-        bool updateOnly = false;
-        resource.Update(original, context, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(original, context, ref versionBumped);
         return oldVersion != resource.Version;
     }
 

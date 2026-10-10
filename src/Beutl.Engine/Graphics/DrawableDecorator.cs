@@ -67,7 +67,7 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
             set => _children = value;
         }
 
-        partial void PostUpdate(DrawableDecorator obj, CompositionContext context)
+        partial void PostReconcile(DrawableDecorator obj, CompositionContext context)
         {
             if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, _children, _childrenVersion, obj, _flowInputs))
                 Version++;

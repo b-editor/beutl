@@ -39,9 +39,9 @@ public abstract class MediaSource : EngineObject, IFileSource
         private long _loadedReloadVersion;
         protected bool ReloadRequested { get; private set; }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             long reloadVersion = Volatile.Read(ref ((MediaSource)obj)._reloadVersion);
             ReloadRequested = _loadedReloadVersion != reloadVersion;
             _loadedReloadVersion = reloadVersion;

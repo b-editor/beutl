@@ -35,7 +35,7 @@ public sealed partial class IrisTransition : ClipTransition
         }
 
         // A disc filling whatever square it is drawn into, opaque inside and clear outside.
-        partial void PostUpdate(IrisTransition obj, CompositionContext context)
+        partial void PostReconcile(IrisTransition obj, CompositionContext context)
         {
             if (_brush == null)
             {

@@ -27,7 +27,7 @@ public sealed partial class EllipseShape : Shape
         private readonly EllipseGeometry _geometry = new();
         private EllipseGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(EllipseShape obj, CompositionContext context)
+        partial void PostReconcile(EllipseShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);

@@ -78,7 +78,7 @@ public sealed partial class SceneDrawable : Drawable
 
         public CompositionFrame? Frame { get; set; }
 
-        partial void PostUpdate(SceneDrawable obj, CompositionContext context)
+        partial void PostReconcile(SceneDrawable obj, CompositionContext context)
         {
             bool changed = false;
             if (_start != obj.Start)

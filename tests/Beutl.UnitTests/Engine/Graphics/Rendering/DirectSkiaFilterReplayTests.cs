@@ -230,8 +230,8 @@ public sealed class DirectSkiaFilterReplayTests
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         blur.Sigma.CurrentValue = new Size(4, 4);
-        bool updateOnly = false;
-        resource.Update(blur, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(blur, CompositionContext.Default, ref versionBumped);
         Assert.That(tail.Update(resource), Is.True);
         using RenderNodeRasterization warm = renderer.Rasterize();
 
@@ -286,8 +286,8 @@ public sealed class DirectSkiaFilterReplayTests
             tailSigma: 1);
 
         tailEffect.Sigma.CurrentValue = new Size(4, 4);
-        bool updateOnly = false;
-        tailResource.Update(tailEffect, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        tailResource.Reconcile(tailEffect, CompositionContext.Default, ref versionBumped);
         Assert.That(tail.Update(tailResource), Is.True);
 
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -1087,8 +1087,8 @@ public sealed class DirectSkiaFilterReplayTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 
@@ -1141,8 +1141,8 @@ public sealed class DirectSkiaFilterReplayTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 
@@ -1200,8 +1200,8 @@ public sealed class DirectSkiaFilterReplayTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 
@@ -1228,8 +1228,8 @@ public sealed class DirectSkiaFilterReplayTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 

@@ -50,8 +50,8 @@ public sealed partial class ImageSourceNode : GraphNode
             }
             else
             {
-                bool updateOnly = false;
-                _sourceResource!.Update(source, context, ref updateOnly);
+                bool versionBumped = false;
+                _sourceResource!.Reconcile(source, context, ref versionBumped);
             }
 
             if (_cachedOutput == null)

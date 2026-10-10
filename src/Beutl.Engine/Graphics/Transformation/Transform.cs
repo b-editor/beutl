@@ -16,8 +16,8 @@ public abstract class Transform : EngineObject
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -25,18 +25,18 @@ public abstract class Transform : EngineObject
     {
         public Matrix Matrix { get; set; } = Matrix.Identity;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             var transform = (Transform)obj;
 
             var oldMatrix = Matrix;
             Matrix = transform.CreateMatrix(context);
-            if (updateOnly) return;
+            if (versionBumped) return;
 
             if (oldMatrix != Matrix)
             {
-                updateOnly = true;
+                versionBumped = true;
                 Version++;
             }
         }

@@ -42,7 +42,7 @@ public static class ResourceClassEmitter
         EmitProperties(sb, innerIndent, info);
         EmitGetOriginal(sb, innerIndent, currentTypeDisplay);
         EmitBindNodePortValues(sb, innerIndent, info);
-        EmitUpdateMethod(sb, innerIndent, currentTypeDisplay, renderContextType, engineObjectType, info);
+        EmitReconcileMethod(sb, innerIndent, currentTypeDisplay, renderContextType, engineObjectType, info);
         EmitDisposeMethod(sb, innerIndent, info);
 
         sb.Append(indent).AppendLine("}");
@@ -202,19 +202,19 @@ public static class ResourceClassEmitter
         }
     }
 
-    private static void EmitUpdateMethod(StringBuilder sb, string innerIndent, string currentTypeDisplay, string renderContextType, string engineObjectType, ClassInfo info)
+    private static void EmitReconcileMethod(StringBuilder sb, string innerIndent, string currentTypeDisplay, string renderContextType, string engineObjectType, ClassInfo info)
     {
         bool hasAdditionalMembers = info.ValueProperties.Length > 0
             || info.ObjectProperties.Length > 0
             || info.ListProperties.Length > 0;
 
-        sb.Append(innerIndent).AppendLine($"partial void PreUpdate({currentTypeDisplay} obj, {renderContextType} context);");
-        sb.Append(innerIndent).AppendLine($"partial void PostUpdate({currentTypeDisplay} obj, {renderContextType} context);");
-        sb.Append(innerIndent).AppendLine($"public override void Update({engineObjectType} obj, {renderContextType} context, ref bool updateOnly)");
+        sb.Append(innerIndent).AppendLine($"partial void PreReconcile({currentTypeDisplay} obj, {renderContextType} context);");
+        sb.Append(innerIndent).AppendLine($"partial void PostReconcile({currentTypeDisplay} obj, {renderContextType} context);");
+        sb.Append(innerIndent).AppendLine($"public override void Reconcile({engineObjectType} obj, {renderContextType} context, ref bool versionBumped)");
         sb.Append(innerIndent).AppendLine("{");
 
-        sb.Append(innerIndent).AppendLine($"    this.PreUpdate(({currentTypeDisplay})obj, context);");
-        sb.Append(innerIndent).AppendLine("    base.Update(obj, context, ref updateOnly);");
+        sb.Append(innerIndent).AppendLine($"    this.PreReconcile(({currentTypeDisplay})obj, context);");
+        sb.Append(innerIndent).AppendLine("    base.Reconcile(obj, context, ref versionBumped);");
 
         bool wroteSection = false;
 
@@ -228,7 +228,7 @@ public static class ResourceClassEmitter
                 {
                     if (property.ExcludeFromResource) continue;
 
-                    AppendUpdateCall(sb, innerIndent, "CompareAndUpdate", currentTypeDisplay, property.Name);
+                    AppendReconcileCall(sb, innerIndent, "ReconcileValue", currentTypeDisplay, property.Name);
                 }
 
                 wroteSection = true;
@@ -241,10 +241,10 @@ public static class ResourceClassEmitter
                     sb.AppendLine();
                 }
 
-                AppendSeparatedUpdates(
+                AppendSeparatedReconciles(
                     sb,
                     innerIndent,
-                    "CompareAndUpdateList",
+                    "ReconcileChildren",
                     currentTypeDisplay,
                     info.ListProperties.Where(property => !property.ExcludeFromResource).Select(property => property.Name));
 
@@ -258,21 +258,21 @@ public static class ResourceClassEmitter
                     sb.AppendLine();
                 }
 
-                AppendSeparatedUpdates(
+                AppendSeparatedReconciles(
                     sb,
                     innerIndent,
-                    "CompareAndUpdateObject",
+                    "ReconcileChild",
                     currentTypeDisplay,
                     info.ObjectProperties.Where(property => !property.ExcludeFromResource).Select(property => property.Name));
             }
         }
 
-        sb.Append(innerIndent).AppendLine($"    this.PostUpdate(({currentTypeDisplay})obj, context);");
+        sb.Append(innerIndent).AppendLine($"    this.PostReconcile(({currentTypeDisplay})obj, context);");
         sb.Append(innerIndent).AppendLine("}");
         sb.AppendLine();
     }
 
-    private static void AppendSeparatedUpdates(
+    private static void AppendSeparatedReconciles(
         StringBuilder sb, string innerIndent, string method, string currentTypeDisplay, IEnumerable<string> propertyNames)
     {
         bool first = true;
@@ -284,15 +284,15 @@ public static class ResourceClassEmitter
             }
 
             first = false;
-            AppendUpdateCall(sb, innerIndent, method, currentTypeDisplay, propertyName);
+            AppendReconcileCall(sb, innerIndent, method, currentTypeDisplay, propertyName);
         }
     }
 
-    private static void AppendUpdateCall(
+    private static void AppendReconcileCall(
         StringBuilder sb, string innerIndent, string method, string currentTypeDisplay, string propertyName)
     {
         string fieldName = EmitHelpers.ToFieldName(propertyName);
-        sb.Append(innerIndent).AppendLine($"    {method}(context, (({currentTypeDisplay})obj).{propertyName}, ref {fieldName}, ref updateOnly);");
+        sb.Append(innerIndent).AppendLine($"    global::Beutl.Engine.ResourceReconciler.{method}(this, context, (({currentTypeDisplay})obj).{propertyName}, ref {fieldName}, ref versionBumped);");
     }
 
     private static void EmitDisposeMethod(StringBuilder sb, string innerIndent, ClassInfo info)

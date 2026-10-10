@@ -531,8 +531,8 @@ public class Renderer3DTests
                     {
                         Object3D original = obj.RequireOriginal();
                         original.ReceiveShadows.CurrentValue = false;
-                        bool updateOnly = false;
-                        obj.Update(original, renderContext, ref updateOnly);
+                        bool versionBumped = false;
+                        obj.Reconcile(original, renderContext, ref versionBumped);
                     }
                 }
                 if (parentCastShadows is { } parentCasts)

@@ -70,8 +70,8 @@ public partial class TextNode : GraphNode
             }
             else
             {
-                bool updateOnly = false;
-                resource.Update(node.Object, context, ref updateOnly);
+                bool versionBumped = false;
+                resource.Reconcile(node.Object, context, ref versionBumped);
             }
 
             if (output == null || output.IsDisposed)

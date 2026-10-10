@@ -275,11 +275,11 @@ public sealed class SKSLScriptEffectShaderTests
 
         using (compiled)
         {
-            bool updateOnly = false;
-            resource.Update(
+            bool versionBumped = false;
+            resource.Reconcile(
                 effect,
                 new CompositionContext(TimeSpan.FromSeconds(6)),
-                ref updateOnly);
+                ref versionBumped);
 
             using var targetRegistry = new RenderTargetPool(new CpuTargetFactory());
             using RenderTargetLeaseSession targets = targetRegistry.BeginSession(RenderIntent.Preview);

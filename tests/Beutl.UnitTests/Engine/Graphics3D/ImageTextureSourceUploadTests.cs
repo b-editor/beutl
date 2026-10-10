@@ -94,8 +94,8 @@ public class ImageTextureSourceUploadTests
         resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
 
         definition.Source.CurrentValue = Image(nameof(GetTexture_ReplacesBothKindsWhenTheSourceChanges) + "-next");
-        bool updateOnly = false;
-        resource.Update(definition, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(definition, CompositionContext.Default, ref versionBumped);
         ITexture2D? color = resource.GetTexture(context.Object);
         ITexture2D? data = resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
 
@@ -148,8 +148,8 @@ public class ImageTextureSourceUploadTests
         resource.GetTexture(context.Object, 1f, TextureContentKind.Data);
 
         definition.Source.CurrentValue = null;
-        bool updateOnly = false;
-        resource.Update(definition, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(definition, CompositionContext.Default, ref versionBumped);
 
         using (Assert.EnterMultipleScope())
         {

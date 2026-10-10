@@ -226,8 +226,8 @@ public sealed class ParticlePrewarmTests
 
     private static void Update(ParticleEmitter.Resource resource, ParticleEmitter emitter, TimeSpan time)
     {
-        bool updateOnly = false;
-        resource.Update(emitter, new CompositionContext(time), ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(emitter, new CompositionContext(time), ref versionBumped);
     }
 
     private static ParticleEmitter CreateEmitter()

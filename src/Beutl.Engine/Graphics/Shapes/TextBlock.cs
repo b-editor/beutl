@@ -250,7 +250,7 @@ public partial class TextBlock : Drawable
             _elements = null;
         }
 
-        partial void PreUpdate(TextBlock obj, CompositionContext context)
+        partial void PreReconcile(TextBlock obj, CompositionContext context)
         {
             long revision = FontManager.Instance.Revision;
             if (_fontRevision != revision)
@@ -301,7 +301,7 @@ public partial class TextBlock : Drawable
             }
 
             var updated = false;
-            CompareAndUpdateObject(context, obj.Pen, ref _pen, ref updated);
+            ResourceReconciler.ReconcileChild(this, context, obj.Pen, ref _pen, ref updated);
             if (updated)
             {
                 _isDirty = true;
@@ -310,7 +310,7 @@ public partial class TextBlock : Drawable
             _fillCache = Fill.Capture();
         }
 
-        partial void PostUpdate(TextBlock obj, CompositionContext context)
+        partial void PostReconcile(TextBlock obj, CompositionContext context)
         {
             var fill = Fill.Capture();
             if (fill != _fillCache)

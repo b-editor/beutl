@@ -288,8 +288,8 @@ public sealed class GraphSnapshotFailureTests
         {
             if (ConstructionFault == "resource") throw Failure;
             var resource = new Resource(this);
-            bool updateOnly = true;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = true;
+            resource.Reconcile(this, context, ref versionBumped);
             CreatedResources.Add(resource);
             return resource;
         }

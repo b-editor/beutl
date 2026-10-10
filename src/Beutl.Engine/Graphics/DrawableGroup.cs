@@ -94,7 +94,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         public List<Drawable.Resource> Children { get; set; } = [];
 
-        partial void PreUpdate(DrawableGroup obj, CompositionContext context)
+        partial void PreReconcile(DrawableGroup obj, CompositionContext context)
         {
             if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion, obj, _flowInputs))
                 Version++;

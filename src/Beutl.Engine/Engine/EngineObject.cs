@@ -363,8 +363,8 @@ public class EngineObject : Hierarchical, INotifyEdited
     public virtual Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -386,9 +386,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// </summary>
         /// <remarks>
         /// A change to this number invalidates such a cache, and nothing else does. Reconciling against an
-        /// engine object is the one thing that moves it on its own: <see cref="Update"/> and the
-        /// <c>CompareAndUpdate</c> family step it whenever a parameter of this resource or of one it owns
-        /// changed, so an attached resource asks nothing of its caller. No setter moves it. A resource built
+        /// engine object is the one thing that moves it on its own: <see cref="Reconcile"/> and the
+        /// <see cref="ResourceReconciler"/> methods it calls step it whenever a parameter of this resource or of
+        /// one it owns changed, so an attached resource asks nothing of its caller. No setter moves it. A resource built
         /// by hand never reconciles, so nothing moves it there at all - assigning a property stores the
         /// value and stops, and resource lists are handed out as plain <see cref="List{T}"/>, so a caller
         /// reaches the children the same way. Moving it is then the caller's job: whoever edits a hand-built
@@ -414,7 +414,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// Gets whether this resource has a backing engine object.
         /// </summary>
         /// <remarks>
-        /// Only <see cref="Update"/> attaches one, so a resource built through its public constructor rather
+        /// Only <see cref="Reconcile"/> attaches one, so a resource built through its public constructor rather
         /// than through <see cref="ToResource"/> is detached.
         /// </remarks>
         public bool IsAttached => _original is not null;
@@ -444,125 +444,33 @@ public class EngineObject : Hierarchical, INotifyEdited
                 + "so it has no backing engine object to dispatch to.");
         }
 
-        public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        /// <summary>
+        /// Brings this resource in line with <paramref name="obj"/> at <paramref name="context"/>'s time and
+        /// attaches <paramref name="obj"/> as its backing object.
+        /// </summary>
+        /// <param name="versionBumped">
+        /// Whether <see cref="Version"/> has already moved during this pass; the first change sets it, so later
+        /// changes need not move the version again. <see cref="EngineObject.ToResource"/> passes
+        /// <see langword="true"/>, since nothing is keyed on a resource that was just built.
+        /// </param>
+        public virtual void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
             if (IsEnabled != obj.IsEnabled)
             {
                 IsEnabled = obj.IsEnabled;
-                BumpVersion(ref updateOnly);
+                BumpVersion(ref versionBumped);
             }
         }
 
-        // Moves Version for the first change a reconcile pass finds; updateOnly then suppresses further bumps.
-        private void BumpVersion(ref bool updateOnly)
+        // Moves Version for the first change a reconcile pass finds; versionBumped then suppresses further bumps.
+        internal void BumpVersion(ref bool versionBumped)
         {
-            if (!updateOnly)
+            if (!versionBumped)
             {
                 Version++;
-                updateOnly = true;
-            }
-        }
-
-        protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field,
-            ref bool updateOnly)
-        {
-            TValue newValue = context.Get(prop);
-            TValue oldValue = field;
-            field = newValue;
-            if (updateOnly)
-            {
-                return;
-            }
-
-            if (!EqualityComparer<TValue>.Default.Equals(newValue, oldValue))
-            {
-                Version++;
-                updateOnly = true;
-            }
-        }
-
-        protected void CompareAndUpdateList<TItem, TResource>(CompositionContext context, IList<TItem> prop,
-            ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
-        {
-            for (int i = 0; i < prop.Count; i++)
-            {
-                var child = prop[i];
-                if (i < field.Count)
-                {
-                    var item = field[i];
-                    if (item.GetOriginal() != child)
-                    {
-                        var oldItem = item;
-                        item = (TResource)child.ToResource(context);
-                        field[i] = item;
-                        Version++;
-                        updateOnly = true;
-                        oldItem.Dispose();
-                    }
-                    else if (ResourceReconciler.UpdateInPlace(item, child, context))
-                    {
-                        BumpVersion(ref updateOnly);
-                    }
-                }
-                else
-                {
-                    var item = (TResource)child.ToResource(context);
-                    field.Add(item);
-                    BumpVersion(ref updateOnly);
-                }
-            }
-
-            if (!updateOnly && field.Count != prop.Count)
-            {
-                Version++;
-                updateOnly = true;
-            }
-
-            while (field.Count > prop.Count)
-            {
-                var oldItem = field[^1];
-                field.RemoveAt(field.Count - 1);
-                oldItem.Dispose();
-            }
-        }
-
-        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop,
-            ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
-        {
-            var value = context.Get(prop);
-            if (value is null)
-            {
-                if (field is not null)
-                {
-                    field.Dispose();
-                    field = null;
-                    BumpVersion(ref updateOnly);
-                }
-            }
-            else
-            {
-                if (field is null)
-                {
-                    field = (TResource)value.ToResource(context);
-                    BumpVersion(ref updateOnly);
-                }
-                else
-                {
-                    if (field.GetOriginal() != value)
-                    {
-                        var oldField = field;
-                        field = (TResource)value.ToResource(context);
-                        Version++;
-                        updateOnly = true;
-                        oldField.Dispose();
-                    }
-                    else if (ResourceReconciler.UpdateInPlace(field, value, context))
-                    {
-                        BumpVersion(ref updateOnly);
-                    }
-                }
+                versionBumped = true;
             }
         }
 
