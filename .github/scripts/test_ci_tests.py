@@ -86,9 +86,10 @@ class CiTestsTests(unittest.TestCase):
         assembly = root / "tests/Beutl.UnitTests/bin/Debug/net10.0/Beutl.UnitTests.dll"
         normal = ci_tests.test_command(root, assembly, "unit-engine", False)
         validation = ci_tests.test_command(root, assembly, "unit-engine", True)
-        self.assertEqual(normal[-2:], validation[-2:])
-        self.assertTrue(normal[-2].startswith("NUnit.Where="))
-        self.assertEqual(normal[-1], "NUnit.ExplicitMode=None")
+        self.assertEqual(normal[-3:], validation[-3:])
+        self.assertTrue(normal[-3].startswith("NUnit.Where="))
+        self.assertEqual(normal[-2], "NUnit.ExplicitMode=None")
+        self.assertEqual(normal[-1], "NUnit.AssemblySelectLimit=2147483647")
         self.assertNotIn("--filter", normal)
         self.assertIn("--collect", normal)
         self.assertNotIn("--collect", validation)

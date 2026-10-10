@@ -78,9 +78,13 @@ def test_command(root, assembly, suite, validation):
     if not validation:
         command.extend(["--collect", "XPlat Code Coverage", "--settings", str(root / "coverlet.runsettings")])
     if suite in FILTERS:
-        # Native Where filters avoid the adapter's AssemblySelectLimit, which
-        # otherwise discards VSTest selections over 2,000 tests and runs everything.
-        command.extend(["--", "NUnit.Where=" + FILTERS[suite], "NUnit.ExplicitMode=None"])
+        # DLL execution can pass discovery's selected tests back as a VSTest list.
+        # Disable the adapter's 2,000-case cutoff on that list as well, so large
+        # shards stay filtered. Explicit/manual capture fixtures stay excluded.
+        command.extend([
+            "--", "NUnit.Where=" + FILTERS[suite], "NUnit.ExplicitMode=None",
+            "NUnit.AssemblySelectLimit=2147483647",
+        ])
     return command
 
 
