@@ -1981,6 +1981,72 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
+    [TestCase(true, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, true)]
+    public async Task Stale_lock_offer_reports_whether_it_requires_manual_removal(
+        bool supportsConditionalLockDeletion,
+        bool hasFileIdentity,
+        bool expectedRequiresManualRemoval)
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+
+        RepositoryLockFileSnapshot? ReadSnapshot(string path)
+        {
+            RepositoryLockFileSnapshot? snapshot = ReadTestLockFileSnapshot(path);
+            return hasFileIdentity || snapshot is not { } value
+                ? snapshot
+                : value with { Identity = null };
+        }
+
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now),
+            supportsConditionalLockDeletion: supportsConditionalLockDeletion,
+            readLockFileSnapshot: ReadSnapshot,
+            deleteLockFileConditionally: TryDeleteTestLockFileConditionally);
+        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                lockInfo.RequiresManualRemoval,
+                Is.EqualTo(expectedRequiresManualRemoval));
+            Assert.That(
+                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
+                Is.EqualTo(!expectedRequiresManualRemoval));
+        });
+    }
+
+    [Test]
+    public async Task Default_runner_requires_manual_lock_removal_outside_windows()
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now));
+
+        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
+
+        Assert.That(
+            lockInfo.RequiresManualRemoval,
+            Is.EqualTo(!OperatingSystem.IsWindows()));
+    }
+
     [Test]
     public async Task Replacement_between_recheck_and_conditional_delete_is_not_removed()
     {
