@@ -77,6 +77,7 @@ public class TerminalRenderingTests
                         (Marshal.ReadInt32(pixels.Address, y * pixels.RowBytes + x * 4) & 0xFF) > 0x20), -1);
             }).ToArray();
 
+            Assert.That(barEdges, Is.All.GreaterThanOrEqualTo(0), "every row must draw its text");
             Assert.That(barEdges, Is.All.EqualTo(barEdges[0]).Within(1),
                 "a glyph from a fallback font must not shift the rest of its row off the cell grid");
         }
