@@ -396,7 +396,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "cancel_ai_job")]
-    [Description("Stops waiting for an AI job. A request the service has already accepted is still charged; its result stays collectable from the AI tab's job history in the app.")]
+    [Description("Cancels an AI job in the app: its work stops and the job ends Cancelled with no result here. A request the service has already accepted is still charged, and its result can be collected from the AI tab's job history in the app.")]
     public ToolResult<AgentAiJobSnapshot> CancelAiJob(
         [Description("The jobId to cancel.")]
         string jobId)

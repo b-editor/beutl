@@ -265,7 +265,7 @@ Generation tools start a job and wait up to `waitSeconds` (0–110, default 45; 
 
 ### `read_ai_job` / `cancel_ai_job`
 - **Input**: `{ "jobId": string, "waitSeconds"?: number }` / `{ "jobId": string }`.
-- **Output**: `{ "jobId", "operation", "status": "Running" | "Succeeded" | "Failed" | "Cancelled", "statusText", "elapsedSeconds", "output": { "outputPath", "mediaKind": "image" | "video" | "transcript", "modelId", "seed", "transcript" } | null, "errorCode", "errorMessage", "nextStep" }`. Cancelling stops waiting; a request the service already accepted is still charged, and its result can be collected from the AI tab's job history.
+- **Output**: `{ "jobId", "operation", "status": "Running" | "Succeeded" | "Failed" | "Cancelled", "statusText", "elapsedSeconds", "output": { "outputPath", "mediaKind": "image" | "video" | "transcript", "modelId", "seed", "transcript" } | null, "errorCode", "errorMessage", "nextStep" }`. Cancelling stops the job's work in the app and ends it `Cancelled` with no output; a request the service already accepted is still charged, and its result can be collected from the AI tab's job history.
 
 ## Extension tools *(in-app host only)*
 
