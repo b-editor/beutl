@@ -99,8 +99,9 @@ internal sealed partial class GitCliRunner
             }
         }
 
+        // A stopped reader ends the records it has: they are still the diagnostic to report.
         int count;
-        while ((count = await reader.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        while ((count = await ReadChunkAsync(reader, buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             for (int i = 0; i < count; i++)
             {
@@ -166,6 +167,7 @@ internal sealed partial class GitCliRunner
         retainedLength += record.Length;
     }
 
+    // Truncated also marks output whose end was never reached because reading was stopped.
     internal static async Task<(string Output, bool Truncated)> ReadStandardOutputAsync(
         Stream stream,
         int? maxBytes,
@@ -184,7 +186,9 @@ internal sealed partial class GitCliRunner
                 Encoding.UTF8,
                 detectEncodingFromByteOrderMarks: true,
                 leaveOpen: true);
-            return (await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false), false);
+            (string text, bool complete) = await GitProcess.ReadTextAsync(reader, cancellationToken)
+                .ConfigureAwait(false);
+            return (text, !complete);
         }
 
         (byte[] captured, int capturedCount, bool truncated) =
@@ -231,8 +235,14 @@ internal sealed partial class GitCliRunner
         if (maxBytes is null)
         {
             using var output = new MemoryStream();
-            await stream.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-            return (output.ToArray(), false);
+            var buffer = new byte[8192];
+            int count;
+            while ((count = await ReadChunkAsync(stream, buffer, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                output.Write(buffer, 0, count);
+            }
+
+            return (output.ToArray(), count < 0);
         }
 
         (byte[] captured, int capturedCount, bool truncated) =
@@ -245,7 +255,7 @@ internal sealed partial class GitCliRunner
         return (captured, truncated);
     }
 
-    // Reads the stream to its end and keeps its first limit bytes.
+    // Reads the stream to its end, or until reading is stopped, and keeps its first limit bytes.
     private static async Task<(byte[] Captured, int Count, bool Truncated)> CaptureBoundedAsync(
         Stream stream,
         int limit,
@@ -256,7 +266,7 @@ internal sealed partial class GitCliRunner
         int capturedCount = 0;
         bool truncated = false;
         int count;
-        while ((count = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        while ((count = await ReadChunkAsync(stream, buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             int copyCount = Math.Min(count, limit - capturedCount);
             if (copyCount > 0)
@@ -268,7 +278,38 @@ internal sealed partial class GitCliRunner
             truncated |= copyCount < count;
         }
 
-        return (captured, capturedCount, truncated);
+        return (captured, capturedCount, truncated || count < 0);
+    }
+
+    // Returns the length of the next chunk, 0 at the end of the stream, or -1 once reading is stopped.
+    private static async ValueTask<int> ReadChunkAsync(
+        Stream stream,
+        Memory<byte> buffer,
+        CancellationToken stopReading)
+    {
+        try
+        {
+            return await stream.ReadAsync(buffer, stopReading).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stopReading.IsCancellationRequested)
+        {
+            return -1;
+        }
+    }
+
+    private static async ValueTask<int> ReadChunkAsync(
+        TextReader reader,
+        Memory<char> buffer,
+        CancellationToken stopReading)
+    {
+        try
+        {
+            return await reader.ReadAsync(buffer, stopReading).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stopReading.IsCancellationRequested)
+        {
+            return -1;
+        }
     }
 
     private static int GetCompleteUtf8PrefixLength(ReadOnlySpan<byte> bytes)

@@ -36,8 +36,9 @@ For network operations, the runner preserves inherited `GIT_SSH_COMMAND`, `GIT_S
 
 ## Lifecycle
 
-- Each command runs through `System.Diagnostics.Process` (`GitProcess`). Cancellation and timeouts kill its process tree (`Kill(entireProcessTree: true)`), then give the killed processes up to 2 s to exit and the output pipes to reach end of file. A descendant that escaped the kill (on Unix, one whose parent had already exited) can keep the pipes open; after the grace period reading stops, the pipes are closed, and the call returns without waiting for it. Nothing tracks such a process afterwards: a repository lock it still holds surfaces as Git's normal lock error on a later command.
-- A command that exits on its own is not killed. Background work that already closed the command's pipes is neither waited for nor killed.
+- Each command runs through `System.Diagnostics.Process` (`GitProcess`). Cancellation and timeouts kill its process tree (`Kill(entireProcessTree: true)`; on Unix a command that has already exited is left alone, since its id may have been reused).
+- Once the command has exited or been killed, the output pipes get up to 2 s to reach end of file. A process it left behind can keep them open: a hook's background job or an SSH connection master after a normal exit, or after a kill a descendant the kill could not reach (on Unix, one whose parent had already exited). Reading then stops and the pipes are closed. After a normal exit the result stands with what was read: stderr keeps the records read so far, and stdout is marked truncated, which a caller that set a limit already treats as incomplete; for a caller without a limit the command fails with exit code `-1` and a diagnostic. Nothing tracks the process afterwards: a repository lock it still holds surfaces as Git's normal lock error on a later command.
+- Background work that already closed the command's pipes is neither waited for nor killed.
 - Timeouts: local operations 30 s (a wedged local git indicates a broken repo → surface, don't spin); network operations unbounded but cancelable with progress (`--progress` on push, parsed from stderr).
 - Exit code ≠ 0 ⇒ typed failure. The runner never retries; retry policy is the caller's.
 

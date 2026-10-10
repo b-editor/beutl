@@ -177,8 +177,8 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
             (int exitCode, string stdout, string stderr) = await GitProcess.RunAsync(
                 startInfo,
                 standardInput: null,
-                static (reader, token) => reader.ReadToEndAsync(token),
-                static (reader, token) => reader.ReadToEndAsync(token),
+                ReadTextAsync,
+                ReadTextAsync,
                 _timeout,
                 cancellationToken).ConfigureAwait(false);
             return new GitProbeResult(exitCode, stdout, stderr);
@@ -188,6 +188,10 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
             return new GitProbeResult(-1, string.Empty, string.Empty);
         }
     }
+
+    // A probe reports whatever the command wrote before reading stopped.
+    private static async Task<string> ReadTextAsync(StreamReader reader, CancellationToken stopReading)
+        => (await GitProcess.ReadTextAsync(reader, stopReading).ConfigureAwait(false)).Text;
 
     public bool FileExists(string path) => File.Exists(path);
 

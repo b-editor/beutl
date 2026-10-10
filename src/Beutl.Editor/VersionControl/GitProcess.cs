@@ -1,20 +1,24 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 
 namespace Beutl.Editor.VersionControl;
 
 // Runs one command through System.Diagnostics.Process with every standard stream redirected.
 //
-// Cancellation and timeouts kill the command's process tree. A descendant can escape that kill (on
-// Unix, one whose parent has already exited) and keep the output pipes open, so they are drained only
-// for a bounded time before reading stops. Nothing waits for such a descendant: a repository lock it
-// still holds surfaces as Git's own lock error on a later command.
+// A process the command leaves behind can keep its pipes open: a hook's background job after the
+// command exits, or, after a kill, a descendant the kill could not reach (on Unix, one whose parent
+// had already exited). The pipes are therefore drained only for a bounded time once the command has
+// exited or been killed; then reading stops and the readers return what they have read. Nothing
+// waits for such a process: a repository lock it still holds surfaces as Git's own lock error on a
+// later command.
 internal static class GitProcess
 {
     private static readonly TimeSpan s_drainGracePeriod = TimeSpan.FromSeconds(2);
 
-    // Throws Win32Exception when the command cannot start, TimeoutException when the timeout elapses
-    // first, and OperationCanceledException when the caller cancels.
+    // The readers get a token that stops them; a stopped reader returns what it has read. Throws
+    // Win32Exception when the command cannot start, TimeoutException when the timeout elapses first,
+    // and OperationCanceledException when the caller cancels.
     public static async Task<(int ExitCode, TOutput Output, string Error)> RunAsync<TOutput>(
         ProcessStartInfo startInfo,
         byte[]? standardInput,
@@ -27,35 +31,43 @@ internal static class GitProcess
         process.Start();
         try
         {
-            using var stopReading = new CancellationTokenSource();
-            Task<TOutput> output = readStandardOutput(process.StandardOutput, stopReading.Token);
-            Task<string> error = readStandardError(process.StandardError, stopReading.Token);
+            using var stopPipes = new CancellationTokenSource();
+            Task<TOutput> output = readStandardOutput(process.StandardOutput, stopPipes.Token);
+            Task<string> error = readStandardError(process.StandardError, stopPipes.Token);
+            Task input = WriteStandardInputAsync(
+                process.StandardInput.BaseStream,
+                standardInput,
+                stopPipes.Token);
+            Task pipes = Task.WhenAll(input, output, error);
+            Task exit = process.WaitForExitAsync(CancellationToken.None);
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             if (timeout is { } limit)
             {
                 cancellation.CancelAfter(limit);
             }
 
-            Task input = WriteStandardInputAsync(
-                process.StandardInput.BaseStream,
-                standardInput,
-                cancellation.Token);
-            Task completion = Task.WhenAll(
-                process.WaitForExitAsync(CancellationToken.None),
-                input,
-                output,
-                error);
             try
             {
-                await completion.WaitAsync(cancellation.Token).ConfigureAwait(false);
+                await exit.WaitAsync(cancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
                 KillProcessTree(process);
-                await DrainAsync(completion).ConfigureAwait(false);
-                stopReading.Cancel();
+                await DrainAsync(Task.WhenAll(exit, pipes)).ConfigureAwait(false);
+                stopPipes.Cancel();
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new TimeoutException($"Git did not finish within {timeout}.");
+            }
+
+            // The command has exited, so its result stands: the caller's deadline no longer applies,
+            // and the drain is bounded on its own.
+            if (await DrainAsync(pipes).ConfigureAwait(false))
+            {
+                await pipes.ConfigureAwait(false);
+            }
+            else
+            {
+                stopPipes.Cancel();
             }
 
             return (
@@ -69,13 +81,43 @@ internal static class GitProcess
         }
     }
 
+    // Reads text to the end of the pipe, or until reading is stopped, and returns what it read.
+    public static async Task<(string Text, bool Complete)> ReadTextAsync(
+        TextReader reader,
+        CancellationToken stopReading)
+    {
+        var text = new StringBuilder();
+        var buffer = new char[4096];
+        try
+        {
+            int count;
+            while ((count = await reader.ReadAsync(buffer, stopReading).ConfigureAwait(false)) > 0)
+            {
+                text.Append(buffer, 0, count);
+            }
+        }
+        catch (OperationCanceledException) when (stopReading.IsCancellationRequested)
+        {
+            return (text.ToString(), false);
+        }
+
+        return (text.ToString(), true);
+    }
+
     // On Windows this also ends the descendants of a command that has already exited, because the
-    // handle Process holds keeps its id reserved. On Unix that id may have been reused, so Process
-    // leaves an exited command alone.
+    // handle Process holds keeps its id reserved. On Unix nothing reserves the id once the command has
+    // been reaped, so an exited command is left alone. Process.Kill already skips a child whose exit
+    // it has recorded, and it records the exit when it reaps the child; this guard keeps the rule
+    // explicit instead of relying on that.
     internal static void KillProcessTree(Process process, Action<Process>? killProcessTree = null)
     {
         try
         {
+            if (!OperatingSystem.IsWindows() && process.HasExited)
+            {
+                return;
+            }
+
             killProcessTree ??= static target => target.Kill(entireProcessTree: true);
             killProcessTree(process);
         }
@@ -117,16 +159,18 @@ internal static class GitProcess
         }
     }
 
-    // Gives the killed tree time to exit and the readers time to reach the end of the pipes.
-    private static async Task DrainAsync(Task completion)
+    // Waits up to the grace period and reports whether the task finished in time.
+    private static async Task<bool> DrainAsync(Task task)
     {
-        Task drained = ObserveAsync(completion);
+        Task drained = ObserveAsync(task);
         try
         {
             await drained.WaitAsync(s_drainGracePeriod).ConfigureAwait(false);
+            return true;
         }
         catch (TimeoutException)
         {
+            return false;
         }
     }
 

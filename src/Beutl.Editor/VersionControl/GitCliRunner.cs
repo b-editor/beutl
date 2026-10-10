@@ -108,7 +108,10 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         "GIT_COMMON_DIR",
     ];
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
+    internal const int IncompleteStdoutExitCode = -1;
     private static readonly Encoding s_utf8WithoutPreamble = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    private const string IncompleteStdoutDiagnostic =
+        "[Git exited, but a process it started still held its standard output open, so the output was not read to its end]";
     internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
     private readonly string _gitPath;
     private readonly TimeSpan _localTimeout;
@@ -295,6 +298,17 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         }
 
         stderr = GitDiagnosticSanitizer.RedactCredentials(stderr);
+        // A process the command left behind can hold stdout past its exit, and reading then stops
+        // before the end. A caller that set a limit checks StdoutTruncated; any other caller needs all
+        // of the output, so the command counts as failed.
+        if (exitCode == 0 && stdout.Truncated && maxStdoutBytes is null)
+        {
+            exitCode = IncompleteStdoutExitCode;
+            stderr = stderr.Length == 0 || stderr.EndsWith('\n')
+                ? stderr + IncompleteStdoutDiagnostic
+                : $"{stderr}\n{IncompleteStdoutDiagnostic}";
+        }
+
         if (throwOnFailure && exitCode != 0)
         {
             var exception = new GitOperationException(exitCode, stderr);
