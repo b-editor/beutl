@@ -21,7 +21,8 @@ public sealed class McpToolDefinition
     /// <c>additionalProperties</c> to something other than <see langword="false"/> or combines
     /// subschemas at the top level (<c>allOf</c>, <c>anyOf</c>, <c>oneOf</c>, <c>if</c>,
     /// <c>dependentSchemas</c>, or <c>$ref</c>). The schema must not declare, require, or match the
-    /// reserved <c>instanceId</c> argument.
+    /// reserved <c>instanceId</c> argument, and its <c>$ref</c> values must point inside the schema
+    /// (<c>#/...</c>); the host skips a tool that breaks either rule.
     /// </param>
     public McpToolDefinition(string name, string description, JsonElement? inputSchema = null)
     {

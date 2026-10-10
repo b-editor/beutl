@@ -11,7 +11,8 @@ namespace Beutl.Editor.Services.Mcp;
 /// The host reads <see cref="Tools"/> whenever the set of loaded extensions changes, possibly from a
 /// background thread, and copies the metadata, so return the same definitions on every read without
 /// touching UI state. Tool names share one namespace with Beutl's built-in
-/// tools and with other extensions; a colliding name is skipped and logged, so prefix names with
+/// tools and with other extensions. A colliding name is skipped and logged, and a name stays with
+/// the first extension that declared it for the rest of the session, so prefix names with
 /// something specific to the extension.
 /// </para>
 /// <para>
