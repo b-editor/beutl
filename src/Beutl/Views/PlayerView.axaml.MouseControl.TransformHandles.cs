@@ -49,6 +49,9 @@ public partial class PlayerView
             public required TransformGroup Group { get; init; }
             // null = non-invertible (HandleTranslate will abort).
             public BtlMatrix? InvPostMatrixOfT { get; init; }
+            // Takes the group's output into the frame: the pivot's offset back, the alignment and anything above
+            // the drawable. null when the press-time matrix cannot be split there (a singular group).
+            public BtlMatrix? AfterGroup { get; init; }
             public required BtlMatrix RotationMatrix { get; init; }
             public required float StartTransX { get; init; }
             public required float StartTransY { get; init; }
@@ -356,6 +359,12 @@ public partial class PlayerView
 
             BtlMatrix? invPostMatrixOfT = ensured.PostMatrixOfT.TryInvert(out BtlMatrix invPostT) ? invPostT : null;
             BtlMatrix rotationMatrix = ensured.Rotation.CreateMatrix(ctx);
+            // The press-time box was drawn through (-pivot) · group · AfterGroup.
+            BtlMatrix intoGroup = BtlMatrix.CreateTranslation(-_press.PivotLocal.X, -_press.PivotLocal.Y)
+                * ensured.Group.CreateMatrix(ctx);
+            BtlMatrix? afterGroup = intoGroup.TryInvert(out BtlMatrix outOfGroup)
+                ? outOfGroup * _press.StartUserMatrix
+                : null;
 
             _ensured = new EnsuredState
             {
@@ -364,6 +373,7 @@ public partial class PlayerView
                 Rotation = ensured.Rotation,
                 Group = ensured.Group,
                 InvPostMatrixOfT = invPostMatrixOfT,
+                AfterGroup = afterGroup,
                 RotationMatrix = rotationMatrix,
                 StartTransX = startTransX,
                 StartTransY = startTransY,
@@ -621,8 +631,10 @@ public partial class PlayerView
             WriteScalar(ensured.Scale.ScaleY, ensured.KfScaleY, ensured.KfStartScaleY, deltaScaleY, newScaleY);
         }
 
-        // Compensate the anchor shift caused by a scale change via the operative Translate; see
-        // <see cref="TransformHandleMath.ComputePivotTranslationDelta"/> for the derivation.
+        // Compensate the anchor shift caused by a scale change via the operative Translate. The translate is solved
+        // from the group as the new scale leaves it, so the anchor stays put whatever order the group's transforms
+        // are in and whatever uniform Scale they carry; a group that cannot be solved falls back to the canonical
+        // [T, R, S] formula in <see cref="TransformHandleMath.ComputePivotTranslationDelta"/>.
         private void ApplyScaleWithPivotCorrection(
             PressState press, EnsuredState ensured,
             float newScaleX, float newScaleY, double anchorX, double anchorY)
@@ -630,12 +642,13 @@ public partial class PlayerView
             ApplyScale(ensured, newScaleX, newScaleY);
             if (_press == null) return;
 
-            (float deltaTx, float deltaTy) = TransformHandleMath.ComputePivotTranslationDelta(
-                ensured.StartScaleX, ensured.StartScaleY,
-                newScaleX, newScaleY,
-                anchorX, anchorY,
-                press.PivotLocal.X, press.PivotLocal.Y,
-                ensured.RotationMatrix);
+            (float deltaTx, float deltaTy) = SolveAnchorTranslation(press, ensured, anchorX, anchorY)
+                ?? TransformHandleMath.ComputePivotTranslationDelta(
+                    ensured.StartScaleX, ensured.StartScaleY,
+                    newScaleX, newScaleY,
+                    anchorX, anchorY,
+                    press.PivotLocal.X, press.PivotLocal.Y,
+                    ensured.RotationMatrix);
             float newTx = ensured.StartTransX + deltaTx;
             float newTy = ensured.StartTransY + deltaTy;
 
@@ -649,6 +662,50 @@ public partial class PlayerView
 
             WriteScalar(ensured.Translate.X, ensured.KfTransX, ensured.KfStartTransX, deltaTx, newTx);
             WriteScalar(ensured.Translate.Y, ensured.KfTransY, ensured.KfStartTransY, deltaTy, newTy);
+        }
+
+        // The operative Translate's change from its start value that draws the anchor where the press-time box did,
+        // or null when the matrices do not allow solving it. A drawn point moves by delta · L when the translate
+        // moves by delta, L being the linear part of everything applied after the translate.
+        private (float dx, float dy)? SolveAnchorTranslation(
+            PressState press, EnsuredState ensured, double anchorX, double anchorY)
+        {
+            if (ensured.AfterGroup is not { } afterGroup) return null;
+
+            var ctx = new CompositionContext(Clock.CurrentTime.Value);
+            BtlMatrix toFrame = BtlMatrix.CreateTranslation(-press.PivotLocal.X, -press.PivotLocal.Y)
+                * ensured.Group.CreateMatrix(ctx) * afterGroup;
+            BtlMatrix afterTranslate = MatrixAfter(ensured.Group, ensured.Translate, ctx) * afterGroup;
+            float det = (afterTranslate.M11 * afterTranslate.M22) - (afterTranslate.M12 * afterTranslate.M21);
+            if (toFrame.ContainsPerspective() || afterTranslate.ContainsPerspective()
+                || !float.IsFinite(det) || MathF.Abs(det) < 1e-6f)
+            {
+                return null;
+            }
+
+            var anchor = new BtlPoint((float)anchorX, (float)anchorY);
+            BtlPoint target = press.StartUserMatrix.Transform(anchor);
+            BtlPoint drawn = toFrame.Transform(anchor);
+            float ex = target.X - drawn.X;
+            float ey = target.Y - drawn.Y;
+            float dx = ((ex * afterTranslate.M22) - (ey * afterTranslate.M21)) / det;
+            float dy = ((ey * afterTranslate.M11) - (ex * afterTranslate.M12)) / det;
+
+            return (ensured.Translate.X.GetValue(ctx) + dx - ensured.StartTransX,
+                ensured.Translate.Y.GetValue(ctx) + dy - ensured.StartTransY);
+        }
+
+        // The enabled transforms the group applies after the given one, which are the ones before it in the list.
+        private static BtlMatrix MatrixAfter(TransformGroup group, Transform transform, CompositionContext ctx)
+        {
+            BtlMatrix after = BtlMatrix.Identity;
+            foreach (Transform child in group.Children)
+            {
+                if (ReferenceEquals(child, transform)) break;
+                if (child.IsEnabled) after = child.CreateMatrix(ctx) * after;
+            }
+
+            return after;
         }
 
         private static BtlPoint ImagePointToStartLocal(PressState press, AvaPoint img)

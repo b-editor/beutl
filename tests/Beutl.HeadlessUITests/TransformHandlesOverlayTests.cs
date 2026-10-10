@@ -45,6 +45,11 @@ public class TransformHandlesOverlayTests
         Text,
         // The transform is a lone TranslateTransform rather than a group, which the first drag wraps.
         LoneTranslate,
+        // The group scales after it translates, with a uniform Scale of its own, as projects written by hand or
+        // by an agent can lay it out: [Scale, Translate] rather than the handles' own [Translate, Rotation, Scale].
+        ScaledAfterTranslate,
+        // A box a couple of pixels tall, whose corner handles overlap.
+        Thin,
     }
 
     [AvaloniaTest]
@@ -86,6 +91,7 @@ public class TransformHandlesOverlayTests
     [AvaloniaTest]
     [TestCase(Content.ShadowedEllipse, 2, 40.0, 24.0)]
     [TestCase(Content.TurnedBlurredRect, 0, -30.0, -20.0)]
+    [TestCase(Content.ScaledAfterTranslate, 2, 40.0, 24.0)]
     public async Task Dragging_a_corner_takes_it_to_the_pointer_and_keeps_the_opposite_corner(
         Content content, int grabbed, double dx, double dy)
     {
@@ -161,6 +167,33 @@ public class TransformHandlesOverlayTests
                 Assert.That(opposite.Y, Is.EqualTo(oppositeBefore.Y).Within(0.5), "opposite edge Y");
                 // Shift scales the height by the width's ratio; without it only the width changes.
                 Assert.That(heightRatio, Is.EqualTo(shift ? widthRatio : 1).Within(0.005), "height ratio");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Pressing a corner of a box too thin to keep its handles apart takes the corner pressed, not the first one
+    // listed: a bottom handle taken for a top one flips the box.
+    [AvaloniaTest]
+    public async Task Pressing_a_handle_of_a_thin_box_takes_the_nearest_handle()
+    {
+        GpuTestGate.EnsureAvailable();
+        (_, PlayerView view, Window window, _) = await OpenPreview(Content.Thin);
+        try
+        {
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            AvaPoint[] corners = Corners(overlay);
+            Assert.That(AvaPoint.Distance(corners[1], corners[2]), Is.LessThan(6),
+                "The top and bottom handles have to overlap for this test to mean anything.");
+            Assert.Multiple(() =>
+            {
+                Assert.That(overlay.HitTest(corners[0]), Is.EqualTo(TransformHandlesOverlay.HandleKind.TopLeft));
+                Assert.That(overlay.HitTest(corners[1]), Is.EqualTo(TransformHandlesOverlay.HandleKind.TopRight));
+                Assert.That(overlay.HitTest(corners[2]), Is.EqualTo(TransformHandlesOverlay.HandleKind.BottomRight));
+                Assert.That(overlay.HitTest(corners[3]), Is.EqualTo(TransformHandlesOverlay.HandleKind.BottomLeft));
             });
         }
         finally
@@ -276,6 +309,21 @@ public class TransformHandlesOverlayTests
                 transform.Children.Add(new TranslateTransform(-60, 40));
                 transform.Children.Add(new RotationTransform(-30));
                 return rect;
+
+            case Content.ScaledAfterTranslate:
+                var scaled = new RectShape();
+                scaled.Width.CurrentValue = 160;
+                scaled.Height.CurrentValue = 100;
+                var layout = (TransformGroup)scaled.Transform.CurrentValue!;
+                layout.Children.Add(new ScaleTransform(100, 100, 106));
+                layout.Children.Add(new TranslateTransform(0, -60));
+                return scaled;
+
+            case Content.Thin:
+                var thin = new RectShape();
+                thin.Width.CurrentValue = 300;
+                thin.Height.CurrentValue = 2;
+                return thin;
 
             case Content.LoneTranslate:
                 var moved = new RectShape();
