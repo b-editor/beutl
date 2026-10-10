@@ -91,8 +91,9 @@ public partial class EditViewModel
 
             DockHost.ReadFromJson(jsonObject);
 
-            // After the tabs, so the restored selection opens in the property tabs.
-            RestoreSelectedObject(jsonObject, viewStateFile);
+            // After the tabs, so the restored selection opens in the property tabs, behind the tabs the layout
+            // saved in front.
+            KeepingFrontTabs(() => RestoreSelectedObject(jsonObject, viewStateFile));
 
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))

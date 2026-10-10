@@ -42,11 +42,14 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
         _disposables.Add(Properties);
 
         _pin = new ToolTabPin(HasTarget).DisposeWith(_disposables);
+        // A pinned tab names its edge, since both edges of one element can be pinned side by side.
         Header = _pin.IsPinned
             .CombineLatest(_shownElement, (pinned, element) => pinned ? element : null)
             .Select(ToolTabHeaderHelper.ObserveElementLabel)
             .Switch()
-            .Select(label => ToolTabHeaderHelper.Compose(GraphicsStrings.ClipTransition, label))
+            .CombineLatest(EdgeName, (label, edge) => string.IsNullOrWhiteSpace(label)
+                ? GraphicsStrings.ClipTransition
+                : ToolTabHeaderHelper.Compose(edge ?? GraphicsStrings.ClipTransition, label))
             .ToReadOnlyReactivePropertySlim(GraphicsStrings.ClipTransition)
             .DisposeWith(_disposables)!;
 

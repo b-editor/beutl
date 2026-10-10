@@ -1,4 +1,4 @@
-using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+﻿using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.ProjectSystem;
 using Dock.Model.Controls;
@@ -7,11 +7,28 @@ namespace Beutl.ViewModels;
 
 public partial class EditViewModel
 {
+    // While set, an open property tab shows the selection where it is, so a layout being restored or applied
+    // keeps the tabs it put in front.
+    private bool _keepFrontTabs;
+
     // A layout change replaces the property tabs with empty ones, which show the selection only once it is
     // opened in them again.
     internal void OpenSelectionInPropertyTabs()
     {
-        OpenSelectionInPropertyTabs(_editorSelection.SelectedObject.Value);
+        KeepingFrontTabs(() => OpenSelectionInPropertyTabs(_editorSelection.SelectedObject.Value));
+    }
+
+    private void KeepingFrontTabs(Action action)
+    {
+        _keepFrontTabs = true;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _keepFrontTabs = false;
+        }
     }
 
     // The property tabs show what they are opened with, as other tools do; selecting opens the selection in them.
@@ -41,6 +58,7 @@ public partial class EditViewModel
     {
         T tab = reusable ?? create();
         show(tab);
+        if (reusable != null && _keepFrontTabs) return;
 
         // A new tab joins the open tabs of its kind, or, with none open, goes to its tool's own dock.
         IToolDock? dock = FindToolTab<T>() == null

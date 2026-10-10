@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.Helpers;

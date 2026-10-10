@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -28,6 +28,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Beutl.ViewModels.Editors;
+using Beutl.ViewModels.Tools;
 using Beutl.Views;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
@@ -349,9 +350,39 @@ public class ToolTabPinTests
         Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
             "after resetting the layout");
 
+        IToolDock right = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Right)!;
+        editor.DockHost.Factory.SetActiveDockable(right.VisibleDockables!
+            .First(d => d is not BeutlToolDockable { ToolContext: ElementPropertyTabViewModel }));
         Assert.That(editor.DockHost.ApplyLayout(editor.DockHost.CaptureLayout()), Is.True);
-        Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
-            "after applying a saved layout");
+        IToolDock restoredRight = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Right)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
+                "after applying a saved layout");
+            Assert.That((restoredRight.ActiveDockable as BeutlToolDockable)?.ToolContext,
+                Is.Not.InstanceOf<ElementPropertyTabViewModel>(), "the layout keeps the tab it put in front");
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Pinned_transition_tabs_name_their_edge()
+    {
+        EditViewModel editor = await OpenEditor("pin-transition-edge");
+        Element element = await AddElement(editor, 0, () => new RectShape());
+        using var start = new TransitionTabViewModel(editor);
+        using var end = new TransitionTabViewModel(editor);
+        start.Show(element, ElementEdge.Start);
+        end.Show(element, ElementEdge.End);
+
+        start.IsPinned.Value = true;
+        end.IsPinned.Value = true;
+
+        string label = ToolTabHeaderHelper.ElementLabel(element.Name, element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(start.Header.Value, Is.EqualTo(ToolTabHeaderHelper.Compose(Strings.EnterTransition, label)));
+            Assert.That(end.Header.Value, Is.EqualTo(ToolTabHeaderHelper.Compose(Strings.ExitTransition, label)));
+        });
     }
 
     [AvaloniaTest]
