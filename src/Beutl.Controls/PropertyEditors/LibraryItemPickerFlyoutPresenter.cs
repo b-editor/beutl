@@ -237,9 +237,11 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     }
 
     // リストにフォーカスがあるときに入力された文字は、検索ボックスに送って検索を始める
+    // (空白は入力済みの語の区切りとしてだけ送り、それ以外はリスト側のキー操作として扱う)
     private void OnPresenterTextInput(object? sender, TextInputEventArgs e)
     {
-        if (_searchTextBox is null || string.IsNullOrWhiteSpace(e.Text)) return;
+        if (_searchTextBox is null || string.IsNullOrEmpty(e.Text)) return;
+        if (string.IsNullOrWhiteSpace(e.Text) && string.IsNullOrEmpty(SearchText)) return;
 
         ShowSearchBox = true;
         string text = SearchText + e.Text;

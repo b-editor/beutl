@@ -268,6 +268,43 @@ public class FontFamilyPickerTests
     }
 
     [AvaloniaTest]
+    public void A_space_typed_on_the_list_separates_the_next_word_of_the_search()
+    {
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
+        picker.Type("noto");
+        picker.List.Focus();
+        HeadlessTestHelpers.Render();
+
+        picker.Type(" ");
+        picker.Type("arabic");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(picker.SearchBox.Text, Is.EqualTo("noto arabic"));
+            Assert.That(Names(viewModel), Is.EqualTo(new[] { "Noto Sans Arabic" }));
+        });
+    }
+
+    [AvaloniaTest]
+    public void A_space_typed_on_the_list_without_a_search_stays_with_the_list()
+    {
+        var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);
+        using var picker = PickerHost.Open(viewModel);
+        picker.List.Focus();
+        HeadlessTestHelpers.Render();
+        object? focused = picker.FocusedElement;
+
+        picker.Type(" ");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(picker.SearchBox.Text, Is.Null.Or.Empty);
+            Assert.That(picker.FocusedElement, Is.SameAs(focused));
+        });
+    }
+
+    [AvaloniaTest]
     public void Hiding_the_search_box_clears_the_search()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);

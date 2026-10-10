@@ -85,7 +85,14 @@ internal record FontName(
 
     static System.Text.Encoding AsEncoding(PlatformIDs platform, EncodingIDs id)
     {
-        // The Unicode and Windows platforms store every name as UTF-16BE, whatever the encoding ID.
+        if (platform == PlatformIDs.Windows && (ushort)id is >= 3 and <= 5)
+        {
+            // The PRC, Big5 and Wansung Windows encodings store names in code pages 936, 950 and 949.
+            int codePage = (ushort)id switch { 3 => 936, 4 => 950, _ => 949 };
+            return System.Text.CodePagesEncodingProvider.Instance.GetEncoding(codePage) ?? System.Text.Encoding.UTF8;
+        }
+
+        // Every other Windows name, and every Unicode platform name, is UTF-16BE.
         if (platform is PlatformIDs.Unicode or PlatformIDs.Windows)
             return System.Text.Encoding.BigEndianUnicode;
 

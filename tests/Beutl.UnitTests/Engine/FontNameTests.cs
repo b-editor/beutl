@@ -162,6 +162,18 @@ public class FontNameTests
     }
 
     [Test]
+    public void ReadFontName_DecodesPrcBig5AndWansungNamesWithTheirCodePages()
+    {
+        FontName name = Read(
+            Record(FontFamilyNameId, 0x0804, "宋体", encodingId: 3, encoding: CodePage(936)),
+            Record(FontFamilyNameId, 0x0409, "MingLiU", encodingId: 4, encoding: CodePage(950)),
+            Record(FontFamilyNameId, 0x0404, "細明體", encodingId: 4, encoding: CodePage(950)),
+            Record(FontFamilyNameId, 0x0412, "굴림", encodingId: 5, encoding: CodePage(949)));
+
+        Assert.That(name.FamilyNames.Select(r => r.Value), Is.EqualTo(new[] { "宋体", "MingLiU", "細明體", "굴림" }));
+    }
+
+    [Test]
     public void ReadFontName_KeepsOnlyUnicodeAndWindowsFamilyNames()
     {
         FontName name = Read(
@@ -181,11 +193,13 @@ public class FontNameTests
 
     private static NameRecord Record(
         ushort nameId, ushort languageId, string value,
-        ushort platformId = WindowsPlatformId, ushort encodingId = Unicode11EncodingId)
-        => new(platformId, encodingId, languageId, nameId, value);
+        ushort platformId = WindowsPlatformId, ushort encodingId = Unicode11EncodingId, Encoding? encoding = null)
+        => new(platformId, encodingId, languageId, nameId, value, encoding ?? Encoding.BigEndianUnicode);
+
+    private static Encoding CodePage(int codePage) => CodePagesEncodingProvider.Instance.GetEncoding(codePage)!;
 
     private readonly record struct NameRecord(
-        ushort PlatformId, ushort EncodingId, ushort LanguageId, ushort NameId, string Value);
+        ushort PlatformId, ushort EncodingId, ushort LanguageId, ushort NameId, string Value, Encoding Encoding);
 
     private static byte[] BuildNameTable(params (ushort LanguageId, string Value)[] records)
     {
@@ -200,7 +214,7 @@ public class FontNameTests
         const int RecordLength = 12;
         int stringOffset = HeaderLength + (RecordLength * records.Length);
 
-        byte[][] values = [.. records.Select(record => Encoding.BigEndianUnicode.GetBytes(record.Value))];
+        byte[][] values = [.. records.Select(record => record.Encoding.GetBytes(record.Value))];
 
         var buffer = new MemoryStream();
         var writer = new BinaryWriter(buffer);
