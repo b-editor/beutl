@@ -68,38 +68,12 @@ public abstract partial class GenerativeNode
         return rasterization.Bitmap?.Clone();
     }
 
-    /// <summary>
-    /// The largest clip read into a request: the service's source limit. Anything larger is
-    /// refused before it is read, rather than loaded whole only to be refused later.
-    /// </summary>
-    internal const long MaxVideoInputBytes = 32L * 1024 * 1024;
-
     /// <summary>Reads a clip handed to a generation as input.</summary>
     protected static GenerativeFileInput? ReadVideoInput(VideoSource? source, string name)
     {
         if (source is not { HasUri: true } || !source.Uri.IsFile)
             return null;
 
-        string path = source.Uri.LocalPath;
-        string extension = Path.GetExtension(path).ToLowerInvariant();
-        string mediaType = extension switch
-        {
-            ".mp4" => "video/mp4",
-            ".webm" => "video/webm",
-            _ => throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable),
-        };
-        try
-        {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (stream.Length > MaxVideoInputBytes)
-                throw new GenerativeExecutionException(Strings.AiFileTooLarge);
-            byte[] content = new byte[stream.Length];
-            stream.ReadExactly(content);
-            return new GenerativeFileInput($"{name}{extension}", mediaType, content);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw new GenerativeExecutionException(Strings.AiVideoInputUnavailable, ex);
-        }
+        return GenerativeInputs.ReadVideoFile(source.Uri.LocalPath, name);
     }
 }

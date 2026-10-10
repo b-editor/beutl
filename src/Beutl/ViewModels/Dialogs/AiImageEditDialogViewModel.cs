@@ -833,12 +833,11 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
         int sourceHeight,
         int expansionPercent)
     {
-        if (expansionPercent is < 1 or > 100)
-            throw new ArgumentOutOfRangeException(nameof(expansionPercent));
-        int horizontal = Math.Max(1, checked((int)Math.Round(sourceWidth * expansionPercent / 100d)));
-        int vertical = Math.Max(1, checked((int)Math.Round(sourceHeight * expansionPercent / 100d)));
-        int expandedWidth = checked(sourceWidth + horizontal * 2);
-        int expandedHeight = checked(sourceHeight + vertical * 2);
+        (int expandedWidth, int expandedHeight, int horizontal, int vertical) =
+            Beutl.NodeGraph.Generative.AiImageEditTasks.GetOutpaintDimensions(
+                sourceWidth,
+                sourceHeight,
+                expansionPercent);
         AiImageDecodeValidator.ValidateDimensions(expandedWidth, expandedHeight);
         return (expandedWidth, expandedHeight, horizontal, vertical);
     }

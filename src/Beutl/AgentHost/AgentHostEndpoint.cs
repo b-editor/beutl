@@ -157,6 +157,12 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         => new(_instanceRegistry, _projectService, _editorService, token,
             () => ResolveWorkspaceRoot(_config), _instanceId);
 
+    /// <summary>
+    /// The application's AI services for the AI tools. Set once the API clients exist; until then,
+    /// and in hosts without them, the AI tools report that generation is unavailable.
+    /// </summary>
+    internal IAgentAiBackend? AiBackend { get; set; }
+
     public Uri? EndpointUri
     {
         get
@@ -434,7 +440,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<AudioRhythmAnalyzer>()
             .AddSingleton<EncoderRegistration>()
             .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>();
+            .AddSingleton<RenderJobManager>()
+            .AddSingleton<AgentAiJobManager>()
+            .AddSingleton<IAgentAiBackend>(_ => AiBackend ?? UnavailableAgentAiBackend.Instance);
 
         builder.Services
             .AddMcpServer()
@@ -463,7 +471,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<QueryTools>()
             .WithTools<EditTools>()
             .WithTools<HistoryTools>()
-            .WithTools<RenderTools>();
+            .WithTools<RenderTools>()
+            .WithTools<AgentHostAiTools>();
 
         WebApplication app = builder.Build();
         app.Use(RequireToken);
