@@ -214,6 +214,9 @@ public sealed class AgentHostAiToolsTests
         ToolResult<ListAiModelsResponse> blank = await tools.ListAiModels(" ");
         backend.Models["image.generate"] = [SquareModel];
         ToolResult<AgentAiJobSnapshot> unknownModel = await tools.GenerateImage("a cat", model: "nope");
+        backend.Models["image.generate"] = [SquareModel with { IsAvailable = false }];
+        ToolResult<AgentAiJobSnapshot> noUsableModel = await tools.GenerateImage("a cat");
+        ToolResult<AgentAiJobSnapshot> promptOnUpscale = await tools.EditImage(WritePng("p.png"), "upscale", "sharper edges");
         backend.Models.Clear();
         ToolResult<AgentAiJobSnapshot> negativeSeed = await tools.GenerateImage("a cat", seed: -1);
         // With no catalog, a named model would be sent as the service default.
@@ -244,6 +247,8 @@ public sealed class AgentHostAiToolsTests
             Assert.That(typo.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unknownModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(noUsableModel.Error?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
+            Assert.That(promptOnUpscale.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(negativeSeed.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unconfirmedModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(fallbackDuration.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));

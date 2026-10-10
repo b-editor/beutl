@@ -188,8 +188,12 @@ internal sealed class AgentHostAiTools(
         // Checked before the model is looked up, since the task names the operation.
         precheck: () =>
         {
-            if (Array.IndexOf(s_imageTasks, taskId) < 0)
+            int index = Array.IndexOf(s_imageTasks, taskId);
+            if (index < 0)
                 throw Invalid($"Unknown edit task '{task}'. Use one of: {string.Join(", ", s_imageTasks)}.", "task");
+            // The executor drops a prompt these tasks do not take; refused instead of charged for.
+            if (!((AiImageEditTask)index).RequiresPrompt() && !string.IsNullOrWhiteSpace(prompt))
+                throw Invalid($"The task {taskId} takes no prompt.", "prompt");
             if (taskId == "outpaint" && !s_outpaintPercents.Contains(outpaintExpansionPercent))
                 throw Invalid("outpaintExpansionPercent must be 10, 25 or 50.", "outpaintExpansionPercent");
         });
@@ -485,8 +489,20 @@ internal sealed class AgentHostAiTools(
             return named;
         }
 
-        return offered.FirstOrDefault(candidate => candidate.IsAvailable && candidate.IsDefault)
-               ?? offered.FirstOrDefault(candidate => candidate.IsAvailable);
+        GenerativeModelInfo? fallback = offered.FirstOrDefault(candidate => candidate.IsAvailable && candidate.IsDefault)
+                                       ?? offered.FirstOrDefault(candidate => candidate.IsAvailable);
+        // A catalog that lists models but none this account can use would otherwise send the
+        // request with no model, to a default the catalog says is unavailable.
+        if (fallback is null && offered.Count > 0)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.AiUnavailable,
+                $"None of the models for {operation} is available to this account.",
+                "model",
+                $"Call list_ai_models(\"{operation}\") to see each model's isAvailable; the account's plan may not include them."));
+        }
+
+        return fallback;
     }
 
     // The upload sizes the executor refuses inside the job, measured on the PNGs it would send.
