@@ -502,7 +502,7 @@ internal sealed class AgentHostAiTools(
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"The model catalog could not be loaded, so the model '{id}' cannot be confirmed.",
+                    $"The model '{id}' cannot be confirmed because no model list is available for {operation}.",
                     "model",
                     "Retry once list_ai_models lists it, or omit model to use the service default."));
             }
