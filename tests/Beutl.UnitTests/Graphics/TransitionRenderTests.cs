@@ -410,8 +410,8 @@ public class TransitionRenderTests
         });
     }
 
-    // A split clips the incoming clip to a band and the outgoing clip to the rest. The box of content sized by
-    // the frame is not cut to either, so a drawable keeps the same box on whichever side of the split it is.
+    // A split clips the incoming clip to a band and the outgoing clip to the rest. A drawable sized by the frame
+    // gets its layout box rather than either part, so it keeps the same box on whichever side of the split it is.
     [Test]
     public void LocalBoundary_InsideASplitIsNotCutToTheSplitsBand()
     {
@@ -441,12 +441,13 @@ public class TransitionRenderTests
 
             Assert.That(local, Is.Not.Null);
             Rect box = local!.Value.Bounds.TransformToAABB(local.Value.Transform);
+            // The 16 x 8 rectangle sits at the frame's centre; the band is the middle 32 px of the frame.
             Assert.Multiple(() =>
             {
-                Assert.That(box.X, Is.EqualTo(0).Within(0.5f), "the box is not cut to the band");
-                Assert.That(box.Y, Is.EqualTo(0).Within(0.5f));
-                Assert.That(box.Width, Is.EqualTo(Width).Within(0.5f));
-                Assert.That(box.Height, Is.EqualTo(Height).Within(0.5f));
+                Assert.That(box.X, Is.EqualTo((Width - 16) / 2f).Within(0.5f), "the box is not cut to the band");
+                Assert.That(box.Y, Is.EqualTo((Height - 8) / 2f).Within(0.5f));
+                Assert.That(box.Width, Is.EqualTo(16).Within(0.5f));
+                Assert.That(box.Height, Is.EqualTo(8).Within(0.5f));
             });
         });
     }

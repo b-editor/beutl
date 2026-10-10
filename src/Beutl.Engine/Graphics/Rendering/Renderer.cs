@@ -773,8 +773,11 @@ public class Renderer : IRenderer
     /// </returns>
     /// <remarks>
     /// The bounds are what <see cref="GetBoundary"/> measures before the transform maps them, so the box they make
-    /// turns with a rotated drawable and its axis-aligned extent is that boundary. A drawable an active transition
-    /// draws is placed through the transition's transforms too; the transition's clips are not applied.
+    /// turns with a rotated drawable and its axis-aligned extent is that boundary. Content sized by the frame it
+    /// draws into rather than by itself, such as an effect without bounds of its own, has no such box: its boundary
+    /// is the frame however the drawable is transformed, so the drawable's layout box is returned for it instead. A
+    /// drawable an active transition draws is placed through the transition's transforms too; the transition's clips
+    /// are not applied.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
     internal (Rect Bounds, Matrix Transform)? GetLocalBoundary(Drawable drawable)
@@ -798,34 +801,27 @@ public class Renderer : IRenderer
             return null;
         }
 
-        // The content reaches the frame through the transforms above it. Content sized by the frame it draws into,
-        // such as an effect without bounds of its own, is therefore measured against the frame mapped back into its
-        // space, the way those transforms map it when the whole drawable is measured. A transition's clips are left
-        // out here as they are from the box, so a drawable keeps one box on either side of a split.
-        Rect domain = new(default, FrameSize.ToSize(1));
+        Rect bounds = MeasureContent(null);
+        if (!HasArea(bounds)) return null;
+
+        // Content sized by the frame answers any frame with that frame. Measured against a frame moved off its own,
+        // it gives other bounds, and its box would snap back to the frame after every scale.
+        Rect frame = new(default, FrameSize.ToSize(1));
+        if (MeasureContent(frame.Translate(new Vector(frame.Width, frame.Height))) != bounds)
+        {
+            if (drawn.Node.Drawable?.Resource is not { } resource) return null;
+            bounds = new Rect(resource.RequireOriginal().MeasureInternal(frame.Size, resource));
+            if (!HasArea(bounds)) return null;
+        }
+
         Matrix outerMatrix = Matrix.Identity;
         foreach (RenderNode node in drawn.Path)
         {
             if (node is TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer)
             {
-                if (!outer.Transform.TryInvert(out Matrix outerInverse)) return null;
-                domain = domain.TransformToAABB(outerInverse);
                 outerMatrix = outer.Transform * outerMatrix;
             }
         }
-
-        if (!transform.Transform.TryInvert(out Matrix inverse)) return null;
-        domain = domain.TransformToAABB(inverse);
-        if (!HasArea(domain)) return null;
-
-        Rect bounds = default;
-        foreach (RenderNode content in transform.Children)
-        {
-            using RenderNodeRenderer renderer = CreateEntryRenderer(content, targetDomain: domain);
-            bounds = bounds.Union(renderer.Measure().QueryBounds);
-        }
-
-        if (!HasArea(bounds)) return null;
 
         // A perspective transform maps the corners onto the quad drawn between them only while all of them stay in
         // front of its camera plane. A corner past it is reflected through the origin, where GetBoundary clips.
@@ -839,6 +835,18 @@ public class Renderer : IRenderer
         }
 
         return (bounds, matrix);
+
+        Rect MeasureContent(Rect? targetDomain)
+        {
+            Rect measured = default;
+            foreach (RenderNode content in transform.Children)
+            {
+                using RenderNodeRenderer renderer = CreateEntryRenderer(content, targetDomain: targetDomain);
+                measured = measured.Union(renderer.Measure().QueryBounds);
+            }
+
+            return measured;
+        }
 
         static bool HasArea(Rect rect)
             => RenderRectValidation.IsFiniteNonNegative(rect) && rect.Width > 0 && rect.Height > 0;

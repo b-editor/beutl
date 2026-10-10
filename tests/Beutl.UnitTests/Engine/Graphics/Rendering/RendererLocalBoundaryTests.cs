@@ -71,12 +71,12 @@ public class RendererLocalBoundaryTests
         });
     }
 
-    // A transform effect applied to its target has no bounds of its own: it covers the frame, mapped back through
-    // the transform the drawable is drawn under. Measured against the unmapped frame, the box would be a copy of
-    // the frame moved by that transform.
+    // A transform effect applied to its target has no bounds of its own, so the drawable's boundary is the frame
+    // however it is transformed. A box around that would snap back to the frame after every scale; the drawable's
+    // layout box stands in for it, placed by its transform.
     [TestCase(0f)]
     [TestCase(30f)]
-    public void LocalBoundary_OfContentThatFillsTheFrame_MapsOntoTheBoundary(float rotation)
+    public void LocalBoundary_OfContentThatFillsTheFrame_IsItsLayoutBox(float rotation)
     {
         var rect = new RectShape();
         rect.Width.CurrentValue = 100;
@@ -88,11 +88,17 @@ public class RendererLocalBoundaryTests
         transform.Children.Add(new TranslateTransform(50, 30));
         transform.Children.Add(new RotationTransform(rotation));
 
-        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) =
-            Measure(renderer => (renderer.GetBoundary(rect), renderer.GetLocalBoundary(rect)), rect);
+        (Rect Bounds, Matrix Transform)? local = Measure(renderer => renderer.GetLocalBoundary(rect), rect);
 
         Assert.That(local, Is.Not.Null);
-        AssertRect(MapToAABB(local!.Value.Bounds, local.Value.Transform), boundary!.Value);
+        Point center = local!.Value.Transform.Transform(local.Value.Bounds.Center);
+        Assert.Multiple(() =>
+        {
+            AssertRect(local.Value.Bounds, new Rect(0, 0, 100, 60));
+            // Turned about its centre, which the translate moves 50 right and 30 down of the frame's centre.
+            Assert.That(center.X, Is.EqualTo((Width / 2f) + 50).Within(0.01));
+            Assert.That(center.Y, Is.EqualTo((Height / 2f) + 30).Within(0.01));
+        });
     }
 
     // Past the camera plane a perspective transform reflects corners through the origin instead of mapping them

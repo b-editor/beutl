@@ -53,6 +53,8 @@ public class TransformHandlesOverlayTests
         Thin,
         // Turned and drawn at twice its size, in the handles' own [Translate, Rotation, Scale] layout.
         ScaledAndTurned,
+        // A transform effect applied to its target has no bounds of its own, so its boundary is the whole frame.
+        FillsTheFrame,
     }
 
     [AvaloniaTest]
@@ -95,6 +97,7 @@ public class TransformHandlesOverlayTests
     [TestCase(Content.ShadowedEllipse, 2, 40.0, 24.0)]
     [TestCase(Content.TurnedBlurredRect, 0, -30.0, -20.0)]
     [TestCase(Content.ScaledAfterTranslate, 2, 40.0, 24.0)]
+    [TestCase(Content.FillsTheFrame, 2, 40.0, 24.0)]
     public async Task Dragging_a_corner_takes_it_to_the_pointer_and_keeps_the_opposite_corner(
         Content content, int grabbed, double dx, double dy)
     {
@@ -407,6 +410,16 @@ public class TransformHandlesOverlayTests
                 layout.Children.Add(new ScaleTransform(100, 100, 106));
                 layout.Children.Add(new TranslateTransform(0, -60));
                 return scaled;
+
+            case Content.FillsTheFrame:
+                var filling = new RectShape();
+                filling.Width.CurrentValue = 160;
+                filling.Height.CurrentValue = 100;
+                var targetTransform = new TransformEffect();
+                targetTransform.Transform.CurrentValue = new RotationTransform(10);
+                ((FilterEffectGroup)filling.FilterEffect.CurrentValue!).Children.Add(targetTransform);
+                ((TransformGroup)filling.Transform.CurrentValue!).Children.Add(new TranslateTransform(60, 40));
+                return filling;
 
             case Content.ScaledAndTurned:
                 var big = new RectShape();
