@@ -323,6 +323,44 @@ public class TransitionRenderTests
         });
     }
 
+    // Halfway through a push the incoming clip is drawn half a frame to the left, so its top-right square
+    // shows just left of the centre and its left half is out of the frame.
+    [Test]
+    public void HitTest_InsideAMovingTransitionFollowsWhereTheDrawableIsShown()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            RectShape outgoingShape = CreateRect(s_red);
+            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            outgoing.Objects.Add(outgoingShape);
+            scene.Children.Add(outgoing);
+
+            RectShape leftHalf = CreateLeftHalf(s_blue);
+            RectShape corner = CreateRect(s_blue);
+            corner.Width.CurrentValue = 8;
+            corner.Height.CurrentValue = 8;
+            corner.AlignmentX.CurrentValue = AlignmentX.Right;
+            corner.AlignmentY.CurrentValue = AlignmentY.Top;
+            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            incoming.Objects.Add(leftHalf);
+            incoming.Objects.Add(corner);
+            incoming.EnterTransition = new PushTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            scene.Children.Add(incoming);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
+            renderer.Render(frame);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(renderer.HitTest(frame, new Point((Width / 2f) - 3, 3)), Is.SameAs(corner));
+                Assert.That(renderer.HitTest(frame, new Point((Width * 3) / 4f, Height / 2f)), Is.SameAs(outgoingShape));
+            });
+        });
+    }
+
     private static ClipTransition CreateDirectional(Type type, ClipTransitionDirection direction)
     {
         if (type == typeof(PushTransition)) return new PushTransition { Direction = { CurrentValue = direction } };

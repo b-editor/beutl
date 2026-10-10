@@ -270,11 +270,12 @@ internal readonly record struct TransitionBoundary(
     ClipTransition Transition,
     TimeRange Region)
 {
-    // How far the transition has played at time, after its easing.
-    public float GetProgress(TimeSpan time)
+    // How far the transition has played at time, before its easing, which the compositor applies as
+    // evaluated for that time.
+    public float GetLinearProgress(TimeSpan time)
     {
         float linear = (float)((time - Region.Start).Ticks / (double)Region.Duration.Ticks);
-        return ClipTransition.Ease(Transition.Easing.CurrentValue, Math.Clamp(linear, 0, 1));
+        return Math.Clamp(linear, 0, 1);
     }
 
     // Where the outgoing element is evaluated: its own time, or its last frame once the transition plays

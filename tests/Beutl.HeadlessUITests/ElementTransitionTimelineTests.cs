@@ -228,6 +228,46 @@ public class ElementTransitionTimelineTests
         }
     }
 
+    // Editing opens the transition in the property tab, which follows the lock of the element that owns it.
+    [AvaloniaTest]
+    public async Task TheTransitionOfALockedElement_OpensReadOnly()
+    {
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
+            (view, window) = Show(incoming);
+            incoming.ApplyTransition(ElementEdge.Start, typeof(CrossDissolveTransition));
+            HeadlessTestHelpers.Settle(3);
+
+            incoming.EditTransition(ElementEdge.Start);
+            BaseEditorViewModel unlocked = EditorOf(editor);
+            bool readOnlyWhileUnlocked = unlocked.IsReadOnly.Value;
+            incoming.Model.IsLocked = true;
+            HeadlessTestHelpers.Settle(3);
+            bool readOnlyOnceLocked = unlocked.IsReadOnly.Value;
+            incoming.EditTransition(ElementEdge.Start);
+            bool reopenedReadOnly = EditorOf(editor).IsReadOnly.Value;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(readOnlyWhileUnlocked, Is.False);
+                Assert.That(readOnlyOnceLocked, Is.True);
+                Assert.That(reopenedReadOnly, Is.True);
+            });
+        }
+        finally
+        {
+            Close(view, window);
+        }
+
+        static BaseEditorViewModel EditorOf(EditViewModel editor)
+            => editor.FindToolTab<ObjectPropertyTabViewModel>()!.ChildContext.Value!.Properties
+                .OfType<EasingEditorViewModel<Easing>>()
+                .Single();
+    }
+
     [AvaloniaTest]
     public async Task DoubleClickingTheCut_AddsTheDefaultTransition_ThenEditsIt()
     {

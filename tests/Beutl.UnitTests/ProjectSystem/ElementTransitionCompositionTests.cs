@@ -2,6 +2,7 @@
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transitions;
@@ -353,6 +354,43 @@ public class ElementTransitionCompositionTests
         Assert.That(presenter.Progress, Is.EqualTo(0.125f).Within(1e-6));
     }
 
+    // An expression on the easing is evaluated for the frame, so the curve it gives is the one drawn.
+    [Test]
+    public void AnEasingExpression_ShapesTheProgress()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_easing_expression", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        ClipTransition transition = Transition(1);
+        transition.Easing.Expression = new ConstantExpression<Easing>(new CubicEaseIn());
+        cut.Incoming.EnterTransition = transition;
+        using var compositor = new SceneCompositor(harness.Scene);
+
+        ClipTransitionPresenter.Resource presenter = SinglePresenter(compositor.EvaluateGraphics(Seconds(2.5)));
+
+        Assert.That(presenter.Progress, Is.EqualTo(0.125f).Within(1e-6));
+    }
+
+    // The compositor keeps the elements that can take part in a transition between frames; adding one
+    // must still reach the next frame.
+    [Test]
+    public void ATransitionAddedBetweenFrames_ReachesTheNextFrame()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_added_later", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        cut.Outgoing.Length = Seconds(2) + TimeSpan.FromTicks(1);
+        using var compositor = new SceneCompositor(harness.Scene);
+        int before = compositor.EvaluateGraphics(Seconds(2)).Objects.Length;
+
+        cut.Incoming.EnterTransition = Transition(1);
+        CompositionFrame after = compositor.EvaluateGraphics(Seconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before, Is.EqualTo(2), "without a transition both touching elements draw");
+            Assert.That(SinglePresenter(after).From.Select(r => r.GetOriginal()), Is.EqualTo(new Drawable[] { cut.OutgoingShape }));
+        });
+    }
+
     [Test]
     public void ADisabledTransition_IsACut()
     {
@@ -619,4 +657,17 @@ public class ElementTransitionCompositionTests
     private static object?[] Originals(CompositionFrame frame) => [.. frame.Objects.Select(r => r.GetOriginal())];
 
     private static TimeSpan Seconds(double seconds) => TimeSpan.FromSeconds(seconds);
+
+    private sealed class ConstantExpression<T>(T value) : IExpression<T>
+    {
+        public string ExpressionString => "test constant";
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public T Evaluate(ExpressionContext context) => value;
+    }
 }

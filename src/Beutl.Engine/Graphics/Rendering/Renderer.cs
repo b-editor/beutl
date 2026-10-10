@@ -594,20 +594,26 @@ public class Renderer : IRenderer
     }
 
     // The drawable a point inside a transition lands on: the incoming side's drawables, then the outgoing
-    // side's, each topmost first, are hit-tested on their own.
+    // side's, each topmost first, are hit-tested on their own after the point is mapped through the
+    // transforms and clips the transition draws them with.
     private Drawable? HitTestTransition(
         DrawableRenderNode node, Transitions.ClipTransitionPresenter.Resource presenter, Point point)
     {
-        var children = new Dictionary<Drawable.Resource, DrawableRenderNode>(ReferenceEqualityComparer.Instance);
-        CollectDrawableNodes(node, children);
+        var children = new Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)>(
+            ReferenceEqualityComparer.Instance);
+        CollectDrawableNodes(node, [], children);
         foreach (IReadOnlyList<Drawable.Resource> side in (ReadOnlySpan<IReadOnlyList<Drawable.Resource>>)[presenter.To, presenter.From])
         {
             for (int i = side.Count - 1; i >= 0; i--)
             {
-                if (!children.TryGetValue(side[i], out DrawableRenderNode? child)) continue;
+                if (!children.TryGetValue(side[i], out (DrawableRenderNode Node, RenderNode[] Path) child)
+                    || MapIntoDrawable(point, child.Path) is not { } local)
+                {
+                    continue;
+                }
 
-                using RenderNodeRenderer renderer = CreateEntryRenderer(child);
-                if (renderer.HitTest(point))
+                using RenderNodeRenderer renderer = CreateEntryRenderer(child.Node);
+                if (renderer.HitTest(local))
                 {
                     return side[i].GetOriginal();
                 }
@@ -617,19 +623,47 @@ public class Renderer : IRenderer
         return presenter.GetHitTestTarget();
     }
 
-    private static void CollectDrawableNodes(ContainerRenderNode container, Dictionary<Drawable.Resource, DrawableRenderNode> nodes)
+    // Each drawable node with the container nodes above it, outermost first.
+    private static void CollectDrawableNodes(
+        ContainerRenderNode container,
+        List<RenderNode> path,
+        Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)> nodes)
     {
         foreach (RenderNode child in container.Children)
         {
             if (child is DrawableRenderNode { Drawable.Resource: { } resource } drawable)
             {
-                nodes.TryAdd(resource, drawable);
+                nodes.TryAdd(resource, (drawable, [.. path]));
             }
             else if (child is ContainerRenderNode inner)
             {
-                CollectDrawableNodes(inner, nodes);
+                path.Add(inner);
+                CollectDrawableNodes(inner, path, nodes);
+                path.RemoveAt(path.Count - 1);
             }
         }
+    }
+
+    // Maps a point into the space a drawable is drawn in through the transforms above it, or returns null
+    // when a clip above it hides that point. Masks are not evaluated, so a masked drawable still answers
+    // for points its mask hides.
+    private static Point? MapIntoDrawable(Point point, RenderNode[] path)
+    {
+        foreach (RenderNode node in path)
+        {
+            switch (node)
+            {
+                case TransformRenderNode { TransformOperator: TransformOperator.Prepend } transform:
+                    if (!transform.Transform.TryInvert(out Matrix inverse)) return null;
+                    point = inverse.Transform(point);
+                    break;
+                case RectClipRenderNode clip
+                    when clip.Clip.Contains(point) != (clip.Operation == ClipOperation.Intersect):
+                    return null;
+            }
+        }
+
+        return point;
     }
 
     public Rect[] GetBoundaries(int zIndex)

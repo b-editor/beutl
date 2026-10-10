@@ -25,11 +25,17 @@ public sealed class SceneCompositor : ICompositor
     // Mute flags are read live from the layers inside the snapshot, so only the
     // lookup shape (membership, ZIndex) and HasSolo require invalidation.
     private volatile LayerSnapshot? _layerSnapshot;
+    // The elements that can take part in a transition, kept until the scene is edited. The version moves
+    // on every edit, so a set built while an edit lands is not kept past it.
+    private volatile ParticipantSnapshot? _participants;
+    private int _participantsVersion;
 
     public SceneCompositor(Scene scene)
     {
         Scene = scene;
         Scene.Layers.CollectionChanged += OnLayersCollectionChanged;
+        Scene.Edited += OnSceneEdited;
+        Scene.Children.CollectionChanged += OnChildrenCollectionChanged;
         Scene.Layers.Attached += OnLayerAttached;
         Scene.Layers.Detached += OnLayerDetached;
         foreach (TimelineLayer layer in Scene.Layers)
@@ -246,7 +252,8 @@ public sealed class SceneCompositor : ICompositor
         }
 
         var presenterResource = (ClipTransitionPresenter.Resource)GetOrCreateResource(presenter, context);
-        presenterResource.SetInputs(transitionResource, from.Span, to.Span, boundary.GetProgress(time));
+        float progress = ClipTransition.Ease(transitionResource.Easing, boundary.GetLinearProgress(time));
+        presenterResource.SetInputs(transitionResource, from.Span, to.Span, progress);
         oldFlow?.Add(presenterResource);
     }
 
@@ -379,7 +386,7 @@ public sealed class SceneCompositor : ICompositor
     // two overlap and the span stops at the incoming element's middle) stays hidden.
     private void KeepOneElementPerTransition(TimeSpan time, PooledList<Element> currentElements)
     {
-        HashSet<Element> participants = ElementTransitions.GetParticipants(Scene);
+        HashSet<Element> participants = GetTransitionParticipants();
         if (participants.Count == 0) return;
 
         for (int i = currentElements.Count - 1; i >= 0; i--)
@@ -470,6 +477,24 @@ public sealed class SceneCompositor : ICompositor
     private void OnLayersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         => _layerSnapshot = null;
 
+    private HashSet<Element> GetTransitionParticipants()
+    {
+        int version = Volatile.Read(ref _participantsVersion);
+        if (_participants is { } snapshot && snapshot.Version == version) return snapshot.Elements;
+
+        HashSet<Element> elements = ElementTransitions.GetParticipants(Scene);
+        _participants = new ParticipantSnapshot(version, elements);
+        return elements;
+    }
+
+    private void OnSceneEdited(object? sender, EventArgs e)
+        => Interlocked.Increment(ref _participantsVersion);
+
+    private void OnChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => Interlocked.Increment(ref _participantsVersion);
+
+    private sealed record ParticipantSnapshot(int Version, HashSet<Element> Elements);
+
     private void OnLayerAttached(TimelineLayer layer)
     {
         layer.PropertyChanged += OnLayerPropertyChanged;
@@ -507,6 +532,8 @@ public sealed class SceneCompositor : ICompositor
     public void Dispose()
     {
         Scene.Layers.CollectionChanged -= OnLayersCollectionChanged;
+        Scene.Edited -= OnSceneEdited;
+        Scene.Children.CollectionChanged -= OnChildrenCollectionChanged;
         Scene.Layers.Attached -= OnLayerAttached;
         Scene.Layers.Detached -= OnLayerDetached;
         foreach (TimelineLayer layer in Scene.Layers)
