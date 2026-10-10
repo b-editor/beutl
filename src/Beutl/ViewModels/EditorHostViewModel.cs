@@ -214,13 +214,17 @@ public class EditorHostViewModel
             generation = _subscriptionGeneration;
         }
 
-        _ = QueueOperationAsync(() => HandleProjectItemsChangedAsync(sender, e, generation));
+        // Capture the mutation's navigation policy before queueing: a background edit scope may
+        // have ended by the time this collection notification reaches the editor host.
+        bool activateAddedItems = _editorService.ActivateAddedProjectItems;
+        _ = QueueOperationAsync(() => HandleProjectItemsChangedAsync(sender, e, generation, activateAddedItems));
     }
 
     private async Task HandleProjectItemsChangedAsync(
         object? sender,
         NotifyCollectionChangedEventArgs e,
-        long generation)
+        long generation,
+        bool activateAddedItems)
     {
         lock (_operationGate)
         {
@@ -237,6 +241,9 @@ public class EditorHostViewModel
             if (e.Action == NotifyCollectionChangedAction.Add &&
                 e.NewItems != null)
             {
+                if (!activateAddedItems)
+                    return;
+
                 foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
                 {
                     _editorService.ActivateTabItem(item);

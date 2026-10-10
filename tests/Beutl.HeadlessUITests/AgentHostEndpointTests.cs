@@ -103,13 +103,9 @@ public sealed class AgentHostEndpointTests
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var liveSessions = new LiveSessionSource();
             LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editor));
-            var sessions = new AgentSessionManager();
-            sessions.UseSource(liveSessions);
             var gateway = new EditorProjectSessionGateway(
                 TestShell.Project,
                 TestShell.Editor,
-                liveSessions,
-                sessions,
                 new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
 
@@ -665,7 +661,7 @@ public sealed class AgentHostEndpointTests
             {
                 Assert.That(toolNames, Does.Not.Contain("evaluate_edit_quality"));
                 Assert.That(toolNames, Does.Contain("measure_frame_differences"));
-                Assert.That(toolNames, Does.Contain("attach_active_editor"));
+                Assert.That(toolNames, Does.Contain("list_scenes"));
                 Assert.That(toolNames, Does.Contain("apply_edit"));
                 Assert.That(toolNames, Does.Contain("render_still"));
             });
@@ -718,21 +714,22 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task AttachActiveEditor_without_open_editor_returns_typed_error()
+    public async Task ListScenes_without_open_editor_returns_an_empty_list()
     {
         await TestReset.ResetShellAsync();
         var editorService = new EditorService(new ExtensionProvider());
-        var liveSessions = new LiveSessionSource();
-        var sessions = new AgentSessionManager();
-        var tools = new AgentHostTools(editorService, liveSessions, sessions);
+        var projects = new ProjectService();
+        var gateway = new EditorProjectSessionGateway(projects, editorService,
+            new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
+        var tools = new AgentHostTools(projects, editorService, gateway);
 
-        ToolResult<AttachActiveEditorResponse> result = tools.AttachActiveEditor();
+        ToolResult<ListScenesResponse> result = tools.ListScenes();
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
-            Assert.That(result.Error?.Hint, Does.Contain("attach_active_editor"));
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value!.Scenes, Is.Empty);
+            Assert.That(result.Value.ActiveSceneId, Is.Null);
         });
     }
 
