@@ -154,8 +154,8 @@ internal sealed class AgentHostAiTools(
         string task,
         [Description("Required for restyle, remove_object and outpaint.")]
         string? prompt = null,
-        [Description("For outpaint: how much to add on every side, in percent (10, 25 or 50). Default 25.")]
-        int outpaintExpansionPercent = 25,
+        [Description("For outpaint only: how much to add on every side, in percent (10, 25 or 50). Default 25; refused for other tasks.")]
+        int? outpaintExpansionPercent = null,
         [Description("Model id from list_ai_models(image.edit.<task>); omit for the default.")]
         string? model = null,
         [Description(WaitDescription)]
@@ -163,6 +163,7 @@ internal sealed class AgentHostAiTools(
         CancellationToken cancellationToken = default)
     {
         string taskId = task.Trim().ToLowerInvariant();
+        int outpaint = outpaintExpansionPercent ?? 25;
         return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (scene, _) =>
         {
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
@@ -173,16 +174,16 @@ internal sealed class AgentHostAiTools(
             string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt, maxPrompt) : null;
             GenerativeImageInput image = ReadImage(scene, sourcePath, "source", "sourcePath", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
             if (editTask == AiImageEditTask.Outpaint)
-                RequireOutpaintCanvas(size, outpaintExpansionPercent);
+                RequireOutpaintCanvas(size, outpaint);
             return new AiImageEditNodeRequest($"image.edit.{taskId}")
             {
                 Task = editTask,
                 Prompt = text,
-                OutpaintExpansionPercent = editTask == AiImageEditTask.Outpaint ? outpaintExpansionPercent : null,
+                OutpaintExpansionPercent = editTask == AiImageEditTask.Outpaint ? outpaint : null,
                 Image = image,
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
-                ParameterFingerprint = GenerativeFingerprint.Combine([taskId, text, model, outpaintExpansionPercent.ToString(CultureInfo.InvariantCulture)]),
+                ParameterFingerprint = GenerativeFingerprint.Combine([taskId, text, model, editTask == AiImageEditTask.Outpaint ? outpaint.ToString(CultureInfo.InvariantCulture) : null]),
             };
         },
         // Checked before the model is looked up, since the task names the operation.
@@ -194,8 +195,11 @@ internal sealed class AgentHostAiTools(
             // The executor drops a prompt these tasks do not take; refused instead of charged for.
             if (!((AiImageEditTask)index).RequiresPrompt() && !string.IsNullOrWhiteSpace(prompt))
                 throw Invalid($"The task {taskId} takes no prompt.", "prompt");
-            if (taskId == "outpaint" && !s_outpaintPercents.Contains(outpaintExpansionPercent))
+            if (taskId == "outpaint" && !s_outpaintPercents.Contains(outpaint))
                 throw Invalid("outpaintExpansionPercent must be 10, 25 or 50.", "outpaintExpansionPercent");
+            // Only an outpaint widens the canvas; another task would drop the value and charge anyway.
+            if (taskId != "outpaint" && outpaintExpansionPercent is not null)
+                throw Invalid($"outpaintExpansionPercent is only for the outpaint task, not {taskId}.", "outpaintExpansionPercent");
         });
     }
 
