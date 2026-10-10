@@ -316,8 +316,12 @@ public sealed class AgentHostAiBackendTests
                 null,
                 Segments ?? [new AiTranscriptionSegment { Start = 1, End = 2, Text = text }],
                 "ja",
-                // The second word has no usable time and is left out of the transcript.
-                [new AiTranscriptionWord { Start = 1, End = 2, Word = text }, new AiTranscriptionWord { Start = -1, End = 0, Word = "?" }]));
+                // Only the first word is usable: the second has no time and the third goes back before it.
+                [
+                    new AiTranscriptionWord { Start = 1, End = 2, Word = text },
+                    new AiTranscriptionWord { Start = -1, End = 0, Word = "?" },
+                    new AiTranscriptionWord { Start = 0.5, End = 0.8, Word = "earlier" },
+                ]));
         }
     }
 

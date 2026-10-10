@@ -256,7 +256,7 @@ Generation tools start a job and wait up to `waitSeconds` (0–110, default 45; 
 - **Input**: `{ "sourcePath": string, "prompt": string, "mode"?: "edit" | "extend", "durationSeconds"?: number, "model"?: string, "waitSeconds"?: number }`. mp4 or webm up to 32 MB, opened before the job starts so a file that is not a clip is `media_unsupported`. An extension returns the whole clip with the new part at the end; its duration defaults to 6 seconds (or the model's first).
 
 ### `transcribe_audio`
-- **Input**: `{ "sourcePath": string, "language"?: string, "model"?: string, "waitSeconds"?: number }`. Any decodable audio or video file; long files are sent in ten-minute parts. Each part's segments are checked as the subtitle flow checks them (in order, inside the part) before they are offset; words with unusable times are left out. A recording longer than `int.MaxValue` samples (about 12.4 hours at 48 kHz) is refused before the first part is sent.
+- **Input**: `{ "sourcePath": string, "language"?: string, "model"?: string, "waitSeconds"?: number }`. Any decodable audio or video file; long files are sent in ten-minute parts. Each part's segments are checked as the subtitle flow checks them (in order, inside the part) before they are offset; words with unusable times, out of order or overlapping the word before, are left out. A recording longer than `int.MaxValue` samples (about 12.4 hours at 48 kHz) is refused before the first part is sent.
 - **Output**: a job snapshot whose `output.transcript` is `{ "language", "segments": [ { "start", "end", "text" } ], "words": [ { "start", "end", "word" } ] | null }`, times in seconds from the start of the file.
 
 ### `list_ai_jobs`

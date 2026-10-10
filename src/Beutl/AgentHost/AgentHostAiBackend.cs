@@ -177,20 +177,27 @@ internal sealed class AgentHostAiBackend(
                 if (response.Words is { } chunkWords)
                 {
                     hasWords = true;
+                    // The segments' tolerance: providers round word times to a few hundredths.
+                    const double ToleranceSeconds = 0.05;
+                    double previousEnd = 0;
                     foreach (AiTranscriptionWord word in chunkWords)
                     {
-                        // Words only refine the segments, so one with unusable times is left out.
+                        // Words only refine the segments, so one with unusable times, out of order
+                        // or overlapping the word before it, is left out rather than the whole part.
                         if (word is null
                             || !double.IsFinite(word.Start)
                             || !double.IsFinite(word.End)
                             || word.Start < 0
                             || word.End < word.Start
-                            || word.Start > partSeconds)
+                            || word.Start > partSeconds
+                            || word.Start < previousEnd - ToleranceSeconds)
                         {
                             continue;
                         }
 
-                        words.Add(new AgentTranscriptWord(word.Start + offset, Math.Min(word.End, partSeconds) + offset, word.Word));
+                        double end = Math.Min(word.End, partSeconds);
+                        words.Add(new AgentTranscriptWord(word.Start + offset, end + offset, word.Word));
+                        previousEnd = end;
                     }
                 }
 
