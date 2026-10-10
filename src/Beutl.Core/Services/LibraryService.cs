@@ -191,6 +191,11 @@ public sealed class LibraryService
 
     public IReadOnlyList<LibraryItem> Items => _items;
 
+    /// <summary>
+    /// Raised after items are registered or unregistered, on the thread that changed them.
+    /// </summary>
+    public event EventHandler? ItemsChanged;
+
     public IReadOnlySet<Type> GetTypesFromFormat(string format)
     {
         return GetHashSet(format);
@@ -220,6 +225,8 @@ public sealed class LibraryService
                 _items.Add(item);
             }
         }
+
+        ItemsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Register<T>(string format, string displayName, string? description = null)
@@ -319,9 +326,10 @@ public sealed class LibraryService
 
     private void Unregister(Type[] types)
     {
+        bool removed;
         lock (_lock)
         {
-            _items.RemoveAll(item =>
+            removed = _items.RemoveAll(item =>
             {
                 if (item is SingleTypeLibraryItem single)
                 {
@@ -335,12 +343,17 @@ public sealed class LibraryService
                 {
                     return false;
                 }
-            });
+            }) > 0;
 
             foreach (HashSet<Type> hashSet in _formatToType.Values)
             {
-                hashSet.RemoveWhere(t => types.Contains(t));
+                removed |= hashSet.RemoveWhere(t => types.Contains(t)) > 0;
             }
+        }
+
+        if (removed)
+        {
+            ItemsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }

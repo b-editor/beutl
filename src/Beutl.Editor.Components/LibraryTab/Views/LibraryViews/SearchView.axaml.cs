@@ -30,7 +30,7 @@ public partial class SearchView : UserControl
             if (string.IsNullOrWhiteSpace(str))
             {
                 searchResult.ItemsSource = viewModel.AllItems;
-                viewModel.SearchResult.Clear();
+                viewModel.ClearSearch();
             }
             else
             {
