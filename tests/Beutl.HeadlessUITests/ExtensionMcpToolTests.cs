@@ -246,23 +246,11 @@ public sealed class ExtensionMcpToolTests
                 new McpToolDefinition("test.shared", "First provider.")
             ],
             _ => new(McpToolResult.Text("first")))]);
-        provider.AddExtensions(-45005, [new OtherToolExtension(
+        provider.AddExtensions(-45005, [new ToolExtension(
             [
                 new McpToolDefinition("test.shared", "Second provider."),
-                new McpToolDefinition("test.reserved-ref", "Requires it through a reference.", Schema(
-                    """{"type":"object","$ref":"#/$defs/args","$defs":{"args":{"required":["instanceId"]}}}""")),
-                new McpToolDefinition("test.reserved-external", "References an outside schema.", Schema(
-                    """{"type":"object","$ref":"https://example.com/args.json"}""")),
-                new McpToolDefinition("test.local-ref", "References its own definitions.", Schema(
-                    """{"type":"object","$ref":"#/$defs/args","$defs":{"args":{"properties":{"text":{"type":"string"}}}}}""")),
                 new McpToolDefinition("test.reserved", "Declares the routing argument.", Schema(
-                    """{"type":"object","properties":{"instanceId":{"type":"string"}}}""")),
-                new McpToolDefinition("test.reserved-required", "Requires the routing argument.", Schema(
-                    """{"type":"object","required":["instanceId"]}""")),
-                new McpToolDefinition("test.reserved-pattern", "Matches the routing argument.", Schema(
-                    """{"type":"object","patternProperties":{"^inst":{"type":"integer"}}}""")),
-                new McpToolDefinition("test.reserved-composed", "Declares it in a subschema.", Schema(
-                    """{"type":"object","allOf":[{"properties":{"instanceId":{"type":"integer"}}}]}"""))
+                    """{"type":"object","properties":{"instanceId":{"type":"string"}}}"""))
             ],
             _ => new(McpToolResult.Text("second")))]);
         await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
@@ -279,21 +267,9 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(tools.Count(tool => tool.Name == "undo"), Is.EqualTo(1));
                 Assert.That(tools.Single(tool => tool.Name == "undo").Description, Is.Not.EqualTo("Shadows a built-in tool."));
                 Assert.That(tools.Single(tool => tool.Name == "test.shared").Description, Is.EqualTo("First provider."));
-                Assert.That(tools.Select(tool => tool.Name).Where(name => name.StartsWith("test.reserved", StringComparison.Ordinal)), Is.Empty);
-                Assert.That(tools.Select(tool => tool.Name), Does.Contain("test.local-ref"));
+                Assert.That(tools.Select(tool => tool.Name), Does.Not.Contain("test.reserved"));
                 Assert.That(Text(shared), Is.EqualTo("first"));
                 Assert.That(Text(undo), Does.Not.Contain("first"));
-            });
-
-            // The second provider must not take over a name a client may have listed from the first.
-            await provider.RemoveExtensions(-45004).DrainAsync();
-            IList<McpClientTool> afterRemoval = await client.ListToolsAsync();
-            CallToolResult stale = await client.CallToolAsync("test.shared");
-            Assert.Multiple(() =>
-            {
-                Assert.That(afterRemoval.Select(tool => tool.Name), Does.Not.Contain("test.shared"));
-                Assert.That(ErrorCodeOf(stale), Is.EqualTo(ErrorCode.ExtensionToolUnavailable));
-                Assert.That(Text(stale), Does.Not.Contain("second"));
             });
         }
         finally
@@ -314,14 +290,12 @@ public sealed class ExtensionMcpToolTests
             [
                 new McpToolDefinition("test.image", "Returns an image."),
                 new McpToolDefinition("test.reject", "Reports an error."),
-                new McpToolDefinition("test.throw", "Throws."),
-                new McpToolDefinition("test.sdk-text", "Returns text shaped like an SDK error.")
+                new McpToolDefinition("test.throw", "Throws.")
             ],
             call => call.Name switch
             {
                 "test.image" => new(McpToolResult.Image(png, "image/png")),
                 "test.reject" => new(McpToolResult.Error("bad input")),
-                "test.sdk-text" => new(McpToolResult.Text("An error occurred invoking 'test.sdk-text'.")),
                 _ => throw new InvalidOperationException("boom")
             })]);
         await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
@@ -332,7 +306,6 @@ public sealed class ExtensionMcpToolTests
             CallToolResult image = await client.CallToolAsync("test.image");
             CallToolResult rejected = await client.CallToolAsync("test.reject");
             CallToolResult thrown = await client.CallToolAsync("test.throw");
-            CallToolResult sdkText = await client.CallToolAsync("test.sdk-text");
 
             Assert.Multiple(() =>
             {
@@ -344,8 +317,6 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(thrown.IsError, Is.True);
                 Assert.That(ErrorCodeOf(thrown), Is.EqualTo(ErrorCode.ExtensionToolFailed));
                 Assert.That(Text(thrown), Does.Contain("boom"));
-                Assert.That(Text(sdkText), Is.EqualTo("An error occurred invoking 'test.sdk-text'."));
-                Assert.That(sdkText.IsError, Is.False);
             });
         }
         finally
@@ -400,7 +371,7 @@ public sealed class ExtensionMcpToolTests
             => new(McpToolResult.Text("collectible"));
     }
 
-    private class ToolExtension(
+    private sealed class ToolExtension(
         IReadOnlyList<McpToolDefinition> tools,
         Func<McpToolCall, ValueTask<McpToolResult>> invoke) : McpToolExtension
     {
@@ -409,10 +380,6 @@ public sealed class ExtensionMcpToolTests
         public override ValueTask<McpToolResult> InvokeAsync(McpToolCall call, CancellationToken cancellationToken)
             => invoke(call);
     }
-
-    private sealed class OtherToolExtension(
-        IReadOnlyList<McpToolDefinition> tools,
-        Func<McpToolCall, ValueTask<McpToolResult>> invoke) : ToolExtension(tools, invoke);
 
     private sealed class ThrowingToolList : IReadOnlyList<McpToolDefinition>
     {

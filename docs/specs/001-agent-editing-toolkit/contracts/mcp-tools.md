@@ -232,7 +232,7 @@ Request cancellation of a running background render/export job.
 
 ## Extension tools *(in-app host only)*
 
-Installed extensions can add tools through `McpToolExtension` (see the [MCP tool extension guide](../../../extension-authoring/mcp-tools.md)). They are listed and called like built-in tools, appear and disappear with their package without restarting the endpoint, and receive the same strict-argument check and `instanceId` routing. A built-in tool always wins a name collision, and an extension tool name stays with the first extension that provided it for the rest of the session, so a call never reaches a different extension than the one listed. `tools/list` reflects the extensions loaded in the connected instance.
+Installed extensions can add tools through `McpToolExtension` (see the [MCP tool extension guide](../../../extension-authoring/mcp-tools.md)). They are listed and called like built-in tools, appear and disappear with their package without restarting the endpoint, and receive the same strict-argument check and `instanceId` routing. A built-in tool always wins a name collision. `tools/list` reflects the extensions loaded in the connected instance.
 - **Errors**: `extension_tool_failed` (the extension threw; the message is included), `extension_tool_unavailable` (the package was unloaded after the tool was listed). Unlike toolkit errors, both are returned as MCP tool errors (`isError: true`), as are failures the extension reports itself in its own wording.
 
 ## Cross-cutting contract rules

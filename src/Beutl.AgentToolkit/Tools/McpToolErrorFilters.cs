@@ -28,7 +28,7 @@ public static class McpToolErrorFilters
             try
             {
                 CallToolResult result = await next(context, cancellationToken).ConfigureAwait(false);
-                return IsGenericInvocationError(result, context.Params?.Name) && IsAttributeDeclared(context)
+                return IsGenericInvocationError(result, context.Params?.Name)
                     ? CreateValidationRejectedResult(context.Params?.Name)
                     : result;
             }
@@ -163,13 +163,6 @@ public static class McpToolErrorFilters
     private static bool IsBindingException(Exception ex)
     {
         return ex is ArgumentException or JsonException or NotSupportedException or FormatException;
-    }
-
-    // Tools built from other sources, such as extensions, may return this text as ordinary output.
-    private static bool IsAttributeDeclared(RequestContext<CallToolRequestParams> context)
-    {
-        return ResolveTool(context) is not { } tool
-               || tool.Metadata.OfType<McpServerToolAttribute>().Any();
     }
 
     private static bool IsGenericInvocationError(CallToolResult result, string? toolName)

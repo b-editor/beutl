@@ -2,7 +2,6 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Beutl.Editor.Services.Mcp;
 using Beutl.Logging;
 using Beutl.Services;
@@ -20,7 +19,6 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
     private readonly EditorService _editorService;
     private readonly IEditorContextServices _services;
     private readonly object _gate = new();
-    private readonly Dictionary<string, string> _owners = new(StringComparer.Ordinal);
     private Snapshot _snapshot = new([], FrozenSet<string>.Empty);
     private bool _disposed;
 
@@ -106,9 +104,13 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                 }
             }
 
+            Snapshot previous = _snapshot;
             Volatile.Write(ref _snapshot, new Snapshot(
                 [.. tools],
-                _owners.Keys.Where(name => !names.Contains(name)).ToFrozenSet(StringComparer.Ordinal)));
+                previous.RemovedNames
+                    .Concat(previous.Tools.Select(tool => tool.ProtocolTool.Name))
+                    .Where(name => !names.Contains(name))
+                    .ToFrozenSet(StringComparer.Ordinal)));
         }
     }
 
@@ -142,46 +144,26 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
             return null;
         }
 
-        // The instance router adds and consumes instanceId on every tool.
-        switch (FindInstanceIdUse(definition.InputSchema, definition.InputSchema, depth: 0))
+        if (definition.InputSchema.TryGetProperty("properties", out JsonElement properties)
+            && properties.ValueKind == JsonValueKind.Object
+            && properties.TryGetProperty("instanceId", out _))
         {
-            case InstanceIdUse.Constrained:
-                s_logger.LogWarning(
-                    "Ignoring MCP tool {ToolName} from {ExtensionType}: the instanceId argument is reserved.",
-                    definition.Name,
-                    descriptor.TypeName);
-                return null;
-            case InstanceIdUse.Unresolved:
-                s_logger.LogWarning(
-                    "Ignoring MCP tool {ToolName} from {ExtensionType}: its input schema references a schema outside itself.",
-                    definition.Name,
-                    descriptor.TypeName);
-                return null;
-        }
-
-        // A client may still call a name it listed earlier, so a name never moves to another extension
-        // within a session. An updated version of the same extension keeps its names.
-        string identity = GetExtensionIdentity(descriptor.TypeName);
-        if (_owners.TryGetValue(definition.Name, out string? owner) && owner != identity)
-        {
+            // The instance router adds and consumes instanceId on every tool.
             s_logger.LogWarning(
-                "Ignoring MCP tool {ToolName} from {ExtensionType}: {Owner} provided it earlier in this session.",
+                "Ignoring MCP tool {ToolName} from {ExtensionType}: the instanceId argument is reserved.",
                 definition.Name,
-                descriptor.TypeName,
-                owner);
+                descriptor.TypeName);
             return null;
         }
 
         if (!names.Add(definition.Name))
         {
             s_logger.LogWarning(
-                "Ignoring MCP tool {ToolName} from {ExtensionType}: it is declared more than once.",
+                "Ignoring MCP tool {ToolName} from {ExtensionType}: another extension already provides it.",
                 definition.Name,
                 descriptor.TypeName);
             return null;
         }
-
-        _owners[definition.Name] = identity;
 
         var protocolTool = new Tool
         {
@@ -200,133 +182,6 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                 }
         };
         return new ExtensionMcpTool(descriptor.Id, descriptor.TypeName, protocolTool, _editorService, _services);
-    }
-
-    // Looks through every subschema that applies to the arguments object, following local references.
-    private static InstanceIdUse FindInstanceIdUse(JsonElement root, JsonElement schema, int depth)
-    {
-        const string name = "instanceId";
-        if (schema.ValueKind != JsonValueKind.Object)
-            return InstanceIdUse.None;
-        if (depth > 32)
-            return InstanceIdUse.Unresolved;
-
-        if (schema.TryGetProperty("properties", out JsonElement properties)
-            && properties.ValueKind == JsonValueKind.Object
-            && properties.TryGetProperty(name, out _))
-        {
-            return InstanceIdUse.Constrained;
-        }
-
-        if (schema.TryGetProperty("required", out JsonElement required)
-            && required.ValueKind == JsonValueKind.Array
-            && required.EnumerateArray().Any(item => item.ValueKind == JsonValueKind.String && item.ValueEquals(name)))
-        {
-            return InstanceIdUse.Constrained;
-        }
-
-        if (schema.TryGetProperty("patternProperties", out JsonElement patterns)
-            && patterns.ValueKind == JsonValueKind.Object
-            && patterns.EnumerateObject().Any(pattern => MatchesPattern(pattern.Name, name)))
-        {
-            return InstanceIdUse.Constrained;
-        }
-
-        if (schema.TryGetProperty("dependentSchemas", out JsonElement dependents)
-            && dependents.ValueKind == JsonValueKind.Object
-            && dependents.TryGetProperty(name, out _))
-        {
-            return InstanceIdUse.Constrained;
-        }
-
-        foreach (JsonElement subschema in GetArgumentSubschemas(root, schema))
-        {
-            InstanceIdUse use = subschema.ValueKind == JsonValueKind.Undefined
-                ? InstanceIdUse.Unresolved
-                : FindInstanceIdUse(root, subschema, depth + 1);
-            if (use != InstanceIdUse.None)
-                return use;
-        }
-
-        return InstanceIdUse.None;
-    }
-
-    // Yields default(JsonElement) for a reference that does not resolve inside the schema.
-    private static IEnumerable<JsonElement> GetArgumentSubschemas(JsonElement root, JsonElement schema)
-    {
-        foreach (string keyword in new[] { "$ref", "$dynamicRef" })
-        {
-            if (schema.TryGetProperty(keyword, out JsonElement reference))
-                yield return reference.ValueKind == JsonValueKind.String ? ResolveLocalReference(root, reference.GetString()!) : default;
-        }
-
-        foreach (string keyword in new[] { "allOf", "anyOf", "oneOf" })
-        {
-            if (schema.TryGetProperty(keyword, out JsonElement branches) && branches.ValueKind == JsonValueKind.Array)
-            {
-                foreach (JsonElement branch in branches.EnumerateArray())
-                    yield return branch;
-            }
-        }
-
-        foreach (string keyword in new[] { "if", "then", "else" })
-        {
-            if (schema.TryGetProperty(keyword, out JsonElement branch))
-                yield return branch;
-        }
-
-        if (schema.TryGetProperty("dependentSchemas", out JsonElement dependents) && dependents.ValueKind == JsonValueKind.Object)
-        {
-            foreach (JsonProperty dependent in dependents.EnumerateObject())
-                yield return dependent.Value;
-        }
-    }
-
-    private static JsonElement ResolveLocalReference(JsonElement root, string reference)
-    {
-        if (reference == "#")
-            return root;
-        if (!reference.StartsWith("#/", StringComparison.Ordinal))
-            return default;
-
-        JsonElement current = root;
-        foreach (string encoded in reference[2..].Split('/'))
-        {
-            string segment = Uri.UnescapeDataString(encoded).Replace("~1", "/").Replace("~0", "~");
-            if (current.ValueKind == JsonValueKind.Object && current.TryGetProperty(segment, out JsonElement child))
-                current = child;
-            else if (current.ValueKind == JsonValueKind.Array && int.TryParse(segment, out int index)
-                     && index >= 0 && index < current.GetArrayLength())
-                current = current[index];
-            else
-                return default;
-        }
-
-        return current;
-    }
-
-    private static bool MatchesPattern(string pattern, string name)
-    {
-        try
-        {
-            return Regex.IsMatch(name, pattern, RegexOptions.ECMAScript, TimeSpan.FromMilliseconds(100));
-        }
-        catch (Exception ex) when (ex is ArgumentException or RegexMatchTimeoutException)
-        {
-            return false;
-        }
-    }
-
-    private static string GetExtensionIdentity(string typeName)
-        => System.Reflection.Metadata.TypeName.TryParse(typeName, out System.Reflection.Metadata.TypeName? parsed)
-            ? $"{parsed.FullName}, {parsed.AssemblyName?.Name}"
-            : typeName;
-
-    private enum InstanceIdUse
-    {
-        None,
-        Constrained,
-        Unresolved
     }
 
     private sealed class Snapshot(ExtensionMcpTool[] tools, FrozenSet<string> removedNames)

@@ -20,9 +20,8 @@ public sealed class McpToolDefinition
     /// a <c>patternProperties</c> pattern are rejected before the tool runs, unless the schema sets
     /// <c>additionalProperties</c> to something other than <see langword="false"/> or combines
     /// subschemas at the top level (<c>allOf</c>, <c>anyOf</c>, <c>oneOf</c>, <c>if</c>,
-    /// <c>dependentSchemas</c>, or <c>$ref</c>). The schema must not declare, require, or match the
-    /// reserved <c>instanceId</c> argument, and its <c>$ref</c> values must point inside the schema
-    /// (<c>#/...</c>); the host skips a tool that breaks either rule.
+    /// <c>dependentSchemas</c>, or <c>$ref</c>). A tool that declares the reserved <c>instanceId</c>
+    /// property is skipped.
     /// </param>
     public McpToolDefinition(string name, string description, JsonElement? inputSchema = null)
     {

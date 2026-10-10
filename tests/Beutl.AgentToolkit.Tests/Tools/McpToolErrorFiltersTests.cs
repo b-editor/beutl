@@ -119,24 +119,6 @@ public sealed class McpToolErrorFiltersTests
         });
     }
 
-    [Test]
-    public void Pattern_properties_use_ecmascript_character_classes()
-    {
-        using JsonDocument schema = JsonDocument.Parse(
-            """{ "type": "object", "patternProperties": { "^\\d+$": {} }, "additionalProperties": false }""");
-
-        CallToolResult? ascii = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
-            "extension_tool", ["12"], schema.RootElement);
-        CallToolResult? arabicIndic = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
-            "extension_tool", ["١"], schema.RootElement);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(ascii, Is.Null);
-            Assert.That(ReadToolResult(arabicIndic!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-        });
-    }
-
     private static ToolResult<object?> ReadToolResult(CallToolResult result)
     {
         string text = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(block => block.Text));
