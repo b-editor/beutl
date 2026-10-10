@@ -39,6 +39,26 @@ public class WaveReaderTests
     private static float SampleForFrame(int frame) => frame / (float)FrameCount * 0.5f;
 
     [Test]
+    public void Open_ACorruptFileFailsWithoutLeavingAFinalizerThatCrashes()
+    {
+        string corrupt = Path.Combine(Path.GetTempPath(), $"corrupt-{Guid.NewGuid():N}.wav");
+        File.WriteAllBytes(corrupt, [0, 1, 2, 3]);
+        try
+        {
+            Assert.That(new WaveDecoderInfo().Open(corrupt, new Beutl.Media.Decoding.MediaOptions()), Is.Null);
+
+            // An unhandled exception on the finalizer thread ends the test host, so getting
+            // past this line is the assertion.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+        finally
+        {
+            File.Delete(corrupt);
+        }
+    }
+
+    [Test]
     public void ReadAudio_InRange_ReturnsRequestedLengthAndMatchingSamples()
     {
         using var reader = new WaveReader(_file);
