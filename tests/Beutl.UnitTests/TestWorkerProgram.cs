@@ -10,6 +10,7 @@ internal static class TestWorkerProgram
     public const string XAudioLifetimeWorkerArgument = "--xaudio-lifetime-worker";
     public const string FFmpegLifetimeWorkerArgument = "--ffmpeg-lifetime-worker";
     public const string SwiftShaderLifetimeWorkerArgument = "--swiftshader-lifetime-worker";
+    public const string LiveMcpTokenWorkerArgument = "--live-mcp-token-worker";
 
     private static async Task<int> Main(string[] args)
     {
@@ -17,6 +18,9 @@ internal static class TestWorkerProgram
         {
             switch (args)
             {
+                case [LiveMcpTokenWorkerArgument, var directory, var legacyToken, var readyPath, var resultPath]:
+                    Configuration.LiveMcpTokenStoreTests.RunWorker(directory, legacyToken, readyPath, resultPath);
+                    break;
                 case [PackageInstallWorkerArgument]:
                     PackageInstallerCrashRecoveryTests.RunCrashWorker();
                     break;
