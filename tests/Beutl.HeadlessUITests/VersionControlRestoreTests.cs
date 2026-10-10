@@ -8312,6 +8312,7 @@ public class VersionControlRestoreTests
         }
     }
 
+    [AvaloniaTest]
     public async Task Missing_recent_project_keeps_the_current_project_open()
     {
         await TestReset.ResetShellAsync();
