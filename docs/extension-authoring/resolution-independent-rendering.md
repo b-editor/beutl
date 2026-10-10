@@ -51,11 +51,12 @@ Reading the scale while authoring:
   concrete input. It returns `false` while the input is unresolved or when several input branches may run at
   different densities, and the `WorkingScale` getter throws in that case. Record scale-independent structure
   then, and do device-pixel math in the execution-time shader, geometry, or custom-effect callback.
-- In a `CustomEffect` callback, `CustomFilterEffectContext.CreateTarget(bounds)` allocates a `ceil(bounds × w)`
-  device buffer, and `Open` returns a canvas that already applies `CreateScale(density)`, so logical content is
-  drawn directly. For device-pixel work, wrap the drawing in `canvas.PushDeviceSpace()` and scale literals by
-  the target's actual density, `target.Scale.Value`, which can be lower than `WorkingScale` after the
-  per-buffer limit.
+- In a `CustomEffect` callback, `CustomFilterEffectContext.CreateTarget(bounds)` allocates a device buffer of
+  `ceil(bounds × w)` pixels, except that at density `1` fractional sizes are truncated;
+  `CustomFilterEffectContext.DeviceBufferSize(bounds, density)` returns the same size. `Open` returns a canvas
+  that already applies `CreateScale(density)`, so logical content is drawn directly. For device-pixel work,
+  wrap the drawing in `canvas.PushDeviceSpace()` and scale literals by the target's actual density,
+  `target.Scale.Value`, which can be lower than `WorkingScale` after the per-buffer limit.
 
 The built-in effects follow these rules; for example, Mosaic multiplies its tile size by `w`, and the SKSL
 and GLSL script effects pass `w` to shaders.
@@ -96,8 +97,8 @@ different topology, not merely a different density.
 - **Tile and drawable brushes.** `BrushConstructor` rasterizes `TileBrush` and `DrawableBrush` content at the
   canvas density (`ImmediateCanvas.Density`), so fills stay sharp at `s_out > 1` without author action. Solid,
   gradient, and Perlin brushes are resolution-independent shaders.
-- **3D scenes.** A 3D scene renders at the output scale, reduced only by the per-buffer limit, and reports that
-  density, so it stays sharp in supersampled export.
+- **3D scenes.** A 3D scene renders at the output scale, capped by `MaxWorkingScale` and the per-buffer limit,
+  and reports that density, so it stays sharp in supersampled export.
 - **Reporting a density.** `EffectiveScale.At(scale)` throws on a non-finite or non-positive value. A density
   derived from animatable geometry can become `NaN` or infinite for a collapsed or off-screen bound, so record
   it with `EffectiveScale.AtOrUnbounded(scale)`, which falls back to `Unbounded`, or guard the value first.
@@ -138,8 +139,8 @@ vec2 shaderGridLogicalCoord = (fragCoord * deviceSize) / pc.scale;
 ```
 
 These values describe the rounded shader grid, not the exact authored bounds. Buffers are allocated as
-`ceil(bounds × scale)`, so a 101 px target at scale `0.5` reports 51 device px, which converts back to 102
-logical px. Keep center and edge math normalized when it must follow the exact bounds; the script values do
+`ceil(bounds × scale)` (truncated at scale `1`), so a 101 px target at scale `0.5` reports 51 device px,
+which converts back to 102 logical px. Keep center and edge math normalized when it must follow the exact bounds; the script values do
 not expose them.
 
 ## Scale 1.0 and testing

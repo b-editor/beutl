@@ -16,7 +16,7 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 | `src/Beutl.NodeGraph/` | `tests/Beutl.UnitTests/NodeGraph/` |
 | `src/Beutl.AgentToolkit/` | `tests/Beutl.AgentToolkit.Tests/` |
 | `src/Beutl.Extensions.AVFoundation/` (macOS only) | `tests/Beutl.Extensions.AVFoundation.Tests/` |
-| `src/Beutl.Extensions.MediaFoundation/` (Windows-only tests self-skip elsewhere) | `tests/Beutl.Extensions.MediaFoundation.Tests/` |
+| `src/Beutl.Extensions.MediaFoundation/` (pure-logic tests run on every OS; native fixtures use `[Platform("Win")]`) | `tests/Beutl.Extensions.MediaFoundation.Tests/` |
 | `Beutl.Controls` property editors + UI-less domain workflows | `tests/Beutl.E2ETests/` (headless, no `src/Beutl` ref) |
 | Full app-shell flows (project / editor / export orchestration) | `tests/Beutl.HeadlessUITests/` (headless, references `src/Beutl`) |
 
