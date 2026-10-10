@@ -11,6 +11,7 @@ internal static class BrowserWebViewEnvironment
 {
     private static readonly Lazy<string> s_webView2UserDataFolder = new(() => PrepareWebView2UserDataFolder(
         Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebView2"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Beutl", "WebView2"),
         // A moved folder keeps its permissions. Only an elevated process can move one from under Program Files,
         // and those permissions would deny the user's later unelevated runs.
         Environment.IsPrivilegedProcess ? null : Environment.ProcessPath));
@@ -34,7 +35,7 @@ internal static class BrowserWebViewEnvironment
     }
 
     // Earlier versions left the profile in WebView2's default folder; moving it keeps the user's sign-ins.
-    internal static string PrepareWebView2UserDataFolder(string folder, string? processPath,
+    internal static string PrepareWebView2UserDataFolder(string folder, string fallbackFolder, string? processPath,
         Action<string, string>? moveDirectory = null)
     {
         string? legacyFolder = processPath == null ? null : processPath + ".WebView2";
@@ -54,6 +55,18 @@ internal static class BrowserWebViewEnvironment
                 "Could not move the WebView2 user data folder from {LegacyFolder} to {Folder}.", legacyFolder, folder);
         }
 
-        return folder;
+        try
+        {
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // WebView2 could not create the profile there either, and that failure would end the application.
+            Log.CreateLogger(typeof(BrowserWebViewEnvironment)).LogWarning(ex,
+                "Could not create the WebView2 user data folder {Folder}; using {FallbackFolder} instead.",
+                folder, fallbackFolder);
+            return fallbackFolder;
+        }
     }
 }

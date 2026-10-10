@@ -9,6 +9,8 @@ public class BrowserWebViewEnvironmentTests
 {
     private string _root = null!;
 
+    private string FallbackFolder => Path.Combine(_root, "local", "WebView2");
+
     [SetUp]
     public void SetUp()
     {
@@ -66,7 +68,7 @@ public class BrowserWebViewEnvironmentTests
         File.WriteAllText(Path.Combine(legacyFolder, "EBWebView", "Local State"), "state");
         string folder = Path.Combine(_root, "home", "browser", "WebView2");
 
-        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, processPath);
+        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, FallbackFolder, processPath);
 
         Assert.Multiple(() =>
         {
@@ -87,7 +89,7 @@ public class BrowserWebViewEnvironmentTests
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "Local State"), "current");
 
-        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, processPath);
+        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, FallbackFolder, processPath);
 
         Assert.Multiple(() =>
         {
@@ -106,45 +108,48 @@ public class BrowserWebViewEnvironmentTests
         File.WriteAllText(Path.Combine(legacyFolder, "Local State"), "legacy");
         string folder = Path.Combine(_root, "home", "browser", "WebView2");
 
-        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, processPath,
+        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, FallbackFolder, processPath,
             (_, _) => throw new IOException("The profile is in use."));
 
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.EqualTo(folder));
+            Assert.That(Directory.Exists(folder), Is.True);
+            Assert.That(File.Exists(Path.Combine(folder, "Local State")), Is.False);
             Assert.That(File.ReadAllText(Path.Combine(legacyFolder, "Local State")), Is.EqualTo("legacy"));
-            Assert.That(Directory.Exists(folder), Is.False);
         });
-        // WebView2 creates the new profile itself; the location must still accept it.
-        Directory.CreateDirectory(result);
-        File.WriteAllText(Path.Combine(result, "Local State"), "new");
-        Assert.That(File.ReadAllText(Path.Combine(result, "Local State")), Is.EqualTo("new"));
     }
 
     [Test]
-    public void PrepareWebView2UserDataFolder_DoesNotThrowWhenTheDestinationCannotBeCreated()
+    public void PrepareWebView2UserDataFolder_UsesTheFallbackWhenTheFolderCannotBeCreated()
     {
         string processPath = Path.Combine(_root, "app", "Beutl.exe");
         string legacyFolder = processPath + ".WebView2";
         Directory.CreateDirectory(legacyFolder);
-        // A file where the parent directory belongs makes the migration fail on every platform.
+        // A file where the parent directory belongs blocks the folder on every platform.
         File.WriteAllText(Path.Combine(_root, "browser"), "");
         string folder = Path.Combine(_root, "browser", "WebView2");
 
-        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, processPath);
+        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, FallbackFolder, processPath);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.EqualTo(folder));
+            Assert.That(result, Is.EqualTo(FallbackFolder));
             Assert.That(Directory.Exists(legacyFolder), Is.True);
         });
     }
 
     [Test]
-    public void PrepareWebView2UserDataFolder_WithoutAProcessPath_ReturnsTheFolder()
+    public void PrepareWebView2UserDataFolder_WithoutAProcessPath_CreatesTheFolder()
     {
         string folder = Path.Combine(_root, "home", "browser", "WebView2");
 
-        Assert.That(BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, null), Is.EqualTo(folder));
+        string result = BrowserWebViewEnvironment.PrepareWebView2UserDataFolder(folder, FallbackFolder, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(folder));
+            Assert.That(Directory.Exists(folder), Is.True);
+        });
     }
 }
