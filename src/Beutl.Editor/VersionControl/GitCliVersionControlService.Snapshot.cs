@@ -202,15 +202,13 @@ internal sealed partial class GitCliVersionControlService
         {
         }
 
+        // The message goes through standard input, so its length is not bound by the command line.
         var arguments = new List<string>
         {
             "commit",
             "--quiet",
             "--only",
-            "-m",
-            message.Trim(),
-            "-m",
-            $"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}",
+            "--file=-",
         };
         if (kind != SnapshotKind.Manual)
         {
@@ -232,10 +230,16 @@ internal sealed partial class GitCliVersionControlService
                 {
                     ExecutionKind = GitCommandExecutionKind.LocalUnbounded,
                     EnvironmentOverrides = new Dictionary<string, string?> { ["GIT_EDITOR"] = ":" },
+                    StandardInput = CreateSnapshotCommitMessage(message, kind),
                 },
                 cancellationToken)
             .ConfigureAwait(false);
         return await ObserveSnapshotCommitAsync(repository, runner, parent).ConfigureAwait(false);
+    }
+
+    private static string CreateSnapshotCommitMessage(string message, SnapshotKind kind)
+    {
+        return $"{message.Trim()}\n\nBeutl-Snapshot: {kind.ToString().ToLowerInvariant()}\n";
     }
 
     // A post-commit hook or another Git process can move HEAD once the commit is made, so HEAD names

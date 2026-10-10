@@ -2848,6 +2848,31 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_records_a_message_longer_than_a_command_line_argument()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        // Longer than the 128 KiB one argument may take on Linux and the 32,767-character Windows
+        // command line.
+        string body = string.Join('\n', Enumerable.Repeat(new string('x', 99), 2048));
+        string message = "manual snapshot\n\n" + body;
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            message,
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        string recorded = (await RunGitAsync("show", "-s", "--format=%B", "HEAD")).Stdout;
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(recorded, Does.StartWith(message));
+            Assert.That(recorded, Does.Contain("Beutl-Snapshot: manual"));
+        });
+    }
+
+    [Test]
     public async Task CommitAllAsync_names_the_snapshot_commit_it_made()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
@@ -8166,7 +8191,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 _repositoryInitialized.TrySetResult();
                 await _releaseRepositoryInitialization.Task.WaitAsync(cancellationToken);
             }
-            else if (IsSnapshotCommit(arguments, SnapshotKind.Init))
+            else if (IsSnapshotCommit(arguments, options, SnapshotKind.Init))
             {
                 _initialCommitCompleted.TrySetResult();
                 await _releaseInitialCommit.Task.WaitAsync(cancellationToken);
@@ -8547,7 +8572,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (IsSnapshotCommit(arguments, SnapshotKind.Init))
+            if (IsSnapshotCommit(arguments, options, SnapshotKind.Init))
             {
                 Interlocked.Increment(ref _initialCommitAttempts);
                 beforeFailure?.Invoke(repository);
@@ -8604,7 +8629,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (IsSnapshotCommit(arguments, SnapshotKind.Init))
+            if (IsSnapshotCommit(arguments, options, SnapshotKind.Init))
             {
                 Interlocked.Increment(ref _initialCommitAttempts);
                 throw new TimeoutException("simulated lost initial commit result");
@@ -8640,7 +8665,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (IsSnapshotCommit(arguments, SnapshotKind.Save))
+            if (IsSnapshotCommit(arguments, options, SnapshotKind.Save))
             {
                 Interlocked.Increment(ref _commitAttempts);
                 beforeFailure?.Invoke(repository);
@@ -8852,7 +8877,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (IsSnapshotCommit(arguments, SnapshotKind.Save))
+            if (IsSnapshotCommit(arguments, options, SnapshotKind.Save))
             {
                 Interlocked.Increment(ref _commitAttempts);
                 throw new TimeoutException("simulated lost snapshot commit result");
@@ -9387,10 +9412,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     private static bool IsSnapshotCommit(
         IReadOnlyList<string> arguments,
+        GitCommandOptions options,
         SnapshotKind kind)
     {
         return arguments.FirstOrDefault() == "commit"
-               && arguments.Contains($"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}");
+               && options.StandardInput?.Contains(
+                   $"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}",
+                   StringComparison.Ordinal) == true;
     }
 
     private sealed class FailingIdentityEmailWriteRunner(
