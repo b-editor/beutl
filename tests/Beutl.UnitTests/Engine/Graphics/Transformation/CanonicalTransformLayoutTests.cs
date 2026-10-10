@@ -360,6 +360,41 @@ public class CanonicalTransformLayoutTests
         });
     }
 
+    // A drawable in a document is attached to its root. Its transform has to end up under the new group, attached
+    // with it, rather than left without a parent when the drawable lets it go.
+    [Test]
+    public void Ensure_NonTransformGroupValue_OfAnAttachedDrawable_MovesItUnderTheGroup()
+    {
+        var root = new TestHierarchicalRoot();
+        var drawable = CreateDrawable();
+        var existing = new TranslateTransform(7f, 3f);
+        drawable.Transform.CurrentValue = existing;
+        ((IModifiableHierarchical)root).AddChild(drawable);
+
+        CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(drawable.Transform.CurrentValue, Is.SameAs(result.Group));
+            Assert.That(result.Group.Children[0], Is.SameAs(existing));
+            Assert.That(existing.HierarchicalParent, Is.SameAs(result.Group));
+            Assert.That(((IHierarchical)existing).FindHierarchicalRoot(), Is.SameAs(root));
+        });
+    }
+
+    private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot
+    {
+        public event EventHandler<IHierarchical>? DescendantAttached;
+
+        public event EventHandler<IHierarchical>? DescendantDetached;
+
+        public void OnDescendantAttached(IHierarchical descendant)
+            => DescendantAttached?.Invoke(this, descendant);
+
+        public void OnDescendantDetached(IHierarchical descendant)
+            => DescendantDetached?.Invoke(this, descendant);
+    }
+
     // ===== FindCanonicalTransforms (read-only) tests =====
     // Returns the first occurrence of R/S/T without checking order (same policy as Ensure).
     // The group is never mutated.

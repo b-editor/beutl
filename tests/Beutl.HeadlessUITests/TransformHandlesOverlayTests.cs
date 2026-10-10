@@ -43,6 +43,8 @@ public class TransformHandlesOverlayTests
         TurnedBlurredRect,
         // Glyphs fill less than the text's line box.
         Text,
+        // The transform is a lone TranslateTransform rather than a group, which the first drag wraps.
+        LoneTranslate,
     }
 
     [AvaloniaTest]
@@ -167,6 +169,50 @@ public class TransformHandlesOverlayTests
         }
     }
 
+    // The first drag wraps a lone transform in a group inside the document. The drag scales the drawable, and
+    // undo puts the lone transform back as the drawable's own.
+    [AvaloniaTest]
+    public async Task Dragging_a_corner_of_a_drawable_with_a_lone_transform_wraps_it_and_undo_restores_it()
+    {
+        GpuTestGate.EnsureAvailable();
+        (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(Content.LoneTranslate);
+        try
+        {
+            Transform lone = drawable.Transform.CurrentValue!;
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            AvaPoint[] before = Corners(overlay);
+            AvaPoint to = before[2] + new Avalonia.Vector(30, 20);
+
+            window.MouseDown(ToWindow(view, window, before[2]), MouseButton.Left);
+            window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(ToWindow(view, window, to), MouseButton.Left);
+            await RenderPreview(editor);
+
+            AvaPoint[] after = Corners(overlay);
+            Assert.Multiple(() =>
+            {
+                Assert.That(drawable.Transform.CurrentValue, Is.TypeOf<TransformGroup>());
+                Assert.That(((TransformGroup)drawable.Transform.CurrentValue!).Children, Has.Member(lone));
+                Assert.That(lone.HierarchicalParent, Is.SameAs(drawable.Transform.CurrentValue));
+                Assert.That(after[2].X, Is.EqualTo(to.X).Within(0.5), "grabbed corner X");
+                Assert.That(after[2].Y, Is.EqualTo(to.Y).Within(0.5), "grabbed corner Y");
+                Assert.That(after[0].X, Is.EqualTo(before[0].X).Within(0.5), "opposite corner X");
+                Assert.That(after[0].Y, Is.EqualTo(before[0].Y).Within(0.5), "opposite corner Y");
+            });
+
+            editor.HistoryManager.Undo();
+            Assert.Multiple(() =>
+            {
+                Assert.That(drawable.Transform.CurrentValue, Is.SameAs(lone));
+                Assert.That(lone.HierarchicalParent, Is.SameAs(drawable));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     // A view detached and attached again, such as one moved to another dock, keeps the box on the drawable when
     // the preview image changes size afterwards.
     [AvaloniaTest]
@@ -230,6 +276,13 @@ public class TransformHandlesOverlayTests
                 transform.Children.Add(new TranslateTransform(-60, 40));
                 transform.Children.Add(new RotationTransform(-30));
                 return rect;
+
+            case Content.LoneTranslate:
+                var moved = new RectShape();
+                moved.Width.CurrentValue = 200;
+                moved.Height.CurrentValue = 100;
+                moved.Transform.CurrentValue = new TranslateTransform(0, 130);
+                return moved;
 
             default:
                 var text = new TextBlock();
