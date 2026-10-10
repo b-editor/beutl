@@ -13,47 +13,51 @@ internal sealed partial class GitCliVersionControlService
 
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        GitCommandResult result;
         try
         {
-            GitCommandResult result = await runner.RunAsync(
+            result = await runner.RunAsync(
                 repository,
                 ["check-ref-format", "--branch", name],
                 GitCommandOptions.Local,
                 cancellationToken).ConfigureAwait(false);
-            string validatedName = RemoveSingleTrailingLineEnding(result.Stdout);
-            if (!string.Equals(validatedName, name, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            IReadOnlyList<BranchInfo> branches = await GetLocalBranchesCoreAsync(cancellationToken)
-                .ConfigureAwait(false);
-            StringComparison branchNameComparison = await UsesCaseInsensitiveFilesRefStorageAsync(
-                    repository,
-                    runner,
-                    cancellationToken)
-                .ConfigureAwait(false)
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            if (branches.Any(branch => BranchNamesConflict(
-                    branch.Name,
-                    name,
-                    branchNameComparison)))
-            {
-                return false;
-            }
-
-            return !await HasLooseBranchPathCollisionAsync(
-                    repository,
-                    runner,
-                    name,
-                    cancellationToken)
-                .ConfigureAwait(false);
         }
         catch (GitOperationException)
         {
+            // check-ref-format rejects a name that is not a valid branch name.
             return false;
         }
+
+        string validatedName = RemoveSingleTrailingLineEnding(result.Stdout);
+        if (!string.Equals(validatedName, name, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // A failure past this point is Git's, not the name's, so it reaches the caller with its reason.
+        IReadOnlyList<BranchInfo> branches = await GetLocalBranchesCoreAsync(cancellationToken)
+            .ConfigureAwait(false);
+        StringComparison branchNameComparison = await UsesCaseInsensitiveFilesRefStorageAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (branches.Any(branch => BranchNamesConflict(
+                branch.Name,
+                name,
+                branchNameComparison)))
+        {
+            return false;
+        }
+
+        return !await HasLooseBranchPathCollisionAsync(
+                repository,
+                runner,
+                name,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static string RemoveSingleTrailingLineEnding(string value)

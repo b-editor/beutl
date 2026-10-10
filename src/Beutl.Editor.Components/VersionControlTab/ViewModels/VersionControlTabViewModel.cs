@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
 using Avalonia.Collections;
@@ -139,6 +140,9 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
         HasRecoverableLock = new ReactivePropertySlim<bool>(
                 _lockRecoveryService?.RecoverableLock is not null)
             .DisposeWith(_disposables);
+        CanRemoveStaleLock = new ReactivePropertySlim<bool>(
+                _lockRecoveryService?.RecoverableLock is { RequiresManualRemoval: false })
+            .DisposeWith(_disposables);
         StaleLockGuidance = new ReactivePropertySlim<string>(
                 Strings.VersionControl_StaleLockGuidance)
             .DisposeWith(_disposables);
@@ -227,13 +231,20 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
         EnableVersionControlCommand = new AsyncReactiveCommand(CanEnableVersionControl)
             .WithSubscribe(EnableVersionControlAsync)
             .DisposeWith(_disposables);
-        DownloadGitCommand = new AsyncReactiveCommand(IsUnavailable)
+        // An observable, not the property itself: given a writable property, AsyncReactiveCommand
+        // shares it as its own busy state and sets it to false while running, so DownloadGitAsync
+        // would see Git as available and never open the downloads page.
+        DownloadGitCommand = new AsyncReactiveCommand(IsUnavailable.AsObservable())
             .WithSubscribe(DownloadGitAsync)
             .DisposeWith(_disposables);
-        RemoveStaleLockCommand = new AsyncReactiveCommand(HasRecoverableLock)
+        // An observable, not the property itself: given a writable property, AsyncReactiveCommand
+        // shares it as its own busy state and sets it back to true after a successful removal.
+        RemoveStaleLockCommand = new AsyncReactiveCommand(CanRemoveStaleLock.AsObservable())
             .WithSubscribe(RemoveStaleLockAsync)
             .DisposeWith(_disposables);
-        RecoverPendingPullCommand = new AsyncReactiveCommand(HasPendingPullRecovery)
+        // An observable for the same reason: a shared property is set back to true when the command
+        // finishes, which brought the banner back after a successful recovery.
+        RecoverPendingPullCommand = new AsyncReactiveCommand(HasPendingPullRecovery.AsObservable())
             .WithSubscribe(RecoverPendingPullAsync)
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = ObserveCanMutate();
@@ -417,6 +428,8 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
     public ReactivePropertySlim<bool> HasBlockingGuidance { get; }
 
     public ReactivePropertySlim<bool> HasRecoverableLock { get; }
+
+    public ReactivePropertySlim<bool> CanRemoveStaleLock { get; }
 
     public ReactivePropertySlim<string> StaleLockGuidance { get; }
 

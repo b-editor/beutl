@@ -185,18 +185,39 @@ internal partial class VersionControlCoordinator
         string branchName,
         CancellationToken cancellationToken)
     {
-        if (!await service.CanCreateBranchAsync(branchName, cancellationToken))
+        CheckedOutBranchTip tip;
+        try
         {
-            return false;
+            if (!await service.CanCreateBranchAsync(branchName, cancellationToken))
+            {
+                // A silent refusal would leave the user wondering why nothing happened. The backend
+                // answers an invalid name and a clash with an existing branch alike, so the warning
+                // names both.
+                PublishNotification(() =>
+                    NotificationService.ShowWarning(
+                        Strings.VersionControl,
+                        string.Format(Strings.VersionControl_BranchNameUnavailableFormat, branchName)));
+                return false;
+            }
+
+            WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+            if (!EnsureRepositoryIsNotConflicted(status))
+            {
+                return false;
+            }
+
+            tip = await service.GetCheckedOutBranchTipAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Git failing while it checks the name or the repository is reported with its reason.
+            return HandleCycleFailure(
+                ex,
+                recoveryFailure: null,
+                $"branch '{branchName}'",
+                cancellationToken);
         }
 
-        WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
-        if (!EnsureRepositoryIsNotConflicted(status))
-        {
-            return false;
-        }
-
-        CheckedOutBranchTip tip = await service.GetCheckedOutBranchTipAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         // The new branch becomes the checked-out one, so a pull or recovery still awaiting confirmation
         // no longer describes the branch it would change. A switch cancels those when it closes the

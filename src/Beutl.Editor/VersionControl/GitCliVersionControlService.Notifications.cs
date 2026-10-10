@@ -107,7 +107,6 @@ internal sealed partial class GitCliVersionControlService
             }
 
             _watcher = new RepositoryWatcher(Repository);
-            _watcher.UpdateRequiredPaths(_requiredTemporaryProjectPaths);
             _watcher.Changed += OnRepositoryChanged;
         }
     }

@@ -8,8 +8,8 @@ internal static class ProjectConflictMarkerScanner
 {
     private const int ScanChunkSize = 4096;
     private const int MinimumMarkerLength = 7;
-    // Project opening waits for this scan, so bound both one unexpectedly large sidecar and a
-    // project that references many otherwise-small files.
+    // Project opening waits for this scan, so bound both one unexpectedly large document and a
+    // project with many otherwise-small documents.
     private const long DefaultMaxBytesPerFile = 8L * 1024 * 1024;
     private const long DefaultMaxBytesPerInvocation = 32L * 1024 * 1024;
 
@@ -29,50 +29,23 @@ internal static class ProjectConflictMarkerScanner
         string projectFile,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
-        string? projectRoot = Path.GetDirectoryName(Path.GetFullPath(projectFile));
-        // An extension can persist a sidecar under an extension this walk does not know, so the
-        // files the project itself references are scanned as well: restoration follows those URIs
-        // and would otherwise fail JSON parsing with no conflict guidance shown.
-        IReadOnlySet<string>? referenced = projectRoot is null
-            ? null
-            : SerializedProjectGraph.TryGetRelativePaths(projectFile, projectRoot);
-        // A project that loads has every file it uses in its graph, so a stale file it no longer
-        // references cannot affect opening it. Only a graph that a conflicted file keeps from loading
-        // needs the walk over every project file.
         return FindFirstAsync(
             projectFile,
-            referenced ?? new HashSet<string>(StringComparer.Ordinal),
             cancellationToken,
             DefaultMaxBytesPerFile,
-            DefaultMaxBytesPerInvocation,
-            walkProjectFiles: referenced is null);
+            DefaultMaxBytesPerInvocation);
     }
 
+    // The project file is read first, then every project document under its folder, a stale one
+    // included: a conflicted file that the project no longer uses costs a little budget, while one it
+    // still uses would otherwise fail JSON parsing with no conflict guidance shown.
     internal static async Task<string?> FindFirstAsync(
         string projectFile,
-        IReadOnlySet<string> referencedRelativePaths,
-        CancellationToken cancellationToken)
-    {
-        return await FindFirstAsync(
-                projectFile,
-                referencedRelativePaths,
-                cancellationToken,
-                DefaultMaxBytesPerFile,
-                DefaultMaxBytesPerInvocation)
-            .ConfigureAwait(false);
-    }
-
-    internal static async Task<string?> FindFirstAsync(
-        string projectFile,
-        IReadOnlySet<string> referencedRelativePaths,
         CancellationToken cancellationToken,
         long maxBytesPerFile,
-        long maxBytesPerInvocation,
-        bool walkProjectFiles = true)
+        long maxBytesPerInvocation)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
-        ArgumentNullException.ThrowIfNull(referencedRelativePaths);
         ArgumentOutOfRangeException.ThrowIfNegative(maxBytesPerFile);
         ArgumentOutOfRangeException.ThrowIfNegative(maxBytesPerInvocation);
         string projectRoot = Path.GetDirectoryName(Path.GetFullPath(projectFile))
@@ -102,96 +75,13 @@ internal static class ProjectConflictMarkerScanner
                 return null;
         }
 
-        (SortedSet<string> referencedProjectFiles, SortedSet<string> referencedExtensionFiles) =
-            PartitionReferencedFiles(projectRoot, referencedRelativePaths, cancellationToken);
-
-        // Serialized project state has to win the finite budget over arbitrary extension assets.
-        (FileScan scan, string? conflict) = await ScanFilesAsync(
+        (_, string? conflict) = await WalkProjectFilesAsync(
                 projectRoot,
-                referencedProjectFiles,
-                scannedFiles,
-                budget,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (scan != FileScan.Continue)
-        {
-            return conflict;
-        }
-
-        if (walkProjectFiles)
-        {
-            (scan, conflict) = await WalkProjectFilesAsync(
-                    projectRoot,
-                    scannedFiles,
-                    budget,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (scan != FileScan.Continue)
-            {
-                return conflict;
-            }
-        }
-
-        (_, conflict) = await ScanFilesAsync(
-                projectRoot,
-                referencedExtensionFiles,
                 scannedFiles,
                 budget,
                 cancellationToken)
             .ConfigureAwait(false);
         return conflict;
-    }
-
-    private static (SortedSet<string> ProjectFiles, SortedSet<string> ExtensionFiles) PartitionReferencedFiles(
-        string projectRoot,
-        IReadOnlySet<string> referencedRelativePaths,
-        CancellationToken cancellationToken)
-    {
-        var referencedProjectFiles = new SortedSet<string>(StringComparer.Ordinal);
-        var referencedExtensionFiles = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (string relativePath in referencedRelativePaths)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            string referenced = VersionControlPathComparison.ResolveCanonicalPath(
-                Path.GetFullPath(
-                    Path.Combine(
-                        projectRoot,
-                        relativePath.Replace('/', Path.DirectorySeparatorChar))));
-            if (GitCliVersionControlService.IsSupportedMediaPath(referenced))
-            {
-                continue;
-            }
-
-            SortedSet<string> destination = s_projectExtensions.Contains(Path.GetExtension(referenced))
-                ? referencedProjectFiles
-                : referencedExtensionFiles;
-            destination.Add(referenced);
-        }
-
-        return (referencedProjectFiles, referencedExtensionFiles);
-    }
-
-    private static async Task<(FileScan Scan, string? Conflict)> ScanFilesAsync(
-        string projectRoot,
-        SortedSet<string> files,
-        HashSet<string> scannedFiles,
-        ScanBudget budget,
-        CancellationToken cancellationToken)
-    {
-        foreach (string file in files)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            switch (await ScanOnceAsync(projectRoot, file, scannedFiles, budget, cancellationToken)
-                        .ConfigureAwait(false))
-            {
-                case FileScan.ConflictFound:
-                    return (FileScan.ConflictFound, file);
-                case FileScan.BudgetExhausted:
-                    return (FileScan.BudgetExhausted, null);
-            }
-        }
-
-        return (FileScan.Continue, null);
     }
 
     private static async Task<(FileScan Scan, string? Conflict)> WalkProjectFilesAsync(
@@ -269,7 +159,7 @@ internal static class ProjectConflictMarkerScanner
         return (FileScan.Continue, null);
     }
 
-    // A file reached both through the graph and through the walk is read once.
+    // The project file is reached again by the walk; it is read once.
     private static async Task<FileScan> ScanOnceAsync(
         string projectRoot,
         string file,

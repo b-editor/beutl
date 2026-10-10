@@ -1,5 +1,8 @@
 ﻿using System.ComponentModel;
 
+using System.Reactive;
+using Beutl.Serialization;
+
 namespace Beutl.Configuration;
 
 public sealed class AiAgentConfig : ConfigurationBase
@@ -72,7 +75,7 @@ public sealed class AiAgentConfig : ConfigurationBase
             .DefaultValue("")
             .Register();
 
-        // Empty means "generate a random local bearer token on first endpoint startup".
+        // Keep legacy settings until migration succeeds, then omit this property from new saves.
         LiveMcpTokenProperty = ConfigureProperty<string, AiAgentConfig>(nameof(LiveMcpToken))
             .DefaultValue("")
             .Register();
@@ -187,5 +190,14 @@ public sealed class AiAgentConfig : ConfigurationBase
         {
             OnChanged();
         }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        // A settings save (including startup failure recovery) must not erase the only copy
+        // of a legacy credential before the endpoint has durably migrated it.
+        if (string.IsNullOrWhiteSpace(LiveMcpToken))
+            context.SetValue(nameof(LiveMcpToken), Unit.Default);
     }
 }

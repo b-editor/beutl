@@ -25,7 +25,7 @@ public class JsonHelperTests
     }
 
     [Test]
-    public void Configuration_keeps_bearer_tokens_private_on_creation_and_autosave()
+    public void Configuration_keeps_legacy_tokens_private_until_migration_then_omits_them_on_autosave()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -42,13 +42,23 @@ public class JsonHelperTests
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
 
             config.AiAgentConfig.LiveMcpToken = "synthetic-test-token";
-            UnixFileMode savedMode = File.GetUnixFileMode(path);
+            UnixFileMode legacyMode = File.GetUnixFileMode(path);
+            Assert.That(File.ReadAllText(path), Does.Contain("synthetic-test-token"));
+
+            string token = Beutl.Configuration.LiveMcpTokenStore.GetOrCreate(directory, config.AiAgentConfig.LiveMcpToken);
+            config.AiAgentConfig.LiveMcpToken = "";
+            UnixFileMode migratedMode = File.GetUnixFileMode(path);
+            JsonObject settings = JsonHelper.JsonRestore(path)!.AsObject();
 
             Assert.Multiple(() =>
             {
                 Assert.That(initialMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
-                Assert.That(savedMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
-                Assert.That(File.ReadAllText(path), Does.Contain("synthetic-test-token"));
+                Assert.That(legacyMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+                Assert.That(migratedMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+                Assert.That(token, Is.EqualTo("synthetic-test-token"));
+                Assert.That(settings["AiAgent"]!.AsObject().ContainsKey("LiveMcpToken"), Is.False);
+                Assert.That(File.ReadAllText(path), Does.Not.Contain("synthetic-test-token"));
+                Assert.That(Beutl.Configuration.LiveMcpTokenStore.GetOrCreate(directory), Is.EqualTo(token));
             });
         }
         finally { Directory.Delete(directory, recursive: true); }

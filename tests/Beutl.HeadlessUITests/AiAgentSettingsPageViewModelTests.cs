@@ -336,7 +336,8 @@ public sealed class AiAgentSettingsPageViewModelTests
             InstallSubagents = false,
             LiveMcpToken = "headless-test-token",
         };
-        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
+        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config,
+            Path.Combine(root, "profile"));
         await endpoint.StartAsync();
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");

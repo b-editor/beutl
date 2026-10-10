@@ -28,7 +28,6 @@ internal sealed class RepositoryWatcher : IDisposable
     private readonly Func<string, FileSystemWatcher> _watcherFactory;
     private readonly Action<FileSystemWatcher> _watcherEnabler;
     private readonly List<FileSystemWatcher> _watchers = [];
-    private string[] _requiredTemporaryPaths = [];
     private long? _debounceWindowStartedTimestamp;
     private RepositoryChangeKind _pendingKind;
     private bool _disposed;
@@ -76,22 +75,12 @@ internal sealed class RepositoryWatcher : IDisposable
 
     internal static bool ShouldExcludePath(string projectRoot, string path)
     {
-        return ShouldExcludePath(projectRoot, path, []);
-    }
-
-    private static bool ShouldExcludePath(
-        string projectRoot,
-        string path,
-        IReadOnlyList<string> requiredTemporaryPaths)
-    {
         if (!TryGetCanonicalRelativePath(projectRoot, path, out string? relativePath))
         {
             return true;
         }
 
-        if (relativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
-            && !requiredTemporaryPaths.Any(requiredPath =>
-                VersionControlPathComparison.AreSameCanonicalPath(requiredPath, path)))
+        if (relativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -325,36 +314,9 @@ internal sealed class RepositoryWatcher : IDisposable
         ScheduleChanged();
     }
 
-    internal void UpdateRequiredPaths(IReadOnlySet<string> requiredProjectRelativePaths)
-    {
-        ArgumentNullException.ThrowIfNull(requiredProjectRelativePaths);
-        var requiredTemporaryPaths = new List<string>();
-        foreach (string relativePath in requiredProjectRelativePaths)
-        {
-            if (!relativePath.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
-                || Path.IsPathFullyQualified(relativePath))
-            {
-                continue;
-            }
-
-            string path = Path.GetFullPath(Path.Combine(
-                _projectRoot,
-                relativePath.Replace('/', Path.DirectorySeparatorChar)));
-            if (VersionControlPathComparison.IsSameOrDescendant(_projectRoot, path))
-            {
-                requiredTemporaryPaths.Add(path);
-            }
-        }
-
-        Volatile.Write(ref _requiredTemporaryPaths, [.. requiredTemporaryPaths]);
-    }
-
     internal bool ShouldExcludeWatchedPath(string path)
     {
-        return ShouldExcludePath(
-            _projectRoot,
-            path,
-            Volatile.Read(ref _requiredTemporaryPaths));
+        return ShouldExcludePath(_projectRoot, path);
     }
 
     public void Dispose()

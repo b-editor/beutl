@@ -25,9 +25,13 @@ internal sealed partial class GitCliRunner
 
                 if (_timeProvider.GetUtcNow() - lockSnapshot.LastWriteTimeUtc > StaleLockAge)
                 {
+                    // Removal needs the platform's conditional delete and the file identity it
+                    // checks, so an offer without either can only be removed by hand.
                     var lockInfo = new RepositoryLockInfo(
                         lockPath,
-                        lockSnapshot.LastWriteTimeUtc);
+                        lockSnapshot.LastWriteTimeUtc,
+                        requiresManualRemoval: !_supportsConditionalLockDeletion
+                                               || lockSnapshot.Identity is null);
                     if (lockSnapshot.Identity is { } identity)
                     {
                         _lockFileIdentities.Add(
