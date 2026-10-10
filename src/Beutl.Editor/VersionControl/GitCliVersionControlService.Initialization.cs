@@ -339,8 +339,6 @@ internal sealed partial class GitCliVersionControlService
     {
         await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        await EnsureProjectFileIsVersionedAsync(repository, runner, cancellationToken)
-            .ConfigureAwait(false);
         await CommitProjectSnapshotAsync(
                 repository,
                 runner,
