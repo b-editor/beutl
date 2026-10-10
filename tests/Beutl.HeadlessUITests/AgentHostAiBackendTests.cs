@@ -52,8 +52,10 @@ public sealed class AgentHostAiBackendTests
         AuthenticatedUser user = CreateUser(app);
         var entitlements = new StubEntitlements();
 
+        bool knownBeforeRead = CreateBackend(() => user, entitlements).KnowsModelAvailability;
         string? signedOut = await CreateBackend(() => null, entitlements).GetUnavailableReasonAsync(CancellationToken.None);
         entitlements.Current.Value = Entitlements(canUseAi: false);
+        bool knownAfterRead = CreateBackend(() => user, entitlements).KnowsModelAvailability;
         string? noPlan = await CreateBackend(() => user, entitlements).GetUnavailableReasonAsync(CancellationToken.None);
         entitlements.Current.Value = null;
         entitlements.Refreshed = Entitlements(canUseAi: true);
@@ -64,6 +66,8 @@ public sealed class AgentHostAiBackendTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(knownBeforeRead, Is.False, "the plan has not been read");
+            Assert.That(knownAfterRead, Is.True);
             Assert.That(signedOut, Does.Contain("Sign in"));
             Assert.That(noPlan, Does.Contain("Pro plan"));
             Assert.That(refreshedPlan, Is.Null);
@@ -115,6 +119,7 @@ public sealed class AgentHostAiBackendTests
         Assert.Multiple(() =>
         {
             Assert.That(budget, Is.EqualTo(AiRequestLimits.MaxImageReferencesTotalBytes));
+            Assert.That(backend.KnowsModelAvailability, Is.False);
             Assert.That(reason, Is.Not.Null);
             Assert.That(models, Is.Empty);
             Assert.That(() => backend.CreateExecutor(new Scene()), Throws.InvalidOperationException);

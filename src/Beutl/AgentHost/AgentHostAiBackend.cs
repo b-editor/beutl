@@ -48,6 +48,9 @@ internal sealed class AgentHostAiBackend(
     public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
         => catalog().GetModelsAsync(operationId, cancellationToken);
 
+    // The catalog refreshes the entitlements when it loads; still null means the plan could not be read.
+    public bool KnowsModelAvailability => entitlements.Entitlements.Value is not null;
+
     public IGenerativeNodeExecutor CreateExecutor(Scene scene) => executor(scene);
 
     public async Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)

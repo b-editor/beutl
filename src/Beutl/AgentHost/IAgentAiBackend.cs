@@ -26,6 +26,12 @@ internal interface IAgentAiBackend
 
     Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Whether the models' availability reflects the account. While the account's plan cannot be
+    /// read, the catalog marks every model unavailable, which is not a refusal.
+    /// </summary>
+    bool KnowsModelAvailability { get; }
+
     /// <summary>An executor that keeps its results with <paramref name="scene"/>.</summary>
     IGenerativeNodeExecutor CreateExecutor(Scene scene);
 
@@ -50,6 +56,8 @@ internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
 
     public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<GenerativeModelInfo>>([]);
+
+    public bool KnowsModelAvailability => false;
 
     public IGenerativeNodeExecutor CreateExecutor(Scene scene)
         => throw new InvalidOperationException("AI generation is not available in this host.");

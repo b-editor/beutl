@@ -384,6 +384,23 @@ public sealed class AgentHostAiToolsTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task AnAccountWhosePlanCannotBeReadLeavesTheModelToTheService()
+    {
+        await TestReset.ResetShellAsync();
+        await OpenSceneAsync("agent-ai-plan-unknown");
+        // Without the plan the catalog marks every model unavailable; that is not a refusal.
+        var backend = new FakeBackend { Result = WritePng("result.png"), KnowsModelAvailability = false };
+        backend.Models["image.generate"] = [SquareModel with { IsAvailable = false }];
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolResult<AgentAiJobSnapshot> result = await tools.GenerateImage("a cat", aspectRatio: "1:1", waitSeconds: 10);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(backend.Requests.Single().ModelId, Is.Null, "the service picks the model");
+    }
+
     [Test]
     public async Task AFileThatCannotBeDecodedIsUnsupportedMediaNotAFailedGeneration()
     {
@@ -578,6 +595,8 @@ public sealed class AgentHostAiToolsTests
         public List<string?> TranscribedModels { get; } = [];
 
         public Dictionary<string, IReadOnlyList<GenerativeModelInfo>> Models { get; } = [];
+
+        public bool KnowsModelAvailability { get; set; } = true;
 
         public long ReferenceBudget { get; set; } = AiRequestLimits.MaxImageReferencesTotalBytes;
 

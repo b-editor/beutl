@@ -492,8 +492,9 @@ internal sealed class AgentHostAiTools(
         GenerativeModelInfo? fallback = offered.FirstOrDefault(candidate => candidate.IsAvailable && candidate.IsDefault)
                                        ?? offered.FirstOrDefault(candidate => candidate.IsAvailable);
         // A catalog that lists models but none this account can use would otherwise send the
-        // request with no model, to a default the catalog says is unavailable.
-        if (fallback is null && offered.Count > 0)
+        // request with no model, to a default the catalog says is unavailable. While the plan cannot
+        // be read every model reads unavailable, so the service decides instead.
+        if (fallback is null && offered.Count > 0 && backend.KnowsModelAvailability)
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.AiUnavailable,
