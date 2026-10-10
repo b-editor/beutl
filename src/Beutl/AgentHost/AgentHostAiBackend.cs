@@ -127,8 +127,10 @@ internal sealed class AgentHostAiBackend(
                     }
                 }
                 // The file opened but its audio could not be read: the input's fault, as for a file
-                // that does not open, not a service failure worth retrying.
-                catch (Exception ex) when (ex is SubtitleInputException or IOException or InvalidDataException)
+                // that does not open, not a service failure worth retrying. An IOException is left
+                // out: writing the temporary WAV (a full disk) raises it too, and it is not the
+                // recording's fault, so it takes the logged path for unexpected failures.
+                catch (Exception ex) when (ex is SubtitleInputException or InvalidDataException)
                 {
                     throw new AgentAiException(
                         Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
