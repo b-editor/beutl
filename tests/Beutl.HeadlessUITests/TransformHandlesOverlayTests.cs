@@ -13,6 +13,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
@@ -238,6 +239,55 @@ public class TransformHandlesOverlayTests
             {
                 Assert.That(drawable.Transform.CurrentValue, Is.SameAs(lone));
                 Assert.That(lone.HierarchicalParent, Is.SameAs(drawable));
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Halfway through a zoom transition the incoming clip is drawn at 1.5 times its size, and its box with it.
+    // Dragging its pivot moves it with the pointer rather than 1.5 times as far.
+    [AvaloniaTest]
+    public async Task Dragging_the_pivot_inside_a_zoom_transition_moves_the_drawable_with_the_pointer()
+    {
+        GpuTestGate.EnsureAvailable();
+        (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.ShadowedEllipse);
+        try
+        {
+            Element outgoing = editor.Scene.Children.Single();
+            outgoing.Length = TimeSpan.FromSeconds(1);
+            var incomingDrawable = new RectShape();
+            incomingDrawable.Width.CurrentValue = 160;
+            incomingDrawable.Height.CurrentValue = 100;
+            await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
+                TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0,
+                new ElementSource.EngineObject(() => incomingDrawable))], CancellationToken.None);
+            Element incoming = editor.Scene.Children.Single(e => e != outgoing);
+            Assert.That(incoming.ZIndex, Is.EqualTo(outgoing.ZIndex), "The transition joins two clips on one layer.");
+            incoming.EnterTransition = new ZoomTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.FromSeconds(1.5);
+            editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = incoming;
+            await RenderPreview(editor);
+
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            Assert.That(overlay.Drawable, Is.SameAs(incomingDrawable));
+            AvaPoint[] before = Corners(overlay);
+            AvaPoint from = overlay.PivotImage;
+            AvaPoint to = from + new Avalonia.Vector(30, 20);
+            Assert.That(overlay.HitTest(from), Is.EqualTo(TransformHandlesOverlay.HandleKind.Center));
+
+            window.MouseDown(ToWindow(view, window, from), MouseButton.Left);
+            window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(ToWindow(view, window, to), MouseButton.Left);
+            await RenderPreview(editor);
+
+            AvaPoint[] after = Corners(overlay);
+            Assert.Multiple(() =>
+            {
+                Assert.That(after[0].X - before[0].X, Is.EqualTo(30).Within(0.5), "moved X");
+                Assert.That(after[0].Y - before[0].Y, Is.EqualTo(20).Within(0.5), "moved Y");
             });
         }
         finally

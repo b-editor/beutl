@@ -357,7 +357,6 @@ public partial class PlayerView
             KeyFrameState<float>? kfScaleY = FindKf(ensured.Scale.ScaleY);
             KeyFrameState<float>? kfRotation = FindKf(ensured.Rotation.Rotation);
 
-            BtlMatrix? invPostMatrixOfT = ensured.PostMatrixOfT.TryInvert(out BtlMatrix invPostT) ? invPostT : null;
             BtlMatrix rotationMatrix = ensured.Rotation.CreateMatrix(ctx);
             // The press-time box was drawn through (-pivot) · group · AfterGroup.
             BtlMatrix intoGroup = BtlMatrix.CreateTranslation(-_press.PivotLocal.X, -_press.PivotLocal.Y)
@@ -365,6 +364,12 @@ public partial class PlayerView
             BtlMatrix? afterGroup = intoGroup.TryInvert(out BtlMatrix outOfGroup)
                 ? outOfGroup * _press.StartUserMatrix
                 : null;
+            // A translate moves the drawable through everything applied after it, a transition's zoom included.
+            BtlMatrix afterTranslate = afterGroup is { } groupToFrame
+                && !(ensured.PostMatrixOfT * groupToFrame).ContainsPerspective()
+                    ? ensured.PostMatrixOfT * groupToFrame
+                    : ensured.PostMatrixOfT;
+            BtlMatrix? invPostMatrixOfT = afterTranslate.TryInvert(out BtlMatrix invPostT) ? invPostT : null;
 
             _ensured = new EnsuredState
             {
