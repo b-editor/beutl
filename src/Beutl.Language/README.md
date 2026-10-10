@@ -11,6 +11,9 @@
 | `ExtensionsStrings` | 拡張機能画面用 |
 | `TutorialStrings` | チュートリアル画面用 |
 | `StatusStrings` | タイトルバーのステータスポップアップ用 |
+| `DockStrings` | ドッキングするツールウィンドウの操作用 |
+| `MissingMediaStrings` | 見つからないメディアのツールタブ用 |
+| `NodeGraphStrings` | ノードグラフのノードとエディター用 |
 | `MessageStrings` | メッセージ文字列 |
 | `CommandNames` | コマンド名 |
 

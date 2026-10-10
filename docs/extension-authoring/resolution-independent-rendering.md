@@ -1,90 +1,128 @@
-# Resolution-independent rendering (feature 003) — author guide
+# Resolution-independent rendering
 
-Beutl renders in a logical coordinate system and scales to device pixels at the root, so the editor can
-preview at a reduced scale and export at a supersampled one. At scale 1.0, unscaled content stays
-**byte-identical** to pre-feature output, but this is no longer a *universal* guarantee — a scaled bitmap
-feeding an effect is rendered at its coherent supply density instead (see
-[*The scale-1.0 guarantee*](#the-scale-10-guarantee)). This guide is for authors of drawables,
-filter effects, brushes, and shaders.
+Beutl renders in logical coordinates and scales to device pixels at the root, so the editor can preview at
+a reduced scale and export at a supersampled one. This guide is for authors of drawables, filter effects,
+brushes, shaders, and custom render nodes.
 
 ## The three scales
 
-| Scale | Type | Meaning |
+| Scale | Where to read it | Meaning |
 |---|---|---|
-| **Output scale `s_out`** | `Renderer.OutputScale` / `RenderNodeContext.OutputScale` | the final target only: device pixels per logical unit at the root. `1.0` = logical == device. |
-| **Effective scale** | `RenderFragmentHandle.TryGetMetadata(out RenderFragmentMetadata)` → `metadata.EffectiveScale` | the supply density a recorded fragment's pixels actually exist at. Vector fragments are `Unbounded`; bitmap fragments report `At(scale)`. |
-| **Working scale `w`** | `FilterEffectContext.WorkingScale` (+ `RenderScaleUtilities.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
+| **Output scale `s_out`** | `Renderer.OutputScale`, `RenderNodeContext.OutputScale` | Device pixels per logical unit at the final target. `1.0` means logical equals device. |
+| **Effective scale** | `RenderFragmentHandle.TryGetMetadata(out RenderFragmentMetadata)`, then `EffectiveScale` | The density a recorded fragment's pixels exist at. Vector fragments are `Unbounded`; bitmap fragments report `At(scale)`. |
+| **Working scale `w`** | `FilterEffectContext.WorkingScale`, `CustomFilterEffectContext.WorkingScale` | The density a buffer-allocating effect runs at, resolved from its inputs as described below. |
 
 ## What most authors need to do: nothing
 
-The root `Matrix.CreateScale(s_out)` CTM scales **vector geometry, text, strokes, and inline Skia
-image filters (blur, drop shadow, color, gradients) for free**. This is empirically verified:
+The root `Matrix.CreateScale(s_out)` transform scales vector geometry, text, strokes, and the Skia-backed
+`FilterEffectContext` primitives (`Blur`, `DropShadow`, `Dilate`, `Erode`, `Transform`, color matrices, …).
+If an effect is built from those primitives, or a drawable draws plain geometry and text, **do not multiply
+anything by a scale**: the transform already handles it, and a manual `× w` scales the result twice.
 
-- a 0.5× vector render upscales to the 1.0× render at **SSIM 0.9971**;
-- a blurred shape scales at **SSIM 1.0000**;
-- every built-in effect category (incl. the buffer-allocating InnerShadow, 0.9983) scales faithfully
-  at reduced scale with **no per-effect code**.
+## Which values to convert
 
-So if your effect is built from the `FilterEffectContext` primitives (`Blur`, `DropShadow`, `Dilate`,
-`Transform`, color matrices, …) or draws plain geometry/text, **do not multiply anything by a scale**:
-the CTM handles it, and a manual `× w` would double-scale and regress the result.
+The coordinate space a value lives in decides the rule, not the value's type:
 
-## When scale matters
+| Coordinate space | Rule | Examples |
+|---|---|---|
+| Logical geometry drawn under the canvas transform | Leave unchanged | shape and path coordinates, pen thickness and dashes, gradient points, blur sigma, drop-shadow offset, a dilate radius passed to a Skia primitive |
+| Device-buffer sizes, device-space shader values, device pixel indexing | Multiply by `w` once | the size of a buffer you allocate, an absolute pixel literal in a pixel loop or shader (tile size, displacement amount) |
+| Geometry read back from device pixels | Divide by `w` | contour vertices traced from a device alpha mask |
+| Values that are not lengths | Leave unchanged | color, angle, percentage, ratio, `RelativePoint`, `RelativeRect`, blend mode, count, enum |
 
-- **Reading the working scale.** A `CustomEffect` / SKSL / GLSL author who hand-allocates an
-  intermediate or hard-codes a pixel literal reads `CustomFilterEffectContext.WorkingScale`
-  (or `FilterEffectContext.WorkingScale`); both default to `1.0`. `CreateTarget(bounds)` already
-  allocates a `ceil(bounds × w)` device buffer tagged `EffectiveScale.At(w)`, so the runtime shader
-  evaluates in DEVICE pixels: multiply any **absolute-length** pixel literal
-  (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
-  stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)
-  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap (translate /
-  pivot `× w`, plus a `CreateScale(w)` local matrix on the displacement-map shader so it shares the base
-  texture's device-px coord space), PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
-  `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w`, plus a `scale` push constant `= w`
-  mirroring SKSL's `iScale`) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
-  1.0000; Mosaic strictly closer to ground truth than 1:1).
-- **Working scale (supply-driven).** Every effect runs at its **input supply density** — the densest
-  concrete (bitmap) input, with `s_out` as the floor for vector-only/mixed boundaries, capped only by the
-  global memory ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
-  (PixelSort, Dilate/Erode, Mosaic, contour Stroke/FlatShadow/PartsSplit, Displacement, custom SKSL/GLSL,
-  Clipping) get a high-resolution source's detail through them for free, with no per-effect knob. There is
-  **no `ResolutionPolicy`**: the earlier `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy
-  was removed because no built-in needed a non-default value. An effect that genuinely needs a different
-  working scale (clamp-to-output for perf, oversample for SSAA) returns a `FilterEffectRenderNode` subclass from
-  `FilterEffect.Resource.CreateRenderNode()` and overrides `GetWorkingScaleContract()` to return a
-  `RenderScaleContract`. Overriding `Process` is for an effect that needs different topology or lowering, not
-  merely a different density; see
-  [`effect-scale-contract.md`](../specs/003-resolution-independent-pipeline/contracts/effect-scale-contract.md)
-  for a worked example.
-- **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
-  distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
-  `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). 003 ships only this seam; the
-  proxy / reduced-decode workflow that exploits it is a future feature (see `MediaOptions`).
-- **Tile / drawable brush fills.** `BrushConstructor` rasterizes `TileBrush` / `DrawableBrush` fill content at
-  the canvas density (`ImmediateCanvas.Density` — `s_out` or the enclosing `w`, passed in as `Scale`): the
-  drawable/tile intermediate is allocated at `ceil(size × Scale)` device px and a `Scale(1/Scale)` shader
-  local-matrix un-densifies the texture coords back to logical. So tile- and drawable-brush fills stay crisp at
-  `s_out > 1` with no author action, across every `TileMode` / `Transform`; only the `Scale == 1` short-circuit
-  preserves byte-identity. Solid / gradient / perlin brushes are vector shaders and resolution-independent
-  regardless.
-- **3D scenes.** `Scene3DRenderNode` renders at `ceil(size × w)` and reports `EffectiveScale.At(w)`, where
-  `w = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(size, s_out)` is the output scale reduced only if the dense surface would
-  exceed the per-buffer dimension budget. So 3D content is crisp under supersampled export instead of being
-  upscaled by the root CTM.
+`PerlinNoiseBrush.BaseFrequencyX` and `BaseFrequencyY` follow the canvas transform and are left unchanged.
+Text is re-shaped at the device font size rather than scaled as a bitmap.
 
-## Migrating pre-003 SKSL / GLSL shaders
+## Working scale
 
-Before feature 003, custom shader target pixels and logical pixels were effectively the same because the
-render target was always allocated at scale `1.0`. After 003, SKSL `width` / `height` / `iResolution`
-and GLSL `pc.width` / `pc.height` report the scaled target size in device pixels. At `w = 1.0` the values
-are unchanged; at reduced preview, supersampled export, or a mixed-density effect boundary they change
-with the working scale.
+An effect runs at `w = min(max(s_out, densest bitmap input), MaxWorkingScale)`:
 
-If a shader intentionally works in normalized coordinates, no migration is usually needed:
-`fragCoord / iResolution` in SKSL and the default GLSL `fragCoord` input already track the target. If a
-shader used those resolution values as logical project pixels, convert device pixels back to the shader
-grid's logical coordinates with the scale uniform:
+- Vector-only inputs (`Unbounded`) leave `w` at `s_out`. A denser bitmap raises it, so a high-resolution
+  source keeps its detail through the effect: `s_out` is a floor, not a ceiling.
+- `MaxWorkingScale` is the global ceiling: `2 × s_out` in the editor preview and unbounded in export.
+- A per-buffer dimension limit (16384 px per axis, or the device's smaller attachment limit) can lower the
+  density of an individual buffer further. `BufferDimensionBudget.ClampWorkingScale` applies it, and
+  `CustomFilterEffectContext.ResolveTargetDensity` returns the density of a buffer a custom effect is about to
+  allocate.
+
+Reading the scale while authoring:
+
+- `FilterEffectContext.TryGetWorkingScale(out float)` returns the nominal working scale when the effect has one
+  concrete input. It returns `false` while the input is unresolved or when several input branches may run at
+  different densities, and the `WorkingScale` getter throws in that case. Record scale-independent structure
+  then, and do device-pixel math in the execution-time shader, geometry, or custom-effect callback.
+- In a `CustomEffect` callback, `CustomFilterEffectContext.CreateTarget(bounds)` allocates a device buffer of
+  `ceil(bounds × w)` pixels, except that at density `1` fractional sizes are truncated;
+  `CustomFilterEffectContext.DeviceBufferSize(bounds, density)` returns the same size. `Open` returns a canvas
+  that already applies `CreateScale(density)`, so logical content is drawn directly. For device-pixel work,
+  wrap the drawing in `canvas.PushDeviceSpace()` and scale literals by the target's actual density,
+  `target.Scale.Value`, which can be lower than `WorkingScale` after the per-buffer limit.
+
+The built-in effects follow these rules; for example, Mosaic multiplies its tile size by `w`, and the SKSL
+and GLSL script effects pass `w` to shaders.
+
+### Choosing a different working scale
+
+There is no per-effect policy setting. An effect that needs a different density, such as clamping to the
+output for performance or oversampling, returns a `FilterEffectRenderNode` subclass from `CreateRenderNode()`
+and overrides `GetWorkingScaleContract()`:
+
+```csharp
+public partial class Resource
+{
+    public override FilterEffectRenderNode CreateRenderNode() => new OutputScaleRenderNode(this);
+}
+
+private sealed class OutputScaleRenderNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+{
+    // Runs at the output density even when a denser bitmap feeds the effect.
+    private static readonly RenderScaleContract s_scale =
+        RenderScaleContract.Custom(static context => context.OutputScale);
+
+    protected override RenderScaleContract? GetWorkingScaleContract() => s_scale;
+}
+```
+
+The callback must be pure and return a finite positive density. It receives the input supplies, the output
+bounds, `s_out`, and `MaxWorkingScale` through `RenderScaleContext`. Its result is capped by `MaxWorkingScale`
+and the per-buffer limit, but it is not raised to `s_out`. Override `Process` only when the effect needs a
+different topology, not merely a different density.
+
+## Sources, brushes, and custom render nodes
+
+- **Bitmap sources.** A decoded image or video reports the density its pixels exist at, separately from its
+  logical footprint. A proxy reports its reduced density (the proxy's long edge divided by the original's).
+  Mixed-density compositing resamples bitmaps through `ImmediateCanvas.DrawRenderTargetScaled` and
+  `DrawSurfaceScaled`.
+- **Tile and drawable brushes.** `BrushConstructor` rasterizes `TileBrush` and `DrawableBrush` content at the
+  canvas density (`ImmediateCanvas.Density`), so fills stay sharp at `s_out > 1` without author action. Solid,
+  gradient, and Perlin brushes are resolution-independent shaders.
+- **3D scenes.** A 3D scene renders at the output scale, capped by `MaxWorkingScale` and the per-buffer limit,
+  and reports that density, so it stays sharp in supersampled export.
+- **Reporting a density.** `EffectiveScale.At(scale)` throws on a non-finite or non-positive value. A density
+  derived from animatable geometry can become `NaN` or infinite for a collapsed or off-screen bound, so record
+  it with `EffectiveScale.AtOrUnbounded(scale)`, which falls back to `Unbounded`, or guard the value first.
+  When the density derives from an input, declare it with `RenderScaleContract.MapInputSupply` so the output
+  demand is carried back to that input.
+
+## Custom shaders (SKSL / GLSL)
+
+Shader resolution values are device pixels of the scaled target, and a separate value carries the scale:
+
+| Effect | Device-pixel values | Scale |
+|---|---|---|
+| SKSL | `width`, `height`, `iResolution` (declare it as `uniform float2`), and `fragCoord` | `uniform float iScale` |
+| GLSL | push constants `width` and `height` | push constant `scale` |
+
+The scale is the density the buffer was actually allocated at, so it agrees with the pixels the shader
+iterates. A shader that does not read it behaves as if the scale were `1.0`.
+
+- Normalized coordinates (`fragCoord / iResolution` in SKSL, the default normalized `fragCoord` in GLSL) need
+  no change.
+- Multiply an authored logical length by the scale before using it as a device-pixel value: `10.0 * iScale`
+  in SKSL, or `10.0 * pc.scale` in GLSL.
+- A script written before resolution-independent rendering that treated these values as logical pixels must
+  convert them back with the scale:
 
 ```skia
 uniform float2 iResolution;  // device px
@@ -100,30 +138,17 @@ vec2 shaderGridLogicalSize = deviceSize / pc.scale;
 vec2 shaderGridLogicalCoord = (fragCoord * deviceSize) / pc.scale;
 ```
 
-These values are the rounded shader-grid extent, not necessarily the exact project logical bounds:
-Beutl allocates device buffers as `ceil(bounds * scale)`, so a 101 logical px target at `0.5` scale
-reports 51 device px, and `51 / 0.5` is 102 logical px. For center or edge math that must stay tied to
-the exact authored bounds, keep the math normalized (`fragCoord / iResolution`, or GLSL's normalized
-`fragCoord`); the built-in script uniforms do not expose exact logical bounds, and they cannot be
-recovered from rounded device size alone.
+These values describe the rounded shader grid, not the exact authored bounds. Buffers are allocated as
+`ceil(bounds × scale)` (truncated at scale `1`), so a 101 px target at scale `0.5` reports 51 device px,
+which converts back to 102 logical px. Keep center and edge math normalized when it must follow the exact bounds; the script values do
+not expose them.
 
-For the opposite direction, keep authored logical pixel literals stable by multiplying them by the working
-scale before using them in device-pixel shader math: `10.0 * iScale` in SKSL or `10.0 * pc.scale` in GLSL.
-See `docs/specs/003-resolution-independent-pipeline/contracts/shader-uniforms.md` for the full uniform
-contract.
+## Scale 1.0 and testing
 
-## The scale-1.0 guarantee
+Every scale-aware path keeps an exact `scale == 1` short-circuit, so at `s_out = 1.0` vector content, text,
+Skia filters, and unscaled bitmaps are drawn without resampling. Keep that short-circuit in new scale-aware
+code. A scaled bitmap that feeds an effect is still rasterized at its supply density, so do not rely on
+byte-identical output in that case.
 
-At `s_out = 1.0` with unit-scale inputs, the **golden content set** — vector geometry, text, Skia-filter
-effects, and unscaled bitmaps — stays **byte-identical** to pre-feature output. Every scale-aware path
-keeps an exact `w == 1` / `scale == 1` short-circuit to preserve this.
-
-This is **not** a universal guarantee: a *scaled* bitmap feeding an effect is rasterized at its coherent
-supply density (FR-019) and can differ bit-for-bit from the old path — a deliberate trade that abolished
-the former universal byte-identity-at-`s_out = 1` constraint (commit `32634977c`). Write to the
-coherent-density model, not to a universal byte-identity rule.
-
-New rendering code is verified by the golden suite (`tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/`),
-which runs for real when a Vulkan implementation (MoltenVK / SwiftShader) is present and `Assert.Ignore`s
-otherwise. See `docs/specs/003-resolution-independent-pipeline/contracts/effect-scale-contract.md` for
-the full per-parameter classification.
+The golden suite under `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/` covers this behavior. It runs
+when a Vulkan implementation (MoltenVK or SwiftShader) is available and calls `Assert.Ignore` otherwise.
