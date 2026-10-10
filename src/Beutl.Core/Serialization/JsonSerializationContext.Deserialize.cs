@@ -16,6 +16,12 @@ public partial class JsonSerializationContext
             return DeserializeWithJsonSerializer(node, baseType);
         }
 
+        // A collection whose type has a JSON converter of its own was written by that converter, not item by item.
+        if (IsCollectionWithOwnJsonConverter(baseType))
+        {
+            return DeserializeWithJsonSerializer(node, baseType);
+        }
+
         return node switch
         {
             JsonObject obj => DeserializeObject(obj, baseType, parent),
@@ -23,6 +29,15 @@ public partial class JsonSerializationContext
             JsonValue jsonValue => DeserializeValue(jsonValue, baseType, parent),
             _ => DeserializeWithJsonSerializer(node, baseType)
         };
+    }
+
+    // Matches the collection case in Serialize, which core-serializable values and references never reach.
+    private static bool IsCollectionWithOwnJsonConverter(Type type)
+    {
+        return type.IsAssignableTo(typeof(IEnumerable))
+               && !type.IsAssignableTo(typeof(ICoreSerializable))
+               && !type.IsAssignableTo(typeof(IReference))
+               && HasOwnJsonConverter(type);
     }
 
     private static object? DeserializeWithJsonSerializer(JsonNode node, Type baseType)
