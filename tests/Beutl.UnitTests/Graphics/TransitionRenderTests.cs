@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -405,6 +406,47 @@ public class TransitionRenderTests
                 Assert.That(topLeft.Y, Is.EqualTo(0).Within(0.5f));
                 Assert.That(bottomRight.X, Is.EqualTo(Width / 2f).Within(0.5f));
                 Assert.That(bottomRight.Y, Is.EqualTo(8).Within(0.5f));
+            });
+        });
+    }
+
+    // A split clips the incoming clip to a band and the outgoing clip to the rest. The box of content sized by
+    // the frame is not cut to either, so a drawable keeps the same box on whichever side of the split it is.
+    [Test]
+    public void LocalBoundary_InsideASplitIsNotCutToTheSplitsBand()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            outgoing.Objects.Add(CreateRect(s_red));
+            scene.Children.Add(outgoing);
+
+            RectShape fillsTheFrame = CreateRect(s_blue);
+            fillsTheFrame.Width.CurrentValue = 16;
+            fillsTheFrame.Height.CurrentValue = 8;
+            var effect = new TransformEffect();
+            effect.Transform.CurrentValue = new RotationTransform(10);
+            ((FilterEffectGroup)fillsTheFrame.FilterEffect.CurrentValue!).Children.Add(effect);
+            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            incoming.Objects.Add(fillsTheFrame);
+            incoming.EnterTransition = new SplitTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            scene.Children.Add(incoming);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
+
+            (Rect Bounds, Matrix Transform)? local = renderer.GetLocalBoundary(fillsTheFrame);
+
+            Assert.That(local, Is.Not.Null);
+            Rect box = local!.Value.Bounds.TransformToAABB(local.Value.Transform);
+            Assert.Multiple(() =>
+            {
+                Assert.That(box.X, Is.EqualTo(0).Within(0.5f), "the box is not cut to the band");
+                Assert.That(box.Y, Is.EqualTo(0).Within(0.5f));
+                Assert.That(box.Width, Is.EqualTo(Width).Within(0.5f));
+                Assert.That(box.Height, Is.EqualTo(Height).Within(0.5f));
             });
         });
     }

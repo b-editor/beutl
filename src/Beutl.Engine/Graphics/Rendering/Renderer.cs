@@ -798,23 +798,19 @@ public class Renderer : IRenderer
             return null;
         }
 
-        // The content reaches the frame through the transforms and clips above it. Content sized by the frame it
-        // draws into, such as an effect without bounds of its own, is therefore measured against the frame mapped
-        // back into its space, the way those nodes map it when the whole drawable is measured.
+        // The content reaches the frame through the transforms above it. Content sized by the frame it draws into,
+        // such as an effect without bounds of its own, is therefore measured against the frame mapped back into its
+        // space, the way those transforms map it when the whole drawable is measured. A transition's clips are left
+        // out here as they are from the box, so a drawable keeps one box on either side of a split.
         Rect domain = new(default, FrameSize.ToSize(1));
         Matrix outerMatrix = Matrix.Identity;
         foreach (RenderNode node in drawn.Path)
         {
-            switch (node)
+            if (node is TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer)
             {
-                case TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer:
-                    if (!outer.Transform.TryInvert(out Matrix outerInverse)) return null;
-                    domain = domain.TransformToAABB(outerInverse);
-                    outerMatrix = outer.Transform * outerMatrix;
-                    break;
-                case RectClipRenderNode { Operation: ClipOperation.Intersect } clip:
-                    domain = domain.Intersect(clip.Clip);
-                    break;
+                if (!outer.Transform.TryInvert(out Matrix outerInverse)) return null;
+                domain = domain.TransformToAABB(outerInverse);
+                outerMatrix = outer.Transform * outerMatrix;
             }
         }
 
