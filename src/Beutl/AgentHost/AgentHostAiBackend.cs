@@ -152,7 +152,7 @@ internal sealed class AgentHostAiBackend(
                 }
                 catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
                 {
-                    throw new AgentAiException(Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed, failure.Message);
+                    throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
                 }
 
                 // Checked as the subtitle flow checks a part before accepting it: times inside the part,

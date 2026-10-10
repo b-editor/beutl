@@ -33,6 +33,12 @@ public sealed record AiModelSummary(
     bool? SupportsLastFrame,
     bool? SupportsSeed);
 
+public sealed record ListAiJobsResponse(IReadOnlyList<AgentAiJobSnapshot> Jobs)
+{
+    public string Usage =>
+        "Jobs this app session still holds, newest first: running ones and the 128 most recently finished. Use it to find a job whose call was cancelled or dropped before its jobId came back, instead of starting another paid request.";
+}
+
 public sealed record ListAiModelsResponse(string Operation, IReadOnlyList<AiModelSummary> Models)
 {
     public string Usage =>
@@ -125,11 +131,10 @@ internal sealed class AgentHostAiTools(
             string chosenBackground = string.IsNullOrWhiteSpace(background)
                 ? backgrounds.Contains("auto", StringComparer.Ordinal) ? "auto" : backgrounds[0]
                 : background.Trim();
-            if (chosen?.Image is { } offered)
-            {
-                RequireOffered(ratio, offered.AspectRatioChoices, chosen.Id, "aspectRatio");
-                RequireOffered(chosenBackground, offered.BackgroundChoices, chosen.Id, "background");
-            }
+            // Without a model the executor checks nothing and the service would refuse, so the
+            // lists the AI dialog offers stand in, as they do for its controls.
+            RequireOffered(ratio, chosen?.Image?.AspectRatioChoices ?? GenerativeImageCapabilities.DefaultAspectRatios, chosen?.Id ?? "the service default", "aspectRatio");
+            RequireOffered(chosenBackground, chosen?.Image?.BackgroundChoices ?? GenerativeImageCapabilities.DefaultBackgrounds, chosen?.Id ?? "the service default", "background");
 
             return new AiImageGenerationNodeRequest("image.generate")
             {
@@ -368,6 +373,11 @@ internal sealed class AgentHostAiTools(
         }).ConfigureAwait(false);
     }
 
+    [McpServerTool(Name = "list_ai_jobs")]
+    [Description("Lists the AI jobs this app session holds, newest first, with their status and results. A job keeps running when the call that started it is cancelled or its connection drops; find it here rather than calling the generation tool again, which pays again.")]
+    public ToolResult<ListAiJobsResponse> ListAiJobs()
+        => Execute(() => new ListAiJobsResponse(jobs.List()));
+
     [McpServerTool(Name = "read_ai_job")]
     [Description("Reports an AI job started by generate_image, edit_image, generate_video, edit_video or transcribe_audio, waiting up to waitSeconds for it to finish. A finished job carries the saved file path or the transcript.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> ReadAiJob(
@@ -438,7 +448,8 @@ internal sealed class AgentHostAiTools(
                 }
                 catch (GenerativeExecutionException ex)
                 {
-                    throw new AgentAiException(ErrorCode.AiGenerationFailed, ex.Message);
+                    // The executor keeps the service's refusal as the inner exception.
+                    throw new AgentAiException(AgentAiException.CodeFor(ex.InnerException), ex.Message);
                 }
 
                 return new AgentAiJobOutput(

@@ -74,6 +74,10 @@ internal sealed class AgentAiJobManager : IDisposable
         return job.Id;
     }
 
+    /// <summary>The jobs this app session still holds, newest first.</summary>
+    public IReadOnlyList<AgentAiJobSnapshot> List()
+        => _jobs.Values.OrderByDescending(job => job.StartOrder).Select(job => job.Snapshot()).ToArray();
+
     public AgentAiJobSnapshot? Get(string jobId)
         => _jobs.TryGetValue(jobId, out Job? job) ? job.Snapshot() : null;
 
@@ -174,10 +178,13 @@ internal sealed class AgentAiJobManager : IDisposable
         private string? _errorCode;
         private string? _errorMessage;
         private TimeSpan? _elapsed;
+        private static long s_startOrder;
         private static long s_finishOrder;
         private long _finishOrder;
 
         public string Id { get; } = id;
+
+        public long StartOrder { get; } = Interlocked.Increment(ref s_startOrder);
 
         public long FinishOrder
         {
@@ -246,4 +253,15 @@ internal sealed class AgentAiJobManager : IDisposable
 internal sealed class AgentAiException(string code, string message) : Exception(message)
 {
     public string Code { get; } = code;
+
+    /// <summary>
+    /// ai_unavailable when the account cannot pay for the request (signed out, no plan, out of
+    /// credits), which retrying will not fix; otherwise ai_generation_failed.
+    /// </summary>
+    public static string CodeFor(Exception? cause)
+        => cause is Beutl.Api.Services.AiUsageLimitExceededException
+            or Beutl.Api.Services.AiPlanRequiredException
+            or Beutl.Api.Services.AuthenticationRequiredException
+            ? Beutl.AgentToolkit.Common.ErrorCode.AiUnavailable
+            : Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed;
 }

@@ -80,7 +80,7 @@ public sealed class AgentHostAiToolsTests
                 Assert.That(names, Is.SupersetOf(new[]
                 {
                     "list_ai_models", "generate_image", "edit_image", "generate_video", "edit_video",
-                    "transcribe_audio", "read_ai_job", "cancel_ai_job",
+                    "transcribe_audio", "list_ai_jobs", "read_ai_job", "cancel_ai_job",
                 }));
                 Assert.That(text, Does.Contain(ErrorCode.AiUnavailable), "the tools are constructed and report the missing account");
             });
@@ -132,6 +132,8 @@ public sealed class AgentHostAiToolsTests
 
         backend.Gate = new TaskCompletionSource();
         AgentAiJobSnapshot second = (await tools.GenerateVideo("rain", waitSeconds: 0)).Value!;
+        // A job whose call was cancelled before the jobId came back is still found here.
+        IReadOnlyList<AgentAiJobSnapshot> listed = tools.ListAiJobs().Value!.Jobs;
         tools.CancelAiJob(second.JobId);
         AgentAiJobSnapshot cancelled = (await tools.ReadAiJob(second.JobId, waitSeconds: 10)).Value!;
 
@@ -142,6 +144,8 @@ public sealed class AgentHostAiToolsTests
             Assert.That(finished.Status, Is.EqualTo(AgentAiJobStatus.Succeeded));
             Assert.That(finished.Output?.MediaKind, Is.EqualTo("video"));
             Assert.That(cancelled.Status, Is.EqualTo(AgentAiJobStatus.Cancelled));
+            Assert.That(listed.Select(job => job.JobId), Is.EqualTo(new[] { second.JobId, running.JobId }), "newest first");
+            Assert.That(listed[0].Status, Is.EqualTo(AgentAiJobStatus.Running));
         });
     }
 
@@ -220,6 +224,9 @@ public sealed class AgentHostAiToolsTests
         ToolResult<AgentAiJobSnapshot> percentOnRestyle = await tools.EditImage(WritePng("q.png"), "restyle", "watercolor", outpaintExpansionPercent: 50);
         backend.Models.Clear();
         ToolResult<AgentAiJobSnapshot> negativeSeed = await tools.GenerateImage("a cat", seed: -1);
+        // With no model to check against, the lists the AI dialog offers stand in.
+        ToolResult<AgentAiJobSnapshot> oddRatio = await tools.GenerateImage("a cat", aspectRatio: "17:3");
+        ToolResult<AgentAiJobSnapshot> oddBackground = await tools.GenerateImage("a cat", background: "blurred");
         // With no catalog, a named model would be sent as the service default.
         ToolResult<AgentAiJobSnapshot> unconfirmedModel = await tools.GenerateImage("a cat", model: "anything");
         // The executor checks against the fallback lists, which offer 4, 6 and 8 seconds.
@@ -252,6 +259,8 @@ public sealed class AgentHostAiToolsTests
             Assert.That(promptOnUpscale.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(percentOnRestyle.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(negativeSeed.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(oddRatio.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(oddBackground.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unconfirmedModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(fallbackDuration.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(editDuration.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
@@ -401,6 +410,30 @@ public sealed class AgentHostAiToolsTests
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(backend.Requests.Single().ModelId, Is.Null, "the service picks the model");
+    }
+
+    [AvaloniaTest]
+    public async Task AnAccountOutOfCreditsIsUnavailableNotAFailedGeneration()
+    {
+        await TestReset.ResetShellAsync();
+        await OpenSceneAsync("agent-ai-credits");
+        var backend = new FakeBackend
+        {
+            Failure = new GenerativeExecutionException("Out of credits.", new AiUsageLimitExceededException()),
+        };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        AgentAiJobSnapshot noCredits = (await tools.GenerateImage("a cat", waitSeconds: 10)).Value!;
+        backend.Failure = new GenerativeExecutionException("The provider failed.", new AiProviderErrorException());
+        AgentAiJobSnapshot providerError = (await tools.GenerateImage("a cat", waitSeconds: 10)).Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(noCredits.Status, Is.EqualTo(AgentAiJobStatus.Failed));
+            Assert.That(noCredits.ErrorCode, Is.EqualTo(ErrorCode.AiUnavailable), "retrying will not help");
+            Assert.That(providerError.ErrorCode, Is.EqualTo(ErrorCode.AiGenerationFailed));
+        });
     }
 
     [Test]
@@ -588,6 +621,8 @@ public sealed class AgentHostAiToolsTests
 
         public TaskCompletionSource? Gate { get; set; }
 
+        public Exception? Failure { get; set; }
+
         public List<GenerativeRequest> Requests { get; } = [];
 
         public List<Scene> Scenes { get; } = [];
@@ -624,6 +659,8 @@ public sealed class AgentHostAiToolsTests
             Requests.Add(request);
             if (Gate is { } gate)
                 await gate.Task.WaitAsync(cancellationToken);
+            if (Failure is { } failure)
+                throw failure;
             return new GenerativeExecutionResult(new Uri(Result), "model", 1, request.Operation == GenerativeOperation.VideoGeneration);
         }
 

@@ -195,7 +195,7 @@ public sealed class AgentHostAiBackendTests
                 Assert.That(silent?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
                 Assert.That(tooLong?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
                 Assert.That(noCredits?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
-                Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
+                Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiUnavailable), "out of credits is the account's state, not a failed request");
                 Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
                 Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
             });
