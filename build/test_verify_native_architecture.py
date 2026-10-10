@@ -58,9 +58,15 @@ class NativeArchitectureTests(unittest.TestCase):
             "runtimes/osx-arm64/native/libBeutlAVF.dylib": macho(0x01000007, 0x0100000C),
             "runtimes/linux-x64/native/libfoo.so": elf(X64),
             "runtimes/linux-arm64/native/libbar.so": elf(X64),
+            "runtimes/unix-x64/native/libqux.so": elf(X64),
+            "runtimes/unix-arm64/native/libbaz.so": elf(X64),
         })
-        self.assertEqual(checked, 2)
-        self.assertEqual(problems, ["runtimes/linux-arm64/native/libbar.so: built for x64, not arm64"])
+        self.assertEqual(checked, 3)
+        self.assertEqual(problems, ["runtimes/linux-arm64/native/libbar.so: built for x64, not arm64",
+                                    "runtimes/unix-arm64/native/libbaz.so: built for x64, not arm64"])
+
+    def test_windows_does_not_load_unix_folders(self):
+        self.assertEqual(self.verify("win-x64", {"Beutl.exe": pe(0x8664), "runtimes/unix-x64/native/libfoo.so": elf(X64)}), (1, []))
 
     def test_managed_assemblies_are_not_native(self):
         checked, problems = self.verify("win-arm64", {"Beutl.exe": pe(0xAA64), "Beutl.dll": pe(0x8664, managed=True)})

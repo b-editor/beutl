@@ -62,8 +62,10 @@ def loaded_on(relative, rid):
     if "runtimes" not in parts[:-1]:
         return True
     folder = parts[parts.index("runtimes") + 1]
-    system = rid.split("-")[0]
-    return folder in (rid, system, "any") or (folder == "unix" and system != "win")
+    system, arch = rid.split("-")
+    # The RID fallback chain, e.g. linux-arm64, linux, unix-arm64, unix, any; Windows has no unix steps.
+    unix = () if system == "win" else (f"unix-{arch}", "unix")
+    return folder in (rid, system, *unix, "any")
 
 
 def verify(directory, rid):
