@@ -728,15 +728,29 @@ internal sealed class AgentHostAiTools(
             throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, "Only mp4 and webm clips can be edited.", "sourcePath"));
         GenerativeFileInput input = GenerativeInputs.ReadVideoFile(full, "source");
         // Opened now, as the executor opens it to read its length, so a file that is not a clip is
-        // the call's media_unsupported rather than a failed job.
+        // the call's media_unsupported rather than a failed job. Probed from the bytes that will be
+        // uploaded, as the executor probes them: the file on disk may change in between.
+        (string probe, FileStream stream) = AiTemporaryFileStore.Create("inputs", "agent-source-video", Path.GetExtension(input.Name));
         try
         {
-            using MediaReader reader = MediaReader.Open(full, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+            using (stream)
+                stream.Write(input.Content);
+            using MediaReader reader = MediaReader.Open(probe, new MediaOptions(MediaMode.Video) { PreferProxy = false });
             if (reader.HasVideo)
                 return (input, reader.VideoInfo.Duration.ToDouble());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(probe);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
         }
 
         throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be opened as a video.", "sourcePath"));

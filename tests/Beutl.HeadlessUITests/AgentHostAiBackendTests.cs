@@ -185,6 +185,10 @@ public sealed class AgentHostAiBackendTests
             next = new StubAudioReader(16_000, 16_000);
             AgentAiException? refused = await CatchAsync(
                 CreateBackend(transcription: new StubTranscription { Error = new AiUsageLimitExceededException() }), path);
+            next = new StubAudioReader(16_000, 16_000);
+            // The check refuses outright when the plan lapsed after the call was accepted.
+            AgentAiException? planLapsed = await CatchAsync(
+                CreateBackend(availability: new StubAvailability { Error = new AiPlanRequiredException() }, transcription: transcription), path);
             next = new StubAudioReader(16_000, 16_000) { Readable = false };
             AgentAiException? undecodable = await CatchAsync(CreateBackend(transcription: transcription), path);
             next = new StubAudioReader(16_000, 16_000);
@@ -200,6 +204,7 @@ public sealed class AgentHostAiBackendTests
                 Assert.That(refused?.Code, Is.EqualTo(ErrorCode.AiUnavailable), "out of credits is the account's state, not a failed request");
                 Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
                 Assert.That(undecodable?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "it opened, but its audio does not decode");
+                Assert.That(planLapsed?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
                 Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
             });
         }
@@ -292,12 +297,14 @@ public sealed class AgentHostAiBackendTests
     {
         public bool Allowed { get; init; } = true;
 
+        public Exception? Error { get; init; }
+
         public List<AiOperationAvailabilityRequest> Requests { get; } = [];
 
         public Task<bool> CheckAsync(AiOperationAvailabilityRequest request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
-            return Task.FromResult(Allowed);
+            return Error is { } error ? Task.FromException<bool>(error) : Task.FromResult(Allowed);
         }
     }
 

@@ -387,6 +387,7 @@ public sealed class AgentHostAiToolsTests
                 Assert.That(tooLong.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
                 Assert.That(edited.IsSuccess, Is.True, edited.Error?.Message);
                 Assert.That(((AiVideoEditNodeRequest)backend.Requests.Single()).SourceVideo.Name, Is.EqualTo("source.mp4"));
+                Assert.That(decoder.OpenedPaths.Select(Path.GetFileName), Has.None.EqualTo("clip.mp4"), "the bytes read are probed, not the file again");
             });
         }
         finally
@@ -600,7 +601,13 @@ public sealed class AgentHostAiToolsTests
 
         public IEnumerable<string> AudioExtensions() => [];
 
-        public MediaReader Open(string file, MediaOptions options) => new StubVideoReader();
+        public List<string> OpenedPaths { get; } = [];
+
+        public MediaReader Open(string file, MediaOptions options)
+        {
+            OpenedPaths.Add(file);
+            return new StubVideoReader();
+        }
     }
 
     private sealed class StubVideoReader : MediaReader

@@ -140,12 +140,23 @@ internal sealed class AgentHostAiBackend(
                 if (chunk.SourceSampleCount <= 0)
                     break;
 
-                if (!await availability.CheckAsync(
+                bool covered;
+                try
+                {
+                    covered = await availability.CheckAsync(
                         new AiOperationAvailabilityRequest.Transcription(
                             AiOperations.Transcription,
                             chunk.UploadedDuration.TotalSeconds,
                             model),
-                        cancellationToken).ConfigureAwait(false))
+                        cancellationToken).ConfigureAwait(false);
+                }
+                // The check itself can refuse, when the session or credits changed since the call.
+                catch (Exception ex) when (AiRequestFailure.Classify(ex) is { } failure)
+                {
+                    throw new AgentAiException(AgentAiException.CodeFor(ex), failure.Message);
+                }
+
+                if (!covered)
                 {
                     throw new AgentAiException(
                         Beutl.AgentToolkit.Common.ErrorCode.AiUnavailable,
