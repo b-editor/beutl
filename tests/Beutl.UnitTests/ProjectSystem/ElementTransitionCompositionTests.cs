@@ -337,6 +337,33 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // Before the cut the incoming side holds its first frame, but the layer its portal draws has not
+    // ended, so on both sides it plays on at the frame's time instead of jumping to that held time.
+    [Test]
+    public void ALayerAPortalDrawsIntoATransition_PlaysOnAtTheFramesTime()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portal_time", duration: Seconds(10));
+        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
+        outgoing.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        Element incoming = harness.AddElement(Seconds(2), Seconds(2));
+        incoming.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        Element provider = harness.AddElement(TimeSpan.Zero, Seconds(4), zIndex: 1);
+        provider.Objects.Add(CreateVideo());
+        outgoing.ExitTransition = Transition(0.5);
+        incoming.EnterTransition = Transition(0.5);
+        using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
+
+        ClipTransitionPresenter.Resource presenter = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
+        double fromPosition = presenter.From.OfType<SourceVideo.Resource>().Single().RequestedPosition.TotalSeconds;
+        double toPosition = presenter.To.OfType<SourceVideo.Resource>().Single().RequestedPosition.TotalSeconds;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fromPosition, Is.EqualTo(1.75).Within(1e-6));
+            Assert.That(toPosition, Is.EqualTo(1.75).Within(1e-6));
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {

@@ -99,6 +99,11 @@ public sealed class SceneCompositor : ICompositor
 
         public CompositionTarget Target { get; set; }
 
+        // The frame's own time while a transition evaluates one of its sides at a held time. Elements a
+        // portal draws into that side are not the side's own content and have not ended, so they play on
+        // at the frame's time, and both sides share one evaluation of them.
+        public TimeSpan? FrameTime { get; set; }
+
         private static ProxyPreset ToPreset(int value)
         {
             return Enum.IsDefined(typeof(ProxyPreset), value)
@@ -109,7 +114,16 @@ public sealed class SceneCompositor : ICompositor
         public void EvaluateElementIntoFlow(Element element)
         {
             using var tmpObjects = new PooledList<EngineObject>();
-            _compositor.CollectResourcesFromElement(element, this, tmpObjects);
+            TimeSpan sideTime = Time;
+            Time = FrameTime ?? sideTime;
+            try
+            {
+                _compositor.CollectResourcesFromElement(element, this, tmpObjects);
+            }
+            finally
+            {
+                Time = sideTime;
+            }
         }
     }
 
@@ -224,6 +238,8 @@ public sealed class SceneCompositor : ICompositor
         // elements; whatever either side took stays out of the frame afterwards.
         Element[] inputs = [.. elements];
         var incomingInputs = new List<Element>(inputs);
+        TimeSpan? frameTime = context.FrameTime;
+        context.FrameTime = time;
         try
         {
             if (boundary.Outgoing is { } outgoing)
@@ -243,6 +259,7 @@ public sealed class SceneCompositor : ICompositor
         }
         finally
         {
+            context.FrameTime = frameTime;
             context.CurrentElements = elements;
             foreach (Element input in inputs)
             {
