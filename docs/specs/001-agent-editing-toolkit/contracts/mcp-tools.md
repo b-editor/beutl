@@ -232,14 +232,14 @@ Request cancellation of a running background render/export job.
 
 ## Extension tools *(in-app host only)*
 
-Installed extensions can add tools through `McpToolExtension` (see the [MCP tool extension guide](../../../extension-authoring/mcp-tools.md)). They are listed and called like built-in tools, appear and disappear with their package without restarting the endpoint, and receive the same strict-argument check and `instanceId` routing. A built-in tool always wins a name collision.
-- **Errors**: `extension_tool_failed` (the extension threw; the message is included), `extension_tool_unavailable` (the package was unloaded after the tool was listed). Failures the extension reports itself are returned as MCP tool errors (`isError: true`) in the extension's own wording.
+Installed extensions can add tools through `McpToolExtension` (see the [MCP tool extension guide](../../../extension-authoring/mcp-tools.md)). They are listed and called like built-in tools, appear and disappear with their package without restarting the endpoint, and receive the same strict-argument check and `instanceId` routing. A built-in tool always wins a name collision. `tools/list` reflects the extensions loaded in the connected instance.
+- **Errors**: `extension_tool_failed` (the extension threw; the message is included), `extension_tool_unavailable` (the package was unloaded after the tool was listed). Unlike toolkit errors, both are returned as MCP tool errors (`isError: true`), as are failures the extension reports itself in its own wording.
 
 ## Cross-cutting contract rules
 
 - **Host output lease**: direct `RenderTools` callers pass an `IOutputOperationLeaseProvider`, using `StandaloneOutputOperationLeaseProvider.Instance` outside the editor. DI and in-app hosts register their host-backed provider so render/export jobs cannot overlap a conflicting workspace operation.
 - **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded.
-- **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored. A tool whose input schema sets `additionalProperties` to anything but `false`, or declares `patternProperties`, accepts unlisted names.
+- **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored. Names matching a `patternProperties` pattern are accepted, and a tool whose input schema sets `additionalProperties` to anything but `false` accepts any name.
 - **Atomicity**: `apply_edit` commits as exactly one undoable transaction; a mid-batch failure rolls back wholly (FR-012).
 - **Validation surfaced**: coercion/rejection is always reported in the result, never silently applied (FR-007).
 - **Stable handles**: all `*Id` are `CoreObject.Id` Guids, valid for the session; a removed or unknown update target ⇒ `stale_handle` (FR-011). `stale_handle` responses include a hint to omit `Id` for creation and to reuse Ids from `apply_edit.document` or `read_document` for updates.

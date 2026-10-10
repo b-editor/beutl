@@ -34,12 +34,7 @@ internal sealed class ExtensionMcpTool(
         CancellationToken cancellationToken = default)
     {
         if (!editorService.ExtensionProvider.TryAcquire(extensionId, out IExtensionLease<McpToolExtension>? lease))
-        {
-            return Error(
-                ErrorCode.ExtensionToolUnavailable,
-                $"The extension that provided '{protocolTool.Name}' is no longer loaded.",
-                "Call tools/list for the tools that are currently available.");
-        }
+            return CreateUnavailableResult(protocolTool.Name);
 
         using (lease)
         {
@@ -114,13 +109,21 @@ internal sealed class ExtensionMcpTool(
         };
     }
 
+    public static CallToolResult CreateUnavailableResult(string toolName)
+        => Error(
+            toolName,
+            ErrorCode.ExtensionToolUnavailable,
+            $"The extension that provided '{toolName}' is no longer loaded.",
+            "Call tools/list for the tools that are currently available.");
+
     private CallToolResult Failed(string message)
         => Error(
+            protocolTool.Name,
             ErrorCode.ExtensionToolFailed,
             $"'{protocolTool.Name}' failed: {message}",
             "The tool may have applied part of its work. Read back the current state before retrying.");
 
-    private CallToolResult Error(string code, string message, string hint)
+    private static CallToolResult Error(string toolName, string code, string message, string hint)
         => new()
         {
             Content =
@@ -128,9 +131,10 @@ internal sealed class ExtensionMcpTool(
                 new TextContentBlock
                 {
                     Text = JsonSerializer.Serialize(
-                        ToolResult<object?>.Failure(code, message, protocolTool.Name, hint),
+                        ToolResult<object?>.Failure(code, message, toolName, hint),
                         s_jsonOptions)
                 }
-            ]
+            ],
+            IsError = true
         };
 }

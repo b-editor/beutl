@@ -16,9 +16,9 @@ public sealed class McpToolDefinition
     /// <param name="description">Tells the agent what the tool does and when to call it.</param>
     /// <param name="inputSchema">
     /// A JSON Schema object with <c>"type": "object"</c> that describes the arguments. Omit it for a
-    /// tool without arguments. Arguments not listed under <c>properties</c> are rejected before the
-    /// tool runs unless the schema sets <c>additionalProperties</c> to something other than
-    /// <see langword="false"/>.
+    /// tool without arguments. Arguments that are neither listed under <c>properties</c> nor matched by
+    /// a <c>patternProperties</c> pattern are rejected before the tool runs, unless the schema sets
+    /// <c>additionalProperties</c> to something other than <see langword="false"/>.
     /// </param>
     public McpToolDefinition(string name, string description, JsonElement? inputSchema = null)
     {

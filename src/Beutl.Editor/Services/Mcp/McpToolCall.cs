@@ -33,6 +33,10 @@ public sealed class McpToolCall
     /// The editor of the tab selected in Beutl when the call started, or <see langword="null"/>
     /// when no editor is open.
     /// </summary>
+    /// <remarks>
+    /// The call does not keep the editor open. If its tab closes while the tool awaits, the editor is
+    /// disposed, so resolve its services again after each await and stop when they are gone.
+    /// </remarks>
     public IEditorContext? EditorContext { get; }
 
     public IEditorContextServices Services { get; }

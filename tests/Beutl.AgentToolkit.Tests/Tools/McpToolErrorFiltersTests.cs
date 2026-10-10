@@ -67,7 +67,8 @@ public sealed class McpToolErrorFiltersTests
 
     [TestCase("""{ "type": "object", "properties": { "a": {} }, "additionalProperties": true }""")]
     [TestCase("""{ "type": "object", "additionalProperties": { "type": "string" } }""")]
-    [TestCase("""{ "type": "object", "patternProperties": { "^x-": {} } }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} } }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "[": {} } }""")]
     public void Schema_that_admits_extra_properties_accepts_unlisted_arguments(string json)
     {
         using JsonDocument schema = JsonDocument.Parse(json);
@@ -92,6 +93,27 @@ public sealed class McpToolErrorFiltersTests
             schema.RootElement);
 
         Assert.That(ReadToolResult(result!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+    }
+
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} } }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} }, "additionalProperties": false }""")]
+    public void Pattern_properties_accept_only_matching_names(string json)
+    {
+        using JsonDocument schema = JsonDocument.Parse(json);
+
+        CallToolResult? result = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool",
+            ["a", "x-extra", "y"],
+            schema.RootElement);
+        ToolResult<object?> toolResult = ReadToolResult(result!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(toolResult.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(toolResult.Error.Message, Does.Contain(": y."));
+            Assert.That(toolResult.Error.Message, Does.Not.Contain("x-extra"));
+            Assert.That(toolResult.Error.Message, Does.Contain("names matching ^x-"));
+        });
     }
 
     private static ToolResult<object?> ReadToolResult(CallToolResult result)

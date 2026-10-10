@@ -449,6 +449,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithRequestFilters(filters =>
             {
                 AgentHostInstanceRouter.AddFilters(filters);
+                filters.AddCallToolFilter(next => (context, cancellationToken) =>
+                    _extensionTools.TryCreateRemovedToolResult(context, out var removed)
+                        ? ValueTask.FromResult(removed)
+                        : next(context, cancellationToken));
                 filters.AddToolkitCallToolErrorFilter();
             })
             .WithTools<AgentHostInstanceTools>()

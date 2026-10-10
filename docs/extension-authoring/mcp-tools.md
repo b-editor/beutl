@@ -53,14 +53,16 @@ public sealed class SceneInfoToolExtension : McpToolExtension
 - A tool name is 1 to 128 ASCII letters, digits, `_`, `-`, or `.`; `McpToolDefinition` throws otherwise.
 - Built-in tools and every extension share one namespace. A name that matches a built-in tool, or a tool that an earlier extension already registered, is skipped and logged. Prefix names with something specific to your extension.
 - The input schema must be a JSON Schema object with `"type": "object"`. Omit it for a tool without arguments.
-- Arguments missing from `properties` are rejected with `validation_rejected` before your code runs, as for built-in tools. Set `additionalProperties` (to anything but `false`) or `patternProperties` to accept free-form arguments.
+- Arguments that are neither in `properties` nor matched by a `patternProperties` pattern are rejected with `validation_rejected` before your code runs, as for built-in tools. Set `additionalProperties` to anything but `false` to accept any argument name.
 - `instanceId` is reserved: Beutl adds it to every tool to route calls between running Beutl instances, and removes it before your code sees the arguments. A tool that declares an `instanceId` property is skipped.
+- `tools/list` shows the extension tools loaded in the instance the agent is connected to. Instances that share a profile load the same packages at startup, but a package installed or removed while several instances run is listed only by the instances where it is loaded, and a call routed with `instanceId` to an instance without the tool fails.
 - `ReadOnlyHint`, `DestructiveHint`, `IdempotentHint`, and `OpenWorldHint` become MCP tool annotations, which clients use when deciding whether to ask the user before a call.
 
 ## Running a call
 
-- `InvokeAsync` runs on the UI thread, so editor objects can be read and changed directly. Move CPU-heavy or blocking work to a background thread and keep awaits short.
+- `InvokeAsync` runs on the UI thread, so editor objects can be read and changed directly. Move CPU-heavy or blocking work to a background thread.
 - `McpToolCall.EditorContext` is the editor of the tab that was selected when the call started, or `null` when no editor is open. Resolve editor services through it, for example `Scene` and `HistoryManager`. Commit edits with `HistoryManager.Commit` so the user can undo them as one step.
+- The call leases your extension, not the editor. If the user closes the tab while your code awaits, the editor is disposed and `GetService(typeof(Scene))` returns `null` from then on. Do the editor work before the first await, or resolve the scene again after each await and stop when it is `null`; do not keep using objects you resolved before the await.
 - `McpToolCall.Services` gives access to the extension provider and host services, as `IEditorContextServices` does for editor extensions.
 - Honor the `CancellationToken`; it is canceled when the agent cancels the request.
 
@@ -69,7 +71,8 @@ public sealed class SceneInfoToolExtension : McpToolExtension
 - `McpToolResult.Text`, `Json`, and `Image` build common results. `Json` also returns a JSON object as structured content. Construct `McpToolResult` directly to return several content blocks.
 - Return `McpToolResult.Error(message)` for failures the agent can act on, such as a missing editor or an out-of-range argument. The message is shown to the agent as is.
 - An exception becomes an `extension_tool_failed` error that carries the exception message, and is logged.
-- If the package is unloaded between listing and calling, the call returns `extension_tool_unavailable`.
+- A call to a tool whose package was unloaded after the agent listed it returns `extension_tool_unavailable`.
+- Both errors are marked as MCP tool errors (`isError: true`), like `McpToolResult.Error`.
 
 ## Lifetime
 

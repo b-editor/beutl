@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Beutl.Editor.Services.Mcp;
 using Beutl.Logging;
@@ -17,6 +18,7 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
     private readonly EditorService _editorService;
     private readonly IEditorContextServices _services;
     private readonly object _gate = new();
+    private readonly ConcurrentDictionary<string, byte> _removedNames = new(StringComparer.Ordinal);
     private Snapshot _snapshot = new([]);
     private bool _disposed;
 
@@ -83,10 +85,10 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
 
                 using (lease)
                 {
-                    IReadOnlyList<McpToolDefinition>? definitions;
+                    McpToolDefinition?[] definitions;
                     try
                     {
-                        definitions = lease.Extension.Tools;
+                        definitions = lease.Extension.Tools?.ToArray() ?? [];
                     }
                     catch (Exception ex)
                     {
@@ -94,7 +96,7 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                         continue;
                     }
 
-                    foreach (McpToolDefinition? definition in definitions ?? [])
+                    foreach (McpToolDefinition? definition in definitions)
                     {
                         if (CreateTool(descriptor, definition, names) is { } tool)
                             tools.Add(tool);
@@ -102,8 +104,35 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                 }
             }
 
+            foreach (ExtensionMcpTool removed in _snapshot.Tools)
+            {
+                if (!names.Contains(removed.ProtocolTool.Name))
+                    _removedNames[removed.ProtocolTool.Name] = 0;
+            }
+            foreach (string name in names)
+                _removedNames.TryRemove(name, out _);
+
             Volatile.Write(ref _snapshot, new Snapshot([.. tools]));
         }
+    }
+
+    // A client may call a tool it listed before the package was removed. That request no longer
+    // contains the tool, so answer it here instead of with the SDK's unknown-tool protocol error.
+    public bool TryCreateRemovedToolResult(
+        RequestContext<CallToolRequestParams> context,
+        [NotNullWhen(true)] out CallToolResult? result)
+    {
+        string? name = context.Params?.Name;
+        if (name is null
+            || !_removedNames.ContainsKey(name)
+            || context.Server.ServerOptions.ToolCollection?.TryGetPrimitive(name, out _) == true)
+        {
+            result = null;
+            return false;
+        }
+
+        result = ExtensionMcpTool.CreateUnavailableResult(name);
+        return true;
     }
 
     private ExtensionMcpTool? CreateTool(

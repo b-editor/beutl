@@ -122,7 +122,14 @@ public sealed class ExtensionMcpToolTests
             });
 
             await provider.RemoveExtensions(-45002).DrainAsync();
-            Assert.That((await client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("test.dynamic"));
+            IList<McpClientTool> removed = await client.ListToolsAsync();
+            CallToolResult stale = await client.CallToolAsync("test.dynamic");
+            Assert.Multiple(() =>
+            {
+                Assert.That(removed.Select(tool => tool.Name), Does.Not.Contain("test.dynamic"));
+                Assert.That(stale.IsError, Is.True);
+                Assert.That(ErrorCodeOf(stale), Is.EqualTo(ErrorCode.ExtensionToolUnavailable));
+            });
         }
         finally
         {
@@ -193,6 +200,31 @@ public sealed class ExtensionMcpToolTests
                         Assert.That(additional.ValueKind, Is.EqualTo(JsonValueKind.False), tool.Name);
                 }
             });
+        }
+        finally
+        {
+            await host.StopAsync();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task An_extension_whose_tool_list_throws_does_not_hide_other_tools()
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        var provider = new ExtensionProvider();
+        provider.AddExtensions(-45008, [new ToolExtension(new ThrowingToolList(), _ => new(McpToolResult.Text("never")))]);
+        provider.AddExtensions(-45009, [new ToolExtension(
+            [new McpToolDefinition("test.healthy", "Still listed.")],
+            _ => new(McpToolResult.Text("healthy")))]);
+        await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
+        try
+        {
+            await host.StartAsync();
+            await using McpClient client = await ConnectAsync(host);
+
+            Assert.That((await client.ListToolsAsync()).Select(tool => tool.Name), Does.Contain("test.healthy"));
         }
         finally
         {
@@ -281,6 +313,7 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(block.DecodedData.ToArray(), Is.EqualTo(png));
                 Assert.That(rejected.IsError, Is.True);
                 Assert.That(Text(rejected), Is.EqualTo("bad input"));
+                Assert.That(thrown.IsError, Is.True);
                 Assert.That(ErrorCodeOf(thrown), Is.EqualTo(ErrorCode.ExtensionToolFailed));
                 Assert.That(Text(thrown), Does.Contain("boom"));
             });
@@ -345,6 +378,17 @@ public sealed class ExtensionMcpToolTests
 
         public override ValueTask<McpToolResult> InvokeAsync(McpToolCall call, CancellationToken cancellationToken)
             => invoke(call);
+    }
+
+    private sealed class ThrowingToolList : IReadOnlyList<McpToolDefinition>
+    {
+        public int Count => 1;
+
+        public McpToolDefinition this[int index] => throw new InvalidOperationException("broken list");
+
+        public IEnumerator<McpToolDefinition> GetEnumerator() => throw new InvalidOperationException("broken list");
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private static JsonElement Schema(string json) => JsonDocument.Parse(json).RootElement;
