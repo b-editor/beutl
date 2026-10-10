@@ -277,6 +277,18 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(Text(shared), Is.EqualTo("first"));
                 Assert.That(Text(undo), Does.Not.Contain("first"));
             });
+
+            // Unloading the winner hands "test.shared" to the other provider: same name, new
+            // definition, so the registry's tools version must still advance.
+            var registry = new AgentHostInstanceRegistry(directory);
+            long before = registry.Read().Single().ToolsVersion;
+            await provider.RemoveExtensions(-45004).DrainAsync();
+            IList<McpClientTool> replaced = await client.ListToolsAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(replaced.Single(tool => tool.Name == "test.shared").Description, Is.EqualTo("Second provider."));
+                Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(before + 1));
+            });
         }
         finally
         {

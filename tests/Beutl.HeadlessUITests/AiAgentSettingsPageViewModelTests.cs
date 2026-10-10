@@ -546,6 +546,31 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
+    public async Task Manifest_settles_the_mcp_layout_for_an_agent_that_cannot_take_an_mcp_entry()
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-no-mcp-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest("stale", []));
+        var config = new AiAgentConfig
+        {
+            AgentId = "cline",
+            InstallScope = nameof(AgentInstallScope.Project),
+            ProjectRoot = root,
+            WorkspaceRoot = root,
+            InstallSubagents = false,
+        };
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+        Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+
+        // Nothing to migrate for an agent without an MCP registry, so the notice must not persist.
+        await viewModel.InstallAsync();
+
+        Assert.That(AgentToolkitInstallManifestStore.Load(manifestPath)!.McpLayout,
+            Is.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout), viewModel.Status.Value);
+    }
+
+    [AvaloniaTest]
     public void Edits_write_through_to_config_and_restore_in_a_new_view_model()
     {
         var config = new AiAgentConfig();
