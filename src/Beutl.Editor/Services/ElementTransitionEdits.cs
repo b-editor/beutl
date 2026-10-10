@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Services;
 
 namespace Beutl.Editor.Services;
 
@@ -15,6 +16,48 @@ public enum ElementEdge
 /// <summary>Reads and writes the transition sides of an element without committing history.</summary>
 public static class ElementTransitionEdits
 {
+    // Ordered as the library lists them.
+    private static readonly Type[] s_builtInTransitionTypes =
+    [
+        typeof(CrossDissolveTransition),
+        typeof(FadeTransition),
+        typeof(WipeTransition),
+        typeof(DipToColorTransition),
+        typeof(DipToWhiteTransition),
+        typeof(PushTransition),
+        typeof(SlideTransition),
+        typeof(ZoomTransition),
+        typeof(IrisTransition),
+        typeof(SplitTransition),
+    ];
+
+    /// <summary>
+    /// Gets the transitions an element can be given: the built-in ones, then any an extension registers
+    /// with the library. Built at each call so extensions loaded later are offered too.
+    /// </summary>
+    public static IReadOnlyList<Type> GetTransitionTypes()
+    {
+        IEnumerable<Type> registered = LibraryService.Current
+            .GetTypesFromFormat(KnownLibraryItemFormats.ClipTransition)
+            .OrderBy(type => type.FullName, StringComparer.Ordinal);
+        return s_builtInTransitionTypes.Concat(registered)
+            .Distinct()
+            .Where(IsTransitionType)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Gets which edge of its element <paramref name="property"/> holds the transition of, or
+    /// <see langword="null"/> when it is not one of the element's transition properties.
+    /// </summary>
+    public static ElementEdge? GetEdge(CoreProperty property)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return property.Id == Element.EnterTransitionProperty.Id ? ElementEdge.Start
+            : property.Id == Element.ExitTransitionProperty.Id ? ElementEdge.End
+            : null;
+    }
+
     public static ClipTransition? GetTransition(Element element, ElementEdge edge)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -90,15 +133,35 @@ public static class ElementTransitionEdits
 
     /// <summary>
     /// Gets whether a locked element meets <paramref name="edge"/> of <paramref name="element"/> and sets
-    /// its own side of the transition there, so the boundary cannot be removed from this element.
+    /// an enabled side of the transition there, so the boundary cannot be removed from this element.
     /// </summary>
     public static bool HasLockedSideAcross(Element element, ElementEdge edge)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return FindPartner(element, edge) is { } partner
-               && FindEditablePartner(element, edge) == null
-               && GetTransition(partner, edge == ElementEdge.Start ? ElementEdge.End : ElementEdge.Start) != null;
+        return FindLockedPartner(element, edge) is { } partner
+               && GetTransition(partner, Opposite(edge)) is { IsEnabled: true };
     }
+
+    /// <summary>
+    /// Gets whether the transition at <paramref name="edge"/> of <paramref name="element"/> is decided by a
+    /// locked element across it: at an end, the element after it decides how the boundary blends when it
+    /// sets an enabled enter transition, so a type picked at this side would show no difference.
+    /// </summary>
+    public static bool IsDecidedAcrossLock(Element element, ElementEdge edge)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return edge == ElementEdge.End
+               && FindLockedPartner(element, edge) is { EnterTransition.IsEnabled: true };
+    }
+
+    private static Element? FindLockedPartner(Element element, ElementEdge edge)
+    {
+        return FindPartner(element, edge) is { } partner && FindEditablePartner(element, edge) == null
+            ? partner
+            : null;
+    }
+
+    private static ElementEdge Opposite(ElementEdge edge) => edge == ElementEdge.Start ? ElementEdge.End : ElementEdge.Start;
 
     internal static Element? FindEditablePartner(Element element, ElementEdge edge)
     {

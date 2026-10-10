@@ -105,44 +105,25 @@ public sealed partial class ElementView : UserControl
         PopulateTransitionMenu(viewModel, editable);
     }
 
+    // One item per edge, which opens its transition in the property tab, adding the default one first
+    // when there is none; its type and properties are changed there.
     private void PopulateTransitionMenu(ElementViewModel viewModel, bool editable)
     {
         transitionMenu.Items.Clear();
-        transitionMenu.Items.Add(CreateTransitionEdgeMenu(viewModel, ElementEdge.Start, Strings.EnterTransition, editable));
-        transitionMenu.Items.Add(CreateTransitionEdgeMenu(viewModel, ElementEdge.End, Strings.ExitTransition, editable));
+        transitionMenu.Items.Add(CreateTransitionEdgeItem(viewModel, ElementEdge.Start, Strings.EnterTransition, editable));
+        transitionMenu.Items.Add(CreateTransitionEdgeItem(viewModel, ElementEdge.End, Strings.ExitTransition, editable));
     }
 
-    private FAMenuFlyoutSubItem CreateTransitionEdgeMenu(
-        ElementViewModel viewModel, ElementEdge edge, string header, bool editable)
+    private FAMenuFlyoutItem CreateTransitionEdgeItem(
+        ElementViewModel viewModel, ElementEdge edge, string text, bool editable)
     {
-        var menu = new FAMenuFlyoutSubItem { Text = header };
-        Type? current = viewModel.GetTransitionType(edge);
-        foreach (Type type in ElementViewModel.GetTransitionTypes())
+        var item = new FAMenuFlyoutItem
         {
-            var item = new FAToggleMenuFlyoutItem
-            {
-                Text = ElementViewModel.GetTransitionName(type),
-                IsChecked = type == current,
-                IsEnabled = editable,
-            };
-            item.Click += (_, _) => (DataContext as ElementViewModel)?.ApplyTransition(edge, type);
-            menu.Items.Add(item);
-        }
-
-        menu.Items.Add(new FAMenuFlyoutSeparator());
-
-        var edit = new FAMenuFlyoutItem { Text = Strings.EditTransition, IsEnabled = current != null };
-        edit.Click += (_, _) => (DataContext as ElementViewModel)?.EditTransition(edge);
-        menu.Items.Add(edit);
-
-        var remove = new FAMenuFlyoutItem
-        {
-            Text = Strings.RemoveTransition,
-            IsEnabled = editable && current != null && !ElementTransitionEdits.HasLockedSideAcross(viewModel.Model, edge),
+            Text = text,
+            IsEnabled = editable || viewModel.GetTransitionType(edge) != null,
         };
-        remove.Click += (_, _) => (DataContext as ElementViewModel)?.RemoveTransition(edge);
-        menu.Items.Add(remove);
-        return menu;
+        item.Click += (_, _) => (DataContext as ElementViewModel)?.OpenTransition(edge);
+        return item;
     }
 
     private void OnTransitionHandlePressed(object? sender, PointerPressedEventArgs e)

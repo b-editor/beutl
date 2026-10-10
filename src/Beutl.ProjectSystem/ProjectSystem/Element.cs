@@ -136,6 +136,7 @@ public class Element : Hierarchical, INotifyEdited
     /// element before it on the same layer, or from nothing when there is none.
     /// </summary>
     [NotAutoSerialized]
+    [Display(Name = nameof(Strings.EnterTransition), ResourceType = typeof(Strings))]
     public ClipTransition? EnterTransition
     {
         get => _enterTransition;
@@ -147,6 +148,7 @@ public class Element : Hierarchical, INotifyEdited
     /// element after it on the same layer, or into nothing when there is none.
     /// </summary>
     [NotAutoSerialized]
+    [Display(Name = nameof(Strings.ExitTransition), ResourceType = typeof(Strings))]
     public ClipTransition? ExitTransition
     {
         get => _exitTransition;

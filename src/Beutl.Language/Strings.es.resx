@@ -3423,10 +3423,4 @@ cuando el registro del historial está activado.</value>
   <data name="ExitTransition" xml:space="preserve">
     <value>Transición de salida</value>
   </data>
-  <data name="EditTransition" xml:space="preserve">
-    <value>Editar transición</value>
-  </data>
-  <data name="RemoveTransition" xml:space="preserve">
-    <value>Quitar transición</value>
-  </data>
 </root>

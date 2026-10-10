@@ -309,6 +309,26 @@ public class ElementAttributeServiceTests
         });
     }
 
+    // A disabled side on the locked element blends nothing, so the unlocked side can still be removed.
+    [Test]
+    public void RemoveTransition_IgnoresADisabledLockedSide()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        incoming.EnterTransition!.IsEnabled = false;
+        incoming.IsLocked = true;
+        _history.Commit("lock");
+
+        _service.RemoveTransition(outgoing, ElementEdge.End);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ElementTransitionEdits.HasLockedSideAcross(outgoing, ElementEdge.End), Is.False);
+            Assert.That(outgoing.ExitTransition, Is.Null);
+            Assert.That(incoming.EnterTransition, Is.Not.Null, "the locked element is left alone");
+        });
+    }
+
     [Test]
     public void ApplyTransition_LeavesALockedPartnerAlone()
     {

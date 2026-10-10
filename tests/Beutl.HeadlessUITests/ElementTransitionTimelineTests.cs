@@ -16,6 +16,7 @@ using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Transitions;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -28,8 +29,10 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ElementTransitionTimelineTests
 {
+    // The menu has one item per edge, which adds the default transition when the edge has none and opens
+    // the element in the property tab, where the type and properties are edited.
     [AvaloniaTest]
-    public async Task TheContextMenu_SetsTheTransitionAtEitherEdge()
+    public async Task TheContextMenu_OpensTheTransitionAtEitherEdge()
     {
         Window? window = null;
         TimelineTabView? view = null;
@@ -43,29 +46,72 @@ public class ElementTransitionTimelineTests
             var flyout = (FAMenuFlyout)element.FindControl<Border>("border")!.ContextFlyout!;
             flyout.ShowAt(element);
             HeadlessTestHelpers.Render(3);
-            FAMenuFlyoutSubItem[] edges = element.FindControl<FAMenuFlyoutSubItem>("transitionMenu")!
-                .Items.OfType<FAMenuFlyoutSubItem>().ToArray();
-            FAToggleMenuFlyoutItem[] types = edges[0].Items.OfType<FAToggleMenuFlyoutItem>().ToArray();
-            IReadOnlyList<Type> transitionTypes = ElementViewModel.GetTransitionTypes();
-            Assert.Multiple(() =>
-            {
-                Assert.That(edges, Has.Length.EqualTo(2));
-                Assert.That(types.Select(item => item.Text), Is.EqualTo(transitionTypes.Select(ElementViewModel.GetTransitionName)));
-                Assert.That(transitionTypes, Does.Contain(typeof(IrisTransition)).And.Contain(typeof(PushTransition)));
-                Assert.That(types.Any(item => item.IsChecked), Is.False);
-            });
-
-            types[transitionTypes.ToList().IndexOf(typeof(WipeTransition))]
-                .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            FAMenuFlyoutItem[] items = element.FindControl<FAMenuFlyoutSubItem>("transitionMenu")!
+                .Items.OfType<FAMenuFlyoutItem>().ToArray();
+            string[] texts = [.. items.Select(item => item.Text ?? string.Empty)];
+            items[0].RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
             flyout.Hide();
+            HeadlessTestHelpers.Settle(3);
+            int undoAfterAdding = editor.HistoryManager.UndoCount;
+            incoming.OpenTransition(ElementEdge.Start);
             HeadlessTestHelpers.Settle(3);
 
             Assert.Multiple(() =>
             {
-                Assert.That(incoming.Model.EnterTransition, Is.TypeOf<WipeTransition>());
-                Assert.That(outgoing.Model.ExitTransition, Is.TypeOf<WipeTransition>(),
+                Assert.That(texts, Is.EqualTo(new[] { Strings.EnterTransition, Strings.ExitTransition }));
+                Assert.That(incoming.Model.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
+                Assert.That(outgoing.Model.ExitTransition, Is.TypeOf<CrossDissolveTransition>(),
                     "a new boundary transition is centred on the cut");
-                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+                Assert.That(undoAfterAdding, Is.EqualTo(undoCount + 1));
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoAfterAdding), "opening it again adds nothing");
+                Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target, Is.SameAs(incoming.Model));
+                Assert.That(TransitionEditorOf(editor, ElementEdge.Start).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
+            });
+        }
+        finally
+        {
+            Close(view, window);
+        }
+    }
+
+    // Picking a type in the property tab changes both sides of the boundary as one edit, and none removes
+    // the transition from both.
+    [AvaloniaTest]
+    public async Task TheTypeEditor_ChangesAndRemovesTheTransitionOnBothSides()
+    {
+        Window? window = null;
+        TimelineTabView? view = null;
+        try
+        {
+            (EditViewModel editor, ElementViewModel outgoing, ElementViewModel incoming) = await OpenCut();
+            (view, window) = Show(incoming);
+            incoming.OpenTransition(ElementEdge.Start);
+            HeadlessTestHelpers.Settle(3);
+            ClipTransitionEditorViewModel transitionEditor = TransitionEditorOf(editor, ElementEdge.Start);
+            int undoCount = editor.HistoryManager.UndoCount;
+
+            transitionEditor.ChangeType(typeof(WipeTransition));
+            HeadlessTestHelpers.Settle(3);
+            Type? selected = transitionEditor.SelectedType.Value?.Type;
+            bool showsDirection = transitionEditor.Properties.Value?.Properties
+                .OfType<BaseEditorViewModel>()
+                .Any(item => item.Header == GraphicsStrings.Direction) == true;
+            Type? exitAfterChange = outgoing.Model.ExitTransition?.GetType();
+            int undoAfterChange = editor.HistoryManager.UndoCount;
+            transitionEditor.ChangeType(null);
+            HeadlessTestHelpers.Settle(3);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(transitionEditor.Types[0].Type, Is.Null, "the first entry is none");
+                Assert.That(transitionEditor.Types.Select(item => item.Type), Does.Contain(typeof(IrisTransition)));
+                Assert.That(selected, Is.EqualTo(typeof(WipeTransition)));
+                Assert.That(showsDirection, Is.True, "a wipe shows its direction beneath the type");
+                Assert.That(exitAfterChange, Is.EqualTo(typeof(WipeTransition)));
+                Assert.That(undoAfterChange, Is.EqualTo(undoCount + 1));
+                Assert.That(incoming.Model.EnterTransition, Is.Null);
+                Assert.That(outgoing.Model.ExitTransition, Is.Null);
+                Assert.That(transitionEditor.SelectedType.Value?.Type, Is.Null);
             });
         }
         finally
@@ -196,7 +242,7 @@ public class ElementTransitionTimelineTests
         }
     }
 
-    // A disabled transition draws no ramp, but the timeline still offers to edit and remove it.
+    // A disabled transition draws no ramp, but it can still be opened, edited and removed.
     [AvaloniaTest]
     public async Task ADisabledTransition_StaysEditableAndRemovable()
     {
@@ -213,8 +259,8 @@ public class ElementTransitionTimelineTests
             bool partVisible = incoming.EnterTransitionPart.Value.IsVisible;
             Type? type = incoming.GetTransitionType(ElementEdge.Start);
             incoming.EditTransition(ElementEdge.Start);
-            object? edited = editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target;
-            incoming.RemoveTransition(ElementEdge.Start);
+            object? edited = TransitionEditorOf(editor, ElementEdge.Start).Value.Value;
+            TransitionEditorOf(editor, ElementEdge.Start).ChangeType(null);
 
             Assert.Multiple(() =>
             {
@@ -230,7 +276,7 @@ public class ElementTransitionTimelineTests
         }
     }
 
-    // Editing opens the transition in the property tab, which follows the lock of the element that owns it.
+    // The transition editor follows the lock of the element that owns the transition.
     [AvaloniaTest]
     public async Task TheTransitionOfALockedElement_OpensReadOnly()
     {
@@ -246,17 +292,18 @@ public class ElementTransitionTimelineTests
             incoming.EditTransition(ElementEdge.Start);
             BaseEditorViewModel unlocked = EditorOf(editor);
             bool readOnlyWhileUnlocked = unlocked.IsReadOnly.Value;
+            bool typeEditableWhileUnlocked = TransitionEditorOf(editor, ElementEdge.Start).CanChangeType.Value;
             incoming.Model.IsLocked = true;
             HeadlessTestHelpers.Settle(3);
             bool readOnlyOnceLocked = unlocked.IsReadOnly.Value;
-            incoming.EditTransition(ElementEdge.Start);
-            bool reopenedReadOnly = EditorOf(editor).IsReadOnly.Value;
+            bool typeEditableOnceLocked = TransitionEditorOf(editor, ElementEdge.Start).CanChangeType.Value;
 
             Assert.Multiple(() =>
             {
                 Assert.That(readOnlyWhileUnlocked, Is.False);
+                Assert.That(typeEditableWhileUnlocked, Is.True);
                 Assert.That(readOnlyOnceLocked, Is.True);
-                Assert.That(reopenedReadOnly, Is.True);
+                Assert.That(typeEditableOnceLocked, Is.False);
             });
         }
         finally
@@ -265,7 +312,7 @@ public class ElementTransitionTimelineTests
         }
 
         static BaseEditorViewModel EditorOf(EditViewModel editor)
-            => editor.FindToolTab<ObjectPropertyTabViewModel>()!.ChildContext.Value!.Properties
+            => TransitionEditorOf(editor, ElementEdge.Start).Properties.Value!.Properties
                 .OfType<EasingEditorViewModel<Easing>>()
                 .Single();
     }
@@ -337,8 +384,10 @@ public class ElementTransitionTimelineTests
             ObjectPropertyTabViewModel? tab = editor.FindToolTab<ObjectPropertyTabViewModel>();
             Assert.Multiple(() =>
             {
-                Assert.That(tab?.ChildContext.Value?.Target, Is.SameAs(incoming.Model.EnterTransition));
-                Assert.That(tab?.ChildContext.Value?.Properties, Has.Some.TypeOf<EasingEditorViewModel<Easing>>());
+                Assert.That(tab?.ChildContext.Value?.Target, Is.SameAs(incoming.Model));
+                Assert.That(TransitionEditorOf(editor, ElementEdge.Start).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(TransitionEditorOf(editor, ElementEdge.Start).Properties.Value?.Properties,
+                    Has.Some.TypeOf<EasingEditorViewModel<Easing>>());
             });
         }
         finally
@@ -372,6 +421,16 @@ public class ElementTransitionTimelineTests
         {
             Close(view, window);
         }
+    }
+
+    // The editor of the shown element's transition at edge in the property tab; the element lists its
+    // enter transition before its exit transition.
+    private static ClipTransitionEditorViewModel TransitionEditorOf(EditViewModel editor, ElementEdge edge)
+    {
+        ClipTransitionEditorViewModel[] editors = [.. editor.FindToolTab<ObjectPropertyTabViewModel>()!.ChildContext.Value!.Properties
+            .OfType<ClipTransitionEditorViewModel>()];
+        Assert.That(editors, Has.Length.EqualTo(2));
+        return editors[edge == ElementEdge.Start ? 0 : 1];
     }
 
     // Avalonia's headless hit test answers only after the window has rendered a frame, so a press made

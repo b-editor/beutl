@@ -3423,10 +3423,4 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ExitTransition" xml:space="preserve">
     <value>出场转场</value>
   </data>
-  <data name="EditTransition" xml:space="preserve">
-    <value>编辑转场</value>
-  </data>
-  <data name="RemoveTransition" xml:space="preserve">
-    <value>移除转场</value>
-  </data>
 </root>

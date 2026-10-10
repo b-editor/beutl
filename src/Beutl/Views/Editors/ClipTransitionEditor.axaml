@@ -1,0 +1,44 @@
+<UserControl x:Class="Beutl.Views.Editors.ClipTransitionEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             d:DesignHeight="200"
+             d:DesignWidth="400"
+             x:CompileBindings="True"
+             x:DataType="viewModel:ClipTransitionEditorViewModel"
+             Background="Transparent"
+             mc:Ignorable="d">
+    <StackPanel>
+        <!--  The type sits where other editors put their value; none removes the transition.  -->
+        <Grid Margin="8,4,37,4"
+              ColumnDefinitions="*,Auto">
+            <TextBlock VerticalAlignment="Center"
+                       Text="{Binding Header}"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip.Tip="{Binding HoverInfo.Value}" />
+            <ComboBox x:Name="typeComboBox"
+                      Grid.Column="1"
+                      MinWidth="180"
+                      IsEnabled="{Binding CanChangeType.Value}"
+                      ItemsSource="{Binding Types}"
+                      SelectedItem="{Binding SelectedType.Value, Mode=OneWay}"
+                      SelectionChanged="OnTypeSelectionChanged">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModel:ClipTransitionTypeItem">
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <controls:TreeLineDecorator IsVisible="{Binding Properties.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+            <local:PropertiesEditor Padding="0"
+                                    DataContext="{Binding Properties.Value}" />
+        </controls:TreeLineDecorator>
+    </StackPanel>
+</UserControl>

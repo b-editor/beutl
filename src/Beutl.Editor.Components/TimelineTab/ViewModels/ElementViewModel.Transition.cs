@@ -8,7 +8,6 @@ using Beutl.Editor.Services;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -34,21 +33,6 @@ public sealed record TransitionPartLayout(
 
 public sealed partial class ElementViewModel
 {
-    // Ordered as the library lists them.
-    private static readonly Type[] s_builtInTransitionTypes =
-    [
-        typeof(CrossDissolveTransition),
-        typeof(FadeTransition),
-        typeof(WipeTransition),
-        typeof(DipToColorTransition),
-        typeof(DipToWhiteTransition),
-        typeof(PushTransition),
-        typeof(SlideTransition),
-        typeof(ZoomTransition),
-        typeof(IrisTransition),
-        typeof(SplitTransition),
-    ];
-
     private readonly ReactivePropertySlim<TransitionPartLayout> _enterPart = new(TransitionPartLayout.Hidden);
     private readonly ReactivePropertySlim<TransitionPartLayout> _exitPart = new(TransitionPartLayout.Hidden);
     // While a side's duration is dragged, the duration it is being dragged to. Both elements of the boundary
@@ -80,19 +64,6 @@ public sealed partial class ElementViewModel
             .AddTo(_disposables);
     }
 
-    // The transitions the timeline offers: the built-in ones, then any an extension registers with the
-    // library. Built at each call so extensions loaded later are offered too.
-    public static IReadOnlyList<Type> GetTransitionTypes()
-    {
-        IEnumerable<Type> registered = LibraryService.Current
-            .GetTypesFromFormat(KnownLibraryItemFormats.ClipTransition)
-            .OrderBy(type => type.FullName, StringComparer.Ordinal);
-        return s_builtInTransitionTypes.Concat(registered)
-            .Distinct()
-            .Where(ElementTransitionEdits.IsTransitionType)
-            .ToArray();
-    }
-
     public static string GetTransitionName(Type transitionType)
     {
         return TypeDisplayHelpers.GetLocalizedName(transitionType);
@@ -116,22 +87,32 @@ public sealed partial class ElementViewModel
         Timeline.EditorContext.GetRequiredService<IElementAttributeService>().ApplyTransition(Model, edge, transitionType);
     }
 
-    public void RemoveTransition(ElementEdge edge)
+    // Opens the transition at edge in the property tab, first adding the default one when the edge has
+    // none and the element can be edited.
+    public void OpenTransition(ElementEdge edge)
     {
-        if (!IsEditable.Value) return;
+        if (GetTransition(edge) == null)
+        {
+            ApplyTransition(edge, typeof(CrossDissolveTransition));
+        }
 
-        Timeline.EditorContext.GetRequiredService<IElementAttributeService>().RemoveTransition(Model, edge);
+        EditTransition(edge);
     }
 
-    // Opens the side that decides how the boundary blends in the property tab.
+    // Shows the element that holds the transition at edge in the property tab, where its type and
+    // properties are edited: this element when it sets its own side there, or else the element across the
+    // edge whose side decides how the boundary blends.
     public void EditTransition(ElementEdge edge)
     {
         if (GetTransition(edge) is not { } transition) return;
 
+        Element owner = ElementTransitionEdits.GetTransition(Model, edge) != null
+            ? Model
+            : transition.FindHierarchicalParent<Element>() ?? Model;
         IEditorContext editorContext = Timeline.EditorContext;
         ObjectPropertyTabViewModel tab = editorContext.FindToolTab<ObjectPropertyTabViewModel>()
                                          ?? new ObjectPropertyTabViewModel(editorContext);
-        tab.NavigateCore(transition, false, null);
+        tab.NavigateCore(owner, false, null);
         editorContext.OpenToolTab(tab);
     }
 
