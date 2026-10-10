@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Reflection;
 using Beutl.Services;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -7,12 +8,18 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 // [NonParallelizable] and look for their own message instead of counting notifications.
 internal sealed class VersionControlNotificationCapture : INotificationServiceHandler, IDisposable
 {
+    // The Handler setter rejects null, so the backing field is read and restored directly. Without
+    // that, a capture installed while no handler existed would keep receiving later notifications.
+    private static readonly FieldInfo s_handlerField =
+        typeof(NotificationService).GetField("s_handler", BindingFlags.Static | BindingFlags.NonPublic)
+        ?? throw new MissingFieldException(typeof(NotificationService).FullName, "s_handler");
+
     private readonly ConcurrentQueue<Notification> _notifications = new();
-    private readonly INotificationServiceHandler? _previousHandler;
+    private readonly object? _previousHandler;
 
     private VersionControlNotificationCapture()
     {
-        _previousHandler = NotificationService.Handler;
+        _previousHandler = s_handlerField.GetValue(null);
         NotificationService.Handler = this;
     }
 
@@ -36,10 +43,6 @@ internal sealed class VersionControlNotificationCapture : INotificationServiceHa
 
     public void Dispose()
     {
-        // The setter rejects null, so only a real prior handler is restored.
-        if (_previousHandler is not null)
-        {
-            NotificationService.Handler = _previousHandler;
-        }
+        s_handlerField.SetValue(null, _previousHandler);
     }
 }
