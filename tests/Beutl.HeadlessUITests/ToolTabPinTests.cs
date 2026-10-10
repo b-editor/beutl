@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
@@ -21,6 +22,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -334,6 +336,64 @@ public class ToolTabPinTests
             Assert.That(picked, Does.Not.Contain(ObjectPropertyTabExtension.Instance),
                 "property editors open the property tab, so the tool pickers leave it out");
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Changing_the_layout_shows_the_selection_in_the_new_property_tab()
+    {
+        EditViewModel editor = await OpenEditor("property-tab-layout-change");
+        Element element = await AddElement(editor, 0, () => new RectShape());
+        SelectionOf(editor).SelectedObject.Value = element;
+
+        editor.DockHost.ResetLayout();
+        Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
+            "after resetting the layout");
+
+        Assert.That(editor.DockHost.ApplyLayout(editor.DockHost.CaptureLayout()), Is.True);
+        Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
+            "after applying a saved layout");
+    }
+
+    [AvaloniaTest]
+    public async Task A_pinned_object_property_tab_takes_its_editors_services_from_itself()
+    {
+        EditViewModel editor = await OpenEditor("pin-object-property-services");
+        Element element = await AddElement(editor, 0, () => new RectShape());
+        using var tab = new ObjectPropertyTabViewModel(editor);
+        tab.NavigateCore(element.Objects[0], false, new DisposedSourceEditor());
+        var property = (IServiceProvider)tab.ChildContext.Value!.Properties.First(p => p is IServiceProvider);
+        Assert.That(property.GetService(typeof(Element)), Is.Null);
+
+        tab.IsPinned.Value = true;
+
+        Assert.That(property.GetService(typeof(Element)), Is.SameAs(element),
+            "a pinned tab outlives the editor that opened its object");
+    }
+
+    [AvaloniaTest]
+    public async Task Removing_the_pinned_graph_empties_and_unpins_the_node_graph_tab()
+    {
+        EditViewModel editor = await OpenEditor("pin-node-graph-removed");
+        var graph = new GraphModel();
+        Element element = await AddElement(editor, 0, () => new NodeGraphDrawable { Model = { CurrentValue = graph } });
+        using var tab = new NodeGraphTabViewModel(editor);
+        tab.Model.Value = graph;
+        tab.IsPinned.Value = true;
+
+        editor.Scene.RemoveChild(element);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tab.Model.Value, Is.Null);
+            Assert.That(tab.IsPinned.Value, Is.False);
+        });
+    }
+
+    // Stands in for the property editor that opened an object, after it was disposed: it answers nothing.
+    private sealed class DisposedSourceEditor : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => null;
     }
 
     [AvaloniaTest]

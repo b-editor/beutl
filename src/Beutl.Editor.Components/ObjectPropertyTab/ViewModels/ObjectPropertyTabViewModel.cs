@@ -46,6 +46,17 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
 
         ChildContext.Subscribe(child => WatchTarget(child?.Target as IHierarchical))
             .DisposeWith(_disposables);
+
+        // A pinned tab outlives the property editor that opened its object, so its editors stop taking services
+        // from that editor and take them from the tab, which finds the owning element itself.
+        _pin.IsPinned.Where(pinned => pinned)
+            .Subscribe(_ =>
+            {
+                if (ChildContext.Value is not { } child) return;
+                _providers.Remove(child.Target);
+                AcceptChildren(child, null);
+            })
+            .DisposeWith(_disposables);
     }
 
     public ToolTabExtension Extension => ObjectPropertyTabExtension.Instance;

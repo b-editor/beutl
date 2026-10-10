@@ -75,6 +75,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
                 var newModel = t.NewValue;
                 if (oldModel != null)
                 {
+                    oldModel.DetachedFromHierarchy -= OnModelDetached;
                     SaveState(oldModel);
                 }
 
@@ -90,6 +91,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
 
                 if (newModel != null)
                 {
+                    newModel.DetachedFromHierarchy += OnModelDetached;
                     NodeGraph.Value = new NodeGraphViewModel(newModel, editorContext);
                     var element = newModel.FindHierarchicalParent<Element>();
 
@@ -109,6 +111,12 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
             .Select(label => ToolTabHeaderHelper.Compose(Strings.NodeGraph, label))
             .ToReadOnlyReactivePropertySlim(Strings.NodeGraph)
             .DisposeWith(_disposables)!;
+    }
+
+    // A removed graph leaves the tab empty, which also releases the pin.
+    private void OnModelDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        Model.Value = null;
     }
 
     public IReadOnlyReactiveProperty<string> Header { get; }

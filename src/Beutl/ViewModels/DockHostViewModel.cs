@@ -251,6 +251,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         ResetToDefaultLayout("user requested");
         OpenDefaultTabs();
+        _editViewModel.OpenSelectionInPropertyTabs();
     }
 
     /// <summary>
@@ -336,6 +337,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             OpenDefaultTabs();
         }
 
+        _editViewModel.OpenSelectionInPropertyTabs();
         return true;
     }
 

@@ -7,6 +7,13 @@ namespace Beutl.ViewModels;
 
 public partial class EditViewModel
 {
+    // A layout change replaces the property tabs with empty ones, which show the selection only once it is
+    // opened in them again.
+    internal void OpenSelectionInPropertyTabs()
+    {
+        OpenSelectionInPropertyTabs(_editorSelection.SelectedObject.Value);
+    }
+
     // The property tabs show what they are opened with, as other tools do; selecting opens the selection in them.
     private void OpenSelectionInPropertyTabs(CoreObject? selected)
     {
