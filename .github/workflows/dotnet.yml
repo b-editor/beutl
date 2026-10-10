@@ -162,13 +162,13 @@ jobs:
           {
             printf '.ci-tools\0'
             find src tests external -type d -name bin -prune -print0
-          } | tar --null -T - -I 'gzip -1' -cf "$RUNNER_TEMP/test-binaries.tar.gz"
+          } | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/test-binaries.tar.zst"
 
       - name: Share test binaries
         uses: actions/upload-artifact@v7.0.1
         with:
           name: TestBinaries
-          path: ${{ runner.temp }}/test-binaries.tar.gz
+          path: ${{ runner.temp }}/test-binaries.tar.zst
           compression-level: 0
           retention-days: 1
 
@@ -221,7 +221,7 @@ jobs:
           path: ${{ runner.temp }}/test-binaries
 
       - name: Extract test binaries
-        run: tar -xzf "$RUNNER_TEMP/test-binaries/test-binaries.tar.gz"
+        run: tar --zstd -xf "$RUNNER_TEMP/test-binaries/test-binaries.tar.zst"
 
       - name: Install Vulkan validation layers
         if: matrix.validation
