@@ -167,12 +167,15 @@ internal sealed class AgentHostAiTools(
         {
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
             string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt) : null;
+            GenerativeImageInput image = ReadImage(scene, sourcePath, "source", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
+            if (editTask == AiImageEditTask.Outpaint)
+                RequireOutpaintCanvas(size, outpaintExpansionPercent);
             return new AiImageEditNodeRequest($"image.edit.{taskId}")
             {
                 Task = editTask,
                 Prompt = text,
                 OutpaintExpansionPercent = editTask == AiImageEditTask.Outpaint ? outpaintExpansionPercent : null,
-                Image = ReadImage(scene, sourcePath, "source", AiRequestLimits.MaxImageUploadBytes),
+                Image = image,
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
                 ParameterFingerprint = GenerativeFingerprint.Combine([taskId, text, model, outpaintExpansionPercent.ToString(CultureInfo.InvariantCulture)]),
@@ -333,15 +336,17 @@ internal sealed class AgentHostAiTools(
         {
             RequireWait(waitSeconds);
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
-            await ResolveModelAsync("audio.transcribe", model, cancellationToken).ConfigureAwait(false);
+            // Transcription has no executor to resolve the default model, so the one chosen here is sent.
+            GenerativeModelInfo? chosen = await ResolveModelAsync("audio.transcribe", model, cancellationToken).ConfigureAwait(false);
+            string? modelId = chosen?.Id ?? NormalizeModel(model);
             Scene? scene = await FindSceneAsync().ConfigureAwait(false);
             string path = RequireFile(scene, sourcePath, "sourcePath");
             string jobId = jobs.Start("audio.transcribe", async (progress, token) =>
             {
                 AgentTranscript transcript = await backend
-                    .TranscribeAsync(path, language, model, progress, token)
+                    .TranscribeAsync(path, language, modelId, progress, token)
                     .ConfigureAwait(false);
-                return new AgentAiJobOutput(null, "transcript", NormalizeModel(model), null, transcript);
+                return new AgentAiJobOutput(null, "transcript", modelId, null, transcript);
             });
             return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
         }).ConfigureAwait(false);
@@ -488,6 +493,22 @@ internal sealed class AgentHostAiTools(
             => new(new ToolError(ErrorCode.MediaUnsupported, $"{what} is larger than {limit / MB} MB once saved as PNG.", target));
     }
 
+    // The executor builds the expanded canvas inside the job and refuses one over the AI image limits.
+    private static void RequireOutpaintCanvas(PixelSize source, int expansionPercent)
+    {
+        (int width, int height, _, _) = AiImageEditTasks.GetOutpaintDimensions(source.Width, source.Height, expansionPercent);
+        try
+        {
+            AiImageDecodeValidator.ValidateDimensions(width, height);
+        }
+        catch (InvalidDataException)
+        {
+            throw Invalid(
+                $"Outpainting by {expansionPercent}% makes a {width}x{height} canvas, over the {AiImageDecodeValidator.MaxDimension} pixels a side the AI service takes. Use a smaller percentage or picture.",
+                "outpaintExpansionPercent");
+        }
+    }
+
     // As the executor checks a request against the model, but as the call's error, before a job starts.
     private static void RequireOffered<T>(T value, IReadOnlyList<T> offered, string modelId, string target)
     {
@@ -608,6 +629,9 @@ internal sealed class AgentHostAiTools(
     }
 
     private GenerativeImageInput ReadImage(Scene scene, string path, string name, long maxBytes)
+        => ReadImage(scene, path, name, maxBytes, out _);
+
+    private GenerativeImageInput ReadImage(Scene scene, string path, string name, long maxBytes, out PixelSize size)
     {
         string full = RequireFile(scene, path, name);
         try
@@ -615,6 +639,7 @@ internal sealed class AgentHostAiTools(
             // Size and dimensions are checked before decoding, as the AI dialogs check them, so a
             // small file that would decode to a huge picture is refused unread.
             using Bitmap bitmap = AiImageDecodeValidator.LoadValidatedBitmap(full, maxBytes);
+            size = new PixelSize(bitmap.Width, bitmap.Height);
             using var stream = new MemoryStream();
             if (!bitmap.Save(stream, EncodedImageFormat.Png))
                 throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", name));

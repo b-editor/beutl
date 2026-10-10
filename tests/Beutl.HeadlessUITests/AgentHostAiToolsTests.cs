@@ -150,13 +150,24 @@ public sealed class AgentHostAiToolsTests
         await TestReset.ResetShellAsync();
         await OpenSceneAsync("agent-ai-transcribe");
         var backend = new FakeBackend();
+        // The default model is not open to this account, so the one it can use is sent.
+        backend.Models["audio.transcribe"] =
+        [
+            new GenerativeModelInfo("default", "Default", IsDefault: true, IsAvailable: false, Image: null),
+            new GenerativeModelInfo("usable", "Usable", IsDefault: false, IsAvailable: true, Image: null),
+        ];
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
 
         ToolResult<AgentAiJobSnapshot> result = await tools.TranscribeAudio(WriteFile("voice.wav"), language: "ja", waitSeconds: 10);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(result.Value!.Output?.Transcript?.Segments.Single().Text, Is.EqualTo("こんにちは"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value!.Output?.Transcript?.Segments.Single().Text, Is.EqualTo("こんにちは"));
+            Assert.That(backend.TranscribedModels.Single(), Is.EqualTo("usable"));
+            Assert.That(result.Value!.Output?.ModelId, Is.EqualTo("usable"));
+        });
     }
 
     [AvaloniaTest]
@@ -181,6 +192,11 @@ public sealed class AgentHostAiToolsTests
         using (var bitmap = new Bitmap(8_193, 1))
             Assert.That(bitmap.Save(huge, EncodedImageFormat.Png), Is.True);
         ToolResult<AgentAiJobSnapshot> hugePicture = await tools.EditImage(huge, "upscale");
+        string wide = Path.Combine(_directory, "wide.png");
+        using (var bitmap = new Bitmap(8_000, 10))
+            Assert.That(bitmap.Save(wide, EncodedImageFormat.Png), Is.True);
+        // Within the limits itself, but 9600 pixels wide once outpainted by 10%.
+        ToolResult<AgentAiJobSnapshot> wideOutpaint = await tools.EditImage(wide, "outpaint", "more sky", outpaintExpansionPercent: 10);
         ToolResult<ListAiModelsResponse> typo = await tools.ListAiModels("image.generat");
         ToolResult<ListAiModelsResponse> blank = await tools.ListAiModels(" ");
         backend.Models["image.generate"] = [SquareModel];
@@ -201,6 +217,7 @@ public sealed class AgentHostAiToolsTests
             Assert.That(oddOutpaint.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(tooManyReferences.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(hugePicture.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "checked before it is decoded");
+            Assert.That(wideOutpaint.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(typo.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unknownModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
@@ -524,6 +541,8 @@ public sealed class AgentHostAiToolsTests
 
         public List<string> TranscribedPaths { get; } = [];
 
+        public List<string?> TranscribedModels { get; } = [];
+
         public Dictionary<string, IReadOnlyList<GenerativeModelInfo>> Models { get; } = [];
 
         public long ReferenceBudget { get; set; } = AiRequestLimits.MaxImageReferencesTotalBytes;
@@ -561,6 +580,7 @@ public sealed class AgentHostAiToolsTests
             CancellationToken cancellationToken)
         {
             TranscribedPaths.Add(path);
+            TranscribedModels.Add(modelId);
             return Task.FromResult(new AgentTranscript(language, [new AgentTranscriptSegment(0, 1.5, "こんにちは")], null));
         }
     }
