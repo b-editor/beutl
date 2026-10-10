@@ -50,6 +50,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/EasingEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StorageFileEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/DropDownPickerEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorComponentsEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPicker.axaml" />

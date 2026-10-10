@@ -61,6 +61,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         FileBrowserTabExtension.Instance,
         AiWorkspaceTabExtension.Instance,
         HistoryTabExtension.Instance,
+        TransitionTabExtension.Instance,
         VersionControlTabExtension.Instance,
         MissingMediaTabExtension.Instance,
         DockLayoutTabExtension.Instance,

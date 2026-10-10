@@ -5,6 +5,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 
 namespace Beutl.Services;
@@ -67,6 +68,12 @@ public static class LibraryServiceExtensions
         return self.Bind<T>(KnownLibraryItemFormats.Geometry);
     }
 
+    public static MultipleTypeLibraryItem BindClipTransition<T>(this MultipleTypeLibraryItem self)
+        where T : ClipTransition
+    {
+        return self.Bind<T>(KnownLibraryItemFormats.ClipTransition);
+    }
+
     public static GroupLibraryItem AddEngineObject<T>(this GroupLibraryItem self, string displayName, string? description = null)
         where T : EngineObject
     {
@@ -121,4 +128,9 @@ public static class LibraryServiceExtensions
         return self.Add<T>(KnownLibraryItemFormats.Geometry, displayName, description);
     }
 
+    public static GroupLibraryItem AddClipTransition<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : ClipTransition
+    {
+        return self.Add<T>(KnownLibraryItemFormats.ClipTransition, displayName, description);
+    }
 }

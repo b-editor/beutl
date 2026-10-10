@@ -3453,4 +3453,10 @@ when history recording is enabled.</value>
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
+  <data name="EnterTransition" xml:space="preserve">
+    <value>Start Transition</value>
+  </data>
+  <data name="ExitTransition" xml:space="preserve">
+    <value>End Transition</value>
+  </data>
 </root>

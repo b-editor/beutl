@@ -178,6 +178,8 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
         Scope = new ElementScopeViewModel(Model, this);
 
+        InitializeTransition();
+
         // プレビュー関連の初期化
         IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()

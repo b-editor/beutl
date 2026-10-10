@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -46,6 +47,19 @@ public sealed partial class TimelineTabView
                     template,
                     viewModel.ClickedFrame,
                     viewModel.CalculateClickedLayer()));
+            }
+
+            e.Handled = true;
+        }
+        else if (e.DataTransfer.Contains(BeutlDataFormats.ClipTransition))
+        {
+            // A transition dropped on an element goes to the edge nearer the pointer.
+            if (e.DataTransfer.TryGetValue(BeutlDataFormats.ClipTransition) is { } transitionTypeName
+                && TypeFormat.ToType(transitionTypeName) is { } transitionType
+                && ElementTransitionEdits.IsTransitionType(transitionType)
+                && FindTransitionDropTarget(viewModel, e, pt) is { } target)
+            {
+                target.Element.ApplyTransition(target.Edge, transitionType);
             }
 
             e.Handled = true;
@@ -130,11 +144,42 @@ public sealed partial class TimelineTabView
             e.DragEffects = storage.IsCurrent() ? DragDropEffects.Copy : DragDropEffects.None;
             return;
         }
+        if (e.DataTransfer.Contains(BeutlDataFormats.ClipTransition))
+        {
+            e.DragEffects = ViewModel is { } viewModel
+                            && FindTransitionDropTarget(viewModel, e, e.GetPosition(TimelinePanel)) is { Element.IsEditable.Value: true }
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
+            return;
+        }
+
         if (e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
             || e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
+    }
+
+    // The element under the pointer and the edge of it the pointer is nearer. The element whose view the
+    // pointer is over wins, since clips that overlap on a layer are drawn one above the other.
+    private static (ElementViewModel Element, ElementEdge Edge)? FindTransitionDropTarget(
+        TimelineTabViewModel viewModel, DragEventArgs e, Point position)
+    {
+        TimeSpan time = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale);
+        ElementViewModel? element = (e.Source as Visual)?.FindAncestorOfType<ElementView>(includeSelf: true)?.DataContext
+            as ElementViewModel;
+        if (element == null)
+        {
+            int layer = viewModel.ToLayerNumber(position.Y);
+            element = viewModel.Elements.FirstOrDefault(
+                item => item.Model.ZIndex == layer && item.Model.Range.Contains(time));
+        }
+
+        if (element == null) return null;
+
+        Element model = element.Model;
+        TimeSpan middle = model.Start + (model.Length / 2);
+        return (element, time < middle ? ElementEdge.Start : ElementEdge.End);
     }
 }
