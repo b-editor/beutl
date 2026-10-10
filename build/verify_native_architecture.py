@@ -92,17 +92,25 @@ def verify(directory, rid):
     return checked, problems
 
 
-if __name__ == "__main__":
+def main(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rid", required=True, help="target runtime identifier, e.g. linux-arm64 or linux_arm64")
     parser.add_argument("directory", type=Path, help="publish output to check")
-    args = parser.parse_args()
+    args = parser.parse_args(arguments)
     rid = args.rid.replace("_", "-")
     if rid.count("-") != 1 or rid.split("-")[0] not in FORMATS:
         parser.error(f"unsupported runtime identifier: {args.rid}")
     checked, problems = verify(args.directory, rid)
     for problem in problems:
         print(f"::error::{problem}")
-    if problems or checked == 0:
+    if checked == 0:
+        # A missing, empty or wrong directory has nothing to check; name it instead of reporting "0 of 0".
+        print(f"::error::{args.directory} has no native binaries; expected the {rid} publish output.")
+        parser.exit(1)
+    if problems:
         parser.exit(1, f"{len(problems)} of {checked} native binaries cannot load on {rid}.\n")
     print(f"Verified {checked} native binaries for {rid}.")
+
+
+if __name__ == "__main__":
+    main()

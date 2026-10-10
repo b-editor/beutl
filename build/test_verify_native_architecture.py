@@ -1,3 +1,5 @@
+import contextlib
+import io
 from pathlib import Path
 import struct
 import tempfile
@@ -79,6 +81,16 @@ class NativeArchitectureTests(unittest.TestCase):
 
     def test_non_native_files_are_ignored(self):
         self.assertEqual(self.verify("linux-x64", {"asset_metadata.json": b"{}", "Main.class": b"\xca\xfe\xba\xbe\0\0\0\x41"}), (0, []))
+
+    def test_an_output_without_native_binaries_is_named(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for target in (directory, str(Path(directory, "missing"))):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output), self.assertRaises(SystemExit) as exit:
+                    check.main(["--rid", "linux_arm64", target])
+                self.assertEqual(exit.exception.code, 1)
+                self.assertEqual(output.getvalue(),
+                                 f"::error::{target} has no native binaries; expected the linux-arm64 publish output.\n")
 
 
 if __name__ == "__main__":
