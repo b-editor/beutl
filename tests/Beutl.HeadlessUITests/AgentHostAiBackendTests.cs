@@ -191,6 +191,37 @@ public sealed class AgentHostAiBackendTests
     }
 
     [Test]
+    public async Task AReadThatFailsLaterIsAnErrorButTheEndOfTheAudioIsNot()
+    {
+        const int sampleRate = 8_000;
+        string path = WriteSource("late" + Extension);
+        StubAudioReader? next = null;
+        var decoder = new StubDecoder(() => next!);
+        var transcription = new StubTranscription();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            // Reports 10:02 but its audio stops at 10:00: the first part is the whole transcript.
+            next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
+            AgentTranscript shorter = await CreateBackend(transcription: transcription)
+                .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+            // Reads fail from 10:00: not the end of the recording, and not a success.
+            next = new StubAudioReader(sampleRate, sampleRate * 602L) { FailFrom = sampleRate * 600L };
+            AgentAiException? failed = await CatchAsync(CreateBackend(transcription: transcription), path);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(shorter.Segments, Has.Count.EqualTo(1));
+                Assert.That(failed?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [Test]
     public async Task WhatCannotBeTranscribedIsRefusedWithItsReason()
     {
         string path = WriteSource("refused" + Extension);
@@ -427,6 +458,10 @@ public sealed class AgentHostAiBackendTests
 
         public bool Trickle { get; init; }
 
+        public long? DataEnd { get; init; }
+
+        public long? FailFrom { get; init; }
+
         public override VideoStreamInfo VideoInfo
             => throw new InvalidOperationException("The test reader has no video stream.");
 
@@ -444,13 +479,13 @@ public sealed class AgentHostAiBackendTests
 
         public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
-            if (!Readable)
+            if (!Readable || start >= FailFrom)
             {
                 sound = null;
                 return false;
             }
 
-            int decoded = (int)Math.Clamp(totalSamples - start, 0, length);
+            int decoded = (int)Math.Clamp((DataEnd ?? totalSamples) - start, 0, length);
             if (start == ShortReadAt)
                 decoded /= 2;
             if (Trickle)

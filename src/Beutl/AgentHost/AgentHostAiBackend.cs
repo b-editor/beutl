@@ -1,6 +1,8 @@
 ﻿using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
@@ -123,6 +125,30 @@ internal sealed class AgentHostAiBackend(
             progress.Report(estimatedParts == 1 && part == 1
                 ? "Transcribing"
                 : $"Transcribing part {part} of {Math.Max(part, estimatedParts)}");
+            // Some files report a length past their last sample. A read there succeeds with nothing,
+            // which ends the recording; a read that fails is a decode error the caller must hear
+            // about, not a shorter transcript. The encoder raises the same exception for both.
+            if (partStart > 0)
+            {
+                bool readable = await Task.Run(
+                    () =>
+                    {
+                        if (!reader.ReadAudio(checked((int)partStart), 1, out Ref<IPcm>? probe))
+                            return (bool?)null;
+                        using (probe)
+                            return probe.Value.NumSamples > 0;
+                    },
+                    cancellationToken).ConfigureAwait(false) switch
+                {
+                    null => throw new AgentAiException(
+                        Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+                        $"The audio could not be decoded from {TimeSpan.FromSeconds(partStart / (double)sampleRate):hh\\:mm\\:ss} on."),
+                    bool remaining => remaining,
+                };
+                if (!readable)
+                    break;
+            }
+
             (string wave, FileStream stream) = AiTemporaryFileStore.Create("audio", "agent", ".wav");
             try
             {
@@ -142,10 +168,6 @@ internal sealed class AgentHostAiBackend(
                 // recording's fault, so it takes the logged path for unexpected failures.
                 catch (Exception ex) when (ex is SubtitleInputException or InvalidDataException)
                 {
-                    // Nothing more to read after earlier parts: some files report a length past their
-                    // last sample, and the parts already paid for are the whole transcript.
-                    if (partStart > 0 && ex is SubtitleInputException)
-                        break;
                     throw new AgentAiException(
                         Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
                         $"The audio could not be decoded from {TimeSpan.FromSeconds(partStart / (double)sampleRate):hh\\:mm\\:ss} on.");
