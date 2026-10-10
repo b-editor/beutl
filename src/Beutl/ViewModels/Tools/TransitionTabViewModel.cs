@@ -39,6 +39,9 @@ public sealed class TransitionTabViewModel : IToolContext
         TypeName = Transition.Select(value => value == null ? null : TypeDisplayHelpers.GetLocalizedName(value.GetType()))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+        CanDelete = Transition.CombineLatest(CanEdit, (transition, editable) => transition != null && editable)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
         // An edit anywhere can replace the transition, remove it, or remove the element.
         Observable.FromEventPattern(h => scene.Edited += h, h => scene.Edited -= h)
@@ -70,6 +73,9 @@ public sealed class TransitionTabViewModel : IToolContext
     public ReadOnlyReactivePropertySlim<string?> TypeName { get; }
 
     public ReactivePropertySlim<bool> CanEdit { get; } = new();
+
+    // Whether there is a transition to delete and it can be edited.
+    public ReadOnlyReactivePropertySlim<bool> CanDelete { get; }
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 

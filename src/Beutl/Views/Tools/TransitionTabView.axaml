@@ -6,7 +6,7 @@
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              x:Name="root"
              d:DesignHeight="450"
@@ -25,41 +25,30 @@
                    TextWrapping="Wrap" />
 
         <ScrollViewer IsVisible="{Binding HasTarget.Value}">
-            <!--  The type is changed from the button as an effect's is; the properties follow at the same level.  -->
+            <!--  The type is picked as a font family is, the delete button removes the transition, and the
+                  transition's properties follow at the same level.  -->
             <StackPanel Margin="0,4">
-                <Grid Margin="8,4"
-                      ColumnDefinitions="*,Auto">
-                    <WrapPanel VerticalAlignment="Center"
-                               Orientation="Horizontal">
-                        <TextBlock Text="{Binding EdgeName.Value}" />
-                        <TextBlock Margin="8,0,0,0"
-                                   IsVisible="{Binding TypeName.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                   Text="{Binding TypeName.Value}" />
-                    </WrapPanel>
-                    <Button x:Name="changeButton"
-                            Grid.Column="1"
-                            Padding="0"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Classes="size-24x24"
-                            IsEnabled="{Binding CanEdit.Value}"
-                            Theme="{StaticResource TransparentButton}">
-                        <Button.Flyout>
-                            <ui:FAMenuFlyout>
-                                <ui:FAMenuFlyoutItem Click="ChangeTypeClick"
-                                                   IconSource="New"
-                                                   Text="{x:Static lang:Strings.Change}" />
-                                <ui:FAMenuFlyoutItem Click="SetNullClick"
-                                                   Text="{x:Static lang:Strings.Null}" />
-                            </ui:FAMenuFlyout>
-                        </Button.Flyout>
-                        <icons:FluentIcon Icon="Compose" />
-                    </Button>
-                </Grid>
+                <pe:DropDownPickerEditor x:Name="typeEditor"
+                                         DropDownClick="OnTypeDropDownClick"
+                                         Header="{Binding EdgeName.Value}"
+                                         IsReadOnly="{Binding !CanEdit.Value}"
+                                         Text="{Binding TypeName.Value, TargetNullValue={x:Static lang:Strings.Null}}">
+                    <pe:DropDownPickerEditor.MenuContent>
+                        <Button Width="24"
+                                Height="24"
+                                Margin="0,0,4,0"
+                                Padding="0"
+                                VerticalAlignment="Center"
+                                BorderThickness="0"
+                                Click="OnDeleteClick"
+                                IsEnabled="{Binding CanDelete.Value}"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="{x:Static lang:Strings.Delete}">
+                            <icons:FluentIcon FontSize="16" Icon="Delete" />
+                        </Button>
+                    </pe:DropDownPickerEditor.MenuContent>
+                </pe:DropDownPickerEditor>
 
-                <TextBlock Margin="16,0,0,4"
-                           IsVisible="{Binding Transition.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                           Text="{x:Static lang:MessageStrings.PropertyUnset}" />
                 <editors:PropertiesEditor Padding="0"
                                           DataContext="{Binding Properties.Value}"
                                           IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,

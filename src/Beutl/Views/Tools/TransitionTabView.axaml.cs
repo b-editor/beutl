@@ -16,8 +16,8 @@ public partial class TransitionTabView : UserControl
         InitializeComponent();
     }
 
-    // Picks the new type from the library, as an effect's is picked.
-    private async void ChangeTypeClick(object? sender, RoutedEventArgs e)
+    // Picks the new type from the library in the same list a font family is picked from.
+    private async void OnTypeDropDownClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not TransitionTabViewModel viewModel || _flyoutOpen) return;
 
@@ -25,7 +25,7 @@ public partial class TransitionTabView : UserControl
         {
             _flyoutOpen = true;
             Type? type = await LibraryItemPickerHelper.ShowTypeOnlyAsync(
-                changeButton, new SelectClipTransitionTypeViewModel(), KnownLibraryItemFormats.ClipTransition);
+                typeEditor, new SelectClipTransitionTypeViewModel(), KnownLibraryItemFormats.ClipTransition);
             if (type != null)
             {
                 viewModel.ChangeType(type);
@@ -41,7 +41,7 @@ public partial class TransitionTabView : UserControl
         }
     }
 
-    private void SetNullClick(object? sender, RoutedEventArgs e)
+    private void OnDeleteClick(object? sender, RoutedEventArgs e)
     {
         (DataContext as TransitionTabViewModel)?.ChangeType(null);
     }
