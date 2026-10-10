@@ -225,7 +225,7 @@ public sealed class SceneCompositor : ICompositor
         else
         {
             bool _ = false;
-            resource.Update(obj, context, ref _);
+            resource.Reconcile(obj, context, ref _);
         }
 
         return resource;

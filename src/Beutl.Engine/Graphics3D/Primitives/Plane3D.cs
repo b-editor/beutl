@@ -50,7 +50,7 @@ public sealed partial class Plane3D : Object3D
         private readonly PlaneMesh _mesh = new();
         private PlaneMesh.Resource? _meshResource;
 
-        partial void PostUpdate(Plane3D obj, CompositionContext context)
+        partial void PostReconcile(Plane3D obj, CompositionContext context)
         {
             _mesh.Width.CurrentValue = Math.Max(Width, 0.001f);
             _mesh.Height.CurrentValue = Math.Max(Height, 0.001f);

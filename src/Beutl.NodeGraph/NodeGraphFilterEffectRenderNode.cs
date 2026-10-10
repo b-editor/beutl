@@ -5,7 +5,7 @@ using Beutl.NodeGraph.Nodes;
 namespace Beutl.NodeGraph;
 
 // Snapshot output nodes are disposed by the next build, so ChildNodes must not retain them.
-// Revalidation and caching stop here; Resource.Update keeps this node uncached by bumping Version each build.
+// Revalidation and caching stop here; Resource.Reconcile keeps this node uncached by bumping Version each build.
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
     private static readonly IEqualityComparer<RenderNode> s_renderNodeReferenceComparer =

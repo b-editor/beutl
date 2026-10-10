@@ -129,3 +129,7 @@ before targeting the upgraded host.
 Extensions overriding `AudioEffect.GetLatencySamples` must follow the
 [audio effect latency migration guide](docs/extension-authoring/audio-effect-latency-migration.md)
 and rebuild against the accumulated-latency API.
+
+Extensions that override `EngineObject.Resource.Update`, implement the generated
+`PreUpdate`/`PostUpdate` hooks, or call the `CompareAndUpdate` helpers must follow the
+[resource reconcile migration guide](docs/extension-authoring/resource-reconcile-migration.md).

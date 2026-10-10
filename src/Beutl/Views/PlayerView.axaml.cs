@@ -462,10 +462,10 @@ public partial class PlayerView : UserControl
         }
         else
         {
-            // updateOnly=true: this is a read-only view for the overlay, so don't bump Version
+            // versionBumped=true: this is a read-only view for the overlay, so don't bump Version
             // and invalidate downstream consumers.
-            bool updateOnly = true;
-            _transformHandleResource.Update(target, ctx, ref updateOnly);
+            bool versionBumped = true;
+            _transformHandleResource.Reconcile(target, ctx, ref versionBumped);
         }
         BtlDrawable.Resource? resource = _transformHandleResource;
 

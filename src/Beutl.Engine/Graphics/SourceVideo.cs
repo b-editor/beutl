@@ -168,7 +168,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             _speedIntegrator.Dispose();
         }
 
-        partial void PostUpdate(SourceVideo obj, CompositionContext context)
+        partial void PostReconcile(SourceVideo obj, CompositionContext context)
         {
             var time = context.Time;
             // アニメーションがある場合、前回のキーフレームを引く

@@ -1082,7 +1082,7 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Not.Contain(missingCurrent));
     }
 
-    // DrawableTimeController.PostUpdate renders context.Get(Target); with a broken reference the effective
+    // DrawableTimeController.PostReconcile renders context.Get(Target); with a broken reference the effective
     // target is DefaultValue (null), so the stale CurrentValue target's missing file must not be reported.
     [Test]
     public void CollectRenderableSources_UnresolvableTimeControllerTargetExpression_DoesNotReportCurrentValueFile()

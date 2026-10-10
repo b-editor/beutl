@@ -21,7 +21,7 @@ public sealed partial class PortalObject : EngineObject
 
     public partial class Resource
     {
-        partial void PostUpdate(PortalObject obj, CompositionContext context)
+        partial void PostReconcile(PortalObject obj, CompositionContext context)
         {
             if (context is ISceneCompositionContext ctx)
             {

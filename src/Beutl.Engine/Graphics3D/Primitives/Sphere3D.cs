@@ -43,7 +43,7 @@ public sealed partial class Sphere3D : Object3D
         private readonly SphereMesh _mesh = new();
         private SphereMesh.Resource? _meshResource;
 
-        partial void PostUpdate(Sphere3D obj, CompositionContext context)
+        partial void PostReconcile(Sphere3D obj, CompositionContext context)
         {
             _mesh.Radius.CurrentValue = Math.Max(Radius, 0.001f);
             _mesh.Segments.CurrentValue = Math.Max(Segments, 3);

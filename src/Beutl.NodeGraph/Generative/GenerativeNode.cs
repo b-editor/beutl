@@ -330,8 +330,8 @@ public abstract partial class GenerativeNode : GraphNode
             }
             else
             {
-                bool updateOnly = false;
-                _sourceResource!.Update(source, context, ref updateOnly);
+                bool versionBumped = false;
+                _sourceResource!.Reconcile(source, context, ref versionBumped);
             }
 
             if (_cachedOutput is null)
@@ -363,8 +363,8 @@ public abstract partial class GenerativeNode : GraphNode
             }
             else
             {
-                bool updateOnly = false;
-                _videoResource!.Update(source, context, ref updateOnly);
+                bool versionBumped = false;
+                _videoResource!.Reconcile(source, context, ref versionBumped);
             }
 
             return source;

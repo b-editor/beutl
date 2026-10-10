@@ -77,8 +77,8 @@ public sealed class BrushSourceBoundsIdentityTests
         DrawableRenderNode root,
         RenderNodeRenderer renderer)
     {
-        bool updateOnly = false;
-        resource.Update(shape, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(shape, CompositionContext.Default, ref versionBumped);
         using (var context = new GraphicsContext2D(root, s_domain.Size))
         {
             shape.Render(context, resource);

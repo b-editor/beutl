@@ -60,8 +60,8 @@ public sealed partial class GeometryShapeNode : GraphNode
                 }
                 else
                 {
-                    bool updateOnly = false;
-                    geometryResource.Update(geometry, context, ref updateOnly);
+                    bool versionBumped = false;
+                    geometryResource.Reconcile(geometry, context, ref versionBumped);
                 }
 
                 if (fill == null || fillResource?.GetOriginal() != fill)
@@ -71,8 +71,8 @@ public sealed partial class GeometryShapeNode : GraphNode
                 }
                 else
                 {
-                    bool updateOnly = false;
-                    fillResource.Update(fill, context, ref updateOnly);
+                    bool versionBumped = false;
+                    fillResource.Reconcile(fill, context, ref versionBumped);
                 }
 
                 if (pen == null || penResource?.GetOriginal() != pen)
@@ -82,8 +82,8 @@ public sealed partial class GeometryShapeNode : GraphNode
                 }
                 else
                 {
-                    bool updateOnly = false;
-                    penResource.Update(pen, context, ref updateOnly);
+                    bool versionBumped = false;
+                    penResource.Reconcile(pen, context, ref versionBumped);
                 }
 
                 _cachedOutput.Update(geometryResource, fillResource, penResource);

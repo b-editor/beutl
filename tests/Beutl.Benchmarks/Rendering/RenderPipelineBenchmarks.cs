@@ -951,8 +951,8 @@ internal sealed class BenchmarkAnimatedBlurNode(
 
         _sigma = sigma;
         effect.Sigma.CurrentValue = new Size(sigma, sigma);
-        bool updateOnly = false;
-        resource.Update(effect, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
         if (!node.Update(resource))
             throw new InvalidOperationException("The animated Blur resource did not publish its changed sigma.");
     }

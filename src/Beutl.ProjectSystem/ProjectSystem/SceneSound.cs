@@ -73,7 +73,7 @@ public sealed partial class SceneSound : Sound
 
         public override SoundSource.Resource? GetSoundSource() => null;
 
-        partial void PostUpdate(SceneSound obj, CompositionContext context)
+        partial void PostReconcile(SceneSound obj, CompositionContext context)
         {
             SceneCompositor.Refresh(ref _compositor, ReferencedScene, context);
         }

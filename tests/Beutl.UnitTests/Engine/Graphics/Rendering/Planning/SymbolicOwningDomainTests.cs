@@ -656,8 +656,8 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -686,8 +686,8 @@ internal sealed partial class FiniteEffectItemEffect : FilterEffect
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 

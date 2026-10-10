@@ -102,8 +102,8 @@ public partial class SceneNode : GraphNode
                 }
                 else
                 {
-                    bool updateOnly = false;
-                    _sceneResource.Update(node.Object, sceneContext, ref updateOnly);
+                    bool versionBumped = false;
+                    _sceneResource.Reconcile(node.Object, sceneContext, ref versionBumped);
                 }
             }
             catch (InvalidOperationException)
