@@ -8,14 +8,19 @@ using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using Moq;
+using Reactive.Bindings;
 using SkiaSharp;
 
 namespace Beutl.HeadlessUITests;
@@ -84,6 +89,104 @@ public sealed class AgentHostSceneRoutingTests
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,
             "A new request must not inherit a previous call's scene binding.");
+    }
+
+    [AvaloniaTest]
+    public async Task Scene_calls_reject_targets_while_project_tabs_are_disposing()
+    {
+        (Scene first, Scene second, string directory) = await CreateScenesAsync();
+        if (TestShell.Editor.TryGetTabItem(second, out var secondTab))
+            await TestShell.Editor.CloseTabItem(secondTab, saveChanges: false);
+        Project project = TestShell.Project.CurrentProject.Value!;
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        var disposalStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDisposal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var enabled = new ReactivePropertySlim<bool>(true);
+        var context = new Mock<IEditorContext>();
+        context.SetupGet(editor => editor.Object).Returns(new Scene
+        {
+            Uri = new Uri(Path.Combine(directory, "disposing.scene"))
+        });
+        context.SetupGet(editor => editor.Extension).Returns(SceneEditorExtension.Instance);
+        context.SetupGet(editor => editor.IsEnabled).Returns(enabled);
+        context.Setup(editor => editor.DisposeAsync()).Returns(async () =>
+        {
+            disposalStarted.TrySetResult();
+            await releaseDisposal.Task;
+        });
+        TestShell.Editor.TabItems.Insert(0, new EditorTabItem(context.Object));
+
+        Task closing = TestShell.Project.CloseProjectAsync();
+        try
+        {
+            await disposalStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentTransition, Is.Not.Null);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(TestShell.Editor.TabItems, Is.Empty);
+            });
+
+            Error(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
+            var arguments = Target(first.Id);
+            arguments["schemaVersion"] = "1";
+            arguments["patch"] = new JsonObject { ["Name"] = "Edit during close" };
+            Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
+            Assert.That(TestShell.Editor.TabItems, Is.Empty, "Rejected calls must not escape the close snapshot.");
+        }
+        finally
+        {
+            releaseDisposal.TrySetResult();
+            await closing.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(TestShell.Editor.TabItems, Is.Empty);
+            Assert.That(first.Name, Is.EqualTo("First"));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Background_scene_binding_rejects_calls_during_a_worktree_mutation()
+    {
+        (Scene first, Scene second, _) = await CreateScenesAsync();
+        if (TestShell.Editor.TryGetTabItem(second, out var secondTab))
+            await TestShell.Editor.CloseTabItem(secondTab, saveChanges: false);
+        var visibleTab = TestShell.Editor.SelectedTabItem.Value;
+        await using var host = CreateHost();
+        await host.StartAsync();
+        await using McpClient client = await ConnectAsync(host);
+
+        using (TestShell.Editor.SuspendEditors())
+        using (IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation())
+        {
+            Assert.That(mutation, Is.Not.Null);
+            Assert.That(TestShell.Project.CurrentTransition, Is.Null,
+                "Exercise editor-open admission independently of the project-transition check.");
+            Error(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
+            var arguments = Target(second.Id);
+            arguments["schemaVersion"] = "1";
+            arguments["patch"] = new JsonObject { ["Name"] = "Lost edit" };
+            Error(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Editor.TryGetTabItem(second, out _), Is.False);
+                Assert.That(second.Name, Is.EqualTo("Second"));
+                Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(visibleTab));
+            });
+        }
+
+        await RenameAsync(client, second, "Second edited");
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.Name, Is.EqualTo("Second edited"));
+            Assert.That(SelectedScene(), Is.SameAs(first));
+        });
     }
 
     [AvaloniaTest]

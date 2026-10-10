@@ -156,6 +156,11 @@ public sealed class EditorProjectSessionGateway(
 
     private LiveEditingSession BindScene(Scene scene)
     {
+        // Closing keeps the project published while its captured tabs are being disposed.
+        // Do not bind a new context that would escape that transition's close snapshot.
+        if (projectService.CurrentTransition is not null)
+            throw new SessionUnavailableException();
+
         EditorTabItem? tab = editorService.GetOrCreateBackgroundTabItem(scene);
         if (tab?.Context.Value is not EditViewModel editViewModel
             || !ReferenceEquals(editViewModel.Scene, scene))

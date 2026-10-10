@@ -196,6 +196,10 @@ public sealed partial class EditorService
     internal EditorTabItem? GetOrCreateBackgroundTabItem(CoreObject obj)
     {
         Dispatcher.UIThread.VerifyAccess();
+        using IDisposable? open = TryBeginEditorFileOpen();
+        if (open is null)
+            return null;
+
         return TryGetTabItem(obj, out EditorTabItem? existing)
             ? existing
             : CreateTabItem(obj, isSelected: false);
