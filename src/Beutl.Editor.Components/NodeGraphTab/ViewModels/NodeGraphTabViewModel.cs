@@ -56,15 +56,17 @@ public sealed class NodeGraphNavigationItem : IDisposable, IJsonSerializable
     }
 }
 
-public sealed class NodeGraphTabViewModel : IToolContext
+public sealed class NodeGraphTabViewModel : IPinnableToolContext
 {
     private readonly ReactiveProperty<bool> _isSelected = new(false);
     private readonly CompositeDisposable _disposables = [];
+    private readonly ToolTabPin _pin;
     private IEditorContext _editorContext;
 
     public NodeGraphTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
+        _pin = new ToolTabPin(Model.Select(model => model != null)).DisposeWith(_disposables);
 
         Model.CombineWithPrevious()
             .Subscribe(t =>
@@ -116,6 +118,10 @@ public sealed class NodeGraphTabViewModel : IToolContext
     public IReactiveProperty<bool> IsSelected => _isSelected;
 
     public ReactivePropertySlim<GraphModel?> Model { get; } = new();
+
+    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
+
+    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
 
     public ReactivePropertySlim<NodeGraphViewModel?> NodeGraph { get; } = new();
 
@@ -292,6 +298,8 @@ public sealed class NodeGraphTabViewModel : IToolContext
         {
             Model.Value = scene.FindById(id) as GraphModel;
         }
+
+        _pin.ReadFromJson(json);
     }
 
     public void WriteToJson(JsonObject json)
@@ -301,6 +309,8 @@ public sealed class NodeGraphTabViewModel : IToolContext
             json["ModelId"] = Model.Value.Id;
             SaveState(Model.Value);
         }
+
+        _pin.WriteToJson(json);
     }
 
     public object? GetService(Type serviceType)

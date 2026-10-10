@@ -13,13 +13,14 @@ public sealed class ElementPropertyTabExtension : ToolTabExtension
 {
     public static readonly ElementPropertyTabExtension Instance = new();
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override string Name => "Element Property";
 
     public override string DisplayName => "Element Property";
 
-    public override string? Header => Strings.ElementProperty;
+    // Left out of the tool pickers: selecting an element opens this tool, so a picked tab would only sit empty.
+    public override string? Header => null;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

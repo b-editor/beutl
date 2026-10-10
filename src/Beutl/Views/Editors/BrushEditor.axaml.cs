@@ -190,7 +190,7 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
         ObjectPropertyTabViewModel objViewModel
-            = editViewModel.FindToolTab<ObjectPropertyTabViewModel>()
+            = ObjectPropertyTabViewModel.FindReusable(editViewModel, drawable)
               ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(drawable, false, viewModel);

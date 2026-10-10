@@ -208,6 +208,15 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
             ?.Context as IPathFigureEditorContext;
     }
 
+    public IGeometryEditorContext? CreateDetached(IPropertyEditorContextVisitor services)
+    {
+        if (IsDisposed) return null;
+
+        var detached = new GeometryEditorViewModel(PropertyAdapter);
+        detached.Accept(services);
+        return detached;
+    }
+
     private sealed record Visitor(GeometryEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)

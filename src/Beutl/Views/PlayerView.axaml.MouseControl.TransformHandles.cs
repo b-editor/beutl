@@ -303,7 +303,8 @@ public partial class PlayerView
             // Double-click on shape → path editor
             if (e.ClickCount == 2 && drawable is Graphics.Shapes.Shape shape)
             {
-                ElementPropertyTabViewModel? tab = EditViewModel.FindToolTab<ElementPropertyTabViewModel>();
+                ElementPropertyTabViewModel? tab = EditViewModel.FindToolTab<ElementPropertyTabViewModel>(
+                    t => t.Element.Value == element);
                 if (tab != null)
                 {
                     foreach (EngineObjectPropertyViewModel item in tab.Items)

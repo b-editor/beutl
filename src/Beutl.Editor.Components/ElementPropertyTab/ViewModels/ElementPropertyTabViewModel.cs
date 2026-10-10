@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -13,9 +14,11 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class ElementPropertyTabViewModel : IToolContext
+public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 {
-    private readonly IDisposable _disposable0;
+    private const string PinnedElementJsonKey = "pinnedElementId";
+    private readonly CompositeDisposable _disposables = [];
+    private readonly ToolTabPin _pin;
     private IEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
@@ -23,9 +26,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
     public ElementPropertyTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        Element = editorContext.GetRequiredService<IEditorSelection>().SelectedObject
-            .Select(x => x as Element)
-            .ToReactiveProperty();
+        _pin = new ToolTabPin(Element.Select(element => element != null));
 
         CanEdit = Element.Select(element => element is null
                 ? Observable.Return(false)
@@ -33,13 +34,34 @@ public sealed class ElementPropertyTabViewModel : IToolContext
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 
-        _disposable0 = Element.Subscribe(OnElementChanged);
+        Header = _pin.IsPinned
+            .CombineLatest(Element, (pinned, element) => pinned ? element : null)
+            .Select(ToolTabHeaderHelper.ObserveElementLabel)
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.ElementProperty, label))
+            .ToReadOnlyReactivePropertySlim(Strings.ElementProperty)
+            .DisposeWith(_disposables)!;
+
+        Element.Subscribe(OnElementChanged).DisposeWith(_disposables);
+    }
+
+    /// <summary>
+    /// Finds the tab to show <paramref name="element"/> in: the one already showing it, else an unpinned one.
+    /// </summary>
+    public static ElementPropertyTabViewModel? FindReusable(IEditorContext editorContext, Element element)
+    {
+        return ToolTabReuse.Find<ElementPropertyTabViewModel>(
+            editorContext,
+            t => t.Element.Value == element,
+            t => t.Element.Value is null,
+            retargetAnyOpen: true);
     }
 
     private void OnElementChanged(Element? element)
     {
         if (_oldElement != null)
         {
+            _oldElement.DetachedFromHierarchy -= OnElementDetached;
             SaveState(_oldElement);
         }
         _oldElement = element;
@@ -49,12 +71,19 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         ClearItems();
         if (element != null)
         {
+            element.DetachedFromHierarchy += OnElementDetached;
             Items.AddRange(CreateItems(element.Objects));
             _disposable1 = element.Objects.CollectionChangedAsObservable()
                 .Subscribe(OnObjectsChanged);
 
             RestoreState(element);
         }
+    }
+
+    // A removed element leaves the tab empty, which also releases the pin.
+    private void OnElementDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        Element.Value = null;
     }
 
     private void OnObjectsChanged(NotifyCollectionChangedEventArgs e)
@@ -110,9 +139,9 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         Items.RemoveRange(index, count);
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ElementProperty);
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
-    public ReactiveProperty<Element?> Element { get; }
+    public ReactiveProperty<Element?> Element { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
@@ -122,6 +151,10 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
+    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
+
+    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
+
     public void Dispose()
     {
         if (Element.Value != null)
@@ -129,10 +162,11 @@ public sealed class ElementPropertyTabViewModel : IToolContext
             SaveState(Element.Value);
             Element.Value = null;
         }
-        _disposable0.Dispose();
+        _disposables.Dispose();
         _disposable1?.Dispose();
 
         CanEdit.Dispose();
+        _pin.Dispose();
         Element.Dispose();
         _editorContext = null!;
     }
@@ -202,7 +236,15 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (Element.Value != null)
+        // A pinned tab comes back on its element, or unpinned when that element is gone.
+        if (ToolTabPin.WasPinned(json)
+            && json.TryGetPropertyValueAsJsonValue(PinnedElementJsonKey, out Guid id)
+            && _editorContext.GetService<Scene>()?.FindById(id) is Element element)
+        {
+            Element.Value = element;
+            _pin.IsPinned.Value = true;
+        }
+        else if (Element.Value != null)
         {
             RestoreState(Element.Value);
         }
@@ -214,6 +256,12 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         {
             SaveState(Element.Value);
         }
+
+        _pin.WriteToJson(json);
+        if (IsPinned.Value && Element.Value is { } element)
+            json[PinnedElementJsonKey] = element.Id;
+        else
+            json.Remove(PinnedElementJsonKey);
     }
 
     public object? GetService(Type serviceType)

@@ -75,6 +75,34 @@ public class ToolTabReuseTests
         });
     }
 
+    [Test]
+    public void A_pinned_tab_is_never_retargeted()
+    {
+        var pinned = new FakeTab("b", pinned: true);
+        var context = new TestEditorContext(pinned);
+
+        Assert.That(Find(context, target: "a", retargetAnyOpen: true), Is.Null);
+    }
+
+    [Test]
+    public void An_unpinned_tab_is_retargeted_in_place_of_a_pinned_one()
+    {
+        var pinned = new FakeTab("b", pinned: true);
+        var unpinned = new FakeTab("c");
+        var context = new TestEditorContext(pinned, unpinned);
+
+        Assert.That(Find(context, target: "a", retargetAnyOpen: true), Is.SameAs(unpinned));
+    }
+
+    [Test]
+    public void A_pinned_tab_already_showing_the_target_still_wins()
+    {
+        var pinned = new FakeTab("a", pinned: true);
+        var context = new TestEditorContext(new FakeTab(null), pinned);
+
+        Assert.That(Find(context, target: "a", retargetAnyOpen: true), Is.SameAs(pinned));
+    }
+
     private static FakeTab? Find(TestEditorContext context, string target, bool retargetAnyOpen)
     {
         return ToolTabReuse.Find<FakeTab>(
@@ -84,13 +112,17 @@ public class ToolTabReuseTests
             retargetAnyOpen);
     }
 
-    private sealed class FakeTab(string? target) : IToolContext
+    private sealed class FakeTab(string? target, bool pinned = false) : IPinnableToolContext
     {
         public string? Target { get; } = target;
 
         public ToolTabExtension Extension => null!;
 
         public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+        public IReactiveProperty<bool> IsPinned { get; } = new ReactivePropertySlim<bool>(pinned);
+
+        public IReadOnlyReactiveProperty<bool> HasTarget { get; } = new ReactivePropertySlim<bool>(target != null);
 
         public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("fake");
 

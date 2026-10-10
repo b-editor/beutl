@@ -86,12 +86,13 @@ public partial class EditViewModel
 
         try
         {
-            RestoreSelectedObject(jsonObject, viewStateFile);
-
             TimelineOptions timelineOptions = ReadTimelineOptions(jsonObject);
             _timelineOptionsProvider.Options.Value = timelineOptions;
 
             DockHost.ReadFromJson(jsonObject);
+
+            // After the tabs, so the restored selection opens in the property tabs.
+            RestoreSelectedObject(jsonObject, viewStateFile);
 
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))

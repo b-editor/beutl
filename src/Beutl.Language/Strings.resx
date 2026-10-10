@@ -3441,4 +3441,10 @@ when history recording is enabled.</value>
   <data name="ExitTransition" xml:space="preserve">
     <value>End Transition</value>
   </data>
+  <data name="PinTab" xml:space="preserve">
+    <value>Pin Tab</value>
+  </data>
+  <data name="UnpinTab" xml:space="preserve">
+    <value>Unpin Tab</value>
+  </data>
 </root>

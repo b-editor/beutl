@@ -40,7 +40,18 @@ Use localized resources for `DisplayName`, menu `Header`, and the context's tab 
 
 ## Docking and opening
 
-`DefaultAnchor` only selects the initial dock. Users may re-dock the tab afterward. The host filters menu entries by non-null `ToolTabExtension.Header` and orders them by extension name. Programmatic callers open and close contexts through `IEditorContext.OpenToolTab` and `IEditorContext.CloseToolTab`.
+`DefaultAnchor` only selects the initial dock. Users may re-dock the tab afterward. The host filters menu entries by non-null `ToolTabExtension.Header` and orders them by extension name. Programmatic callers open and close contexts through `IEditorContext.OpenToolTab` and `IEditorContext.CloseToolTab`. A context opened that way joins the dock of an open tab of the same tool, if there is one.
+
+## Pinning a tab to its target
+
+A tool that shows one target at a time, such as the selection or an object a property editor opens in it, can implement `IPinnableToolContext` (`src/Beutl.Extensibility/IPinnableToolContext.cs`). The host then adds **Pin Tab** to the tab's context menu and puts an unpin button on a pinned tab's header.
+
+- `HasTarget` enables the menu item. Clear `IsPinned` when the target goes away, so a pinned tab is never left empty.
+- While pinned, ignore the editor selection and never show another target. Code that opens a target in an existing tab must skip pinned tabs and open a new one instead, so the tool needs `CanMultiple`.
+- Name the target in `Header` while pinned, so pinned tabs can be told apart.
+- Save the pin together with its target in `WriteToJson`, and restore it only when the target still exists.
+
+`ElementPropertyTabViewModel` and `CurvesTabViewModel` are in-tree examples.
 
 ## Implementation references
 

@@ -50,6 +50,7 @@ public class ElementPropertyHeaderTests
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, secondObject);
         ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
         using var model = new ElementPropertyTabViewModel(editor);
+        model.Element.Value = element;
         foreach (EngineObjectPropertyViewModel item in model.Items) item.IsExpanded.Value = false;
         var view = new ElementPropertyTabView { DataContext = model };
         var referenceBar = new ToolTabBar { Content = new TextBlock { Text = Strings.ElementProperty } };

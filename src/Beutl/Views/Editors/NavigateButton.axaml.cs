@@ -57,7 +57,7 @@ public sealed class NavigateButton<T> : NavigateButton
             && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
         {
             ObjectPropertyTabViewModel objViewModel
-                = editViewModel.FindToolTab<ObjectPropertyTabViewModel>()
+                = ObjectPropertyTabViewModel.FindReusable(editViewModel, viewModel.Value.Value)
                   ?? new ObjectPropertyTabViewModel(editViewModel);
 
             objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);

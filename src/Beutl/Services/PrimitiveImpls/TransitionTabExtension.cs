@@ -21,7 +21,7 @@ public sealed partial class TransitionTabExtension : ToolTabExtension
     // Opened from the timeline on a transition, not from the menu.
     public override string? Header => null;
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

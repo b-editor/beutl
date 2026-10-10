@@ -172,6 +172,9 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables);
 
         DockHost = new DockHostViewModel(SceneId, this);
+        _editorSelection.SelectedObject
+            .Subscribe(OpenSelectionInPropertyTabs)
+            .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
         _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();

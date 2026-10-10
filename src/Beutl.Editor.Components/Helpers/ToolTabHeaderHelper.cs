@@ -32,12 +32,19 @@ internal static class ToolTabHeaderHelper
 
     public static IObservable<string> ObserveEffectLabel(FilterEffect? effect)
     {
-        if (effect is null)
+        return ObserveObjectLabel(effect);
+    }
+
+    // The object's own name, or the label of the element it belongs to.
+    public static IObservable<string> ObserveObjectLabel(CoreObject? obj)
+    {
+        if (obj is null)
             return Observable.ReturnThenNever(string.Empty);
 
-        IObservable<string> elementLabel = ObserveElementLabel(effect.FindHierarchicalParent<Element>());
+        IObservable<string> elementLabel = ObserveElementLabel(
+            (obj as IHierarchical)?.FindHierarchicalParent<Element>(includeSelf: true));
 
-        return effect.GetObservable(CoreObject.NameProperty)
+        return obj.GetObservable(CoreObject.NameProperty)
             .CombineLatest(elementLabel, (name, element) => string.IsNullOrWhiteSpace(name) ? element : name);
     }
 }
