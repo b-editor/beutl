@@ -30,13 +30,7 @@ public class TimelineRangeSelectionTests
         using TimelineSession session = await TimelineSession.CreateAsync();
         if (scrolled)
         {
-            session.Model.Options.Value = session.Model.Options.Value with
-            {
-                Offset = new System.Numerics.Vector2(75, (float)(session.Model.LayerHeaders[0].Height.Value / 2))
-            };
-            HeadlessTestHelpers.Render();
-            Assert.That(session.Model.Options.Value.Offset,
-                Is.EqualTo(new System.Numerics.Vector2(75, (float)(session.Model.LayerHeaders[0].Height.Value / 2))));
+            session.Scroll(session.Model.LayerHeaders[0].Height.Value / 2);
         }
 
         Point rulerPoint = session.Ruler.TranslatePoint(new Point(15, 10), session.Window)!.Value;
@@ -46,6 +40,20 @@ public class TimelineRangeSelectionTests
 
         session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint,
             $"ruler-{reverse}-{scrolled}", [0, 2]);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Range_crossing_ruler_after_deep_scroll_selects_only_visible_clips(bool reverse)
+    {
+        using TimelineSession session = await TimelineSession.CreateAsync();
+        session.Scroll(100);
+        Point rulerPoint = session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value;
+        Point contentPoint = session.ToWindow(new Point(225, session.Model.CalculateLayerTop(7) - 10));
+
+        session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint,
+            $"deep-ruler-{reverse}", [6]);
     }
 
     [AvaloniaTest]
@@ -62,17 +70,20 @@ public class TimelineRangeSelectionTests
         using TimelineSession session = await TimelineSession.CreateAsync();
         int layerCount = session.Model.LayerHeaders.Count;
         session.Drag(session.ToWindow(new Point(15, 5)),
-            session.ToWindow(new Point(225, session.Timeline.Bounds.Height + 40)), "bottom", [0, 2, 6]);
+            session.ToWindow(new Point(225, session.Timeline.Bounds.Height + 40)), "bottom", [0, 2, 3, 6]);
         Assert.That(session.Model.LayerHeaders, Has.Count.EqualTo(layerCount));
     }
 
     [AvaloniaTest]
-    public async Task Range_entirely_in_ruler_does_not_select_clips()
+    [TestCase(0)]
+    [TestCase(100)]
+    public async Task Range_entirely_in_ruler_does_not_select_clips(double scrollY)
     {
         using TimelineSession session = await TimelineSession.CreateAsync();
+        if (scrollY > 0) session.Scroll(scrollY);
         session.Model.SelectElement(session.Model.Elements.First());
         session.Drag(session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value,
-            session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, "outside", []);
+            session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, $"outside-{scrollY}", []);
     }
 
     private sealed class TimelineSession : IDisposable
@@ -89,6 +100,7 @@ public class TimelineRangeSelectionTests
             Window = new Window { Content = _view, Width = 960, Height = 420 };
             Window.Show();
             HeadlessTestHelpers.Render();
+            Content = _view.FindControl<ScrollViewer>("ContentScroll")!;
             Timeline = _view.FindControl<Panel>("TimelinePanel")!;
             Ruler = _view.FindControl<TimelineScale>("Scale")!;
             _overlay = _view.FindControl<TimelineOverlay>("overlay")!;
@@ -96,6 +108,7 @@ public class TimelineRangeSelectionTests
 
         public TimelineTabViewModel Model { get; }
         public Window Window { get; }
+        public ScrollViewer Content { get; }
         public Panel Timeline { get; }
         public TimelineScale Ruler { get; }
 
@@ -112,7 +125,7 @@ public class TimelineRangeSelectionTests
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
             await adder.AddAsync([
-                Clip(0.2, 0), Clip(0.2, 2), Clip(0.2, 6), Clip(2, 0)
+                Clip(0.2, 0), Clip(0.2, 2), Clip(0.2, 3), Clip(0.2, 6), Clip(2, 0)
             ], CancellationToken.None);
             TimelineTabViewModel model = editor.FindToolTab<TimelineTabViewModel>()!;
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero, MaxLayerCount = 20 };
@@ -123,6 +136,13 @@ public class TimelineRangeSelectionTests
         }
 
         public Point ToWindow(Point point) => Timeline.TranslatePoint(point, Window)!.Value;
+
+        public void Scroll(double y)
+        {
+            Model.Options.Value = Model.Options.Value with { Offset = new System.Numerics.Vector2(75, (float)y) };
+            HeadlessTestHelpers.Render();
+            Assert.That(Content.Offset, Is.EqualTo(new Vector(75, y)));
+        }
 
         public void Drag(Point from, Point to, string name, int[] expectedLayers)
         {
