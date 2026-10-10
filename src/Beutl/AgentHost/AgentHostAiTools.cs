@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -82,7 +83,7 @@ internal sealed class AgentHostAiTools(
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<GenerativeModelInfo> models =
                 await backend.GetModelsAsync(operationId, cancellationToken).ConfigureAwait(false);
-            return new ListAiModelsResponse(operationId, models.Select(Summarize).ToArray());
+            return new ListAiModelsResponse(operationId, models.Select(model => Summarize(model, operationId)).ToArray());
         });
     }
 
@@ -123,6 +124,12 @@ internal sealed class AgentHostAiTools(
             string chosenBackground = string.IsNullOrWhiteSpace(background)
                 ? backgrounds.Contains("auto", StringComparer.Ordinal) ? "auto" : backgrounds[0]
                 : background.Trim();
+            if (chosen?.Image is { } offered)
+            {
+                RequireOffered(ratio, offered.AspectRatioChoices, chosen.Id, "aspectRatio");
+                RequireOffered(chosenBackground, offered.BackgroundChoices, chosen.Id, "background");
+            }
+
             return new AiImageGenerationNodeRequest("image.generate")
             {
                 Prompt = text,
@@ -223,6 +230,20 @@ internal sealed class AgentHostAiTools(
                 ? GenerativeShapeSuggestion.NearestAspectRatio(
                     Offered(offered?.AspectRatios, GenerativeVideoCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
                 : aspectRatio.Trim();
+            if (offered is not null)
+            {
+                string id = chosen!.Id;
+                RequireOffered(duration, offered.DurationChoices, id, "durationSeconds");
+                RequireOffered(chosenResolution, offered.ResolutionChoices, id, "resolution");
+                RequireOffered(ratio, offered.AspectRatioChoices, id, "aspectRatio");
+                if (firstFramePath is not null && !offered.SupportsFirstFrame)
+                    throw Invalid($"The model '{id}' does not start from a picture.", "firstFramePath");
+                if (lastFramePath is not null && !offered.SupportsLastFrame)
+                    throw Invalid($"The model '{id}' does not end on a picture.", "lastFramePath");
+                if (firstFramePath is null && !offered.SupportsPromptToVideo)
+                    throw Invalid($"The model '{id}' needs a picture to start from.", "firstFramePath");
+            }
+
             return new AiVideoGenerationNodeRequest("video.generate")
             {
                 Prompt = text,
@@ -264,6 +285,8 @@ internal sealed class AgentHostAiTools(
             bool extend = modeId == "extend";
             string text = RequirePrompt(prompt);
             int duration = extend ? durationSeconds ?? DefaultDuration(chosen?.Video) : 0;
+            if (extend && chosen?.Video is { } offered)
+                RequireOffered(duration, offered.DurationChoices, chosen.Id, "durationSeconds");
             return new AiVideoEditNodeRequest(extend ? "video.extend" : "video.edit")
             {
                 Mode = extend ? AiVideoEditMode.Extend : AiVideoEditMode.Edit,
@@ -299,6 +322,7 @@ internal sealed class AgentHostAiTools(
         {
             RequireWait(waitSeconds);
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
+            await ResolveModelAsync("audio.transcribe", model, cancellationToken).ConfigureAwait(false);
             Scene? scene = await FindSceneAsync().ConfigureAwait(false);
             string path = RequireFile(scene, sourcePath, "sourcePath");
             string jobId = jobs.Start("audio.transcribe", async (progress, token) =>
@@ -425,6 +449,13 @@ internal sealed class AgentHostAiTools(
                ?? offered.FirstOrDefault(candidate => candidate.IsAvailable);
     }
 
+    // As the executor checks a request against the model, but as the call's error, before a job starts.
+    private static void RequireOffered<T>(T value, IReadOnlyList<T> offered, string modelId, string target)
+    {
+        if (!offered.Contains(value))
+            throw Invalid($"The model '{modelId}' does not take {target} {value}. It takes: {string.Join(", ", offered)}.", target);
+    }
+
     private static IReadOnlyList<T> Offered<T>(IReadOnlyList<T>? published, IReadOnlyList<T> fallback)
         => published is { Count: > 0 } ? published : fallback;
 
@@ -461,21 +492,27 @@ internal sealed class AgentHostAiTools(
             "Open or create a project in the Beutl editor (or call create_project/open_project), then call the tool again."));
     }
 
-    private static AiModelSummary Summarize(GenerativeModelInfo model)
-        => new(
+    // The catalog fills image capabilities for every model, video ones included, so only the
+    // operation's own kind is reported; otherwise a video model shows the image fallback's seed.
+    private static AiModelSummary Summarize(GenerativeModelInfo model, string operation)
+    {
+        GenerativeImageCapabilities? image = operation.StartsWith("image.", StringComparison.Ordinal) ? model.Image : null;
+        GenerativeVideoCapabilities? video = operation.StartsWith("video.", StringComparison.Ordinal) ? model.Video : null;
+        return new(
             model.Id,
             model.Label,
             model.IsDefault,
             model.IsAvailable,
-            model.Image?.AspectRatios ?? model.Video?.AspectRatios,
-            model.Image?.Backgrounds,
-            model.Image?.MaxReferenceImages,
-            model.Video?.DurationsSeconds,
-            model.Video?.Resolutions,
-            model.Video?.SupportsAudio,
-            model.Video?.SupportsFirstFrame,
-            model.Video?.SupportsLastFrame,
-            model.Image?.SupportsSeed ?? model.Video?.SupportsSeed);
+            image?.AspectRatios ?? video?.AspectRatios,
+            image?.Backgrounds,
+            image?.MaxReferenceImages,
+            video?.DurationsSeconds,
+            video?.Resolutions,
+            video?.SupportsAudio,
+            video?.SupportsFirstFrame,
+            video?.SupportsLastFrame,
+            image?.SupportsSeed ?? video?.SupportsSeed);
+    }
 
     private static string? NormalizeModel(string? model)
         => string.IsNullOrWhiteSpace(model) ? null : model.Trim();
@@ -542,7 +579,23 @@ internal sealed class AgentHostAiTools(
         string full = RequireFile(scene, path, "sourcePath");
         if (!GenerativeInputs.IsSupportedVideoFile(full))
             throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, "Only mp4 and webm clips can be edited.", "sourcePath"));
-        return GenerativeInputs.ReadVideoFile(full, "source");
+        GenerativeFileInput input = GenerativeInputs.ReadVideoFile(full, "source");
+        // Opened now, as the executor opens it to read its length, so a file that is not a clip is
+        // the call's media_unsupported rather than a failed job.
+        try
+        {
+            using MediaReader reader = MediaReader.Open(full, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+            if (reader.HasVideo)
+            {
+                _ = reader.VideoInfo.Duration;
+                return input;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+        }
+
+        throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be opened as a video.", "sourcePath"));
     }
 
     private static ReconcileException Invalid(string message, string? target)

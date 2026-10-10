@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using Avalonia.Headless.NUnit;
@@ -8,6 +9,9 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -207,24 +211,7 @@ public sealed class AgentHostAiToolsTests
         await OpenSceneAsync("agent-ai-model-choices");
         var backend = new FakeBackend { Result = WritePng("result.png") };
         backend.Models["image.generate"] = [SquareModel];
-        backend.Models["video.generate"] =
-        [
-            new GenerativeModelInfo("portrait", "Portrait", IsDefault: true, IsAvailable: true, Image: null, Video: new GenerativeVideoCapabilities(
-                DurationsSeconds: [5, 10],
-                Resolutions: ["480p", "720p"],
-                AspectRatios: ["9:16"],
-                SupportsAudio: false,
-                SupportsSeed: false,
-                SupportsFirstFrame: true,
-                SupportsLastFrame: true,
-                SupportsPromptToVideo: true,
-                SupportsInputReferences: false,
-                MaxImageReferences: 0,
-                MaxImageReferenceBytes: 0,
-                MaxVideoReferences: 0,
-                MaxVideoReferenceBytes: 0,
-                MaxPromptLength: 4_000)),
-        ];
+        backend.Models["video.generate"] = [PortraitModel];
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
 
@@ -246,6 +233,91 @@ public sealed class AgentHostAiToolsTests
             Assert.That(sound.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "a silent clip is not paid for");
             Assert.That(backend.Requests, Has.Count.EqualTo(2));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task ExplicitSettingsTheModelDoesNotTakeAreRefusedBeforeAJobStarts()
+    {
+        await TestReset.ResetShellAsync();
+        await OpenSceneAsync("agent-ai-explicit");
+        var backend = new FakeBackend();
+        backend.Models["image.generate"] = [SquareModel];
+        backend.Models["video.generate"] = [PortraitModel];
+        backend.Models["video.extend"] = [PortraitModel];
+        backend.Models["audio.transcribe"] = [new GenerativeModelInfo("whisper", "Whisper", IsDefault: true, IsAvailable: true, Image: null)];
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolResult<AgentAiJobSnapshot>[] refused =
+        [
+            await tools.GenerateImage("a cat", aspectRatio: "16:9"),
+            await tools.GenerateImage("a cat", background: "transparent"),
+            await tools.GenerateVideo("a cat", resolution: "1080p"),
+            await tools.GenerateVideo("a cat", durationSeconds: 6),
+            await tools.GenerateVideo("a cat", aspectRatio: "16:9"),
+            await tools.EditVideo(WriteFile("clip.mp4"), "more", mode: "extend", durationSeconds: 6),
+            await tools.TranscribeAudio(WriteFile("voice.wav"), model: "nope"),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach (ToolResult<AgentAiJobSnapshot> result in refused)
+                Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), result.Error?.Message);
+            Assert.That(backend.Requests, Is.Empty);
+            Assert.That(backend.TranscribedPaths, Is.Empty);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AModelsListShowsTheCapabilitiesOfTheOperationAsked()
+    {
+        await TestReset.ResetShellAsync();
+        var backend = new FakeBackend();
+        // The catalog gives video models image capabilities too, with the unrestricted seed.
+        backend.Models["video.generate"] =
+        [
+            PortraitModel with { Image = new GenerativeImageCapabilities(null, null, SupportsSeed: true, MaxReferenceImages: 4) },
+        ];
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        AiModelSummary summary = (await tools.ListAiModels("video.generate")).Value!.Models.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(summary.SupportsSeed, Is.False);
+            Assert.That(summary.AspectRatios, Is.EqualTo(new[] { "9:16" }));
+            Assert.That(summary.MaxReferenceImages, Is.Null);
+            Assert.That(summary.DurationsSeconds, Is.EqualTo(new[] { 5, 10 }));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task AClipIsOpenedBeforeItsEditIsPaidFor()
+    {
+        await TestReset.ResetShellAsync();
+        await OpenSceneAsync("agent-ai-edit-video");
+        var backend = new FakeBackend { Result = WriteFile("result.mp4") };
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+        var decoder = new StubVideoDecoder();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            ToolResult<AgentAiJobSnapshot> broken = await tools.EditVideo(WriteFile("broken.webm"), "rain");
+            ToolResult<AgentAiJobSnapshot> edited = await tools.EditVideo(WriteFile("clip.mp4"), "rain", waitSeconds: 10);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(broken.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+                Assert.That(edited.IsSuccess, Is.True, edited.Error?.Message);
+                Assert.That(((AiVideoEditNodeRequest)backend.Requests.Single()).SourceVideo.Name, Is.EqualTo("source.mp4"));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
     }
 
     [Test]
@@ -347,6 +419,23 @@ public sealed class AgentHostAiToolsTests
         return scene;
     }
 
+    private static GenerativeModelInfo PortraitModel { get; } =
+        new("portrait", "Portrait", IsDefault: true, IsAvailable: true, Image: null, Video: new GenerativeVideoCapabilities(
+            DurationsSeconds: [5, 10],
+            Resolutions: ["480p", "720p"],
+            AspectRatios: ["9:16"],
+            SupportsAudio: false,
+            SupportsSeed: false,
+            SupportsFirstFrame: true,
+            SupportsLastFrame: true,
+            SupportsPromptToVideo: true,
+            SupportsInputReferences: false,
+            MaxImageReferences: 0,
+            MaxImageReferenceBytes: 0,
+            MaxVideoReferences: 0,
+            MaxVideoReferenceBytes: 0,
+            MaxPromptLength: 4_000));
+
     private static GenerativeModelInfo SquareModel { get; } =
         new("square", "Square", IsDefault: true, IsAvailable: true, new GenerativeImageCapabilities(["1:1"], ["opaque"], SupportsSeed: false, MaxReferenceImages: 4));
 
@@ -373,6 +462,41 @@ public sealed class AgentHostAiToolsTests
         using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
         return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    private sealed class StubVideoDecoder : IDecoderInfo
+    {
+        public string Name => "Agent edit test decoder";
+
+        public IEnumerable<string> VideoExtensions() => [".mp4"];
+
+        public IEnumerable<string> AudioExtensions() => [];
+
+        public MediaReader Open(string file, MediaOptions options) => new StubVideoReader();
+    }
+
+    private sealed class StubVideoReader : MediaReader
+    {
+        public override VideoStreamInfo VideoInfo { get; } =
+            new("test", new Rational(180, 1), new PixelSize(2, 2), new Rational(30, 1)) { Duration = new Rational(6, 1) };
+
+        public override AudioStreamInfo AudioInfo => throw new InvalidOperationException();
+
+        public override bool HasVideo => true;
+
+        public override bool HasAudio => false;
+
+        public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+        {
+            image = null;
+            return false;
+        }
+
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+        {
+            sound = null;
+            return false;
+        }
     }
 
     private sealed class FakeBackend : IAgentAiBackend, IGenerativeNodeExecutor
