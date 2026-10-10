@@ -51,7 +51,7 @@ public sealed class AgentToolkitInstallerTests
             {
                 AgentRoot = _tempRoot,
                 InstallSubagents = false,
-                InstallStdioMcp = false,
+                InstallMcp = false,
             },
             BundledAgentToolkitAssets.Load());
 
@@ -87,8 +87,8 @@ public sealed class AgentToolkitInstallerTests
             {
                 AgentRoot = _tempRoot,
                 WorkspaceRoot = Path.Combine(_tempRoot, "workspace"),
-                StdioMcpCommand = "dotnet",
-                StdioMcpArguments = ["run", "--project", "server.csproj"],
+                McpCommand = "dotnet",
+                McpArguments = ["run", "--project", "server.csproj"],
             },
             [
                 new AgentToolkitAsset(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "skill"),
@@ -98,6 +98,7 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(File.ReadAllText(Path.Combine(_tempRoot, "skills", "demo", "SKILL.md")), Is.EqualTo("skill"));
         Assert.That(File.ReadAllText(Path.Combine(_tempRoot, "agents", "demo.md")), Is.EqualTo("agent"));
         Assert.That(result.McpConfigPath, Is.EqualTo(configPath));
+        Assert.That(result.InstalledMcp, Is.True);
 
         JsonObject root = ReadJson(configPath);
         JsonObject servers = root["mcpServers"]!.AsObject();
@@ -114,9 +115,44 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
-    public async Task InstallAsync_WritesCatalogDirectoriesAndLiveMcpConfig()
+    public async Task InstallAsync_RemovesTheLiveEntryOfEarlierVersions()
     {
-        Uri liveUri = new("http://127.0.0.1:12345/mcp");
+        string configPath = Path.Combine(_tempRoot, ".mcp.json");
+        await File.WriteAllTextAsync(
+            configPath,
+            """
+            {
+              "mcpServers": {
+                "existing": { "type": "stdio", "command": "other" },
+                "beutl-agent": { "command": "old", "args": [], "env": { "BEUTL_WORKSPACE": "/old" } },
+                "beutl-live": { "type": "http", "url": "http://127.0.0.1:59737/mcp", "headers": { "Authorization": "Bearer old-token" } }
+              }
+            }
+            """);
+
+        await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                McpCommand = "beutl-mcp",
+            },
+            []);
+
+        string json = await File.ReadAllTextAsync(configPath);
+        JsonObject servers = ReadJson(configPath)["mcpServers"]!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That(servers.Select(pair => pair.Key), Is.EquivalentTo(new[] { "existing", "beutl-agent" }));
+            Assert.That(servers["beutl-agent"]!["command"]!.GetValue<string>(), Is.EqualTo("beutl-mcp"));
+            Assert.That(json, Does.Not.Contain("old-token"));
+        });
+    }
+
+    [Test]
+    public async Task InstallAsync_WritesCatalogDirectoriesAndOneProfileBoundServer()
+    {
         AgentDefinition claudeCode = AgentCatalog.Find("claude-code")!;
 
         await AgentToolkitInstaller.InstallAsync(
@@ -125,13 +161,9 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 SkillsDirectory = claudeCode.SkillsDirectory(AgentInstallScope.Project),
                 SubagentsDirectory = claudeCode.SubagentsDirectory(AgentInstallScope.Project)!,
-                InstallStdioMcp = false,
-                InstallLiveMcp = true,
-                LiveMcpUri = liveUri,
-                LiveMcpHeaders = new Dictionary<string, string>
-                {
-                    ["Authorization"] = "Bearer secret",
-                },
+                WorkspaceRoot = Path.Combine(_tempRoot, "workspace"),
+                McpCommand = "/opt/beutl/Beutl.AgentToolkit.Mcp",
+                McpEnvironment = new Dictionary<string, string> { ["BEUTL_HOME"] = "/home/user/.beutl" },
             },
             [
                 new AgentToolkitAsset(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "skill"),
@@ -141,14 +173,24 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(File.Exists(Path.Combine(_tempRoot, ".claude", "skills", "demo", "SKILL.md")), Is.True);
         Assert.That(File.Exists(Path.Combine(_tempRoot, ".claude", "agents", "demo.md")), Is.True);
 
-        JsonObject servers = ReadJson(Path.Combine(_tempRoot, ".mcp.json"))["mcpServers"]!.AsObject();
-        JsonObject liveServer = servers["beutl-live"]!.AsObject();
-        Assert.That(liveServer["type"]!.GetValue<string>(), Is.EqualTo("http"));
-        Assert.That(liveServer["url"]!.GetValue<string>(), Is.EqualTo(liveUri.ToString()));
-        Assert.That(liveServer["url"]!.GetValue<string>(), Does.Not.Contain("token"));
-        Assert.That(
-            liveServer["headers"]!.AsObject()["Authorization"]!.GetValue<string>(),
-            Is.EqualTo("Bearer secret"));
+        string configPath = Path.Combine(_tempRoot, ".mcp.json");
+        JsonObject servers = ReadJson(configPath)["mcpServers"]!.AsObject();
+        JsonObject server = servers["beutl-agent"]!.AsObject();
+        Assert.Multiple(() =>
+        {
+            // One stdio entry serves live and headless editing. It finds and authenticates to the
+            // running editors through the profile, so the config holds no URL and no bearer token.
+            Assert.That(servers.Select(pair => pair.Key), Is.EqualTo(new[] { "beutl-agent" }));
+            Assert.That(server["type"], Is.Null);
+            Assert.That(server["command"]!.GetValue<string>(), Is.EqualTo("/opt/beutl/Beutl.AgentToolkit.Mcp"));
+            Assert.That(server["args"]!.AsArray(), Is.Empty);
+            Assert.That(server["env"]!.AsObject()["BEUTL_WORKSPACE"]!.GetValue<string>(),
+                Is.EqualTo(Path.GetFullPath(Path.Combine(_tempRoot, "workspace"))));
+            Assert.That(server["env"]!.AsObject()["BEUTL_HOME"]!.GetValue<string>(), Is.EqualTo("/home/user/.beutl"));
+            Assert.That(server["url"], Is.Null);
+            Assert.That(server["headers"], Is.Null);
+            Assert.That(File.ReadAllText(configPath), Does.Not.Contain("Bearer").And.Not.Contain("127.0.0.1"));
+        });
     }
 
     [Test]
@@ -160,26 +202,34 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 InstallSkills = false,
                 InstallSubagents = false,
-                InstallLiveMcp = true,
                 McpConfigFileName = Path.Combine(".gemini", "settings.json"),
-                StdioMcpCommand = "beutl-mcp",
-                StdioMcpTypeValue = "stdio",
-                LiveMcpUrlPropertyName = "httpUrl",
-                LiveMcpTypeValue = null,
-                LiveMcpUri = new Uri("http://127.0.0.1:5008/mcp?token=abc"),
+                McpCommand = "beutl-mcp",
+                McpTypeValue = "stdio",
             },
             []);
 
         JsonObject servers = ReadJson(Path.Combine(_tempRoot, ".gemini", "settings.json"))["mcpServers"]!.AsObject();
-        JsonObject stdioServer = servers["beutl-agent"]!.AsObject();
-        JsonObject liveServer = servers["beutl-live"]!.AsObject();
+        JsonObject server = servers["beutl-agent"]!.AsObject();
         Assert.Multiple(() =>
         {
-            Assert.That(stdioServer["type"]!.GetValue<string>(), Is.EqualTo("stdio"));
-            Assert.That(liveServer["type"], Is.Null);
-            Assert.That(liveServer["url"], Is.Null);
-            Assert.That(liveServer["httpUrl"]!.GetValue<string>(), Does.StartWith("http://127.0.0.1:5008/mcp"));
+            Assert.That(server["type"]!.GetValue<string>(), Is.EqualTo("stdio"));
+            Assert.That(server["command"]!.GetValue<string>(), Is.EqualTo("beutl-mcp"));
+            Assert.That(server["env"], Is.Null);
         });
+    }
+
+    [Test]
+    public void InstallAsync_RequiresTheServerCommand()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+            },
+            []));
+        Assert.That(File.Exists(Path.Combine(_tempRoot, ".mcp.json")), Is.False);
     }
 
     [Test]
@@ -200,7 +250,7 @@ public sealed class AgentToolkitInstallerTests
                 SubagentsDirectory = Path.Combine(".codex", "agents"),
                 SubagentFormat = SubagentFileFormat.CodexToml,
                 InstallSkills = false,
-                InstallStdioMcp = false,
+                InstallMcp = false,
             },
             [new AgentToolkitAsset(AgentToolkitAssetKind.Subagent, "beutl-agent-demo.md", markdown)]);
 
@@ -225,7 +275,7 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 SkillsDirectory = Path.Combine("custom", "skill-pack"),
                 SubagentsDirectory = Path.Combine("custom", "agent-pack"),
-                InstallStdioMcp = false,
+                InstallMcp = false,
             },
             [
                 new AgentToolkitAsset(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "skill"),
@@ -246,7 +296,7 @@ public sealed class AgentToolkitInstallerTests
                 InstallSkills = false,
                 InstallSubagents = false,
                 McpServersPropertyName = "servers",
-                StdioMcpCommand = "beutl-agent",
+                McpCommand = "beutl-agent",
             },
             []);
 
@@ -265,7 +315,7 @@ public sealed class AgentToolkitInstallerTests
                 InstallSkills = false,
                 InstallSubagents = false,
                 McpServersPropertyName = "amp.mcpServers",
-                StdioMcpCommand = "beutl-agent",
+                McpCommand = "beutl-agent",
             },
             []);
 
@@ -282,7 +332,7 @@ public sealed class AgentToolkitInstallerTests
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,
-                InstallStdioMcp = false,
+                InstallMcp = false,
             },
             [
                 new AgentToolkitAsset(AgentToolkitAssetKind.Skill, "../escape.md", "bad"),
@@ -299,7 +349,7 @@ public sealed class AgentToolkitInstallerTests
                 InstallSkills = false,
                 InstallSubagents = false,
                 McpConfigFileName = "../.mcp.json",
-                StdioMcpCommand = "dotnet",
+                McpCommand = "dotnet",
             },
             []));
     }

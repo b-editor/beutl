@@ -6,6 +6,10 @@ namespace Beutl.AgentToolkit.Tests.Installation;
 
 public sealed class CodexMcpConfigWriterTests
 {
+    private const string ServerCommand = "beutl-mcp";
+    private const string ProfileHome = "/home/user/.beutl";
+    private const string OtherHome = "/home/user/other-profile";
+
     private string _root = null!;
 
     private string ConfigPath => Path.Combine(_root, ".codex", "config.toml");
@@ -20,44 +24,47 @@ public sealed class CodexMcpConfigWriterTests
     [TearDown]
     public void TearDown() => Directory.Delete(_root, true);
 
+    // One stdio entry for live and headless editing; the config never carries a URL or the token.
     private AgentToolkitInstallOptions Options => new()
     {
         AgentRoot = _root,
         InstallSkills = false,
         InstallSubagents = false,
-        InstallStdioMcp = false,
-        InstallLiveMcp = true,
         McpConfigFileName = Path.Combine(".codex", "config.toml"),
         McpConfigFormat = McpConfigFormat.CodexToml,
         McpServersPropertyName = "mcp_servers",
-        LiveMcpUri = new Uri("http://127.0.0.1:59737/mcp"),
-        LiveMcpHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer test-token" },
+        McpCommand = ServerCommand,
+        McpEnvironment = new Dictionary<string, string> { ["BEUTL_HOME"] = ProfileHome },
     };
 
-    [TestCase("mcp_servers", "team.stdio", "server name")]
-    [TestCase("mcp.servers name", "stdio \"quoted\"", "live\\server")]
-    public async Task Non_bare_key_segments_are_quoted_and_reinstall_matches_the_same_servers(
-        string serversProperty, string stdioName, string liveName)
+    private static AgentToolkitInstallOptions WithHome(AgentToolkitInstallOptions options, string home)
+        => options with { McpEnvironment = new Dictionary<string, string> { ["BEUTL_HOME"] = home } };
+
+    private static TomlTable Server(TomlTable servers, string name = "beutl-agent") => (TomlTable)servers[name];
+
+    private static string Home(TomlTable server) => (string)((TomlTable)server["env"])["BEUTL_HOME"];
+
+    [TestCase("mcp_servers", "team.stdio")]
+    [TestCase("mcp.servers name", "server \"quoted\"")]
+    public async Task Non_bare_key_segments_are_quoted_and_reinstall_matches_the_same_server(
+        string serversProperty, string serverName)
     {
         AgentToolkitInstallOptions options = Options with
         {
             McpServersPropertyName = serversProperty,
-            StdioMcpServerName = stdioName,
-            LiveMcpServerName = liveName,
-            InstallStdioMcp = true,
-            StdioMcpCommand = "beutl-mcp",
+            McpServerName = serverName,
         };
         await AgentToolkitInstaller.InstallAsync(options, []);
-        await AgentToolkitInstaller.InstallAsync(options with { LiveMcpUri = new Uri("http://127.0.0.1:59738/mcp") }, []);
+        await AgentToolkitInstaller.InstallAsync(WithHome(options, OtherHome), []);
 
         TomlTable root = TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!;
         var servers = (TomlTable)root[serversProperty];
         Assert.Multiple(() =>
         {
             Assert.That(root.Keys, Is.EqualTo(new[] { serversProperty }));
-            Assert.That(servers.Keys, Is.EquivalentTo(new[] { stdioName, liveName }));
-            Assert.That(((TomlTable)servers[stdioName])["command"], Is.EqualTo("beutl-mcp"));
-            Assert.That(((TomlTable)servers[liveName])["url"], Is.EqualTo("http://127.0.0.1:59738/mcp"));
+            Assert.That(servers.Keys, Is.EqualTo(new[] { serverName }));
+            Assert.That(Server(servers, serverName)["command"], Is.EqualTo(ServerCommand));
+            Assert.That(Home(Server(servers, serverName)), Is.EqualTo(OtherHome));
         });
     }
 
@@ -87,14 +94,13 @@ public sealed class CodexMcpConfigWriterTests
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
         File.SetUnixFileMode(ConfigPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
-        AgentToolkitInstallOptions options = unchanged ? Options
-            : Options with { LiveMcpUri = new Uri("http://127.0.0.1:59738/mcp") };
+        AgentToolkitInstallOptions options = unchanged ? Options : WithHome(Options, OtherHome);
 
         await AgentToolkitInstaller.InstallAsync(options, []);
 
         Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
         var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!["mcp_servers"];
-        Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(options.LiveMcpUri!.ToString()));
+        Assert.That(Home(Server(servers)), Is.EqualTo(options.McpEnvironment["BEUTL_HOME"]));
     }
 
     [TestCase(false, false)]
@@ -149,18 +155,59 @@ public sealed class CodexMcpConfigWriterTests
         Assert.That(new FileInfo(ConfigPath).LinkTarget, Is.EqualTo(target));
         TomlTable root = TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(target))!;
         Assert.That(root["model"], Is.EqualTo("custom"));
-        Assert.That(((TomlTable)root["mcp_servers"]).ContainsKey("beutl-live"), Is.True);
+        Assert.That(((TomlTable)root["mcp_servers"]).ContainsKey("beutl-agent"), Is.True);
         Assert.That(File.GetUnixFileMode(target), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
     }
 
     [Test]
-    public async Task Fresh_live_install_uses_explicit_server_and_header_tables()
+    public async Task Fresh_install_writes_launcher_and_environment_tables()
     {
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
         Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(
-            "[mcp_servers.beutl-live]\nurl = \"http://127.0.0.1:59737/mcp\"\n\n"
-            + "[mcp_servers.beutl-live.http_headers]\nAuthorization = \"Bearer test-token\"\n"));
+            "[mcp_servers.beutl-agent]\ncommand = \"beutl-mcp\"\nargs = []\n\n"
+            + "[mcp_servers.beutl-agent.env]\nBEUTL_HOME = \"/home/user/.beutl\"\n"));
+    }
+
+    [Test]
+    public async Task Reinstall_removes_the_live_entry_of_earlier_versions_and_keeps_the_rest()
+    {
+        const string original =
+            "# Codex settings\nmodel = 'custom'\n\n"
+            + "[mcp_servers.beutl-agent]\ncommand = \"old\"\nargs = []\n\n"
+            + "[mcp_servers.beutl-live]\nurl = \"http://127.0.0.1:59737/mcp\"\n\n"
+            + "[mcp_servers.beutl-live.http_headers]\nAuthorization = \"Bearer old-token\"\n\n"
+            + "[mcp_servers.other]\ncommand = 'keep this'\n\n"
+            + "[projects.example]\ntrust_level = 'trusted'\n";
+        await File.WriteAllTextAsync(ConfigPath, original);
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+
+        string updated = await File.ReadAllTextAsync(ConfigPath);
+        TomlTable root = TomlSerializer.Deserialize<TomlTable>(updated)!;
+        var servers = (TomlTable)root["mcp_servers"];
+        Assert.Multiple(() =>
+        {
+            Assert.That(servers.Keys, Is.EquivalentTo(new[] { "beutl-agent", "other" }));
+            Assert.That(Server(servers)["command"], Is.EqualTo(ServerCommand));
+            Assert.That(Home(Server(servers)), Is.EqualTo(ProfileHome));
+            Assert.That(updated, Does.Not.Contain("beutl-live").And.Not.Contain("old-token"));
+            Assert.That(updated, Does.StartWith("# Codex settings\nmodel = 'custom'\n"));
+            Assert.That(updated, Does.Contain("[mcp_servers.other]\ncommand = 'keep this'\n"));
+            Assert.That(updated, Does.Contain("[projects.example]\ntrust_level = 'trusted'\n"));
+        });
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+
+        Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(updated));
+    }
+
+    [Test]
+    public void Install_requires_the_server_command()
+    {
+        Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
+            Options with { McpCommand = null }, []));
+        Assert.That(File.Exists(ConfigPath), Is.False);
     }
 
     [TestCase("\n")]
@@ -172,8 +219,8 @@ public sealed class CodexMcpConfigWriterTests
             "# User settings",
             "model = 'custom-model'",
             "", "",
-            "mcp_servers.beutl-live.url = \"http://127.0.0.1:59737/mcp\" # Live URL",
-            "mcp_servers.beutl-live.http_headers.Authorization = \"Bearer old-token\"",
+            "mcp_servers.beutl-agent.command = \"old-command\" # Keep this comment",
+            "mcp_servers.beutl-agent.env.BEUTL_WORKSPACE = \"/old/workspace\"",
             "",
             "[mcp_servers.other]",
             "command   = 'keep this'",
@@ -186,12 +233,12 @@ public sealed class CodexMcpConfigWriterTests
         string updated = await File.ReadAllTextAsync(ConfigPath);
         Assert.Multiple(() =>
         {
-            Assert.That(updated, Does.Contain($"[mcp_servers.beutl-live]{newline}url = \"http://127.0.0.1:59737/mcp\"{newline}"));
-            Assert.That(updated, Does.Contain($"[mcp_servers.beutl-live.http_headers]{newline}Authorization = \"Bearer test-token\"{newline}"));
-            Assert.That(updated, Does.Not.Contain("mcp_servers.beutl-live.url ="));
-            Assert.That(updated, Does.Not.Contain("mcp_servers.beutl-live.http_headers.Authorization ="));
+            Assert.That(updated, Does.Contain($"[mcp_servers.beutl-agent]{newline}command = \"beutl-mcp\"{newline}args = []{newline}"));
+            Assert.That(updated, Does.Contain($"[mcp_servers.beutl-agent.env]{newline}BEUTL_HOME = \"/home/user/.beutl\"{newline}"));
+            Assert.That(updated, Does.Not.Contain("mcp_servers.beutl-agent.command ="));
+            Assert.That(updated, Does.Not.Contain("BEUTL_WORKSPACE"));
             Assert.That(updated, Does.Contain($"model = 'custom-model'{newline}{newline}{newline}"));
-            Assert.That(updated, Does.Contain("# Live URL"));
+            Assert.That(updated, Does.Contain("# Keep this comment"));
             Assert.That(updated, Does.Contain($"[mcp_servers.other]{newline}command   = 'keep this'{newline}{newline}"));
         });
 
@@ -201,15 +248,15 @@ public sealed class CodexMcpConfigWriterTests
     }
 
     [Test]
-    public async Task Adding_headers_to_an_existing_server_creates_a_header_table()
+    public async Task Adding_an_environment_to_an_existing_launcher_creates_an_env_table()
     {
-        const string original = "[mcp_servers.beutl-live]\nurl = 'http://127.0.0.1:59737/mcp'\n\n";
+        const string original = "[mcp_servers.beutl-agent]\ncommand = \"beutl-mcp\"\nargs = []\n\n";
         await File.WriteAllTextAsync(ConfigPath, original);
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
         Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original
-            + "[mcp_servers.beutl-live.http_headers]\nAuthorization = \"Bearer test-token\"\n"));
+            + "[mcp_servers.beutl-agent.env]\nBEUTL_HOME = \"/home/user/.beutl\"\n"));
     }
 
     [TestCase("\n")]
@@ -248,8 +295,8 @@ public sealed class CodexMcpConfigWriterTests
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
-        string inserted = $"{newline}[mcp_servers.beutl-live]{newline}url = \"http://127.0.0.1:59737/mcp\"{newline}"
-                          + $"{newline}[mcp_servers.beutl-live.http_headers]{newline}Authorization = \"Bearer test-token\"{newline}";
+        string inserted = $"{newline}[mcp_servers.beutl-agent]{newline}command = \"beutl-mcp\"{newline}args = []{newline}"
+                          + $"{newline}[mcp_servers.beutl-agent.env]{newline}BEUTL_HOME = \"/home/user/.beutl\"{newline}";
         string expected = prefix + inserted + suffix;
         Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(expected));
 
@@ -259,25 +306,26 @@ public sealed class CodexMcpConfigWriterTests
     }
 
     [Test]
-    public async Task New_header_table_follows_an_updated_server_before_the_next_settings_table()
+    public async Task New_env_table_follows_an_updated_server_before_the_next_settings_table()
     {
-        const string original = "[mcp_servers.beutl-live]\ncommand = 'old'\n\n# Project settings\n[projects.example]\ntrust_level = 'trusted'\n";
+        const string original = "[mcp_servers.beutl-agent]\ncommand = 'old'\n\n# Project settings\n[projects.example]\ntrust_level = 'trusted'\n";
         await File.WriteAllTextAsync(ConfigPath, original);
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
         string updated = await File.ReadAllTextAsync(ConfigPath);
-        int server = updated.IndexOf("[mcp_servers.beutl-live]", StringComparison.Ordinal);
-        int url = updated.IndexOf("url = ", StringComparison.Ordinal);
-        int headers = updated.IndexOf("[mcp_servers.beutl-live.http_headers]", StringComparison.Ordinal);
+        int server = updated.IndexOf("[mcp_servers.beutl-agent]", StringComparison.Ordinal);
+        int command = updated.IndexOf("command = ", StringComparison.Ordinal);
+        int environment = updated.IndexOf("[mcp_servers.beutl-agent.env]", StringComparison.Ordinal);
         int project = updated.IndexOf("# Project settings", StringComparison.Ordinal);
         Assert.Multiple(() =>
         {
-            Assert.That(url, Is.GreaterThan(server).And.LessThan(headers));
-            Assert.That(headers, Is.GreaterThan(server).And.LessThan(project));
+            Assert.That(command, Is.GreaterThan(server).And.LessThan(environment));
+            Assert.That(environment, Is.GreaterThan(server).And.LessThan(project));
             Assert.That(updated, Does.EndWith("\n\n# Project settings\n[projects.example]\ntrust_level = 'trusted'\n"));
             var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(updated)!["mcp_servers"];
-            Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(Options.LiveMcpUri!.ToString()));
+            Assert.That(Server(servers)["command"], Is.EqualTo(ServerCommand));
+            Assert.That(Home(Server(servers)), Is.EqualTo(ProfileHome));
         });
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
@@ -296,9 +344,9 @@ public sealed class CodexMcpConfigWriterTests
 
         string updated = await File.ReadAllTextAsync(ConfigPath);
         Assert.That(updated, Does.StartWith(original));
-        Assert.That(updated.IndexOf("[mcp_servers.beutl-live]", StringComparison.Ordinal), Is.GreaterThanOrEqualTo(original.Length));
+        Assert.That(updated.IndexOf("[mcp_servers.beutl-agent]", StringComparison.Ordinal), Is.GreaterThanOrEqualTo(original.Length));
         var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(updated)!["mcp_servers"];
-        Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(Options.LiveMcpUri!.ToString()));
+        Assert.That(Server(servers)["command"], Is.EqualTo(ServerCommand));
     }
 
     [TestCase("\n")]
@@ -314,12 +362,13 @@ public sealed class CodexMcpConfigWriterTests
             "args = [ 'one',  'two' ]",
             "command = 'other'",
             "",
-            "# Live connection",
-            "[mcp_servers.\"beutl-live\"]  # Keep header",
-            "url  = \"http://127.0.0.1:59737/mcp\"   # Keep comment",
+            "# Beutl server",
+            "[mcp_servers.\"beutl-agent\"]  # Keep header",
+            "command  = \"old-command\"   # Keep comment",
+            "args = []",
             "", "",
-            "[mcp_servers.'beutl-live'.http_headers]",
-            "Authorization = \"Bearer old-token\"",
+            "[mcp_servers.'beutl-agent'.env]",
+            "BEUTL_HOME = \"/old/home\"",
             "", "",
             "[projects.\"/work/a.b\"]",
             "trust_level  = 'trusted'",
@@ -329,7 +378,9 @@ public sealed class CodexMcpConfigWriterTests
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
-        string expected = original.Replace("Bearer old-token", "Bearer test-token");
+        string expected = original
+            .Replace("\"old-command\"", "\"beutl-mcp\"")
+            .Replace("\"/old/home\"", "\"/home/user/.beutl\"");
         Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(expected));
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
@@ -351,24 +402,25 @@ public sealed class CodexMcpConfigWriterTests
         Assert.That(updated, Does.EndWith("\n\n# Footer\n"));
     }
 
-    [TestCase("mcp_servers = { other = { command = 'other' },  beutl-live = { url = 'http://127.0.0.1:59737/mcp', http_headers = { Authorization = \"Bearer old-token\" } } }\n\n")]
+    [TestCase("mcp_servers = { other = { command = 'other' },  beutl-agent = { command = \"old-command\", args = [], env = { BEUTL_HOME = \"/old/home\" } } }\n\n")]
     public async Task Inline_server_updates_preserve_original_spacing(string original)
     {
         await File.WriteAllTextAsync(ConfigPath, original);
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
-        Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original.Replace("Bearer old-token", "Bearer test-token")));
+        Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original
+            .Replace("\"old-command\"", "\"beutl-mcp\"")
+            .Replace("\"/old/home\"", "\"/home/user/.beutl\"")));
     }
 
     [TestCase("model = 'custom' # No final newline")]
-    [TestCase("# Header\n\n[mcp_servers.beutl-live]")]
+    [TestCase("# Header\n\n[mcp_servers.beutl-agent]")]
     [TestCase("# Header\n\nmcp_servers = { }")]
-    [TestCase("[mcp_servers.beutl-live.http_headers]\n# Keep this comment")]
-    [TestCase("mcp_servers.beutl-live = { command = 'old', args = [], env = { OLD = 'value' } }")]
-    [TestCase("mcp_servers.beutl-live = { url = 'http://127.0.0.1:59737/mcp', command = 'old' }")]
-    [TestCase("mcp_servers.beutl-live = { command = 'old', url = 'http://127.0.0.1:59737/mcp' }")]
-    [TestCase("mcp_servers.beutl-live = { url = 'http://127.0.0.1:59737/mcp', http_headers = { Authorization = 'Bearer test-token' }, command = 'old' }")]
+    [TestCase("[mcp_servers.beutl-agent.env]\n# Keep this comment")]
+    [TestCase("mcp_servers.beutl-agent = { url = 'http://127.0.0.1:59737/mcp', http_headers = { Authorization = 'Bearer old-token' } }")]
+    [TestCase("mcp_servers.beutl-agent = { command = 'old', url = 'http://127.0.0.1:59737/mcp' }")]
+    [TestCase("mcp_servers.beutl-agent = { command = 'old', args = ['--x'], env = { OLD = 'value' } }")]
     public async Task Additions_and_transport_changes_are_valid_and_idempotent(string original)
     {
         await File.WriteAllTextAsync(ConfigPath, original);
@@ -377,14 +429,16 @@ public sealed class CodexMcpConfigWriterTests
 
         string updated = await File.ReadAllTextAsync(ConfigPath);
         var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(updated)!["mcp_servers"];
-        var live = (TomlTable)servers["beutl-live"];
+        TomlTable server = Server(servers);
         Assert.Multiple(() =>
         {
-            Assert.That(live["url"], Is.EqualTo(Options.LiveMcpUri!.ToString()));
-            Assert.That(((TomlTable)live["http_headers"])["Authorization"], Is.EqualTo("Bearer test-token"));
-            Assert.That(live.ContainsKey("command"), Is.False);
-            Assert.That(live.ContainsKey("args"), Is.False);
-            Assert.That(live.ContainsKey("env"), Is.False);
+            Assert.That(server["command"], Is.EqualTo(ServerCommand));
+            Assert.That((TomlArray)server["args"], Is.Empty);
+            Assert.That(Home(server), Is.EqualTo(ProfileHome));
+            Assert.That(((TomlTable)server["env"]).ContainsKey("OLD"), Is.False);
+            Assert.That(server.ContainsKey("url"), Is.False);
+            Assert.That(server.ContainsKey("http_headers"), Is.False);
+            Assert.That(updated, Does.Not.Contain("old-token"));
             Assert.That(System.Text.RegularExpressions.Regex.IsMatch(updated, @",\s*}"), Is.False,
                 "Do not leave a trailing comma when removing inline settings; older TOML readers reject it.");
         });
@@ -401,26 +455,27 @@ public sealed class CodexMcpConfigWriterTests
             # Documentation example
 
             developer_instructions = """
-            [mcp_servers.beutl-live]
+            [mcp_servers.beutl-agent]
 
-            url = "keep this example"
+            command = "keep this example"
             """
 
-            [mcp_servers.beutl-live]
-            url = 'http://127.0.0.1:59737/mcp'
+            [mcp_servers.beutl-agent]
+            command = "beutl-mcp"
+            args = []
 
-            [mcp_servers.beutl-live.http_headers]
-            Authorization = "Bearer old-token"
+            [mcp_servers.beutl-agent.env]
+            BEUTL_HOME = "/old/home"
             """";
         await File.WriteAllTextAsync(ConfigPath, original);
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
-        Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original.Replace("Bearer old-token", "Bearer test-token")));
+        Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(original.Replace("\"/old/home\"", "\"/home/user/.beutl\"")));
     }
 
     [Test]
-    public async Task Live_install_preserves_user_settings_and_replaces_only_the_selected_server()
+    public async Task Install_preserves_user_settings_and_foreign_servers_and_replaces_only_its_own_entry()
     {
         await File.WriteAllTextAsync(ConfigPath, """
             # User settings
@@ -430,42 +485,40 @@ public sealed class CodexMcpConfigWriterTests
             args = ["--flag", "two words"]
             [mcp_servers.other.env]
             EXISTING = "value"
-            [mcp_servers.beutl-agent]
-            command = "keep-stdio"
-            [mcp_servers."beutl-live"]
-            command = "obsolete-transport"
-            [mcp_servers."beutl-live".env]
+            [mcp_servers.beutl-live]
+            url = "http://127.0.0.1:59737/mcp"
+            [mcp_servers.beutl-live.http_headers]
+            Authorization = "Bearer legacy-token"
+            [mcp_servers."beutl-agent"]
+            command = "obsolete"
+            [mcp_servers."beutl-agent".env]
             OLD = "obsolete"
             [projects."/work/a.b"]
             trust_level = "trusted"
             """);
 
         AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(Options, []);
-        // A reinstall updates the URL and token rather than duplicating the TOML table.
-        await AgentToolkitInstaller.InstallAsync(Options with
-        {
-            LiveMcpUri = new Uri("http://127.0.0.1:59738/mcp"),
-            LiveMcpHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer new-token" },
-        }, []);
+        // A reinstall updates the profile rather than duplicating the TOML table.
+        await AgentToolkitInstaller.InstallAsync(WithHome(Options, OtherHome), []);
 
         string text = await File.ReadAllTextAsync(ConfigPath);
         TomlTable root = TomlSerializer.Deserialize<TomlTable>(text)!;
         var servers = (TomlTable)root["mcp_servers"];
-        var live = (TomlTable)servers["beutl-live"];
+        TomlTable server = Server(servers);
         var other = (TomlTable)servers["other"];
         Assert.Multiple(() =>
         {
             Assert.That(result.McpConfigPath, Is.EqualTo(ConfigPath));
             Assert.That(result.InstalledFiles, Is.EqualTo(new[] { ConfigPath }));
-            Assert.That(result.InstalledLiveMcp, Is.True);
-            Assert.That(result.InstalledStdioMcp, Is.False);
-            Assert.That(live["url"], Is.EqualTo("http://127.0.0.1:59738/mcp"));
-            Assert.That(((TomlTable)live["http_headers"])["Authorization"], Is.EqualTo("Bearer new-token"));
-            Assert.That(live.ContainsKey("command"), Is.False);
-            Assert.That(live.ContainsKey("env"), Is.False);
-            Assert.That(live.ContainsKey("headers"), Is.False);
-            Assert.That(servers, Has.Count.EqualTo(3));
-            Assert.That(((TomlTable)servers["beutl-agent"])["command"], Is.EqualTo("keep-stdio"));
+            Assert.That(result.InstalledMcp, Is.True);
+            Assert.That(server["command"], Is.EqualTo(ServerCommand));
+            Assert.That(Home(server), Is.EqualTo(OtherHome));
+            Assert.That(((TomlTable)server["env"]).ContainsKey("OLD"), Is.False);
+            Assert.That(servers, Has.Count.EqualTo(2));
+            // Entries the installer did not write under its own name are left exactly as they were; the
+            // "beutl-live" URL entry earlier versions wrote next to it goes away together with its token.
+            Assert.That(servers.ContainsKey("beutl-live"), Is.False);
+            Assert.That(text, Does.Not.Contain("legacy-token"));
             Assert.That(other["command"], Is.EqualTo(@"C:\tools\other.exe"));
             Assert.That((TomlArray)other["args"], Is.EqualTo(new[] { "--flag", "two words" }));
             Assert.That(((TomlTable)other["env"])["EXISTING"], Is.EqualTo("value"));
@@ -475,55 +528,29 @@ public sealed class CodexMcpConfigWriterTests
         });
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Fresh_install_writes_only_selected_transports_with_escaped_arguments(bool installStdio)
+    [Test]
+    public async Task Fresh_install_escapes_arguments_and_adds_the_workspace()
     {
         string[] arguments = ["--path", "a path with spaces", "quoted \"text\"", @"C:\video\日本語", "line\nbreak"];
         await AgentToolkitInstaller.InstallAsync(Options with
         {
-            InstallStdioMcp = installStdio,
-            StdioMcpCommand = @"C:\Program Files\Beutl\mcp.exe",
-            StdioMcpArguments = arguments,
+            McpCommand = @"C:\Program Files\Beutl\mcp.exe",
+            McpArguments = arguments,
             WorkspaceRoot = _root,
-            StdioMcpEnvironment = new Dictionary<string, string> { ["EXTRA"] = "value" },
+            McpEnvironment = new Dictionary<string, string> { ["EXTRA"] = "value", ["BEUTL_HOME"] = ProfileHome },
         }, []);
 
         var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!["mcp_servers"];
-        Assert.That(servers.ContainsKey("beutl-agent"), Is.EqualTo(installStdio));
-        Assert.That(servers.ContainsKey("beutl-live"), Is.True);
+        TomlTable server = Server(servers);
         Assert.That(File.Exists(Path.Combine(_root, ".mcp.json")), Is.False);
-        if (installStdio)
-        {
-            var stdio = (TomlTable)servers["beutl-agent"];
-            Assert.Multiple(() =>
-            {
-                Assert.That(stdio["command"], Is.EqualTo(@"C:\Program Files\Beutl\mcp.exe"));
-                Assert.That((TomlArray)stdio["args"], Is.EqualTo(arguments));
-                Assert.That(((TomlTable)stdio["env"])["BEUTL_WORKSPACE"], Is.EqualTo(Path.GetFullPath(_root)));
-                Assert.That(((TomlTable)stdio["env"])["EXTRA"], Is.EqualTo("value"));
-            });
-        }
-    }
-
-    [Test]
-    public async Task Stdio_only_install_preserves_existing_live_registration()
-    {
-        await AgentToolkitInstaller.InstallAsync(Options, []);
-        await AgentToolkitInstaller.InstallAsync(Options with
-        {
-            InstallStdioMcp = true,
-            InstallLiveMcp = false,
-            StdioMcpCommand = "beutl-mcp",
-            WorkspaceRoot = _root,
-            StdioMcpEnvironment = new Dictionary<string, string> { ["BEUTL_WORKSPACE"] = "override" },
-        }, []);
-
-        var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!["mcp_servers"];
         Assert.Multiple(() =>
         {
-            Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(Options.LiveMcpUri!.ToString()));
-            Assert.That(((TomlTable)((TomlTable)servers["beutl-agent"])["env"])["BEUTL_WORKSPACE"], Is.EqualTo("override"));
+            Assert.That(servers.Keys, Is.EqualTo(new[] { "beutl-agent" }));
+            Assert.That(server["command"], Is.EqualTo(@"C:\Program Files\Beutl\mcp.exe"));
+            Assert.That((TomlArray)server["args"], Is.EqualTo(arguments));
+            Assert.That(((TomlTable)server["env"])["BEUTL_WORKSPACE"], Is.EqualTo(Path.GetFullPath(_root)));
+            Assert.That(((TomlTable)server["env"])["EXTRA"], Is.EqualTo("value"));
+            Assert.That(Home(server), Is.EqualTo(ProfileHome));
         });
     }
 
@@ -540,7 +567,7 @@ public sealed class CodexMcpConfigWriterTests
         Assert.Multiple(() =>
         {
             Assert.That(((TomlTable)servers["other"])["url"], Is.EqualTo("https://example.com/mcp"));
-            Assert.That(((TomlTable)servers["beutl-live"])["url"], Is.EqualTo(Options.LiveMcpUri!.ToString()));
+            Assert.That(Server(servers)["command"], Is.EqualTo(ServerCommand));
         });
     }
 

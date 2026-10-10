@@ -1,8 +1,8 @@
 # MCP tool extension guide
 
-`McpToolExtension` adds tools to the live MCP endpoint that Beutl hosts for AI agents (the endpoint configured on the AI Agents settings page). The public contract lives in `src/Beutl.Editor/Services/Mcp/`; the host side is `src/Beutl/AgentHost/ExtensionMcpToolCatalog.cs` and `ExtensionMcpTool.cs`.
+`McpToolExtension` adds tools to the live MCP endpoint that each running Beutl hosts for AI agents. Agents reach it through the `beutl-agent` MCP server installed from the AI Agents settings page, which forwards every call that names an `instanceId` to that instance. The public contract lives in `src/Beutl.Editor/Services/Mcp/`; the host side is `src/Beutl/AgentHost/ExtensionMcpToolCatalog.cs` and `ExtensionMcpTool.cs`.
 
-Extension tools are served only by the in-app endpoint. The standalone stdio server (`Beutl.AgentToolkit.Mcp`) does not load extensions.
+Extension tools run only inside the in-app endpoint. The installed server (`Beutl.AgentToolkit.Mcp`) does not load extensions itself: it lists them while an editor runs, requires `instanceId` on them, and rejects a call without one instead of running it headlessly.
 
 ## Defining tools
 
@@ -55,7 +55,7 @@ public sealed class SceneInfoToolExtension : McpToolExtension
 - The input schema must be a JSON Schema object with `"type": "object"`. Omit it for a tool without arguments.
 - Arguments that are neither in `properties` nor matched by a `patternProperties` pattern are rejected with `validation_rejected` before your code runs, as for built-in tools. Patterns use ECMAScript regular expressions, as in JSON Schema. Set `additionalProperties` to anything but `false` to accept any argument name. Schemas that combine subschemas at the top level (`allOf`, `anyOf`, `oneOf`, `if`/`then`/`else`, `dependentSchemas`) or use `$ref` there are not checked, because the host does not resolve them.
 - `instanceId` is reserved: Beutl adds it to every tool to route calls between running Beutl instances, and removes it before your code sees the arguments. A tool that declares an `instanceId` property is skipped.
-- `tools/list` shows the extension tools loaded in the instance the agent is connected to. Instances that share a profile load the same packages at startup, but a package installed or removed while several instances run is listed only by the instances where it is loaded, and a call routed with `instanceId` to an instance without the tool fails.
+- `tools/list` shows the extension tools loaded in the instance the agent is connected to; through the installed server it merges the tools of every running instance (the oldest instance's definition wins a name collision) and announces changes with `notifications/tools/list_changed` as editors start and exit and as packages add or remove tools in them. Instances that share a profile load the same packages at startup, but a package installed or removed while several instances run is listed only by the instances where it is loaded, and a call routed with `instanceId` to an instance without the tool fails.
 - `ReadOnlyHint`, `DestructiveHint`, `IdempotentHint`, and `OpenWorldHint` become MCP tool annotations, which clients use when deciding whether to ask the user before a call.
 
 ## Running a call

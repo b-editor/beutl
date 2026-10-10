@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Language;
@@ -34,39 +33,6 @@ public sealed partial class AiAgentSettingsPage : UserControl
                 vm.WorkspaceRoot.Value = path;
             }
         });
-    }
-
-    private void RefreshLiveMcp_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is AiAgentSettingsPageViewModel vm)
-        {
-            vm.RefreshLiveMcp.Execute();
-        }
-    }
-
-    private async void CopyLiveMcpUrl_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is AiAgentSettingsPageViewModel vm)
-        {
-            await CopyToClipboardAsync(vm.LiveMcpUrl.Value);
-        }
-    }
-
-    private async void CopyLiveMcpAuthHeader_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is AiAgentSettingsPageViewModel vm)
-        {
-            await CopyToClipboardAsync(vm.LiveMcpAuthHeader.Value);
-        }
-    }
-
-    private async Task CopyToClipboardAsync(string? text)
-    {
-        if (text is { Length: > 0 }
-            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-        {
-            await clipboard.SetTextAsync(text);
-        }
     }
 
     private async Task PickFolderAsync(string title, Action<string> setPath)

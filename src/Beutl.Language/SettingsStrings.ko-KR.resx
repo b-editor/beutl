@@ -462,34 +462,6 @@
     <value>타임라인, 룩, 품질 검토 작업을 위한 전용 에이전트 정의</value>
     <comment />
   </data>
-  <data name="AiAgents_StdioMcp" xml:space="preserve">
-    <value>Stdio MCP 서버</value>
-    <comment />
-  </data>
-  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
-    <value>GUI를 시작하지 않고 프로젝트 파일을 편집하는 선택적 헤드리스 서버</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp" xml:space="preserve">
-    <value>라이브 MCP 서버</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
-    <value>권장: 에이전트를 실행 중인 편집기에 연결합니다. 편집 내용이 미리 보기와 실행 취소 기록에 실시간으로 표시됩니다</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
-    <value>라이브 MCP 엔드포인트가 실행 중이 아닙니다</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
-    <value>라이브 MCP URL</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
-    <value>MCP 클라이언트용 연결 URL입니다. 아래 인증 헤더를 모든 요청과 함께 보내세요. 비밀번호처럼 취급하세요</value>
-    <comment />
-  </data>
   <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
     <value>Live MCP 편집 따라가기(실험적)</value>
     <comment />
@@ -503,7 +475,7 @@
     <comment />
   </data>
   <data name="AiAgents_Advanced_Description" xml:space="preserve">
-    <value>폴더 이름과 MCP 구성 파일, stdio 서버 명령줄에 대한 재정의입니다. 빈 필드는 선택한 에이전트의 기본값을 사용합니다</value>
+    <value>폴더 이름과 MCP 구성 파일, MCP 서버 명령줄에 대한 재정의입니다. 빈 필드는 선택한 에이전트의 기본값을 사용합니다</value>
     <comment />
   </data>
   <data name="AiAgents_SkillsDirectory" xml:space="preserve">
@@ -611,20 +583,32 @@
 {0}</value>
     <comment />
   </data>
-  <data name="AiAgents_StdioMissing" xml:space="preserve">
-    <value>앱 옆에서 stdio MCP 서버 바이너리를 찾을 수 없습니다. 고급에서 명령을 입력하거나 Beutl을 다시 설치하세요.</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
-    <value>인증 헤더</value>
-    <comment />
-  </data>
   <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
     <value>AI 에이전트 자산이 업데이트되었습니다</value>
     <comment />
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
     <value>이 버전의 Beutl에는 설치한 것보다 최신 스킬과 하위 에이전트가 포함되어 있습니다. 저장된 설정으로 지금 다시 설치하시겠습니까? 대상에서 직접 편집한 파일은 덮어쓰여집니다.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Mcp" xml:space="preserve">
+    <value>MCP 서버</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Mcp_Description" xml:space="preserve">
+    <value>권장: 에이전트가 인스턴스를 지정하면 실행 중인 Beutl 편집기를 실시간으로 편집하고, 지정하지 않으면 프로젝트 파일을 헤드리스로 편집합니다</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpMissing" xml:space="preserve">
+    <value>앱 옆에서 MCP 서버 바이너리를 찾을 수 없습니다. 고급에서 명령을 입력하거나 Beutl을 다시 설치하세요.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpChanged_Title" xml:space="preserve">
+    <value>Beutl MCP 서버가 변경되었습니다</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpChanged_Content" xml:space="preserve">
+    <value>이제 Beutl은 단일 "beutl-agent" MCP 서버를 설치합니다. 에이전트가 instanceId를 전달하면 실행 중인 Beutl을 편집하고, 그렇지 않으면 프로젝트 파일을 헤드리스로 편집합니다. 저장된 설정으로 지금 다시 설치할까요? 별도의 "beutl-live" 항목과 해당 토큰은 에이전트 구성에서 제거되며, 대상에서 직접 편집한 파일은 덮어쓰입니다.</value>
     <comment />
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

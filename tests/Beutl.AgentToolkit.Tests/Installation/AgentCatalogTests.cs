@@ -103,18 +103,17 @@ public sealed class AgentCatalogTests
 
             AgentMcpLocation openHands = AgentCatalog.Find("openhands")!.GlobalMcp!;
             Assert.That(openHands.ConfigFileName, Is.EqualTo(Path.Combine(".openhands", "mcp.json")));
-            Assert.That(openHands.RemoteUrlPropertyName, Is.Null);
 
             AgentMcpLocation crush = AgentCatalog.Find("crush")!.ProjectMcp!;
             Assert.That(crush.ServersPropertyName, Is.EqualTo("mcp"));
             Assert.That(crush.StdioTypeValue, Is.EqualTo("stdio"));
 
             AgentMcpLocation gemini = AgentCatalog.Find("gemini-cli")!.ProjectMcp!;
-            Assert.That(gemini.RemoteUrlPropertyName, Is.EqualTo("httpUrl"));
-            Assert.That(gemini.RemoteTypeValue, Is.Null);
+            Assert.That(gemini.ConfigFileName, Is.EqualTo(Path.Combine(".gemini", "settings.json")));
+            Assert.That(gemini.StdioTypeValue, Is.Null);
 
             AgentMcpLocation windsurf = AgentCatalog.Find("windsurf")!.GlobalMcp!;
-            Assert.That(windsurf.RemoteUrlPropertyName, Is.EqualTo("serverUrl"));
+            Assert.That(windsurf.ConfigFileName, Is.EqualTo(Path.Combine(".codeium", "windsurf", "mcp_config.json")));
 
             AgentMcpLocation amp = AgentCatalog.Find("amp")!.ProjectMcp!;
             Assert.That(amp.ConfigFileName, Is.EqualTo(Path.Combine(".amp", "settings.json")));

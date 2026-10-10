@@ -1,14 +1,13 @@
-﻿using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Rendering;
-using Beutl.AgentToolkit.Sessions;
-using Beutl.AgentToolkit.Tools;
-using Beutl.AgentToolkit.Workspace;
-using Beutl.Extensibility;
+﻿using Beutl;
+using Beutl.AgentToolkit;
+using Beutl.AgentToolkit.Live;
 using Beutl.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+// One MCP server for both ways of working: a call that carries an instanceId is forwarded to that
+// running Beutl editor; a call without one edits project files headlessly under BEUTL_WORKSPACE.
 var builder = Host.CreateApplicationBuilder(args);
 string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
                        ?? Directory.GetCurrentDirectory();
@@ -16,30 +15,12 @@ string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
 builder.Logging.ClearProviders();
 ConfigureConsoleLogging(builder.Logging);
 
-builder.Services
-    .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
-    .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
-    .AddSingleton<DestructiveGuard>()
-    .AddSingleton<StillRenderer>()
-    .AddSingleton<StoryboardRenderer>()
-    .AddSingleton<FrameDifferenceAnalyzer>()
-    .AddSingleton<AudioRhythmAnalyzer>()
-    .AddSingleton<EncoderRegistration>()
-    .AddSingleton<VideoExporter>()
-    .AddSingleton<RenderJobManager>()
-    .AddSingleton<FileSessionSource>()
-    .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
-    .AddSingleton<AgentSessionManager>();
-
+builder.Services.AddAgentToolkitServer(workspaceRoot, BeutlEnvironment.GetHomeDirectoryPath());
+builder.Services.AddHostedService<LiveInstanceWatcher>();
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
-    .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
-    .WithTools<SessionTools>()
-    .WithTools<QueryTools>()
-    .WithTools<EditTools>()
-    .WithTools<HistoryTools>()
-    .WithTools<RenderTools>();
+    .WithAgentToolkitTools();
 
 var host = builder.Build();
 Log.LoggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
@@ -51,4 +32,11 @@ static void ConfigureConsoleLogging(ILoggingBuilder logging)
     {
         options.LogToStandardErrorThreshold = LogLevel.Trace;
     });
+}
+
+// Emits tools/list_changed while Beutl editors start and exit, so an agent that connected before
+// an editor was open picks up the live-only tools without reconnecting.
+sealed class LiveInstanceWatcher(LiveMcpBroker broker) : BackgroundService
+{
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => broker.WatchAsync(stoppingToken);
 }

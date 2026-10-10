@@ -458,32 +458,12 @@
     <value>タイムライン・ルック・品質レビュー用の専用エージェント定義</value>
     <comment/>
   </data>
-  <data name="AiAgents_StdioMcp" xml:space="preserve">
-    <value>Stdio MCP サーバー</value>
+  <data name="AiAgents_Mcp" xml:space="preserve">
+    <value>MCP サーバー</value>
     <comment/>
   </data>
-  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
-    <value>（オプション）GUI を起動せずにプロジェクトファイルを編集するヘッドレスサーバー</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_LiveMcp" xml:space="preserve">
-    <value>Live MCP サーバー</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
-    <value>（推奨）実行中のエディタに接続し、編集をプレビューやアンドゥ履歴へ即時反映します</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
-    <value>Live MCP エンドポイントは起動していません</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
-    <value>Live MCP URL</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
-    <value>MCP クライアント用の接続 URL。下の認証ヘッダーを全リクエストに付与してください（ヘッダーはパスワードと同様に扱ってください）</value>
+  <data name="AiAgents_Mcp_Description" xml:space="preserve">
+    <value>（推奨）エージェントがインスタンスを指定すれば起動中の Beutl エディタを即時編集し、指定しなければプロジェクトファイルをヘッドレスで編集します</value>
     <comment/>
   </data>
   <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
@@ -499,7 +479,7 @@
     <comment/>
   </data>
   <data name="AiAgents_Advanced_Description" xml:space="preserve">
-    <value>フォルダー名や MCP 設定ファイルの上書きと、stdio サーバーのコマンドライン。空欄の項目は選択中エージェントの既定値が使われます</value>
+    <value>フォルダー名や MCP 設定ファイルの上書きと、MCP サーバーのコマンドライン。空欄の項目は選択中エージェントの既定値が使われます</value>
     <comment/>
   </data>
   <data name="AiAgents_SkillsDirectory" xml:space="preserve">
@@ -607,12 +587,8 @@
 {0}</value>
     <comment/>
   </data>
-  <data name="AiAgents_StdioMissing" xml:space="preserve">
-    <value>stdio MCP サーバーの実行ファイルがアプリと同じ場所に見つかりませんでした。詳細設定でコマンドを指定するか、Beutl を再インストールしてください。</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
-    <value>認証ヘッダー</value>
+  <data name="AiAgents_McpMissing" xml:space="preserve">
+    <value>MCP サーバーの実行ファイルがアプリと同じ場所に見つかりませんでした。詳細設定でコマンドを指定するか、Beutl を再インストールしてください。</value>
     <comment/>
   </data>
   <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
@@ -621,6 +597,14 @@
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
     <value>このバージョンの Beutl には、インストール済みのものより新しいスキル／サブエージェントが同梱されています。保存済みの設定で今すぐ再インストールしますか？（配布先で手動編集したファイルは上書きされます）</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpChanged_Title" xml:space="preserve">
+    <value>MCP サーバーの構成が変わりました</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpChanged_Content" xml:space="preserve">
+    <value>Beutl がインストールする MCP サーバーは "beutl-agent" の 1 つになりました。エージェントが instanceId を指定すれば起動中の Beutl を、指定しなければプロジェクトファイルをヘッドレスで編集します。保存済みの設定で今すぐ再インストールしますか？エージェント設定から旧 "beutl-live" エントリとそのトークンが削除され、配布先で手動編集したファイルは上書きされます。</value>
     <comment/>
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

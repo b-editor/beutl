@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Threading;
+using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
@@ -47,7 +48,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private Uri? _endpointUri;
     private Task? _startupTask;
     private Task? _stopTask;
-    private IDisposable? _instanceRegistration;
+    private AgentHostInstanceLease? _instanceRegistration;
+    private long _toolsVersion;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
         : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
@@ -140,11 +142,14 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _beforeStart = beforeStart;
         _tokenFactory = tokenFactory;
         Token = token;
+        // The same directory the live MCP broker reads, so an agent launched outside this process
+        // discovers every editor of the profile.
         _instanceRegistry = new AgentHostInstanceRegistry(registryDirectory
-            ?? Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "agent-hosts"));
+            ?? AgentHostInstanceRegistry.GetDefaultDirectory(BeutlEnvironment.GetHomeDirectoryPath()));
         if (tokenFactory is null)
             _instanceRouter = CreateInstanceRouter(token);
         _extensionTools = new ExtensionMcpToolCatalog(editorService);
+        _extensionTools.ToolsChanged += OnExtensionToolsChanged;
         _editFollower = new AgentEditFollower(editorService, config);
     }
 
@@ -264,12 +269,11 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             {
                 await app.StartAsync(cancellationToken).ConfigureAwait(false);
 
-                string address = app.Services
+                IServerAddressesFeature addresses = app.Services
                     .GetRequiredService<IServer>()
                     .Features
-                    .Get<IServerAddressesFeature>()!
-                    .Addresses
-                    .Single();
+                    .Get<IServerAddressesFeature>()!;
+                string address = addresses.Addresses.Single();
 
                 var endpointUri = new Uri(new Uri(address), "/mcp");
 
@@ -279,7 +283,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     stopRequested = _stopRequested;
                     if (!stopRequested)
                     {
-                        try { _instanceRegistration = _instanceRegistry.Register(InstanceId, endpointUri); }
+                        try { _instanceRegistration = _instanceRegistry.Register(InstanceId, endpointUri, _toolsVersion); }
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                         {
                             s_logger.LogWarning(ex,
@@ -296,9 +300,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 // StopAsync ran while app.StartAsync was in flight (so it couldn't see/take
                 // _application): stop the just-started host here instead of leaving it running.
                 if (stopRequested)
-                {
                     await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
-                }
 
                 return;
             }
@@ -342,6 +344,21 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
     }
 
+    // The installed server only watches the registry, so a package that adds or removes tools in
+    // this editor is announced to its clients by republishing the registration.
+    private void OnExtensionToolsChanged(object? sender, EventArgs e)
+    {
+        lock (_lifecycleLock)
+        {
+            _toolsVersion++;
+            try { _instanceRegistration?.UpdateTools(_toolsVersion); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                s_logger.LogWarning(ex, "Could not announce the changed MCP tools for discovery.");
+            }
+        }
+    }
+
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         Task stop;
@@ -356,6 +373,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             stop = _stopTask ??= StopCoreAsync(application);
         }
 
+        _extensionTools.ToolsChanged -= OnExtensionToolsChanged;
         _extensionTools.Dispose();
         try
         {
@@ -405,9 +423,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
 
         if (app is not null)
-        {
             await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
-        }
     }
 
     private WebApplication CreateApplication(int port)
@@ -418,10 +434,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             ApplicationName = typeof(AgentHostEndpoint).Assembly.FullName
         });
 
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            options.Listen(IPAddress.Loopback, port);
-        });
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
 
         string workspaceRoot = ResolveWorkspaceRoot(_config);
 

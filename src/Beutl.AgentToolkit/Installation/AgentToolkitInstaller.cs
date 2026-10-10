@@ -55,7 +55,7 @@ public static class AgentToolkitInstaller
         }
 
         string? mcpConfigPath = null;
-        if (options.InstallStdioMcp || options.InstallLiveMcp)
+        if (options.InstallMcp)
         {
             mcpConfigPath = GetSafeTargetPath(options.McpConfigRoot ?? agentRoot, options.McpConfigFileName);
             if (options.McpConfigFormat == McpConfigFormat.CodexToml)
@@ -73,8 +73,7 @@ public static class AgentToolkitInstaller
         return new AgentToolkitInstallResult(
             installedFiles,
             mcpConfigPath,
-            options.InstallStdioMcp,
-            options.InstallLiveMcp,
+            options.InstallMcp,
             assetFileRecords);
     }
 
@@ -85,15 +84,10 @@ public static class AgentToolkitInstaller
     {
         JsonObject root = await ReadConfigRootAsync(path, cancellationToken).ConfigureAwait(false);
         JsonObject servers = GetOrCreateObject(root, options.McpServersPropertyName);
-
-        if (options.InstallStdioMcp)
+        servers[options.McpServerName] = CreateServer(options);
+        foreach (string obsolete in ObsoleteServerNames(options))
         {
-            servers[options.StdioMcpServerName] = CreateStdioServer(options);
-        }
-
-        if (options.InstallLiveMcp)
-        {
-            servers[options.LiveMcpServerName] = CreateLiveServer(options);
+            servers.Remove(obsolete);
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -101,26 +95,28 @@ public static class AgentToolkitInstaller
         await File.WriteAllTextAsync(path, json + Environment.NewLine, cancellationToken).ConfigureAwait(false);
     }
 
-    private static JsonObject CreateStdioServer(AgentToolkitInstallOptions options)
+    // A stdio launcher: the server finds and authenticates the running editors itself, so neither a
+    // URL nor the bearer token is written into the agent config.
+    private static JsonObject CreateServer(AgentToolkitInstallOptions options)
     {
-        if (string.IsNullOrWhiteSpace(options.StdioMcpCommand))
+        if (string.IsNullOrWhiteSpace(options.McpCommand))
         {
-            throw new InvalidOperationException("Stdio MCP installation requires a command.");
+            throw new InvalidOperationException("MCP installation requires a command.");
         }
 
         var args = new JsonArray();
-        foreach (string arg in options.StdioMcpArguments)
+        foreach (string arg in options.McpArguments)
         {
             args.Add(arg);
         }
 
         var server = new JsonObject();
-        if (options.StdioMcpTypeValue is not null)
+        if (options.McpTypeValue is not null)
         {
-            server["type"] = options.StdioMcpTypeValue;
+            server["type"] = options.McpTypeValue;
         }
 
-        server["command"] = options.StdioMcpCommand;
+        server["command"] = options.McpCommand;
         server["args"] = args;
 
         var env = new JsonObject();
@@ -129,7 +125,7 @@ public static class AgentToolkitInstaller
             env["BEUTL_WORKSPACE"] = Path.GetFullPath(options.WorkspaceRoot);
         }
 
-        foreach (KeyValuePair<string, string> pair in options.StdioMcpEnvironment)
+        foreach (KeyValuePair<string, string> pair in options.McpEnvironment)
         {
             env[pair.Key] = pair.Value;
         }
@@ -142,32 +138,11 @@ public static class AgentToolkitInstaller
         return server;
     }
 
-    private static JsonObject CreateLiveServer(AgentToolkitInstallOptions options)
+    // Entries of earlier layouts are dropped unless the user pointed the installer at that very name.
+    internal static IEnumerable<string> ObsoleteServerNames(AgentToolkitInstallOptions options)
     {
-        if (options.LiveMcpUri is null)
-        {
-            throw new InvalidOperationException("Live MCP installation requires a live MCP URI.");
-        }
-
-        var liveServer = new JsonObject();
-        if (options.LiveMcpTypeValue is not null)
-        {
-            liveServer["type"] = options.LiveMcpTypeValue;
-        }
-
-        liveServer[options.LiveMcpUrlPropertyName] = options.LiveMcpUri.ToString();
-        if (options.LiveMcpHeaders.Count > 0)
-        {
-            var headers = new JsonObject();
-            foreach (KeyValuePair<string, string> pair in options.LiveMcpHeaders)
-            {
-                headers[pair.Key] = pair.Value;
-            }
-
-            liveServer["headers"] = headers;
-        }
-
-        return liveServer;
+        return options.ObsoleteMcpServerNames
+            .Where(name => !string.Equals(name, options.McpServerName, StringComparison.Ordinal));
     }
 
     private static async Task<JsonObject> ReadConfigRootAsync(string path, CancellationToken cancellationToken)

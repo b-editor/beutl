@@ -8,7 +8,7 @@ namespace Beutl.UnitTests.Configuration;
 public class AiAgentConfigTests
 {
     [Test]
-    public void Defaults_prefer_live_mcp_and_leave_stdio_opt_in()
+    public void Defaults_install_the_mcp_server()
     {
         var config = new AiAgentConfig();
 
@@ -22,8 +22,7 @@ public class AiAgentConfigTests
             Assert.That(config.SubagentsDirectory, Is.Empty);
             Assert.That(config.InstallSkills, Is.True);
             Assert.That(config.InstallSubagents, Is.True);
-            Assert.That(config.InstallStdioMcp, Is.False);
-            Assert.That(config.InstallLiveMcp, Is.True);
+            Assert.That(config.InstallMcp, Is.True);
             Assert.That(config.McpConfigFileName, Is.Empty);
             Assert.That(config.McpServersPropertyName, Is.Empty);
             Assert.That(config.LiveMcpToken, Is.Empty);
@@ -44,8 +43,7 @@ public class AiAgentConfigTests
             SubagentsDirectory = ".claude/agents",
             InstallSkills = false,
             InstallSubagents = false,
-            InstallStdioMcp = false,
-            InstallLiveMcp = true,
+            InstallMcp = false,
             McpConfigFileName = "mcp.json",
             McpServersPropertyName = "mcpServers",
             FollowLiveMcpEdits = true,
@@ -65,8 +63,7 @@ public class AiAgentConfigTests
             Assert.That(restored.SubagentsDirectory, Is.EqualTo(source.SubagentsDirectory));
             Assert.That(restored.InstallSkills, Is.EqualTo(source.InstallSkills));
             Assert.That(restored.InstallSubagents, Is.EqualTo(source.InstallSubagents));
-            Assert.That(restored.InstallStdioMcp, Is.EqualTo(source.InstallStdioMcp));
-            Assert.That(restored.InstallLiveMcp, Is.EqualTo(source.InstallLiveMcp));
+            Assert.That(restored.InstallMcp, Is.EqualTo(source.InstallMcp));
             Assert.That(restored.McpConfigFileName, Is.EqualTo(source.McpConfigFileName));
             Assert.That(restored.McpServersPropertyName, Is.EqualTo(source.McpServersPropertyName));
             Assert.That(restored.FollowLiveMcpEdits, Is.True);
@@ -85,6 +82,27 @@ public class AiAgentConfigTests
         config.AgentId = "claude-code";
 
         Assert.That(raised, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Legacy_profiles_that_turned_both_mcp_options_off_stay_opted_out()
+    {
+        var optedOut = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(optedOut,
+            new JsonObject { ["InstallStdioMcp"] = false, ["InstallLiveMcp"] = false });
+        var liveOnly = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(liveOnly,
+            new JsonObject { ["InstallStdioMcp"] = false, ["InstallLiveMcp"] = true });
+        var explicitOn = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(explicitOn,
+            new JsonObject { ["InstallStdioMcp"] = false, ["InstallLiveMcp"] = false, [nameof(AiAgentConfig.InstallMcp)] = true });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(optedOut.InstallMcp, Is.False);
+            Assert.That(liveOnly.InstallMcp, Is.True);
+            Assert.That(explicitOn.InstallMcp, Is.True);
+        });
     }
 
     [Test]

@@ -28,6 +28,7 @@
   <data name="None" xml:space="preserve"><value>None</value></data>
   <data name="OpenAiJobs" xml:space="preserve"><value>Open AI jobs</value></data>
   <data name="ConnectedServices" xml:space="preserve"><value>Connected services</value></data>
+  <data name="LiveMcp" xml:space="preserve"><value>Live MCP</value></data>
   <data name="Stopped" xml:space="preserve"><value>Stopped</value></data>
   <data name="Account" xml:space="preserve"><value>Beutl account</value></data>
   <data name="NotSignedIn" xml:space="preserve"><value>Not signed in</value></data>

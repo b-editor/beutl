@@ -88,12 +88,40 @@ public sealed class AgentToolkitInstallManifestTests
                 Is.False);
             Assert.That(
                 AgentToolkitInstallManifestStore.IsUpdateAvailable(
-                    new AgentToolkitInstallManifest(hash, []), assets),
+                    new AgentToolkitInstallManifest(hash, [], AgentToolkitInstallManifest.CurrentMcpLayout), assets),
                 Is.False);
             Assert.That(
                 AgentToolkitInstallManifestStore.IsUpdateAvailable(
                     new AgentToolkitInstallManifest("stale", []), assets),
                 Is.True);
+        });
+    }
+
+    [Test]
+    public void Manifests_written_before_the_unified_mcp_server_request_a_reinstall()
+    {
+        AgentToolkitAsset[] assets = [new(AgentToolkitAssetKind.Skill, "a/SKILL.md", "alpha")];
+        string hash = AgentToolkitInstallManifestStore.ComputeAssetsHash(assets);
+        string path = Path.Combine(_tempRoot, "manifest.json");
+        // Written by a version that installed "beutl-agent" next to the "beutl-live" URL entry.
+        File.WriteAllText(path, $$"""{ "AssetsHash": "{{hash}}", "Files": [] }""");
+
+        AgentToolkitInstallManifest? legacy = AgentToolkitInstallManifestStore.Load(path);
+        AgentToolkitInstallManifestStore.Save(path,
+            new AgentToolkitInstallManifest(hash, [], AgentToolkitInstallManifest.CurrentMcpLayout));
+        AgentToolkitInstallManifest? current = AgentToolkitInstallManifestStore.Load(path);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(legacy, Is.Not.Null);
+            Assert.That(legacy!.McpLayout, Is.EqualTo(0));
+            Assert.That(AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(legacy), Is.True);
+            Assert.That(AgentToolkitInstallManifestStore.IsUpdateAvailable(legacy, assets), Is.True,
+                "Matching assets must not hide the MCP layout change.");
+            Assert.That(current!.McpLayout, Is.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
+            Assert.That(AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(current), Is.False);
+            Assert.That(AgentToolkitInstallManifestStore.IsUpdateAvailable(current, assets), Is.False);
+            Assert.That(AgentToolkitInstallManifestStore.IsMcpLayoutOutdated(null), Is.False);
         });
     }
 

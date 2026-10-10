@@ -9,6 +9,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Live;
 using Beutl.Api.Services;
 using Beutl.Editor.Services.Mcp;
 using Beutl.Extensibility;
@@ -109,6 +110,9 @@ public sealed class ExtensionMcpToolTests
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);
             Assert.That((await client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("test.dynamic"));
+            // The installed server learns about tool changes from the registry's tools version.
+            var registry = new AgentHostInstanceRegistry(directory);
+            Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(0));
 
             provider.AddExtensions(-45002, [new ToolExtension(
                 [new McpToolDefinition("test.dynamic", "Appears at runtime.")],
@@ -119,6 +123,7 @@ public sealed class ExtensionMcpToolTests
             {
                 Assert.That(added.Select(tool => tool.Name), Does.Contain("test.dynamic"));
                 Assert.That(Text(result), Is.EqualTo("dynamic"));
+                Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(1));
             });
 
             await provider.RemoveExtensions(-45002).DrainAsync();
@@ -129,6 +134,7 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(removed.Select(tool => tool.Name), Does.Not.Contain("test.dynamic"));
                 Assert.That(stale.IsError, Is.True);
                 Assert.That(ErrorCodeOf(stale), Is.EqualTo(ErrorCode.ExtensionToolUnavailable));
+                Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(2));
             });
         }
         finally
@@ -270,6 +276,18 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(tools.Select(tool => tool.Name), Does.Not.Contain("test.reserved"));
                 Assert.That(Text(shared), Is.EqualTo("first"));
                 Assert.That(Text(undo), Does.Not.Contain("first"));
+            });
+
+            // Unloading the winner hands "test.shared" to the other provider: same name, new
+            // definition, so the registry's tools version must still advance.
+            var registry = new AgentHostInstanceRegistry(directory);
+            long before = registry.Read().Single().ToolsVersion;
+            await provider.RemoveExtensions(-45004).DrainAsync();
+            IList<McpClientTool> replaced = await client.ListToolsAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(replaced.Single(tool => tool.Name == "test.shared").Description, Is.EqualTo("Second provider."));
+                Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(before + 1));
             });
         }
         finally

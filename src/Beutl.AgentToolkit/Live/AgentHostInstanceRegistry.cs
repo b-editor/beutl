@@ -2,36 +2,49 @@
 using System.Globalization;
 using System.Text.Json;
 
-namespace Beutl.AgentHost;
+namespace Beutl.AgentToolkit.Live;
 
-internal sealed record AgentHostInstanceRegistration(
-    string InstanceId, int ProcessId, long ProcessStartTime, Uri EndpointUri);
+// ToolsVersion changes whenever the editor's tool set changes (a package added or removed), so
+// the installed server, which only watches this registry, can announce the new tool list.
+public sealed record AgentHostInstanceRegistration(
+    string InstanceId, int ProcessId, long ProcessStartTime, Uri EndpointUri, long ToolsVersion = 0);
 
-// Discovery is scoped to the Beutl profile. Entries contain no credentials; hosts in the same
-// profile authenticate forwarding with the live MCP token already used by the agent connection.
-internal sealed class AgentHostInstanceRegistry(string directory)
+// Discovery is scoped to the Beutl profile. Entries contain no credentials; hosts and the live MCP
+// broker in the same profile authenticate forwarding with the live MCP token of that profile.
+public sealed class AgentHostInstanceRegistry(string directory)
 {
+    public const string DirectoryName = "agent-hosts";
+
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public IDisposable Register(string instanceId, Uri endpointUri)
+    public static string GetDefaultDirectory(string profileDirectory)
+        => Path.Combine(profileDirectory, DirectoryName);
+
+    public string Location => directory;
+
+    public AgentHostInstanceLease Register(string instanceId, Uri endpointUri, long toolsVersion = 0)
     {
         using Process process = Process.GetCurrentProcess();
         var registration = new AgentHostInstanceRegistration(
-            instanceId, process.Id, GetProcessStartTime(process), endpointUri);
+            instanceId, process.Id, GetProcessStartTime(process), endpointUri, toolsVersion);
+        Write(registration);
+        return new AgentHostInstanceLease(this, registration);
+    }
+
+    internal void Write(AgentHostInstanceRegistration registration)
+    {
         Directory.CreateDirectory(directory);
-        string path = Path.Combine(directory, instanceId + ".json");
+        string path = Path.Combine(directory, registration.InstanceId + ".json");
         string temporary = path + ".tmp";
         try
         {
             File.WriteAllText(temporary, JsonSerializer.Serialize(registration, s_jsonOptions));
-            File.Move(temporary, path);
+            File.Move(temporary, path, overwrite: true);
         }
         finally
         {
             File.Delete(temporary);
         }
-
-        return new RegistrationLease(this, registration);
     }
 
     public IReadOnlyList<AgentHostInstanceRegistration> Read()
@@ -135,12 +148,28 @@ internal sealed class AgentHostInstanceRegistry(string directory)
     private static bool IsLocalEndpoint(Uri? uri)
         => uri is { IsAbsoluteUri: true, Scheme: "http", Host: "127.0.0.1", AbsolutePath: "/mcp" }
            && uri.Port > 0 && uri.UserInfo.Length == 0 && uri.Query.Length == 0 && uri.Fragment.Length == 0;
+}
 
-    private sealed class RegistrationLease(AgentHostInstanceRegistry registry, AgentHostInstanceRegistration registration) : IDisposable
+// Removes the registration on dispose unless another process replaced it meanwhile.
+public sealed class AgentHostInstanceLease : IDisposable
+{
+    private readonly AgentHostInstanceRegistry _registry;
+    private AgentHostInstanceRegistration _registration;
+
+    internal AgentHostInstanceLease(AgentHostInstanceRegistry registry, AgentHostInstanceRegistration registration)
     {
-        public void Dispose()
-        {
-            registry.RemoveIfUnchanged(registration);
-        }
+        _registry = registry;
+        _registration = registration;
     }
+
+    // Republishes the registration with a new tools version. The installed server watches the
+    // registry, so this is how a changed tool set of a running editor reaches its clients.
+    public void UpdateTools(long toolsVersion)
+    {
+        AgentHostInstanceRegistration updated = _registration with { ToolsVersion = toolsVersion };
+        _registry.Write(updated);
+        _registration = updated;
+    }
+
+    public void Dispose() => _registry.RemoveIfUnchanged(_registration);
 }

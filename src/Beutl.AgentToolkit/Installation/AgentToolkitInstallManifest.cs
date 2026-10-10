@@ -8,13 +8,23 @@ public sealed record InstalledFileRecord(string Path, string Sha256);
 
 /// <summary>
 /// Snapshot of the last settings-page install: the combined hash of the
-/// bundled assets that were installed, plus every asset file written and its
-/// content hash. Enables update detection after an app update and safe
-/// cleanup of files a newer bundle no longer ships.
+/// bundled assets that were installed, every asset file written and its
+/// content hash, and the layout of the MCP entries. Enables update detection
+/// after an app update and safe cleanup of files a newer bundle no longer ships.
 /// </summary>
 public sealed record AgentToolkitInstallManifest(
     string AssetsHash,
-    IReadOnlyList<InstalledFileRecord> Files);
+    IReadOnlyList<InstalledFileRecord> Files,
+    int McpLayout = 0)
+{
+    /// <summary>
+    /// The MCP entries the current installer writes. Manifests from earlier versions carry no
+    /// layout (0): those installs wrote a stdio "beutl-agent" entry next to a "beutl-live" URL
+    /// entry holding the live bearer token. Layout 1 is the single "beutl-agent" stdio server that
+    /// also edits running editors, so an older manifest asks the user to reinstall.
+    /// </summary>
+    public const int CurrentMcpLayout = 1;
+}
 
 public static class AgentToolkitInstallManifestStore
 {
@@ -57,7 +67,17 @@ public static class AgentToolkitInstallManifestStore
         IEnumerable<AgentToolkitAsset> bundledAssets)
     {
         return manifest is not null
-               && !string.Equals(manifest.AssetsHash, ComputeAssetsHash(bundledAssets), StringComparison.Ordinal);
+               && (!string.Equals(manifest.AssetsHash, ComputeAssetsHash(bundledAssets), StringComparison.Ordinal)
+                   || IsMcpLayoutOutdated(manifest));
+    }
+
+    /// <summary>
+    /// True when the recorded install wrote MCP entries of an earlier layout, so the agent
+    /// configuration still needs the reinstall that replaces them.
+    /// </summary>
+    public static bool IsMcpLayoutOutdated(AgentToolkitInstallManifest? manifest)
+    {
+        return manifest is not null && manifest.McpLayout < AgentToolkitInstallManifest.CurrentMcpLayout;
     }
 
     public static string ComputeAssetsHash(IEnumerable<AgentToolkitAsset> assets)

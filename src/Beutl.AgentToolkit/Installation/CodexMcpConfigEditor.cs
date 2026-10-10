@@ -17,7 +17,8 @@ internal sealed class CodexMcpConfigEditor
     private readonly List<Setting> _pending;
     private readonly List<Container> _containers = [];
 
-    private CodexMcpConfigEditor(string text, TomlTable original, string serversKey, TomlTable servers)
+    private CodexMcpConfigEditor(
+        string text, TomlTable original, string serversKey, TomlTable servers, IEnumerable<string> removedServers)
     {
         _document = SyntaxParser.ParseStrict(text);
         _newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
@@ -33,12 +34,16 @@ internal sealed class CodexMcpConfigEditor
 
         _original = original;
         _desired = new TomlTable { [serversKey] = servers };
-        _serverPaths = servers.Keys.Select(name => new[] { serversKey, name }).ToArray();
+        // Removed servers are selected like the desired ones but have no desired value, so the same
+        // visits that rewrite the installed entry drop their tables and keys.
+        _serverPaths = servers.Keys.Concat(removedServers).Distinct(StringComparer.Ordinal)
+            .Select(name => new[] { serversKey, name }).ToArray();
         _pending = Flatten(_desired, []).ToList();
     }
 
-    public static string Update(string text, TomlTable original, string serversKey, TomlTable servers)
-        => new CodexMcpConfigEditor(text, original, serversKey, servers).Edit();
+    public static string Update(
+        string text, TomlTable original, string serversKey, TomlTable servers, IEnumerable<string> removedServers)
+        => new CodexMcpConfigEditor(text, original, serversKey, servers, removedServers).Edit();
 
     private string Edit()
     {

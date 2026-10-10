@@ -6,6 +6,7 @@ using Beutl.Editor.Services.Mcp;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
@@ -31,6 +32,10 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
     }
 
     public IReadOnlyList<ExtensionMcpTool> Tools => Volatile.Read(ref _snapshot).Tools;
+
+    // Raised after the set of tool names changed, on the thread that changed the extensions and
+    // outside the catalog's lock.
+    public event EventHandler? ToolsChanged;
 
     // Built-in tools are already in the collection, so they win a name collision.
     public void AddTo(McpServerOptions options)
@@ -69,6 +74,7 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
 
     private void Rebuild()
     {
+        bool changed;
         // Serialized so a rebuild that started before a change cannot publish after the rebuild for it.
         lock (_gate)
         {
@@ -111,8 +117,19 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                     .Concat(previous.Tools.Select(tool => tool.ProtocolTool.Name))
                     .Where(name => !names.Contains(name))
                     .ToFrozenSet(StringComparer.Ordinal)));
+            changed = !Fingerprints(tools).SetEquals(Fingerprints(previous.Tools));
         }
+
+        if (changed)
+            ToolsChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    // Provider plus advertised definition: when another package takes over a name, the schema and
+    // handler behind it change even though the name does not.
+    private static HashSet<string> Fingerprints(IEnumerable<ExtensionMcpTool> tools)
+        => tools
+            .Select(tool => tool.ExtensionType + "\n" + JsonSerializer.Serialize(tool.ProtocolTool, McpJsonUtilities.DefaultOptions))
+            .ToHashSet(StringComparer.Ordinal);
 
     // A client may call a tool it listed before the package was removed. That request no longer
     // contains the tool, so answer it here instead of with the SDK's unknown-tool protocol error.
