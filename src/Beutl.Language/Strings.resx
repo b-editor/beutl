@@ -2383,6 +2383,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
     <value>The project files were saved, but the automatic history snapshot could not be recorded. Check the Git repository, then save again.</value>
   </data>
+  <data name="VersionControl_SaveSnapshotFailedFormat" xml:space="preserve">
+    <value>The project files were saved, but the automatic history snapshot could not be recorded. Check the Git repository, then save again. {0}</value>
+  </data>
   <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
     <value>The restore failed, but the original project was recovered. The branch '{0}' was retained for safety. After confirming that no other Git worktree uses it, delete it manually with an external Git tool.</value>
   </data>
@@ -2437,6 +2440,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git could not inspect this project's folder, so the project was opened without version control. {0}</value>
+  </data>
+  <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
+    <value>Version control could not be enabled for this project. {0}</value>
   </data>
   <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
     <value>The project was not opened because Beutl could not check whether a protected pull still needs recovery. {0}</value>
@@ -2528,6 +2534,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>Branch name</value>
   </data>
+  <data name="VersionControl_BranchNameUnavailableFormat" xml:space="preserve">
+    <value>The branch '{0}' could not be created because the name is not a valid Git branch name or conflicts with an existing branch.</value>
+  </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>Restore to a New Branch</value>
   </data>
@@ -2576,6 +2585,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>The remote was connected.</value>
   </data>
+  <data name="VersionControl_RemoteConnectFailedFormat" xml:space="preserve">
+    <value>The remote could not be connected. {0}</value>
+  </data>
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>Pushing versions…</value>
   </data>
@@ -2584,6 +2596,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   </data>
   <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
     <value>The remote operation completed.</value>
+  </data>
+  <data name="VersionControl_RemoteOperationFailedFormat" xml:space="preserve">
+    <value>The remote operation could not be completed. {0}</value>
   </data>
   <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
     <value>The remote operation was canceled.</value>
