@@ -26,9 +26,24 @@ internal static class ElementTransitions
                && outgoing.Range.End <= incoming.Range.End + AdjacencyTolerance;
     }
 
-    // The element whose end meets element's start. When several do, the one that ends last wins, since
-    // it is the one visible just before the boundary.
+    // The element whose end meets element's start and that meets no other element's start first, so each
+    // boundary pairs two elements that choose each other. When several meet element's start, the one that
+    // ends last wins, since it is the one visible just before the boundary.
     public static Element? FindPrevious(Element element)
+    {
+        Element? previous = FindPreviousCandidate(element);
+        return previous != null && FindNextCandidate(previous) == element ? previous : null;
+    }
+
+    // The element whose start meets element's end and that no other element meets first; when several
+    // start there, the one that starts first wins.
+    public static Element? FindNext(Element element)
+    {
+        Element? next = FindNextCandidate(element);
+        return next != null && FindPreviousCandidate(next) == element ? next : null;
+    }
+
+    private static Element? FindPreviousCandidate(Element element)
     {
         if (element.HierarchicalParent is not Scene scene) return null;
 
@@ -44,8 +59,7 @@ internal static class ElementTransitions
         return previous;
     }
 
-    // The element whose start meets element's end. When several do, the one that starts first wins.
-    public static Element? FindNext(Element element)
+    private static Element? FindNextCandidate(Element element)
     {
         if (element.HierarchicalParent is not Scene scene) return null;
 

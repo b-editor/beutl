@@ -54,7 +54,7 @@ public class ElementTransitionTimelineTests
             flyout.Hide();
             HeadlessTestHelpers.Settle(3);
             int undoAfterAdding = editor.HistoryManager.UndoCount;
-            incoming.OpenTransition(ElementEdge.Start);
+            outgoing.OpenTransition(ElementEdge.End);
             HeadlessTestHelpers.Settle(3);
 
             Assert.Multiple(() =>
@@ -65,7 +65,8 @@ public class ElementTransitionTimelineTests
                     "a new boundary transition is centred on the cut");
                 Assert.That(undoAfterAdding, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoAfterAdding), "opening it again adds nothing");
-                Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target, Is.SameAs(incoming.Model.EnterTransition),
+                    "from the outgoing side too, the side that decides how the boundary blends opens");
                 Assert.That(TransitionEditorOf(editor).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
             });
         }

@@ -283,6 +283,34 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // A=[0,10] meets both B=[5,20] and C=[6,15], and C's only candidate before it is A, but A pairs with
+    // B, which starts first. An exit transition on A must make one boundary, not one with each.
+    [Test]
+    public void AnElementMetByTwoOthers_PairsWithOnlyOne()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_reciprocal", duration: Seconds(30));
+        var aShape = new RectShape();
+        Element a = harness.AddElement(TimeSpan.Zero, Seconds(10));
+        a.Objects.Add(aShape);
+        Element b = harness.AddElement(Seconds(5), Seconds(15));
+        b.Objects.Add(new EllipseShape());
+        Element c = harness.AddElement(Seconds(6), Seconds(9));
+        c.Objects.Add(new RectShape());
+        a.ExitTransition = Transition(1);
+        using var compositor = new SceneCompositor(harness.Scene);
+
+        CompositionFrame frame = compositor.EvaluateGraphics(Seconds(7));
+        int presenters = frame.Objects.Count(r => r is ClipTransitionPresenter.Resource);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ElementTransitions.GetBoundaryAtEnd(a)?.Incoming, Is.SameAs(b));
+            Assert.That(ElementTransitions.GetBoundaryAtStart(b)?.Outgoing, Is.SameAs(a));
+            Assert.That(ElementTransitions.GetBoundaryAtStart(c), Is.Null);
+            Assert.That(presenters, Is.EqualTo(1), "A is drawn by one transition");
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {

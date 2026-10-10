@@ -353,10 +353,14 @@ public class TransitionRenderTests
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
             renderer.Render(frame);
 
+            Rect? cornerBounds = renderer.GetBoundary(corner);
+
             Assert.Multiple(() =>
             {
                 Assert.That(renderer.HitTest(frame, new Point((Width / 2f) - 3, 3)), Is.SameAs(corner));
                 Assert.That(renderer.HitTest(frame, new Point((Width * 3) / 4f, Height / 2f)), Is.SameAs(outgoingShape));
+                Assert.That(cornerBounds?.Left, Is.EqualTo((Width / 2f) - 8).Within(0.5f), "the selection follows the push");
+                Assert.That(cornerBounds?.Width, Is.EqualTo(8).Within(0.5f));
             });
         });
     }

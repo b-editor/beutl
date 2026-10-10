@@ -99,12 +99,12 @@ public sealed partial class ElementViewModel
         EditTransition(edge);
     }
 
-    // Opens the transition at edge in the property tab, where its type and properties are edited: this
-    // element's own side when it sets one, or else the side across the edge that decides how the boundary
-    // blends.
+    // Opens the transition at edge in the property tab, where its type and properties are edited: the
+    // side that decides how the boundary blends, since the other side's settings other than its duration
+    // draw nothing. That duration is dragged on the timeline.
     public void EditTransition(ElementEdge edge)
     {
-        if ((ElementTransitionEdits.GetTransition(Model, edge) ?? GetTransition(edge)) is not { } transition) return;
+        if (GetTransition(edge) is not { } transition) return;
 
         IEditorContext editorContext = Timeline.EditorContext;
         ObjectPropertyTabViewModel tab = editorContext.FindToolTab<ObjectPropertyTabViewModel>()

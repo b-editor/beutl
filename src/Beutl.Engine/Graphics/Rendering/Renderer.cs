@@ -644,6 +644,47 @@ public class Renderer : IRenderer
         }
     }
 
+    // The bounds of drawable as an active transition draws it: measured on its own, cut to the clips the
+    // transition draws it within and mapped out through the transforms. Null when no transition draws it.
+    private Rect? GetTransitionedBoundary(Drawable drawable)
+    {
+        foreach (Entry entry in _allCurrentEntries)
+        {
+            if (entry.Node.Drawable?.Resource is not Transitions.ClipTransitionPresenter.Resource) continue;
+
+            var children = new Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)>(
+                ReferenceEqualityComparer.Instance);
+            CollectDrawableNodes(entry.Node, [], children);
+            foreach (KeyValuePair<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)> child in children)
+            {
+                if (!ReferenceEquals(child.Key.GetOriginal(), drawable)) continue;
+
+                using RenderNodeRenderer renderer = CreateEntryRenderer(child.Value.Node);
+                return MapOutOfDrawable(renderer.Measure().QueryBounds, child.Value.Path);
+            }
+        }
+
+        return null;
+    }
+
+    private static Rect MapOutOfDrawable(Rect bounds, RenderNode[] path)
+    {
+        for (int i = path.Length - 1; i >= 0; i--)
+        {
+            switch (path[i])
+            {
+                case RectClipRenderNode { Operation: ClipOperation.Intersect } clip:
+                    bounds = bounds.Intersect(clip.Clip);
+                    break;
+                case TransformRenderNode { TransformOperator: TransformOperator.Prepend } transform:
+                    bounds = bounds.TransformToAABB(transform.Transform);
+                    break;
+            }
+        }
+
+        return bounds;
+    }
+
     // Maps a point into the space a drawable is drawn in through the transforms above it, or returns null
     // when a clip above it hides that point. Masks are not evaluated, so a masked drawable still answers
     // for points its mask hides.
@@ -677,6 +718,13 @@ public class Renderer : IRenderer
     public Rect? GetBoundary(Drawable drawable)
     {
         _dispatcher.VerifyAccess();
+        // A drawable inside an active transition is drawn by the transition's presenter, so it has no entry
+        // of its own in this frame.
+        if (GetTransitionedBoundary(drawable) is { } transitioned)
+        {
+            return transitioned;
+        }
+
         if (_nodeCache.TryGetValue(drawable, out Entry? entry))
         {
             if (_allCurrentEntries.Contains(entry))
