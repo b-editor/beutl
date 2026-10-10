@@ -165,41 +165,6 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    private static async Task<string?> TryResolveCommitWithRetryAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string revision)
-    {
-        Exception? observationFailure = null;
-        for (int attempt = 0; attempt < 2; attempt++)
-        {
-            try
-            {
-                string? commit = await TryResolveCommitAsync(
-                        repository,
-                        runner,
-                        revision,
-                        CancellationToken.None)
-                    .ConfigureAwait(false);
-                if (commit is not null)
-                {
-                    return commit;
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                observationFailure = ex;
-            }
-        }
-
-        if (observationFailure is not null)
-        {
-            throw observationFailure;
-        }
-
-        return null;
-    }
-
     private static async Task<string?> TryResolveObjectAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
