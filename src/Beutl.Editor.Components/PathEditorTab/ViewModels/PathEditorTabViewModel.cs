@@ -7,6 +7,7 @@ using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -16,10 +17,11 @@ namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
 public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IPinnableToolContext
 {
+    private const string PinnedFigureJsonKey = "pinnedFigureId";
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorClock _clock;
     private readonly ToolTabPin _pin;
-    // The editors a pinned tab detached from the property tab that lent FigureContext.
+    // The editors a pinned tab detached from the property tab that lent FigureContext, or built when restored.
     private IGeometryEditorContext? _ownedGeometry;
     private IPathFigureEditorContext? _ownedFigure;
 
@@ -230,12 +232,42 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
         if (lent.GetParentContext()?.CreateDetached(new PropertyServices(EditorContext, element)) is not { } geometry)
             return;
 
+        EditWithOwnedEditors(geometry, figure);
+    }
+
+    // A restored tab has no property tab to lend it editors, so it builds them for the property that holds
+    // the figure's geometry, as the property tab would.
+    private bool RestoreFigureContext(PathFigure figure)
+    {
+        if (figure.HierarchicalParent is not PathGeometry pathGeometry
+            || pathGeometry.HierarchicalParent is not EngineObject owner
+            || owner.Properties.FirstOrDefault(p => ReferenceEquals(p.CurrentValue, pathGeometry)) is not { } property
+            || pathGeometry.FindHierarchicalParent<Element>() is not { } element)
+        {
+            return false;
+        }
+
+        var factory = EditorContext.GetRequiredService<IPropertyEditorFactory>();
+        IPropertyEditorContext? editor = factory.CreateEditor(PropertyAdapterFactory.CreateAdapter(property, owner));
+        if (editor is not IGeometryEditorContext geometry)
+        {
+            editor?.Dispose();
+            return false;
+        }
+
+        editor.Accept(new PropertyServices(EditorContext, element));
+        return EditWithOwnedEditors(geometry, figure);
+    }
+
+    // Takes over `geometry`, or disposes it when it has no editor for `figure`.
+    private bool EditWithOwnedEditors(IGeometryEditorContext geometry, PathFigure figure)
+    {
         // Expanding creates the figure editors.
         geometry.ExpandForEditing();
         if (geometry.FindPathFigureContext(figure) is not { } owned)
         {
             (geometry as IDisposable)?.Dispose();
-            return;
+            return false;
         }
 
         owned.ExpandForEditing();
@@ -244,6 +276,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
         _ownedFigure = owned;
         FigureContext.Value = owned;
         SelectedOperation.Value = selected;
+        return true;
     }
 
     private void ReleaseOwnedEditors()
@@ -272,10 +305,23 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
 
     public void WriteToJson(JsonObject json)
     {
+        _pin.WriteToJson(json);
+        if (IsPinned.Value && PathFigure.Value is { } figure)
+            json[PinnedFigureJsonKey] = figure.Id;
+        else
+            json.Remove(PinnedFigureJsonKey);
     }
 
+    // Only a pinned tab is saved with its figure; an unpinned one waits for a property editor to open one.
     public void ReadFromJson(JsonObject json)
     {
+        if (ToolTabPin.WasPinned(json)
+            && json.TryGetPropertyValueAsJsonValue(PinnedFigureJsonKey, out Guid id)
+            && EditorContext.GetService<Scene>()?.FindById(id) is PathFigure figure
+            && RestoreFigureContext(figure))
+        {
+            _pin.ReadFromJson(json);
+        }
     }
 
     public object? GetService(Type serviceType)
