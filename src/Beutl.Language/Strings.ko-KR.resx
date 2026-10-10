@@ -3423,7 +3423,4 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ExitTransition" xml:space="preserve">
     <value>종료 전환</value>
   </data>
-  <data name="TransitionTab_Placeholder" xml:space="preserve">
-    <value>타임라인에서 전환을 열면 여기에서 편집할 수 있습니다.</value>
-  </data>
 </root>

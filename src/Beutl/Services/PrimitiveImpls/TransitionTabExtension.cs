@@ -18,7 +18,8 @@ public sealed partial class TransitionTabExtension : ToolTabExtension
 
     public override string DisplayName => GraphicsStrings.ClipTransition;
 
-    public override string? Header => GraphicsStrings.ClipTransition;
+    // Opened from the timeline on a transition, not from the menu.
+    public override string? Header => null;
 
     public override bool CanMultiple => false;
 

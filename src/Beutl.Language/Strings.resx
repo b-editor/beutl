@@ -3423,7 +3423,4 @@ when history recording is enabled.</value>
   <data name="ExitTransition" xml:space="preserve">
     <value>End Transition</value>
   </data>
-  <data name="TransitionTab_Placeholder" xml:space="preserve">
-    <value>Open a transition on the timeline to edit it here.</value>
-  </data>
 </root>

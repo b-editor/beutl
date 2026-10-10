@@ -3423,7 +3423,4 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ExitTransition" xml:space="preserve">
     <value>出场转场</value>
   </data>
-  <data name="TransitionTab_Placeholder" xml:space="preserve">
-    <value>在时间轴上打开转场即可在此编辑。</value>
-  </data>
 </root>
