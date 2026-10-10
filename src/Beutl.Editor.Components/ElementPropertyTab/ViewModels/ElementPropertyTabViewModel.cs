@@ -122,6 +122,38 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
+    // Asks the view to scroll an object (and, when known, one of its properties) into view and
+    // flash it.
+    public ReactiveCommand<(EngineObjectPropertyViewModel Item, IPropertyEditorContext? Property)> RevealRequested { get; } = new();
+
+    // Expands and reveals the editor showing `target`, an object inside the shown element.
+    // Returns false when the target is the element itself or not shown here.
+    public bool Reveal(CoreObject target, string? propertyName)
+    {
+        foreach (EngineObjectPropertyViewModel? item in Items)
+        {
+            if (item is null || !IsWithin(target, item.Model))
+                continue;
+
+            item.IsExpanded.Value = true;
+            RevealRequested.Execute((item, item.FindPropertyEditor(target, propertyName)));
+            return true;
+        }
+
+        return false;
+    }
+
+    internal static bool IsWithin(CoreObject target, IHierarchical root)
+    {
+        for (IHierarchical? current = target as IHierarchical; current is not null; current = current.HierarchicalParent)
+        {
+            if (ReferenceEquals(current, root))
+                return true;
+        }
+
+        return false;
+    }
+
     public void Dispose()
     {
         if (Element.Value != null)
@@ -133,6 +165,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         _disposable1?.Dispose();
 
         CanEdit.Dispose();
+        RevealRequested.Dispose();
         Element.Dispose();
         _editorContext = null!;
     }

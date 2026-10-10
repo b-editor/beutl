@@ -490,6 +490,14 @@
     <value>URL de conexión para clientes MCP. Envía el encabezado de autenticación de abajo con cada solicitud; trátalo como una contraseña</value>
     <comment />
   </data>
+  <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
+    <value>Seguir las ediciones de Live MCP (experimental)</value>
+    <comment />
+  </data>
+  <data name="AiAgents_FollowLiveMcpEdits_Description" xml:space="preserve">
+    <value>Lleva la selección, el cabezal de reproducción, el desplazamiento de la línea de tiempo y las propiedades al elemento que edita un cliente Live MCP, y al fotograma que renderiza con render_still</value>
+    <comment />
+  </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
     <value>Avanzado</value>
     <comment />

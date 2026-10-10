@@ -490,6 +490,14 @@
     <value>Connection URL for MCP clients. Send the authentication header below with every request — treat it like a password</value>
     <comment/>
   </data>
+  <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
+    <value>Follow live MCP edits (experimental)</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_FollowLiveMcpEdits_Description" xml:space="preserve">
+    <value>Move the editor to each element a live MCP client edits — selection, playhead, timeline scroll and properties — and to each frame it renders with render_still</value>
+    <comment/>
+  </data>
   <data name="AiAgents_Advanced" xml:space="preserve">
     <value>Advanced</value>
     <comment/>
