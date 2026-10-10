@@ -52,13 +52,14 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        WorkspaceStatus status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
-        ThrowIfConflicted(status);
-        // Before the no-changes check: a project folder that is ignored as a whole never changes.
+        // Before the no-changes check: a project folder that is ignored as a whole never changes. Before
+        // the status is read, too, so an edit made while the notice is shown is part of this snapshot.
         await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
             repository,
             runner,
             cancellationToken).ConfigureAwait(false);
+        WorkspaceStatus status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        ThrowIfConflicted(status);
         await EnsureProjectFileIsVersionedAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         if (status.IsClean)
@@ -255,8 +256,9 @@ internal sealed partial class GitCliVersionControlService
                 ? new CommitRevision.Known(head)
                 : new CommitRevision.Unavailable();
         }
-        catch (GitOperationException)
+        catch (Exception ex) when (ex is GitOperationException or TimeoutException)
         {
+            // The snapshot is saved either way; only which commit it is stays unknown.
             return new CommitRevision.Unavailable();
         }
     }
