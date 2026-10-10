@@ -2585,6 +2585,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>大きなメディアは Git LFS で保存されます。リモートホスティングでは、LFS のストレージ容量と帯域幅に上限が適用される場合があります。</value>
   </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>リポジトリの ignore ルールにより、次のプロジェクト内のファイルはバージョンに保存されません: {0}</value>
+  </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0} は大きなファイルですが、Git LFS が有効ではありません。コミットするとリポジトリ履歴のサイズが恒久的に増える可能性があります。コミットは続行されます。</value>
   </data>

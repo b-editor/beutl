@@ -8,7 +8,6 @@ internal sealed partial class GitCliVersionControlService
     {
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
         RepositoryInfo repository = GetRepository();
-        ValidateProjectSnapshotLayout(repository.ProjectRoot);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         CheckedOutBranchTip baseHead = await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
@@ -40,25 +39,16 @@ internal sealed partial class GitCliVersionControlService
                 ["read-tree", baseHead.Commit],
                 indexOptions,
                 cancellationToken).ConfigureAwait(false);
-            SnapshotIndexCommandPlan indexPlan = await CreateSnapshotIndexCommandsAsync(
+            await runner.RunAsync(
                     repository,
-                    runner,
-                    baseHead.Commit,
+                    CreateSnapshotIndexCommand(repository),
+                    indexOptions with
+                    {
+                        ExecutionKind = GitCommandExecutionKind.LocalWithLfs,
+                        UseLiteralPathspecs = false,
+                    },
                     cancellationToken)
                 .ConfigureAwait(false);
-            foreach (IReadOnlyList<string> command in indexPlan.Commands)
-            {
-                await runner.RunAsync(
-                        repository,
-                        command,
-                        indexOptions with
-                        {
-                            ExecutionKind = GitCommandExecutionKind.LocalWithLfs,
-                            UseLiteralPathspecs = false,
-                        },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
 
             GitCommandResult tree = await runner.RunAsync(
                 repository,
