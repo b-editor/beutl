@@ -98,16 +98,18 @@ public static class LibraryServiceExtensions
         return self.Add<T>(KnownLibraryItemFormats.Transform, displayName, description);
     }
 
+    // Bound as an EngineObject too, as BindDrawable does, so that the timeline can add it.
     public static GroupLibraryItem AddDrawable<T>(this GroupLibraryItem self, string displayName, string? description = null)
         where T : Drawable
     {
-        return self.Add<T>(KnownLibraryItemFormats.Drawable, displayName, description);
+        return self.AddMultiple(displayName, description, item => item.BindDrawable<T>());
     }
 
+    // Bound as an EngineObject too, as BindSound does, so that the timeline can add it.
     public static GroupLibraryItem AddSound<T>(this GroupLibraryItem self, string displayName, string? description = null)
         where T : Sound
     {
-        return self.Add<T>(KnownLibraryItemFormats.Sound, displayName, description);
+        return self.AddMultiple(displayName, description, item => item.BindSound<T>());
     }
 
     public static GroupLibraryItem AddAudioEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
