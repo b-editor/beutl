@@ -28,6 +28,13 @@ public sealed class TransitionTabViewModel : IToolContext
     {
         _editViewModel = editViewModel;
         Scene scene = editViewModel.Scene;
+        _disposables.Add((IDisposable)IsSelected);
+        _disposables.Add((IDisposable)Header);
+        _disposables.Add(HasTarget);
+        _disposables.Add(EdgeName);
+        _disposables.Add(Transition);
+        _disposables.Add(CanEdit);
+        _disposables.Add(Properties);
 
         TypeName = Transition.Select(value => value == null ? null : TypeDisplayHelpers.GetLocalizedName(value.GetType()))
             .ToReadOnlyReactivePropertySlim()
@@ -140,9 +147,9 @@ public sealed class TransitionTabViewModel : IToolContext
 
     public void Dispose()
     {
-        _disposables.Dispose();
         _editability?.Dispose();
         Properties.Value?.Dispose();
         Properties.Value = null;
+        _disposables.Dispose();
     }
 }
