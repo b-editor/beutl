@@ -179,7 +179,12 @@ public sealed partial class TimelineTabView
         TimelineTabViewModel viewModel = ViewModel;
         viewModel.ClearSelected();
 
-        Rect rect = overlay.SelectionRange.Normalize();
+        // Keep the ruler and empty space outside existing rows out of layer hit-testing.
+        var bounds = new Rect(0, 0, TimelinePanel.Bounds.Width,
+            viewModel.LayerHeaders.Sum(layer => layer.Height.Value));
+        Rect rect = overlay.SelectionRange.Normalize().Intersect(bounds);
+        if (rect == default) return;
+
         var startTime = rect.Left.PixelToTimeSpan(viewModel.Options.Value.Scale);
         var endTime = rect.Right.PixelToTimeSpan(viewModel.Options.Value.Scale);
         var timeRange = TimeRange.FromRange(startTime, endTime);
