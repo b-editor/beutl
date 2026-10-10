@@ -7,13 +7,9 @@ public partial class ProjectService
     private readonly SemaphoreSlim _transitionGate = new(1, 1);
     private readonly object _openAttemptSync = new();
     private readonly object _transitionSync = new();
-    private readonly object _openPreflightSync = new();
     private ProjectOpenAttempt? _currentOpenAttempt;
     private ProjectTransitionContext? _currentTransition;
-    private TaskCompletionSource? _openPreflightsDrained;
-    private long _nextOpenAttemptId;
     private long _nextTransitionId;
-    private int _runningOpenPreflights;
 
     internal ProjectTransitionContext? CurrentTransition
     {
@@ -26,6 +22,8 @@ public partial class ProjectService
         }
     }
 
+    // Lets a transition already under way finish before the open looks for its project file, which that
+    // transition may still be replacing.
     private async Task WaitForExistingTransitionAsync(ProjectOpenAttempt attempt)
     {
         CancelCreationPreparationExcept(attempt);
@@ -33,9 +31,6 @@ public partial class ProjectService
         try
         {
             attempt.CancellationToken.ThrowIfCancellationRequested();
-            // Counted under the gate, so RunExclusiveOfTransitionsAsync cannot hold the gate for its
-            // change while this open's preflight is still to run.
-            BeginOpenPreflight();
         }
         finally
         {
@@ -43,63 +38,15 @@ public partial class ProjectService
         }
     }
 
-    private void BeginOpenPreflight()
-    {
-        lock (_openPreflightSync)
-        {
-            _runningOpenPreflights++;
-        }
-    }
-
-    private void EndOpenPreflight()
-    {
-        TaskCompletionSource? drained = null;
-        lock (_openPreflightSync)
-        {
-            if (--_runningOpenPreflights == 0)
-            {
-                drained = _openPreflightsDrained;
-                _openPreflightsDrained = null;
-            }
-        }
-
-        drained?.TrySetResult();
-    }
-
-    private Task WaitForOpenPreflightsAsync()
-    {
-        lock (_openPreflightSync)
-        {
-            if (_runningOpenPreflights == 0)
-            {
-                return Task.CompletedTask;
-            }
-
-            _openPreflightsDrained ??= new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            return _openPreflightsDrained.Task;
-        }
-    }
-
-    private bool HasRunningOpenPreflight()
-    {
-        lock (_openPreflightSync)
-        {
-            return _runningOpenPreflights > 0;
-        }
-    }
-
     internal ValueTask<ProjectTransitionScope> BeginVersionControlTransitionAsync(
         object owner,
-        CancellationToken cancellationToken,
-        ProjectOpenAttempt? preservedOpenAttempt = null)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(owner);
         return BeginTransitionAsync(
             ProjectTransitionPurpose.VersionControlMutation,
             owner,
-            cancellationToken,
-            preservedOpenAttempt);
+            cancellationToken);
     }
 
     // Runs a change to project files on disk that no open, close or create may interleave with:
@@ -109,21 +56,7 @@ public partial class ProjectService
     internal async Task RunExclusiveOfTransitionsAsync(Func<Task> action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        while (true)
-        {
-            // An open inspects its project between two waits for the gate, and the inspection can
-            // take the gate itself, so it is waited for without holding the gate. Once the gate is
-            // held and none is running, none can start until the change is done.
-            await WaitForOpenPreflightsAsync();
-            await _transitionGate.WaitAsync();
-            if (!HasRunningOpenPreflight())
-            {
-                break;
-            }
-
-            _transitionGate.Release();
-        }
-
+        await _transitionGate.WaitAsync();
         await using ProjectTransitionScope transition = EnterTransition(
             ProjectTransitionPurpose.Normal,
             new ProjectFileChange());
@@ -133,14 +66,12 @@ public partial class ProjectService
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
         ProjectTransitionPurpose purpose,
         object owner,
-        CancellationToken cancellationToken,
-        ProjectOpenAttempt? preservedOpenAttempt = null)
+        CancellationToken cancellationToken)
     {
-        object openAttemptOwner = preservedOpenAttempt ?? owner;
-        CancelPendingOpenAttemptExcept(openAttemptOwner);
+        CancelPendingOpenAttemptExcept(owner);
         CancelCreationPreparationExcept(owner);
         await _transitionGate.WaitAsync(cancellationToken);
-        CancelPendingOpenAttemptExcept(openAttemptOwner);
+        CancelPendingOpenAttemptExcept(owner);
         if (cancellationToken.IsCancellationRequested)
         {
             _transitionGate.Release();
@@ -165,11 +96,9 @@ public partial class ProjectService
         return new ProjectTransitionScope(this, context);
     }
 
-    private ProjectOpenAttempt BeginOpenAttempt(string file)
+    private ProjectOpenAttempt BeginOpenAttempt()
     {
-        var attempt = new ProjectOpenAttempt(
-            Interlocked.Increment(ref _nextOpenAttemptId),
-            file);
+        var attempt = new ProjectOpenAttempt();
         ProjectOpenAttempt? previous;
         lock (_openAttemptSync)
         {

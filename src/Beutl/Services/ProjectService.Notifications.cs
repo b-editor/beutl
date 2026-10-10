@@ -4,31 +4,6 @@ namespace Beutl.Services;
 
 public partial class ProjectService
 {
-    private async Task<IReadOnlyList<ProjectOpenPreparation>> NotifyOpeningPreflightAsync(
-        ProjectOpenAttempt attempt)
-    {
-        if (OpeningPreflight is not { } openingPreflight)
-        {
-            return [];
-        }
-
-        var preparations = new List<ProjectOpenPreparation>();
-        foreach (Func<ProjectOpenAttempt, CancellationToken, Task<ProjectOpenPreparation?>> handler
-                 in openingPreflight.GetInvocationList())
-        {
-            attempt.CancellationToken.ThrowIfCancellationRequested();
-            ProjectOpenPreparation? preparation = await handler(
-                attempt,
-                attempt.CancellationToken);
-            if (preparation is not null)
-            {
-                preparations.Add(preparation);
-            }
-        }
-
-        return preparations;
-    }
-
     private async Task NotifyOpenedAsync(Project project)
     {
         if (Opened is { } opened)

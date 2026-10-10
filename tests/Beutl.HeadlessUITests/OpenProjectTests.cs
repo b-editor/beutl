@@ -115,41 +115,10 @@ public class OpenProjectTests
         }
     }
 
-    [AvaloniaTest]
-    public async Task OpenProject_consults_preflight_before_refusing_a_missing_project_file()
-    {
-        await ResetProjectAsync();
-        string missingFile = Path.Combine(NewWorkspace("missing-preflight"), "missing.bep");
-        int preflightCalls = 0;
-        Func<ProjectService.ProjectOpenAttempt, CancellationToken,
-            Task<ProjectService.ProjectOpenPreparation?>> preflight = (_, _) =>
-        {
-            preflightCalls++;
-            return Task.FromResult<ProjectService.ProjectOpenPreparation?>(null);
-        };
-        TestShell.Project.OpeningPreflight += preflight;
-        try
-        {
-            await TestShell.Project.OpenProject(missingFile);
-
-            Assert.Multiple(() =>
-            {
-                // Consulted even though the file is gone: an interrupted pull leaves it missing,
-                // and the preflight is what restores it before the open continues.
-                Assert.That(preflightCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-            });
-        }
-        finally
-        {
-            TestShell.Project.OpeningPreflight -= preflight;
-        }
-    }
-
     [Test]
     public async Task ProjectOpenAttempt_complete_waits_for_in_progress_cancellation()
     {
-        var attempt = new ProjectService.ProjectOpenAttempt(1, "project.bep");
+        var attempt = new ProjectService.ProjectOpenAttempt();
         var cancellationEntered = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCancellation = new TaskCompletionSource(
