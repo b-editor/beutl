@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.VersionControl;
 
@@ -180,10 +181,10 @@ internal sealed partial class GitCliVersionControlService
             return;
         }
 
-        IReadOnlyList<string> ignoredPaths;
+        VersionControlPolicyNotice.IgnoredProjectFiles ignored;
         try
         {
-            ignoredPaths = await FindIgnoredProjectFilesAsync(repository, runner, cancellationToken)
+            ignored = await FindIgnoredProjectFilesAsync(repository, runner, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -192,23 +193,41 @@ internal sealed partial class GitCliVersionControlService
             return;
         }
 
-        if (ignoredPaths.Count == 0)
+        if (ignored.Paths.Count == 0 && !ignored.Truncated)
         {
             return;
+        }
+
+        if (_policyNoticeSink is not null)
+        {
+            // The notice names only the first few paths, so the whole list goes to the log with it.
+            if (ignored.Truncated)
+            {
+                _logger.LogInformation(
+                    "Snapshots leave out these project files that Git ignores, and more beyond the listing limit: {Paths}",
+                    ignored.Paths);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Snapshots leave out these project files that Git ignores: {Paths}",
+                    ignored.Paths);
+            }
         }
 
         await PresentOneTimeNoticeAsync(
                 repository,
                 runner,
                 acknowledgementKey,
-                new VersionControlPolicyNotice.IgnoredProjectFiles(ignoredPaths),
+                ignored,
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
     // Project-relative paths that the ignore rules keep out of a snapshot, an ignored folder named
-    // once. Beutl's own per-user state and scratch files are ignored on purpose and left out.
-    private static async Task<IReadOnlyList<string>> FindIgnoredProjectFilesAsync(
+    // once. Beutl's own per-user state and scratch files are ignored on purpose and left out; the
+    // snapshot's excludes keep them out of Git's listing, so they cannot fill the capture limit.
+    private async Task<VersionControlPolicyNotice.IgnoredProjectFiles> FindIgnoredProjectFilesAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -225,6 +244,7 @@ internal sealed partial class GitCliVersionControlService
                     "-z",
                     "--",
                     CreateSnapshotBasePathspec(repository),
+                    .. CreateSnapshotExcludePathspecs(repository),
                 ],
                 new GitCommandOptions(
                     GitCommandExecutionKind.Local,
@@ -232,9 +252,13 @@ internal sealed partial class GitCliVersionControlService
                     UseLiteralPathspecs: false),
                 cancellationToken)
             .ConfigureAwait(false);
+        // A cut-off listing ends inside a path; only the paths before its last terminator are whole.
+        string listing = result.StdoutTruncated
+            ? result.Stdout[..(result.Stdout.LastIndexOf('\0') + 1)]
+            : result.Stdout;
         string prefix = GetProjectPathPrefix(repository);
         var paths = new List<string>();
-        foreach (string path in GitCliRunner.SplitNullSeparated(result.Stdout))
+        foreach (string path in GitCliRunner.SplitNullSeparated(listing))
         {
             if (!path.StartsWith(prefix, StringComparison.Ordinal))
             {
@@ -269,11 +293,13 @@ internal sealed partial class GitCliVersionControlService
         }
 
         // Git can also list the untracked folder that holds an ignored file; the file says more.
-        return paths
-            .Where(path => !path.EndsWith('/')
-                           || !paths.Any(other => other.Length > path.Length
-                                                  && other.StartsWith(path, StringComparison.Ordinal)))
-            .ToArray();
+        return new VersionControlPolicyNotice.IgnoredProjectFiles(
+            paths
+                .Where(path => !path.EndsWith('/')
+                               || !paths.Any(other => other.Length > path.Length
+                                                      && other.StartsWith(path, StringComparison.Ordinal)))
+                .ToArray(),
+            result.StdoutTruncated);
     }
 
     private async Task RaiseMissingIdentityNoticeIfNeededAsync(

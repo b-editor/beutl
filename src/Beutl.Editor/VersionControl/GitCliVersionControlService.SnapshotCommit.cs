@@ -932,6 +932,8 @@ internal sealed partial class GitCliVersionControlService
         return !IsTemporaryProjectFile(projectRelativePath);
     }
 
+    // The changed-path check above already refuses a hook that adds or rewrites a non-regular entry,
+    // so the project file only has to remain: an unchanged project file may be a symbolic link.
     private void EnsureHookKeptProjectFile(
         RepositoryInfo repository,
         IReadOnlyDictionary<string, string> finalModes)
@@ -945,8 +947,7 @@ internal sealed partial class GitCliVersionControlService
         string projectFileRepositoryPath = GetRepositoryRelativeProjectFilePath(
             repository,
             _projectFile);
-        if (!finalModes.TryGetValue(projectFileRepositoryPath, out string? projectMode)
-            || !IsRegularFileMode(projectMode))
+        if (!finalModes.ContainsKey(projectFileRepositoryPath))
         {
             throw new InvalidOperationException(
                 "A commit hook removed the project file from the snapshot tree.");

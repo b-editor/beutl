@@ -100,6 +100,12 @@ internal sealed partial class GitCliVersionControlService
                     treeId,
                     cancellationToken)
                 .ConfigureAwait(false);
+            await EnsureSnapshotTreeContainsProjectFileAsync(
+                    repository,
+                    runner,
+                    treeId,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return treeId;
         }
         finally
@@ -249,6 +255,58 @@ internal sealed partial class GitCliVersionControlService
         string path = pathSeparator >= 0 ? gitlink[(pathSeparator + 1)..] : gitlink;
         throw new InvalidOperationException(
             $"The nested Git repository '{path}' cannot be snapshotted safely.");
+    }
+
+    // git add -A leaves out an untracked project file that an ignore rule matches, and a version
+    // without it cannot be reopened. A tracked project file stays in the tree whatever the rules say.
+    private async Task EnsureSnapshotTreeContainsProjectFileAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string tree,
+        CancellationToken cancellationToken)
+    {
+        if (_projectFile is null
+            || !RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, _projectFile)
+            || !File.Exists(_projectFile))
+        {
+            return;
+        }
+
+        string projectFileRepositoryPath = GetRepositoryRelativeProjectFilePath(
+            repository,
+            _projectFile);
+        GitCommandResult entry = await runner.RunAsync(
+                repository,
+                ["ls-tree", "-z", "--name-only", tree, "--", projectFileRepositoryPath],
+                GitCommandOptions.Local,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (GitCliRunner.SplitNullSeparated(entry.Stdout)
+            .Contains(projectFileRepositoryPath, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        // Only an ignore rule is refused: after a case-only rename on a case-insensitive volume, Git
+        // keeps the tracked entry under its old spelling, and that entry still holds the project.
+        // check-ignore rejects literal magic but matches the path itself rather than as a pattern.
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    ["check-ignore", "-q", "--no-index", "--", $":(top){projectFileRepositoryPath}"],
+                    new GitCommandOptions(GitCommandExecutionKind.Local, UseLiteralPathspecs: false),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"The repository's ignore rules leave the project file '{projectFileRepositoryPath}' out of versions. "
+            + "Remove the rule that matches it or track the file before recording a version.");
     }
 
     private async Task RunPostCommitHookBestEffortAsync(
