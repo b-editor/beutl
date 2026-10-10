@@ -22,6 +22,7 @@ Beutl's main app is **MIT-licensed**; only `Beutl.FFmpegWorker` is **GPL-3.0-or-
 
 1. **MIT projects must not take a compile-closure `ProjectReference` to `Beutl.FFmpegWorker`.**
    - Sanctioned exception: a build-order-only reference carrying `ReferenceOutputAssembly="false"`, paired with a target that mirrors the worker's output next to the app (dev builds only — `src/Beutl/Beutl.csproj` uses this shape; Nuke publishes lay the worker out separately).
+   - Sanctioned exception: the non-distributed `Beutl.FFmpegWorker.Tests` and `Beutl.FFmpegBenchmarks` projects source-link worker files to test and benchmark them directly.
    - Do not look for workarounds — surface the design issue instead.
 
 2. **All communication goes through `Beutl.FFmpegIpc`.**
@@ -52,9 +53,3 @@ Beutl's main app is **MIT-licensed**; only `Beutl.FFmpegWorker` is **GPL-3.0-or-
 4. Cover it with an IPC round-trip test under `tests/Beutl.FFmpegIpc.Tests/`.
 
 If the impulse is "let's just call the FFmpeg API directly from the MIT side", that is a design red flag — add a handler to `Beutl.FFmpegWorker` instead.
-
-## References
-
-- Structure of `Beutl.FFmpegIpc.csproj`
-- IPC round-trip tests under `tests/Beutl.FFmpegIpc.Tests/`
-- Root `LICENSE` (MIT) and `LICENSE.GPL` (GPL-3.0-or-later)

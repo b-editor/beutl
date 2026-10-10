@@ -23,7 +23,7 @@ dotnet format Beutl.slnx                                           # フォー�
 
 ### 実行 / デバッグ
 
-アプリのエントリーポイントは `src/Beutl` プロジェクトです。`dotnet run --project src/Beutl` で実行する（または IDE でスタートアッププロジェクトに設定する）ことができます。
+アプリのエントリーポイントは `src/Beutl` プロジェクトです。現在のプラットフォームに合うターゲットフレームワークを選ぶ `./build.sh dev`（Windows では `.\build.ps1 dev`）、または `dotnet run --project src/Beutl -f net10.0`（Windows では `-f net10.0-windows`）で実行できます。IDE でスタートアッププロジェクトに設定することもできます。
 
 ### Pull request
 
@@ -97,11 +97,10 @@ XAMLファイル
 </UserControl>
 ```
 
-カスタム Drawable、フィルター効果、ブラシ、シェーダーを実装する場合は、
-[解像度非依存レンダリングのガイド](docs/extension-authoring/resolution-independent-rendering.md)も参照してください。
-ドッキング可能なエディターツールを追加する場合は、
-[ツールタブ拡張ガイド](docs/extension-authoring/tool-tabs.md)を参照してください。
-Beutl のライブ MCP エンドポイントから AI エージェントにツールを提供する場合は、
-[MCP ツール拡張ガイド](docs/extension-authoring/mcp-tools.md)を参照してください。
+### その他のドキュメント
 
-[プロジェクト構成ガイド](docs/development/project-structure.md)には、各モジュールの責務と依存境界をまとめています。
+- [プロジェクト構成ガイド](docs/development/project-structure.md)には、各モジュールの責務と依存境界をまとめています。
+- [拡張機能作者向けガイド](docs/extension-authoring/README.md)では、レンダリング、ツールタブ、MCP ツール、
+  破壊的変更に伴う移行を扱っています。拡張機能を実装または更新する前に、該当するガイドを確認してください。
+- ストア向けの素材パッケージやオブジェクトテンプレートのパッケージ化は、
+  [データパッケージ](docs/data-packages.md)で説明しています。

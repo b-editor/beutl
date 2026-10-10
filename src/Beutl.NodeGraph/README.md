@@ -1,12 +1,12 @@
 # Beutl.NodeGraph contributor guide
 
-Node editor (graph-based programming surface). The runtime evaluation happens here; the visual layer is in `Beutl.Controls`.
+Node editor (graph-based programming surface). The runtime evaluation happens here; the editor UI is in `Beutl.Editor.Components/NodeGraphTab/`.
 
 ## Core types
 
 - `GraphModel` — top-level container; owns nodes and connections
 - `GraphNode` — node base; subclasses declare ports
-- `IInputPort` / `IOutputPort` / `IDefaultInputPort` — port abstractions; `EnginePropertyBackedInputPort` bridges to `Beutl.Engine` `CoreProperty<T>`
+- `IInputPort` / `IOutputPort` / `IDefaultInputPort` — port abstractions; `EnginePropertyBackedInputPort` bridges to a `Beutl.Engine` `IProperty<T>`
 - `Connection` — typed edge between two ports
 - `GraphGroup` — sub-graph that exposes a smaller port surface to its parent
 - `IDynamicPort` / `IDynamicPortNode` — nodes that grow / shrink ports at runtime

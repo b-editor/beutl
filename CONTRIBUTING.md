@@ -30,7 +30,10 @@ so run it before pushing.
 ### Running / Debugging
 
 The application entry point is the `src/Beutl` project. Run it with
-`dotnet run --project src/Beutl` (or set it as the startup project in your IDE).
+`./build.sh dev` (`.\build.ps1 dev` on Windows), which selects the target
+framework for the current platform, or with
+`dotnet run --project src/Beutl -f net10.0` (`-f net10.0-windows` on Windows).
+You can also set it as the startup project in your IDE.
 
 ### Pull request
 
@@ -110,27 +113,12 @@ XAML Files
 </UserControl>
 ```
 
-Packaging materials or object templates for the store is described in
-[`docs/data-packages.md`](docs/data-packages.md).
+### Further documentation
 
-The [project structure guide](docs/development/project-structure.md) describes
-module responsibilities and dependency boundaries.
-
-Extension authors should also read the
-[resolution-independent rendering guide](docs/extension-authoring/resolution-independent-rendering.md)
-before implementing custom drawables, filter effects, brushes, or shaders, and
-the [tool-tab extension guide](docs/extension-authoring/tool-tabs.md) before
-adding a dockable editor tool. To give AI agents new tools through Beutl's live
-MCP endpoint, see the [MCP tool extension guide](docs/extension-authoring/mcp-tools.md).
-
-Extensions built for Avalonia 11 must follow the
-[Avalonia 12 migration guide](docs/extension-authoring/avalonia-12-migration.md)
-before targeting the upgraded host.
-
-Extensions overriding `AudioEffect.GetLatencySamples` must follow the
-[audio effect latency migration guide](docs/extension-authoring/audio-effect-latency-migration.md)
-and rebuild against the accumulated-latency API.
-
-Extensions that override `EngineObject.Resource.Update`, implement the generated
-`PreUpdate`/`PostUpdate` hooks, or call the `CompareAndUpdate` helpers must follow the
-[resource reconcile migration guide](docs/extension-authoring/resource-reconcile-migration.md).
+- The [project structure guide](docs/development/project-structure.md) describes
+  module responsibilities and dependency boundaries.
+- The [extension authoring guides](docs/extension-authoring/README.md) cover
+  rendering, tool tabs, MCP tools, and migrations for breaking changes. Read the
+  matching guide before implementing or updating an extension.
+- Packaging materials or object templates for the store is described in
+  [data packages](docs/data-packages.md).

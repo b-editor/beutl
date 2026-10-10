@@ -50,10 +50,10 @@ such as `SymbolIconSource` to `FASymbolIconSource`, `PathIconSource` to
    host. If the project overrides `BeutlPackagesVersion`, update that value to
    the matching release too. Projects with explicit Beutl package references
    must update those references together.
-2. Align direct UI dependencies with the host (`Avalonia` 12.1.2 and
-   `FluentAvaloniaUI` 3.1.0 for this migration), update C# and XAML references,
-   and rebuild the extension and its dependent assemblies. A C# alias alone
-   cannot repair an already compiled binary.
+2. Align direct UI dependencies with the `Avalonia` 12 and `FluentAvaloniaUI`
+   3.1 versions the host pins in `Directory.Packages.props`, update C# and XAML
+   references, and rebuild the extension and its dependent assemblies. A C#
+   alias alone cannot repair an already compiled binary.
 3. Test the resulting package with the Avalonia 12 host: verify package
    discovery, editor creation, tool window creation, and icon display.
 4. Publish a new extension package version and declare its supported Beutl

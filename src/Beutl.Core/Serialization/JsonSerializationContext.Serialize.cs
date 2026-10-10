@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.IO;
 
 namespace Beutl.Serialization;
@@ -22,7 +23,9 @@ public partial class JsonSerializationContext
                 return reference.Id;
             case JsonNode jsonNode:
                 return jsonNode;
-            case IEnumerable enumerable:
+            // A collection is written item by item unless its type has a JSON converter of its own. For a value
+            // declared as object, System.Text.Json uses the converter of the runtime type, so that type is checked.
+            case IEnumerable enumerable when !HasOwnJsonConverter(baseType == typeof(object) ? actualType : baseType):
                 return SerializeEnumerable(enumerable, actualType, baseType, parent);
             default:
                 return SerializeWithJsonSerializer(value, baseType);
@@ -32,6 +35,14 @@ public partial class JsonSerializationContext
     private static JsonNode? SerializeWithJsonSerializer(object value, Type baseType)
     {
         return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
+    }
+
+    // Whether System.Text.Json converts the type with a converter from the options or from [JsonConverter] on the
+    // type itself (it does not look the attribute up on base types), rather than with a built-in one.
+    private static bool HasOwnJsonConverter(Type type)
+    {
+        return JsonHelper.SerializerOptions.Converters.Any(converter => converter.CanConvert(type))
+               || type.IsDefined(typeof(JsonConverterAttribute), inherit: false);
     }
 
     private static JsonNode? SerializeCoreSerializable(

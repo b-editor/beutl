@@ -4,9 +4,9 @@ These requirements apply to all Beutl changes regardless of the editor, automati
 
 ## Architecture requirements
 
-- Keep the [GPL/MIT license boundary](gpl-mit-boundary.md) intact. MIT projects must not reference `Beutl.FFmpegWorker`; communicate with it through `Beutl.FFmpegIpc`. The application may retain its build-order-only reference with `ReferenceOutputAssembly="false"`. The non-distributed `Beutl.FFmpegBenchmarks` and `Beutl.FFmpegWorker.Tests` projects may source-link worker code for direct benchmarking and testing.
+- Keep the [GPL/MIT license boundary](gpl-mit-boundary.md) intact: MIT projects communicate with `Beutl.FFmpegWorker` only through `Beutl.FFmpegIpc`.
 - Keep both `net10.0` and `net10.0-windows` targets building. A new target framework requires an explicit design decision and corresponding build configuration.
-- Add NUnit coverage for new production logic in the matching project under `tests/`.
+- Add NUnit coverage for new production logic in the matching project under `tests/` (see [`tests/README.md`](../../tests/README.md)).
 - Every new Avalonia `UserControl` must enable compiled bindings with `x:CompileBindings="True"` and declare `x:DataType`.
 - Treat `.editorconfig`, `xamlstyler.json`, and `dotnet format` as the source of truth for formatting.
 - Keep `Beutl.Engine.SourceGenerators` and `tests/SourceGeneratorTest` green when generator inputs, outputs, or public generated contracts change.
@@ -22,4 +22,4 @@ Before merging a pull request:
 3. Run `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings` and any required platform- or GPU-specific suites.
 4. Review the generated coverage report for unexpected regressions. The repository does not currently enforce a fixed coverage threshold.
 5. Address all review findings and leave no unresolved review threads.
-6. Leave no orphaned TODO comments; `.github/workflows/todo-comments.yml` reports them on pull requests.
+6. Leave no orphaned TODO comments; describe deferred work in the pull request instead.
