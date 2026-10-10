@@ -28,6 +28,41 @@ public sealed class GenerativeShapeSuggestionTests
         => GenerativeShapeSuggestion.SuggestResolution(["720p", "1080p"], new PixelSize(width, height));
 
     [Test]
+    public void ListsWithoutAUsableChoiceFallBackOrAreRefused()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["wide", "16:9"], new PixelSize(1920, 1080), "1:1"), Is.EqualTo("16:9"));
+            Assert.That(GenerativeShapeSuggestion.NearestAspectRatio(["wide"], new PixelSize(1920, 1080), "1:1"), Is.EqualTo("wide"));
+            Assert.That(() => GenerativeShapeSuggestion.NearestAspectRatio([], null, "1:1"), Throws.ArgumentException);
+            Assert.That(() => GenerativeShapeSuggestion.SuggestResolution([], null), Throws.ArgumentException);
+            Assert.That(() => GenerativeShapeSuggestion.SuggestDuration([], null, 6), Throws.ArgumentException);
+            Assert.That(GenerativeShapeSuggestion.SuggestResolution(["480p", "720p"], null), Is.EqualTo("720p"), "1080 lines are wanted without a frame");
+        });
+    }
+
+    [TestCase("16:9", true)]
+    [TestCase("1.85:1", true)]
+    [TestCase("16x9", false)]
+    [TestCase("0:9", false)]
+    [TestCase("16:-9", false)]
+    [TestCase("a:b", false)]
+    [TestCase("1:2:3", false)]
+    public void OnlyPositiveWidthToHeightRatiosParse(string value, bool parses)
+        => Assert.That(GenerativeShapeSuggestion.TryParseAspectRatio(value, out _), Is.EqualTo(parses));
+
+    [TestCase("hd", ExpectedResult = 720)]
+    [TestCase(" FHD ", ExpectedResult = 1080)]
+    [TestCase("2k", ExpectedResult = 1440)]
+    [TestCase("4k", ExpectedResult = 2160)]
+    [TestCase("540p", ExpectedResult = 540)]
+    [TestCase("0p", ExpectedResult = null)]
+    [TestCase("-1p", ExpectedResult = null)]
+    [TestCase("8k", ExpectedResult = null)]
+    public int? ResolutionLabelsAreReadAsLines(string label)
+        => GenerativeShapeSuggestion.LinesOf(label);
+
+    [Test]
     public void ResolutionLabelsTheServicePublishesAreUnderstood()
     {
         Assert.That(GenerativeShapeSuggestion.SuggestResolution(["hd", "fhd", "4k"], new PixelSize(3840, 2160)), Is.EqualTo("4k"));

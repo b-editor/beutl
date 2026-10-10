@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
+using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.NodeGraph.Generative;
@@ -50,10 +51,21 @@ internal sealed class AgentHostAiTools(
     IAgentAiBackend backend,
     IWorkspaceGuard workspace) : ToolBase
 {
+    private const int MaxWaitSeconds = 110;
+
     private const string WaitDescription =
         "Seconds to wait for the result before returning (0-110, default 45). A job still running returns status Running with its jobId; call read_ai_job to wait again.";
 
     private static readonly string[] s_imageTasks = ["remove_background", "upscale", "restyle", "remove_object", "outpaint"];
+
+    private static readonly string[] s_operations =
+    [
+        "image.generate", "image.edit.remove_background", "image.edit.upscale", "image.edit.restyle",
+        "image.edit.remove_object", "image.edit.outpaint", "video.generate", "video.edit", "video.extend",
+        "audio.transcribe",
+    ];
+
+    private static readonly int[] s_outpaintPercents = [10, 25, 50];
 
     [McpServerTool(Name = "list_ai_models")]
     [Description("Lists the AI models the signed-in account can use for one operation, with the aspect ratios, durations, resolutions and inputs each accepts. Operations: image.generate, image.edit.remove_background, image.edit.upscale, image.edit.restyle, image.edit.remove_object, image.edit.outpaint, video.generate, video.edit, video.extend, audio.transcribe.")]
@@ -64,10 +76,13 @@ internal sealed class AgentHostAiTools(
     {
         return ExecuteAsync<ListAiModelsResponse>(async () =>
         {
+            string operationId = operation?.Trim() ?? string.Empty;
+            if (!s_operations.Contains(operationId, StringComparer.Ordinal))
+                throw Invalid($"Unknown operation '{operation}'. Use one of: {string.Join(", ", s_operations)}.", "operation");
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             IReadOnlyList<GenerativeModelInfo> models =
-                await backend.GetModelsAsync(operation.Trim(), cancellationToken).ConfigureAwait(false);
-            return new ListAiModelsResponse(operation.Trim(), models.Select(Summarize).ToArray());
+                await backend.GetModelsAsync(operationId, cancellationToken).ConfigureAwait(false);
+            return new ListAiModelsResponse(operationId, models.Select(Summarize).ToArray());
         });
     }
 
@@ -76,9 +91,9 @@ internal sealed class AgentHostAiTools(
     public ValueTask<ToolResult<AgentAiJobSnapshot>> GenerateImage(
         [Description("What to draw.")]
         string prompt,
-        [Description("Aspect ratio such as 16:9 or 1:1. Defaults to the one nearest the scene.")]
+        [Description("Aspect ratio such as 16:9 or 1:1. Defaults to the one the model offers nearest the scene.")]
         string? aspectRatio = null,
-        [Description("Background: auto, opaque or transparent.")]
+        [Description("Background: auto, opaque or transparent. Defaults to auto, or the model's first when it offers no auto.")]
         string? background = null,
         [Description("Model id from list_ai_models(image.generate); omit for the default.")]
         string? model = null,
@@ -90,16 +105,24 @@ internal sealed class AgentHostAiTools(
         int waitSeconds = 45,
         CancellationToken cancellationToken = default)
     {
-        return StartAsync("image.generate", waitSeconds, cancellationToken, scene =>
+        return StartAsync("image.generate", model, waitSeconds, cancellationToken, (scene, chosen) =>
         {
             string text = RequirePrompt(prompt);
             string ratio = string.IsNullOrWhiteSpace(aspectRatio)
-                ? GenerativeShapeSuggestion.NearestAspectRatio(GenerativeImageCapabilities.DefaultAspectRatios, scene.FrameSize, "16:9")
+                ? GenerativeShapeSuggestion.NearestAspectRatio(
+                    Offered(chosen?.Image?.AspectRatios, GenerativeImageCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
                 : aspectRatio.Trim();
-            GenerativeImageInput[] references = (referenceImagePaths ?? [])
-                .Select((path, index) => ReadImage(scene, path, $"reference-{index + 1}"))
+            string[] referencePaths = referenceImagePaths ?? [];
+            int maxReferences = Math.Min(AiRequestLimits.MaxImageReferences, chosen?.Image?.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences);
+            if (referencePaths.Length > maxReferences)
+                throw Invalid($"At most {maxReferences} reference pictures are accepted.", "referenceImagePaths");
+            GenerativeImageInput[] references = referencePaths
+                .Select((path, index) => ReadImage(scene, path, $"reference-{index + 1}", AiRequestLimits.MaxImageUploadBytes))
                 .ToArray();
-            string chosenBackground = string.IsNullOrWhiteSpace(background) ? "auto" : background.Trim();
+            IReadOnlyList<string> backgrounds = Offered(chosen?.Image?.Backgrounds, GenerativeImageCapabilities.DefaultBackgrounds);
+            string chosenBackground = string.IsNullOrWhiteSpace(background)
+                ? backgrounds.Contains("auto", StringComparer.Ordinal) ? "auto" : backgrounds[0]
+                : background.Trim();
             return new AiImageGenerationNodeRequest("image.generate")
             {
                 Prompt = text,
@@ -132,23 +155,28 @@ internal sealed class AgentHostAiTools(
         CancellationToken cancellationToken = default)
     {
         string taskId = task.Trim().ToLowerInvariant();
-        return StartAsync($"image.edit.{taskId}", waitSeconds, cancellationToken, scene =>
+        return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (scene, _) =>
         {
-            int index = Array.IndexOf(s_imageTasks, taskId);
-            if (index < 0)
-                throw Invalid($"Unknown edit task '{task}'. Use one of: {string.Join(", ", s_imageTasks)}.", "task");
-            var editTask = (AiImageEditTask)index;
+            var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
             string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt) : null;
             return new AiImageEditNodeRequest($"image.edit.{taskId}")
             {
                 Task = editTask,
                 Prompt = text,
                 OutpaintExpansionPercent = editTask == AiImageEditTask.Outpaint ? outpaintExpansionPercent : null,
-                Image = ReadImage(scene, sourcePath, "source"),
+                Image = ReadImage(scene, sourcePath, "source", AiRequestLimits.MaxImageUploadBytes),
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
                 ParameterFingerprint = GenerativeFingerprint.Combine([taskId, text, model, outpaintExpansionPercent.ToString(CultureInfo.InvariantCulture)]),
             };
+        },
+        // Checked before the model is looked up, since the task names the operation.
+        precheck: () =>
+        {
+            if (Array.IndexOf(s_imageTasks, taskId) < 0)
+                throw Invalid($"Unknown edit task '{task}'. Use one of: {string.Join(", ", s_imageTasks)}.", "task");
+            if (taskId == "outpaint" && !s_outpaintPercents.Contains(outpaintExpansionPercent))
+                throw Invalid("outpaintExpansionPercent must be 10, 25 or 50.", "outpaintExpansionPercent");
         });
     }
 
@@ -157,13 +185,13 @@ internal sealed class AgentHostAiTools(
     public ValueTask<ToolResult<AgentAiJobSnapshot>> GenerateVideo(
         [Description("What happens in the clip.")]
         string prompt,
-        [Description("Length in seconds; must be one the model offers (see list_ai_models(video.generate)). Default 6.")]
-        int durationSeconds = GenerativeVideoCapabilities.DefaultDuration,
-        [Description("Resolution such as 720p or 1080p. Defaults to the smallest that covers the scene.")]
+        [Description("Length in seconds; must be one the model offers (see list_ai_models(video.generate)). Defaults to 6, or the model's first when it offers no 6.")]
+        int? durationSeconds = null,
+        [Description("Resolution such as 720p or 1080p. Defaults to the smallest the model offers that covers the scene.")]
         string? resolution = null,
-        [Description("Aspect ratio such as 16:9 or 9:16. Defaults to the one nearest the scene.")]
+        [Description("Aspect ratio such as 16:9 or 9:16. Defaults to the one the model offers nearest the scene.")]
         string? aspectRatio = null,
-        [Description("Generate sound with the picture, when the model supports it.")]
+        [Description("Generate sound with the picture; refused for a model whose supportsAudio is false.")]
         bool generateAudio = false,
         [Description("Path of a picture the clip starts on, in the workspace or among the open scene's AI results.")]
         string? firstFramePath = null,
@@ -177,31 +205,38 @@ internal sealed class AgentHostAiTools(
         int waitSeconds = 45,
         CancellationToken cancellationToken = default)
     {
-        return StartAsync("video.generate", waitSeconds, cancellationToken, scene =>
+        return StartAsync("video.generate", model, waitSeconds, cancellationToken, (scene, chosen) =>
         {
             string text = RequirePrompt(prompt);
             if (lastFramePath is not null && firstFramePath is null)
                 throw Invalid("A last frame needs a first frame.", "lastFramePath");
+            GenerativeVideoCapabilities? offered = chosen?.Video;
+            // The executor would quietly drop the sound; refused instead, so a silent clip is not paid for.
+            if (generateAudio && offered is { SupportsAudio: false })
+                throw Invalid($"The model '{chosen!.Id}' does not generate sound. Leave generateAudio off, or choose a model whose supportsAudio is true.", "generateAudio");
+            int duration = durationSeconds ?? DefaultDuration(offered);
             string chosenResolution = string.IsNullOrWhiteSpace(resolution)
-                ? GenerativeShapeSuggestion.SuggestResolution(GenerativeVideoCapabilities.DefaultResolutions, scene.FrameSize)
+                ? GenerativeShapeSuggestion.SuggestResolution(
+                    Offered(offered?.Resolutions, GenerativeVideoCapabilities.DefaultResolutions), scene.FrameSize)
                 : resolution.Trim();
             string ratio = string.IsNullOrWhiteSpace(aspectRatio)
-                ? GenerativeShapeSuggestion.NearestAspectRatio(GenerativeVideoCapabilities.DefaultAspectRatios, scene.FrameSize, "16:9")
+                ? GenerativeShapeSuggestion.NearestAspectRatio(
+                    Offered(offered?.AspectRatios, GenerativeVideoCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
                 : aspectRatio.Trim();
             return new AiVideoGenerationNodeRequest("video.generate")
             {
                 Prompt = text,
-                DurationSeconds = durationSeconds,
+                DurationSeconds = duration,
                 Resolution = chosenResolution,
                 AspectRatio = ratio,
                 GenerateAudio = generateAudio,
                 Seed = seed,
-                FirstFrame = firstFramePath is null ? null : ReadImage(scene, firstFramePath, "first-frame"),
-                LastFrame = lastFramePath is null ? null : ReadImage(scene, lastFramePath, "last-frame"),
+                FirstFrame = firstFramePath is null ? null : ReadImage(scene, firstFramePath, "first-frame", AiRequestLimits.MaxFrameUploadBytes),
+                LastFrame = lastFramePath is null ? null : ReadImage(scene, lastFramePath, "last-frame", AiRequestLimits.MaxFrameUploadBytes),
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
                 ParameterFingerprint = GenerativeFingerprint.Combine(
-                    [text, durationSeconds.ToString(CultureInfo.InvariantCulture), chosenResolution, ratio, generateAudio ? "audio" : null, model, seed?.ToString(CultureInfo.InvariantCulture)]),
+                    [text, duration.ToString(CultureInfo.InvariantCulture), chosenResolution, ratio, generateAudio ? "audio" : null, model, seed?.ToString(CultureInfo.InvariantCulture)]),
             };
         });
     }
@@ -215,8 +250,8 @@ internal sealed class AgentHostAiTools(
         string prompt,
         [Description("edit or extend.")]
         string mode = "edit",
-        [Description("For extend: seconds to add; must be one the model offers (see list_ai_models(video.extend)). Default 6.")]
-        int durationSeconds = GenerativeVideoCapabilities.DefaultDuration,
+        [Description("For extend: seconds to add; must be one the model offers (see list_ai_models(video.extend)). Defaults to 6, or the model's first when it offers no 6.")]
+        int? durationSeconds = null,
         [Description("Model id from list_ai_models(video.edit or video.extend); omit for the default.")]
         string? model = null,
         [Description(WaitDescription)]
@@ -224,22 +259,26 @@ internal sealed class AgentHostAiTools(
         CancellationToken cancellationToken = default)
     {
         string modeId = mode.Trim().ToLowerInvariant();
-        return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", waitSeconds, cancellationToken, scene =>
+        return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, cancellationToken, (scene, chosen) =>
         {
-            if (modeId is not ("edit" or "extend"))
-                throw Invalid($"Unknown mode '{mode}'. Use edit or extend.", "mode");
             bool extend = modeId == "extend";
             string text = RequirePrompt(prompt);
+            int duration = extend ? durationSeconds ?? DefaultDuration(chosen?.Video) : 0;
             return new AiVideoEditNodeRequest(extend ? "video.extend" : "video.edit")
             {
                 Mode = extend ? AiVideoEditMode.Extend : AiVideoEditMode.Edit,
                 Prompt = text,
-                DurationSeconds = extend ? durationSeconds : 0,
+                DurationSeconds = duration,
                 SourceVideo = ReadVideo(scene, sourcePath),
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
-                ParameterFingerprint = GenerativeFingerprint.Combine([modeId, text, extend ? durationSeconds.ToString(CultureInfo.InvariantCulture) : null, model]),
+                ParameterFingerprint = GenerativeFingerprint.Combine([modeId, text, extend ? duration.ToString(CultureInfo.InvariantCulture) : null, model]),
             };
+        },
+        precheck: () =>
+        {
+            if (modeId is not ("edit" or "extend"))
+                throw Invalid($"Unknown mode '{mode}'. Use edit or extend.", "mode");
         });
     }
 
@@ -258,6 +297,7 @@ internal sealed class AgentHostAiTools(
     {
         return await ExecuteAsync<AgentAiJobSnapshot>(async () =>
         {
+            RequireWait(waitSeconds);
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             Scene? scene = await FindSceneAsync().ConfigureAwait(false);
             string path = RequireFile(scene, sourcePath, "sourcePath");
@@ -281,7 +321,11 @@ internal sealed class AgentHostAiTools(
         int waitSeconds = 45,
         CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync(() => new ValueTask<AgentAiJobSnapshot>(WaitAsync(jobId, waitSeconds, cancellationToken)));
+        return ExecuteAsync(() =>
+        {
+            RequireWait(waitSeconds);
+            return new ValueTask<AgentAiJobSnapshot>(WaitAsync(jobId, waitSeconds, cancellationToken));
+        });
     }
 
     [McpServerTool(Name = "cancel_ai_job")]
@@ -300,19 +344,25 @@ internal sealed class AgentHostAiTools(
 
     private ValueTask<ToolResult<AgentAiJobSnapshot>> StartAsync(
         string operation,
+        string? model,
         int waitSeconds,
         CancellationToken cancellationToken,
-        Func<Scene, GenerativeRequest> build)
+        Func<Scene, GenerativeModelInfo?, GenerativeRequest> build,
+        Action? precheck = null)
     {
         return ExecuteAsync<AgentAiJobSnapshot>(async () =>
         {
+            RequireWait(waitSeconds);
+            precheck?.Invoke();
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             Scene scene = await RequireSceneAsync().ConfigureAwait(false);
+            // Omitted settings are chosen from what this model offers, as the AI tab's controls are.
+            GenerativeModelInfo? chosen = await ResolveModelAsync(operation, model, cancellationToken).ConfigureAwait(false);
             // Inputs are read now, so a missing file or a bad argument is the call's error, not the job's.
             GenerativeRequest request;
             try
             {
-                request = build(scene);
+                request = build(scene, chosen);
             }
             catch (GenerativeExecutionException ex)
             {
@@ -346,10 +396,43 @@ internal sealed class AgentHostAiTools(
 
     private async Task<AgentAiJobSnapshot> WaitAsync(string jobId, int waitSeconds, CancellationToken cancellationToken)
     {
-        TimeSpan wait = TimeSpan.FromSeconds(Math.Clamp(waitSeconds, 0, 110));
-        return await jobs.WaitAsync(jobId, wait, cancellationToken).ConfigureAwait(false)
+        return await jobs.WaitAsync(jobId, TimeSpan.FromSeconds(waitSeconds), cancellationToken).ConfigureAwait(false)
                ?? throw NotFound(jobId);
     }
+
+    // Checked before anything starts: a paid job is never begun for a call that is then refused.
+    private static void RequireWait(int waitSeconds)
+    {
+        if (waitSeconds is < 0 or > MaxWaitSeconds)
+            throw Invalid($"waitSeconds must be between 0 and {MaxWaitSeconds}.", "waitSeconds");
+    }
+
+    // As the executor resolves it: the named model, or the default one the account can use. An empty
+    // catalog (offline) leaves the choice to the service, with the AI tab's fallback lists.
+    private async Task<GenerativeModelInfo?> ResolveModelAsync(string operation, string? model, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<GenerativeModelInfo> offered =
+            await backend.GetModelsAsync(operation, cancellationToken).ConfigureAwait(false);
+        if (NormalizeModel(model) is { } id)
+        {
+            GenerativeModelInfo? named = offered.FirstOrDefault(candidate => candidate.Id == id);
+            if (offered.Count > 0 && named is not { IsAvailable: true })
+                throw Invalid($"The model '{id}' is not available for {operation}. Call list_ai_models(\"{operation}\") for the ones this account can use.", "model");
+            return named;
+        }
+
+        return offered.FirstOrDefault(candidate => candidate.IsAvailable && candidate.IsDefault)
+               ?? offered.FirstOrDefault(candidate => candidate.IsAvailable);
+    }
+
+    private static IReadOnlyList<T> Offered<T>(IReadOnlyList<T>? published, IReadOnlyList<T> fallback)
+        => published is { Count: > 0 } ? published : fallback;
+
+    private static int DefaultDuration(GenerativeVideoCapabilities? offered)
+        => GenerativeShapeSuggestion.SuggestDuration(
+            Offered(offered?.DurationsSeconds, GenerativeVideoCapabilities.DefaultDurations),
+            null,
+            GenerativeVideoCapabilities.DefaultDuration);
 
     private async Task RequireAvailableAsync(CancellationToken cancellationToken)
     {
@@ -428,18 +511,27 @@ internal sealed class AgentHostAiTools(
             : throw new ReconcileException(new ToolError(ErrorCode.MediaNotFound, $"No file exists at '{path}'.", target));
     }
 
-    private GenerativeImageInput ReadImage(Scene scene, string path, string name)
+    private GenerativeImageInput ReadImage(Scene scene, string path, string name, long maxBytes)
     {
         string full = RequireFile(scene, path, name);
         try
         {
-            using Bitmap bitmap = Bitmap.FromFile(full);
+            // Size and dimensions are checked before decoding, as the AI dialogs check them, so a
+            // small file that would decode to a huge picture is refused unread.
+            using Bitmap bitmap = AiImageDecodeValidator.LoadValidatedBitmap(full, maxBytes);
             using var stream = new MemoryStream();
             if (!bitmap.Save(stream, EncodedImageFormat.Png))
                 throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", name));
             return new GenerativeImageInput($"{name}.png", stream.ToArray());
         }
-        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException)
+        catch (InvalidDataException)
+        {
+            throw new ReconcileException(new ToolError(
+                ErrorCode.MediaUnsupported,
+                $"'{path}' is not a picture the AI service accepts: it must be a readable image of at most {maxBytes / (1024 * 1024)} MB and {AiImageDecodeValidator.MaxDimension} pixels a side.",
+                name));
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException)
         {
             throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be read as a picture.", name));
         }

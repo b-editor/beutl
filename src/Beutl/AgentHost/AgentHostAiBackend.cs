@@ -56,14 +56,32 @@ internal sealed class AgentHostAiBackend(
         CancellationToken cancellationToken)
     {
         AiModelId? model = string.IsNullOrWhiteSpace(modelId) ? null : new AiModelId(modelId.Trim());
-        using MediaReader reader = await Task.Run(
-            () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
-            cancellationToken).ConfigureAwait(false);
+        MediaReader opened;
+        try
+        {
+            opened = await Task.Run(
+                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (UnsupportedMediaException)
+        {
+            throw new AgentAiException(Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported, "The file could not be decoded as audio or video.");
+        }
+
+        using MediaReader reader = opened;
         if (!reader.HasAudio)
             throw new AgentAiException(Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported, "The file has no audio to transcribe.");
 
         int sampleRate = reader.AudioInfo.SampleRate;
         long totalSamples = (long)Math.Floor(reader.AudioInfo.Duration.ToDouble() * sampleRate);
+        // Parts are read by an int sample position; refused here, before the first part is paid for.
+        if (totalSamples > int.MaxValue)
+        {
+            throw new AgentAiException(
+                Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+                $"The recording is too long to transcribe; at {sampleRate} Hz the limit is {int.MaxValue / (double)sampleRate / 3600:0.#} hours.");
+        }
+
         int chunkSamples = checked((int)(s_chunkDuration.TotalSeconds * sampleRate));
         int chunkCount = Math.Max(1, (int)Math.Ceiling(totalSamples / (double)chunkSamples));
         var segments = new List<AgentTranscriptSegment>();

@@ -168,6 +168,19 @@ public sealed class AgentHostAiToolsTests
         ToolResult<AgentAiJobSnapshot> missingFile = await tools.EditImage(Path.Combine(_directory, "missing.png"), "upscale");
         ToolResult<AgentAiJobSnapshot> noPrompt = await tools.EditImage(WritePng("b.png"), "restyle");
         ToolResult<AgentAiJobSnapshot> unknownJob = await tools.ReadAiJob("nope", waitSeconds: 0);
+        ToolResult<AgentAiJobSnapshot> negativeWait = await tools.GenerateImage("a cat", waitSeconds: -1);
+        ToolResult<AgentAiJobSnapshot> longWait = await tools.ReadAiJob("nope", waitSeconds: 111);
+        ToolResult<AgentAiJobSnapshot> oddOutpaint = await tools.EditImage(WritePng("c.png"), "outpaint", "more sky", outpaintExpansionPercent: 30);
+        string[] fiveReferences = [.. Enumerable.Range(0, 5).Select(index => WritePng($"reference-{index}.png"))];
+        ToolResult<AgentAiJobSnapshot> tooManyReferences = await tools.GenerateImage("a cat", referenceImagePaths: fiveReferences);
+        string huge = Path.Combine(_directory, "huge.png");
+        using (var bitmap = new Bitmap(8_193, 1))
+            Assert.That(bitmap.Save(huge, EncodedImageFormat.Png), Is.True);
+        ToolResult<AgentAiJobSnapshot> hugePicture = await tools.EditImage(huge, "upscale");
+        ToolResult<ListAiModelsResponse> typo = await tools.ListAiModels("image.generat");
+        ToolResult<ListAiModelsResponse> blank = await tools.ListAiModels(" ");
+        backend.Models["image.generate"] = [SquareModel];
+        ToolResult<AgentAiJobSnapshot> unknownModel = await tools.GenerateImage("a cat", model: "nope");
 
         Assert.Multiple(() =>
         {
@@ -175,8 +188,76 @@ public sealed class AgentHostAiToolsTests
             Assert.That(missingFile.Error?.Code, Is.EqualTo(ErrorCode.MediaNotFound));
             Assert.That(noPrompt.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unknownJob.Error?.Code, Is.EqualTo(ErrorCode.AiJobNotFound));
+            Assert.That(negativeWait.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(longWait.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(oddOutpaint.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(tooManyReferences.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(hugePicture.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "checked before it is decoded");
+            Assert.That(typo.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(unknownModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(backend.Requests, Is.Empty);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task OmittedSettingsAreChosenFromTheModelsOwnChoices()
+    {
+        await TestReset.ResetShellAsync();
+        await OpenSceneAsync("agent-ai-model-choices");
+        var backend = new FakeBackend { Result = WritePng("result.png") };
+        backend.Models["image.generate"] = [SquareModel];
+        backend.Models["video.generate"] =
+        [
+            new GenerativeModelInfo("portrait", "Portrait", IsDefault: true, IsAvailable: true, Image: null, Video: new GenerativeVideoCapabilities(
+                DurationsSeconds: [5, 10],
+                Resolutions: ["480p", "720p"],
+                AspectRatios: ["9:16"],
+                SupportsAudio: false,
+                SupportsSeed: false,
+                SupportsFirstFrame: true,
+                SupportsLastFrame: true,
+                SupportsPromptToVideo: true,
+                SupportsInputReferences: false,
+                MaxImageReferences: 0,
+                MaxImageReferenceBytes: 0,
+                MaxVideoReferences: 0,
+                MaxVideoReferenceBytes: 0,
+                MaxPromptLength: 4_000)),
+        ];
+        using var jobs = new AgentAiJobManager();
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+        ToolResult<AgentAiJobSnapshot> image = await tools.GenerateImage("a cat", waitSeconds: 10);
+        ToolResult<AgentAiJobSnapshot> video = await tools.GenerateVideo("a cat", waitSeconds: 10);
+        ToolResult<AgentAiJobSnapshot> sound = await tools.GenerateVideo("a cat", generateAudio: true, waitSeconds: 0);
+
+        Assert.That(image.IsSuccess, Is.True, image.Error?.Message);
+        Assert.That(video.IsSuccess, Is.True, video.Error?.Message);
+        var imageRequest = backend.Requests.OfType<AiImageGenerationNodeRequest>().Single();
+        var videoRequest = backend.Requests.OfType<AiVideoGenerationNodeRequest>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(imageRequest.AspectRatio, Is.EqualTo("1:1"), "the only ratio the model offers, not the 4:3 nearest the scene");
+            Assert.That(imageRequest.Background, Is.EqualTo("opaque"));
+            Assert.That(videoRequest.DurationSeconds, Is.EqualTo(5));
+            Assert.That(videoRequest.Resolution, Is.EqualTo("480p"), "the smallest that covers the 480-line scene");
+            Assert.That(videoRequest.AspectRatio, Is.EqualTo("9:16"));
+            Assert.That(sound.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "a silent clip is not paid for");
+            Assert.That(backend.Requests, Has.Count.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public async Task AFileThatCannotBeDecodedIsUnsupportedMediaNotAFailedGeneration()
+    {
+        var backend = new AgentHostAiBackend(() => null, null!, null!, null!, () => null!, _ => null!);
+        string path = WriteFile("noise.wav");
+
+        AgentAiException? error = await Assert.ThrowsAsync<AgentAiException>(
+            () => backend.TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None));
+
+        Assert.That(error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
     }
 
     [AvaloniaTest]
@@ -266,6 +347,9 @@ public sealed class AgentHostAiToolsTests
         return scene;
     }
 
+    private static GenerativeModelInfo SquareModel { get; } =
+        new("square", "Square", IsDefault: true, IsAvailable: true, new GenerativeImageCapabilities(["1:1"], ["opaque"], SupportsSeed: false, MaxReferenceImages: 4));
+
     private AgentHostAiTools CreateTools(EditorService editor, AgentAiJobManager jobs, FakeBackend backend)
         => new(editor, jobs, backend, new WorkspaceGuard(_directory));
 
@@ -303,10 +387,12 @@ public sealed class AgentHostAiToolsTests
 
         public List<string> TranscribedPaths { get; } = [];
 
+        public Dictionary<string, IReadOnlyList<GenerativeModelInfo>> Models { get; } = [];
+
         public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
 
         public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<GenerativeModelInfo>>([]);
+            => Task.FromResult(Models.GetValueOrDefault(operationId) ?? []);
 
         public IGenerativeNodeExecutor CreateExecutor(Scene scene)
         {

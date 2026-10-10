@@ -1,8 +1,13 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text.Json.Serialization;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.AgentHost;
 
+// Written by name, as the contract documents it; the Web serializer defaults would emit an ordinal.
+[JsonConverter(typeof(JsonStringEnumConverter<AgentAiJobStatus>))]
 public enum AgentAiJobStatus
 {
     Running,
@@ -46,7 +51,10 @@ internal sealed class AgentAiJobManager : IDisposable
 {
     // As many finished jobs as the render job manager keeps; running ones are never dropped.
     internal const int RetainedFinishedJobs = 128;
+    private static readonly ILogger s_logger = Log.CreateLogger<AgentAiJobManager>();
     private readonly ConcurrentDictionary<string, Job> _jobs = new(StringComparer.Ordinal);
+    // Admission and disposal share it, so no job is added after Dispose has cancelled the others.
+    private readonly object _lifetimeSync = new();
     private long _sequence;
     private bool _disposed;
 
@@ -56,11 +64,14 @@ internal sealed class AgentAiJobManager : IDisposable
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         ArgumentNullException.ThrowIfNull(run);
-        ObjectDisposedException.ThrowIf(_disposed, this);
         var job = new Job(Guid.NewGuid().ToString("N"), operation, Interlocked.Increment(ref _sequence));
-        _jobs[job.Id] = job;
-        Prune();
-        job.Task = Task.Run(() => RunAsync(job, run));
+        lock (_lifetimeSync)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _jobs[job.Id] = job;
+            job.Task = Task.Run(() => RunAsync(job, run));
+        }
+
         return job.Id;
     }
 
@@ -96,9 +107,12 @@ internal sealed class AgentAiJobManager : IDisposable
 
     public void Dispose()
     {
-        _disposed = true;
-        foreach (Job job in _jobs.Values)
-            job.Cancellation.Cancel();
+        lock (_lifetimeSync)
+        {
+            _disposed = true;
+            foreach (Job job in _jobs.Values)
+                job.Cancellation.Cancel();
+        }
     }
 
     private void Prune()
@@ -108,7 +122,14 @@ internal sealed class AgentAiJobManager : IDisposable
             _jobs.TryRemove(finished[index].Id, out _);
     }
 
-    private static async Task RunAsync(Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)
+    private async Task RunAsync(Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)
+    {
+        await RunCoreAsync(job, run).ConfigureAwait(false);
+        // Pruned as each job finishes, so the bound holds even when no later job starts.
+        Prune();
+    }
+
+    private static async Task RunCoreAsync(Job job, Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)
     {
         try
         {
@@ -125,7 +146,13 @@ internal sealed class AgentAiJobManager : IDisposable
         }
         catch (Exception ex)
         {
-            job.Finish(AgentAiJobStatus.Failed, null, Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed, ex.Message);
+            // An unexpected message can carry local paths or service details; it stays in the log.
+            s_logger.LogError(ex, "AI job {Operation} failed unexpectedly.", job.Operation);
+            job.Finish(
+                AgentAiJobStatus.Failed,
+                null,
+                Beutl.AgentToolkit.Common.ErrorCode.AiGenerationFailed,
+                $"The AI job failed unexpectedly ({ex.GetType().Name}). The details are in the Beutl app's log.");
         }
     }
 
@@ -136,6 +163,8 @@ internal sealed class AgentAiJobManager : IDisposable
 
     private sealed class Job(string id, string operation, long sequence)
     {
+        public string Operation { get; } = operation;
+
         private readonly object _gate = new();
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private AgentAiJobStatus _status = AgentAiJobStatus.Running;
@@ -190,7 +219,7 @@ internal sealed class AgentAiJobManager : IDisposable
             {
                 return new AgentAiJobSnapshot(
                     Id,
-                    operation,
+                    Operation,
                     _status,
                     _statusText,
                     Math.Round((_elapsed ?? _clock.Elapsed).TotalSeconds, 1),
