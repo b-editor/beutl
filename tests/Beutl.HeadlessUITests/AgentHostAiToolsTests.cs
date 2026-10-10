@@ -347,7 +347,11 @@ public sealed class AgentHostAiToolsTests
         // The catalog gives video models image capabilities too, with the unrestricted seed.
         backend.Models["video.generate"] =
         [
-            PortraitModel with { Image = new GenerativeImageCapabilities(null, null, SupportsSeed: true, MaxReferenceImages: 4) },
+            PortraitModel with
+            {
+                Image = new GenerativeImageCapabilities(null, null, SupportsSeed: true, MaxReferenceImages: 4),
+                Video = PortraitModel.Video! with { SupportsPromptToVideo = false },
+            },
         ];
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -360,6 +364,7 @@ public sealed class AgentHostAiToolsTests
             Assert.That(summary.AspectRatios, Is.EqualTo(new[] { "9:16" }));
             Assert.That(summary.MaxReferenceImages, Is.Null);
             Assert.That(summary.DurationsSeconds, Is.EqualTo(new[] { 5, 10 }));
+            Assert.That(summary.SupportsPromptToVideo, Is.False, "generate_video needs a first frame for it");
         });
     }
 

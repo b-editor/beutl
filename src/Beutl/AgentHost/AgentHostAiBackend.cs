@@ -209,6 +209,7 @@ internal sealed class AgentHostAiBackend(
                         // Words only refine the segments, so one with unusable times, out of order
                         // or overlapping the word before it, is left out rather than the whole part.
                         if (word is null
+                            || string.IsNullOrWhiteSpace(word.Word)
                             || !double.IsFinite(word.Start)
                             || !double.IsFinite(word.End)
                             || word.Start < 0

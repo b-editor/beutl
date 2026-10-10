@@ -31,7 +31,8 @@ public sealed record AiModelSummary(
     bool? SupportsAudio,
     bool? SupportsFirstFrame,
     bool? SupportsLastFrame,
-    bool? SupportsSeed);
+    bool? SupportsSeed,
+    bool? SupportsPromptToVideo);
 
 public sealed record ListAiJobsResponse(IReadOnlyList<AgentAiJobSnapshot> Jobs)
 {
@@ -633,7 +634,9 @@ internal sealed class AgentHostAiTools(
             video?.SupportsAudio,
             video?.SupportsFirstFrame,
             video?.SupportsLastFrame,
-            image?.SupportsSeed ?? video?.SupportsSeed);
+            image?.SupportsSeed ?? video?.SupportsSeed,
+            // False when generate_video needs firstFramePath for this model.
+            video?.SupportsPromptToVideo);
     }
 
     private static string? NormalizeModel(string? model)

@@ -326,11 +326,13 @@ public sealed class AgentHostAiBackendTests
                 null,
                 Segments ?? [new AiTranscriptionSegment { Start = 1, End = 2, Text = text }],
                 "ja",
-                // Only the first word is usable: the second has no time and the third goes back before it.
+                // Only the first word is usable: the second has no time, the third goes back before
+                // it and the fourth has no text.
                 [
                     new AiTranscriptionWord { Start = 1, End = 2, Word = text },
                     new AiTranscriptionWord { Start = -1, End = 0, Word = "?" },
                     new AiTranscriptionWord { Start = 0.5, End = 0.8, Word = "earlier" },
+                    new AiTranscriptionWord { Start = 2, End = 2.5, Word = " " },
                 ]));
         }
     }
