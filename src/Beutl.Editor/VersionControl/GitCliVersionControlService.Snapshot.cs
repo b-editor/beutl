@@ -303,20 +303,6 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.SkippedNoIdentity();
         }
 
-        // The safety snapshot leaves ignored files out, so git restore would replace one at a path the
-        // source tracks with nothing to restore it from. The pull and the branch switch refuse the same.
-        string? ignoredCollision = await FindIgnoredPathRestoredFromAsync(
-                repository,
-                runner,
-                source,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (ignoredCollision is not null)
-        {
-            throw new InvalidOperationException(
-                $"Restoring the project would overwrite the ignored file '{ignoredCollision}'.");
-        }
-
         CommitRevision? revision;
         try
         {
@@ -340,7 +326,7 @@ internal sealed partial class GitCliVersionControlService
             catch (Exception rollbackFailure)
             {
                 throw new AggregateException(
-                    "The project could not be restored, and its files could not be put back to the checked-out version. That version still holds the project as it was before the restore.",
+                    "The project could not be restored, and its files could not be put back to the checked-out version.",
                     restoreFailure,
                     rollbackFailure);
             }
@@ -352,78 +338,6 @@ internal sealed partial class GitCliVersionControlService
         return revision is null
             ? new CommitResult.NoChanges()
             : new CommitResult.Committed(revision);
-    }
-
-    // Paths the source adds to HEAD are untracked here; one that exists on disk and that an ignore rule
-    // matches is a file the restore would overwrite.
-    private async Task<string?> FindIgnoredPathRestoredFromAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string source,
-        CancellationToken cancellationToken)
-    {
-        GitCommandResult added = await runner.RunAsync(
-                repository,
-                [
-                    "diff",
-                    "--name-only",
-                    "--no-renames",
-                    "--diff-filter=A",
-                    "-z",
-                    "HEAD",
-                    source,
-                    "--",
-                    .. CreateSnapshotPathspecs(repository),
-                ],
-                GitCommandOptions.Local with { UseLiteralPathspecs = false },
-                cancellationToken)
-            .ConfigureAwait(false);
-        string repositoryRoot = Path.GetFullPath(repository.RepoRoot);
-        string[] existingPaths = GitCliRunner.SplitNullSeparated(added.Stdout)
-            .Where(path =>
-            {
-                try
-                {
-                    string fullPath = Path.GetFullPath(Path.Combine(repositoryRoot, path));
-                    return File.Exists(fullPath) || Directory.Exists(fullPath);
-                }
-                catch (Exception ex) when (ex is ArgumentException
-                                               or NotSupportedException
-                                               or PathTooLongException)
-                {
-                    // A name this platform cannot hold cannot exist on disk either.
-                    return false;
-                }
-            })
-            .ToArray();
-        if (existingPaths.Length == 0)
-        {
-            return null;
-        }
-
-        // check-ignore reads its input as pathspecs and refuses literal magic, so :(top) keeps a name
-        // that starts with a colon from being read as magic. Git echoes each match as it was given.
-        const string TopMagic = ":(top)";
-        try
-        {
-            GitCommandResult ignored = await runner.RunAsync(
-                    repository,
-                    ["check-ignore", "--stdin", "-z"],
-                    new GitCommandOptions(
-                        GitCommandExecutionKind.Local,
-                        StandardInput: string.Concat(existingPaths.Select(path => $"{TopMagic}{path}\0")),
-                        UseLiteralPathspecs: false),
-                    cancellationToken)
-                .ConfigureAwait(false);
-            string? match = GitCliRunner.SplitNullSeparated(ignored.Stdout).FirstOrDefault();
-            return match is not null && match.StartsWith(TopMagic, StringComparison.Ordinal)
-                ? match[TopMagic.Length..]
-                : match;
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return null;
-        }
     }
 
     private Task<GitCommandResult> RestoreProjectScopeAsync(

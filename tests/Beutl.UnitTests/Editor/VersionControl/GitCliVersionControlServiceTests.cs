@@ -3755,52 +3755,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    // The safety snapshot cannot hold an ignored file, so a restore that would replace one is refused
-    // before any file changes.
-    // A name that starts with a colon would otherwise be read as pathspec magic by check-ignore.
-    [TestCase("notes.txt")]
-    [TestCase(":notes.txt")]
-    public async Task RestoreProjectTreeAsync_refuses_to_overwrite_an_ignored_file_the_target_tracks(
-        string notesName)
-    {
-        if (notesName.StartsWith(':') && OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Windows does not allow a colon in a file name.");
-        }
-
-        await CommitFileAsync("project.bep", "target\n", "target");
-        await CommitFileAsync(notesName, "tracked notes\n", "notes");
-        string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await RunGitAsync("rm", "-q", "--", notesName);
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), $"{notesName}\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "later\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "later");
-        string laterSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await File.WriteAllTextAsync(Path.Combine(Root, notesName), "private notes\n");
-        using var service = CreateService();
-
-        InvalidOperationException? refusal = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.ExecuteExclusiveAsync(
-                transaction => transaction.RestoreProjectTreeAsync(
-                    targetSha,
-                    "beutl: restore target",
-                    SnapshotKind.Restore,
-                    CancellationToken.None),
-                CancellationToken.None));
-
-        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string status = (await RunGitAsync("status", "--porcelain", "--untracked-files=all")).Stdout;
-        Assert.Multiple(() =>
-        {
-            Assert.That(refusal?.Message, Does.Contain($"'{notesName}'"));
-            Assert.That(head, Is.EqualTo(laterSha));
-            Assert.That(status, Is.Empty);
-            Assert.That(File.ReadAllText(Path.Combine(Root, notesName)), Is.EqualTo("private notes\n"));
-            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("later\n"));
-        });
-    }
-
     [Test]
     public async Task CreateBranchAsync_switches_to_a_new_branch_at_the_selected_commit()
     {
