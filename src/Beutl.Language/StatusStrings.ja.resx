@@ -10,7 +10,7 @@
   <data name="GraphicsApi" xml:space="preserve"><value>グラフィックスAPI</value></data>
   <data name="VideoMemory" xml:space="preserve"><value>ビデオメモリ</value></data>
   <data name="Rendering3D" xml:space="preserve"><value>3D描画</value></data>
-  <data name="MaxTextureSize" xml:space="preserve"><value>最大テクスチャサイズ</value></data>
+  <data name="MaxRenderBufferSize" xml:space="preserve"><value>最大描画バッファサイズ</value></data>
   <data name="Available" xml:space="preserve"><value>利用可能</value></data>
   <data name="Unavailable" xml:space="preserve"><value>利用不可</value></data>
   <data name="GraphicsUnavailable" xml:space="preserve"><value>描画バックエンドを初期化できませんでした。</value></data>

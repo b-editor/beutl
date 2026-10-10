@@ -10,7 +10,7 @@
   <data name="GraphicsApi" xml:space="preserve"><value>그래픽 API</value></data>
   <data name="VideoMemory" xml:space="preserve"><value>비디오 메모리</value></data>
   <data name="Rendering3D" xml:space="preserve"><value>3D 렌더링</value></data>
-  <data name="MaxTextureSize" xml:space="preserve"><value>최대 텍스처 크기</value></data>
+  <data name="MaxRenderBufferSize" xml:space="preserve"><value>최대 렌더 버퍼 크기</value></data>
   <data name="Available" xml:space="preserve"><value>사용 가능</value></data>
   <data name="Unavailable" xml:space="preserve"><value>사용 불가</value></data>
   <data name="GraphicsUnavailable" xml:space="preserve"><value>렌더링 백엔드를 초기화할 수 없습니다.</value></data>

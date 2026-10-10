@@ -84,10 +84,10 @@
                                            Text="{Binding Rendering3DText.Value}" />
                                 <TextBlock Grid.Row="4"
                                            Classes="label"
-                                           Text="{x:Static lang:StatusStrings.MaxTextureSize}" />
+                                           Text="{x:Static lang:StatusStrings.MaxRenderBufferSize}" />
                                 <TextBlock Grid.Row="4"
                                            Grid.Column="1"
-                                           Text="{Binding MaxTextureSizeText.Value}" />
+                                           Text="{Binding MaxRenderBufferSizeText.Value}" />
                             </Grid>
                         </StackPanel>
 

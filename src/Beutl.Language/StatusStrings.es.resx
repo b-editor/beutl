@@ -10,7 +10,7 @@
   <data name="GraphicsApi" xml:space="preserve"><value>API gráfica</value></data>
   <data name="VideoMemory" xml:space="preserve"><value>Memoria de vídeo</value></data>
   <data name="Rendering3D" xml:space="preserve"><value>Renderizado 3D</value></data>
-  <data name="MaxTextureSize" xml:space="preserve"><value>Tamaño máximo de textura</value></data>
+  <data name="MaxRenderBufferSize" xml:space="preserve"><value>Tamaño máximo del búfer de renderizado</value></data>
   <data name="Available" xml:space="preserve"><value>Disponible</value></data>
   <data name="Unavailable" xml:space="preserve"><value>No disponible</value></data>
   <data name="GraphicsUnavailable" xml:space="preserve"><value>No se pudo inicializar el backend de renderizado.</value></data>

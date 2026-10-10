@@ -124,7 +124,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
 
     public ReactivePropertySlim<bool> IsRendering3DUnavailable { get; } = new();
 
-    public ReactivePropertySlim<string> MaxTextureSizeText { get; } = new(StatusStrings.Loading);
+    public ReactivePropertySlim<string> MaxRenderBufferSizeText { get; } = new(StatusStrings.Loading);
 
     public ReactivePropertySlim<bool> IsGraphicsUnavailable { get; } = new();
 
@@ -269,7 +269,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
         GpuText.Value = status?.Device ?? "-";
         GraphicsApiText.Value = status?.Api ?? "-";
         VideoMemoryText.Value = status?.VideoMemory ?? "-";
-        MaxTextureSizeText.Value = status?.MaxTextureSize ?? "-";
+        MaxRenderBufferSizeText.Value = status?.MaxRenderBufferSize ?? "-";
         bool supports3D = status?.Supports3DRendering ?? false;
         Rendering3DText.Value = supports3D ? StatusStrings.Available : StatusStrings.Unavailable;
         IsRendering3DUnavailable.Value = !supports3D;
@@ -316,5 +316,5 @@ public sealed class TitleBarStatusViewModel : IDisposable
         string Api,
         string? VideoMemory,
         bool Supports3DRendering,
-        string? MaxTextureSize);
+        string? MaxRenderBufferSize);
 }

@@ -10,7 +10,7 @@
   <data name="GraphicsApi" xml:space="preserve"><value>图形 API</value></data>
   <data name="VideoMemory" xml:space="preserve"><value>显存</value></data>
   <data name="Rendering3D" xml:space="preserve"><value>3D 渲染</value></data>
-  <data name="MaxTextureSize" xml:space="preserve"><value>最大纹理尺寸</value></data>
+  <data name="MaxRenderBufferSize" xml:space="preserve"><value>最大渲染缓冲区尺寸</value></data>
   <data name="Available" xml:space="preserve"><value>可用</value></data>
   <data name="Unavailable" xml:space="preserve"><value>不可用</value></data>
   <data name="GraphicsUnavailable" xml:space="preserve"><value>无法初始化渲染后端。</value></data>
