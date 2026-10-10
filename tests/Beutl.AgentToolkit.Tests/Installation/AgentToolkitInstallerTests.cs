@@ -86,7 +86,6 @@ public sealed class AgentToolkitInstallerTests
             new AgentToolkitInstallOptions
             {
                 AgentRoot = _tempRoot,
-                WorkspaceRoot = Path.Combine(_tempRoot, "workspace"),
                 McpCommand = "dotnet",
                 McpArguments = ["run", "--project", "server.csproj"],
             },
@@ -109,8 +108,7 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(beutlServer["command"]!.GetValue<string>(), Is.EqualTo("dotnet"));
         Assert.That(beutlServer["args"]!.AsArray().Select(x => x!.GetValue<string>()).ToArray(),
             Is.EqualTo(new[] { "run", "--project", "server.csproj" }));
-        Assert.That(beutlServer["env"]!.AsObject()["BEUTL_WORKSPACE"]!.GetValue<string>(),
-            Is.EqualTo(Path.GetFullPath(Path.Combine(_tempRoot, "workspace"))));
+        Assert.That(beutlServer["env"], Is.Null);
         Assert.That(root["otherSetting"]!.GetValue<bool>(), Is.True);
     }
 
@@ -147,6 +145,7 @@ public sealed class AgentToolkitInstallerTests
             Assert.That(servers.Select(pair => pair.Key), Is.EquivalentTo(new[] { "existing", "beutl-agent" }));
             Assert.That(servers["beutl-agent"]!["command"]!.GetValue<string>(), Is.EqualTo("beutl-mcp"));
             Assert.That(json, Does.Not.Contain("old-token"));
+            Assert.That(json, Does.Not.Contain("BEUTL_WORKSPACE"));
         });
     }
 
@@ -161,7 +160,6 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 SkillsDirectory = claudeCode.SkillsDirectory(AgentInstallScope.Project),
                 SubagentsDirectory = claudeCode.SubagentsDirectory(AgentInstallScope.Project)!,
-                WorkspaceRoot = Path.Combine(_tempRoot, "workspace"),
                 McpCommand = "/opt/beutl/Beutl.AgentToolkit.Mcp",
                 McpEnvironment = new Dictionary<string, string> { ["BEUTL_HOME"] = "/home/user/.beutl" },
             },
@@ -184,8 +182,7 @@ public sealed class AgentToolkitInstallerTests
             Assert.That(server["type"], Is.Null);
             Assert.That(server["command"]!.GetValue<string>(), Is.EqualTo("/opt/beutl/Beutl.AgentToolkit.Mcp"));
             Assert.That(server["args"]!.AsArray(), Is.Empty);
-            Assert.That(server["env"]!.AsObject()["BEUTL_WORKSPACE"]!.GetValue<string>(),
-                Is.EqualTo(Path.GetFullPath(Path.Combine(_tempRoot, "workspace"))));
+            Assert.That(server["env"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "BEUTL_HOME" }));
             Assert.That(server["env"]!.AsObject()["BEUTL_HOME"]!.GetValue<string>(), Is.EqualTo("/home/user/.beutl"));
             Assert.That(server["url"], Is.Null);
             Assert.That(server["headers"], Is.Null);

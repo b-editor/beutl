@@ -390,7 +390,7 @@ public static class ProjectOperations
     }
 
     // The name becomes a directory/file segment under the project, so it must be a single path
-    // component or the derived Uri could escape the project directory (and the workspace).
+    // component or the derived Uri could escape the project directory.
     internal static bool IsValidSceneName(string name)
         => !string.IsNullOrWhiteSpace(name)
            && name is not ("." or "..")

@@ -434,14 +434,6 @@
     <value>安装目标</value>
     <comment />
   </data>
-  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
-    <value>工作区根目录</value>
-    <comment />
-  </data>
-  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
-    <value>允许 MCP 服务器在其中创建和编辑项目的文件夹</value>
-    <comment />
-  </data>
   <data name="AiAgents_Components" xml:space="preserve">
     <value>组件</value>
     <comment />
@@ -512,10 +504,6 @@
   </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>已安装的文件</value>
-    <comment />
-  </data>
-  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
-    <value>选择工作区根目录</value>
     <comment />
   </data>
   <data name="AiAgents_Agent" xml:space="preserve">

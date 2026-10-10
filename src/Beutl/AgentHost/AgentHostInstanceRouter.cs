@@ -19,18 +19,16 @@ internal sealed class AgentHostInstanceRouter
     private readonly AgentHostInstanceRegistry _registry;
     private readonly ProjectService _projects;
     private readonly EditorService _editors;
-    private readonly Func<string> _workspaceRoot;
     private readonly AgentHostInstanceAuthentication _authentication;
     private readonly AgentHostPeerClient _peers;
 
     public AgentHostInstanceRouter(
         AgentHostInstanceRegistry registry, ProjectService projects, EditorService editors,
-        string token, Func<string> workspaceRoot, string? instanceId = null)
+        string token, string? instanceId = null)
     {
         _registry = registry;
         _projects = projects;
         _editors = editors;
-        _workspaceRoot = workspaceRoot;
         _authentication = new AgentHostInstanceAuthentication(token, instanceId ?? Guid.NewGuid().ToString("N"));
         _peers = new AgentHostPeerClient(registry, _authentication);
     }
@@ -52,7 +50,7 @@ internal sealed class AgentHostInstanceRouter
                 : project.Name;
             return new AgentHostInstanceInfo(
                 InstanceId, Environment.ProcessId, projectName, projectPath,
-                editor?.Scene.Id.ToString(), editor?.Scene.Name, _workspaceRoot());
+                editor?.Scene.Id.ToString(), editor?.Scene.Name);
         }, DispatcherPriority.Normal, cancellationToken);
 
     public async Task<ListAgentHostInstancesResponse> ListAsync(CancellationToken cancellationToken)

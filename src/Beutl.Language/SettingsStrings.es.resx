@@ -434,14 +434,6 @@
     <value>Destino de instalación</value>
     <comment />
   </data>
-  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
-    <value>Raíz del espacio de trabajo</value>
-    <comment />
-  </data>
-  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
-    <value>Carpeta en la que el servidor MCP puede crear y editar proyectos</value>
-    <comment />
-  </data>
   <data name="AiAgents_Components" xml:space="preserve">
     <value>Componentes</value>
     <comment />
@@ -512,10 +504,6 @@
   </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>Archivos instalados</value>
-    <comment />
-  </data>
-  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
-    <value>Selecciona la raíz del espacio de trabajo</value>
     <comment />
   </data>
   <data name="AiAgents_Agent" xml:space="preserve">

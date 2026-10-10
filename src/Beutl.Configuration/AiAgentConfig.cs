@@ -10,7 +10,6 @@ public sealed class AiAgentConfig : ConfigurationBase
     public static readonly CoreProperty<string> AgentIdProperty;
     public static readonly CoreProperty<string> InstallScopeProperty;
     public static readonly CoreProperty<string> ProjectRootProperty;
-    public static readonly CoreProperty<string> WorkspaceRootProperty;
     public static readonly CoreProperty<string> SkillsDirectoryProperty;
     public static readonly CoreProperty<string> SubagentsDirectoryProperty;
     public static readonly CoreProperty<bool> InstallSkillsProperty;
@@ -34,10 +33,6 @@ public sealed class AiAgentConfig : ConfigurationBase
             .Register();
 
         ProjectRootProperty = ConfigureProperty<string, AiAgentConfig>(nameof(ProjectRoot))
-            .DefaultValue("")
-            .Register();
-
-        WorkspaceRootProperty = ConfigureProperty<string, AiAgentConfig>(nameof(WorkspaceRoot))
             .DefaultValue("")
             .Register();
 
@@ -93,7 +88,7 @@ public sealed class AiAgentConfig : ConfigurationBase
     }
 
     // Empty means "use the host-computed default" (first catalog agent, project
-    // scope, documents folder, or the selected agent's own conventions).
+    // scope, or the selected agent's own conventions).
     public string AgentId
     {
         get => GetValue(AgentIdProperty);
@@ -110,12 +105,6 @@ public sealed class AiAgentConfig : ConfigurationBase
     {
         get => GetValue(ProjectRootProperty);
         set => SetValue(ProjectRootProperty, value);
-    }
-
-    public string WorkspaceRoot
-    {
-        get => GetValue(WorkspaceRootProperty);
-        set => SetValue(WorkspaceRootProperty, value);
     }
 
     public string SkillsDirectory

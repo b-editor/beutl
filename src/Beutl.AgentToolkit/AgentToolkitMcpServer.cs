@@ -11,19 +11,17 @@ using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit;
 
-// The one MCP server agents install: headless project editing under the workspace, plus live
-// forwarding to the running Beutl editors of the profile whenever a call names an instanceId.
+// The one MCP server agents install: headless editing of project files, plus live forwarding to
+// the running Beutl editors of the profile whenever a call names an instanceId.
 public static class AgentToolkitMcpServer
 {
     public static IServiceCollection AddAgentToolkitServer(
-        this IServiceCollection services, string workspaceRoot, string profileDirectory)
+        this IServiceCollection services, string profileDirectory)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentException.ThrowIfNullOrWhiteSpace(workspaceRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
 
         services
-            .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()

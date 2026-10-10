@@ -2,7 +2,6 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -12,7 +11,6 @@ namespace Beutl.AgentHost;
 public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
-    IWorkspaceGuard workspace,
     AgentEditFollower? follower = null) : IProjectSessionGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
@@ -100,11 +98,6 @@ public sealed class EditorProjectSessionGateway(
                 throw new SessionUnavailableException();
             }
 
-            // The editor may hold a project opened from outside the workspace (open_project reads
-            // anywhere); saving its sidecars there would let a live MCP client write outside the
-            // configured root. Enforce the boundary before mutating the live project so a rejected
-            // write leaves no unsaved scene behind in the UI.
-            workspace.ResolveForWrite(project.Uri!.LocalPath);
             ProjectUriState uriState = ProjectOperations.CaptureUriState(project);
             Scene scene;
             using (editorService.SuppressProjectItemActivation())

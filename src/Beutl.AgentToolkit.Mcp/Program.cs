@@ -7,15 +7,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 // One MCP server for both ways of working: a call that carries an instanceId is forwarded to that
-// running Beutl editor; a call without one edits project files headlessly under BEUTL_WORKSPACE.
+// running Beutl editor; a call without one edits project files headlessly.
 var builder = Host.CreateApplicationBuilder(args);
-string workspaceRoot = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE")
-                       ?? Directory.GetCurrentDirectory();
 
 builder.Logging.ClearProviders();
 ConfigureConsoleLogging(builder.Logging);
 
-builder.Services.AddAgentToolkitServer(workspaceRoot, BeutlEnvironment.GetHomeDirectoryPath());
+builder.Services.AddAgentToolkitServer(BeutlEnvironment.GetHomeDirectoryPath());
 builder.Services.AddHostedService<LiveInstanceWatcher>();
 builder.Services
     .AddMcpServer()

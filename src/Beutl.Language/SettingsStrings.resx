@@ -434,14 +434,6 @@
     <value>Installation target</value>
     <comment/>
   </data>
-  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
-    <value>Workspace root</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
-    <value>Folder the MCP server is allowed to create and edit projects in</value>
-    <comment/>
-  </data>
   <data name="AiAgents_Components" xml:space="preserve">
     <value>Components</value>
     <comment/>
@@ -520,10 +512,6 @@
   </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>Installed files</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
-    <value>Select the workspace root</value>
     <comment/>
   </data>
   <data name="AiAgents_Agent" xml:space="preserve">

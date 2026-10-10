@@ -29,7 +29,6 @@ public sealed record AnalyzeAudioRhythmResponse(
 [McpServerToolType]
 public sealed partial class RenderTools(
     AgentSessionManager sessions,
-    IWorkspaceGuard workspace,
     DestructiveGuard destructiveGuard,
     StillRenderer stillRenderer,
     StoryboardRenderer storyboardRenderer,
@@ -57,9 +56,9 @@ public sealed partial class RenderTools(
         "Required when outputPath already exists.";
 
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns image dimensions, active elements, and pixel measurements. Bare filenames are resolved directly within the workspace. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
+    [Description("Renders a still PNG from the current scene to an absolute output path and returns image dimensions, active elements, and pixel measurements. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
     public ValueTask<CallToolResult> RenderStill(
-        [Description("Workspace-relative or in-workspace absolute output path. Bare filenames are resolved directly within the workspace. Existing files require confirmOverwrite.")]
+        [Description("Absolute output path. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Scene time in seconds. Use this exact parameter name; time is not a render_still parameter.")]
         double timeSeconds = 0,
@@ -76,7 +75,7 @@ public sealed partial class RenderTools(
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "render_still");
-            string resolvedPath = workspace.ResolveForWrite(outputPath);
+            string resolvedPath = ToolPaths.ResolveForWrite(outputPath, nameof(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             RenderStillResponse response = await stillRenderer.RenderAsync(
                 scene,
@@ -94,14 +93,14 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet inside BEUTL_WORKSPACE. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
+    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet into outputDirectory. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
     public ValueTask<CallToolResult> RenderStoryboard(
+        [Description("Absolute output directory. Existing files require confirmOverwrite.")]
+        string outputDirectory,
         [Description("Optional explicit storyboard shots. When omitted, one midpoint is derived per timeline Element.")]
         StoryboardShotInput[]? shots = null,
         [Description("Optional explicit scene times in seconds. When supplied, this overrides shots and auto shot detection entirely; each value becomes an anchor frame named t:<seconds>. Values must be finite, within the scene duration, non-empty, and stay within the 48-frame cap after subdivision.")]
         double[]? timeSeconds = null,
-        [Description("Workspace-relative or in-workspace absolute output directory. Existing files require confirmOverwrite.")]
-        string outputDirectory = ".",
         [Description("Basename used for generated still PNGs and the contact sheet. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
         string? basename = null,
         [Description(RenderScaleDescription)]
@@ -144,7 +143,7 @@ public sealed partial class RenderTools(
                 resolvedShots.Count,
                 normalizedSubdivisionLevel,
                 timeSeconds is null ? "subdivisionLevel" : "timeSeconds");
-            string normalizedDirectory = NormalizeStoryboardDirectory(outputDirectory);
+            string normalizedDirectory = ToolPaths.RequireAbsolute(outputDirectory, nameof(outputDirectory));
             string safeBasename = NormalizeStoryboardBasename(basename ?? CreateDefaultOutputBasename("storyboard"));
             StoryboardRenderPlan plan = PlanStoryboardOutputs(
                 scene,
@@ -209,7 +208,7 @@ public sealed partial class RenderTools(
     [McpServerTool(Name = "analyze_audio_rhythm")]
     [Description("Decodes an audio/music-bed file through Beutl's audio source path and returns measured BPM, beat times, and strong onset times as measurement data. Reads are unrestricted; nonexistent paths return media_not_found.")]
     public ValueTask<ToolResult<AnalyzeAudioRhythmResponse>> AnalyzeAudioRhythm(
-        [Description("Readable audio file path. Relative paths are resolved against the current process directory; reads are not workspace-guarded.")]
+        [Description("Readable audio file path. Relative paths are resolved against the current process directory.")]
         string path,
         [Description("Optional start time in seconds for the analysis window. Defaults to 0.")]
         double? startSeconds = null,
@@ -243,9 +242,9 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are resolved directly within the workspace. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
-        [Description("Workspace-relative or in-workspace absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Bare filenames are resolved directly within the workspace. Existing files require confirmOverwrite.")]
+        [Description("Absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Existing files require confirmOverwrite.")]
         string outputPath,
         [Description("Frame-rate numerator.")]
         int frameRateNumerator = 30,
@@ -285,7 +284,7 @@ public sealed partial class RenderTools(
 
             ValidateExportOptions(frameRateNumerator, frameRateDenominator, crf, bitrate);
 
-            string resolvedPath = workspace.ResolveForWrite(outputPath);
+            string resolvedPath = ToolPaths.ResolveForWrite(outputPath, nameof(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
             async Task<ExportVideoResponse> RunExportAsync(RenderJobProgressReporter progress, CancellationToken token)

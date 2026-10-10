@@ -205,7 +205,6 @@ internal sealed class ProjectDiskDeletion(ProjectService projectService, EditorS
         Add(Path.GetTempPath());
         Add(AppContext.BaseDirectory);
         Add(BeutlEnvironment.GetHomeDirectoryPath());
-        Add(AgentHostEndpoint.ResolveWorkspaceRoot(GlobalConfiguration.Instance.AiAgentConfig));
         return folders.Distinct().ToArray();
 
         void Add(string? path)

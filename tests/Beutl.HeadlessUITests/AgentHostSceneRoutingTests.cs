@@ -447,7 +447,6 @@ public sealed class AgentHostSceneRoutingTests
     private static AgentHostEndpoint CreateHost()
         => new(TestShell.Project, TestShell.Editor, new AiAgentConfig
         {
-            WorkspaceRoot = BeutlHomeIsolation.CurrentHome!,
             LiveMcpToken = "scene-routing-test-token"
         });
 

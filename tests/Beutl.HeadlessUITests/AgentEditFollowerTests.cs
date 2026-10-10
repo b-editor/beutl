@@ -320,11 +320,7 @@ public sealed class AgentEditFollowerTests
         editor.GetRequiredService<IEditorClock>().CurrentTime.Value = TimeSpan.Zero;
         HeadlessTestHelpers.Render(2);
 
-        var config = new AiAgentConfig
-        {
-            WorkspaceRoot = BeutlHomeIsolation.CurrentHome!,
-            FollowLiveMcpEdits = follow
-        };
+        var config = new AiAgentConfig { FollowLiveMcpEdits = follow };
         return new Fixture(editor, window, near, far, (RectShape)far.Objects.Single(), directory, config);
     }
 

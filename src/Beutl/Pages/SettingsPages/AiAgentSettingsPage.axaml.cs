@@ -24,17 +24,6 @@ public sealed partial class AiAgentSettingsPage : UserControl
         });
     }
 
-    private async void BrowseWorkspaceRoot_Click(object? sender, RoutedEventArgs e)
-    {
-        await PickFolderAsync(SettingsStrings.AiAgents_SelectWorkspaceRoot, path =>
-        {
-            if (DataContext is AiAgentSettingsPageViewModel vm)
-            {
-                vm.WorkspaceRoot.Value = path;
-            }
-        });
-    }
-
     private async Task PickFolderAsync(string title, Action<string> setPath)
     {
         TopLevel? topLevel = TopLevel.GetTopLevel(this);

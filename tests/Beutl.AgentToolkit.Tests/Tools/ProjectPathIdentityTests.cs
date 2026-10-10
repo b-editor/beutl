@@ -19,11 +19,10 @@ public sealed class ProjectPathIdentityTests
             string destination = Path.Combine(root, "project.bep");
             using var source = new FileSessionSource();
             var manager = new AgentSessionManager();
-            var workspace = new WorkspaceGuard(root);
             using var jobs = new RenderJobManager();
             var tools = new SessionTools(
-                new FileProjectSessionGateway(source, manager, workspace),
-                manager, workspace, new DestructiveGuard(), jobs);
+                new FileProjectSessionGateway(source, manager),
+                manager, new DestructiveGuard(), jobs);
             var created = await tools.CreateProject(original, 64, 64, 30, "00:00:01");
             Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
             if (File.Exists(destination))

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
@@ -17,10 +18,10 @@ public sealed class SessionSecurityTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "traversal.bep", width: 320, height: 180, frameRate: 30, duration: "00:00:02");
+            Path.Combine(root, "traversal.bep"), width: 320, height: 180, frameRate: 30, duration: "00:00:02");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
         ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
@@ -35,47 +36,61 @@ public sealed class SessionSecurityTests
     }
 
     [Test]
-    public async Task Open_project_outside_the_workspace_is_rejected()
+    public async Task Open_project_rejects_a_relative_path()
     {
-        string root = CreateWorkspace();
-        string outsideDir = CreateWorkspace();
-        string outsideProject = Path.Combine(outsideDir, "outside.bep");
-        File.WriteAllText(outsideProject, "{}");
-
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var gateway = new FileProjectSessionGateway(source, manager, new WorkspaceGuard(root));
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
-        await Assert.ThrowsAsync<WorkspaceBoundaryException>(async () =>
-            await gateway.OpenProjectAsync(outsideProject));
+        ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject("relative.bep");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened.IsSuccess, Is.False);
+            Assert.That(opened.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(manager.CurrentSession, Is.Null);
+        });
     }
 
     [Test]
-    public void Create_project_extensionless_path_outside_the_workspace_is_rejected()
+    public void Create_project_rejects_a_relative_extensionless_path()
     {
-        string root = CreateWorkspace();
         string escaping = Path.Combine("..", "escape-project");
 
-        string message = Assert.Throws<WorkspaceBoundaryException>(() =>
-            SessionTools.NormalizeProjectPath(new WorkspaceGuard(root), escaping, "path"))!.Message;
+        ToolError error = Assert.Throws<ReconcileException>(() =>
+            SessionTools.NormalizeProjectPath(escaping, "path"))!.Error;
 
-        Assert.That(message, Does.Contain("workspace"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Target, Is.EqualTo("path"));
+        });
     }
 
     [Test]
-    public async Task Save_project_to_a_new_workspace_path_does_not_report_a_conflict()
+    public void Create_project_appends_the_extension_to_an_absolute_extensionless_path()
+    {
+        string root = CreateWorkspace();
+
+        string normalized = SessionTools.NormalizeProjectPath(Path.Combine(root, "promo"), "path");
+
+        Assert.That(FilePathComparison.AreSameCanonicalPath(normalized, Path.Combine(root, "promo.bep")), Is.True);
+    }
+
+    [Test]
+    public async Task Save_project_to_a_new_path_does_not_report_a_conflict()
     {
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "original.bep", width: 320, height: 180, frameRate: 30, duration: "00:00:02");
+            Path.Combine(root, "original.bep"), width: 320, height: 180, frameRate: 30, duration: "00:00:02");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
         ToolResult<SaveProjectResponse> savedAs = sessionTools.SaveProject(
-            created.Value!.Session, "copy.bep");
+            created.Value!.Session, Path.Combine(root, "copy.bep"));
 
         Assert.Multiple(() =>
         {
@@ -89,14 +104,12 @@ public sealed class SessionSecurityTests
     [Test]
     public void Read_operation_status_reports_a_running_background_job()
     {
-        string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
         using var renderJobs = new RenderJobManager();
         var sessionTools = new SessionTools(
-            new FileProjectSessionGateway(source, manager, new WorkspaceGuard(root)),
+            new FileProjectSessionGateway(source, manager),
             manager,
-            new WorkspaceGuard(root),
             new DestructiveGuard(),
             renderJobs);
 
@@ -131,14 +144,14 @@ public sealed class SessionSecurityTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "original.bep", width: 320, height: 180, frameRate: 30, duration: "00:00:02");
+            Path.Combine(root, "original.bep"), width: 320, height: 180, frameRate: 30, duration: "00:00:02");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
         string originalSceneDir = Path.GetDirectoryName(((Scene)manager.RequireSession().Root).Uri!.LocalPath)!;
 
-        ToolResult<SaveProjectResponse> savedAs = sessionTools.SaveProject(created.Value!.Session, "copy.bep");
+        ToolResult<SaveProjectResponse> savedAs = sessionTools.SaveProject(created.Value!.Session, Path.Combine(root, "copy.bep"));
         Assert.That(savedAs.IsSuccess, Is.True, savedAs.Error?.Message);
 
         var scene = (Scene)manager.RequireSession().Root;
@@ -160,10 +173,10 @@ public sealed class SessionSecurityTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "switch.bep", width: 320, height: 180, frameRate: 30, duration: "00:00:04");
+            Path.Combine(root, "switch.bep"), width: 320, height: 180, frameRate: 30, duration: "00:00:04");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
         ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
@@ -179,13 +192,11 @@ public sealed class SessionSecurityTests
         });
     }
 
-    private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)
+    private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager)
     {
-        var workspace = new WorkspaceGuard(root);
         return new SessionTools(
-            new FileProjectSessionGateway(source, manager, workspace),
+            new FileProjectSessionGateway(source, manager),
             manager,
-            workspace,
             new DestructiveGuard(),
             new RenderJobManager());
     }

@@ -17,7 +17,6 @@ public class AiAgentConfigTests
             Assert.That(config.AgentId, Is.Empty);
             Assert.That(config.InstallScope, Is.Empty);
             Assert.That(config.ProjectRoot, Is.Empty);
-            Assert.That(config.WorkspaceRoot, Is.Empty);
             Assert.That(config.SkillsDirectory, Is.Empty);
             Assert.That(config.SubagentsDirectory, Is.Empty);
             Assert.That(config.InstallSkills, Is.True);
@@ -38,7 +37,6 @@ public class AiAgentConfigTests
             AgentId = "codex",
             InstallScope = "Global",
             ProjectRoot = "/repo",
-            WorkspaceRoot = "/videos",
             SkillsDirectory = ".claude/skills",
             SubagentsDirectory = ".claude/agents",
             InstallSkills = false,
@@ -58,7 +56,6 @@ public class AiAgentConfigTests
             Assert.That(restored.AgentId, Is.EqualTo(source.AgentId));
             Assert.That(restored.InstallScope, Is.EqualTo(source.InstallScope));
             Assert.That(restored.ProjectRoot, Is.EqualTo(source.ProjectRoot));
-            Assert.That(restored.WorkspaceRoot, Is.EqualTo(source.WorkspaceRoot));
             Assert.That(restored.SkillsDirectory, Is.EqualTo(source.SkillsDirectory));
             Assert.That(restored.SubagentsDirectory, Is.EqualTo(source.SubagentsDirectory));
             Assert.That(restored.InstallSkills, Is.EqualTo(source.InstallSkills));
@@ -102,6 +99,20 @@ public class AiAgentConfigTests
             Assert.That(optedOut.InstallMcp, Is.False);
             Assert.That(liveOnly.InstallMcp, Is.True);
             Assert.That(explicitOn.InstallMcp, Is.True);
+        });
+    }
+
+    [Test]
+    public void Profiles_saved_with_a_workspace_root_load_and_drop_it_on_the_next_save()
+    {
+        var config = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(config,
+            new JsonObject { ["WorkspaceRoot"] = "/videos", [nameof(AiAgentConfig.ProjectRoot)] = "/repo" });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.ProjectRoot, Is.EqualTo("/repo"));
+            Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey("WorkspaceRoot"), Is.False);
         });
     }
 

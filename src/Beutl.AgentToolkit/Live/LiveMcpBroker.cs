@@ -61,7 +61,8 @@ public sealed class LiveMcpBroker
             "Beutl video editor. Call list_instances first. If the project the user is working on is open in a "
             + "running Beutl, pass that instance's instanceId on every call so edits happen live in its editor; "
             + "scene operations there also take sceneId from list_scenes. Without instanceId, calls work headlessly "
-            + "on project files under the workspace through file sessions returned by open_project/create_project. "
+            + "on project files through file sessions returned by open_project/create_project. File paths passed to "
+            + "tools must be absolute. "
             + "A call naming an exited instanceId returns instance_unavailable rather than editing another project.";
         options.Capabilities ??= new ServerCapabilities();
         options.Capabilities.Tools ??= new ToolsCapability();
@@ -312,7 +313,7 @@ public sealed class LiveMcpBroker
         properties[InstanceIdArgument] = new JsonObject
         {
             ["type"] = "string",
-            ["description"] = "ID of the running Beutl instance (from list_instances) to run this call in; the edit then appears live in its editor. Omit to work headlessly on project files in the workspace."
+            ["description"] = "ID of the running Beutl instance (from list_instances) to run this call in; the edit then appears live in its editor. Omit to work headlessly on project files."
         };
         // Only the tools the editor scene-routes take a scene; on any other tool the editor would
         // reject sceneId as an unknown argument.

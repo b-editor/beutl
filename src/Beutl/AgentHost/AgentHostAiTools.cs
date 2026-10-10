@@ -4,7 +4,6 @@ using Avalonia.Threading;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Tools;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -49,15 +48,13 @@ public sealed record ListAiModelsResponse(string Operation, IReadOnlyList<AiMode
 /// <summary>
 /// AI generation for agents, in the in-app host only: it runs on the signed-in account and the
 /// same executor as the AI nodes, and saves results next to the open scene. Generations are paid;
-/// each call is one request. Input files are uploaded to the service, so they must come from the
-/// workspace or from the open scene's AI results.
+/// each call is one request. Input files are named by absolute path and uploaded to the service.
 /// </summary>
 [McpServerToolType]
 internal sealed class AgentHostAiTools(
     EditorService editorService,
     AgentAiJobManager jobs,
-    IAgentAiBackend backend,
-    IWorkspaceGuard workspace) : ToolBase
+    IAgentAiBackend backend) : ToolBase
 {
     private const int MaxWaitSeconds = 110;
 
@@ -107,7 +104,7 @@ internal sealed class AgentHostAiTools(
         string? model = null,
         [Description("Seed for a reproducible result, when the model supports one.")]
         int? seed = null,
-        [Description("Paths of pictures to guide the result, in the workspace or among the open scene's AI results.")]
+        [Description("Absolute paths of pictures to guide the result.")]
         string[]? referenceImagePaths = null,
         [Description(WaitDescription)]
         int waitSeconds = 45,
@@ -126,7 +123,7 @@ internal sealed class AgentHostAiTools(
             if (referencePaths.Length > maxReferences)
                 throw Invalid($"At most {maxReferences} reference pictures are accepted.", "referenceImagePaths");
             GenerativeImageInput[] references = referencePaths
-                .Select((path, index) => ReadImage(scene, path, $"reference-{index + 1}", $"referenceImagePaths[{index}]", AiRequestLimits.MaxImageUploadBytes))
+                .Select((path, index) => ReadImage(path, $"reference-{index + 1}", $"referenceImagePaths[{index}]", AiRequestLimits.MaxImageUploadBytes))
                 .ToArray();
             IReadOnlyList<string> backgrounds = Offered(chosen?.Image?.Backgrounds, GenerativeImageCapabilities.DefaultBackgrounds);
             string chosenBackground = string.IsNullOrWhiteSpace(background)
@@ -154,7 +151,7 @@ internal sealed class AgentHostAiTools(
     [McpServerTool(Name = "edit_image")]
     [Description("Edits a picture with AI and saves the result as a PNG next to the open scene: remove_background, upscale, restyle (prompt required), remove_object (prompt names what to remove) or outpaint (prompt describes the extension). Paid per call.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> EditImage(
-        [Description("Path of the picture to edit, in the workspace or among the open scene's AI results.")]
+        [Description("Absolute path of the picture to edit.")]
         string sourcePath,
         [Description("remove_background, upscale, restyle, remove_object or outpaint.")]
         string task,
@@ -170,7 +167,7 @@ internal sealed class AgentHostAiTools(
     {
         string taskId = task.Trim().ToLowerInvariant();
         int outpaint = outpaintExpansionPercent ?? 25;
-        return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (scene, _) =>
+        return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (_, _) =>
         {
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
             // The executor puts its instruction in front of an outpaint's prompt before the same limit.
@@ -178,7 +175,7 @@ internal sealed class AgentHostAiTools(
                 ? AiRequestLimits.MaxPromptLength - AiGenerativeNodeExecutor.OutpaintInstruction.Length - 1
                 : AiRequestLimits.MaxPromptLength;
             string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt, maxPrompt) : null;
-            GenerativeImageInput image = ReadImage(scene, sourcePath, "source", "sourcePath", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
+            GenerativeImageInput image = ReadImage(sourcePath, "source", "sourcePath", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
             if (editTask == AiImageEditTask.Outpaint)
                 RequireOutpaintCanvas(size, outpaint);
             return new AiImageEditNodeRequest($"image.edit.{taskId}")
@@ -222,9 +219,9 @@ internal sealed class AgentHostAiTools(
         string? aspectRatio = null,
         [Description("Generate sound with the picture; refused for a model whose supportsAudio is false.")]
         bool generateAudio = false,
-        [Description("Path of a picture the clip starts on, in the workspace or among the open scene's AI results.")]
+        [Description("Absolute path of a picture the clip starts on.")]
         string? firstFramePath = null,
-        [Description("Path of a picture the clip ends on, in the workspace or among the open scene's AI results; needs firstFramePath.")]
+        [Description("Absolute path of a picture the clip ends on; needs firstFramePath.")]
         string? lastFramePath = null,
         [Description("Model id from list_ai_models(video.generate); omit for the default.")]
         string? model = null,
@@ -274,8 +271,8 @@ internal sealed class AgentHostAiTools(
                 AspectRatio = ratio,
                 GenerateAudio = generateAudio,
                 Seed = seed,
-                FirstFrame = firstFramePath is null ? null : ReadImage(scene, firstFramePath, "first-frame", "firstFramePath", AiRequestLimits.MaxFrameUploadBytes),
-                LastFrame = lastFramePath is null ? null : ReadImage(scene, lastFramePath, "last-frame", "lastFramePath", AiRequestLimits.MaxFrameUploadBytes),
+                FirstFrame = firstFramePath is null ? null : ReadImage(firstFramePath, "first-frame", "firstFramePath", AiRequestLimits.MaxFrameUploadBytes),
+                LastFrame = lastFramePath is null ? null : ReadImage(lastFramePath, "last-frame", "lastFramePath", AiRequestLimits.MaxFrameUploadBytes),
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
                 ParameterFingerprint = GenerativeFingerprint.Combine(
@@ -287,7 +284,7 @@ internal sealed class AgentHostAiTools(
     [McpServerTool(Name = "edit_video")]
     [Description("Remakes a clip from a prompt (mode edit) or continues it (mode extend), and saves the result next to the open scene. An extension comes back as the whole clip with the new part added at the end. Accepts mp4 or webm up to 32 MB. Takes minutes; paid per call.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> EditVideo(
-        [Description("Path of the clip to edit or extend, in the workspace or among the open scene's AI results.")]
+        [Description("Absolute path of the clip to edit or extend.")]
         string sourcePath,
         [Description("What to change, or what happens next.")]
         string prompt,
@@ -302,14 +299,14 @@ internal sealed class AgentHostAiTools(
         CancellationToken cancellationToken = default)
     {
         string modeId = mode.Trim().ToLowerInvariant();
-        return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, cancellationToken, (scene, chosen) =>
+        return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, cancellationToken, (_, chosen) =>
         {
             bool extend = modeId == "extend";
             string text = RequirePrompt(prompt, MaxPromptLength(chosen?.Video));
             int duration = extend ? durationSeconds ?? DefaultDuration(chosen?.Video) : 0;
             if (extend)
                 RequireOffered(duration, (chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted).DurationChoices, chosen?.Id ?? "the service default", "durationSeconds");
-            (GenerativeFileInput source, double seconds) = ReadVideo(scene, sourcePath);
+            (GenerativeFileInput source, double seconds) = ReadVideo(sourcePath);
             // As the executor checks the clip against the model before anything is reserved.
             GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
             if (source.Content.LongLength > limits.MaxSourceVideoBytes)
@@ -341,7 +338,7 @@ internal sealed class AgentHostAiTools(
     [McpServerTool(Name = "transcribe_audio")]
     [Description("Transcribes the speech in an audio or video file and returns timed segments, and words when the model reports them. Long files are sent in ten-minute parts. Paid by length.")]
     public async ValueTask<ToolResult<AgentAiJobSnapshot>> TranscribeAudio(
-        [Description("Path of the audio or video file, in the workspace or among the open scene's AI results.")]
+        [Description("Absolute path of the audio or video file.")]
         string sourcePath,
         [Description("Language code such as ja or en; omit to detect it.")]
         string? language = null,
@@ -361,8 +358,7 @@ internal sealed class AgentHostAiTools(
             // Transcription has no executor to resolve the default model, so the one chosen here is sent.
             GenerativeModelInfo? chosen = await ResolveModelAsync("audio.transcribe", model, cancellationToken, sendsNamedModel: true).ConfigureAwait(false);
             string? modelId = chosen?.Id ?? NormalizeModel(model);
-            Scene? scene = await FindSceneAsync().ConfigureAwait(false);
-            string path = RequireFile(scene, sourcePath, "sourcePath");
+            string path = RequireFile(sourcePath, "sourcePath");
             string jobId = jobs.Start("audio.transcribe", async (progress, token) =>
             {
                 AgentTranscript transcript = await backend
@@ -667,39 +663,21 @@ internal sealed class AgentHostAiTools(
             throw Invalid($"The model '{modelId}' does not take a seed. Omit seed, or choose a model whose supportsSeed is true.", "seed");
     }
 
-    // An input is uploaded to the AI service, so a path an agent passes must not reach files the user
-    // never shared with it: only the workspace and the open scene's AI results (to build on an earlier
-    // result when the project lives outside the workspace) are readable. Relative paths are
-    // workspace-relative, and the file read is the one checked, after following links.
-    private string RequireFile(Scene? scene, string? path, string target)
+    private static string RequireFile(string? path, string target)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            throw Invalid("A file path is required.", target);
-        string full = Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(workspace.Root, path));
-        // Checked before existence, so a refusal says nothing about what lies outside.
-        string resolved = PathBoundary.ResolveExistingPath(full);
-        if (!FilePathComparison.IsSameOrDescendant(workspace.Root, resolved)
-            && (scene is null || !FilePathComparison.IsSameOrDescendant(AiResultImporter.GetResourceDirectory(scene), resolved)))
-        {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.WorkspaceBoundary,
-                $"'{path}' is outside the workspace, and AI inputs are uploaded to the service.",
-                target,
-                $"Use a file inside the workspace ({workspace.Root}) or one an earlier AI tool saved for the open scene."));
-        }
-
-        return File.Exists(resolved)
-            ? resolved
+        string full = ToolPaths.RequireAbsolute(path, target);
+        return File.Exists(full)
+            ? full
             : throw new ReconcileException(new ToolError(ErrorCode.MediaNotFound, $"No file exists at '{path}'.", target));
     }
 
     // name is the upload's file name; target is the tool argument an error points at.
-    private GenerativeImageInput ReadImage(Scene scene, string path, string name, string target, long maxBytes)
-        => ReadImage(scene, path, name, target, maxBytes, out _);
+    private static GenerativeImageInput ReadImage(string path, string name, string target, long maxBytes)
+        => ReadImage(path, name, target, maxBytes, out _);
 
-    private GenerativeImageInput ReadImage(Scene scene, string path, string name, string target, long maxBytes, out PixelSize size)
+    private static GenerativeImageInput ReadImage(string path, string name, string target, long maxBytes, out PixelSize size)
     {
-        string full = RequireFile(scene, path, target);
+        string full = RequireFile(path, target);
         try
         {
             // Size and dimensions are checked before decoding, as the AI dialogs check them, so a
@@ -724,9 +702,9 @@ internal sealed class AgentHostAiTools(
         }
     }
 
-    private (GenerativeFileInput Input, double Seconds) ReadVideo(Scene scene, string path)
+    private (GenerativeFileInput Input, double Seconds) ReadVideo(string path)
     {
-        string full = RequireFile(scene, path, "sourcePath");
+        string full = RequireFile(path, "sourcePath");
         if (!GenerativeInputs.IsSupportedVideoFile(full))
             throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, "Only mp4 and webm clips can be edited.", "sourcePath"));
         GenerativeFileInput input = GenerativeInputs.ReadVideoFile(full, "source");
