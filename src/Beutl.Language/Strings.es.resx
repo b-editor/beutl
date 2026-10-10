@@ -1981,6 +1981,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
     <value>El modelo elegido no admite esta solicitud. Cambia el modelo o las opciones e inténtalo de nuevo.</value>
   </data>
+  <data name="AiModelUnconfirmed" xml:space="preserve">
+    <value>No se puede confirmar el modelo elegido porque no hay una lista de modelos disponible para esta solicitud. Inténtalo de nuevo más tarde o quita el modelo para usar el predeterminado.</value>
+  </data>
   <data name="AiResultUnavailable" xml:space="preserve">
     <value>No se pudo leer el resultado en este momento. Ejecuta la solicitud de nuevo: se consultará la misma solicitud y no se cobrará dos veces lo ya pagado.</value>
   </data>

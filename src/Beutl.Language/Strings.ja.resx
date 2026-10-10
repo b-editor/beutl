@@ -1747,6 +1747,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
     <value>選択したモデルはこの内容に対応していません。モデルか設定を変更してやり直してください。</value>
   </data>
+  <data name="AiModelUnconfirmed" xml:space="preserve">
+    <value>このリクエストで使えるモデルの一覧がないため、選択したモデルを確認できません。時間をおいてやり直すか、モデルの指定を外して既定のモデルを使ってください。</value>
+  </data>
   <data name="AiResultUnavailable" xml:space="preserve">
     <value>結果を読み出せませんでした。もう一度実行してください。同じリクエストとして問い合わせるため、支払い済みの分が二重に請求されることはありません。</value>
   </data>

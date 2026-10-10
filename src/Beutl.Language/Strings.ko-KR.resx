@@ -1981,6 +1981,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
     <value>선택한 모델은 이 요청을 지원하지 않습니다. 모델이나 옵션을 변경한 후 다시 시도하세요.</value>
   </data>
+  <data name="AiModelUnconfirmed" xml:space="preserve">
+    <value>이 요청에 사용할 수 있는 모델 목록이 없어 선택한 모델을 확인할 수 없습니다. 나중에 다시 시도하거나 모델 지정을 해제하여 기본 모델을 사용하세요.</value>
+  </data>
   <data name="AiResultUnavailable" xml:space="preserve">
     <value>현재 결과를 읽을 수 없습니다. 다시 실행하세요. 같은 요청의 결과를 조회하므로 이미 결제한 비용이 중복 청구되지 않습니다.</value>
   </data>

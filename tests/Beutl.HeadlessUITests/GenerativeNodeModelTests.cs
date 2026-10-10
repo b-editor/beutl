@@ -155,6 +155,46 @@ public sealed class GenerativeNodeModelTests
     }
 
     [AvaloniaTest]
+    public async Task NamedModelIsRefusedWhenTheCatalogCannotConfirmIt()
+    {
+        var images = new CapturingImages();
+        var executor = CreateExecutor(images, catalog: AiModelCatalog.Empty);
+        var node = new AiImageGenerationNode();
+
+        string? message = null;
+        try
+        {
+            await executor.ExecuteAsync(
+                Request(node, model: "square", aspectRatio: "1:1"),
+                new Progress<GenerativeProgress>(),
+                CancellationToken.None);
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            message = ex.Message;
+        }
+
+        Assert.That(message, Is.EqualTo(Strings.AiModelUnconfirmed));
+        Assert.That(images.Requests, Is.Empty, "Sent without its model, it would run on the service default.");
+    }
+
+    [AvaloniaTest]
+    public async Task DefaultIsLeftToTheServerWhenTheCatalogIsEmpty()
+    {
+        var images = new CapturingImages();
+        var executor = CreateExecutor(images, catalog: AiModelCatalog.Empty);
+        var node = new AiImageGenerationNode();
+
+        GenerativeExecutionResult result = await executor.ExecuteAsync(
+            Request(node, model: null, aspectRatio: "16:9"),
+            new Progress<GenerativeProgress>(),
+            CancellationToken.None);
+
+        Assert.That(images.Requests.Single().Model, Is.Null);
+        Assert.That(result.ModelId, Is.Null);
+    }
+
+    [AvaloniaTest]
     public async Task SuccessfulGenerationIsRecordedInThePromptLibraryAndRefusalsAreNot()
     {
         var library = new RecordingLibrary();
@@ -356,6 +396,29 @@ public sealed class GenerativeNodeModelTests
     }
 
     [AvaloniaTest]
+    public async Task NamedVideoModelIsRefusedWhenTheCatalogCannotConfirmIt()
+    {
+        var videos = new FakeVideos(AiJobStatuses.Succeeded);
+        AiGenerativeNodeExecutor executor = CreateVideoExecutor(videos, catalog: AiModelCatalog.Empty);
+
+        string? message = null;
+        try
+        {
+            await executor.ExecuteAsync(
+                VideoRequest(duration: 4, audio: false, seed: null) with { ModelId = "quiet" },
+                new Progress<GenerativeProgress>(),
+                CancellationToken.None);
+        }
+        catch (GenerativeExecutionException ex)
+        {
+            message = ex.Message;
+        }
+
+        Assert.That(message, Is.EqualTo(Strings.AiModelUnconfirmed));
+        Assert.That(videos.Requests, Is.Empty);
+    }
+
+    [AvaloniaTest]
     public async Task FailedVideoJobReportsTheServersReason()
     {
         var videos = new FakeVideos(AiJobStatuses.Failed);
@@ -463,7 +526,8 @@ public sealed class GenerativeNodeModelTests
         };
     }
 
-    private AiGenerativeNodeExecutor CreateVideoExecutor(FakeVideos videos, double sourceSeconds = 4)
+    private AiGenerativeNodeExecutor CreateVideoExecutor(
+        FakeVideos videos, double sourceSeconds = 4, AiModelCatalog? catalog = null)
     {
         var quiet = new AiModelOption(new AiModelId("quiet"), "Quiet", null, true,
             Video: new AiVideoModelCapabilities(
@@ -472,8 +536,8 @@ public sealed class GenerativeNodeModelTests
                 AiCapabilityDimension<string>.Unspecified,
                 SupportsAudio: false,
                 SupportsSeed: false));
-        var catalog = new AiGenerativeModelCatalog(
-            new FixedCatalog(new AiModelCatalog(
+        var models = new AiGenerativeModelCatalog(
+            new FixedCatalog(catalog ?? new AiModelCatalog(
                 new[]
                 {
                     AiOperations.VideoGeneration, AiOperations.VideoEditing,
@@ -488,7 +552,7 @@ public sealed class GenerativeNodeModelTests
                 : new AiJobStatusSemantics(false, true));
         var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
         return new AiGenerativeNodeExecutor(
-            scene, catalog, new CapturingImages(), new AlwaysAvailable(), new ClipContent(),
+            scene, models, new CapturingImages(), new AlwaysAvailable(), new ClipContent(),
             videos: videos, jobKinds: kinds.Object)
         {
             PollInterval = TimeSpan.Zero,
@@ -569,12 +633,13 @@ public sealed class GenerativeNodeModelTests
     private AiGenerativeNodeExecutor CreateExecutor(
         CapturingImages images,
         IGenerativePromptLibrary? library = null,
-        IAiImageEditingService? editing = null)
+        IAiImageEditingService? editing = null,
+        AiModelCatalog? catalog = null)
     {
         var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
         return new AiGenerativeNodeExecutor(
             scene,
-            CreateCatalog(),
+            catalog is null ? CreateCatalog() : new AiGenerativeModelCatalog(new FixedCatalog(catalog), new StubEntitlements()),
             images,
             new AlwaysAvailable(),
             new PngContent(),

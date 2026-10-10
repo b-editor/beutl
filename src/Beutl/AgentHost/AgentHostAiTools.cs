@@ -478,8 +478,8 @@ internal sealed class AgentHostAiTools(
 
     // As the executor resolves it: the named model, or the default one the account can use. An empty
     // catalog (offline) leaves the choice to the service, with the AI tab's fallback lists.
-    // The executor sends only a model it finds in the catalog; with an empty catalog a named model
-    // would quietly become the service default, so it is refused unless the caller sends the id itself.
+    // The executor refuses a named model that an empty catalog cannot confirm, so it is refused here,
+    // before a job starts, unless the caller sends the id itself.
     private async Task<GenerativeModelInfo?> ResolveModelAsync(
         string operation,
         string? model,
@@ -502,7 +502,7 @@ internal sealed class AgentHostAiTools(
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"The model catalog could not be loaded, so the model '{id}' cannot be confirmed and would be replaced by the service default.",
+                    $"The model catalog could not be loaded, so the model '{id}' cannot be confirmed.",
                     "model",
                     "Retry once list_ai_models lists it, or omit model to use the service default."));
             }
