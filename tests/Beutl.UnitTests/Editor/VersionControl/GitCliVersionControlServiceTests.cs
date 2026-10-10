@@ -2873,6 +2873,66 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_reports_a_lock_taken_before_git_commit_reads_a_long_message()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        // Larger than a pipe buffer, so Git exits on the lock before reading all of it.
+        string message = "manual snapshot\n\n"
+                         + string.Join('\n', Enumerable.Repeat(new string('x', 99), 4096));
+        var runner = new LockBeforeCommitRunner(CreateRunner(), lockPath);
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => runner);
+
+        try
+        {
+            GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
+                async () => await service.CommitAllAsync(
+                    message,
+                    SnapshotKind.Manual,
+                    CancellationToken.None));
+
+            Assert.That(exception!.IsRepositoryLockFailure, Is.True);
+        }
+        finally
+        {
+            File.Delete(lockPath);
+        }
+    }
+
+    private sealed class LockBeforeCommitRunner(IGitCliRunner inner, string lockPath) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.FirstOrDefault() == "commit")
+            {
+                File.WriteAllText(lockPath, string.Empty);
+            }
+
+            return inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    [Test]
     public async Task CommitAllAsync_names_the_snapshot_commit_it_made()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");

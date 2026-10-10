@@ -673,6 +673,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         => variant is null
            || string.Equals(variant.Trim(), "ssh", StringComparison.OrdinalIgnoreCase);
 
+    // A command can exit before reading all of its input, for example when another Git process holds
+    // index.lock. Both the write and the close then report a broken pipe; the command's own exit code
+    // and stderr say what happened, so neither may replace them.
     private static async Task WriteStandardInputAsync(
         StreamWriter writer,
         string? input,
@@ -693,9 +696,18 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
         }
+        catch (IOException)
+        {
+        }
         finally
         {
-            writer.Close();
+            try
+            {
+                writer.Close();
+            }
+            catch (IOException)
+            {
+            }
         }
     }
 }
