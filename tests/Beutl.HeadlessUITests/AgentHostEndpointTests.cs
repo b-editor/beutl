@@ -413,7 +413,7 @@ public sealed class AgentHostEndpointTests
             Assert.That(File.Exists(Path.Combine(directory, "live-mcp-token.lock")), Is.False,
                 "Editor construction must not acquire the token store or wait for its lock.");
             endpoint.StartInBackground();
-            Assert.ThrowsAsync<InvalidDataException>(async () => await endpoint.StartAsync());
+            await Assert.ThrowsAsync<InvalidDataException>(async () => await endpoint.StartAsync());
             using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(endpoint, config);
             Assert.Multiple(() =>
             {
