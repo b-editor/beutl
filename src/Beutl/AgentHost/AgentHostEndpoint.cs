@@ -33,6 +33,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
     private readonly Func<CancellationToken, Task>? _beforeStart;
+    private readonly AgentHostInstanceRegistry _instanceRegistry;
+    private readonly AgentHostInstanceRouter _instanceRouter;
     private readonly object _lifecycleLock = new();
     private readonly CancellationTokenSource _startupCancellation = new();
     private bool _stopRequested;
@@ -40,6 +42,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private Uri? _endpointUri;
     private Task? _startupTask;
     private Task? _stopTask;
+    private IDisposable? _instanceRegistration;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
         : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
@@ -101,14 +104,16 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         EditorService editorService,
         int preferredPort,
         string token,
-        Func<CancellationToken, Task>? beforeStart = null)
+        Func<CancellationToken, Task>? beforeStart = null,
+        string? registryDirectory = null)
         : this(
             projectService,
             editorService,
             preferredPort,
             token,
             GlobalConfiguration.Instance.AiAgentConfig,
-            beforeStart)
+            beforeStart,
+            registryDirectory)
     {
     }
 
@@ -118,7 +123,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         int preferredPort,
         string token,
         AiAgentConfig config,
-        Func<CancellationToken, Task>? beforeStart = null)
+        Func<CancellationToken, Task>? beforeStart = null,
+        string? registryDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -138,9 +144,15 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _preferredPort = preferredPort;
         _beforeStart = beforeStart;
         Token = token;
+        _instanceRegistry = new AgentHostInstanceRegistry(registryDirectory
+            ?? Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "agent-hosts"));
+        _instanceRouter = new AgentHostInstanceRouter(
+            _instanceRegistry, projectService, editorService, token, () => ResolveWorkspaceRoot(config));
     }
 
     public string Token { get; }
+
+    public string InstanceId => _instanceRouter.InstanceId;
 
     public Uri? EndpointUri
     {
@@ -238,6 +250,12 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     stopRequested = _stopRequested;
                     if (!stopRequested)
                     {
+                        try { _instanceRegistration = _instanceRegistry.Register(InstanceId, endpointUri); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            s_logger.LogWarning(ex,
+                                "Could not register the agent host for discovery. Direct live MCP access remains available.");
+                        }
                         _application = app;
                         // Publish EndpointUri only after the stop check: TakeApplication already
                         // cleared it (while still null), so setting it before this check would leave
@@ -302,6 +320,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         {
             _stopRequested = true;
             _endpointUri = null;
+            _instanceRegistration?.Dispose();
+            _instanceRegistration = null;
             WebApplication? application = _application;
             _application = null;
             stop = _stopTask ??= StopCoreAsync(application);
@@ -378,6 +398,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
+            .AddSingleton(_instanceRouter)
             .AddSingleton<LiveSessionSource>()
             .AddSingleton<IProjectSessionGateway, EditorProjectSessionGateway>()
             .AddSingleton<AgentSessionManager>()
@@ -395,7 +416,12 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(options => options.Stateless = true)
-            .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
+            .WithRequestFilters(filters =>
+            {
+                AgentHostInstanceRouter.AddFilters(filters);
+                filters.AddToolkitCallToolErrorFilter();
+            })
+            .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()
@@ -405,6 +431,11 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         WebApplication app = builder.Build();
         app.Use(RequireToken);
+        app.MapGet("/agent-host/identity", (string? challenge) =>
+            AgentHostInstanceAuthentication.IsValidChallenge(challenge)
+                ? Results.Json(_instanceRouter.CreateIdentityProof(challenge!))
+                : Results.BadRequest());
+        app.MapGet("/agent-host", (CancellationToken cancellationToken) => _instanceRouter.GetInfoAsync(cancellationToken));
         app.MapMcp("/mcp");
         return app;
     }
@@ -466,11 +497,29 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         const string scheme = "Bearer ";
         string? authorization = context.Request.Headers.Authorization;
 
+        if (HttpMethods.IsGet(context.Request.Method) && context.Request.Path == "/agent-host/identity")
+        {
+            if (context.Request.Headers.TryGetValue(AgentHostInstanceRouter.InstanceHeader, out var expectedId)
+                && !string.Equals(expectedId, InstanceId, StringComparison.Ordinal))
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+            else
+                await next(context).ConfigureAwait(false);
+            return;
+        }
+
         if (authorization is null
             || !authorization.StartsWith(scheme, StringComparison.Ordinal)
-            || !FixedTimeTokenEquals(authorization[scheme.Length..], Token))
+            || !(FixedTimeTokenEquals(authorization[scheme.Length..], Token)
+                 || _instanceRouter.IsForwardToken(authorization[scheme.Length..])))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        if (context.Request.Headers.TryGetValue(AgentHostInstanceRouter.InstanceHeader, out var instanceId)
+            && !string.Equals(instanceId, InstanceId, StringComparison.Ordinal))
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
             return;
         }
 

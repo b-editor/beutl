@@ -7,6 +7,10 @@ description: Verify Beutl coordinates, units, bounds, and session behavior using
 
 Resolve a concrete editing uncertainty with `get_schema`, `read_document`, `measure_object_bounds`, and a small render probe. Production agents may have only the installed application and MCP tools; a source checkout is optional. Prefer the running application's contract over a checkout from another version.
 
+## Multiple Beutl instances
+
+When using live MCP, call `list_instances` to identify the requested process by its PID, project and active scene. Pass its `instanceId` on every subsequent call, including attach/open/create, document/schema queries, edits, history, rendering and render-job polling. There is no shared selected instance: omitting the argument operates on the process hosting the connected endpoint. An `instance_unavailable` error requires rediscovery; never silently continue on another process. Stdio MCP operates on its own file-backed session and does not expose instance routing.
+
 ## Coordinates and time
 
 - Normal drawables default to `AlignmentX=Center`, `AlignmentY=Center`, and a centered transform origin. With a pure translation, the intended center `(cx, cy)` uses `X=cx-frameWidth/2`, `Y=cy-frameHeight/2`. `(0,0)` is centered. Set Left/Top alignment explicitly when using top-left placement.

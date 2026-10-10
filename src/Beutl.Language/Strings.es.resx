@@ -2596,6 +2596,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
     <value>Se guardaron los archivos del proyecto, pero no se pudo registrar la instantánea automática del historial. Comprueba el repositorio de Git y vuelve a guardar.</value>
   </data>
+  <data name="VersionControl_SaveSnapshotFailedFormat" xml:space="preserve">
+    <value>Se guardaron los archivos del proyecto, pero no se pudo registrar la instantánea automática del historial. Comprueba el repositorio de Git y vuelve a guardar. {0}</value>
+  </data>
   <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
     <value>La restauración falló, pero se recuperó el proyecto original. Se conservó la rama '{0}' por seguridad. Tras confirmar que ningún otro árbol de trabajo de Git la usa, elimínala manualmente con una herramienta externa de Git.</value>
   </data>
@@ -2650,6 +2653,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   </data>
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git no pudo inspeccionar la carpeta de este proyecto, por lo que se abrió sin control de versiones. {0}</value>
+  </data>
+  <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
+    <value>No se pudo activar el control de versiones para este proyecto. {0}</value>
   </data>
   <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
     <value>No se abrió el proyecto porque Beutl no pudo comprobar si un pull protegido aún necesita recuperación. {0}</value>
@@ -2741,6 +2747,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>Nombre de la rama</value>
   </data>
+  <data name="VersionControl_BranchNameUnavailableFormat" xml:space="preserve">
+    <value>No se pudo crear la rama '{0}' porque el nombre no es un nombre de rama de Git válido o entra en conflicto con una rama existente.</value>
+  </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>Restaurar en una nueva rama</value>
   </data>
@@ -2786,6 +2795,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>Se ha conectado el remoto.</value>
   </data>
+  <data name="VersionControl_RemoteConnectFailedFormat" xml:space="preserve">
+    <value>No se pudo conectar el remoto. {0}</value>
+  </data>
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>Enviando versiones…</value>
   </data>
@@ -2794,6 +2806,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   </data>
   <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
     <value>Se ha completado la operación remota.</value>
+  </data>
+  <data name="VersionControl_RemoteOperationFailedFormat" xml:space="preserve">
+    <value>No se pudo completar la operación remota. {0}</value>
   </data>
   <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
     <value>Se ha cancelado la operación remota.</value>
