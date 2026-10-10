@@ -21,8 +21,8 @@ public sealed class CubeSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -39,9 +39,9 @@ public sealed class CubeSource : MediaSource
 
         public CubeFile? Cube => _cube;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             var cubeSource = (CubeSource)obj;
 
             if (cubeSource.HasUri && (_loadedUri != cubeSource.Uri || ReloadRequested))
@@ -69,10 +69,10 @@ public sealed class CubeSource : MediaSource
                 }
 
                 _loadedUri = cubeSource.Uri;
-                if (!updateOnly)
+                if (!versionBumped)
                 {
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
         }

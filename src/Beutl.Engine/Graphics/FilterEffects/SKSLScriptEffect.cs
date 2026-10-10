@@ -197,7 +197,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         public float Time { get; private set; }
 
-        partial void PostUpdate(SKSLScriptEffect obj, CompositionContext context)
+        partial void PostReconcile(SKSLScriptEffect obj, CompositionContext context)
         {
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

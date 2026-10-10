@@ -127,7 +127,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
         public float Time { get; private set; }
 
-        partial void PostUpdate(CSharpScriptEffect obj, CompositionContext context)
+        partial void PostReconcile(CSharpScriptEffect obj, CompositionContext context)
         {
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

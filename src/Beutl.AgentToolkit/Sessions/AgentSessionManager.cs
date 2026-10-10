@@ -5,18 +5,34 @@ using Beutl.AgentToolkit.Reconciliation;
 
 namespace Beutl.AgentToolkit.Sessions;
 
-public sealed class AgentSessionManager
+public sealed class CompositionPlanStore
 {
-    // GetCompositionSessionKey calls ReadOnSession; resolve it OUTSIDE the lock or an
-    // editor-thread caller waiting on the lock can deadlock.
-    private readonly object _stateLock = new();
-    private readonly string _hostCompositionSeed = CreateCompositionSeed("host");
-    private readonly Dictionary<string, CompositionPlanState> _compositionPlans = new(StringComparer.Ordinal);
-    private volatile ISessionSource? _currentSource;
-    private string? _compositionSessionKey;
-    private string? _compositionSessionSeed;
+    internal object SyncRoot { get; } = new();
 
-    public IEditingSession? CurrentSession => _currentSource?.CurrentSession;
+    internal string HostSeed { get; } = $"host:{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
+
+    internal Dictionary<string, CompositionPlanState> Plans { get; } = new(StringComparer.Ordinal);
+}
+
+public sealed class AgentSessionManager(CompositionPlanStore? plans = null)
+{
+    private readonly CompositionPlanStore _plans = plans ?? new();
+    private volatile ISessionSource? _currentSource;
+    private Func<IEditingSession>? _requestTarget;
+    private IEditingSession? _requestSession;
+
+    public IEditingSession? CurrentSession => _requestTarget is { } resolve
+        ? _requestSession ??= resolve()
+        : _currentSource?.CurrentSession;
+
+    // Live MCP registers this manager per request. Resolve lazily, after the MCP argument filter,
+    // and capture one binding so later UI navigation cannot retarget this call.
+    public void UseRequestTarget(Func<IEditingSession> resolve)
+    {
+        ArgumentNullException.ThrowIfNull(resolve);
+        _requestTarget = resolve;
+        _requestSession = null;
+    }
 
     public string CurrentSessionKey => GetCompositionSessionKey();
 
@@ -60,20 +76,10 @@ public sealed class AgentSessionManager
         IEditingSession? session = CurrentSession;
         if (session is null)
         {
-            return _hostCompositionSeed;
+            return _plans.HostSeed;
         }
 
-        string sessionKey = GetCompositionSessionKey();
-        lock (_stateLock)
-        {
-            if (!StringComparer.Ordinal.Equals(_compositionSessionKey, sessionKey))
-            {
-                _compositionSessionKey = sessionKey;
-                _compositionSessionSeed = $"session:{sessionKey}";
-            }
-
-            return _compositionSessionSeed!;
-        }
+        return $"session:{BuildSessionKey(session)}";
     }
 
     // sessionKey is the key of the session the plan was BUILT against (GetSessionKey on the
@@ -100,18 +106,18 @@ public sealed class AgentSessionManager
             (JsonArray)expectedChangeSet.DeepClone(),
             knownNewIds.ToArray(),
             DateTimeOffset.UtcNow);
-        lock (_stateLock)
+        lock (_plans.SyncRoot)
         {
             // Plans are only removed on a successful apply; abandoned ones (never applied, failed
             // validation, or from a swapped-away session) would otherwise accumulate for the
             // lifetime of the in-app host, each holding a full cloned document.
-            while (_compositionPlans.Count >= MaxRetainedCompositionPlans)
+            while (_plans.Plans.Count >= MaxRetainedCompositionPlans)
             {
-                string oldest = _compositionPlans.Values.MinBy(plan => plan.CreatedAt)!.Id;
-                _compositionPlans.Remove(oldest);
+                string oldest = _plans.Plans.Values.MinBy(plan => plan.CreatedAt)!.Id;
+                _plans.Plans.Remove(oldest);
             }
 
-            _compositionPlans[id] = state;
+            _plans.Plans[id] = state;
         }
 
         return state;
@@ -126,9 +132,9 @@ public sealed class AgentSessionManager
     {
         string currentKey = sessionKey;
         CompositionPlanState? state;
-        lock (_stateLock)
+        lock (_plans.SyncRoot)
         {
-            _compositionPlans.TryGetValue(planId, out state);
+            _plans.Plans.TryGetValue(planId, out state);
         }
 
         if (state is null)
@@ -154,9 +160,9 @@ public sealed class AgentSessionManager
 
     public void RemoveCompositionPlan(string planId)
     {
-        lock (_stateLock)
+        lock (_plans.SyncRoot)
         {
-            _compositionPlans.Remove(planId);
+            _plans.Plans.Remove(planId);
         }
     }
 
@@ -166,11 +172,6 @@ public sealed class AgentSessionManager
         return session is null
             ? "host"
             : BuildSessionKey(session);
-    }
-
-    private static string CreateCompositionSeed(string scope)
-    {
-        return $"{scope}:{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
     }
 }
 
@@ -198,6 +199,6 @@ public sealed class SessionUnavailableException : Exception
             ErrorCode.NoActiveEditorSession,
             Message,
             null,
-            "If the editor is exporting or switching projects, wait until it is enabled and retry. Otherwise call attach_active_editor for an open editor scene, or call create_project/open_project to start a file-backed session before read_document_summary, read_document, apply_edit, render_still, or export_video.");
+            "If the editor is exporting or switching projects, wait until it is enabled and retry. In live MCP, call list_scenes and pass sceneId on each scene tool call. In stdio MCP, call create_project/open_project to start a file-backed session.");
     }
 }

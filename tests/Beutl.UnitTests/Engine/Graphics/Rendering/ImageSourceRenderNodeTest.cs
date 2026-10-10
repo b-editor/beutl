@@ -85,8 +85,8 @@ public class ImageSourceRenderNodeTest
         var node = new ImageSourceRenderNode(source, fill, penResource);
 
         pen.Thickness.CurrentValue = 2;
-        var updateOnly = false;
-        penResource.Update(pen, CompositionContext.Default, ref updateOnly);
+        var versionBumped = false;
+        penResource.Reconcile(pen, CompositionContext.Default, ref versionBumped);
 
         Assert.That(node.Update(source, fill, penResource), Is.True);
     }

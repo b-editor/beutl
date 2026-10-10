@@ -48,6 +48,15 @@ public sealed class LiveEditingSession : IEditingSession, IEditingSessionDispatc
 
     public string SessionId { get; }
 
+    public static LiveEditingSession Create(ILiveSessionBinding binding)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        if (!binding.IsAlive || binding.ActiveScene is null || binding.ActiveHistory is null)
+            throw new SessionUnavailableException();
+
+        return new LiveEditingSession(binding.ActiveScene.Id.ToString(), binding);
+    }
+
     public EditingSessionSource Source => EditingSessionSource.LiveEditor;
 
     public CoreObject Root => _binding.ActiveScene ?? throw new SessionUnavailableException();

@@ -213,11 +213,11 @@ public class EngineObjectHelperTests
         }
     }
 
-    // A published resource is rebuilt in place on the render dispatcher: CompareAndUpdateList replaces the
-    // entries of every list the resource owns and disposes the ones it drops. A subscriber that was handed the
-    // live resource walks those lists from its own thread, so it can land midway through a rebuild - which is
-    // where the path editor's "Collection was modified" and index faults come from. The resource below stands
-    // in for that contract with a list it empties and refills.
+    // A published resource is rebuilt in place on the render dispatcher: ResourceReconciler.ReconcileChildren
+    // replaces the entries of every list the resource owns and disposes the ones it drops. A subscriber that was
+    // handed the live resource walks those lists from its own thread, so it can land midway through a rebuild -
+    // which is where the path editor's "Collection was modified" and index faults come from. The resource below
+    // stands in for that contract with a list it empties and refills.
     [Test]
     public void A_reader_never_observes_a_resource_midway_through_a_rebuild()
     {
@@ -249,7 +249,7 @@ public class EngineObjectHelperTests
 
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
-            // The resource now exists, so this tick takes the Update path, where the rebuild parks with the
+            // The resource now exists, so this tick takes the Reconcile path, where the rebuild parks with the
             // item list emptied and waits for the reader below.
             time.OnNext(TimeSpan.FromSeconds(1));
             Assert.That(
@@ -329,9 +329,9 @@ public class EngineObjectHelperTests
     }
 
     // Project hands back a handle onto a child the parent owns, and the parent's rebuild disposes that child
-    // the moment CompareAndUpdateObject or CompareAndUpdateList replaces or drops it. The gate only records
-    // the subscription's final release, so a projection that tracked nothing else stayed "live" and lent out
-    // a resource that had already been released - Geometry.Resource answers a read of one with
+    // the moment ResourceReconciler.ReconcileChild or ReconcileChildren replaces or drops it. The gate only
+    // records the subscription's final release, so a projection that tracked nothing else stayed "live" and lent
+    // out a resource that had already been released - Geometry.Resource answers a read of one with
     // ObjectDisposedException, and the generated PostDispose overrides have freed its native handles by then.
     [Test]
     public void A_projected_handle_reads_as_empty_once_its_child_is_replaced()
@@ -370,7 +370,7 @@ public class EngineObjectHelperTests
 
             Assert.That(projected.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
-            // The resource now exists, so this tick takes the Update path, which drops the child the
+            // The resource now exists, so this tick takes the Reconcile path, which drops the child the
             // projection above points at and installs a fresh one in its place.
             time.OnNext(TimeSpan.FromSeconds(1));
             Assert.That(replaced.Wait(TimeSpan.FromSeconds(30)), Is.True, "the replacement was never published");
@@ -836,9 +836,9 @@ public class EngineObjectHelperTests
 
         public ManualResetEventSlim ReaderArrived { get; } = new();
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
 
             RebuildCompleted = false;
             Items.Clear();
@@ -873,15 +873,15 @@ public class EngineObjectHelperTests
         }
     }
 
-    // Stands in for CompareAndUpdateObject's replace path: the dropped child is disposed and a fresh one takes
-    // its place, all inside the Update the subscription runs under its gate.
+    // Stands in for ResourceReconciler.ReconcileChild's replace path: the dropped child is disposed and a fresh
+    // one takes its place, all inside the Reconcile the subscription runs under its gate.
     private sealed class ReplacingParentResource : EngineObject.Resource
     {
         public CountingResource Child { get; private set; } = new();
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
 
             CountingResource dropped = Child;
             Child = new CountingResource();
@@ -904,9 +904,9 @@ public class EngineObjectHelperTests
     {
         public CountingResource Child { get; } = new();
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             Version++;
         }
 

@@ -48,11 +48,11 @@ public sealed class ParticleSimulatorDeterminismTests
         using ParticleEmitter.Resource sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
         for (int frame = 1; frame <= targetFrame; frame++)
         {
-            var updateOnly = false;
-            sequential.Update(
+            var versionBumped = false;
+            sequential.Reconcile(
                 emitter,
                 new CompositionContext(ExportTimestamp(frame, frameRate)),
-                ref updateOnly);
+                ref versionBumped);
         }
 
         using ParticleEmitter.Resource direct = emitter.ToResource(
@@ -103,11 +103,11 @@ public sealed class ParticleSimulatorDeterminismTests
             int targetFrame = age * frameRate;
             for (int frame = previousFrame + 1; frame <= targetFrame; frame++)
             {
-                var updateOnly = false;
-                sequential.Update(
+                var versionBumped = false;
+                sequential.Reconcile(
                     emitter,
                     new CompositionContext(ExportTimestamp(frame, frameRate)),
-                    ref updateOnly);
+                    ref versionBumped);
             }
 
             using ParticleEmitter.Resource cold = emitter.ToResource(

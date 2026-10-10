@@ -107,13 +107,13 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         /// </remarks>
         protected ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
 
-        partial void PostUpdate(AudioVisualizerDrawable obj, CompositionContext context)
+        partial void PostReconcile(AudioVisualizerDrawable obj, CompositionContext context)
         {
             // 音声処理は専用コンテキストで実行し、MediaReader 等のリソース共有を無効化する。
             // これにより、プレビュー/エンコード側が保持する共有カウンタを visualizer 側の読み出しで汚染しない。
             var audioContext = new CompositionContext(context.Time) { DisableResourceShare = true };
-            bool sourceUpdateOnly = true;
-            CompareAndUpdateObject(audioContext, obj.Source, ref _source, ref sourceUpdateOnly);
+            bool sourceVersionBumped = true;
+            ResourceReconciler.ReconcileChild(this, audioContext, obj.Source, ref _source, ref sourceVersionBumped);
 
             if (_source == null || _source.IsDisposed)
             {

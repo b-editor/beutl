@@ -82,8 +82,8 @@ public sealed class CustomEffectAllocatorSeamContractTests
         public override Resource ToResource(CompositionContext context)
         {
             var created = new Resource();
-            bool updateOnly = false;
-            created.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            created.Reconcile(this, context, ref versionBumped);
             return created;
         }
 

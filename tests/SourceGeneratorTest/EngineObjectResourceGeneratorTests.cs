@@ -36,8 +36,8 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived, Does.Contain("set => _x = value;"));
             Assert.That(derived, Does.Contain("set => _y = value;"));
             Assert.That(derived, Does.Not.Contain("Version++"));
-            Assert.That(derived, Does.Contain("public override void Update"));
-            Assert.That(derived, Does.Contain("CompareAndUpdate(context"));
+            Assert.That(derived, Does.Contain("public override void Reconcile"));
+            Assert.That(derived, Does.Contain("ResourceReconciler.ReconcileValue(this, context"));
             Assert.That(derived, Does.Contain("ScanPropertiesCore"));
             Assert.That(derived, Does.Contain("yield return X;"));
             Assert.That(derived, Does.Contain("yield return Y;"));
@@ -49,7 +49,7 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived2, Does.Contain("yield return Z;"));
 
             Assert.That(derived3, Does.Contain("Child"));
-            Assert.That(derived3, Does.Contain("CompareAndUpdateObject(context"));
+            Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChild(this, context"));
             Assert.That(derived3, Does.Contain("set => _child = value;"));
             Assert.That(derived3, Does.Contain("set => _optionalChild = value;"));
             Assert.That(derived3, Does.Not.Contain("SetOwnedResource"));
@@ -61,7 +61,7 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived3, Does.Not.Contain("ReplaceOptionalChild("));
             Assert.That(derived3, Does.Contain("_child?.Dispose();"));
             Assert.That(derived3, Does.Contain("Items"));
-            Assert.That(derived3, Does.Contain("CompareAndUpdateList(context"));
+            Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChildren(this, context"));
             Assert.That(derived3, Does.Contain("foreach (var item in"));
             Assert.That(derived3, Does.Contain("item?.Dispose();"));
         });

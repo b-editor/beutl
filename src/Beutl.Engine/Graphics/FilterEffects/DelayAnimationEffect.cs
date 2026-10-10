@@ -77,8 +77,8 @@ public partial class DelayAnimationEffect : FilterEffect
                 data.disableResourceShare,
                 data.preferProxy,
                 data.preferredProxyPreset);
-            var updateOnly = false;
-            data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
+            var versionBumped = false;
+            data.cache[j].Reconcile(data.childEffect, delayedContext, ref versionBumped);
 
             if (!data.cache[j].IsEnabled) continue;
 
@@ -131,8 +131,8 @@ public partial class DelayAnimationEffect : FilterEffect
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -160,13 +160,13 @@ public partial class DelayAnimationEffect : FilterEffect
 
         public List<FilterEffect.Resource> DelayedResources => _delayedResources;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
 
             var typed = (DelayAnimationEffect)obj;
-            CompareAndUpdate(context, typed.Delay, ref _delay, ref updateOnly);
-            CompareAndUpdateObject(context, typed.Effect, ref _effect, ref updateOnly);
+            ResourceReconciler.ReconcileValue(this, context, typed.Delay, ref _delay, ref versionBumped);
+            ResourceReconciler.ReconcileChild(this, context, typed.Effect, ref _effect, ref versionBumped);
             if (_delayedResources.Count > 0 && _delayedResources[0].GetOriginal() != Effect?.GetOriginal())
             {
                 foreach (var r in _delayedResources)
@@ -186,7 +186,7 @@ public partial class DelayAnimationEffect : FilterEffect
             // tiles and a preview proxy-mode toggle would not reach the delayed sub-effects until an
             // unrelated invalidation (e.g. a time change) happens.
             bool proxyChanged = oldPreferProxy != _preferProxy || oldPreferredPreset != _preferredProxyPreset;
-            if (!updateOnly && (oldTime != _globalTime || proxyChanged))
+            if (!versionBumped && (oldTime != _globalTime || proxyChanged))
             {
                 Version++;
             }

@@ -146,8 +146,8 @@ public static class EngineObjectHelper
                             }
                             else
                             {
-                                bool updateOnly = false;
-                                resource.Update(obj, renderContext, ref updateOnly);
+                                bool versionBumped = false;
+                                resource.Reconcile(obj, renderContext, ref versionBumped);
                             }
 
                             handle = new EngineResourceHandle<TResource>(

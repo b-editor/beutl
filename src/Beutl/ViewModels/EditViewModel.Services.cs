@@ -99,6 +99,9 @@ public partial class EditViewModel
         if (serviceType.IsAssignableTo(typeof(IElementAttributeService)))
             return _elementAttributeService ??= new ElementAttributeService(HistoryManager);
 
+        if (serviceType.IsAssignableTo(typeof(ITransitionEditorService)))
+            return _transitionEditorService ??= new TransitionEditorService(this);
+
         if (serviceType.IsAssignableTo(typeof(IElementNudgeService)))
             return _elementNudgeService ??= CreateNudgeService();
 

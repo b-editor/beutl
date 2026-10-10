@@ -157,7 +157,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
         public Drawable.Resource? Target => _target;
 
-        partial void PostUpdate(DrawableTimeController obj, CompositionContext context)
+        partial void PostReconcile(DrawableTimeController obj, CompositionContext context)
         {
             Drawable? targetDrawable = null;
             FlowNode? flowTarget = null;

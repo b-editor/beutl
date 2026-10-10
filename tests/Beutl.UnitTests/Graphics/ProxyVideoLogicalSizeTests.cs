@@ -128,8 +128,8 @@ public class ProxyVideoLogicalSizeTests
             now,
             now,
             null));
-        bool updateOnly = false;
-        resource.Update(source, context, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(source, context, ref versionBumped);
 
         Assert.Multiple(() =>
         {
@@ -180,8 +180,8 @@ public class ProxyVideoLogicalSizeTests
             null));
 
         // B must NOT reopen its reader just because A's proxy changed (FR-023).
-        bool updateOnly = false;
-        resourceB.Update(sourceB, context, ref updateOnly);
+        bool versionBumped = false;
+        resourceB.Reconcile(sourceB, context, ref versionBumped);
 
         Assert.Multiple(() =>
         {

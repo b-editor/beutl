@@ -72,12 +72,12 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
         };
 
     [McpServerTool(Name = "get_started")]
-    [Description("Returns the editing API workflow: attach/open, inspect schema and document data, apply edits, render, save, and export. Describes operation semantics only; it does not choose a creative direction or judge whether a video is finished.")]
+    [Description("Returns the editing API workflow: discover/open, inspect schema and document data, apply edits, render, save, and export. Describes operation semantics only; it does not choose a creative direction or judge whether a video is finished.")]
     public ToolResult<GettingStartedResponse> GetStarted()
         => Execute(() => new GettingStartedResponse(
             SchemaVersion.Current,
             [
-                "Call attach_active_editor for the open editor scene, or create_project/open_project for a file session. read_operation_status reports the session and persistence behavior.",
+                "In live MCP, call list_instances and list_scenes, then pass instanceId and sceneId on each scene tool call. The visible editor selection stays unchanged; no attach is required. In stdio MCP, create_project/open_project starts a file session. read_operation_status reports persistence behavior.",
                 "Read read_document_summary for scene and element handles; read_document returns the editable data. Use get_schema(type=...) for the specific types and properties needed by the edit.",
                 "Use apply_edit with schemaVersion=1 and an Id-based merge patch. Unmentioned siblings are preserved; full desired documents are authoritative. undo/redo operate on the session history.",
                 "Use natural, content-based element names in the user's language and compact ZIndex values. PortalObject.Count is a relative inclusive layer span and must remain consistent when layers move.",

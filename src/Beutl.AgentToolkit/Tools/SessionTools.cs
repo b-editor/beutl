@@ -67,7 +67,7 @@ public sealed class SessionTools(
     RenderJobManager renderJobs) : ToolBase
 {
     [McpServerTool(Name = "open_project")]
-    [Description("Opens a Beutl .bep project from any readable local path and makes it the active editing session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
+    [Description("Opens a Beutl .bep project from any readable local path and returns its scene IDs. Live MCP calls must still pass sceneId on each subsequent scene operation; stdio selects a file-backed session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
     public ValueTask<ToolResult<OpenProjectResponse>> OpenProject(string path, CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
@@ -199,7 +199,7 @@ public sealed class SessionTools(
         IReadOnlyList<RecoveryIncident> RecoveryIncidents);
 
     [McpServerTool(Name = "create_project")]
-    [Description("Creates and saves a new Beutl .bep project with one scene, then makes it the active editing session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Creates and saves a new Beutl .bep project with one scene and returns its scene ID. Live MCP calls must still pass sceneId on each subsequent scene operation; stdio selects a file-backed session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
     public ValueTask<ToolResult<CreateProjectResponse>> CreateProject(
         [Description("Workspace-relative project file path; project files use path, while render/export outputs use outputPath/outputDirectory.")]
         string path,
@@ -232,7 +232,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "add_scene")]
-    [Description("Adds a scene to the current project. File-backed sessions persist it with save_project; in the in-app host the scene is saved and shown in the editor immediately.")]
+    [Description("Adds a scene to the targeted project. Live MCP targets an existing scene with sceneId and returns the new sceneId; later calls must still specify their target. File-backed sessions persist it with save_project; in the in-app host the scene is saved immediately without selecting its editor tab.")]
     public ValueTask<ToolResult<AddSceneResponse>> AddScene(
         string session,
         int width,
@@ -325,7 +325,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "read_operation_status")]
-    [Description("Reports the active Agent Editing Toolkit session state and whether save_project is supported. Toolkit edit/render calls are synchronous; use this when a workflow needs a quick status response before continuing or stopping.")]
+    [Description("Reports the targeted scene context and whether save_project is supported. Live MCP accepts optional sceneId; omitting it reports no scene context and never inherits an earlier call. Stdio reports its current file session. Toolkit edit/render calls are synchronous; use this when a workflow needs a quick status response before continuing or stopping.")]
     public ToolResult<OperationStatusResponse> ReadOperationStatus()
     {
         return Execute(() =>
@@ -340,7 +340,7 @@ public sealed class SessionTools(
                     IsDirty: null,
                     SaveProjectSupported: false,
                     HasLongRunningOperation: renderJobs.HasRunningJobs,
-                    Message: "No active editing session is available. Call attach_active_editor for an open editor scene, or create_project/open_project for a file-backed session.");
+                    Message: "No scene was targeted for this call. In live MCP, pass sceneId from list_scenes; in stdio MCP, call create_project/open_project for a file-backed session.");
             }
 
             bool fileBacked = session.Source == EditingSessionSource.File;

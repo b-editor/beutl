@@ -6,6 +6,14 @@ Beutl supplies editing operations, runtime data, and rendered output. Creative d
 
 This is **declarative editing first** (FR-027): `read_document` + `apply_edit` are the public editing loop. Project/session lifecycle and render/export remain separate tools; structural, property, effect, and keyframe edits are expressed through the declarative document or merge patch.
 
+## Live scene targeting
+
+The in-app host resolves each scene operation independently. Call `list_instances` to discover a process, then `list_scenes` on that process to obtain scene IDs. Pass `instanceId` on every call to that process and `sceneId` on every document, edit, history, bounds, render/export, `add_scene`, or `save_project` call. `sceneId` is required for those live tools; omitted or malformed IDs return `validation_rejected`, and unavailable scenes return `stale_handle` without selecting another scene. `instanceId` remains optional and defaults to the connected process.
+
+Each scene call preserves the selected editor tab, timeline and preview. It uses the target scene's existing editor context, or creates an unselected background tab when the scene has no open tab, so history and persistence retain the normal editor lifecycle. Its request captures that scene's editor and history; concurrent callers and subsequent UI navigation cannot change the target. `list_scenes` leaves selection unchanged. `read_operation_status`, `list_compositions`, and `render_composition_patch` accept an optional `sceneId`; without one they have no scene context. Catalog queries, project open/create, audio analysis, and render-job polling use their own arguments and require no scene target.
+
+Live tools do not accept opaque `session` arguments or require an attach step. Existing response `session` fields identify the scene by its ID for compatibility; they do not establish a target for another call. Composition plans and background jobs retain their own IDs, while the editing target is request-scoped. Stdio tools retain file-backed sessions selected by `open_project`/`create_project`.
+
 ## Discovery
 
 ### `get_started`
@@ -68,7 +76,7 @@ Return a compact scene summary for live progress observation.
 
 ### `read_document`
 Return the project/scene (or a subtree) as the normalized Declarative Document (FR-005).
-- **Input**: `{ "rootId"?: guid }` — `rootId` to scope to a subtree (keeps payloads bounded for large projects). The target is the current editing session selected by `open_project` / `create_project` / `attach_active_editor`.
+- **Input**: `{ "rootId"?: guid }` — `rootId` to scope to a subtree (keeps payloads bounded for large projects). In live MCP, the target is the required `sceneId`; in stdio MCP, it is the file-backed session selected by `open_project` / `create_project`.
 - **Output**: `{ "document": <declarative JSON>, "schemaVersion": string }`.
 - **Errors**: `no_active_editor_session`, `stale_handle`.
 - **Backed by**: `CoreSerializer.SerializeToJsonObject`.
@@ -82,18 +90,18 @@ Report the font families this runtime has registered, with each available weight
 
 ## Session
 
-A `session` may be **file-opened** (headless server) or **live** (in-app host bound to the running editor). The edit/query/render tools below are identical across both; only how the session is obtained differs. In the in-app host, an agent uses `attach_active_editor` instead of `open_project`/`create_project`.
+The headless stdio server uses a **file-opened** session. The in-app host uses a **live**, request-scoped scene binding, obtained from each call's `sceneId`. Shared tool descriptions below show the stdio parameters; the live schema adds scene targeting and omits `session` inputs as described above.
 
 ### `open_project`
 - **Input**: `{ "path": string }` (read — unrestricted).
 - **Output**: `{ "session": string, "source": "File", "summary": { scenes, elements, duration, frameSize }, "warnings": string[], "recoveryIncidents": [{ "sceneId": string, "sceneName": string, "elementFile": string, "reason": "TypeNotFound" | "DeserializationFailed", "typeName": string | null, "message": string | null }] }`. `warnings` remains the presentation-oriented recovery summary; `recoveryIncidents` exposes the same incidents as stable structured data. `sceneId` and `sceneName` identify the containing scene when different scenes contain the same relative element path. `elementFile` is a forward-slash scene-relative path when available, otherwise the element name. `typeName` is the original serialized discriminator when available, otherwise `null`; `message` is the unmodified nullable deserialization error rather than a presentation fallback.
 - **Errors**: `media_not_found`, `schema_version_mismatch` (project written by an incompatible schema — surfaced, not silently dropped, per FR-031/FR-013).
 
-### `attach_active_editor` *(in-app host only)*
-Bind a live session to the project/scene currently open in the running editor (FR-032/FR-033).
-- **Input**: `{ }`.
-- **Output**: `{ "session": string, "source": "LiveEditor", "summary": { … } }`.
-- **Errors**: `no_active_editor_session` (nothing open — FR-035). Edits via this session reflect live in the UI and land on the editor's undo stack; persistence is the editor's (no `save_project` for a live session).
+### `list_scenes` *(in-app host only)*
+List scenes in the current project, or standalone open scene tabs when no project is open.
+- **Input**: `{ "instanceId"?: string }`.
+- **Output**: `{ "projectPath": string | null, "activeSceneId": string | null, "scenes": [{ "sceneId": string, "name": string, "width": number, "height": number, "start": string, "duration": string, "elements": number }] }`.
+- **Behavior**: does not change editor selection. An instance with no available scenes returns an empty list. Use `open_project`/`create_project` when a project needs to be opened. Pass a returned `sceneId` on subsequent scene calls; no binding persists between requests.
 
 ### `save_project`
 - **Input**: `{ "session"?: string, "path"?: string, "confirmOverwrite"?: bool }` (write — **guarded**; defaults to the current file-backed session and opened path). Pass `session` only to disambiguate; omitting it uses the same active-session resolution as query/render tools.
@@ -123,7 +131,7 @@ Dry-run a named composition preset without returning its full patch.
 
 ### `apply_edit`
 Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028/FR-029).
-- **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch>, "includeDocument"?: bool, "quiet"?: bool }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (the ordering three are mutually exclusive) and a leading `{ "$replace": true }` sentinel to wholesale-rebuild an id-keyed array; the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. The edit targets the current session's active Scene.
+- **Input**: an envelope `{ "schemaVersion"?: string, "desired"?: <full document>, "patch"?: <merge-patch>, "includeDocument"?: bool, "quiet"?: bool }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (the ordering three are mutually exclusive) and a leading `{ "$replace": true }` sentinel to wholesale-rebuild an id-keyed array; the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and are surfaced in the tool's input description. `schemaVersion` is required for `patch`; for `desired`, either pass it separately or include `schemaVersion` in the document. In live MCP, the edit targets the required `sceneId`; in stdio MCP, it targets the current file session's Scene.
 - **Output**: `{ "valid": bool, "operations": { "<operation>": number }, "changeCount": number, "validationStatuses": { "<status>": number }, "validationCount": number, "createdIds": [ { id, path, type?, name? } ], "createdIdCount": number, "changes"?: [ ... ], "validation"?: [ ... ], "appliedChangeSet"?: [ ... ], "document"?: <updated declarative JSON> }`. `createdIds` contains addressable created entities and excludes animations/keyframes, which are reached through their owning property. `createdIdCount` always reports the full count before response filtering. With `quiet=true`, `createdIds` is further limited to named entities and the detailed `changes`, `validation`, and `appliedChangeSet` members are omitted; operation/validation counts remain. `document` is returned only when `includeDocument=true`; otherwise agents should use `createdIds`, `read_document_summary`, or `read_document` before follow-up edits that need newly minted `Id` values.
 - **Errors**: `no_active_editor_session`, `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
 - **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits prior pending work separately, blocks concurrent records, commits on success, and **rolls back only the callback operations on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations or absorb unrelated edits, breaking FR-012).
@@ -230,11 +238,16 @@ Request cancellation of a running background render/export job.
 - **Output**: same snapshot shape as `read_render_job`. A still-running job transitions to `cancelled` once it observes the request (the per-job `CancellationToken` is plumbed through `StillRenderer`/`VideoExporter`).
 - **Errors**: `stale_handle` (unknown `jobId`).
 
+## Extension tools *(in-app host only)*
+
+Installed extensions can add tools through `McpToolExtension` (see the [MCP tool extension guide](../../../extension-authoring/mcp-tools.md)). They are listed and called like built-in tools, appear and disappear with their package without restarting the endpoint, and receive the same strict-argument check and `instanceId` routing. A built-in tool always wins a name collision. `tools/list` reflects the extensions loaded in the connected instance.
+- **Errors**: `extension_tool_failed` (the extension threw; the message is included), `extension_tool_unavailable` (the package was unloaded after the tool was listed). Unlike toolkit errors, both are returned as MCP tool errors (`isError: true`), as are failures the extension reports itself in its own wording.
+
 ## Cross-cutting contract rules
 
 - **Host output lease**: direct `RenderTools` callers pass an `IOutputOperationLeaseProvider`, using `StandaloneOutputOperationLeaseProvider.Instance` outside the editor. DI and in-app hosts register their host-backed provider so render/export jobs cannot overlap a conflicting workspace operation.
 - **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded.
-- **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored.
+- **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored. Names matching a `patternProperties` pattern (ECMAScript semantics) are accepted. A tool whose input schema sets `additionalProperties` to anything but `false`, or combines subschemas or uses `$ref` at the top level, is not checked.
 - **Atomicity**: `apply_edit` commits as exactly one undoable transaction; a mid-batch failure rolls back wholly (FR-012).
 - **Validation surfaced**: coercion/rejection is always reported in the result, never silently applied (FR-007).
 - **Stable handles**: all `*Id` are `CoreObject.Id` Guids, valid for the session; a removed or unknown update target ⇒ `stale_handle` (FR-011). `stale_handle` responses include a hint to omit `Id` for creation and to reuse Ids from `apply_edit.document` or `read_document` for updates.

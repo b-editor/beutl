@@ -116,6 +116,7 @@ public class LibraryItemViewModel
             KnownLibraryItemFormats.Drawable => BeutlDataFormats.Drawable,
             KnownLibraryItemFormats.Brush => BeutlDataFormats.Brush,
             KnownLibraryItemFormats.FilterEffect => BeutlDataFormats.FilterEffect,
+            KnownLibraryItemFormats.ClipTransition => BeutlDataFormats.ClipTransition,
             KnownLibraryItemFormats.GraphNode => BeutlDataFormats.GraphNode,
             KnownLibraryItemFormats.AudioEffect => BeutlDataFormats.AudioEffect,
             KnownLibraryItemFormats.EngineObject => BeutlDataFormats.EngineObject,
@@ -193,6 +194,7 @@ public class LibraryItemViewModel
                 KnownLibraryItemFormats.GraphNode => Strings.NodeGraph,
                 KnownLibraryItemFormats.AudioEffect => AudioStrings.AudioEffect,
                 KnownLibraryItemFormats.EngineObject => Strings.Object,
+                KnownLibraryItemFormats.ClipTransition => GraphicsStrings.ClipTransition,
                 _ => string.Empty,
             };
         }

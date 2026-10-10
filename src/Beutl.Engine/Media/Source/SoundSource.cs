@@ -35,8 +35,8 @@ public sealed class SoundSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -111,9 +111,9 @@ public sealed class SoundSource : MediaSource
             return (int)Math.Clamp(samples, 0, int.MaxValue);
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             var soundSource = (SoundSource)obj;
 
             // A relink can restore the file at its original URI.
@@ -178,10 +178,10 @@ public sealed class SoundSource : MediaSource
                 NumChannels = _counter.Value.AudioInfo.NumChannels;
                 _loadedUri = soundSource.Uri;
 
-                if (!updateOnly)
+                if (!versionBumped)
                 {
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
         }

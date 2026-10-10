@@ -12,9 +12,9 @@ public sealed class RenderNodeDrawable : Drawable
 
     public override Resource ToResource(CompositionContext context)
     {
-        bool updateOnly = false;
+        bool versionBumped = false;
         var resource = new Resource();
-        resource.Update(this, context, ref updateOnly);
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -43,22 +43,22 @@ public sealed class RenderNodeDrawable : Drawable
     {
         public RenderNode? GraphNode { get; set; }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             if (obj is RenderNodeDrawable renderNode)
             {
                 if (GraphNode != renderNode.GraphNode)
                 {
                     GraphNode = renderNode.GraphNode;
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
 
                 if (GraphNode?.HasChanges == true)
                 {
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
         }

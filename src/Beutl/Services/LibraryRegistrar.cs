@@ -5,6 +5,7 @@ using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Particles;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Models;
@@ -207,6 +208,20 @@ public static class LibraryRegistrar
                     .AddFilterEffect<SKSLScriptEffect>(GraphicsStrings.SKSLScriptEffect)
                     .AddFilterEffect<GLSLScriptEffect>(GraphicsStrings.GLSLScriptEffect)
                 )
+            );
+
+        LibraryService.Current
+            .RegisterGroup(GraphicsStrings.ClipTransition, g => g
+                .AddClipTransition<CrossDissolveTransition>(GraphicsStrings.CrossDissolveTransition)
+                .AddClipTransition<FadeTransition>(GraphicsStrings.FadeTransition)
+                .AddClipTransition<WipeTransition>(GraphicsStrings.WipeTransition)
+                .AddClipTransition<DipToColorTransition>(GraphicsStrings.DipToColorTransition)
+                .AddClipTransition<DipToWhiteTransition>(GraphicsStrings.DipToWhiteTransition)
+                .AddClipTransition<PushTransition>(GraphicsStrings.PushTransition)
+                .AddClipTransition<SlideTransition>(GraphicsStrings.SlideTransition)
+                .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition)
+                .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition)
+                .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition)
             );
 
         LibraryService.Current

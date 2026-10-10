@@ -1487,4 +1487,64 @@
   <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
     <value>应用到目标</value>
   </data>
+  <data name="ClipTransition" xml:space="preserve">
+    <value>转场</value>
+  </data>
+  <data name="ClipTransition_Duration" xml:space="preserve">
+    <value>时长</value>
+  </data>
+  <data name="ClipTransition_Easing" xml:space="preserve">
+    <value>缓动</value>
+  </data>
+  <data name="CrossDissolveTransition" xml:space="preserve">
+    <value>交叉溶解</value>
+  </data>
+  <data name="FadeTransition" xml:space="preserve">
+    <value>淡入淡出</value>
+  </data>
+  <data name="WipeTransition" xml:space="preserve">
+    <value>擦除</value>
+  </data>
+  <data name="DipToColorTransition" xml:space="preserve">
+    <value>颜色过渡</value>
+  </data>
+  <data name="DipToWhiteTransition" xml:space="preserve">
+    <value>白色过渡</value>
+  </data>
+  <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
+    <value>从左到右</value>
+  </data>
+  <data name="ClipTransitionDirection_RightToLeft" xml:space="preserve">
+    <value>从右到左</value>
+  </data>
+  <data name="ClipTransitionDirection_TopToBottom" xml:space="preserve">
+    <value>从上到下</value>
+  </data>
+  <data name="ClipTransitionDirection_BottomToTop" xml:space="preserve">
+    <value>从下到上</value>
+  </data>
+  <data name="PushTransition" xml:space="preserve">
+    <value>推移</value>
+  </data>
+  <data name="SlideTransition" xml:space="preserve">
+    <value>滑动</value>
+  </data>
+  <data name="ZoomTransition" xml:space="preserve">
+    <value>交叉缩放</value>
+  </data>
+  <data name="IrisTransition" xml:space="preserve">
+    <value>光圈</value>
+  </data>
+  <data name="SplitTransition" xml:space="preserve">
+    <value>分割</value>
+  </data>
+  <data name="ClipTransition_Orientation" xml:space="preserve">
+    <value>朝向</value>
+  </data>
+  <data name="ClipTransitionOrientation_Horizontal" xml:space="preserve">
+    <value>水平</value>
+  </data>
+  <data name="ClipTransitionOrientation_Vertical" xml:space="preserve">
+    <value>垂直</value>
+  </data>
 </root>

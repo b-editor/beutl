@@ -1487,4 +1487,64 @@
   <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
     <value>대상에 적용</value>
   </data>
+  <data name="ClipTransition" xml:space="preserve">
+    <value>전환</value>
+  </data>
+  <data name="ClipTransition_Duration" xml:space="preserve">
+    <value>길이</value>
+  </data>
+  <data name="ClipTransition_Easing" xml:space="preserve">
+    <value>이징</value>
+  </data>
+  <data name="CrossDissolveTransition" xml:space="preserve">
+    <value>크로스 디졸브</value>
+  </data>
+  <data name="FadeTransition" xml:space="preserve">
+    <value>페이드</value>
+  </data>
+  <data name="WipeTransition" xml:space="preserve">
+    <value>와이프</value>
+  </data>
+  <data name="DipToColorTransition" xml:space="preserve">
+    <value>색으로 디프</value>
+  </data>
+  <data name="DipToWhiteTransition" xml:space="preserve">
+    <value>흰색으로 디프</value>
+  </data>
+  <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
+    <value>왼쪽에서 오른쪽</value>
+  </data>
+  <data name="ClipTransitionDirection_RightToLeft" xml:space="preserve">
+    <value>오른쪽에서 왼쪽</value>
+  </data>
+  <data name="ClipTransitionDirection_TopToBottom" xml:space="preserve">
+    <value>위에서 아래</value>
+  </data>
+  <data name="ClipTransitionDirection_BottomToTop" xml:space="preserve">
+    <value>아래에서 위</value>
+  </data>
+  <data name="PushTransition" xml:space="preserve">
+    <value>밀기</value>
+  </data>
+  <data name="SlideTransition" xml:space="preserve">
+    <value>슬라이드</value>
+  </data>
+  <data name="ZoomTransition" xml:space="preserve">
+    <value>크로스 줌</value>
+  </data>
+  <data name="IrisTransition" xml:space="preserve">
+    <value>아이리스</value>
+  </data>
+  <data name="SplitTransition" xml:space="preserve">
+    <value>분할</value>
+  </data>
+  <data name="ClipTransition_Orientation" xml:space="preserve">
+    <value>방향</value>
+  </data>
+  <data name="ClipTransitionOrientation_Horizontal" xml:space="preserve">
+    <value>가로</value>
+  </data>
+  <data name="ClipTransitionOrientation_Vertical" xml:space="preserve">
+    <value>세로</value>
+  </data>
 </root>

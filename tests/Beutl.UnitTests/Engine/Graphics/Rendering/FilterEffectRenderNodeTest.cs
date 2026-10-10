@@ -92,8 +92,8 @@ public class FilterEffectRenderNodeTest
         var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
         effect.Sigma.CurrentValue = new(10, 10);
-        var updateOnly = false;
-        resource.Update(effect, CompositionContext.Default, ref updateOnly);
+        var versionBumped = false;
+        resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
 
         var result = node.Update(resource);
 

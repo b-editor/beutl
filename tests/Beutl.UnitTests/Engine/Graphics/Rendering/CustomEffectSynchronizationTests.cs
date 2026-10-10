@@ -477,8 +477,8 @@ public sealed class CustomEffectSynchronizationTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 
@@ -513,8 +513,8 @@ public sealed class CustomEffectSynchronizationTests
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
-            bool updateOnly = false;
-            resource.Update(this, context, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(this, context, ref versionBumped);
             return resource;
         }
 

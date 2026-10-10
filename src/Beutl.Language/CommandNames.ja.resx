@@ -199,4 +199,16 @@
   <data name="AddMarker" xml:space="preserve">
     <value>マーカーを追加</value>
   </data>
+  <data name="AddTransition" xml:space="preserve">
+    <value>トランジションを追加</value>
+  </data>
+  <data name="ChangeTransition" xml:space="preserve">
+    <value>トランジションを変更</value>
+  </data>
+  <data name="RemoveTransition" xml:space="preserve">
+    <value>トランジションを削除</value>
+  </data>
+  <data name="ChangeTransitionDuration" xml:space="preserve">
+    <value>トランジションの長さを変更</value>
+  </data>
 </root>

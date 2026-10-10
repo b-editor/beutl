@@ -49,8 +49,8 @@ public sealed class DelayAnimationEffectProxyContextTests
             new CompositionContext(TimeSpan.Zero) { PreferProxy = false });
         int before = resource.Version;
 
-        bool updateOnly = false;
-        resource.Update(effect, new CompositionContext(TimeSpan.Zero) { PreferProxy = true }, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(effect, new CompositionContext(TimeSpan.Zero) { PreferProxy = true }, ref versionBumped);
 
         Assert.That(resource.Version, Is.GreaterThan(before));
     }

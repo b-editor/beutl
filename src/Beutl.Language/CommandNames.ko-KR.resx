@@ -206,4 +206,16 @@
   <data name="AddMarker" xml:space="preserve">
     <value>마커 추가</value>
   </data>
+  <data name="AddTransition" xml:space="preserve">
+    <value>전환 추가</value>
+  </data>
+  <data name="ChangeTransition" xml:space="preserve">
+    <value>전환 변경</value>
+  </data>
+  <data name="RemoveTransition" xml:space="preserve">
+    <value>전환 제거</value>
+  </data>
+  <data name="ChangeTransitionDuration" xml:space="preserve">
+    <value>전환 길이 변경</value>
+  </data>
 </root>

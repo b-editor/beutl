@@ -9,7 +9,7 @@ Beutl provides editing operations and rendered output. The agent decides the vis
 
 ## Session and document mechanics
 
-- Use `attach_active_editor` for an open editor scene, or `create_project`/`open_project`. `read_operation_status` identifies the session and persistence behavior. File sessions use `save_project`; live sessions use the editor's normal save behavior.
+- In live MCP, use `list_instances` and `list_scenes`, then pass `instanceId` and `sceneId` on each scene read, edit, history, or render call. Calls preserve the visible editor selection; no attach or previous call selects a target. In stdio MCP, use `create_project`/`open_project` for a file-backed session. `read_operation_status` reports persistence behavior. File sessions use `save_project`; live edits use the editor's normal save behavior.
 - `read_document_summary` returns compact handles. `read_document` returns serialized data. Query `get_schema(type=...)` for unfamiliar types or properties; enumerating catalogs is optional. Examples and presets are syntax aids and reusable edits, not the range of possible expressions.
 - `apply_edit` accepts `schemaVersion: "1"`. An Id-based merge patch preserves unmentioned siblings; a full desired document is authoritative. Use PascalCase property names and the `$type` discriminators returned by the runtime. Read `validation` and `createdIds` to resolve technical errors and target newly created objects.
 - New timeline entries use `$type: "[Beutl.ProjectSystem]:Element"` with drawables under `Objects`. Read `get_examples(name: "insert-new-element-skeleton")` when the container shape is unfamiliar.
