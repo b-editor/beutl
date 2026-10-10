@@ -733,14 +733,12 @@ internal sealed class AgentHostAiTools(
         (string probe, FileStream stream) = AiTemporaryFileStore.Create("inputs", "agent-source-video", Path.GetExtension(input.Name));
         try
         {
+            // Written outside the decode catch: a full disk is not the clip's fault, and its error
+            // takes the logged path for unexpected failures.
             using (stream)
                 stream.Write(input.Content);
-            using MediaReader reader = MediaReader.Open(probe, new MediaOptions(MediaMode.Video) { PreferProxy = false });
-            if (reader.HasVideo)
-                return (input, reader.VideoInfo.Duration.ToDouble());
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
+            if (ProbeVideoSeconds(probe) is { } seconds)
+                return (input, seconds);
         }
         finally
         {
@@ -754,6 +752,20 @@ internal sealed class AgentHostAiTools(
         }
 
         throw new ReconcileException(new ToolError(ErrorCode.MediaUnsupported, $"'{path}' could not be opened as a video.", "sourcePath"));
+    }
+
+    // The clip's length, or null when no decoder opens it as a video.
+    private static double? ProbeVideoSeconds(string path)
+    {
+        try
+        {
+            using MediaReader reader = MediaReader.Open(path, new MediaOptions(MediaMode.Video) { PreferProxy = false });
+            return reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     private static ReconcileException Invalid(string message, string? target)
