@@ -9,105 +9,77 @@ internal partial class VersionControlCoordinator
         ActivationContext activation,
         out bool cleanupRejectedService)
     {
-        ActivationContext? previousActivation;
-        bool schedulePublication = false;
-        bool waitsForPredecessors = false;
-        bool rejected;
-        lock (_stateGate)
-        {
-            rejected = _disposed
-                       || activation.Revision != Volatile.Read(ref _latestActivationRevision)
-                       || activation.CancellationToken.IsCancellationRequested
-                       || !CanAdoptServiceLocked(activation.Service);
-            if (rejected)
-            {
-                previousActivation = null;
-                cleanupRejectedService = TryClaimRejectedServiceCleanupLocked(
-                    activation.Service);
-            }
-            else
-            {
-                previousActivation = _activation;
-                LinkServiceUsersLocked(activation, activation.Service);
-                _activation = activation;
-                cleanupRejectedService = false;
-                waitsForPredecessors =
-                    !activation.PredecessorsCompleted.IsCompletedSuccessfully;
-                schedulePublication = TransitionOwnedServiceLocked(
-                    activation.Service,
-                    !waitsForPredecessors
-                        ? activation.Service
-                        : null,
-                    activation.ProjectRoot,
-                    previousActivation,
-                    out _);
-            }
-        }
-
+        bool rejected = _disposed
+                        || activation.Revision != _latestActivationRevision
+                        || activation.CancellationToken.IsCancellationRequested
+                        || !CanAdoptService(activation.Service);
         if (rejected)
         {
+            cleanupRejectedService = TryClaimRejectedServiceCleanup(activation.Service);
             return false;
         }
 
-        SchedulePublicationDrain(schedulePublication);
+        ActivationContext? previousActivation = _activation;
+        LinkServiceUsers(activation, activation.Service);
+        _activation = activation;
+        cleanupRejectedService = false;
+        bool waitsForPredecessors = !activation.PredecessorsCompleted.IsCompletedSuccessfully;
+        TransitionOwnedService(
+            activation.Service,
+            !waitsForPredecessors
+                ? activation.Service
+                : null,
+            activation.ProjectRoot,
+            previousActivation);
         CancelActivation(previousActivation);
-
         return true;
     }
 
     private bool TryPublishActivationServiceIfCurrent(ActivationContext activation)
     {
-        bool schedulePublication = false;
-        bool accepted;
-        lock (_stateGate)
+        if (!IsCurrentActivation(activation))
         {
-            accepted = IsCurrentActivationLocked(activation);
-            if (accepted
-                && (!activation.HasPredecessors
-                    || activation.Service.Repository is null))
-            {
-                schedulePublication = TransitionStateLocked(
-                    _state with
-                    {
-                        VisibleService = activation.Service,
-                        IsTracked = activation.Service.Repository is not null,
-                    });
-            }
+            return false;
         }
 
-        SchedulePublicationDrain(schedulePublication);
-        return accepted;
+        if (!activation.HasPredecessors || activation.Service.Repository is null)
+        {
+            SetState(_state with
+            {
+                VisibleService = activation.Service,
+                IsTracked = activation.Service.Repository is not null,
+            });
+        }
+
+        return true;
     }
 
     private bool TryRegisterCandidateService(
         ActivationContext activation,
         IProjectVersionControlBackend service)
     {
-        lock (_stateGate)
+        if (!IsCurrentActivation(activation) || !CanAdoptService(service))
         {
-            if (!IsCurrentActivationLocked(activation) || !CanAdoptServiceLocked(service))
+            if (IsServiceOwnedOrClaimed(service))
             {
-                if (IsServiceOwnedOrClaimedLocked(service))
-                {
-                    activation.MarkServiceCleanupDelegated(service);
-                }
-
-                return false;
+                activation.MarkServiceCleanupDelegated(service);
             }
 
-            LinkServiceUsersLocked(activation, service);
-            if (!_candidateServiceUsers.TryGetValue(service, out HashSet<ActivationContext>? users))
-            {
-                users = [];
-                _candidateServiceUsers.Add(service, users);
-            }
-
-            users.Add(activation);
-            return true;
+            return false;
         }
+
+        LinkServiceUsers(activation, service);
+        if (!_candidateServiceUsers.TryGetValue(service, out HashSet<ActivationContext>? users))
+        {
+            users = [];
+            _candidateServiceUsers.Add(service, users);
+        }
+
+        users.Add(activation);
+        return true;
     }
 
-    private void LinkServiceUsersLocked(
+    private void LinkServiceUsers(
         ActivationContext activation,
         IProjectVersionControlBackend service)
     {
@@ -139,13 +111,13 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    private bool CanAdoptServiceLocked(IProjectVersionControlBackend service)
+    private bool CanAdoptService(IProjectVersionControlBackend service)
     {
         return !_managedServices.Contains(service)
                || ReferenceEquals(_state.OwnedService, service);
     }
 
-    private bool IsServiceOwnedOrClaimedLocked(IProjectVersionControlBackend service)
+    private bool IsServiceOwnedOrClaimed(IProjectVersionControlBackend service)
     {
         return ReferenceEquals(_state.OwnedService, service)
                || _managedServices.Contains(service)
@@ -153,56 +125,34 @@ internal partial class VersionControlCoordinator
                && users.Count > 0;
     }
 
-    private bool TryClaimRejectedServiceCleanupLocked(
-        IProjectVersionControlBackend service)
+    private bool TryClaimRejectedServiceCleanup(IProjectVersionControlBackend service)
     {
-        return !IsServiceOwnedOrClaimedLocked(service) && _managedServices.Add(service);
+        return !IsServiceOwnedOrClaimed(service) && _managedServices.Add(service);
     }
 
     private bool CompleteActivation(
         ActivationContext activation,
         IProjectVersionControlBackend trackedService)
     {
-        bool accepted;
-        bool schedulePublication = false;
-        lock (_stateGate)
-        {
-            accepted = IsCurrentActivationLocked(activation)
-                       && CanAdoptServiceLocked(trackedService);
-            if (accepted)
-            {
-                schedulePublication = TransitionOwnedServiceLocked(
-                    trackedService,
-                    trackedService,
-                    activation.ProjectRoot,
-                    activation,
-                    out _);
-                activation.TransferOwnership(trackedService);
-            }
-        }
-
-        if (!accepted)
+        if (!IsCurrentActivation(activation) || !CanAdoptService(trackedService))
         {
             return false;
         }
 
-        SchedulePublicationDrain(schedulePublication);
+        TransitionOwnedService(
+            trackedService,
+            trackedService,
+            activation.ProjectRoot,
+            activation);
+        activation.TransferOwnership(trackedService);
         return true;
     }
 
     private bool IsCurrentActivation(ActivationContext activation)
     {
-        lock (_stateGate)
-        {
-            return IsCurrentActivationLocked(activation);
-        }
-    }
-
-    private bool IsCurrentActivationLocked(ActivationContext activation)
-    {
         return !_disposed
                && ReferenceEquals(_activation, activation)
-               && activation.Revision == Volatile.Read(ref _latestActivationRevision)
+               && activation.Revision == _latestActivationRevision
                && ReferenceEquals(_state.OwnedService, activation.Service)
                && _state.ProjectRoot is { } projectRoot
                && PathsEqual(projectRoot, activation.ProjectRoot)
@@ -211,28 +161,20 @@ internal partial class VersionControlCoordinator
 
     private void ClearProjectState(long? expectedActivationRevision = null)
     {
-        ActivationContext? activation;
-        bool schedulePublication;
-        lock (_stateGate)
+        if (expectedActivationRevision is { } expected
+            && expected != _latestActivationRevision)
         {
-            if (expectedActivationRevision is { } expected
-                && expected != Volatile.Read(ref _latestActivationRevision))
-            {
-                return;
-            }
-
-            activation = _activation;
-            _activation = null;
-            _repositoryHygieneConfigurationDirty = false;
-            schedulePublication = TransitionOwnedServiceLocked(
-                ownedService: null,
-                visibleService: null,
-                projectRoot: null,
-                activation,
-                out _);
+            return;
         }
 
-        SchedulePublicationDrain(schedulePublication);
+        ActivationContext? activation = _activation;
+        _activation = null;
+        _repositoryHygieneConfigurationDirty = false;
+        TransitionOwnedService(
+            ownedService: null,
+            visibleService: null,
+            projectRoot: null,
+            activation);
         CancelActivation(activation);
     }
 
@@ -257,32 +199,21 @@ internal partial class VersionControlCoordinator
 
     private void SetVisibleService(IProjectVersionControlService? service)
     {
-        bool schedulePublication;
-        lock (_stateGate)
+        if (service is not null && !ReferenceEquals(service, _state.OwnedService))
         {
-            if (service is not null && !ReferenceEquals(service, _state.OwnedService))
-            {
-                return;
-            }
-
-            schedulePublication = TransitionStateLocked(
-                _state with
-                {
-                    VisibleService = service,
-                    IsTracked = service?.Repository is not null,
-                });
+            return;
         }
 
-        SchedulePublicationDrain(schedulePublication);
+        SetState(_state with
+        {
+            VisibleService = service,
+            IsTracked = service?.Repository is not null,
+        });
     }
 
     private void RetireService(ServiceRetirement retirement)
     {
-        lock (_stateGate)
-        {
-            _retirementUsers++;
-        }
-
+        _retirementUsers++;
         _ = RetireServiceAsync(retirement);
     }
 
@@ -290,8 +221,8 @@ internal partial class VersionControlCoordinator
     {
         try
         {
-            await retirement.ActivationReady.ConfigureAwait(false);
-            await retirement.Service.RetireAsync(finalSnapshot: null).ConfigureAwait(false);
+            await retirement.ActivationReady;
+            await retirement.Service.RetireAsync(finalSnapshot: null);
         }
         catch (Exception ex)
         {
@@ -300,31 +231,15 @@ internal partial class VersionControlCoordinator
         finally
         {
             DisposeService(retirement.Service);
-            TaskCompletionSource? quiesced = null;
-            lock (_stateGate)
+            _retirementUsers--;
+            if (_retirementUsers == 0 && _disposed)
             {
-                _retirementUsers--;
-                if (_retirementUsers == 0 && _disposed)
-                {
-                    quiesced = _retirementsQuiesced;
-                }
+                _retirementsQuiesced?.TrySetResult();
             }
-
-            quiesced?.TrySetResult();
         }
     }
 
     private void UnregisterCandidateService(
-        ActivationContext activation,
-        IProjectVersionControlBackend service)
-    {
-        lock (_stateGate)
-        {
-            UnregisterCandidateServiceLocked(activation, service);
-        }
-    }
-
-    private void UnregisterCandidateServiceLocked(
         ActivationContext activation,
         IProjectVersionControlBackend service)
     {
@@ -343,17 +258,12 @@ internal partial class VersionControlCoordinator
         IProjectVersionControlBackend service,
         bool cleanupAlreadyClaimed = false)
     {
-        bool cleanupService;
-        lock (_stateGate)
-        {
-            UnregisterCandidateServiceLocked(activation, service);
-            cleanupService = cleanupAlreadyClaimed
-                             || !activation.IsServiceCleanupDelegated(service)
-                             && !IsServiceOwnedOrClaimedLocked(service)
-                             && _managedServices.Add(service);
-            activation.MarkServiceCleanupDelegated(service);
-        }
-
+        UnregisterCandidateService(activation, service);
+        bool cleanupService = cleanupAlreadyClaimed
+                              || !activation.IsServiceCleanupDelegated(service)
+                              && !IsServiceOwnedOrClaimed(service)
+                              && _managedServices.Add(service);
+        activation.MarkServiceCleanupDelegated(service);
         if (!cleanupService)
         {
             return;
@@ -361,7 +271,7 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            await service.RetireAsync(finalSnapshot: null).ConfigureAwait(false);
+            await service.RetireAsync(finalSnapshot: null);
         }
         catch (Exception ex)
         {
@@ -387,33 +297,23 @@ internal partial class VersionControlCoordinator
 
     private void DetachRetiredService(IProjectVersionControlBackend service)
     {
-        bool detached = false;
-        bool schedulePublication = false;
-        lock (_stateGate)
+        if (!ReferenceEquals(_state.OwnedService, service))
         {
-            if (ReferenceEquals(_state.OwnedService, service))
-            {
-                if (service is IRepositoryLockRecoveryService recovery)
-                {
-                    recovery.RecoverableLockAvailable -= OnRecoverableLockAvailable;
-                }
-
-                detached = true;
-                schedulePublication = TransitionStateLocked(
-                    _state with
-                    {
-                        OwnedService = null,
-                        VisibleService = null,
-                        IsTracked = false,
-                    });
-            }
+            return;
         }
 
-        SchedulePublicationDrain(schedulePublication);
-        if (detached)
+        if (service is IRepositoryLockRecoveryService recovery)
         {
-            DisposeService(service);
+            recovery.RecoverableLockAvailable -= OnRecoverableLockAvailable;
         }
+
+        SetState(_state with
+        {
+            OwnedService = null,
+            VisibleService = null,
+            IsTracked = false,
+        });
+        DisposeService(service);
     }
 
     private sealed record ServiceRetirement(

@@ -11,79 +11,19 @@ internal partial class VersionControlCoordinator
 {
     private void PublishNotification(Action notification, long? activationRevision = null)
     {
-        lock (_stateGate)
+        if (_disposed && _lifecycleUsers == 0
+            || activationRevision is { } expected && expected != _latestActivationRevision)
         {
-            if (_disposed && _lifecycleUsers == 0)
-            {
-                return;
-            }
-
-            if (!_dispatcher.CheckAccess())
-            {
-                _notificationUsers++;
-                _ = PublishNotificationAsync(notification, activationRevision);
-                return;
-            }
+            return;
         }
 
-        TryPublishNotification(notification, activationRevision);
-    }
-
-    private async Task PublishNotificationAsync(Action notification, long? activationRevision)
-    {
         try
         {
-            await _dispatcher.InvokeAsync(() => TryPublishNotification(notification, activationRevision));
+            notification();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to dispatch a version-control notification.");
-        }
-        finally
-        {
-            TaskCompletionSource? quiesced = null;
-            lock (_stateGate)
-            {
-                _notificationUsers--;
-                if (_notificationUsers == 0 && _disposed)
-                {
-                    quiesced = _notificationsQuiesced;
-                }
-            }
-
-            quiesced?.TrySetResult();
-        }
-    }
-
-    private void TryPublishNotification(Action notification, long? activationRevision)
-    {
-        if (_dispatcher.CheckAccess())
-        {
-            try
-            {
-                if (activationRevision is { } expected)
-                {
-                    lock (_stateGate)
-                    {
-                        if (_disposed || expected != _latestActivationRevision)
-                            return;
-                        notification();
-                    }
-                }
-                else
-                {
-                    notification();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish a version-control notification.");
-            }
-        }
-        else
-        {
-            throw new InvalidOperationException(
-                "Version-control notifications must be published on the captured dispatcher.");
+            _logger.LogError(ex, "Failed to publish a version-control notification.");
         }
     }
 
@@ -124,24 +64,23 @@ internal partial class VersionControlCoordinator
         var request = new RepositoryAdoptionRequest(repository);
         using CancellationTokenRegistration registration = token.Register(() => request.Cancel(token));
         VersionControlTabViewModel? presentedTab = null;
+        // A selection change is still being applied when it notifies, so the tab is shown once it has.
         using IDisposable selection = _editorService.SelectedTabItem.Subscribe(
-            _ => _dispatcher.Post(ShowConfirmationTab));
+            _ => _dispatcher.Post(ShowConfirmationTab, DispatcherPriority.Normal));
         try
         {
+            // Asked from a later dispatcher job, so the editors of a project that is just opening exist.
             await _dispatcher.InvokeAsync(() =>
             {
                 token.ThrowIfCancellationRequested();
-                RepositoryAdoptionRequest? previous;
-                lock (_stateGate)
+                if (_operationCloseBarrierActive)
                 {
-                    if (_operationCloseBarrierActive)
-                    {
-                        request.Respond(false);
-                        return;
-                    }
-                    previous = _pendingRepositoryAdoption;
-                    _pendingRepositoryAdoption = request;
+                    request.Respond(false);
+                    return;
                 }
+
+                RepositoryAdoptionRequest? previous = _pendingRepositoryAdoption;
+                _pendingRepositoryAdoption = request;
                 previous?.Respond(false);
                 RepositoryAdoptionChanged?.Invoke(this, EventArgs.Empty);
                 ShowConfirmationTab();
@@ -153,15 +92,11 @@ internal partial class VersionControlCoordinator
             if (presentedTab is not null)
                 presentedTab.Disposed -= OnPresentedTabDisposed;
             request.Respond(false);
-            await _dispatcher.InvokeAsync(() =>
+            if (ReferenceEquals(_pendingRepositoryAdoption, request))
             {
-                lock (_stateGate)
-                {
-                    if (!ReferenceEquals(_pendingRepositoryAdoption, request)) return;
-                    _pendingRepositoryAdoption = null;
-                }
+                _pendingRepositoryAdoption = null;
                 RepositoryAdoptionChanged?.Invoke(this, EventArgs.Empty);
-            });
+            }
         }
 
         void ShowConfirmationTab()

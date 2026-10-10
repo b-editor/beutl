@@ -5,11 +5,18 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    public async Task<CommitResult> CommitManualAsync(
+    public Task<CommitResult> CommitManualAsync(
         string message,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        return RunOnUiThreadAsync(() => CommitManualCoreAsync(message, cancellationToken));
+    }
+
+    private async Task<CommitResult> CommitManualCoreAsync(
+        string message,
+        CancellationToken cancellationToken)
+    {
         using NonTransactionalOperationLease operation =
             await BeginNonTransactionalOperationAsync(cancellationToken);
         using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
@@ -51,29 +58,21 @@ internal partial class VersionControlCoordinator
         string message,
         CancellationToken cancellationToken)
     {
-        IDisposable? editorSuspension = null;
-        try
+        // A manual version has to record what the user sees. Keep the editor frozen after the
+        // save until Git and its message hooks publish the commit, so visible edits cannot land
+        // after the captured tree. An identity prompt runs between helper calls with editors
+        // enabled; the retry therefore acquires a fresh suspension and saves again.
+        using IDisposable editorSuspension = _editorService.SuspendEditors();
+        if (_projectService.CurrentProject.Value is { } project
+            && !await TrySaveOpenProjectAsync(project, cancellationToken))
         {
-            editorSuspension = await SuspendEditorsAsync(cancellationToken);
-            // A manual version has to record what the user sees. Keep the editor frozen after the
-            // save until Git and its message hooks publish the commit, so visible edits cannot land
-            // after the captured tree. An identity prompt runs between helper calls with editors
-            // enabled; the retry therefore acquires a fresh suspension and saves again.
-            if (_projectService.CurrentProject.Value is { } project
-                && !await TrySaveOpenProjectAsync(project, cancellationToken))
-            {
-                throw new InvalidOperationException(MessageStrings.OperationFailed);
-            }
+            throw new InvalidOperationException(MessageStrings.OperationFailed);
+        }
 
-            return await service.CommitAllAsync(
-                message,
-                SnapshotKind.Manual,
-                cancellationToken);
-        }
-        finally
-        {
-            await ReleaseEditorSuspensionAsync(editorSuspension);
-        }
+        return await service.CommitAllAsync(
+            message,
+            SnapshotKind.Manual,
+            cancellationToken);
     }
 
     private async Task CommitSnapshotAsync(
@@ -105,10 +104,9 @@ internal partial class VersionControlCoordinator
 
         string savedProjectRoot = GetProjectRoot(savedProject);
         IProjectVersionControlBackend? service = await WaitForSaveSnapshotBackendAsync(
-                savedProject,
-                savedProjectRoot,
-                cancellationToken)
-            .ConfigureAwait(false);
+            savedProject,
+            savedProjectRoot,
+            cancellationToken);
         if (service is null)
         {
             return;
@@ -116,7 +114,7 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            await service.CommitAllAsync(message, kind, cancellationToken).ConfigureAwait(false);
+            await service.CommitAllAsync(message, kind, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -143,34 +141,30 @@ internal partial class VersionControlCoordinator
         ActivationContext? waitedActivation = null;
         while (true)
         {
-            ActivationContext? activation;
-            lock (_stateGate)
+            if (_disposed
+                || !ReferenceEquals(_projectService.CurrentProject.Value, savedProject)
+                || _state.ProjectRoot is not { } currentRoot
+                || !PathsEqual(currentRoot, savedProjectRoot))
             {
-                if (_disposed
-                    || !ReferenceEquals(_projectService.CurrentProject.Value, savedProject)
-                    || _state.ProjectRoot is not { } currentRoot
-                    || !PathsEqual(currentRoot, savedProjectRoot))
-                {
-                    return null;
-                }
+                return null;
+            }
 
-                if (ReferenceEquals(_state.OwnedService, _state.VisibleService)
-                    && _state.OwnedService is { Repository: not null } ready)
-                {
-                    return ready;
-                }
+            if (ReferenceEquals(_state.OwnedService, _state.VisibleService)
+                && _state.OwnedService is { Repository: not null } ready)
+            {
+                return ready;
+            }
 
-                activation = _activation;
-                if (activation is null
-                    || ReferenceEquals(activation, waitedActivation)
-                    || !PathsEqual(activation.ProjectRoot, savedProjectRoot))
-                {
-                    return null;
-                }
+            ActivationContext? activation = _activation;
+            if (activation is null
+                || ReferenceEquals(activation, waitedActivation)
+                || !PathsEqual(activation.ProjectRoot, savedProjectRoot))
+            {
+                return null;
             }
 
             waitedActivation = activation;
-            await activation.Completion.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await activation.Completion.WaitAsync(cancellationToken);
         }
     }
 }

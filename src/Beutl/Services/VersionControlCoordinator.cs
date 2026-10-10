@@ -31,13 +31,11 @@ internal sealed partial class VersionControlCoordinator :
     private readonly VersionControlConfirmationPresenter _prompts;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly ILogger _logger = Log.CreateLogger<VersionControlCoordinator>();
-    private readonly object _stateGate = new();
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _lockRecoveryGate = new(1, 1);
     private readonly SemaphoreSlim _operationCloseGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _isGitAvailable = new();
     private readonly ReactivePropertySlim<bool> _isTracked = new();
-    private readonly Queue<StatePublication> _publicationQueue = new();
     private readonly Dictionary<ProjectService.ProjectCloseContext, NonTransactionalCloseBarrier>
         _preparedCloseBarriers = new();
     private readonly HashSet<ProjectService.ProjectCloseContext> _closesWithoutSnapshot = new();
@@ -45,8 +43,6 @@ internal sealed partial class VersionControlCoordinator :
         _candidateServiceUsers = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
         ReferenceEqualityComparer.Instance);
-    private readonly TaskCompletionSource _propertiesDisposedCompletion = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _asyncDisposalCompletion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private CoordinatorState _state = CoordinatorState.Empty;
@@ -57,9 +53,7 @@ internal sealed partial class VersionControlCoordinator :
     private TaskCompletionSource? _configurationActivationQuiesced;
     private TaskCompletionSource? _lifecycleQuiesced;
     private TaskCompletionSource? _lockRecoveryQuiesced;
-    private TaskCompletionSource? _notificationsQuiesced;
     private TaskCompletionSource? _operationsQuiesced;
-    private TaskCompletionSource? _publicationDrainQuiesced;
     private TaskCompletionSource? _retirementsQuiesced;
     private CancellationTokenSource? _operationEpochCancellation = new();
     private CancellationTokenSource? _projectServiceEpochCancellation = new();
@@ -71,31 +65,23 @@ internal sealed partial class VersionControlCoordinator :
     private ConfigurationActivationRequest? _pendingConfigurationActivation;
     private long _nextActivationRevision;
     private long _latestActivationRevision;
-    private long _nextStateRevision;
     private long _nextConfigurationActivationRevision;
-    private long _lastPublishedRevision;
     private int _availabilityRevision;
     private int _activationSetupUsers;
     private int _availabilityUsers;
     private int _closeBarrierUsers;
     private int _lifecycleUsers;
     private int _lockRecoveryUsers;
-    private int _notificationUsers;
     private int _operationUsers;
     private int _retirementUsers;
-    private int _asyncDisposalStarted;
-    private Project? _lastProjectNotification;
-    private bool _hasProjectNotification;
     private string? _observedGitExecutablePath;
     private bool _observedUseLfsWhenAvailable;
-    private bool _publicationDrainScheduled;
-    private bool _publicationDrainRunning;
-    private bool _disposePropertiesRequested;
     private bool _configurationActivationActive;
     private bool _operationCloseBarrierActive;
     private bool _repositoryHygieneConfigurationDirty;
     private bool _propertiesDisposed;
-    private volatile bool _disposed;
+    private bool _disposalStarted;
+    private bool _disposed;
 
     public VersionControlCoordinator(
         ProjectService projectService,
@@ -109,6 +95,8 @@ internal sealed partial class VersionControlCoordinator :
     {
     }
 
+    // Constructed on the UI thread, which owns all of the coordinator's state. Entry points called from
+    // another thread move there first.
     internal VersionControlCoordinator(
         ProjectService projectService,
         EditorService editorService,
@@ -142,20 +130,11 @@ internal sealed partial class VersionControlCoordinator :
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
         _projectService.TransitionCommitted += OnProjectChanged;
         _editorService.ProjectVersionControlCoordinator = this;
-        ObserveCurrentProjectSnapshot();
+        ActivateCurrentProject();
         StartAvailabilityRefresh();
     }
 
-    public IProjectVersionControlService? CurrentService
-    {
-        get
-        {
-            lock (_stateGate)
-            {
-                return _state.VisibleService;
-            }
-        }
-    }
+    public IProjectVersionControlService? CurrentService => _state.VisibleService;
 
     public IReadOnlyReactiveProperty<bool> IsGitAvailable => _isGitAvailable;
 
@@ -163,16 +142,7 @@ internal sealed partial class VersionControlCoordinator :
 
     public event EventHandler? RepositoryAdoptionChanged;
 
-    public RepositoryAdoptionRequest? PendingRepositoryAdoption
-    {
-        get
-        {
-            lock (_stateGate)
-            {
-                return _pendingRepositoryAdoption;
-            }
-        }
-    }
+    public RepositoryAdoptionRequest? PendingRepositoryAdoption => _pendingRepositoryAdoption;
 
     internal Func<CancellationToken, Task<bool>> ConfirmRestoreAsync { get; set; }
 
@@ -211,42 +181,40 @@ internal sealed partial class VersionControlCoordinator :
     public Task<GitAvailability> GetAvailabilityAsync(
         CancellationToken cancellationToken = default)
     {
-        lock (_stateGate)
+        return RunOnUiThreadAsync(() =>
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _availabilityUsers++;
-        }
-
-        return GetAvailabilityTrackedAsync(cancellationToken);
+            return GetAvailabilityTrackedAsync(cancellationToken);
+        });
     }
 
     public INewProjectVersionControlSetup BeginNewProject(
         Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
     {
         ArgumentNullException.ThrowIfNull(requestIdentityAsync);
-        lock (_stateGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-        }
-
+        ObjectDisposedException.ThrowIf(_disposed, this);
         return new NewProjectSetup(
             this,
             requestIdentityAsync,
             _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.CreatingProject));
     }
 
-    public async Task NotifySavedAsync(
+    public Task NotifySavedAsync(
         IProjectFileWriteLease? completedWrite = null,
         CancellationToken cancellationToken = default)
     {
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
-        await CommitSnapshotAsync(
-            _config.AutoCommitOnSave,
-            SaveSnapshotMessage,
-            SnapshotKind.Save,
-            completedWrite,
-            operation.CancellationToken);
+        return RunOnUiThreadAsync(async () =>
+        {
+            using NonTransactionalOperationLease operation =
+                await BeginNonTransactionalOperationAsync(cancellationToken);
+            await CommitSnapshotAsync(
+                _config.AutoCommitOnSave,
+                SaveSnapshotMessage,
+                SnapshotKind.Save,
+                completedWrite,
+                operation.CancellationToken);
+        });
     }
 
     public Task<bool> RestoreAsync(
@@ -254,7 +222,8 @@ internal sealed partial class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
-        return RunRestoreCycleAsync(sha, branchName: null, cancellationToken);
+        return RunOnUiThreadAsync(
+            () => RunRestoreCycleAsync(sha, branchName: null, cancellationToken));
     }
 
     public Task<bool> RestoreToNewBranchAsync(
@@ -264,7 +233,8 @@ internal sealed partial class VersionControlCoordinator :
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        return RunRestoreCycleAsync(sha, branchName, cancellationToken);
+        return RunOnUiThreadAsync(
+            () => RunRestoreCycleAsync(sha, branchName, cancellationToken));
     }
 
     public Task<bool> CreateBranchAsync(
@@ -272,7 +242,8 @@ internal sealed partial class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        return RunBranchCycleAsync(branchName.Trim(), create: true, cancellationToken);
+        return RunOnUiThreadAsync(
+            () => RunBranchCycleAsync(branchName.Trim(), create: true, cancellationToken));
     }
 
     public Task<bool> SwitchBranchAsync(
@@ -280,43 +251,79 @@ internal sealed partial class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        return RunBranchCycleAsync(branchName.Trim(), create: false, cancellationToken);
+        return RunOnUiThreadAsync(
+            () => RunBranchCycleAsync(branchName.Trim(), create: false, cancellationToken));
     }
 
-    public async Task SetRemoteAsync(
+    public Task SetRemoteAsync(
         string url,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
-        await GetTrackedBackend().SetRemoteAsync(url.Trim(), operation.CancellationToken);
+        return RunOnUiThreadAsync(async () =>
+        {
+            using NonTransactionalOperationLease operation =
+                await BeginNonTransactionalOperationAsync(cancellationToken);
+            await GetTrackedBackend().SetRemoteAsync(url.Trim(), operation.CancellationToken);
+        });
     }
 
-    public async Task<RemoteOpResult> PushAsync(
+    public Task<RemoteOpResult> PushAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken = default)
     {
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
-        return await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
+        return RunOnUiThreadAsync(async () =>
+        {
+            using NonTransactionalOperationLease operation =
+                await BeginNonTransactionalOperationAsync(cancellationToken);
+            return await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
+        });
     }
 
     public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken = default)
     {
-        return RunPullCycleAsync(cancellationToken);
+        return RunOnUiThreadAsync(() => RunPullCycleAsync(cancellationToken));
     }
 
     public void Dispose()
     {
+        if (!_dispatcher.CheckAccess())
+        {
+            _dispatcher.Post(Dispose, DispatcherPriority.Normal);
+            return;
+        }
+
         BeginDisposal();
         StartDisposalCompletion();
     }
 
     public ValueTask DisposeAsync()
     {
+        if (!_dispatcher.CheckAccess())
+        {
+            return new ValueTask(_dispatcher.InvokeAsync(
+                () => DisposeAsync().AsTask(),
+                DispatcherPriority.Normal));
+        }
+
         BeginDisposal();
         StartDisposalCompletion();
         return new ValueTask(_asyncDisposalCompletion.Task);
+    }
+
+    // The coordinator's state belongs to the UI thread. A caller on another thread moves there once, here,
+    // and the operation's continuations stay there.
+    private Task RunOnUiThreadAsync(Func<Task> operation)
+    {
+        return _dispatcher.CheckAccess()
+            ? operation()
+            : _dispatcher.InvokeAsync(operation, DispatcherPriority.Normal);
+    }
+
+    private Task<TResult> RunOnUiThreadAsync<TResult>(Func<Task<TResult>> operation)
+    {
+        return _dispatcher.CheckAccess()
+            ? operation()
+            : _dispatcher.InvokeAsync(operation, DispatcherPriority.Normal);
     }
 }

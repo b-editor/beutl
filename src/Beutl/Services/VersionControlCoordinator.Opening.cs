@@ -4,7 +4,12 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    private async Task InspectProjectOpeningAsync(string projectFile)
+    private Task InspectProjectOpeningAsync(string projectFile)
+    {
+        return RunOnUiThreadAsync(() => InspectProjectOpeningCoreAsync(projectFile));
+    }
+
+    private async Task InspectProjectOpeningCoreAsync(string projectFile)
     {
         using NonTransactionalOperationLease? operation =
             TryBeginNonTransactionalOperation(CancellationToken.None);

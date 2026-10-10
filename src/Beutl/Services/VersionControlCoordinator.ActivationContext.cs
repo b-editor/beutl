@@ -4,9 +4,9 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
+    // Used only on the UI thread, like the rest of the coordinator's state.
     private sealed class ActivationContext
     {
-        private readonly object _gate = new();
         private readonly CancellationTokenSource _cancellation;
         private readonly TaskCompletionSource _cancellationQuiesced = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -19,7 +19,6 @@ internal partial class VersionControlCoordinator
         private int _activeCancellations;
         private bool _cleanupStarted;
         private bool _completionRequested;
-        private bool _hasPredecessors;
 
         public ActivationContext(
             long revision,
@@ -58,117 +57,61 @@ internal partial class VersionControlCoordinator
 
         public Task Completion => _completion.Task;
 
-        public bool HasPredecessors
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _hasPredecessors;
-                }
-            }
-        }
+        public bool HasPredecessors { get; private set; }
 
-        public Task PredecessorsCompleted
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _completionDependency;
-                }
-            }
-        }
+        public Task PredecessorsCompleted => _completionDependency;
 
         public bool OwnsService(IProjectVersionControlBackend service)
         {
-            lock (_gate)
-            {
-                return ReferenceEquals(_ownedService, service);
-            }
+            return ReferenceEquals(_ownedService, service);
         }
 
         public void TransferOwnership(IProjectVersionControlBackend service)
         {
-            lock (_gate)
-            {
-                _ownedService = service;
-            }
+            _ownedService = service;
         }
 
         public void AddCompletionDependency(Task completion)
         {
-            lock (_gate)
-            {
-                _hasPredecessors = true;
-                _completionDependency = Task.WhenAll(_completionDependency, completion);
-            }
+            HasPredecessors = true;
+            _completionDependency = Task.WhenAll(_completionDependency, completion);
         }
 
+        // A cancellation callback can run activation code inline, including Complete, so the source is
+        // disposed only once no Cancel is still running its callbacks.
         public void Cancel()
         {
-            lock (_gate)
+            if (_cleanupStarted)
             {
-                if (_cleanupStarted)
-                {
-                    return;
-                }
-
-                _activeCancellations++;
+                return;
             }
 
+            _activeCancellations++;
             try
             {
                 _cancellation.Cancel();
             }
-            catch (ObjectDisposedException)
-            {
-            }
             finally
             {
-                bool cleanup;
-                lock (_gate)
-                {
-                    _activeCancellations--;
-                    cleanup = TryBeginCleanupLocked();
-                }
-
-                if (cleanup)
-                {
-                    FinishCleanup();
-                }
+                _activeCancellations--;
+                TryCleanup();
             }
         }
 
         public void Complete()
         {
-            bool cleanup;
-            lock (_gate)
-            {
-                _completionRequested = true;
-                cleanup = TryBeginCleanupLocked();
-            }
-
-            if (cleanup)
-            {
-                FinishCleanup();
-            }
+            _completionRequested = true;
+            TryCleanup();
         }
 
         public bool IsServiceCleanupDelegated(IProjectVersionControlBackend service)
         {
-            lock (_gate)
-            {
-                return _cleanupDelegatedServices.Contains(service);
-            }
+            return _cleanupDelegatedServices.Contains(service);
         }
 
         public void MarkServiceCleanupDelegated(IProjectVersionControlBackend service)
         {
-            lock (_gate)
-            {
-                _cleanupDelegatedServices.Add(service);
-            }
+            _cleanupDelegatedServices.Add(service);
         }
 
         public void Finish()
@@ -176,19 +119,14 @@ internal partial class VersionControlCoordinator
             _completion.TrySetResult();
         }
 
-        private bool TryBeginCleanupLocked()
+        private void TryCleanup()
         {
             if (_cleanupStarted || !_completionRequested || _activeCancellations != 0)
             {
-                return false;
+                return;
             }
 
             _cleanupStarted = true;
-            return true;
-        }
-
-        private void FinishCleanup()
-        {
             try
             {
                 _cancellation.Dispose();

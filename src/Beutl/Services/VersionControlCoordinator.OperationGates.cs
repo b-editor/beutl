@@ -6,7 +6,12 @@ internal partial class VersionControlCoordinator
 {
     private bool IsInternalVersionControlTransition()
     {
-        return _projectService.CurrentTransition is
+        return IsInternalVersionControlTransition(_projectService.CurrentTransition);
+    }
+
+    private bool IsInternalVersionControlTransition(ProjectTransitionContext? transition)
+    {
+        return transition is
         {
             Purpose: ProjectTransitionPurpose.VersionControlMutation,
             Owner: var owner,
@@ -14,9 +19,9 @@ internal partial class VersionControlCoordinator
                && ReferenceEquals(owner, this);
     }
 
-    private bool IsProjectCreationTransition()
+    private static bool IsProjectCreationTransition(ProjectTransitionContext? transition)
     {
-        return _projectService.CurrentTransition is
+        return transition is
         {
             Purpose: ProjectTransitionPurpose.Normal,
             Owner: ProjectService.ProjectCreation,
@@ -35,35 +40,19 @@ internal partial class VersionControlCoordinator
     {
         while (true)
         {
-            Task? configurationActivation;
-            lock (_stateGate)
+            ThrowIfLifecycleOperationUnavailable();
+            if (!_configurationActivationActive)
             {
-                ThrowIfLifecycleOperationUnavailableLocked();
-                if (_configurationActivationActive)
-                {
-                    configurationActivation =
-                        (_configurationActivationQuiesced ??= CreateCompletionSource()).Task;
-                }
-                else
-                {
-                    _lifecycleUsers++;
-                    return;
-                }
+                _lifecycleUsers++;
+                return;
             }
 
-            await configurationActivation.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await (_configurationActivationQuiesced ??= CreateCompletionSource()).Task
+                .WaitAsync(cancellationToken);
         }
     }
 
     private void ThrowIfLifecycleOperationUnavailable()
-    {
-        lock (_stateGate)
-        {
-            ThrowIfLifecycleOperationUnavailableLocked();
-        }
-    }
-
-    private void ThrowIfLifecycleOperationUnavailableLocked()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_operationCloseBarrierActive)
@@ -76,34 +65,26 @@ internal partial class VersionControlCoordinator
     private CancellationTokenSource CreateProjectServiceEpochCancellation(
         CancellationToken cancellationToken)
     {
-        lock (_stateGate)
-        {
-            ThrowIfLifecycleOperationUnavailableLocked();
-            CancellationToken projectServiceEpoch =
-                (_projectServiceEpochCancellation
-                 ?? throw new ObjectDisposedException(nameof(VersionControlCoordinator)))
-                .Token;
-            return CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken,
-                _lifetimeCancellation.Token,
-                projectServiceEpoch);
-        }
+        ThrowIfLifecycleOperationUnavailable();
+        CancellationToken projectServiceEpoch =
+            (_projectServiceEpochCancellation
+             ?? throw new ObjectDisposedException(nameof(VersionControlCoordinator)))
+            .Token;
+        return CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _lifetimeCancellation.Token,
+            projectServiceEpoch);
     }
 
     private void AdvanceProjectServiceEpoch()
     {
-        CancellationTokenSource? previous;
-        lock (_stateGate)
+        if (_disposed)
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            previous = _projectServiceEpochCancellation;
-            _projectServiceEpochCancellation = new CancellationTokenSource();
+            return;
         }
 
+        CancellationTokenSource? previous = _projectServiceEpochCancellation;
+        _projectServiceEpochCancellation = new CancellationTokenSource();
         CancelProjectServiceEpoch(previous);
     }
 
@@ -135,62 +116,43 @@ internal partial class VersionControlCoordinator
     {
         while (true)
         {
-            Task? configurationActivation;
-            CancellationToken operationEpochCancellation = default;
-            lock (_stateGate)
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_operationCloseBarrierActive)
             {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                if (_operationCloseBarrierActive)
-                {
-                    throw new InvalidOperationException(
-                        "Version-control operations cannot start while the project is closing.");
-                }
-
-                if (_configurationActivationActive)
-                {
-                    configurationActivation =
-                        (_configurationActivationQuiesced ??= CreateCompletionSource()).Task;
-                }
-                else
-                {
-                    configurationActivation = null;
-                    operationEpochCancellation = (_operationEpochCancellation
-                                                  ?? throw new ObjectDisposedException(
-                                                      nameof(VersionControlCoordinator)))
-                        .Token;
-                    _operationUsers++;
-                }
+                throw new InvalidOperationException(
+                    "Version-control operations cannot start while the project is closing.");
             }
 
-            if (configurationActivation is not null)
+            if (!_configurationActivationActive)
             {
-                await configurationActivation.WaitAsync(cancellationToken).ConfigureAwait(false);
-                continue;
+                CancellationToken operationEpochCancellation = (_operationEpochCancellation
+                                                                ?? throw new ObjectDisposedException(
+                                                                    nameof(VersionControlCoordinator)))
+                    .Token;
+                _operationUsers++;
+                return CreateNonTransactionalOperationLease(
+                    cancellationToken,
+                    operationEpochCancellation);
             }
 
-            return CreateNonTransactionalOperationLease(
-                cancellationToken,
-                operationEpochCancellation);
+            await (_configurationActivationQuiesced ??= CreateCompletionSource()).Task
+                .WaitAsync(cancellationToken);
         }
     }
 
     private NonTransactionalOperationLease? TryBeginNonTransactionalOperation(
         CancellationToken cancellationToken)
     {
-        CancellationToken operationEpochCancellation;
-        lock (_stateGate)
+        if (_disposed || _operationCloseBarrierActive || _configurationActivationActive)
         {
-            if (_disposed || _operationCloseBarrierActive || _configurationActivationActive)
-            {
-                return null;
-            }
-
-            operationEpochCancellation = (_operationEpochCancellation
-                                          ?? throw new ObjectDisposedException(nameof(VersionControlCoordinator)))
-                .Token;
-            _operationUsers++;
+            return null;
         }
 
+        CancellationToken operationEpochCancellation = (_operationEpochCancellation
+                                                        ?? throw new ObjectDisposedException(
+                                                            nameof(VersionControlCoordinator)))
+            .Token;
+        _operationUsers++;
         return CreateNonTransactionalOperationLease(
             cancellationToken,
             operationEpochCancellation);
@@ -221,17 +183,14 @@ internal partial class VersionControlCoordinator
     {
         TaskCompletionSource? quiesced = null;
         bool clearProjectState = false;
-        lock (_stateGate)
+        _operationUsers--;
+        if (_operationUsers == 0)
         {
-            _operationUsers--;
-            if (_operationUsers == 0)
-            {
-                quiesced = _operationsQuiesced;
-                _operationsQuiesced = null;
-                clearProjectState = _disposed
-                                    && _closeBarrierUsers == 0
-                                    && _lifecycleUsers == 0;
-            }
+            quiesced = _operationsQuiesced;
+            _operationsQuiesced = null;
+            clearProjectState = _disposed
+                                && _closeBarrierUsers == 0
+                                && _lifecycleUsers == 0;
         }
 
         try
@@ -257,14 +216,11 @@ internal partial class VersionControlCoordinator
 
         TaskCompletionSource? quiesced = null;
         bool clearProjectState = false;
-        lock (_stateGate)
+        _lifecycleUsers--;
+        if (_lifecycleUsers == 0 && _disposed)
         {
-            _lifecycleUsers--;
-            if (_lifecycleUsers == 0 && _disposed)
-            {
-                clearProjectState = _closeBarrierUsers == 0 && _operationUsers == 0;
-                quiesced = _lifecycleQuiesced;
-            }
+            clearProjectState = _closeBarrierUsers == 0 && _operationUsers == 0;
+            quiesced = _lifecycleQuiesced;
         }
 
         try
@@ -329,12 +285,13 @@ internal partial class VersionControlCoordinator
 
         public void Dispose()
         {
-            VersionControlCoordinator? owner = Interlocked.Exchange(ref _owner, null);
+            VersionControlCoordinator? owner = _owner;
             if (owner is null)
             {
                 return;
             }
 
+            _owner = null;
             _cancellation.Dispose();
             owner.FinishNonTransactionalOperation();
         }

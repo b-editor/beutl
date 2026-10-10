@@ -1,22 +1,26 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Avalonia.Threading;
+using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
+    // Raised by the backend from its own Git continuation.
     private void OnRecoverableLockAvailable(object? sender, RepositoryLockInfo lockInfo)
     {
-        lock (_stateGate)
+        if (!_dispatcher.CheckAccess())
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _lockRecoveryUsers++;
+            _dispatcher.Post(() => OnRecoverableLockAvailable(sender, lockInfo), DispatcherPriority.Normal);
+            return;
         }
 
+        if (_disposed)
+        {
+            return;
+        }
+
+        _lockRecoveryUsers++;
         _ = RunLockRecoveryAsync(sender, lockInfo);
     }
 
@@ -24,29 +28,15 @@ internal partial class VersionControlCoordinator
     {
         try
         {
-            if (_dispatcher.CheckAccess())
-            {
-                await OfferLockRecoveryAsync(sender, lockInfo);
-            }
-            else
-            {
-                await _dispatcher.InvokeAsync(
-                    () => OfferLockRecoveryAsync(sender, lockInfo));
-            }
+            await OfferLockRecoveryAsync(sender, lockInfo);
         }
         finally
         {
-            TaskCompletionSource? quiesced = null;
-            lock (_stateGate)
+            _lockRecoveryUsers--;
+            if (_lockRecoveryUsers == 0 && _disposed)
             {
-                _lockRecoveryUsers--;
-                if (_lockRecoveryUsers == 0 && _disposed)
-                {
-                    quiesced = _lockRecoveryQuiesced;
-                }
+                _lockRecoveryQuiesced?.TrySetResult();
             }
-
-            quiesced?.TrySetResult();
         }
     }
 
@@ -82,20 +72,18 @@ internal partial class VersionControlCoordinator
                     "Removed stale Git repository lock with user consent. Lock: {LockPath}, LastWriteTimeUtc: {LastWriteTimeUtc}",
                     lockInfo.LockPath,
                     lockInfo.LastWriteTimeUtc);
-                await _dispatcher.InvokeAsync(() =>
-                    NotificationService.ShowInformation(
-                        Strings.VersionControl,
-                        Strings.VersionControl_StaleLockRemoved));
+                NotificationService.ShowInformation(
+                    Strings.VersionControl,
+                    Strings.VersionControl_StaleLockRemoved);
             }
             else
             {
-                await _dispatcher.InvokeAsync(() =>
-                    NotificationService.ShowWarning(
-                        Strings.VersionControl,
-                        string.Format(
-                            CultureInfo.CurrentCulture,
-                            Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-                            lockInfo.LockPath)));
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    string.Format(
+                        CultureInfo.CurrentCulture,
+                        Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                        lockInfo.LockPath));
             }
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)

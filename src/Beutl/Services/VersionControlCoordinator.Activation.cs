@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.VersionControl;
+﻿using Avalonia.Threading;
+using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -7,29 +8,36 @@ internal partial class VersionControlCoordinator
 {
     internal void OnProjectChanged(Project? project)
     {
-        bool internalTransition = IsInternalVersionControlTransition();
-        bool newProject = project is not null && !internalTransition && IsProjectCreationTransition();
-        CancellationTokenSource? configurationActivationCancellation;
-        long activationRevision;
-        PreparedNewProject? preparedNewProject = null;
-        lock (_stateGate)
+        // The transition is read where it is committed, since it can be over by the time a call from
+        // another thread reaches the UI thread.
+        ProjectTransitionContext? transition = _projectService.CurrentTransition;
+        if (_dispatcher.CheckAccess())
         {
-            _lastProjectNotification = project;
-            _hasProjectNotification = true;
-            if (!TryBeginProjectActivationLocked(
-                    internalTransition,
-                    out configurationActivationCancellation,
-                    out activationRevision))
-            {
-                return;
-            }
+            OnProjectChanged(project, transition);
+        }
+        else
+        {
+            _dispatcher.Post(() => OnProjectChanged(project, transition), DispatcherPriority.Normal);
+        }
+    }
 
-            if (newProject)
-            {
-                preparedNewProject = TakePreparedNewProjectLocked(project!);
-            }
+    private void OnProjectChanged(Project? project, ProjectTransitionContext? transition)
+    {
+        bool internalTransition = IsInternalVersionControlTransition(transition);
+        bool newProject = project is not null
+                          && !internalTransition
+                          && IsProjectCreationTransition(transition);
+        if (!TryBeginProjectActivation(
+                internalTransition,
+                out CancellationTokenSource? configurationActivationCancellation,
+                out long activationRevision))
+        {
+            return;
         }
 
+        PreparedNewProject? preparedNewProject = newProject
+            ? TakePreparedNewProject(project!, transition)
+            : null;
         AdvanceProjectServiceEpoch();
         CancelConfigurationActivation(configurationActivationCancellation);
         StartProjectActivation(
@@ -40,33 +48,20 @@ internal partial class VersionControlCoordinator
             preparedNewProject);
     }
 
-    private void ObserveCurrentProjectSnapshot()
+    private void ActivateCurrentProject()
     {
-        bool internalTransition = IsInternalVersionControlTransition();
-        CancellationTokenSource? configurationActivationCancellation;
-        Project? project;
-        long activationRevision;
-        lock (_stateGate)
+        bool internalTransition = IsInternalVersionControlTransition(_projectService.CurrentTransition);
+        if (!TryBeginProjectActivation(
+                internalTransition,
+                out CancellationTokenSource? configurationActivationCancellation,
+                out long activationRevision))
         {
-            project = _projectService.CurrentProject.Value;
-            if (_hasProjectNotification
-                && ReferenceEquals(_lastProjectNotification, project))
-            {
-                return;
-            }
-
-            if (!TryBeginProjectActivationLocked(
-                    internalTransition,
-                    out configurationActivationCancellation,
-                    out activationRevision))
-            {
-                return;
-            }
+            return;
         }
 
         CancelConfigurationActivation(configurationActivationCancellation);
         StartProjectActivation(
-            project,
+            _projectService.CurrentProject.Value,
             internalTransition,
             activationRevision,
             newProject: false,
@@ -106,13 +101,12 @@ internal partial class VersionControlCoordinator
 
             preparedService = null;
             await OnProjectChangedAsync(
-                    project,
-                    internalTransition,
-                    activationRevision,
-                    newProject,
-                    CancellationToken.None,
-                    preparedNewProject)
-                .ConfigureAwait(false);
+                project,
+                internalTransition,
+                activationRevision,
+                newProject,
+                CancellationToken.None,
+                preparedNewProject);
         }
         finally
         {
@@ -138,12 +132,11 @@ internal partial class VersionControlCoordinator
         try
         {
             return await OnProjectChangedAsync(
-                    project,
-                    internalTransition,
-                    activationRevision,
-                    newProject: false,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+                project,
+                internalTransition,
+                activationRevision,
+                newProject: false,
+                cancellationToken: cancellationToken);
         }
         finally
         {
@@ -224,8 +217,7 @@ internal partial class VersionControlCoordinator
                 return activation;
             }
 
-            await CompleteRejectedActivationAsync(activation, cleanupRejectedService)
-                .ConfigureAwait(false);
+            await CompleteRejectedActivationAsync(activation, cleanupRejectedService);
             return null;
         }
         catch (Exception ex)
@@ -243,7 +235,7 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    private bool TryBeginProjectActivationLocked(
+    private bool TryBeginProjectActivation(
         bool internalTransition,
         out CancellationTokenSource? configurationActivationCancellation,
         out long activationRevision)
@@ -255,24 +247,12 @@ internal partial class VersionControlCoordinator
         }
 
         configurationActivationCancellation = _configurationActivationCancellation;
-        return TryBeginActivationSetupLocked(
+        return TryBeginActivationSetup(
             internalTransition,
             out activationRevision);
     }
 
     private bool TryBeginActivationSetup(
-        bool internalTransition,
-        out long activationRevision)
-    {
-        lock (_stateGate)
-        {
-            return TryBeginActivationSetupLocked(
-                internalTransition,
-                out activationRevision);
-        }
-    }
-
-    private bool TryBeginActivationSetupLocked(
         bool internalTransition,
         out long activationRevision)
     {
@@ -294,31 +274,23 @@ internal partial class VersionControlCoordinator
 
     private bool TryPromoteActivationRevision(long activationRevision)
     {
-        lock (_stateGate)
+        if (_disposed || activationRevision < _latestActivationRevision)
         {
-            if (_disposed || activationRevision < _latestActivationRevision)
-            {
-                return false;
-            }
-
-            _latestActivationRevision = activationRevision;
-            return true;
+            return false;
         }
+
+        _latestActivationRevision = activationRevision;
+        return true;
     }
 
     private void FinishActivationSetup()
     {
-        TaskCompletionSource? quiesced = null;
-        lock (_stateGate)
+        _activationSetupUsers--;
+        if (_activationSetupUsers == 0 && _disposed)
         {
-            _activationSetupUsers--;
-            if (_activationSetupUsers == 0 && _disposed)
-            {
-                quiesced = _activationSetupsQuiesced;
-            }
+            _activationSetupsQuiesced?.TrySetResult();
         }
 
-        quiesced?.TrySetResult();
         TryStartPendingConfigurationActivation();
     }
 
@@ -330,14 +302,13 @@ internal partial class VersionControlCoordinator
         {
             CancelActivation(activation);
             activation.Complete();
-            await activation.CancellationQuiesced.ConfigureAwait(false);
+            await activation.CancellationQuiesced;
             if (cleanupService)
             {
                 await RetireDiscardedServiceAsync(
-                        activation,
-                        activation.Service,
-                        cleanupAlreadyClaimed: true)
-                    .ConfigureAwait(false);
+                    activation,
+                    activation.Service,
+                    cleanupAlreadyClaimed: true);
             }
         }
         finally
@@ -352,7 +323,7 @@ internal partial class VersionControlCoordinator
         IProjectVersionControlBackend? pendingCleanup = null;
         try
         {
-            await activation.PredecessorsCompleted.ConfigureAwait(false);
+            await activation.PredecessorsCompleted;
             activation.CancellationToken.ThrowIfCancellationRequested();
             if (!TryPublishActivationServiceIfCurrent(activation))
             {
@@ -390,7 +361,7 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            await activation.PredecessorsCompleted.ConfigureAwait(false);
+            await activation.PredecessorsCompleted;
             activation.CancellationToken.ThrowIfCancellationRequested();
 
             try
@@ -442,10 +413,9 @@ internal partial class VersionControlCoordinator
         finally
         {
             await FinishRepositoryActivationAsync(
-                    activation,
-                    pendingCleanup,
-                    candidateService)
-                .ConfigureAwait(false);
+                activation,
+                pendingCleanup,
+                candidateService);
         }
     }
 
@@ -565,12 +535,11 @@ internal partial class VersionControlCoordinator
         try
         {
             activation.Complete();
-            await activation.CancellationQuiesced.ConfigureAwait(false);
-            await activation.PredecessorsCompleted.ConfigureAwait(false);
+            await activation.CancellationQuiesced;
+            await activation.PredecessorsCompleted;
             if (pendingCleanup is not null)
             {
-                await RetireDiscardedServiceAsync(activation, pendingCleanup)
-                    .ConfigureAwait(false);
+                await RetireDiscardedServiceAsync(activation, pendingCleanup);
             }
             else if (candidateService is not null)
             {
@@ -580,26 +549,18 @@ internal partial class VersionControlCoordinator
                 }
                 else
                 {
-                    await RetireDiscardedServiceAsync(activation, candidateService)
-                        .ConfigureAwait(false);
+                    await RetireDiscardedServiceAsync(activation, candidateService);
                 }
             }
 
-            bool stillOwned;
-            lock (_stateGate)
+            if (ReferenceEquals(_activation, activation))
             {
-                if (ReferenceEquals(_activation, activation))
-                {
-                    _activation = null;
-                }
-
-                stillOwned = ReferenceEquals(_state.OwnedService, activation.Service);
+                _activation = null;
             }
 
-            if (!stillOwned)
+            if (!ReferenceEquals(_state.OwnedService, activation.Service))
             {
-                await RetireDiscardedServiceAsync(activation, activation.Service)
-                    .ConfigureAwait(false);
+                await RetireDiscardedServiceAsync(activation, activation.Service);
             }
         }
         finally

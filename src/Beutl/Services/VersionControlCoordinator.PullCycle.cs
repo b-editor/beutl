@@ -22,7 +22,7 @@ internal partial class VersionControlCoordinator
                 return preliminaryResult;
             }
 
-            if (!await ConfirmPullAsync(confirmationCancellation.Token).ConfigureAwait(false))
+            if (!await ConfirmPullAsync(confirmationCancellation.Token))
             {
                 return new RemoteOpResult.Failed(string.Empty);
             }

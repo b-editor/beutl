@@ -5,7 +5,14 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    private async Task PrepareProjectClosingAsync(
+    private Task PrepareProjectClosingAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        CancellationToken cancellationToken)
+    {
+        return RunOnUiThreadAsync(() => PrepareProjectClosingCoreAsync(closeContext, cancellationToken));
+    }
+
+    private async Task PrepareProjectClosingCoreAsync(
         ProjectService.ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
@@ -24,10 +31,9 @@ internal partial class VersionControlCoordinator
         {
             NonTransactionalCloseBarrier? closeBarrier =
                 await TryBeginNonTransactionalCloseBarrierAsync(
-                        () => closingPresentation = _editorService.BeginLifecycleActivity(
-                            ProjectLifecycleActivity.ClosingProject),
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                    () => closingPresentation = _editorService.BeginLifecycleActivity(
+                        ProjectLifecycleActivity.ClosingProject),
+                    cancellationToken);
             if (closeBarrier is null)
             {
                 return;
@@ -45,14 +51,10 @@ internal partial class VersionControlCoordinator
                     && GetOwnedBackend()?.Repository is not null
                     && _projectService.CurrentProject.Value is not null)
                 {
-                    editorSuspension = await SuspendEditorsAsync(cancellationToken);
+                    editorSuspension = _editorService.SuspendEditors();
                 }
 
-                lock (_stateGate)
-                {
-                    _preparedCloseBarriers.Add(closeContext, closeBarrier);
-                }
-
+                _preparedCloseBarriers.Add(closeContext, closeBarrier);
                 closeContext.RegisterCompletion(
                     projectClosed => CompletePreparedCloseAsync(
                         closeContext,
@@ -66,18 +68,14 @@ internal partial class VersionControlCoordinator
             {
                 if (!completionRegistered)
                 {
-                    lock (_stateGate)
-                    {
-                        _preparedCloseBarriers.Remove(closeContext);
-                    }
-
+                    _preparedCloseBarriers.Remove(closeContext);
                     try
                     {
-                        await ReleaseEditorSuspensionAsync(editorSuspension);
+                        editorSuspension?.Dispose();
                     }
                     finally
                     {
-                        await closeBarrier.CompleteAsync(projectClosed: false).ConfigureAwait(false);
+                        await closeBarrier.CompleteAsync(projectClosed: false);
                     }
                 }
             }
@@ -92,7 +90,7 @@ internal partial class VersionControlCoordinator
 
         if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges)
         {
-            await TrySaveForCloseSnapshotAsync(closeContext, cancellationToken).ConfigureAwait(false);
+            await TrySaveForCloseSnapshotAsync(closeContext, cancellationToken);
         }
     }
 
@@ -113,16 +111,12 @@ internal partial class VersionControlCoordinator
         // That close records no snapshot, because the half-saved project must not become the version to
         // come back to. Declining aborts the close and keeps the edits.
         using IProjectFileWriteLease closeWrite =
-            await _editorService.BeginProjectFileWriteAsync(cancellationToken).ConfigureAwait(false);
-        if (!await TrySaveOpenProjectAsync(project, cancellationToken).ConfigureAwait(false))
+            await _editorService.BeginProjectFileWriteAsync(cancellationToken);
+        if (!await TrySaveOpenProjectAsync(project, cancellationToken))
         {
-            if (await ConfirmCloseWithoutSnapshotAsync(cancellationToken).ConfigureAwait(false))
+            if (await ConfirmCloseWithoutSnapshotAsync(cancellationToken))
             {
-                lock (_stateGate)
-                {
-                    _closesWithoutSnapshot.Add(closeContext);
-                }
-
+                _closesWithoutSnapshot.Add(closeContext);
                 closeContext.PreparedEditorService = _editorService;
                 return;
             }
@@ -139,7 +133,22 @@ internal partial class VersionControlCoordinator
 
     // Runs once the close finishes or is aborted: the editors come back before the barrier lets
     // operations start again, and the close stays on screen until both are done.
-    private async Task CompletePreparedCloseAsync(
+    private Task CompletePreparedCloseAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        NonTransactionalCloseBarrier closeBarrier,
+        IDisposable? editorSuspension,
+        IDisposable? closingPresentation,
+        bool projectClosed)
+    {
+        return RunOnUiThreadAsync(() => CompletePreparedCloseCoreAsync(
+            closeContext,
+            closeBarrier,
+            editorSuspension,
+            closingPresentation,
+            projectClosed));
+    }
+
+    private async Task CompletePreparedCloseCoreAsync(
         ProjectService.ProjectCloseContext closeContext,
         NonTransactionalCloseBarrier closeBarrier,
         IDisposable? editorSuspension,
@@ -148,7 +157,7 @@ internal partial class VersionControlCoordinator
     {
         try
         {
-            await ReleaseEditorSuspensionAsync(editorSuspension);
+            editorSuspension?.Dispose();
         }
         finally
         {
@@ -171,40 +180,28 @@ internal partial class VersionControlCoordinator
         NonTransactionalCloseBarrier closeBarrier,
         bool projectClosed)
     {
-        lock (_stateGate)
-        {
-            _preparedCloseBarriers.Remove(closeContext);
-            _closesWithoutSnapshot.Remove(closeContext);
-        }
-
-        await closeBarrier.CompleteAsync(projectClosed).ConfigureAwait(false);
+        _preparedCloseBarriers.Remove(closeContext);
+        _closesWithoutSnapshot.Remove(closeContext);
+        await closeBarrier.CompleteAsync(projectClosed);
     }
 
-    private async Task NotifyProjectClosingAsync(
+    private Task NotifyProjectClosingAsync(
         ProjectService.ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
-        if (IsInternalVersionControlTransition())
+        return RunOnUiThreadAsync(async () =>
         {
-            return;
-        }
+            if (IsInternalVersionControlTransition()
+                || !_preparedCloseBarriers.ContainsKey(closeContext))
+            {
+                return;
+            }
 
-        NonTransactionalCloseBarrier? closeBarrier;
-        bool closeSnapshotDeclined;
-        lock (_stateGate)
-        {
-            _preparedCloseBarriers.TryGetValue(closeContext, out closeBarrier);
-            closeSnapshotDeclined = _closesWithoutSnapshot.Contains(closeContext);
-        }
-
-        if (closeBarrier is not null)
-        {
             await NotifyClosingCoreAsync(
-                    closeContext.CloseIntent,
-                    allowCloseSnapshot: !closeSnapshotDeclined,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
+                closeContext.CloseIntent,
+                allowCloseSnapshot: !_closesWithoutSnapshot.Contains(closeContext),
+                cancellationToken);
+        });
     }
 
     private async Task NotifyClosingCoreAsync(
@@ -213,52 +210,34 @@ internal partial class VersionControlCoordinator
         CancellationToken closeCancellation)
     {
         bool closeSnapshotRequested = false;
-        ActivationContext? activation;
-        string? projectRoot;
-        long activationRevision;
-        lock (_stateGate)
+        if (_disposed)
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            activation = _activation;
-            projectRoot = _state.ProjectRoot;
-            activationRevision = _latestActivationRevision;
+            return;
         }
 
+        ActivationContext? activation = _activation;
+        string? projectRoot = _state.ProjectRoot;
+        long activationRevision = _latestActivationRevision;
         if (activation is not null)
         {
-            await activation.Completion.WaitAsync(closeCancellation).ConfigureAwait(false);
+            await activation.Completion.WaitAsync(closeCancellation);
         }
 
         closeCancellation.ThrowIfCancellationRequested();
         try
         {
-            IProjectVersionControlBackend service;
-            bool finalSnapshotRequested;
-            lock (_stateGate)
+            if (!IsClosingProjectCurrent(projectRoot, activationRevision)
+                || _state.OwnedService is not { } service)
             {
-                if (!IsClosingProjectCurrentLocked(projectRoot, activationRevision))
-                {
-                    return;
-                }
-
-                IProjectVersionControlBackend? ownedService = _state.OwnedService;
-                if (ownedService is null)
-                {
-                    return;
-                }
-
-                service = ownedService;
-                // A discard close saves nothing, so it must not commit what autosave or another
-                // tool already wrote either. Nor may a close the user continued after its save
-                // failed, since the project on disk may be half-saved.
-                finalSnapshotRequested = _config.AutoCommitOnClose
-                                         && closeIntent == ProjectService.ProjectCloseIntent.SaveChanges
-                                         && allowCloseSnapshot;
+                return;
             }
+
+            // A discard close saves nothing, so it must not commit what autosave or another
+            // tool already wrote either. Nor may a close the user continued after its save
+            // failed, since the project on disk may be half-saved.
+            bool finalSnapshotRequested = _config.AutoCommitOnClose
+                                          && closeIntent == ProjectService.ProjectCloseIntent.SaveChanges
+                                          && allowCloseSnapshot;
 
             bool snapshotRequiresReservation =
                 finalSnapshotRequested && service.Repository is not null;
@@ -274,41 +253,33 @@ internal partial class VersionControlCoordinator
                     SnapshotKind.Close);
             }
 
-            ProjectVersionControlFinalSnapshot? finalSnapshot;
-            bool schedulePublication;
-            lock (_stateGate)
+            if (!IsClosingProjectCurrent(projectRoot, activationRevision)
+                || !ReferenceEquals(_state.OwnedService, service))
             {
-                if (!IsClosingProjectCurrentLocked(projectRoot, activationRevision)
-                    || !ReferenceEquals(_state.OwnedService, service))
-                {
-                    return;
-                }
-
-                finalSnapshot =
-                    finalSnapshotRequested
-                    && snapshotReserved
-                        ? new ProjectVersionControlFinalSnapshot(
-                            CloseSnapshotMessage,
-                            SnapshotKind.Close)
-                        : null;
-
-                bool visibilityHidden = ReferenceEquals(_state.VisibleService, service);
-                schedulePublication = visibilityHidden
-                    && TransitionStateLocked(
-                        _state with
-                        {
-                            VisibleService = null,
-                            IsTracked = false,
-                        });
+                return;
             }
 
-            SchedulePublicationDrain(schedulePublication);
-            await FlushPublicationDrainAsync().ConfigureAwait(false);
+            ProjectVersionControlFinalSnapshot? finalSnapshot =
+                finalSnapshotRequested
+                && snapshotReserved
+                    ? new ProjectVersionControlFinalSnapshot(
+                        CloseSnapshotMessage,
+                        SnapshotKind.Close)
+                    : null;
+            if (ReferenceEquals(_state.VisibleService, service))
+            {
+                SetState(_state with
+                {
+                    VisibleService = null,
+                    IsTracked = false,
+                });
+            }
+
             closeCancellation.ThrowIfCancellationRequested();
 
             try
             {
-                CommitResult? result = await service.RetireAsync(finalSnapshot).ConfigureAwait(false);
+                CommitResult? result = await service.RetireAsync(finalSnapshot);
                 if (result is CommitResult.SkippedNoIdentity)
                 {
                     PublishNotification(() =>
@@ -341,7 +312,7 @@ internal partial class VersionControlCoordinator
 
     // Whether closing the open project waits on version control: an operation still running, an
     // activation still deciding how the project is tracked, or a tracked backend to retire.
-    private bool HasVersionControlWorkToFinishLocked()
+    private bool HasVersionControlWorkToFinish()
     {
         return !_disposed
                && _projectService.CurrentProject.Value is not null
@@ -351,7 +322,7 @@ internal partial class VersionControlCoordinator
     }
 
     // The close still concerns the project and the activation it captured before it waited.
-    private bool IsClosingProjectCurrentLocked(string? projectRoot, long activationRevision)
+    private bool IsClosingProjectCurrent(string? projectRoot, long activationRevision)
     {
         return !_disposed
                && projectRoot is not null
@@ -368,16 +339,12 @@ internal partial class VersionControlCoordinator
             Action versionControlWorkPending,
             CancellationToken cancellationToken)
     {
-        lock (_stateGate)
+        if (_disposed)
         {
-            if (_disposed)
-            {
-                return null;
-            }
-
-            _closeBarrierUsers++;
+            return null;
         }
 
+        _closeBarrierUsers++;
         CancellationTokenSource? closeCancellation = null;
         CancellationTokenSource? operationEpochCancellation = null;
         bool gateEntered = false;
@@ -387,39 +354,24 @@ internal partial class VersionControlCoordinator
             closeCancellation = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 _lifetimeCancellation.Token);
-            await _operationCloseGate.WaitAsync(closeCancellation.Token).ConfigureAwait(false);
+            await _operationCloseGate.WaitAsync(closeCancellation.Token);
             gateEntered = true;
-
-            Task operationsQuiesced;
-            bool disposed;
-            bool workPending = false;
-            lock (_stateGate)
-            {
-                disposed = _disposed;
-                if (!disposed)
-                {
-                    _operationCloseBarrierActive = true;
-                    operationEpochCancellation = _operationEpochCancellation
-                        ?? new CancellationTokenSource();
-                    _operationEpochCancellation = operationEpochCancellation;
-                    operationsQuiesced = _operationUsers == 0
-                        ? Task.CompletedTask
-                        : (_operationsQuiesced ??= CreateCompletionSource()).Task;
-                    workPending = HasVersionControlWorkToFinishLocked();
-                    barrierEntered = true;
-                }
-                else
-                {
-                    operationsQuiesced = Task.CompletedTask;
-                }
-            }
-
-            if (disposed)
+            if (_disposed)
             {
                 closeCancellation.Dispose();
                 FinishNonTransactionalCloseBarrierWaiter(gateEntered);
                 return null;
             }
+
+            _operationCloseBarrierActive = true;
+            operationEpochCancellation = _operationEpochCancellation
+                ?? new CancellationTokenSource();
+            _operationEpochCancellation = operationEpochCancellation;
+            Task operationsQuiesced = _operationUsers == 0
+                ? Task.CompletedTask
+                : (_operationsQuiesced ??= CreateCompletionSource()).Task;
+            bool workPending = HasVersionControlWorkToFinish();
+            barrierEntered = true;
 
             if (workPending)
             {
@@ -436,7 +388,7 @@ internal partial class VersionControlCoordinator
                 cancellationFailure = ex;
             }
 
-            await operationsQuiesced.ConfigureAwait(false);
+            await operationsQuiesced;
             if (cancellationFailure is not null)
             {
                 _logger.LogError(
@@ -473,25 +425,22 @@ internal partial class VersionControlCoordinator
     {
         TaskCompletionSource? quiesced = null;
         bool clearProjectState = false;
-        lock (_stateGate)
+        if (ReferenceEquals(_operationEpochCancellation, operationEpochCancellation))
         {
-            if (ReferenceEquals(_operationEpochCancellation, operationEpochCancellation))
-            {
-                _operationEpochCancellation = _disposed
-                    ? null
-                    : new CancellationTokenSource();
-            }
+            _operationEpochCancellation = _disposed
+                ? null
+                : new CancellationTokenSource();
+        }
 
-            _operationCloseBarrierActive = false;
-            _closeBarrierUsers--;
-            if (_closeBarrierUsers == 0)
-            {
-                quiesced = _closeBarriersQuiesced;
-                _closeBarriersQuiesced = null;
-                clearProjectState = _disposed
-                                    && _lifecycleUsers == 0
-                                    && _operationUsers == 0;
-            }
+        _operationCloseBarrierActive = false;
+        _closeBarrierUsers--;
+        if (_closeBarrierUsers == 0)
+        {
+            quiesced = _closeBarriersQuiesced;
+            _closeBarriersQuiesced = null;
+            clearProjectState = _disposed
+                                && _lifecycleUsers == 0
+                                && _operationUsers == 0;
         }
 
         try
@@ -521,10 +470,7 @@ internal partial class VersionControlCoordinator
     {
         if (projectClosed)
         {
-            lock (_stateGate)
-            {
-                _pendingConfigurationActivation = null;
-            }
+            _pendingConfigurationActivation = null;
         }
 
         FinishNonTransactionalCloseBarrier(operationEpochCancellation);
@@ -536,17 +482,14 @@ internal partial class VersionControlCoordinator
     {
         TaskCompletionSource? quiesced = null;
         bool clearProjectState = false;
-        lock (_stateGate)
+        _closeBarrierUsers--;
+        if (_closeBarrierUsers == 0)
         {
-            _closeBarrierUsers--;
-            if (_closeBarrierUsers == 0)
-            {
-                quiesced = _closeBarriersQuiesced;
-                _closeBarriersQuiesced = null;
-                clearProjectState = _disposed
-                                    && _lifecycleUsers == 0
-                                    && _operationUsers == 0;
-            }
+            quiesced = _closeBarriersQuiesced;
+            _closeBarriersQuiesced = null;
+            clearProjectState = _disposed
+                                && _lifecycleUsers == 0
+                                && _operationUsers == 0;
         }
 
         if (gateEntered)
@@ -586,12 +529,13 @@ internal partial class VersionControlCoordinator
 
         public async Task CompleteAsync(bool projectClosed)
         {
-            VersionControlCoordinator? owner = Interlocked.Exchange(ref _owner, null);
+            VersionControlCoordinator? owner = _owner;
             if (owner is null)
             {
                 return;
             }
 
+            _owner = null;
             try
             {
                 _cancellation.Dispose();
@@ -599,9 +543,8 @@ internal partial class VersionControlCoordinator
             finally
             {
                 await owner.CompleteNonTransactionalCloseBarrierAsync(
-                        _operationEpochCancellation,
-                        projectClosed)
-                    .ConfigureAwait(false);
+                    _operationEpochCancellation,
+                    projectClosed);
             }
         }
     }
