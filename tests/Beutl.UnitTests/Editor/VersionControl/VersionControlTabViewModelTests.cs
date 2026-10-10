@@ -3806,11 +3806,19 @@ public class VersionControlTabViewModelTests
     // observes and puts the previous handler back.
     private sealed class NotificationCapture : Beutl.Services.INotificationServiceHandler, IDisposable
     {
-        private readonly Beutl.Services.INotificationServiceHandler? _previous;
+        // The Handler setter rejects null, so the field itself is read and restored: a capture must not
+        // stay installed after its test when no handler was installed before it.
+        private static readonly System.Reflection.FieldInfo s_handlerField =
+            typeof(Beutl.Services.NotificationService).GetField(
+                "s_handler",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(nameof(Beutl.Services.NotificationService), "s_handler");
+
+        private readonly object? _previous;
 
         private NotificationCapture()
         {
-            _previous = Beutl.Services.NotificationService.Handler;
+            _previous = s_handlerField.GetValue(null);
         }
 
         public System.Collections.Concurrent.ConcurrentQueue<Beutl.Services.Notification> All { get; } = new();
@@ -3829,11 +3837,7 @@ public class VersionControlTabViewModelTests
 
         public void Dispose()
         {
-            // The setter rejects null, and no handler is installed before a fixture sets one.
-            if (_previous is not null)
-            {
-                Beutl.Services.NotificationService.Handler = _previous;
-            }
+            s_handlerField.SetValue(null, _previous);
         }
     }
 
