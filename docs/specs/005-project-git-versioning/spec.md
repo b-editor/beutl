@@ -144,7 +144,7 @@ The user connects the project to a remote repository, pushes their history for b
 **Acceptance Scenarios**:
 
 1. **Given** a tracked project and a remote URL, **When** the user connects the remote and pushes, **Then** the full history transfers using the user's existing Git authentication, with visible progress and the ability to cancel.
-2. **Given** a remote with new versions, **When** the user pulls and the local history has not diverged, **Then** the project updates to the remote state via the same safe close/reopen cycle, after a safety snapshot.
+2. **Given** a remote with new versions, **When** the user pulls and the local history has not diverged, **Then** the project updates to the remote state via the same safe close/reopen cycle, with local project changes set aside in a Git stash and brought back afterwards.
 3. **Given** local and remote histories have diverged, **When** the user pulls or pushes, **Then** the app clearly explains the situation, preserves both sides untouched, and directs the user to external Git tooling — it never merges, overwrites, or discards either side.
 4. **Given** authentication fails, **When** the user pushes or pulls, **Then** the failure surfaces immediately with actionable guidance (credential helper / SSH agent setup), and the app never prompts for or stores passwords itself.
 5. **Given** a project committed on Windows and cloned on macOS or Linux, **When** it is opened, **Then** it loads with zero path or line-ending errors.
@@ -252,7 +252,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **Branch**: a named line of history; exactly one is active per project.
 - **Remote**: a single associated backup/collaboration endpoint per project.
 - **Ignore/attribute rules**: generated repository configuration that excludes per-user state and pins cross-platform text policies.
-- **Safety snapshot**: the reachable preservation point taken when project state is dirty, making restore/switch/pull non-destructive without creating empty commits for clean state. For pull it begins as a private checkpoint and becomes an ordinary commit on the fast-forwarded branch tip.
+- **Safety snapshot**: the reachable preservation point taken when project state is dirty, making restore and branch switch non-destructive without creating empty commits for clean state. Pull does not take one; it keeps local project changes in a Git stash entry instead.
 
 ## Success Criteria *(mandatory)*
 

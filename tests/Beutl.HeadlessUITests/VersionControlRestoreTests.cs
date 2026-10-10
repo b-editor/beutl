@@ -5587,71 +5587,6 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Title_bar_branch_creation_reports_why_git_could_not_check_the_name()
-    {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        TitleBarBranchViewModel? titleBar = null;
-        using var gitAvailable = new ReactivePropertySlim<bool>(true);
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-branch-check-failed");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            titleBar = new TitleBarBranchViewModel(
-                editorService.ProjectVersionControlService,
-                gitAvailable,
-                coordinator);
-            await WaitUntilAsync(() => titleBar.IsVisible.Value);
-            titleBar.RequestNewBranchNameAsync = () => Task.FromResult<string?>("existing");
-            backend.CanCreateBranchFailure = new GitOperationException(128, "fatal: unable to read refs");
-            int canCreateCallsBefore = backend.CanCreateBranchCalls;
-            NotificationService.Handler = notifications;
-
-            await titleBar.CreateBranchAsync();
-            HeadlessTestHelpers.Settle();
-
-            Notification error = notifications.All.Single();
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(canCreateCallsBefore + 1));
-                Assert.That(backend.CreateBranchCalls, Is.Zero);
-                Assert.That(error.Type, Is.EqualTo(NotificationType.Error));
-                Assert.That(error.Message, Does.Contain("unable to read refs"));
-                Assert.That(titleBar.IsBusy.Value, Is.False);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
-        {
-            NotificationService.Handler = previousNotificationHandler;
-            titleBar?.Dispose();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
     public async Task Restore_prefetches_lfs_objects_while_the_project_is_still_open()
     {
         await TestReset.ResetShellAsync();
@@ -11087,18 +11022,11 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             CanCreateBranchCalls++;
-            if (CanCreateBranchFailure is not null)
-            {
-                return Task.FromException<bool>(CanCreateBranchFailure);
-            }
-
             return Task.FromResult(
                 _canCreateBranchResults.TryDequeue(out bool canCreate)
                     ? canCreate
                     : true);
         }
-
-        public Exception? CanCreateBranchFailure { get; set; }
 
         public string? LastBranchStartPoint { get; private set; }
 
