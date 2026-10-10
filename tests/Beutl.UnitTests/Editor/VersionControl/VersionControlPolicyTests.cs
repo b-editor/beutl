@@ -1094,6 +1094,39 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Large_media_added_while_the_ignored_files_notice_after_the_identity_prompt_is_open_is_reported()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("config", "--local", "user.name", "");
+        await RunGitAsync("config", "--local", "user.email", "");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: false,
+            async notice =>
+            {
+                notices.Add(notice);
+                if (notice is VersionControlPolicyNotice.IgnoredProjectFiles)
+                {
+                    await WriteLargeMediaAsync(Root, "resources/late.mp4");
+                }
+            },
+            requestIdentity: async () =>
+            {
+                await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.log\n");
+                await File.WriteAllTextAsync(Path.Combine(Root, "render.log"), "late\n");
+                return new GitIdentity("Prompted User", "prompted@example.invalid");
+            });
+
+        await service.CommitAllAsync("beutl: snapshot on save", SnapshotKind.Save, CancellationToken.None);
+
+        Assert.That(
+            notices.OfType<VersionControlPolicyNotice.LargeMediaWithoutLfs>().Single().Path,
+            Is.EqualTo("resources/late.mp4"));
+    }
+
+    [Test]
     public async Task Project_file_ignored_while_the_identity_prompt_is_open_is_refused()
     {
         await CommitFileAsync("notes.txt", "initial\n", "initial");
