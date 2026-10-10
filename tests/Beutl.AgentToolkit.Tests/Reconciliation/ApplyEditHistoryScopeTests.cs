@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
@@ -180,6 +182,72 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(rect.Width.CurrentValue, Is.EqualTo(200f));
             Assert.That(element.CustomTransform, Is.InstanceOf<TranslateTransform>());
             Assert.That((element.CustomTransform as TranslateTransform)?.X.CurrentValue, Is.EqualTo(10f));
+        });
+    }
+
+    public sealed record Dimensions(int Width, int Height);
+
+    public sealed class DimensionsJsonConverter : JsonConverter<Dimensions>
+    {
+        public override Dimensions Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            JsonObject obj = JsonNode.Parse(ref reader)!.AsObject();
+            return new Dimensions(obj["W"]!.GetValue<int>(), obj["H"]!.GetValue<int>());
+        }
+
+        public override void Write(Utf8JsonWriter writer, Dimensions value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("W", value.Width);
+            writer.WriteNumber("H", value.Height);
+            writer.WriteEndObject();
+        }
+    }
+
+    // CoreProperty.RouteDeserialize reads a converter-backed property even when its key is absent.
+    private sealed class ConvertedPropertyElement : Element
+    {
+        public static readonly CoreProperty<Dimensions?> DimensionsProperty;
+
+        static ConvertedPropertyElement()
+        {
+            DimensionsProperty = ConfigureProperty<Dimensions?, ConvertedPropertyElement>(nameof(Dimensions))
+                .Register();
+        }
+
+        [JsonConverter(typeof(DimensionsJsonConverter))]
+        public Dimensions? Dimensions
+        {
+            get => GetValue(DimensionsProperty);
+            set => SetValue(DimensionsProperty, value);
+        }
+    }
+
+    [Test]
+    public void Apply_edit_keeps_unchanged_converter_backed_registered_properties()
+    {
+        Scene scene = CreateScene();
+        var element = new ConvertedPropertyElement
+        {
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "converted.belm")),
+            Dimensions = new Dimensions(3, 4)
+        };
+        var rect = new RectShape();
+        element.AddObject(rect);
+        scene.Children.Add(element);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: CreateObjectPatch(element, rect, new JsonObject { [nameof(RectShape.Width)] = 200 }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(rect.Width.CurrentValue, Is.EqualTo(200f));
+            Assert.That(element.Dimensions, Is.EqualTo(new Dimensions(3, 4)));
         });
     }
 

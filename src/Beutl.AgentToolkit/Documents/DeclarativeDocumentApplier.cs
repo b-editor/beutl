@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
@@ -258,7 +259,10 @@ internal sealed partial class DeclarativeDocumentApplier
     {
         if (PropertyRegistry.FindRegistered(target, propertyName) is { } property)
         {
-            return IsSerializedProperty(target, property);
+            // CoreProperty.RouteDeserialize reads a converter-backed property even when its key is
+            // absent (the missing node deserializes as null), so dropping it would clear it.
+            CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(target.GetType());
+            return metadata.ShouldSerialize && !metadata.Attributes.Any(attribute => attribute is JsonConverterAttribute);
         }
 
         return target is EngineObject engineObject
