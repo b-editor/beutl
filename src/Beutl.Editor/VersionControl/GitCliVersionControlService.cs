@@ -56,7 +56,6 @@ internal sealed partial class GitCliVersionControlService :
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
     private const int MaxLfsPointerCandidates = 256;
     private const int MaxSnapshotTreeInspectionBytes = 4 * 1024 * 1024;
-    private const int MaxCommitMessageBytes = 1024 * 1024;
 
     private static readonly string[] s_gitIgnoreLines =
     [

@@ -37,10 +37,6 @@ internal sealed partial class GitCliVersionControlService
 
         public string LockPath { get; }
 
-        // Set once the HEAD file has shown the reftable placeholder. HEAD.lock then guards nothing, so a
-        // branch update has to let Git verify the checked-out branch inside its own transaction.
-        public bool HeadStoredInReftable { get; private set; }
-
         public static async Task<HeadOwnershipLease> AcquireAsync(
             RepositoryInfo repository,
             IGitCliRunner runner,
@@ -106,7 +102,6 @@ internal sealed partial class GitCliVersionControlService
                 throw new ProjectCheckpointStateChangedException();
             }
 
-            HeadStoredInReftable = true;
             GitCommandResult symbolicRef;
             try
             {

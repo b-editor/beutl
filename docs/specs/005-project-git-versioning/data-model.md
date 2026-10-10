@@ -12,7 +12,7 @@ Result of probing the machine for git tooling.
 |---|---|---|
 | `State` | `GitAvailabilityState` | `Installed` / `NotInstalled` / `VersionTooOld` |
 | `GitPath` | `string?` | Resolved executable path when installed |
-| `Version` | `Version?` | Parsed from `git --version`; floor is 2.36 (needs `git hook run`, `git switch`, worktree, and current plumbing behavior) |
+| `Version` | `Version?` | Parsed from `git --version`; floor is 2.36 (needs `git ls-tree --format`, `git switch`, worktree, and current plumbing behavior) |
 | `LfsInstalled` | `bool` | `git lfs version` succeeded |
 
 ## RepositoryInfo

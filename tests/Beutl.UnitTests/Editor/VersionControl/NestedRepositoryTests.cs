@@ -389,11 +389,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(projectRoot, ".gitattributes"), "data\n");
 
-        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
 
         GitCommandResult staged = await RunGitAsync(
             "diff",
@@ -402,10 +401,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "--",
             repository.Pathspec);
         // The outer repository ignores the whole project, which only it can report: the inner
-        // repository has no ignore rules, and staging there would have succeeded.
+        // repository has no ignore rules, and a snapshot there would have recorded the file.
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Stderr, Does.Contain("ignored"));
+            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
             Assert.That(staged.Stdout, Is.Empty);
             Assert.That(
                 notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,

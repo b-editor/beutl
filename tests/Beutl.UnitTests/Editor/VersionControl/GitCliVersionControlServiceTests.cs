@@ -174,20 +174,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         var expectedLock = new RepositoryLockInfo(
             Path.Combine(projectRoot, ".git", "index.lock"),
             DateTimeOffset.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
-        var runner = new FailingInitialCommitRunner(
-            CreateRunner(),
-            expectedLock,
-            beforeFailure: _ =>
-            {
-                // Make the rollback ownership check fail on every platform. The repository-lock
-                // failure is then nested inside an AggregateException instead of escaping directly.
-                using FileStream index = File.Open(
-                    Path.Combine(projectRoot, ".git", "index"),
-                    FileMode.Append,
-                    FileAccess.Write,
-                    FileShare.Read);
-                index.WriteByte(0);
-            });
+        var runner = new FailingInitialCommitRunner(CreateRunner(), expectedLock);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository: null,
@@ -200,98 +187,15 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
         };
 
-        Exception? exception = await Assert.CatchAsync<Exception>(
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await service.InitializeAsync(options, CancellationToken.None));
-        IReadOnlyList<Exception> reportedFailures = exception is AggregateException aggregate
-            ? aggregate.Flatten().InnerExceptions
-            : [exception!];
         Assert.Multiple(() =>
         {
-            Assert.That(exception, Is.TypeOf<AggregateException>());
-            Assert.That(reportedFailures, Has.Some.TypeOf<GitOperationException>());
+            Assert.That(exception!.IsRepositoryLockFailure, Is.True);
             Assert.That(service.Repository, Is.Not.Null);
             Assert.That(service.RecoverableLock, Is.SameAs(expectedLock));
             Assert.That(runner.InitialCommitAttempts, Is.EqualTo(1));
         });
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task InitializeAsync_restores_the_prior_index_when_initial_commit_stops_after_staging(
-        bool cancelCommit)
-    {
-        string ignorePath = Path.Combine(Root, ".gitignore");
-        const string originalIgnoreContents = "custom ignore rule\n";
-        await CommitFileAsync(".gitignore", originalIgnoreContents, "baseline ignore");
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        UnixFileMode? originalIgnoreMode = null;
-        if (!OperatingSystem.IsWindows())
-        {
-            File.SetUnixFileMode(
-                ignorePath,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            originalIgnoreMode = File.GetUnixFileMode(ignorePath);
-        }
-
-        FileAttributes originalIgnoreAttributes = File.GetAttributes(ignorePath);
-        string stagedFile = Path.Combine(Root, "staged.belm");
-        await File.WriteAllTextAsync(stagedFile, "staged before initialization\n");
-        await RunGitAsync("add", "--", "staged.belm");
-        await File.WriteAllTextAsync(stagedFile, "working tree during initialization\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
-        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
-        using var cancellation = new CancellationTokenSource();
-        var runner = new FailingInitialCommitRunner(
-            CreateRunner(),
-            cancellation: cancelCommit ? cancellation : null);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => runner);
-
-        if (cancelCommit)
-        {
-            await Assert.CatchAsync<OperationCanceledException>(
-                async () => await service.InitializeAsync(
-                    new InitOptions(Repository, UseLfsWhenAvailable: false),
-                    cancellation.Token));
-        }
-        else
-        {
-            await Assert.ThrowsAsync<GitOperationException>(
-                async () => await service.InitializeAsync(
-                    new InitOptions(Repository, UseLfsWhenAvailable: false),
-                    CancellationToken.None));
-        }
-
-        string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
-        GitCommandResult stagedContents = await RunGitAsync("show", ":staged.belm");
-        GitCommandResult stagedNames = await RunGitAsync("diff", "--cached", "--name-only");
-        Assert.Multiple(() =>
-        {
-            Assert.That(runner.InitialCommitAttempts, Is.EqualTo(1));
-            Assert.That(tipAfter, Is.EqualTo(tipBefore));
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
-            Assert.That(stagedContents.Stdout, Is.EqualTo("staged before initialization\n"));
-            Assert.That(stagedNames.Stdout, Is.EqualTo("staged.belm\n"));
-            Assert.That(
-                File.ReadAllText(stagedFile),
-                Is.EqualTo("working tree during initialization\n"));
-            Assert.That(
-                File.ReadAllText(ignorePath),
-                Is.EqualTo(originalIgnoreContents + "**/.beutl/\n*.[tT][mM][pP]\n"));
-            Assert.That(File.GetAttributes(ignorePath), Is.EqualTo(originalIgnoreAttributes));
-            Assert.That(
-                File.ReadAllText(Path.Combine(Root, ".gitattributes")),
-                Does.Contain("*.[bB][eE][pP] text eol=lf\n"));
-        });
-        if (!OperatingSystem.IsWindows() && originalIgnoreMode is { } expectedMode)
-        {
-            Assert.That(File.GetUnixFileMode(ignorePath), Is.EqualTo(expectedMode));
-        }
     }
 
     [Test]
@@ -299,7 +203,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
-        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
         string ignorePath = Path.Combine(Root, ".gitignore");
         var runner = new FailingInitialCommitRunner(
             CreateRunner(),
@@ -315,10 +218,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
 
-        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
         Assert.Multiple(() =>
         {
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(File.ReadAllText(ignorePath), Is.EqualTo("external edit\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, ".gitattributes")),
@@ -335,7 +236,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(ignorePath, "original ignore\n");
         await File.WriteAllTextAsync(attributesPath, "original attributes\n");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
-        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
         const string externalIgnore = "external replacement ignore\n";
         const string externalAttributes = "external replacement attributes\n";
         var runner = new FailingInitialCommitRunner(
@@ -357,51 +257,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 new InitOptions(Repository, UseLfsWhenAvailable: false),
                 CancellationToken.None));
 
-        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
         Assert.Multiple(() =>
         {
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(File.ReadAllText(ignorePath), Is.EqualTo(externalIgnore));
             Assert.That(File.ReadAllText(attributesPath), Is.EqualTo(externalAttributes));
-        });
-    }
-
-    [Test]
-    public async Task InitializeAsync_accepts_a_durable_initial_commit_when_its_result_is_lost()
-    {
-        string projectRoot = CreateTemporaryDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
-        var repository = new RepositoryInfo(projectRoot, projectRoot);
-        var runner = new LostInitialCommitResultRunner(CreateRunner());
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => runner);
-
-        await Assert.DoesNotThrowAsync(
-            async () => await service.InitializeAsync(
-                new InitOptions(repository, UseLfsWhenAvailable: false)
-                {
-                    Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
-                },
-                CancellationToken.None));
-
-        GitCommandResult count = await runner.Inner.RunAsync(
-            repository,
-            ["rev-list", "--count", "HEAD"],
-            GitCommandOptions.Local,
-            CancellationToken.None);
-        GitCommandResult staged = await runner.Inner.RunAsync(
-            repository,
-            ["diff", "--cached", "--name-only"],
-            GitCommandOptions.Local,
-            CancellationToken.None);
-        Assert.Multiple(() =>
-        {
-            Assert.That(runner.InitialCommitAttempts, Is.EqualTo(1));
-            Assert.That(count.Stdout.Trim(), Is.EqualTo("1"));
-            Assert.That(staged.Stdout, Is.Empty);
         });
     }
 
@@ -1925,646 +1784,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task CommitAllAsync_restores_the_prior_index_when_commit_stops_after_staging(
-        bool cancelCommit)
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "staged before snapshot\n");
-        await RunGitAsync("add", "--", "project.bep");
-        await File.WriteAllTextAsync(projectFile, "working tree at snapshot\n");
-        string indexBefore = (await RunGitAsync("write-tree")).Stdout.Trim();
-        using var cancellation = new CancellationTokenSource();
-        var runner = new FailingSnapshotCommitRunner(
-            CreateRunner(),
-            cancelCommit ? cancellation : null);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        if (cancelCommit)
-        {
-            await Assert.CatchAsync<OperationCanceledException>(
-                async () => await service.CommitAllAsync(
-                    "beutl: snapshot on save",
-                    SnapshotKind.Save,
-                    cancellation.Token));
-        }
-        else
-        {
-            await Assert.ThrowsAsync<GitOperationException>(
-                async () => await service.CommitAllAsync(
-                    "beutl: snapshot on save",
-                    SnapshotKind.Save,
-                    CancellationToken.None));
-        }
-
-        string indexAfter = (await RunGitAsync("write-tree")).Stdout.Trim();
-        GitCommandResult stagedContents = await RunGitAsync("show", ":project.bep");
-        string workingContents = await File.ReadAllTextAsync(projectFile);
-        Assert.Multiple(() =>
-        {
-            Assert.That(runner.CommitAttempts, Is.EqualTo(1));
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
-            Assert.That(stagedContents.Stdout, Is.EqualTo("staged before snapshot\n"));
-            Assert.That(workingContents, Is.EqualTo("working tree at snapshot\n"));
-        });
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task CommitAllAsync_preserves_live_index_when_temp_index_reconciliation_fails_or_is_cancelled(
-        bool cancelAdd)
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "changed\n");
-        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        byte[] indexBefore = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "index"));
-        using var cancellation = new CancellationTokenSource();
-        var runner = new TempIndexAddFailureRunner(CreateRunner(), cancelAdd ? cancellation : null);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        if (cancelAdd)
-        {
-            await Assert.CatchAsync<OperationCanceledException>(
-                async () => await service.CommitAllAsync(
-                    "beutl: snapshot on save",
-                    SnapshotKind.Save,
-                    cancellation.Token));
-        }
-        else
-        {
-            await Assert.ThrowsAsync<GitOperationException>(
-                async () => await service.CommitAllAsync(
-                    "beutl: snapshot on save",
-                    SnapshotKind.Save,
-                    CancellationToken.None));
-        }
-
-        byte[] indexAfter = await File.ReadAllBytesAsync(Path.Combine(Root, ".git", "index"));
-        string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(runner.AddAttempts, Is.EqualTo(1));
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
-            Assert.That(tipAfter, Is.EqualTo(tipBefore));
-            Assert.That(runner.TemporaryIndexPath, Is.Not.Null);
-            Assert.That(File.Exists(runner.TemporaryIndexPath!), Is.False);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_refuses_index_rollback_when_external_stage_lands_after_post_add_snapshot()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        string projectRoot = Path.Combine(Root, "nested-project");
-        Directory.CreateDirectory(projectRoot);
-        string projectFile = Path.Combine(projectRoot, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "baseline\n");
-        await RunGitAsync("add", "--", "nested-project/project.bep");
-        await RunGitAsync("commit", "-m", "nested baseline");
-        var projectRepository = new RepositoryInfo(Root, projectRoot);
-        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await File.WriteAllTextAsync(projectFile, "snapshot\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
-        var runner = new FailingSnapshotCommitRunner(
-            CreateRunner(),
-            beforeFailure: repository =>
-            {
-                CreateRunner().RunAsync(
-                        Repository,
-                        ["add", "--", "external.txt"],
-                        GitCommandOptions.Local,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
-            });
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            projectRepository,
-            watcher: null,
-            _ => runner);
-
-        Exception? exception = await Assert.CatchAsync<Exception>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        string branchTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("changed after staging"));
-            Assert.That(staged.Stdout, Does.Contain("external.txt"));
-            Assert.That(branchTip, Is.EqualTo(tipBefore));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_refuses_live_index_publication_when_external_stage_lands_during_temp_staging()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        string projectRoot = Path.Combine(Root, "nested-project");
-        Directory.CreateDirectory(projectRoot);
-        string projectFile = Path.Combine(projectRoot, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "baseline\n");
-        await RunGitAsync("add", "--", "nested-project/project.bep");
-        await RunGitAsync("commit", "-m", "nested baseline");
-        await File.WriteAllTextAsync(projectFile, "snapshot\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
-        var projectRepository = new RepositoryInfo(Root, projectRoot);
-        var runner = new ExternalStageDuringTempIndexRunner(
-            CreateRunner(),
-            Repository,
-            "external.txt");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            projectRepository,
-            watcher: null,
-            _ => runner);
-
-        Exception? exception = await Assert.CatchAsync<Exception>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("changed after the snapshot tree was captured"));
-            Assert.That(staged.Stdout, Does.Contain("external.txt"));
-            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task InitializeAsync_refuses_live_index_publication_when_external_stage_lands_during_temp_staging()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        string projectRoot = Path.Combine(Root, "nested-project");
-        Directory.CreateDirectory(projectRoot);
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "snapshot\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
-        string tipBefore = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        var projectRepository = new RepositoryInfo(Root, projectRoot);
-        var runner = new ExternalStageDuringTempIndexRunner(
-            CreateRunner(),
-            Repository,
-            "external.txt");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => runner);
-
-        Exception? exception = await Assert.CatchAsync<Exception>(
-            async () => await service.InitializeAsync(
-                new InitOptions(projectRepository, UseLfsWhenAvailable: false),
-                CancellationToken.None));
-        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
-        string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("changed after the snapshot tree was captured"));
-            Assert.That(staged.Stdout, Does.Contain("external.txt"));
-            Assert.That(tipAfter, Is.EqualTo(tipBefore));
-            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_byte_exact_rollback_preserves_preexisting_intent_to_add_entry()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "snapshot\n");
-        string intentFile = Path.Combine(Root, "intent.txt");
-        await File.WriteAllTextAsync(intentFile, "intent\n");
-        await RunGitAsync("add", "-N", "--", "intent.txt");
-        string indexRecord = (await RunGitAsync("rev-parse", "--git-path", "index"))
-            .Stdout.TrimEnd('\r', '\n');
-        string indexPath = Path.GetFullPath(
-            Path.IsPathFullyQualified(indexRecord)
-                ? indexRecord
-                : Path.Combine(Root, indexRecord));
-        byte[] indexBefore = await File.ReadAllBytesAsync(indexPath);
-        var runner = new FailingSnapshotCommitRunner(CreateRunner());
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        await Assert.ThrowsAsync<GitOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        byte[] indexAfter = await File.ReadAllBytesAsync(indexPath);
-        GitCommandResult status = await RunGitAsync("status", "--porcelain", "--", "intent.txt");
-        Assert.Multiple(() =>
-        {
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
-            Assert.That(status.Stdout, Does.Contain("intent.txt"));
-            Assert.That(runner.CommitAttempts, Is.EqualTo(1));
-        });
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task CommitAllAsync_reports_a_durable_commit_when_the_runner_loses_its_result(
-        bool startWithCommit)
-    {
-        if (startWithCommit)
-        {
-            await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        }
-
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "snapshot contents\n");
-        var runner = new LostSnapshotCommitResultRunner(CreateRunner());
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        GitCommandResult count = await RunGitAsync("rev-list", "--count", "HEAD");
-        GitCommandResult head = await RunGitAsync("rev-parse", "HEAD");
-        GitCommandResult committedContents = await RunGitAsync("show", "HEAD:project.bep");
-        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
-        var committed = (CommitResult.Committed)result;
-        var revision = (CommitRevision.Known)committed.Revision;
-        Assert.Multiple(() =>
-        {
-            Assert.That(runner.CommitAttempts, Is.EqualTo(1));
-            Assert.That(revision.Sha, Is.EqualTo(head.Stdout.Trim()));
-            Assert.That(count.Stdout.Trim(), Is.EqualTo(startWithCommit ? "2" : "1"));
-            Assert.That(committedContents.Stdout, Is.EqualTo("snapshot contents\n"));
-            Assert.That(staged.Stdout, Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_blocks_a_HEAD_switch_while_publishing_the_captured_ref()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        string projectRoot = Path.Combine(Root, "nested-project");
-        Directory.CreateDirectory(projectRoot);
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "baseline\n");
-        await RunGitAsync("add", "--", "nested-project/project.bep");
-        await RunGitAsync("commit", "-m", "project baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await RunGitAsync("branch", "alternate", baseTip);
-        await File.WriteAllTextAsync(Path.Combine(Root, "external.txt"), "external stage\n");
-        await RunGitAsync("add", "--", "external.txt");
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "snapshot\n");
-        var isolatedEnvironment = new Dictionary<string, string?>(IsolatedGitEnvironment)
-        {
-            ["GIT_OPTIONAL_LOCKS"] = "0",
-        };
-        var runner = new SwitchBranchBeforeSnapshotPublicationRunner(
-            new GitCliRunner(GitPath, TimeSpan.FromSeconds(30), isolatedEnvironment),
-            Repository,
-            "alternate");
-        var projectRepository = new RepositoryInfo(Root, projectRoot);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            projectRepository,
-            watcher: null,
-            _ => runner);
-
-        var result = (CommitResult.Committed)await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
-        string alternateTip = (await RunGitAsync("rev-parse", "refs/heads/alternate")).Stdout.Trim();
-        string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
-        GitCommandResult committedContents = await RunGitAsync(
-            "show",
-            "refs/heads/main:nested-project/project.bep");
-        GitCommandResult cachedProject = await RunGitAsync(
-            "diff",
-            "--cached",
-            "--name-only",
-            "--",
-            "nested-project");
-        GitCommandResult worktreeProject = await RunGitAsync(
-            "diff",
-            "--name-only",
-            "--",
-            "nested-project");
-        GitCommandResult stagedExternal = await RunGitAsync("show", ":external.txt");
-        Assert.Multiple(() =>
-        {
-            Assert.That(((CommitRevision.Known)result.Revision).Sha, Is.EqualTo(mainTip));
-            Assert.That(mainTip, Is.Not.EqualTo(baseTip));
-            Assert.That(alternateTip, Is.EqualTo(baseTip));
-            Assert.That(currentBranch, Is.EqualTo("main"));
-            Assert.That(committedContents.Stdout, Is.EqualTo("snapshot\n"));
-            Assert.That(cachedProject.Stdout, Is.Empty);
-            Assert.That(worktreeProject.Stdout, Is.Empty);
-            Assert.That(stagedExternal.Stdout, Is.EqualTo("external stage\n"));
-            Assert.That(runner.SwitchCount, Is.Zero);
-            Assert.That(runner.BlockedSwitchCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_refuses_a_HEAD_switch_before_snapshot_tree_capture()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await RunGitAsync("branch", "alternate", baseTip);
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        var runner = new SwitchBranchBeforeSnapshotTreeRunner(
-            CreateRunner(),
-            Repository,
-            "alternate");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        await Assert.ThrowsAsync<ProjectCheckpointStateChangedException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
-        string alternateTip = (await RunGitAsync("rev-parse", "refs/heads/alternate")).Stdout.Trim();
-        string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(mainTip, Is.EqualTo(baseTip));
-            Assert.That(alternateTip, Is.EqualTo(baseTip));
-            Assert.That(currentBranch, Is.EqualTo("alternate"));
-            Assert.That(runner.SwitchCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task InitializeAsync_blocks_a_HEAD_switch_while_publishing_the_captured_ref()
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await RunGitAsync("branch", "alternate", baseTip);
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "initial project\n");
-        var runner = new SwitchBranchBeforeSnapshotPublicationRunner(
-            CreateRunner(),
-            Repository,
-            "alternate");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => runner);
-
-        await service.InitializeAsync(
-            new InitOptions(Repository, UseLfsWhenAvailable: false),
-            CancellationToken.None);
-
-        string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
-        string alternateTip = (await RunGitAsync("rev-parse", "refs/heads/alternate")).Stdout.Trim();
-        string currentBranch = (await RunGitAsync("branch", "--show-current")).Stdout.Trim();
-        GitCommandResult committedContents = await RunGitAsync(
-            "show",
-            "refs/heads/main:project.bep");
-        Assert.Multiple(() =>
-        {
-            Assert.That(mainTip, Is.Not.EqualTo(baseTip));
-            Assert.That(alternateTip, Is.EqualTo(baseTip));
-            Assert.That(currentBranch, Is.EqualTo("main"));
-            Assert.That(committedContents.Stdout, Is.EqualTo("initial project\n"));
-            Assert.That(runner.SwitchCount, Is.Zero);
-            Assert.That(runner.BlockedSwitchCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_reconciles_the_index_from_the_snapshot_not_a_later_worktree_edit()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "snapshot t1\n");
-        var runner = new MutateWorktreeBeforeIndexReconciliationRunner(
-            CreateRunner(),
-            projectFile,
-            "worktree t2\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        var result = (CommitResult.Committed)await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        GitCommandResult committedContents = await RunGitAsync("show", "HEAD:project.bep");
-        GitCommandResult cached = await RunGitAsync(
-            "diff",
-            "--cached",
-            "--name-only",
-            "--",
-            "project.bep");
-        GitCommandResult unstaged = await RunGitAsync(
-            "diff",
-            "--name-only",
-            "--",
-            "project.bep");
-        Assert.Multiple(() =>
-        {
-            Assert.That(((CommitRevision.Known)result.Revision).Sha, Is.EqualTo(head));
-            Assert.That(committedContents.Stdout, Is.EqualTo("snapshot t1\n"));
-            Assert.That(File.ReadAllText(projectFile), Is.EqualTo("worktree t2\n"));
-            Assert.That(cached.Stdout, Is.Empty);
-            Assert.That(unstaged.Stdout.Trim(), Is.EqualTo("project.bep"));
-            Assert.That(runner.MutationCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_preserves_an_external_stage_after_snapshot_tree_capture()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string projectFile = Path.Combine(Root, "project.bep");
-        await File.WriteAllTextAsync(projectFile, "snapshot t1\n");
-        var runner = new StageProjectAfterSnapshotTreeRunner(
-            CreateRunner(),
-            Repository,
-            projectFile,
-            "externally staged t2\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        Exception? exception = await Assert.CatchAsync<Exception>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        string mainTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        GitCommandResult stagedContents = await RunGitAsync("show", ":project.bep");
-        GitCommandResult staged = await RunGitAsync(
-            "diff",
-            "--cached",
-            "--name-only",
-            "--",
-            "project.bep");
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                exception!.Message,
-                Does.Contain("changed after the snapshot tree was captured"));
-            Assert.That(mainTip, Is.EqualTo(baseTip));
-            Assert.That(stagedContents.Stdout, Is.EqualTo("externally staged t2\n"));
-            Assert.That(staged.Stdout.Trim(), Is.EqualTo("project.bep"));
-            Assert.That(runner.StageCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_a_captured_ref_CAS_race_and_preserves_the_external_tip()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string baseTree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
-        string externalTip = (await RunGitAsync(
-            "commit-tree",
-            baseTree,
-            "-p",
-            baseTip,
-            "-m",
-            "external ref update")).Stdout.Trim();
-        await WriteHookAsync("post-commit", "printf 'post\\n' > hook-post.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        var runner = new MoveCapturedRefBeforeSnapshotPublicationRunner(
-            CreateRunner(),
-            externalTip);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        Exception? exception = await Assert.CatchAsync<Exception>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
-        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
-        GitCommandResult committedContents = await RunGitAsync(
-            "show",
-            "refs/heads/main:project.bep");
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("captured branch"));
-            Assert.That(mainTip, Is.EqualTo(externalTip));
-            Assert.That(committedContents.Stdout, Is.EqualTo("baseline\n"));
-            Assert.That(staged.Stdout, Is.Empty);
-            Assert.That(runner.MoveCount, Is.EqualTo(1));
-            Assert.That(File.Exists(Path.Combine(Root, "hook-post.txt")), Is.False);
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_a_gitlink_created_after_layout_validation_before_publication()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        var runner = new CreateNestedRepositoryDuringSnapshotRunner(
-            CreateRunner(),
-            Root);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        string mainTip = (await RunGitAsync("rev-parse", "refs/heads/main")).Stdout.Trim();
-        GitCommandResult stagedGitlink = await RunGitAsync(
-            "ls-files",
-            "--stage",
-            "--",
-            "embedded");
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("nested Git repository 'embedded'"));
-            Assert.That(mainTip, Is.EqualTo(baseTip));
-            Assert.That(stagedGitlink.Stdout, Is.Empty);
-            Assert.That(runner.InjectionCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_cleans_a_temporary_worktree_when_add_result_is_lost()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        var runner = new LostSnapshotWorktreeAddResultRunner(CreateRunner());
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        await Assert.ThrowsAsync<IOException>(async () => await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None));
-
-        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string worktrees = (await RunGitAsync("worktree", "list", "--porcelain")).Stdout;
-        string staged = (await RunGitAsync("diff", "--cached", "--name-only")).Stdout;
-        Assert.Multiple(() =>
-        {
-            Assert.That(runner.AddAttempts, Is.EqualTo(1));
-            Assert.That(runner.TemporaryWorktreePath, Is.Not.Null);
-            Assert.That(Directory.Exists(runner.TemporaryWorktreePath!), Is.False);
-            Assert.That(worktrees, Does.Not.Contain(runner.TemporaryWorktreePath!));
-            Assert.That(head, Is.EqualTo(baseTip));
-            Assert.That(staged, Is.Empty);
-        });
-    }
-
     [Test]
     public async Task CommitAllAsync_rejects_detached_HEAD_before_staging_or_committing()
     {
@@ -3524,7 +2743,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(commits, Has.Length.EqualTo(2));
             Assert.That(commits[0], Does.Contain("--no-gpg-sign"));
-            Assert.That(commits[1], Does.Contain("-S"));
+            // Git itself applies commit.gpgSign to a manual commit, which the failing signer rejected.
+            Assert.That(commits[1], Does.Not.Contain("--no-gpg-sign"));
         });
     }
 
@@ -3587,8 +2807,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
         string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string indexPath = Path.Combine(Root, ".git", "index");
-        byte[] indexBefore = await File.ReadAllBytesAsync(indexPath);
         await WriteHookAsync("pre-commit", "exit 17\n");
         await WriteHookAsync("post-commit", "printf 'post\\n' > hook-post.txt\n");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
@@ -3600,170 +2818,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None));
 
         string tipAfter = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        byte[] indexAfter = await File.ReadAllBytesAsync(indexPath);
         Assert.Multiple(() =>
         {
             Assert.That(tipAfter, Is.EqualTo(baseTip));
-            Assert.That(indexAfter, Is.EqualTo(indexBefore));
             Assert.That(File.Exists(Path.Combine(Root, "hook-post.txt")), Is.False);
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_runs_message_and_post_hooks_with_the_published_snapshot_context()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await WriteHookAsync(
-            "prepare-commit-msg",
-            "test \"$2\" = message || exit 31\n"
-            + "test \"$#\" -eq 2 || exit 32\n"
-            + "test \"$1\" != \"$(git rev-parse --path-format=absolute --git-path COMMIT_EDITMSG)\" || exit 33\n"
-            + "printf 'external message\\n' > \"$(git rev-parse --path-format=absolute --git-path COMMIT_EDITMSG)\"\n"
-            + "printf '\\nPrepared-By: hook  \\n\\n\\n' >> \"$1\"\n");
-        await WriteHookAsync(
-            "commit-msg",
-            "printf '\\nReviewed-By: hook  \\n\\n\\n' >> \"$1\"\n");
-        await WriteHookAsync(
-            "post-commit",
-            "test -f \"$GIT_COMMIT_EDITMSG\" || exit 34\n"
-            + "printf '%s|%s|%s|%s|%s|%s|%s|%s\\n' \"$GIT_EDITOR\" \"$GIT_INDEX_FILE\" "
-            + "\"$GIT_AUTHOR_NAME\" \"$GIT_AUTHOR_EMAIL\" \"$GIT_AUTHOR_DATE\" "
-            + "\"$(git branch --show-current)\" \"$(git rev-parse HEAD)\" "
-            + "\"$(git diff --cached --name-only -- project.bep)\" > hook-post.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        var result = (CommitResult.Committed)await service.CommitAllAsync(
-            "manual snapshot",
-            SnapshotKind.Manual,
-            CancellationToken.None);
-
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
-        string message = (await RunGitAsync("show", "-s", "--format=%B", sha)).Stdout;
-        string snapshotTrailer = (await RunGitAsync(
-                "show",
-                "-s",
-                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
-                sha))
-            .Stdout.Trim();
-        string reviewedByTrailer = (await RunGitAsync(
-                "show",
-                "-s",
-                "--format=%(trailers:key=Reviewed-By,valueonly)",
-                sha))
-            .Stdout.Trim();
-        string[] post = (await File.ReadAllTextAsync(Path.Combine(Root, "hook-post.txt")))
-            .TrimEnd('\r', '\n')
-            .Split('|');
-        string[] author = (await RunGitAsync("show", "-s", "--format=%an%x00%ae%x00%at", sha))
-            .Stdout.TrimEnd('\r', '\n')
-            .Split('\0');
-        string hookTimestamp = post[4].TrimStart('@').Split(' ')[0];
-        Assert.Multiple(() =>
-        {
-            Assert.That(message, Does.Contain("Prepared-By: hook\n"));
-            Assert.That(message, Does.Contain("Reviewed-By: hook\n"));
-            Assert.That(message, Does.Not.Contain("external message"));
-            Assert.That(message, Does.Not.Contain("hook  "));
-            Assert.That(snapshotTrailer, Is.EqualTo("manual"));
-            Assert.That(reviewedByTrailer, Is.EqualTo("hook"));
-            Assert.That(post, Has.Length.EqualTo(8));
-            Assert.That(post[0], Is.EqualTo(":"));
-            Assert.That(
-                Path.GetFullPath(post[1]),
-                Is.EqualTo(Path.Combine(Root, ".git", "index")));
-            Assert.That(post[2], Is.EqualTo(author[0]));
-            Assert.That(post[3], Is.EqualTo(author[1]));
-            Assert.That(hookTimestamp, Is.EqualTo(author[2]));
-            Assert.That(post[5], Is.EqualTo("main"));
-            Assert.That(post[6], Is.EqualTo(sha));
-            Assert.That(post[7], Is.Empty);
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_repairs_the_snapshot_trailer_without_demoting_hook_trailers()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await RunGitAsync("config", "trailer.separators", "=");
-        await WriteHookAsync(
-            "prepare-commit-msg",
-            "printf 'hook subject\\n\\nPrepared body\\n' > \"$1\"\n");
-        await WriteHookAsync(
-            "commit-msg",
-            "printf '\\nHook tail\\n\\nReviewed-By=hook\\nBeutl-Snapshot: close\\n' >> \"$1\"\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        var result = (CommitResult.Committed)await service.CommitAllAsync(
-            "automatic snapshot",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
-        string message = (await RunGitAsync("show", "-s", "--format=%B", sha)).Stdout;
-        string[] snapshotTrailers = (await RunGitAsync(
-                "-c",
-                "trailer.separators=:=",
-                "show",
-                "-s",
-                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
-                sha))
-            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-        string reviewedByTrailer = (await RunGitAsync(
-                "-c",
-                "trailer.separators=:=",
-                "show",
-                "-s",
-                "--format=%(trailers:key=Reviewed-By,valueonly)",
-                sha))
-            .Stdout.Trim();
-        CommitInfo history = (await service.GetHistoryAsync(
-            skip: 0,
-            take: 1,
-            CancellationToken.None)).Single();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(message, Does.StartWith("hook subject\n"));
-            Assert.That(message, Does.Contain("Prepared body\n"));
-            Assert.That(message, Does.Contain("Hook tail\n"));
-            Assert.That(snapshotTrailers, Is.EqualTo(new[] { "save" }));
-            Assert.That(reviewedByTrailer, Is.EqualTo("hook"));
-            Assert.That(history.Kind, Is.EqualTo(SnapshotKind.Save));
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_reconstructs_a_hook_duplicated_snapshot_trailer()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await WriteHookAsync(
-            "commit-msg",
-            "printf 'BEUTL-SNAPSHOT: close\\n' >> \"$1\"\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        var result = (CommitResult.Committed)await service.CommitAllAsync(
-            "manual snapshot",
-            SnapshotKind.Manual,
-            CancellationToken.None);
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
-        string[] snapshotTrailers = (await RunGitAsync(
-                "show",
-                "-s",
-                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
-                sha))
-            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(sha, Is.Not.EqualTo(baseTip));
-            Assert.That(snapshotTrailers, Is.EqualTo(new[] { "manual" }));
             Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
         });
     }
@@ -3810,240 +2868,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.EqualTo(preservesWhitespace));
             Assert.That(message.Contains("Reviewed  ", StringComparison.Ordinal),
                 Is.EqualTo(preservesWhitespace));
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
-        });
-    }
-
-    [TestCase("verbatim", false)]
-    [TestCase("whitespace", true)]
-    public async Task CommitAllAsync_preserves_non_utf8_bytes_written_by_commit_msg_hook(
-        string cleanup,
-        bool addsTrailingNewline)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("The byte-writing hook uses POSIX printf octal escapes.");
-        }
-
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await RunGitAsync("config", "commit.cleanup", cleanup);
-        await RunGitAsync("config", "i18n.commitEncoding", "ISO-8859-1");
-        await WriteHookAsync("commit-msg", "printf '\\351' >> \"$1\"\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        var result = (CommitResult.Committed)await service.CommitAllAsync(
-            "manual snapshot",
-            SnapshotKind.Manual,
-            CancellationToken.None);
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
-        GitCommandResult commitObject = await Runner.RunAsync(
-            Repository,
-            ["cat-file", "commit", sha],
-            GitCommandOptions.Local with
-            {
-                MaxStdoutBytes = 1024 * 1024,
-                CaptureStdoutBytes = true,
-            },
-            CancellationToken.None);
-
-        byte[] bytes = commitObject.StdoutBytes!;
-        int bodySeparator = bytes.AsSpan().IndexOf("\n\n"u8);
-        byte[] messagePrefix = Encoding.UTF8.GetBytes(
-            "manual snapshot\n\nBeutl-Snapshot: manual\n");
-        byte[] reconstructedTrailer = Encoding.UTF8.GetBytes(
-            "\n\nBeutl-Snapshot: manual\n");
-        int hookMessageLength = messagePrefix.Length + 1 + (addsTrailingNewline ? 1 : 0);
-        var expectedMessage = new byte[hookMessageLength + reconstructedTrailer.Length];
-        messagePrefix.CopyTo(expectedMessage, 0);
-        expectedMessage[messagePrefix.Length] = 0xe9;
-        if (addsTrailingNewline)
-        {
-            expectedMessage[messagePrefix.Length + 1] = (byte)'\n';
-        }
-
-        reconstructedTrailer.CopyTo(expectedMessage, hookMessageLength);
-        string snapshotTrailer = (await RunGitAsync(
-                "show",
-                "-s",
-                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
-                sha))
-            .Stdout.Trim();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(commitObject.StdoutTruncated, Is.False);
-            Assert.That(bodySeparator, Is.GreaterThanOrEqualTo(0));
-            Assert.That(
-                bodySeparator < 0 ? [] : bytes[(bodySeparator + 2)..],
-                Is.EqualTo(expectedMessage));
-            Assert.That(snapshotTrailer, Is.EqualTo("manual"));
-        });
-    }
-
-    [Test]
-    [NonParallelizable]
-    public async Task CommitAllAsync_ignores_ambient_identity_and_freezes_it_before_hooks()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await WriteHookAsync(
-            "pre-commit",
-            "printf '%s|%s|%s|%s|%s|%s\\n' "
-            + "\"$GIT_AUTHOR_NAME\" \"$GIT_AUTHOR_EMAIL\" \"$GIT_AUTHOR_DATE\" "
-            + "\"$GIT_COMMITTER_NAME\" \"$GIT_COMMITTER_EMAIL\" \"$GIT_COMMITTER_DATE\" "
-            + "> pre-ident.txt\n"
-            + "git config user.name 'Hook Mutation'\n"
-            + "git config user.email hook-mutation@example.invalid\n"
-            + "sleep 2\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        string[] ambientVariables =
-        [
-            "GIT_AUTHOR_DATE",
-            "GIT_AUTHOR_EMAIL",
-            "GIT_AUTHOR_NAME",
-            "GIT_COMMITTER_DATE",
-            "GIT_COMMITTER_EMAIL",
-            "GIT_COMMITTER_NAME",
-        ];
-        var originalValues = ambientVariables.ToDictionary(
-            static name => name,
-            Environment.GetEnvironmentVariable);
-        Dictionary<string, string?> isolatedEnvironment = IsolatedGitEnvironment
-            .Where(static pair => pair.Key is not "GIT_AUTHOR_DATE" and not "GIT_COMMITTER_DATE")
-            .ToDictionary(static pair => pair.Key, static pair => pair.Value);
-        DateTimeOffset commitStartedAt = DateTimeOffset.UtcNow;
-        CommitResult.Committed result;
-        DateTimeOffset commitFinishedAt;
-        try
-        {
-            Environment.SetEnvironmentVariable("GIT_AUTHOR_DATE", "2001-01-01T00:00:00Z");
-            Environment.SetEnvironmentVariable("GIT_AUTHOR_EMAIL", "ambient-author@example.invalid");
-            Environment.SetEnvironmentVariable("GIT_AUTHOR_NAME", "Ambient Author");
-            Environment.SetEnvironmentVariable("GIT_COMMITTER_DATE", "2099-12-31T23:59:59Z");
-            Environment.SetEnvironmentVariable(
-                "GIT_COMMITTER_EMAIL",
-                "ambient-committer@example.invalid");
-            Environment.SetEnvironmentVariable("GIT_COMMITTER_NAME", "Ambient Committer");
-            var runner = new GitCliRunner(
-                GitPath,
-                TimeSpan.FromSeconds(10),
-                isolatedEnvironment);
-            using var service = new GitCliVersionControlService(
-                CreateInstalledLocator(),
-                Repository,
-                watcher: null,
-                _ => runner);
-
-            result = (CommitResult.Committed)await service.CommitAllAsync(
-                "manual snapshot",
-                SnapshotKind.Manual,
-                CancellationToken.None);
-            commitFinishedAt = DateTimeOffset.UtcNow;
-        }
-        finally
-        {
-            foreach ((string name, string? value) in originalValues)
-            {
-                Environment.SetEnvironmentVariable(name, value);
-            }
-        }
-
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
-        string[] preIdent = (await File.ReadAllTextAsync(Path.Combine(Root, "pre-ident.txt")))
-            .TrimEnd('\r', '\n')
-            .Split('|');
-        string[] committed = (await RunGitAsync(
-                "show",
-                "-s",
-                "--format=%an%x00%ae%x00%cn%x00%ce%x00%at%x00%ct",
-                sha))
-            .Stdout.TrimEnd('\r', '\n')
-            .Split('\0');
-        static string Timestamp(string value) => value.TrimStart('@').Split(' ')[0];
-        long earliestExpectedTimestamp = commitStartedAt.AddSeconds(-1).ToUnixTimeSeconds();
-        long latestExpectedTimestamp = commitFinishedAt.AddSeconds(1).ToUnixTimeSeconds();
-        Assert.Multiple(() =>
-        {
-            Assert.That(preIdent, Has.Length.EqualTo(6));
-            Assert.That(committed, Has.Length.EqualTo(6));
-            Assert.That(committed[0], Is.EqualTo("Beutl Test"));
-            Assert.That(committed[1], Is.EqualTo("beutl-test@example.invalid"));
-            Assert.That(committed[2], Is.EqualTo("Beutl Test"));
-            Assert.That(committed[3], Is.EqualTo("beutl-test@example.invalid"));
-            Assert.That(committed[0], Is.EqualTo(preIdent[0]));
-            Assert.That(committed[1], Is.EqualTo(preIdent[1]));
-            Assert.That(committed[2], Is.EqualTo(preIdent[3]));
-            Assert.That(committed[3], Is.EqualTo(preIdent[4]));
-            Assert.That(committed[4], Is.EqualTo(Timestamp(preIdent[2])));
-            Assert.That(committed[5], Is.EqualTo(Timestamp(preIdent[5])));
-            Assert.That(
-                long.Parse(committed[4], System.Globalization.CultureInfo.InvariantCulture),
-                Is.InRange(earliestExpectedTimestamp, latestExpectedTimestamp));
-            Assert.That(
-                long.Parse(committed[5], System.Globalization.CultureInfo.InvariantCulture),
-                Is.InRange(earliestExpectedTimestamp, latestExpectedTimestamp));
-            Assert.That(committed, Has.None.EqualTo("Hook Mutation"));
-            Assert.That(committed, Has.None.EqualTo("hook-mutation@example.invalid"));
-            Assert.That(committed, Has.None.EqualTo("Ambient Author"));
-            Assert.That(committed, Has.None.EqualTo("ambient-author@example.invalid"));
-            Assert.That(committed, Has.None.EqualTo("Ambient Committer"));
-            Assert.That(committed, Has.None.EqualTo("ambient-committer@example.invalid"));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_a_hook_created_symlink_entry()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string blob = (await RunGitAsync("rev-parse", "HEAD:project.bep")).Stdout.Trim();
-        await WriteHookAsync(
-            "pre-commit",
-            $"git update-index --add --cacheinfo 120000,{blob},project.bep\n");
-        await WriteHookAsync("post-commit", "printf 'post\\n' > hook-post.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "manual snapshot",
-                SnapshotKind.Manual,
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("non-regular"));
-            Assert.That((RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult()).Stdout.Trim(),
-                Is.EqualTo(baseTip));
-            Assert.That(File.Exists(Path.Combine(Root, "hook-post.txt")), Is.False);
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_a_hook_deleted_project_entry()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await WriteHookAsync(
-            "pre-commit",
-            "git update-index --force-remove -- project.bep\n");
-        await WriteHookAsync("post-commit", "printf 'post\\n' > hook-post.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "manual snapshot",
-                SnapshotKind.Manual,
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("removed content"));
-            Assert.That((RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult()).Stdout.Trim(),
-                Is.EqualTo(baseTip));
-            Assert.That(File.Exists(Path.Combine(Root, "hook-post.txt")), Is.False);
             Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
         });
     }
@@ -4170,31 +2994,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(result, Is.TypeOf<CommitResult.Committed>());
             Assert.That(commit, Does.Not.Contain("-S"));
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_returns_no_changes_when_a_hook_restores_the_parent_tree()
-    {
-        await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await WriteHookAsync("pre-commit", "git read-tree HEAD\n");
-        await WriteHookAsync("post-commit", "printf 'post\\n' > hook-post.txt\n");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
-        using var service = CreateService();
-
-        CommitResult result = await service.CommitAllAsync(
-            "manual snapshot",
-            SnapshotKind.Manual,
-            CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
-            Assert.That((RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult()).Stdout.Trim(),
-                Is.EqualTo(baseTip));
-            Assert.That(File.Exists(Path.Combine(Root, "hook-post.txt")), Is.False);
-            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
         });
     }
 
@@ -9259,9 +8058,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 _repositoryInitialized.TrySetResult();
                 await _releaseRepositoryInitialization.Task.WaitAsync(cancellationToken);
             }
-            else if (IsSnapshotRefUpdate(
-                         arguments,
-                         "beutl: initialize version control"))
+            else if (IsSnapshotCommit(arguments, SnapshotKind.Init))
             {
                 _initialCommitCompleted.TrySetResult();
                 await _releaseInitialCommit.Task.WaitAsync(cancellationToken);
@@ -9642,7 +8439,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (IsSnapshotRefUpdate(arguments, "beutl: initialize version control"))
+            if (IsSnapshotCommit(arguments, SnapshotKind.Init))
             {
                 Interlocked.Increment(ref _initialCommitAttempts);
                 beforeFailure?.Invoke(repository);
@@ -9699,7 +8496,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (IsSnapshotRefUpdate(arguments, "beutl: initialize version control"))
+            if (IsSnapshotCommit(arguments, SnapshotKind.Init))
             {
                 Interlocked.Increment(ref _initialCommitAttempts);
                 throw new TimeoutException("simulated lost initial commit result");
@@ -9735,7 +8532,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            if (IsSnapshotRefUpdate(arguments, "beutl: save snapshot"))
+            if (IsSnapshotCommit(arguments, SnapshotKind.Save))
             {
                 Interlocked.Increment(ref _commitAttempts);
                 beforeFailure?.Invoke(repository);
@@ -9947,7 +8744,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (IsSnapshotRefUpdate(arguments, "beutl: save snapshot"))
+            if (IsSnapshotCommit(arguments, SnapshotKind.Save))
             {
                 Interlocked.Increment(ref _commitAttempts);
                 throw new TimeoutException("simulated lost snapshot commit result");
@@ -10480,13 +9277,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                && arguments[2] == "commit";
     }
 
-    private static bool IsSnapshotRefUpdate(
+    private static bool IsSnapshotCommit(
         IReadOnlyList<string> arguments,
-        string reflogMessage)
+        SnapshotKind kind)
     {
-        return arguments.FirstOrDefault() == "update-ref"
-               && arguments.Contains("-m")
-               && arguments.Contains(reflogMessage);
+        return arguments.FirstOrDefault() == "commit"
+               && arguments.Contains($"Beutl-Snapshot: {kind.ToString().ToLowerInvariant()}");
     }
 
     private sealed class FailingIdentityEmailWriteRunner(

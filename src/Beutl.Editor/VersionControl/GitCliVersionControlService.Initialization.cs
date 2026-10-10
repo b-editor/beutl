@@ -337,64 +337,17 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        await EnsureNoExternalRepositoryOperationAsync(
+        await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureProjectFileIsVersionedAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        await CommitProjectSnapshotAsync(
                 repository,
                 runner,
+                "beutl: initialize version control",
+                SnapshotKind.Init,
                 cancellationToken)
             .ConfigureAwait(false);
-        string branchRef = await GetAttachedBranchRefCoreAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-        (string? originalBranchTip, SnapshotTreeCapture snapshot) = await CaptureBranchSnapshotAsync(
-                repository,
-                runner,
-                branchRef,
-                cancellationToken)
-            .ConfigureAwait(false);
-        string desiredTree = snapshot.Tree;
-        string? originalTree = originalBranchTip is null
-            ? null
-            : await ResolveTreeAsync(
-                    repository,
-                    runner,
-                    originalBranchTip,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        if (originalTree is null
-            || !string.Equals(desiredTree, originalTree, StringComparison.OrdinalIgnoreCase))
-        {
-            using HeadOwnershipLease headLease = await AcquireSnapshotHeadLeaseAsync(
-                    repository,
-                    runner,
-                    branchRef,
-                    originalBranchTip,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            SnapshotCommit commit = await CreateSnapshotCommitAsync(
-                    repository,
-                    runner,
-                    desiredTree,
-                    originalBranchTip,
-                    "beutl: initialize version control",
-                    SnapshotKind.Init,
-                    cancellationToken)
-                .ConfigureAwait(false)
-                ?? throw new InvalidOperationException(
-                    "The initial snapshot did not produce a commit.");
-            await PublishSnapshotAndRunPostCommitHookAsync(
-                    repository,
-                    runner,
-                    branchRef,
-                    originalBranchTip,
-                    commit,
-                    snapshot,
-                    headLease,
-                    "beutl: initialize version control",
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
     }
 
     private async Task EnsureInitializationPreflightCoreAsync(
