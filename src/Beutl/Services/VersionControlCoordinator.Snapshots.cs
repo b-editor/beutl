@@ -130,9 +130,18 @@ internal partial class VersionControlCoordinator
                 PublishNotification(() =>
                     NotificationService.ShowWarning(
                         Strings.VersionControl,
-                        Strings.VersionControl_SaveSnapshotFailed));
+                        FormatSnapshotFailure(ex)));
             }
         }
+    }
+
+    // Names what stopped the snapshot, such as the output of a pre-commit hook that rejected it, so
+    // the user knows what to fix before saving again.
+    private static string FormatSnapshotFailure(Exception exception)
+    {
+        return string.Format(
+            Strings.VersionControl_SaveSnapshotFailedFormat,
+            GetErrorText(exception));
     }
 
     private async Task<IProjectVersionControlBackend?> WaitForSaveSnapshotBackendAsync(

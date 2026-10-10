@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Microsoft.Extensions.Time.Testing;
@@ -38,8 +39,6 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             Assert.That(startInfo.UseShellExecute, Is.False);
             Assert.That(startInfo.RedirectStandardInput, Is.True);
-            Assert.That(startInfo.StandardInputEncoding?.WebName, Is.EqualTo("utf-8"));
-            Assert.That(startInfo.StandardInputEncoding?.GetPreamble(), Is.Empty);
             Assert.That(startInfo.WorkingDirectory, Is.EqualTo(Repository.RepoRoot));
             Assert.That(startInfo.ArgumentList,
                 Is.EqualTo(new[] { "show", "--format=value with spaces", "HEAD" }));
@@ -874,44 +873,84 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.That(followUp.ExitCode, Is.Zero);
     }
 
-    // With the pipes left open, only the end of the descendant can confirm cleanup.
+    // After the command exits, a process it left behind can hold its pipes: a hook's background job,
+    // or an SSH connection master that keeps stderr. Only the drain period is waited for, whatever the
+    // command's deadline, and what was read is returned.
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Local_timeout_covers_pipe_drains_after_wrapper_exits(bool leavePipesOpen)
+    public async Task Exited_command_returns_its_result_while_a_descendant_holds_stderr(bool unbounded)
     {
-        RequireOwnedProcessGroups();
+        RequireUnixShell();
 
-        (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
-            StartExitedWrapperWithPipeHoldingDescendant(
-                TimeSpan.FromSeconds(1),
-                CancellationToken.None,
-                leavePipesOpen);
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(30), IsolatedGitEnvironment);
         var stopwatch = Stopwatch.StartNew();
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", "sleep 30 > /dev/null & " + RecordBackgroundProcess + "printf done; printf diagnostic >&2"],
+            WithRecordedProcessPath(pidPath) with { ExecutionKind = LocalKind(unbounded) },
+            CancellationToken.None);
         RecordedProcess? descendant = null;
-        string lockPath = await CreateStaleIndexLockAsync();
 
         try
         {
             descendant = await WaitForRecordedProcessAsync(pidPath);
-            Assert.That(descendant, Is.Not.Null);
-            await Assert.ThrowsAsync<TimeoutException>(
-                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
+            GitCommandResult result = await runTask.WaitAsync(TimeSpan.FromSeconds(8));
             stopwatch.Stop();
 
             Assert.Multiple(() =>
             {
-                Assert.That(
-                    runTask.IsCompleted,
-                    Is.True,
-                    "The runner must enforce its deadline instead of relying on the test safety timeout.");
-                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
+                Assert.That(descendant, Is.Not.Null);
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(result.Stdout, Is.EqualTo("done"));
+                Assert.That(result.StdoutTruncated, Is.False);
+                Assert.That(result.Stderr, Is.EqualTo("diagnostic"));
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(4)));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(descendant);
+            await ObserveAsync(runTask);
+        }
+    }
+
+    // Stdout still held after the exit cannot be read to its end. A caller without a limit needs all
+    // of it, so the command fails instead of handing back part of it as complete.
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Exited_command_fails_when_a_descendant_holds_stdout_without_a_limit(bool unbounded)
+    {
+        RequireUnixShell();
+
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(30), IsolatedGitEnvironment);
+        string lockPath = await CreateStaleIndexLockAsync();
+        var stopwatch = Stopwatch.StartNew();
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", "sleep 30 & " + RecordBackgroundProcess + "printf done"],
+            WithRecordedProcessPath(pidPath) with { ExecutionKind = LocalKind(unbounded) },
+            CancellationToken.None);
+        RecordedProcess? descendant = null;
+
+        try
+        {
+            descendant = await WaitForRecordedProcessAsync(pidPath);
+            GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(8)));
+            stopwatch.Stop();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(descendant, Is.Not.Null);
+                Assert.That(exception!.ExitCode, Is.EqualTo(GitCliRunner.IncompleteStdoutExitCode));
+                Assert.That(exception.Stderr, Does.Contain("not read to its end"));
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(4)));
                 Assert.That(runner.HasActiveProcess, Is.False);
                 Assert.That(runner.GetRecoverableRepositoryLock(Repository)?.LockPath, Is.EqualTo(lockPath));
             });
-            Assert.That(
-                await descendant!.WaitForEndAsync(TimeSpan.FromSeconds(2)),
-                Is.True,
-                "The runner must terminate the descendant that outlived its wrapper.");
             await AssertFollowUpCommandRunsAsync(runner);
         }
         finally
@@ -921,47 +960,36 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Caller_cancellation_covers_pipe_drains_after_wrapper_exits(bool leavePipesOpen)
+    // A caller that set a limit already treats truncated output as incomplete.
+    [Test]
+    public async Task Exited_command_marks_limited_stdout_still_held_by_a_descendant_as_truncated()
     {
-        RequireOwnedProcessGroups();
+        RequireUnixShell();
 
-        using var cancellation = new CancellationTokenSource();
-        (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
-            StartExitedWrapperWithPipeHoldingDescendant(
-                TimeSpan.FromSeconds(10),
-                cancellation.Token,
-                leavePipesOpen);
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(30), IsolatedGitEnvironment);
+        var stopwatch = Stopwatch.StartNew();
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", "sleep 30 & " + RecordBackgroundProcess + "printf done"],
+            WithRecordedProcessPath(pidPath) with { MaxStdoutBytes = 1024 },
+            CancellationToken.None);
         RecordedProcess? descendant = null;
 
         try
         {
             descendant = await WaitForRecordedProcessAsync(pidPath);
-            Assert.That(descendant, Is.Not.Null);
-            await Task.Delay(200);
-            var stopwatch = Stopwatch.StartNew();
-            cancellation.Cancel();
-
-            OperationCanceledException? exception = await Assert.ThrowsAsync<OperationCanceledException>(
-                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(3)));
+            GitCommandResult result = await runTask.WaitAsync(TimeSpan.FromSeconds(8));
             stopwatch.Stop();
 
             Assert.Multiple(() =>
             {
-                Assert.That(exception!.CancellationToken, Is.EqualTo(cancellation.Token));
-                Assert.That(
-                    runTask.IsCompleted,
-                    Is.True,
-                    "The runner must enforce caller cancellation instead of relying on the test safety timeout.");
-                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
-                Assert.That(runner.HasActiveProcess, Is.False);
+                Assert.That(descendant, Is.Not.Null);
+                Assert.That(result.ExitCode, Is.Zero);
+                Assert.That(result.Stdout, Is.EqualTo("done"));
+                Assert.That(result.StdoutTruncated, Is.True);
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(4)));
             });
-            Assert.That(
-                await descendant!.WaitForEndAsync(TimeSpan.FromSeconds(2)),
-                Is.True,
-                "The runner must terminate the descendant that outlived its wrapper.");
-            await AssertFollowUpCommandRunsAsync(runner);
         }
         finally
         {
@@ -970,34 +998,43 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
-    // A descendant that no longer holds the command's pipes is invisible to the pipe drain and, once
-    // its parent has exited, to a walk of the process tree. The command's group still owns it.
+    // The orphan's parent exited before the kill, so on Unix killing the command's tree cannot reach
+    // it while it holds the pipes. The runner stops reading after the drain period.
     [Test]
-    public async Task Local_timeout_terminates_an_orphaned_descendant_that_holds_no_pipe()
+    public async Task Local_timeout_bounds_the_drain_of_pipes_held_by_an_orphan_the_kill_misses()
     {
-        RequireOwnedProcessGroups();
+        RequireUnixShell();
 
         string pidPath = Path.Combine(CreateTemporaryDirectory(), "orphan.pid");
         var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(1), IsolatedGitEnvironment);
+        var stopwatch = Stopwatch.StartNew();
         Task<GitCommandResult> runTask = runner.RunAsync(
             Repository,
-            ["-c", "(" + RecordAndSleepWithoutPipes + " &); exec sleep 30"],
+            ["-c", StartPipeHoldingOrphan + "exec sleep 30"],
             WithRecordedProcessPath(pidPath),
             CancellationToken.None);
         RecordedProcess? orphan = null;
+        string lockPath = await CreateStaleIndexLockAsync();
 
         try
         {
             orphan = await WaitForRecordedProcessAsync(pidPath);
             Assert.That(orphan, Is.Not.Null);
             await Assert.ThrowsAsync<TimeoutException>(
-                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(8)));
+            stopwatch.Stop();
 
-            Assert.That(runner.HasActiveProcess, Is.False);
-            Assert.That(
-                await orphan!.WaitForEndAsync(TimeSpan.FromSeconds(2)),
-                Is.True,
-                "The runner must terminate a group member whose parent has already exited.");
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    runTask.IsCompleted,
+                    Is.True,
+                    "The runner must bound the drain instead of relying on the test safety timeout.");
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
+                Assert.That(runner.HasActiveProcess, Is.False);
+                Assert.That(runner.GetRecoverableRepositoryLock(Repository)?.LockPath, Is.EqualTo(lockPath));
+            });
+            await AssertFollowUpCommandRunsAsync(runner);
         }
         finally
         {
@@ -1006,12 +1043,94 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
-    // A command that finishes on its own releases its group. Background work that closed the
-    // command's pipes, such as a hook starting a detached job, is neither waited for nor killed.
+    [Test]
+    public async Task Caller_cancellation_bounds_the_drain_of_pipes_held_by_an_orphan_the_kill_misses()
+    {
+        RequireUnixShell();
+
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "orphan.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        using var cancellation = new CancellationTokenSource();
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", StartPipeHoldingOrphan + "exec sleep 30"],
+            WithRecordedProcessPath(pidPath),
+            cancellation.Token);
+        RecordedProcess? orphan = null;
+
+        try
+        {
+            orphan = await WaitForRecordedProcessAsync(pidPath);
+            Assert.That(orphan, Is.Not.Null);
+            await Task.Delay(200);
+            var stopwatch = Stopwatch.StartNew();
+            cancellation.Cancel();
+
+            OperationCanceledException? exception = await Assert.ThrowsAsync<OperationCanceledException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(8)));
+            stopwatch.Stop();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(exception!.CancellationToken, Is.EqualTo(cancellation.Token));
+                Assert.That(
+                    runTask.IsCompleted,
+                    Is.True,
+                    "The runner must bound the drain instead of relying on the test safety timeout.");
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(4)));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+            await AssertFollowUpCommandRunsAsync(runner);
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(orphan);
+            await ObserveAsync(runTask);
+        }
+    }
+
+    // While the command still runs, its whole process tree is killed, including a descendant that
+    // holds none of its pipes.
+    [Test]
+    public async Task Local_timeout_kills_the_process_tree_of_a_running_command()
+    {
+        RequireUnixShell();
+
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(1), IsolatedGitEnvironment);
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", RecordAndSleepWithoutPipes + " & wait"],
+            WithRecordedProcessPath(pidPath),
+            CancellationToken.None);
+        RecordedProcess? descendant = null;
+
+        try
+        {
+            descendant = await WaitForRecordedProcessAsync(pidPath);
+            Assert.That(descendant, Is.Not.Null);
+            await Assert.ThrowsAsync<TimeoutException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
+
+            Assert.That(runner.HasActiveProcess, Is.False);
+            Assert.That(
+                await descendant!.WaitForEndAsync(TimeSpan.FromSeconds(2)),
+                Is.True,
+                "The runner must kill the descendants of a command that is still running.");
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(descendant);
+            await ObserveAsync(runTask);
+        }
+    }
+
+    // A command that finishes on its own is not killed. Background work that closed the command's
+    // pipes, such as a hook starting a detached job, is neither waited for nor killed.
     [Test]
     public async Task Completed_command_leaves_background_work_that_released_its_pipes()
     {
-        RequireOwnedProcessGroups();
+        RequireUnixShell();
 
         string pidPath = Path.Combine(CreateTemporaryDirectory(), "background.pid");
         var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
@@ -1043,239 +1162,65 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
-    // The command has exited and its pipes are closed, but a member of its group survived the kill.
-    // It may still hold a repository lock, so the runner stays quarantined until it has gone.
     [Test]
-    public async Task Group_member_that_survives_the_kill_keeps_the_runner_quarantined()
+    public async Task Command_receives_its_arguments_environment_utf8_input_and_working_directory()
     {
-        RequireOwnedProcessGroups();
+        RequireUnixShell();
 
-        string pidPath = Path.Combine(CreateTemporaryDirectory(), "survivor.pid");
-        // Only the launched process is killed, as when a member cannot be signalled.
-        var runner = new GitCliRunner(
-            "/bin/sh",
-            TimeSpan.FromMilliseconds(500),
-            IsolatedGitEnvironment,
-            killProcessGroup: static process => KillOnly(process.Id));
-        Task<GitCommandResult> runTask = runner.RunAsync(
-            Repository,
-            ["-c", RecordAndSleepWithoutPipes + " & exec sleep 30"],
-            WithRecordedProcessPath(pidPath),
-            CancellationToken.None);
-        string lockPath = await CreateStaleIndexLockAsync();
-        RecordedProcess? survivor = null;
-        Task<GitCommandResult>? followUp = null;
-
-        try
-        {
-            survivor = await WaitForRecordedProcessAsync(pidPath);
-            Assert.That(survivor, Is.Not.Null);
-            await Assert.ThrowsAsync<TimeoutException>(
-                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
-            // Well past the launched process's exit.
-            await Task.Delay(500);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(survivor!.IsRunning(), Is.True);
-                Assert.That(runner.HasActiveProcess, Is.True);
-                Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
-            });
-            followUp = runner.RunAsync(
-                Repository,
-                ["-c", "exit 0"],
-                GitCommandOptions.Local,
-                CancellationToken.None);
-            await Task.Delay(100);
-            Assert.That(followUp.IsCompleted, Is.False);
-        }
-        finally
-        {
-            await KillRecordedProcessAsync(survivor);
-            await ObserveAsync(runTask);
-        }
-
-        GitCommandResult followUpResult = await followUp!.WaitAsync(TimeSpan.FromSeconds(3));
-        Assert.Multiple(() =>
-        {
-            Assert.That(followUpResult.ExitCode, Is.Zero);
-            Assert.That(runner.HasActiveProcess, Is.False);
-            Assert.That(runner.GetRecoverableRepositoryLock(Repository)?.LockPath, Is.EqualTo(lockPath));
-        });
-    }
-
-    // A descendant that starts its own session has left the command on purpose. It is not killed,
-    // and closing the command's pipes detaches it instead of waiting for it.
-    [Test]
-    public async Task Descendant_that_leaves_the_group_is_detached_rather_than_owned()
-    {
-        RequireOwnedProcessGroups();
-
-        string? leaveGroup = File.Exists("/usr/bin/setsid") ? "/usr/bin/setsid"
-            : File.Exists("/bin/setsid") ? "/bin/setsid"
-            : File.Exists("/usr/bin/perl") ? "/usr/bin/perl -MPOSIX -e 'defined(POSIX::setsid()) or die; exec @ARGV'"
-            : null;
-        if (leaveGroup is null)
-        {
-            Assert.Ignore("Neither setsid nor perl is available to leave the process group.");
-        }
-
-        string pidPath = Path.Combine(CreateTemporaryDirectory(), "escaped.pid");
-        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(1), IsolatedGitEnvironment);
-        Task<GitCommandResult> runTask = runner.RunAsync(
-            Repository,
-            ["-c", $"{leaveGroup} sleep 30 & printf '%s' \"$!\" > \"$BEUTL_TEST_PROCESS_PID\"; exit 0"],
-            WithRecordedProcessPath(pidPath),
-            CancellationToken.None);
-        RecordedProcess? escaped = null;
-
-        try
-        {
-            escaped = await WaitForRecordedProcessAsync(pidPath);
-            Assert.That(escaped, Is.Not.Null);
-            await Assert.ThrowsAsync<TimeoutException>(
-                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
-            await Task.Delay(200);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(runner.HasActiveProcess, Is.False);
-                Assert.That(escaped!.IsRunning(), Is.True);
-            });
-            await AssertFollowUpCommandRunsAsync(runner);
-        }
-        finally
-        {
-            await KillRecordedProcessAsync(escaped);
-            await ObserveAsync(runTask);
-        }
-    }
-
-    // A runtime that started with SIGCHLD ignored reaps every child, taking the status with it.
-    [Test]
-    public async Task Exit_status_reaped_elsewhere_is_reported_as_a_failure()
-    {
-        RequireOwnedProcessGroups();
-
-        string pidPath = Path.Combine(CreateTemporaryDirectory(), "reaped.pid");
-        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
-        try
-        {
-            Task<GitCommandResult> runTask = runner.RunAsync(
-                Repository,
-                ["-c", "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; sleep 0.2; exit 0"],
-                WithRecordedProcessPath(pidPath),
-                CancellationToken.None);
-            int? processId = await WaitForRecordedProcessIdAsync(pidPath);
-            Assert.That(processId, Is.Not.Null);
-            // The runner only reaps once the command has exited and its pipes have closed, so a reaper
-            // already waiting gets there first.
-            if (await Task.Run(() => UnixProcessTestMethods.Reap(processId!.Value)) != processId)
-            {
-                Assert.Inconclusive("The runner collected the exit status before the test could.");
-            }
-
-            GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
-                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(5)));
-            Assert.Multiple(() =>
-            {
-                Assert.That(exception!.ExitCode, Is.EqualTo(GitCliRunner.UncollectedExitCode));
-                Assert.That(exception.Stderr, Does.Contain("could not be collected"));
-                Assert.That(runner.HasActiveProcess, Is.False);
-            });
-        }
-        finally
-        {
-            if (!OperatingSystem.IsWindows())
-            {
-                UnixGitProcess.ResetChildrenReapedElsewhereForTesting();
-            }
-        }
-    }
-
-    [Test]
-    public async Task Command_leads_a_process_group_of_its_own()
-    {
-        RequireOwnedProcessGroups();
-
+        await File.WriteAllTextAsync(Path.Combine(Root, "marker"), "in the working directory");
         var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
 
         GitCommandResult result = await runner.RunAsync(
             Repository,
-            ["-c", "printf '%s %s' \"$$\" \"$(ps -o pgid= -p $$)\""],
-            GitCommandOptions.Local,
+            [
+                "-c",
+                "printf '%s|%s|' \"$1\" \"$BEUTL_TEST_VALUE\"; cat marker; printf '|'; cat; printf 'diagnostic' >&2",
+                "sh",
+                "first argument",
+            ],
+            GitCommandOptions.Local with
+            {
+                EnvironmentOverrides = new Dictionary<string, string?>
+                {
+                    ["BEUTL_TEST_VALUE"] = "héllo wörld",
+                },
+                StandardInput = "入力",
+            },
             CancellationToken.None);
 
-        string[] ids = result.Stdout.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        Assert.That(ids, Has.Length.EqualTo(2));
-        Assert.That(ids[1], Is.EqualTo(ids[0]));
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Unconfirmed_process_exit_quarantines_follow_up_commands_and_lock_recovery(
-        bool callerCancellation)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This live process regression uses the Unix process model.");
-        }
-
-        using var cancellation = new CancellationTokenSource();
-        TimeSpan localTimeout = callerCancellation
-            ? TimeSpan.FromSeconds(10)
-            : TimeSpan.FromMilliseconds(500);
-        (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
-            StartProcessWhoseCleanupCannotStop(
-                localTimeout,
-                callerCancellation ? cancellation.Token : CancellationToken.None);
-        Task<GitCommandResult>? followUp = null;
-        string lockPath = Path.Combine(Root, ".git", "index.lock");
-        await File.WriteAllTextAsync(lockPath, "surviving process lock");
-        File.SetLastWriteTimeUtc(
-            lockPath,
-            DateTime.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
-
-        try
-        {
-            Assert.That(await WaitForRecordedProcessIdAsync(pidPath), Is.Not.Null);
-            if (callerCancellation)
-            {
-                cancellation.Cancel();
-                await Assert.ThrowsAsync<OperationCanceledException>(
-                    async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
-            }
-            else
-            {
-                await Assert.ThrowsAsync<TimeoutException>(
-                    async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
-            }
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(runner.HasActiveProcess, Is.True);
-                Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
-            });
-            followUp = runner.RunAsync(
-                Repository,
-                ["-c", "exit 0"],
-                GitCommandOptions.Local,
-                CancellationToken.None);
-            await Task.Delay(100);
-            Assert.That(followUp.IsCompleted, Is.False);
-        }
-        finally
-        {
-            await KillRecordedProcessAsync(pidPath);
-            await ObserveAsync(runTask);
-        }
-
-        GitCommandResult followUpResult = await followUp!.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.Multiple(() =>
         {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(
+                result.Stdout,
+                Is.EqualTo("first argument|héllo wörld|in the working directory|入力"));
+            Assert.That(result.Stderr, Is.EqualTo("diagnostic"));
+        });
+    }
+
+    // Input the command never reads breaks the pipe once it has exited. The command's own exit code
+    // and diagnostic are what the caller needs.
+    [Test]
+    public async Task Command_that_exits_without_reading_its_input_reports_its_own_failure()
+    {
+        RequireUnixShell();
+
+        var runner = new GitCliRunner("/bin/sh", TimeSpan.FromSeconds(10), IsolatedGitEnvironment);
+        // Larger than a pipe buffer, so the write cannot finish before the command exits.
+        var options = GitCommandOptions.Local with { StandardInput = new string('x', 1024 * 1024) };
+
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
+            async () => await runner.RunAsync(
+                Repository,
+                ["-c", "printf 'not reading' >&2; exit 3"],
+                options,
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.ExitCode, Is.EqualTo(3));
+            Assert.That(exception.Stderr, Is.EqualTo("not reading"));
             Assert.That(runner.HasActiveProcess, Is.False);
-            Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
-            Assert.That(followUpResult.ExitCode, Is.Zero);
         });
     }
 
@@ -1327,6 +1272,61 @@ public class GitCliRunnerTests : RealGitTestRepository
             Assert.That(truncated, Is.EqualTo(overflow));
             Assert.That(length, Is.EqualTo(limit));
             Assert.That(stream.Position, Is.EqualTo(stream.Length), "Capped output must still drain to EOF.");
+        });
+    }
+
+    [TestCase(false, null)]
+    [TestCase(true, null)]
+    [TestCase(false, 1024)]
+    [TestCase(true, 1024)]
+    public async Task Stopped_stdout_reader_returns_what_it_read_as_truncated(bool bytes, int? limit)
+    {
+        using var stream = new StallingStream("partial"u8.ToArray());
+        using var stop = new CancellationTokenSource();
+        Task<(string Output, bool Truncated)> read = bytes
+            ? ReadStandardOutputBytesAsTextAsync(stream, limit, stop.Token)
+            : GitCliRunner.ReadStandardOutputAsync(stream, limit, stop.Token);
+        await stream.Stalled.WaitAsync(TimeSpan.FromSeconds(5));
+
+        stop.Cancel();
+        (string output, bool truncated) = await read.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output, Is.EqualTo("partial"));
+            Assert.That(truncated, Is.True);
+        });
+
+        static async Task<(string Output, bool Truncated)> ReadStandardOutputBytesAsTextAsync(
+            Stream stream,
+            int? limit,
+            CancellationToken stopReading)
+        {
+            (byte[] output, bool truncated) = await GitCliRunner.ReadStandardOutputBytesAsync(
+                stream,
+                limit,
+                stopReading);
+            return (Encoding.UTF8.GetString(output), truncated);
+        }
+    }
+
+    [Test]
+    public async Task Stopped_stderr_reader_returns_and_reports_what_it_read()
+    {
+        using var stream = new StallingStream("fatal: first\npartial"u8.ToArray());
+        using var reader = new StreamReader(stream);
+        using var stop = new CancellationTokenSource();
+        var progress = new RecordingProgress();
+        Task<string> read = GitCliRunner.ReadStandardErrorAsync(reader, progress, stop.Token);
+        await stream.Stalled.WaitAsync(TimeSpan.FromSeconds(5));
+
+        stop.Cancel();
+        string stderr = await read.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stderr, Is.EqualTo("fatal: first\npartial"));
+            Assert.That(progress.Messages, Is.EqualTo(new[] { "fatal: first", "partial" }));
         });
     }
 
@@ -1981,6 +1981,72 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
+    [TestCase(true, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, false, true)]
+    public async Task Stale_lock_offer_reports_whether_it_requires_manual_removal(
+        bool supportsConditionalLockDeletion,
+        bool hasFileIdentity,
+        bool expectedRequiresManualRemoval)
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+
+        RepositoryLockFileSnapshot? ReadSnapshot(string path)
+        {
+            RepositoryLockFileSnapshot? snapshot = ReadTestLockFileSnapshot(path);
+            return hasFileIdentity || snapshot is not { } value
+                ? snapshot
+                : value with { Identity = null };
+        }
+
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now),
+            supportsConditionalLockDeletion: supportsConditionalLockDeletion,
+            readLockFileSnapshot: ReadSnapshot,
+            deleteLockFileConditionally: TryDeleteTestLockFileConditionally);
+        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                lockInfo.RequiresManualRemoval,
+                Is.EqualTo(expectedRequiresManualRemoval));
+            Assert.That(
+                runner.RemoveRecoverableRepositoryLock(Repository, lockInfo),
+                Is.EqualTo(!expectedRequiresManualRemoval));
+        });
+    }
+
+    [Test]
+    public async Task Default_runner_requires_manual_lock_removal_outside_windows()
+    {
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "stale");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        var runner = new GitCliRunner(
+            GitPath,
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            new FakeTimeProvider(now));
+
+        RepositoryLockInfo lockInfo = runner.GetRecoverableRepositoryLock(Repository)!;
+
+        Assert.That(
+            lockInfo.RequiresManualRemoval,
+            Is.EqualTo(!OperatingSystem.IsWindows()));
+    }
+
     [Test]
     public async Task Replacement_between_recheck_and_conditional_delete_is_not_removed()
     {
@@ -2131,64 +2197,6 @@ public class GitCliRunnerTests : RealGitTestRepository
         return true;
     }
 
-    private (GitCliRunner Runner, Task<GitCommandResult> RunTask, string PidPath)
-        StartExitedWrapperWithPipeHoldingDescendant(
-            TimeSpan localTimeout,
-            CancellationToken cancellationToken,
-            bool leavePipesOpen = false)
-    {
-        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
-        var runner = new GitCliRunner(
-            "/bin/sh",
-            localTimeout,
-            IsolatedGitEnvironment,
-            closeRedirectedStreams: leavePipesOpen ? static _ => { }
-        : null);
-        var options = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
-            new Dictionary<string, string?>
-            {
-                ["BEUTL_TEST_DESCENDANT_PID"] = pidPath,
-            });
-        const string command =
-            "sleep 30 & descendant=$!; "
-            + "printf '%s' \"$descendant\" > \"$BEUTL_TEST_DESCENDANT_PID\"; exit 0";
-        Task<GitCommandResult> runTask = runner.RunAsync(
-            Repository,
-            ["-c", command],
-            options,
-            cancellationToken);
-        return (runner, runTask, pidPath);
-    }
-
-    private (GitCliRunner Runner, Task<GitCommandResult> RunTask, string PidPath)
-        StartProcessWhoseCleanupCannotStop(
-            TimeSpan localTimeout,
-            CancellationToken cancellationToken)
-    {
-        string pidPath = Path.Combine(CreateTemporaryDirectory(), "process.pid");
-        var runner = new GitCliRunner(
-            "/bin/sh",
-            localTimeout,
-            IsolatedGitEnvironment,
-            killProcessGroup: static _ => { },
-            closeRedirectedStreams: static _ => { });
-        var options = new GitCommandOptions(
-            GitCommandExecutionKind.Local,
-            new Dictionary<string, string?>
-            {
-                ["BEUTL_TEST_PROCESS_PID"] = pidPath,
-            });
-        const string command =
-            "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; exec sleep 30";
-        Task<GitCommandResult> runTask = runner.RunAsync(
-            Repository,
-            ["-c", command],
-            options,
-            cancellationToken);
-        return (runner, runTask, pidPath);
-    }
-
     private static async Task<int?> WaitForRecordedProcessIdAsync(string pidPath)
     {
         for (int attempt = 0; attempt < 100; attempt++)
@@ -2205,12 +2213,11 @@ public class GitCliRunnerTests : RealGitTestRepository
         return null;
     }
 
-    // Without the posix_spawn implementation a command keeps Process, which owns no group.
-    private static void RequireOwnedProcessGroups()
+    private static void RequireUnixShell()
     {
-        if (OperatingSystem.IsWindows() || !UnixGitProcess.IsSupported)
+        if (OperatingSystem.IsWindows())
         {
-            Assert.Ignore("This regression needs a process group owned from launch.");
+            Assert.Ignore("This process regression uses a Unix shell.");
         }
     }
 
@@ -2293,11 +2300,74 @@ public class GitCliRunnerTests : RealGitTestRepository
             },
         };
 
-    // A member of the command's group that records its id and keeps running without the command's
-    // pipes.
+    private static GitCommandExecutionKind LocalKind(bool unbounded)
+        => unbounded ? GitCommandExecutionKind.LocalUnbounded : GitCommandExecutionKind.Local;
+
+    // Records the id of the job the command last started in the background.
+    private const string RecordBackgroundProcess = "printf '%s' \"$!\" > \"$BEUTL_TEST_PROCESS_PID\"; ";
+
+    // Starts a job that holds the command's pipes from a subshell that exits at once, so the job is
+    // no longer a descendant of the command by the time anything kills it.
+    private const string StartPipeHoldingOrphan = "(sleep 30 & " + RecordBackgroundProcess + "); ";
+
+    // A descendant that records its id and keeps running without the command's pipes.
     private const string RecordAndSleepWithoutPipes =
         "sh -c 'printf \"%s\" \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; exec sleep 30' "
         + "< /dev/null > /dev/null 2>&1";
+
+    // Returns its data from the first read, then blocks until the read is canceled.
+    private sealed class StallingStream(byte[] data) : Stream
+    {
+        private readonly TaskCompletionSource _stalled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool _served;
+
+        public Task Stalled => _stalled.Task;
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_served)
+            {
+                _served = true;
+                data.CopyTo(buffer);
+                return data.Length;
+            }
+
+            _stalled.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return 0;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 
     private sealed record RecordedProcess(int Id, DateTime StartTime)
     {
@@ -2331,32 +2401,6 @@ public class GitCliRunnerTests : RealGitTestRepository
             }
 
             return true;
-        }
-    }
-
-    private static async Task KillRecordedProcessAsync(string pidPath)
-    {
-        int? processId = await WaitForRecordedProcessIdAsync(pidPath);
-        if (processId is null)
-        {
-            return;
-        }
-
-        try
-        {
-            using Process process = Process.GetProcessById(processId.Value);
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(2));
-            }
-        }
-        catch (Exception ex) when (ex is ArgumentException
-                                   or InvalidOperationException
-                                   or System.ComponentModel.Win32Exception
-                                   or NotSupportedException
-                                   or TimeoutException)
-        {
         }
     }
 

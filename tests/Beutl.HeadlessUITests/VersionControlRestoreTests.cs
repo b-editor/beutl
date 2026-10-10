@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -687,7 +688,10 @@ public class VersionControlRestoreTests
                 Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
                 Assert.That(
                     warning.Message,
-                    Is.EqualTo(Strings.VersionControl_SaveSnapshotFailed));
+                    Is.EqualTo(string.Format(
+                        Strings.VersionControl_SaveSnapshotFailedFormat,
+                        "fatal: simulated snapshot failure")),
+                    "The warning must say what stopped the snapshot.");
             });
 
             backend.CommitAllFailure = null;
@@ -1099,9 +1103,9 @@ public class VersionControlRestoreTests
                         && item.Message == Strings.VersionControl_MissingIdentityNotice),
                     Is.EqualTo(1));
                 Assert.That(
-                    notifications.All.Any(item =>
-                        item.Message == Strings.VersionControl_SaveSnapshotFailed),
-                    Is.False);
+                    notifications.All.Count(item => item.Type == NotificationType.Warning),
+                    Is.EqualTo(1),
+                    "A skipped close snapshot must not also report a failed one.");
             });
         }
         finally
@@ -1158,8 +1162,11 @@ public class VersionControlRestoreTests
                 Assert.That(
                     notifications.All.Count(item =>
                         item.Type == NotificationType.Warning
-                        && item.Message == Strings.VersionControl_SaveSnapshotFailed),
-                    Is.EqualTo(1));
+                        && item.Message == string.Format(
+                            Strings.VersionControl_SaveSnapshotFailedFormat,
+                            "simulated retirement failure")),
+                    Is.EqualTo(1),
+                    "The close warning must say what stopped the final snapshot.");
                 Assert.That(
                     notifications.All.Any(item =>
                         item.Message == Strings.VersionControl_MissingIdentityNotice),
@@ -3070,7 +3077,7 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Null);
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<VersionControlLifecycleUnavailableException>(async () =>
                 await coordinator.CommitManualAsync("blocked alias"));
             Assert.That(shared.CommitAllCalls, Is.Zero);
 
@@ -3085,7 +3092,7 @@ public class VersionControlRestoreTests
                 Assert.That(coordinator.CurrentService, Is.Null);
                 Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
             });
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.ThrowsAsync<VersionControlLifecycleUnavailableException>(async () =>
                 await coordinator.CommitManualAsync("blocked during hygiene"));
             Assert.That(shared.CommitAllCalls, Is.Zero);
 
@@ -3134,6 +3141,67 @@ public class VersionControlRestoreTests
                 await disposal.WaitAsync(TimeSpan.FromSeconds(5));
             }
 
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Failed_activation_warns_with_its_reason_and_leaves_the_project_untracked()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+        const string reason = "fatal: simulated repository refusal";
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-activation-failure-reason");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                EnsureHygieneOverride = _ =>
+                    Task.FromException(new GitOperationException(128, reason)),
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            NotificationService.Handler = notifications;
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            await WaitUntilAsync(() => !notifications.All.IsEmpty);
+
+            Notification warning = notifications.All.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
+                Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
+                Assert.That(
+                    warning.Message,
+                    Is.EqualTo(string.Format(Strings.VersionControl_ActivationFailedFormat, reason)),
+                    "The warning must say why version control could not be enabled.");
+                Assert.That(coordinator.IsTracked.Value, Is.False);
+                Assert.That(coordinator.CurrentService, Is.Not.SameAs(backend));
+                Assert.That(editorService.ProjectVersionControlService.Value, Is.Not.SameAs(backend));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
             if (coordinator is not null)
             {
                 await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
@@ -3876,6 +3944,9 @@ public class VersionControlRestoreTests
                 rejectedOperation = ex;
             }
 
+            RemoteOpResult rejectedPull = await coordinator.PullAsync()
+                .WaitAsync(TimeSpan.FromSeconds(5));
+
             Assert.Multiple(() =>
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
@@ -3883,6 +3954,9 @@ public class VersionControlRestoreTests
                 Assert.That(editorServiceDuringClose, Is.Null);
                 Assert.That(coordinator.IsTracked.Value, Is.False);
                 Assert.That(rejectedOperation, Is.TypeOf<InvalidOperationException>());
+                Assert.That(rejectedPull, Is.EqualTo(new RemoteOpResult.Failed(
+                    "The open project changed while the pull was being prepared.")));
+                Assert.That(backend.PreflightCalls, Is.Zero);
                 Assert.That(backend.RetirementCalls, Is.EqualTo(1));
                 Assert.That(backend.CallsAfterRetirement, Is.Zero);
             });
@@ -5729,6 +5803,146 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Removable_stale_lock_is_removed_only_after_consent()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            NotificationService.Handler = notifications;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-lock-removal-consent");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RemoveRecoverableLockResult = true,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            int confirmationCount = 0;
+            coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref confirmationCount);
+                return Task.FromResult(true);
+            };
+            var lockInfo = new RepositoryLockInfo(
+                Path.Combine(projectRoot, ".git", "index.lock"),
+                DateTimeOffset.UtcNow,
+                requiresManualRemoval: false);
+
+            backend.RaiseRecoverableLock(lockInfo);
+            await WaitUntilAsync(() =>
+                notifications.All.Any(notification =>
+                    notification.Message == Strings.VersionControl_StaleLockRemoved));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Volatile.Read(ref confirmationCount), Is.EqualTo(1));
+                Assert.That(backend.RemoveRecoverableLockCalls, Is.EqualTo(1));
+                Assert.That(backend.RecoverableLock, Is.Null);
+                Assert.That(
+                    notifications.All.Any(notification =>
+                        notification.Type == NotificationType.Warning),
+                    Is.False);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Stale_lock_requiring_manual_removal_warns_without_asking_for_consent()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            NotificationService.Handler = notifications;
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-lock-manual-removal-only");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RemoveRecoverableLockResult = true,
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                GlobalConfiguration.Instance.VersionControlConfig,
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            int confirmationCount = 0;
+            coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
+            {
+                Interlocked.Increment(ref confirmationCount);
+                return Task.FromResult(true);
+            };
+            var lockInfo = new RepositoryLockInfo(
+                Path.Combine(projectRoot, ".git", "index.lock"),
+                DateTimeOffset.UtcNow,
+                requiresManualRemoval: true);
+
+            backend.RaiseRecoverableLock(lockInfo);
+            await WaitUntilAsync(() =>
+                notifications.All.Any(notification =>
+                    notification.Type == NotificationType.Warning));
+
+            Notification warning = notifications.All.Single(notification =>
+                notification.Type == NotificationType.Warning);
+            Assert.Multiple(() =>
+            {
+                Assert.That(Volatile.Read(ref confirmationCount), Is.Zero);
+                Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
+                Assert.That(backend.RecoverableLock, Is.SameAs(lockInfo));
+                Assert.That(
+                    warning.Message,
+                    Is.EqualTo(string.Format(
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                        lockInfo.LockPath)));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Stale_lock_confirmation_is_not_reused_for_an_equal_replacement_offer()
     {
         await TestReset.ResetShellAsync();
@@ -6259,6 +6473,143 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Title_bar_branch_creation_warns_why_a_rejected_name_created_nothing()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        TitleBarBranchViewModel? titleBar = null;
+        using var gitAvailable = new ReactivePropertySlim<bool>(true);
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-branch-name-rejected");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            titleBar = new TitleBarBranchViewModel(
+                editorService.ProjectVersionControlService,
+                gitAvailable,
+                coordinator);
+            await WaitUntilAsync(() => titleBar.IsVisible.Value);
+            titleBar.RequestNewBranchNameAsync = () => Task.FromResult<string?>("existing");
+            // The backend refuses an invalid name and an existing branch with the same answer.
+            backend.EnqueueCanCreateBranchResult(false);
+            int canCreateCallsBefore = backend.CanCreateBranchCalls;
+            NotificationService.Handler = notifications;
+
+            await titleBar.CreateBranchAsync();
+            HeadlessTestHelpers.Settle();
+
+            Notification warning = notifications.All.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(canCreateCallsBefore + 1));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
+                Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
+                Assert.That(
+                    warning.Message,
+                    Is.EqualTo(string.Format(
+                        Strings.VersionControl_BranchNameUnavailableFormat,
+                        "existing")),
+                    "Clicking Create must not end silently when the name is refused.");
+                Assert.That(titleBar.IsBusy.Value, Is.False);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            titleBar?.Dispose();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Title_bar_branch_creation_reports_why_git_could_not_check_the_name()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        TitleBarBranchViewModel? titleBar = null;
+        using var gitAvailable = new ReactivePropertySlim<bool>(true);
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-branch-check-failed");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            titleBar = new TitleBarBranchViewModel(
+                editorService.ProjectVersionControlService,
+                gitAvailable,
+                coordinator);
+            await WaitUntilAsync(() => titleBar.IsVisible.Value);
+            titleBar.RequestNewBranchNameAsync = () => Task.FromResult<string?>("existing");
+            backend.CanCreateBranchFailure = new GitOperationException(128, "fatal: unable to read refs");
+            int canCreateCallsBefore = backend.CanCreateBranchCalls;
+            NotificationService.Handler = notifications;
+
+            await titleBar.CreateBranchAsync();
+            HeadlessTestHelpers.Settle();
+
+            Notification error = notifications.All.Single();
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(canCreateCallsBefore + 1));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(error.Type, Is.EqualTo(NotificationType.Error));
+                Assert.That(error.Message, Does.Contain("unable to read refs"));
+                Assert.That(titleBar.IsBusy.Value, Is.False);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousNotificationHandler;
+            titleBar?.Dispose();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Restore_prefetches_lfs_objects_while_the_project_is_still_open()
     {
         await TestReset.ResetShellAsync();
@@ -6605,6 +6956,8 @@ public class VersionControlRestoreTests
         bool oldUseLfs = config.UseLfsWhenAvailable;
         var oldConfirmSwitchBranchAsync =
             TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
 
         try
         {
@@ -6634,10 +6987,15 @@ public class VersionControlRestoreTests
                 return Task.FromResult(true);
             };
 
+            NotificationService.Handler = notifications;
             bool invalid = await TestShell.VersionControl.CreateBranchAsync("invalid..branch");
             bool existing = await TestShell.VersionControl.CreateBranchAsync("existing");
             bool shorthand = await TestShell.VersionControl.CreateBranchAsync("@{-1}");
             HeadlessTestHelpers.Settle();
+            string[] warnings = notifications.All
+                .Where(item => item.Type == NotificationType.Warning)
+                .Select(item => item.Message)
+                .ToArray();
 
             WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
                 .GetStatusAsync(CancellationToken.None);
@@ -6651,6 +7009,13 @@ public class VersionControlRestoreTests
                 Assert.That(invalid, Is.False);
                 Assert.That(existing, Is.False);
                 Assert.That(shorthand, Is.False);
+                Assert.That(
+                    warnings,
+                    Is.EqualTo(new[] { "invalid..branch", "existing", "@{-1}" }
+                        .Select(name => string.Format(
+                            Strings.VersionControl_BranchNameUnavailableFormat,
+                            name))),
+                    "Each refused name must tell the user why no branch was created.");
                 Assert.That(confirmations, Is.Zero);
                 Assert.That(status.Branch, Is.EqualTo("main"));
                 Assert.That(status.IsClean, Is.False);
@@ -6663,6 +7028,7 @@ public class VersionControlRestoreTests
         }
         finally
         {
+            NotificationService.Handler = previousNotificationHandler;
             TestShell.VersionControl.ConfirmSwitchBranchAsync =
                 oldConfirmSwitchBranchAsync;
             await TestReset.ResetShellAsync();
@@ -8776,6 +9142,199 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Pull_reports_a_missing_git_lfs_instead_of_a_changed_project()
+    {
+        const string LfsMissing = "Git LFS is not installed. Install Git LFS to pull this project.";
+        (RemoteOpResult? result, Exception? thrown, bool projectStayedOpen, _, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-lfs-missing",
+                backend => backend.PrefetchCommitLfsObserver =
+                    () => throw new InvalidOperationException(LfsMissing));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.Null);
+            Assert.That(result, Is.EqualTo(new RemoteOpResult.Failed(LfsMissing)));
+            Assert.That(projectStayedOpen, Is.True);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Pull_reports_why_the_preflight_failed_before_confirmation()
+    {
+        const string PreflightFailure = "The upstream branch could not be fetched.";
+        (RemoteOpResult? result, Exception? thrown, bool projectStayedOpen, int confirmations, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-preflight-failure",
+                backend => backend.PreflightFailure = new InvalidOperationException(PreflightFailure));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.Null);
+            Assert.That(result, Is.EqualTo(new RemoteOpResult.Failed(PreflightFailure)));
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(projectStayedOpen, Is.True);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Pull_reports_a_changed_project_when_it_closes_during_confirmation()
+    {
+        (RemoteOpResult? result, Exception? thrown, bool projectStayedOpen, int confirmations, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-closed-during-confirmation",
+                configure: null,
+                duringConfirmation: () => TestShell.Project.CloseProjectAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.Null);
+            Assert.That(result, Is.EqualTo(new RemoteOpResult.Failed(
+                "The open project changed while the pull was being prepared.")));
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(projectStayedOpen, Is.False);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    // The version control tab shows its conflict guidance only for a VersionControlConflictedException, so
+    // the pull cycle must not turn a conflict into a plain failure.
+    [AvaloniaTest]
+    public async Task Pull_passes_through_a_conflict_found_before_confirmation()
+    {
+        var conflict = new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance);
+        (RemoteOpResult? result, Exception? thrown, bool projectStayedOpen, int confirmations, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-preflight-conflict",
+                backend => backend.PreflightFailure = conflict);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(conflict));
+            Assert.That(result, Is.Null);
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(projectStayedOpen, Is.True);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    // The pull checks the repository again once confirmed; a conflict found there passes through as well.
+    [AvaloniaTest]
+    public async Task Pull_passes_through_a_conflict_found_after_confirmation()
+    {
+        var conflict = new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance);
+        PullCycleTestBackend? pullBackend = null;
+        (RemoteOpResult? result, Exception? thrown, bool projectStayedOpen, int confirmations, int pullCalls) =
+            await RunPullThatFailsBeforeClosingAsync(
+                "version-control-pull-confirmed-conflict",
+                backend => pullBackend = backend,
+                duringConfirmation: () =>
+                {
+                    pullBackend!.PreflightFailure = conflict;
+                    return Task.CompletedTask;
+                });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(conflict));
+            Assert.That(result, Is.Null);
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(projectStayedOpen, Is.True);
+            Assert.That(pullCalls, Is.Zero);
+        });
+    }
+
+    private static async Task<(
+            RemoteOpResult? Result,
+            Exception? Thrown,
+            bool ProjectStayedOpen,
+            int Confirmations,
+            int PullCalls)>
+        RunPullThatFailsBeforeClosingAsync(
+            string projectName,
+            Action<PullCycleTestBackend>? configure,
+            Func<Task>? duringConfirmation = null)
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        VersionControlCoordinator? coordinator = null;
+
+        try
+        {
+            config.AutoCommitOnSave = false;
+            config.AutoCommitOnClose = false;
+            Project project = await CreateProjectForFakeVersionControlAsync(projectName);
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
+            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                PreflightResult = new PullPreflightResult(
+                    new RemoteOpResult.Success(),
+                    RequiresTransition: true,
+                    "2222222222222222222222222222222222222222"),
+            };
+            configure?.Invoke(backend);
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            int confirmations = 0;
+            coordinator.ConfirmPullAsync = async _ =>
+            {
+                confirmations++;
+                if (duringConfirmation is not null)
+                {
+                    await duringConfirmation();
+                }
+
+                return true;
+            };
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            RemoteOpResult? result = null;
+            InvalidOperationException? thrown = null;
+            try
+            {
+                result = await coordinator.PullAsync()
+                    .WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (InvalidOperationException ex)
+            {
+                thrown = ex;
+            }
+
+            HeadlessTestHelpers.Settle();
+
+            return (
+                result,
+                thrown,
+                ReferenceEquals(TestShell.Project.CurrentProject.Value, project),
+                confirmations,
+                backend.PullCalls);
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
     public async Task Missing_recent_project_keeps_the_current_project_open()
     {
         await TestReset.ResetShellAsync();
@@ -10978,6 +11537,8 @@ public class VersionControlRestoreTests
 
         public Task? PreflightRelease { get; init; }
 
+        public Exception? PreflightFailure { get; set; }
+
         public Func<CancellationToken, Task<RemoteOpResult>>? PullOverride { get; init; }
 
         public WorkspaceStatus Status { get; set; } = DirtyStatus;
@@ -11228,6 +11789,11 @@ public class VersionControlRestoreTests
                 await PreflightRelease.WaitAsync(cancellationToken);
             }
 
+            if (PreflightFailure is not null)
+            {
+                throw PreflightFailure;
+            }
+
             return PreflightResult;
         }
 
@@ -11473,11 +12039,18 @@ public class VersionControlRestoreTests
             CancellationToken cancellationToken)
         {
             CanCreateBranchCalls++;
+            if (CanCreateBranchFailure is not null)
+            {
+                return Task.FromException<bool>(CanCreateBranchFailure);
+            }
+
             return Task.FromResult(
                 _canCreateBranchResults.TryDequeue(out bool canCreate)
                     ? canCreate
                     : true);
         }
+
+        public Exception? CanCreateBranchFailure { get; set; }
 
         public string? LastBranchStartPoint { get; private set; }
 

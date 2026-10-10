@@ -22,7 +22,6 @@ internal interface IGitInstallationProbe
 
 internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
 {
-    private static readonly TimeSpan s_cleanupGracePeriod = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan s_defaultTimeout = TimeSpan.FromSeconds(5);
     private readonly TimeSpan _timeout;
 
@@ -163,6 +162,7 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
         {
             UseShellExecute = false,
             CreateNoWindow = true,
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
@@ -172,158 +172,28 @@ internal sealed class ProcessGitInstallationProbe : IGitInstallationProbe
         }
         GitProcessEnvironment.ConfigureToolSearchPath(startInfo);
 
-        using var timeoutCts = new CancellationTokenSource(_timeout);
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutCts.Token);
-        var process = new Process { StartInfo = startInfo };
-        bool disposeProcess = true;
         try
         {
-            try
-            {
-                process.Start();
-            }
-            catch (System.ComponentModel.Win32Exception)
-            {
-                return new GitProbeResult(-1, string.Empty, string.Empty);
-            }
-
-            Task<string> stdout = process.StandardOutput.ReadToEndAsync(linkedCts.Token);
-            Task<string> stderr = process.StandardError.ReadToEndAsync(linkedCts.Token);
-            Task processExit = process.WaitForExitAsync(linkedCts.Token);
-            Task completion = Task.WhenAll(processExit, stdout, stderr);
-            try
-            {
-                await completion.WaitAsync(linkedCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
-            {
-                TryKillProcessTree(process);
-                Task cleanup = CreateCleanupTask(process, completion, processExit, stdout, stderr);
-                await WaitForCleanupGracePeriodAsync(cleanup).ConfigureAwait(false);
-                disposeProcess = false;
-                _ = DisposeAfterCleanupAsync(process, cleanup);
-                cancellationToken.ThrowIfCancellationRequested();
-                return new GitProbeResult(-1, string.Empty, string.Empty);
-            }
-
-            return new GitProbeResult(
-                process.ExitCode,
-                await stdout.ConfigureAwait(false),
-                await stderr.ConfigureAwait(false));
+            (int exitCode, string stdout, string stderr) = await GitProcess.RunAsync(
+                startInfo,
+                standardInput: null,
+                ReadTextAsync,
+                ReadTextAsync,
+                _timeout,
+                cancellationToken).ConfigureAwait(false);
+            return new GitProbeResult(exitCode, stdout, stderr);
         }
-        finally
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or TimeoutException)
         {
-            if (disposeProcess)
-            {
-                process.Dispose();
-            }
+            return new GitProbeResult(-1, string.Empty, string.Empty);
         }
     }
+
+    // A probe reports whatever the command wrote before reading stopped.
+    private static async Task<string> ReadTextAsync(StreamReader reader, CancellationToken stopReading)
+        => (await GitProcess.ReadTextAsync(reader, stopReading).ConfigureAwait(false)).Text;
 
     public bool FileExists(string path) => File.Exists(path);
 
     public string? GetEnvironmentVariable(string name) => Environment.GetEnvironmentVariable(name);
-
-    internal static void TryKillProcessTree(
-        Process process,
-        Action<Process>? killProcessTree = null)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                killProcessTree ??= static target => target.Kill(entireProcessTree: true);
-                killProcessTree(process);
-            }
-        }
-        catch (Exception ex) when (ex is InvalidOperationException
-                                   or System.ComponentModel.Win32Exception
-                                   or NotSupportedException
-                                   or AggregateException)
-        {
-        }
-    }
-
-    private static Task CreateCleanupTask(
-        Process process,
-        Task completion,
-        Task processExit,
-        Task stdout,
-        Task stderr)
-    {
-        Task finalExit;
-        try
-        {
-            finalExit = process.WaitForExitAsync(CancellationToken.None);
-        }
-        catch (Exception)
-        {
-            finalExit = Task.CompletedTask;
-        }
-
-        return Task.WhenAll(
-            ObserveCleanupTaskAsync(completion),
-            ObserveCleanupTaskAsync(processExit),
-            ObserveCleanupTaskAsync(stdout),
-            ObserveCleanupTaskAsync(stderr),
-            ObserveCleanupTaskAsync(finalExit));
-    }
-
-    private static async Task WaitForCleanupGracePeriodAsync(Task cleanup)
-    {
-        try
-        {
-            await cleanup.WaitAsync(s_cleanupGracePeriod).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-        }
-    }
-
-    private static async Task DisposeAfterCleanupAsync(Process process, Task cleanup)
-    {
-        await Task.Yield();
-        TryCloseRedirectedStreams(process);
-        try
-        {
-            process.Dispose();
-        }
-        catch (Exception)
-        {
-        }
-
-        await cleanup.ConfigureAwait(false);
-    }
-
-    private static void TryCloseRedirectedStreams(Process process)
-    {
-        try
-        {
-            process.StandardOutput.BaseStream.Dispose();
-        }
-        catch (Exception)
-        {
-        }
-
-        try
-        {
-            process.StandardError.BaseStream.Dispose();
-        }
-        catch (Exception)
-        {
-        }
-    }
-
-    private static async Task ObserveCleanupTaskAsync(Task task)
-    {
-        try
-        {
-            await task.ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-        }
-    }
 }

@@ -470,6 +470,33 @@ public sealed class AiSubtitleAdvancedTests
     }
 
     [Test]
+    public async Task ExportCaptions_LeavesTheCueValidationStateUntouched()
+    {
+        using var httpClient = new HttpClient();
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        using var viewModel = CreateViewModel(clients);
+        Assert.That(
+            viewModel.ImportCaptionBytes(
+                Encoding.UTF8.GetBytes("1\n00:00:00,000 --> 00:00:01,000\nhello\n"),
+                CaptionFormats.Srt),
+            Is.True);
+        Assert.That(viewModel.ExportCaptions.CanExecute(), Is.True);
+        var published = new List<bool>();
+
+        using (viewModel.HasValidCues.Skip(1).Subscribe(published.Add))
+        {
+            await viewModel.ExportCaptions.ExecuteAsync();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(published, Is.Empty);
+            Assert.That(viewModel.HasValidCues.Value, Is.True);
+            Assert.That(viewModel.ExportCaptions.CanExecute(), Is.True);
+        });
+    }
+
+    [Test]
     public async Task JobOwnedDraft_IsRestoredByRecreatedViewModelFromBaseScope()
     {
         string directory = CreateDraftDirectory();

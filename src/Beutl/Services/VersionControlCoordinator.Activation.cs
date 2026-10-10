@@ -409,7 +409,7 @@ internal partial class VersionControlCoordinator
                     ex,
                     "Opened a repository that needs attention in an external Git tool before Beutl can update it.");
             }
-            catch
+            catch (Exception ex)
             {
                 bool notify = !activation.CancellationToken.IsCancellationRequested && IsCurrentActivation(activation);
                 if (activation.OwnsService(trackedService))
@@ -421,8 +421,15 @@ internal partial class VersionControlCoordinator
                     pendingCleanup = trackedService;
                 }
 
+                // The project stays open untracked, so the warning carries the reason (for example a
+                // project path the repository ignores, or Git's own error) instead of leaving it only
+                // in the log.
                 if (notify)
-                    PublishNotification(() => NotificationService.ShowWarning(Strings.VersionControl, MessageStrings.OperationFailed), activation.Revision);
+                    PublishNotification(
+                        () => NotificationService.ShowWarning(
+                            Strings.VersionControl,
+                            string.Format(Strings.VersionControl_ActivationFailedFormat, GetErrorText(ex))),
+                        activation.Revision);
                 throw;
             }
 
