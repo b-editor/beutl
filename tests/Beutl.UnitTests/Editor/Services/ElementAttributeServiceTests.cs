@@ -288,6 +288,27 @@ public class ElementAttributeServiceTests
         });
     }
 
+    // Removing only the unlocked side would leave the locked element's side blending the boundary.
+    [Test]
+    public void RemoveTransition_LeavesABoundaryALockedSideHolds()
+    {
+        (Element outgoing, Element incoming) = AddCut();
+        _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
+        incoming.IsLocked = true;
+        _history.Commit("lock");
+        int before = _history.UndoCount;
+
+        _service.RemoveTransition(outgoing, ElementEdge.End);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ElementTransitionEdits.HasLockedSideAcross(outgoing, ElementEdge.End), Is.True);
+            Assert.That(outgoing.ExitTransition, Is.Not.Null);
+            Assert.That(incoming.EnterTransition, Is.Not.Null);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
     [Test]
     public void ApplyTransition_LeavesALockedPartnerAlone()
     {

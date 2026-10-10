@@ -88,6 +88,18 @@ public static class ElementTransitionEdits
             : ElementTransitions.FindNext(element);
     }
 
+    /// <summary>
+    /// Gets whether a locked element meets <paramref name="edge"/> of <paramref name="element"/> and sets
+    /// its own side of the transition there, so the boundary cannot be removed from this element.
+    /// </summary>
+    public static bool HasLockedSideAcross(Element element, ElementEdge edge)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return FindPartner(element, edge) is { } partner
+               && FindEditablePartner(element, edge) == null
+               && GetTransition(partner, edge == ElementEdge.Start ? ElementEdge.End : ElementEdge.Start) != null;
+    }
+
     internal static Element? FindEditablePartner(Element element, ElementEdge edge)
     {
         Element? partner = FindPartner(element, edge);

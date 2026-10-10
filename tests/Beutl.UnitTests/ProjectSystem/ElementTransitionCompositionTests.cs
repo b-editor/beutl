@@ -506,6 +506,57 @@ public class ElementTransitionCompositionTests
         Assert.That(args?.AffectedRange, Does.Contain(TimeRange.FromRange(Seconds(2), Seconds(3))));
     }
 
+    // The outgoing element's long enter transition stops at its middle while the incoming element's enter
+    // transition runs at its end. Moving the incoming element away lets that span grow past the middle, so
+    // the frames it now covers must be redrawn even though the scene no longer shows why.
+    [Test]
+    public void MovingANeighbourAway_ReachesTheFramesOfASpanItHeldToTheMiddle()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_released", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        cut.Outgoing.EnterTransition = Transition(1.5);
+        cut.Incoming.EnterTransition = Transition(0.25);
+        TimeRange? held = ElementTransitions.GetBoundaryAtStart(cut.Outgoing)?.Region;
+        ElementEditedEventArgs? args = null;
+        cut.Incoming.Edited += (_, e) => args = e as ElementEditedEventArgs;
+
+        cut.Incoming.Start = Seconds(6);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(held, Is.EqualTo(TimeRange.FromRange(TimeSpan.Zero, Seconds(1))));
+            Assert.That(ElementTransitions.GetBoundaryAtStart(cut.Outgoing)?.Region, Is.EqualTo(TimeRange.FromRange(TimeSpan.Zero, Seconds(1.5))));
+            Assert.That(args?.AffectedRange, Has.Some.Matches<TimeRange>(r => r.Start <= Seconds(1) && r.End >= Seconds(1.5)));
+        });
+    }
+
+    // A transition of no length at one end leaves the span at the other end whole.
+    [Test]
+    public void ATransitionOfNoLength_DoesNotHoldTheOtherEndToTheMiddle()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_zero_length", duration: Seconds(20));
+        Element element = harness.AddElement(TimeSpan.Zero, Seconds(10));
+        element.Objects.Add(new RectShape());
+        element.EnterTransition = Transition(0);
+        element.ExitTransition = Transition(8);
+
+        Assert.That(ElementTransitions.GetBoundaryAtEnd(element)?.Region, Is.EqualTo(TimeRange.FromRange(Seconds(2), Seconds(10))));
+    }
+
+    [Test]
+    public void TheDuration_TakesNoExpression()
+    {
+        ClipTransition transition = Transition(1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(transition.Duration.SupportsExpression, Is.False);
+            Assert.Throws<InvalidOperationException>(
+                () => transition.Duration.Expression = new ConstantExpression<TimeSpan>(Seconds(2)));
+            Assert.That(transition.Easing.SupportsExpression, Is.True);
+        });
+    }
+
     [Test]
     public void ChangesToEitherElement_ReachTheFramesOfTheirTransition()
     {
@@ -517,9 +568,9 @@ public class ElementTransitionCompositionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, cut.Outgoing.Range), Is.EqualTo(new[] { region }));
-            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, cut.Incoming.Range), Is.EqualTo(new[] { region }));
-            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, TimeRange.FromRange(Seconds(3), Seconds(4))), Is.Empty);
+            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, cut.Outgoing.Range), Does.Contain(region));
+            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, cut.Incoming.Range), Does.Contain(region));
+            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, TimeRange.FromRange(Seconds(5), Seconds(6))), Is.Empty);
         });
     }
 

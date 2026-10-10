@@ -47,10 +47,11 @@ public abstract partial class ClipTransition : EngineObject
     }
 
     // Hides EngineObject.Duration, the length of the object's time range: a transition has no time range
-    // of its own, only the span it adds on its side of the boundary.
+    // of its own, only the span it adds on its side of the boundary. The span is laid out once, not per
+    // frame, so the duration takes no expression.
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Duration), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(TimeSpan), "00:00:00", "01:00:00", ParseLimitsInInvariantCulture = true)]
-    public new IProperty<TimeSpan> Duration { get; } = Property.Create(DefaultDuration);
+    public new IProperty<TimeSpan> Duration { get; } = new SimpleProperty<TimeSpan>(DefaultDuration) { SupportsExpression = false };
 
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Easing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Easing> Easing { get; } = Property.Create<Easing>(new LinearEasing());

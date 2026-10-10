@@ -128,6 +128,8 @@ public sealed class ElementAttributeService : IElementAttributeService
     {
         ArgumentNullException.ThrowIfNull(element);
         if (element.IsLocked) return;
+        // Removing only this side would leave the locked element's side blending the boundary.
+        if (ElementTransitionEdits.HasLockedSideAcross(element, edge)) return;
 
         bool changed = ElementTransitionEdits.SetTransition(element, edge, null);
         if (ElementTransitionEdits.FindEditablePartner(element, edge) is { } partner)

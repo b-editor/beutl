@@ -135,7 +135,11 @@ public sealed partial class ElementView : UserControl
         edit.Click += (_, _) => (DataContext as ElementViewModel)?.EditTransition(edge);
         menu.Items.Add(edit);
 
-        var remove = new FAMenuFlyoutItem { Text = Strings.RemoveTransition, IsEnabled = editable && current != null };
+        var remove = new FAMenuFlyoutItem
+        {
+            Text = Strings.RemoveTransition,
+            IsEnabled = editable && current != null && !ElementTransitionEdits.HasLockedSideAcross(viewModel.Model, edge),
+        };
         remove.Click += (_, _) => (DataContext as ElementViewModel)?.RemoveTransition(edge);
         menu.Items.Add(remove);
         return menu;

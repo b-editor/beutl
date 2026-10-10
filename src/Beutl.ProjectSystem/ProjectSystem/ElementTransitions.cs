@@ -142,6 +142,16 @@ internal static class ElementTransitions
             {
                 regions.Add(end.Region);
             }
+
+            // The span at one end of an element stops at its middle while a transition also runs at the
+            // other end, so when a neighbour arrives at or leaves that other end, the span can grow or
+            // shrink anywhere in the element. The scene has already changed by now, so the span it had
+            // cannot be recovered; the whole element counts instead.
+            if ((Reaches(range, element.Range.End) && HasStartTransition(element, null))
+                || (Reaches(range, element.Start) && HasEndTransition(element, null)))
+            {
+                regions.Add(element.Range);
+            }
         }
 
         return regions;
@@ -161,18 +171,41 @@ internal static class ElementTransitions
         return a.Start <= b.End && b.Start <= a.End;
     }
 
-    private static bool IsActive(ClipTransition? transition) => transition is { IsEnabled: true };
-
-    // An element's end counts as transitioning when it sets an exit transition or the element after it
-    // sets an enter transition; likewise for its start.
-    private static bool HasStartTransition(Element element)
+    // Whether range reaches time, as a neighbour that meets an element's end there does.
+    private static bool Reaches(TimeRange range, TimeSpan time)
     {
-        return IsActive(element.EnterTransition) || IsActive(FindPrevious(element)?.ExitTransition);
+        return range.Start <= time + AdjacencyTolerance && time - AdjacencyTolerance <= range.End;
     }
 
-    private static bool HasEndTransition(Element element)
+    private static bool IsActive(ClipTransition? transition) => transition is { IsEnabled: true };
+
+    // An element's start counts as transitioning when the boundary there spans some time: a side adds a
+    // duration, or the element before it overlaps it while either side sets a transition. Likewise for
+    // its end. A transition of no length leaves the span at the other end whole.
+    private static bool HasStartTransition(Element element, TransitionDurationOverride? durationOverride)
     {
-        return IsActive(element.ExitTransition) || IsActive(FindNext(element)?.EnterTransition);
+        Element? previous = FindPrevious(element);
+        return HasSpan(previous, element, previous?.ExitTransition, element.EnterTransition, durationOverride);
+    }
+
+    private static bool HasEndTransition(Element element, TransitionDurationOverride? durationOverride)
+    {
+        Element? next = FindNext(element);
+        return HasSpan(element, next, element.ExitTransition, next?.EnterTransition, durationOverride);
+    }
+
+    private static bool HasSpan(
+        Element? outgoing,
+        Element? incoming,
+        ClipTransition? exit,
+        ClipTransition? enter,
+        TransitionDurationOverride? durationOverride)
+    {
+        if (!IsActive(exit) && !IsActive(enter)) return false;
+
+        return GetDuration(exit, durationOverride) > TimeSpan.Zero
+               || GetDuration(enter, durationOverride) > TimeSpan.Zero
+               || (outgoing != null && incoming != null && incoming.Start < outgoing.Range.End);
     }
 
     private static TimeSpan GetDuration(ClipTransition? transition, TransitionDurationOverride? durationOverride)
@@ -219,7 +252,7 @@ internal static class ElementTransitions
         if (outgoing != null)
         {
             start = Max(start, outgoing.Start);
-            if (HasStartTransition(outgoing))
+            if (HasStartTransition(outgoing, durationOverride))
             {
                 start = Max(start, outgoing.Start + (outgoing.Length / 2));
             }
@@ -228,7 +261,7 @@ internal static class ElementTransitions
         if (incoming != null)
         {
             end = Min(end, incoming.Range.End);
-            if (HasEndTransition(incoming))
+            if (HasEndTransition(incoming, durationOverride))
             {
                 end = Min(end, incoming.Start + (incoming.Length / 2));
             }

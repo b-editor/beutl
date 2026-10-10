@@ -160,7 +160,7 @@ public class ElementTransitionTimelineTests
     }
 
     // 0.25 s is seven and a half frames at 30 fps, so snapping the duration on a press without a drag
-    // would change it.
+    // would change it. The element's name runs past the handle, which must stay above it.
     [AvaloniaTest]
     public async Task PressingAHandleWithoutDragging_LeavesTheDurationAlone()
     {
@@ -169,6 +169,7 @@ public class ElementTransitionTimelineTests
         try
         {
             (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
+            incoming.Model.Name = "An element name long enough to run past the transition handle";
             (view, window) = Show(incoming);
             incoming.ApplyTransition(ElementEdge.Start, typeof(CrossDissolveTransition));
             HeadlessTestHelpers.Settle(3);
