@@ -82,8 +82,8 @@ public class OverriddenAliasInputTests
             Assert.That(rejectedNode.CanConnectInput(rejectedPort), Is.False);
             Assert.That(acceptedNode.CanConnectInput(acceptedPort), Is.True);
             Evaluate(graph);
-            bool updateOnly = false;
-            resource.Update(shared, CompositionContext.Default, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(shared, CompositionContext.Default, ref versionBumped);
             Assert.Multiple(() =>
             {
                 Assert.That(accepted.Status, Is.EqualTo(ConnectionStatus.Success));

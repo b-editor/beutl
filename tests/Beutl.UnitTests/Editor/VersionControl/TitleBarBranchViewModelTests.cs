@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
+using Beutl.Language;
 using Moq;
 using Reactive.Bindings;
 
@@ -688,6 +689,45 @@ public class TitleBarBranchViewModelTests
                 "experiment",
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task Create_branch_command_reports_coordinator_failures_and_clears_busy()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var failure = new GitOperationException(
+            128,
+            "fatal: a branch named 'experiment' already exists");
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        coordinator.Setup(item => item.CreateBranchAsync(
+                "experiment",
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(failure);
+        using var serviceSource =
+            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
+        using var viewModel = new TitleBarBranchViewModel(
+            serviceSource,
+            CreateGitAvailabilitySource(),
+            coordinator.Object,
+            action => action())
+        {
+            RequestNewBranchNameAsync =
+                () => Task.FromResult<string?>("experiment"),
+        };
+        await viewModel.Initialization;
+        using var notifications = VersionControlNotificationCapture.Install();
+
+        await Assert.DoesNotThrowAsync(() => viewModel.CreateBranchCommand.ExecuteAsync());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.HasError(Strings.VersionControl_ErrorTitle, failure.Message),
+                Is.True);
+            Assert.That(viewModel.IsBusy.Value, Is.False);
+            Assert.That(viewModel.CreateBranchCommand.CanExecute(), Is.True);
+        });
     }
 
     [Test]

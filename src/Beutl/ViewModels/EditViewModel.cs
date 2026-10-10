@@ -47,6 +47,7 @@ public sealed partial class EditViewModel
     private IElementClipboardService? _elementClipboardService;
     private ElementStructureService? _elementStructureService;
     private ElementAttributeService? _elementAttributeService;
+    private TransitionEditorService? _transitionEditorService;
     private ElementNudgeService? _elementNudgeService;
     private LayerMoveService? _layerMoveService;
     private LayerAttributeService? _layerAttributeService;

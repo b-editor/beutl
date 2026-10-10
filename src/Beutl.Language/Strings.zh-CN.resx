@@ -3435,4 +3435,10 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
   </data>
+  <data name="EnterTransition" xml:space="preserve">
+    <value>入场转场</value>
+  </data>
+  <data name="ExitTransition" xml:space="preserve">
+    <value>出场转场</value>
+  </data>
 </root>

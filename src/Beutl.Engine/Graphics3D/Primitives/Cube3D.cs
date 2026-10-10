@@ -43,7 +43,7 @@ public sealed partial class Cube3D : Object3D
         private readonly CubeMesh _mesh = new();
         private CubeMesh.Resource? _meshResource;
 
-        partial void PostUpdate(Cube3D obj, CompositionContext context)
+        partial void PostReconcile(Cube3D obj, CompositionContext context)
         {
             _mesh.Width.CurrentValue = Math.Max(Width, 0.001f);
             _mesh.Height.CurrentValue = Math.Max(Height, 0.001f);

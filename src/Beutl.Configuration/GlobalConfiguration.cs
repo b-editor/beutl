@@ -88,7 +88,7 @@ public sealed class GlobalConfiguration
                 json[key] = CoreSerializer.SerializeToJsonObject(config);
             }
 
-            // AI agent settings include the live editing endpoint's bearer token.
+            // Pending migration can still include a legacy live MCP bearer token.
             json.JsonSave(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
         finally

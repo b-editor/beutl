@@ -43,7 +43,7 @@ In release, point `command` at the published exe. `BEUTL_WORKSPACE` is the write
 
 > **stdio rule**: the server logs to **STDERR only** — STDOUT is the JSON-RPC channel. (Handled by `LogToStandardErrorThreshold = LogLevel.Trace`.)
 
-### In-app live mode (watch edits in the GUI)
+### In-app live mode (target scenes without switching the UI)
 
 To see edits appear live in the running Beutl editor, connect to the **in-app endpoint** instead of spawning the headless server. With a project open in the editor (which hosts a loopback HTTP/SSE endpoint), point the agent host at it:
 
@@ -51,7 +51,9 @@ To see edits appear live in the running Beutl editor, connect to the **in-app en
 { "mcpServers": { "beutl-live": { "type": "http", "url": "http://127.0.0.1:<port>/mcp", "headers": { "Authorization": "Bearer <token>" } } } }
 ```
 
-Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. (The endpoint binds loopback only, issues a per-session token, and authenticates solely via the `Authorization: Bearer <token>` header — the former `?token=` query form was removed so the secret never appears in URLs; the write-boundary and validation guarantees are unchanged.)
+Call `list_scenes` to discover the open project's scene IDs, then pass `sceneId` on each scene operation. Live requests resolve their target independently, and edits use that scene's normal undo history. Editing the visible scene updates its preview/timeline/property panels; targeting a different scene preserves the visible editor selection. A closed target scene receives an unselected background editor tab for normal history and saving. The endpoint binds loopback only and authenticates agent connections via the `Authorization: Bearer <token>` header; the former `?token=` query form was removed so the secret never appears in URLs.
+
+The bearer token is shared by processes using the same Beutl profile and persists in its owner-private `live-mcp-token.json` file (`~/.beutl/live-mcp-token.json` by default, or under `BEUTL_HOME`). Initial generation and migration use a process-shared lock. Existing `AiAgent.LiveMcpToken` settings are migrated without changing their value; the legacy copy is retained until durable migration succeeds, then subsequent settings saves omit that field and cannot replace the dedicated token. Token-store initialization runs in the background; an invalid store leaves Live MCP unavailable and is reported as an error instead of stopping the editor or silently generating a replacement.
 
 ### Raw HTTP/SSE smoke test
 
@@ -66,13 +68,15 @@ curl -sS -X POST \
   'http://127.0.0.1:<port>/mcp'
 ```
 
-After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `attach_active_editor`. `notifications/initialized` may have no response body; that is normal. Tool results are nested as JSON text under `result.content[0].text` in raw HTTP clients, so decode that text payload after reading the SSE `data:` line. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
+After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `list_scenes`. Pass the chosen `sceneId` on each scene operation. `notifications/initialized` may have no response body; that is normal. Tool results are nested as JSON text under `result.content[0].text` in raw HTTP clients, so decode that text payload after reading the SSE `data:` line. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
 
-With multiple Beutl processes running, one live MCP connection can operate on all instances in the same Beutl profile. Call `list_instances` to inspect their instance IDs, PIDs, projects and active scenes, then pass the chosen `instanceId` on every tool call (including attach/open/create, reads, edits, undo/redo, renders and background-job polling). Without `instanceId`, a tool operates on the connected process. Selection is per call, so simultaneous agents can target different processes. If the target exits or its port is reused, the call returns `instance_unavailable` instead of switching to another process. Hosts with different profiles or live MCP tokens require their own authenticated connection. The stdio host remains a file-backed editor.
+With multiple Beutl processes running, one live MCP connection can operate on all instances in the same Beutl profile. Call `list_instances` to inspect their instance IDs, PIDs, projects and active scenes, then pass the chosen `instanceId` on every tool call (including scene discovery/open/create, reads, edits, undo/redo, renders and background-job polling). Scene operations also take the chosen `sceneId`. Without `instanceId`, a tool operates on the connected process. Selection is per call, so simultaneous agents can target different processes and scenes. If the target exits or its port is reused, the call returns `instance_unavailable` instead of switching to another process. Hosts with different profiles or live MCP tokens require their own authenticated connection. The stdio host remains a file-backed editor.
 
 ## The declarative loop (worked example)
 
 A creator asks the agent: *"10-second 1080p clip: a title that fades in over a background image for the first 3 s, then a logo bottom-right."*
+
+This example uses stdio's current file-backed scene. In live mode, discover the target with `list_scenes` or the project-creation result and include its `sceneId` in every scene operation below; live calls do not use session handles.
 
 1. **Discover** what's editable:
    ```
@@ -132,7 +136,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
      }
    }
    ```
-   In live mode, call `read_document_summary {}` between staged patches to check element count, object types, fallback placeholders, and which objects already have animations/effects without pulling the full document.
+   In live mode, call `read_document_summary { "sceneId": "<sceneId>" }` between staged patches to check element count, object types, fallback placeholders, and which objects already have animations/effects without pulling the full document.
 5. **Render and inspect the requested result**:
    ```
    render_still { "timeSeconds": 1.5, "outputPath": "preview.png" } → rendered frame + pixel measurements
@@ -146,7 +150,7 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    save_project { session }                   → savedPath (under BEUTL_WORKSPACE)
    ```
 
-Undo is same-session: file sessions record normal history while open, and live editor sessions put edits on the active editor's undo stack.
+File sessions record normal history while open. Live `undo` and `redo` use the explicitly targeted scene's history and preserve the visible editor selection.
 
 ## What an agent can rely on
 
@@ -166,12 +170,12 @@ dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 
 ## Live-Mode Manual Verification (SC-010)
 
-1. Open a project in the Beutl editor.
+1. Open a project with two scenes and keep scene A visible in the Beutl editor.
 2. Connect an MCP host to `http://127.0.0.1:<port>/mcp` with the `Authorization: Bearer <token>` header.
-3. Call `attach_active_editor`.
-4. Call `read_document` and `apply_edit` for one visible text/shape change.
-5. Confirm the preview, timeline, and property panel update without reloading the project.
-6. Confirm the edit is one normal undo entry in the active editor session.
+3. Call `list_scenes` and obtain scene B's `sceneId`.
+4. Call `read_document` and `apply_edit` with B's `sceneId` for one text/shape change, and confirm A remains selected with its preview and timeline unchanged.
+5. Call `render_still` with B's `sceneId` and confirm the output shows B's change while A remains visible.
+6. Call `undo` with B's `sceneId` and confirm only B's edit is undone without switching the visible scene.
 
 ## Editing guidance (Skills / Subagents)
 

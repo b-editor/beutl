@@ -30,8 +30,8 @@ public sealed class ImageSource : MediaSource
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -52,9 +52,9 @@ public sealed class ImageSource : MediaSource
 
         public bool IsOffline { get; private set; }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             var imageSource = (ImageSource)obj;
 
             // A relink can restore the file at its original URI.
@@ -105,10 +105,10 @@ public sealed class ImageSource : MediaSource
                 FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
                 _loadedUri = imageSource.Uri;
 
-                if (!updateOnly)
+                if (!versionBumped)
                 {
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
         }

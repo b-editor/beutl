@@ -42,7 +42,7 @@ public sealed partial class QueryTools
     }
 
     [McpServerTool(Name = "read_document")]
-    [Description("Reads the current declarative document, or a subtree selected by rootId. This can be large; use read_document_summary for progress checks. In the in-app host, call attach_active_editor first; in the stdio host, call open_project or create_project first.")]
+    [Description("Reads the current declarative document, or a subtree selected by rootId. This can be large; use read_document_summary for progress checks. In live MCP, pass sceneId on each call; in the stdio host, call open_project or create_project first.")]
     public ToolResult<ReadDocumentResponse> ReadDocument(string? rootId = null)
     {
         return Execute(() =>

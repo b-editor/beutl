@@ -57,8 +57,8 @@ public class SourceVideoSpeedTest
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=100なので、1秒の再生時刻 = 1秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
@@ -73,8 +73,8 @@ public class SourceVideoSpeedTest
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=200なので、1秒の再生時刻 = 2秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(2.0).Within(0.1));
@@ -89,8 +89,8 @@ public class SourceVideoSpeedTest
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=50なので、2秒の再生時刻 = 1秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
@@ -109,8 +109,8 @@ public class SourceVideoSpeedTest
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: 0-1秒の平均速度は150%なので、映像時刻は約1.5秒
         // 積分計算: ∫(100 + 50t)dt from 0 to 1 = [100t + 25t²] = 100 + 25 = 125% → 1.25秒
@@ -131,8 +131,8 @@ public class SourceVideoSpeedTest
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: 0-2秒の積分
         // 速度関数: s(t) = 100 + 50t (線形)
@@ -153,8 +153,8 @@ public class SourceVideoSpeedTest
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=150なので、2秒の再生時刻 = 3秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(3.0).Within(0.1));
@@ -172,8 +172,8 @@ public class SourceVideoSpeedTest
 
         // 最初の更新
         var context1 = new CompositionContext(TimeSpan.FromSeconds(1));
-        var updateOnly1 = false;
-        _sourceVideoResource.Update(_sourceVideo, context1, ref updateOnly1);
+        var versionBumped1 = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context1, ref versionBumped1);
 
         var firstPosition = _sourceVideoResource.RequestedPosition;
 
@@ -183,8 +183,8 @@ public class SourceVideoSpeedTest
         _sourceVideo.Speed.Animation = animation2;
 
         // 同じ時点で再度更新
-        var updateOnly2 = false;
-        _sourceVideoResource.Update(_sourceVideo, context1, ref updateOnly2);
+        var versionBumped2 = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context1, ref versionBumped2);
 
         var secondPosition = _sourceVideoResource.RequestedPosition;
 
@@ -200,14 +200,14 @@ public class SourceVideoSpeedTest
         // キーフレームが0個の場合、CalculateVideoTimeはresource.Speed（=_speed）を使用する
         // _speedはソースジェネレーターで生成され、Speed.GetValue(context)から取得される
         _sourceVideo!.Speed.CurrentValue = 150f;
-        // アニメーションを設定しない（PostUpdateはelseブランチを通る）
+        // アニメーションを設定しない（PostReconcileはelseブランチを通る）
 
         _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=150なので、2秒の再生時刻 = 3秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(3.0).Within(0.1));
@@ -225,8 +225,8 @@ public class SourceVideoSpeedTest
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=200なので、1秒の再生時刻 = 2秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(2.0).Within(0.1));
@@ -248,8 +248,8 @@ public class SourceVideoSpeedTest
         for (int i = 0; i <= 5; i++)
         {
             var context = new CompositionContext(TimeSpan.FromSeconds(i));
-            var updateOnly = false;
-            _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+            var versionBumped = false;
+            _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
             positions.Add(_sourceVideoResource.RequestedPosition.TotalSeconds);
         }
 
@@ -270,8 +270,8 @@ public class SourceVideoSpeedTest
 
         // 初期化のための更新
         var initContext = new CompositionContext(TimeSpan.Zero);
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, initContext, ref versionBumped);
 
         // Act
         var originalTime = _sourceVideo.CalculateOriginalTime(_sourceVideoResource);
@@ -294,8 +294,8 @@ public class SourceVideoSpeedTest
 
         // 初期化のための更新
         var initContext = new CompositionContext(TimeSpan.Zero);
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, initContext, ref versionBumped);
 
         // Act
         var originalTime = _sourceVideo.CalculateOriginalTime(_sourceVideoResource);
@@ -317,8 +317,8 @@ public class SourceVideoSpeedTest
 
         // 1ミリ秒時点でリソースを更新（1/60秒 ≈ 16.67ミリ秒より小さい）
         var context = new CompositionContext(TimeSpan.FromMilliseconds(1));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: 非常に小さい値でも正しく計算される
         // Speed=200なので、1ミリ秒の再生時刻 = 2ミリ秒の映像時刻
@@ -337,8 +337,8 @@ public class SourceVideoSpeedTest
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // Assert: Speed=5なので、2秒の再生時刻 = 0.1秒の映像時刻
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(0.1).Within(0.02));
@@ -362,8 +362,8 @@ public class SourceVideoSpeedTest
 
         // グローバル 6s = 要素ローカル 1s
         var context = new CompositionContext(TimeSpan.FromSeconds(6));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
     }
@@ -386,8 +386,8 @@ public class SourceVideoSpeedTest
         _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         var context = new CompositionContext(TimeSpan.FromSeconds(6));
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, context, ref versionBumped);
 
         // 解析解: ∫_{5}^{6} (1 + t/15) dt = [t + t²/30]_{5}^{6}
         // = (6 + 36/30) - (5 + 25/30) = 1 + 11/30 ≒ 1.3667 s
@@ -406,8 +406,8 @@ public class SourceVideoSpeedTest
 
         // 初期化のための更新
         var initContext = new CompositionContext(TimeSpan.Zero);
-        var updateOnly = false;
-        _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
+        var versionBumped = false;
+        _sourceVideoResource.Reconcile(_sourceVideo, initContext, ref versionBumped);
 
         // Act
         var originalTime = _sourceVideo.CalculateOriginalTime(_sourceVideoResource);

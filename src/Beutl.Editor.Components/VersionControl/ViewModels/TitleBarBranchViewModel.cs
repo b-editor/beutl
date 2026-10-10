@@ -11,6 +11,7 @@ namespace Beutl.Editor.Components.VersionControl.ViewModels;
 
 internal sealed class TitleBarBranchViewModel : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<TitleBarBranchViewModel>();
     private readonly IProjectVersionControlCoordinator _coordinator;
     private readonly Action<Action> _postToUi;
     private readonly CompositeDisposable _disposables = [];
@@ -77,7 +78,10 @@ internal sealed class TitleBarBranchViewModel : IDisposable
                 IsVisible.CombineLatest(
                     IsBusy,
                     static (visible, busy) => visible && !busy))
-            .WithSubscribe(CreateBranchAsync)
+            .WithSubscribe(() => VersionControlCommandBoundary.RunAsync(
+                CreateBranchAsync,
+                _logger,
+                nameof(CreateBranchCommand)))
             .DisposeWith(_disposables);
         RequestNewBranchNameAsync = static () => Task.FromResult<string?>(null);
 
@@ -577,7 +581,7 @@ internal sealed class TitleBarBranchViewModel : IDisposable
             }
             catch (Exception ex)
             {
-                Log.CreateLogger<TitleBarBranchViewModel>().LogWarning(ex, "Failed to refresh the branch summary.");
+                _logger.LogWarning(ex, "Failed to refresh the branch summary.");
             }
 
             Volatile.Write(ref _eventRefreshScheduled, 0);

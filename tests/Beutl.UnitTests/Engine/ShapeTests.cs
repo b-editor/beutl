@@ -179,8 +179,8 @@ public class ShapeTests
 
         var resource = shape.ToResource(CompositionContext.Default);
         shape.Transform.CurrentValue = new TranslateTransform(-resource.Data!.Bounds.Position);
-        bool updateOnly = false;
-        resource.Update(shape, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(shape, CompositionContext.Default, ref versionBumped);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview);
@@ -236,8 +236,8 @@ public class ShapeTests
 
         var resource = shape.ToResource(CompositionContext.Default);
         shape.Transform.CurrentValue = new TranslateTransform(-resource.Data!.Bounds.Position);
-        bool updateOnly = false;
-        resource.Update(shape, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(shape, CompositionContext.Default, ref versionBumped);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview);

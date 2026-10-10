@@ -1,4 +1,5 @@
-﻿using Beutl.Configuration;
+﻿using System.Text.Json.Nodes;
+using Beutl.Configuration;
 using Beutl.Testing.Headless;
 
 using NUnit.Framework;
@@ -55,5 +56,28 @@ public class GlobalConfigurationAutoSaveTests
         config.FontConfig.FontDirectories.Add("/restored-font-directory");
 
         Assert.That(File.ReadAllText(path), Does.Contain("/restored-font-directory"));
+    }
+
+    [Test]
+    public void Save_before_endpoint_start_keeps_the_legacy_token_for_the_next_launch()
+    {
+        string path = Path.Combine(_directory, "settings.json");
+        File.WriteAllText(path, new JsonObject
+        {
+            ["AiAgent"] = new JsonObject { ["LiveMcpToken"] = "pre-startup-token" }
+        }.ToJsonString());
+        GlobalConfiguration first = CreateConfiguration();
+        first.Restore(path);
+        first.Save(path); // Startup failure recovery can save before the endpoint starts.
+        first.AiAgentConfig.AgentId = "codex"; // Ordinary auto-save must also retain it.
+
+        GlobalConfiguration next = CreateConfiguration();
+        next.Restore(path);
+        Assert.That(next.AiAgentConfig.LiveMcpToken, Is.EqualTo("pre-startup-token"));
+        string token = LiveMcpTokenStore.GetOrCreate(_directory, next.AiAgentConfig.LiveMcpToken);
+        next.AiAgentConfig.LiveMcpToken = "";
+        Assert.That(token, Is.EqualTo("pre-startup-token"));
+        Assert.That(File.ReadAllText(path), Does.Not.Contain("pre-startup-token"));
+        Assert.That(LiveMcpTokenStore.GetOrCreate(_directory), Is.EqualTo(token));
     }
 }

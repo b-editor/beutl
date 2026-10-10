@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -261,6 +262,29 @@ public class ElementStructureServiceTests
             Assert.That(outcome.NewElements[0].Start, Is.EqualTo(splitAt));
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Split_LeavesTheNewCutWithoutATransition()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        var enter = new CrossDissolveTransition();
+        var exit = new WipeTransition { Direction = { CurrentValue = ClipTransitionDirection.TopToBottom } };
+        element.EnterTransition = enter;
+        element.ExitTransition = exit;
+        _history.Commit("Add element");
+
+        SplitOutcome outcome = _service.Split(_scene, [element], TimeSpan.FromSeconds(3));
+        Element back = outcome.NewElements[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.EnterTransition, Is.SameAs(enter), "the front half keeps the clip's start");
+            Assert.That(element.ExitTransition, Is.Null);
+            Assert.That(back.EnterTransition, Is.Null);
+            Assert.That(back.ExitTransition, Is.TypeOf<WipeTransition>(), "the back half keeps the clip's end");
+            Assert.That((back.ExitTransition as WipeTransition)?.Direction.CurrentValue, Is.EqualTo(ClipTransitionDirection.TopToBottom));
         });
     }
 

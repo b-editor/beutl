@@ -6,12 +6,14 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics.Transitions;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -38,6 +40,12 @@ public sealed partial class ElementView : UserControl
     private TimeSpan _pointerPosition;
     private static ColorPickerFlyout? s_colorPickerFlyout;
     private _ResizeBehavior? _resizeBehavior;
+    // The width of an element's edge that counts as its boundary with the element beside it; the same zone
+    // the edge resize uses.
+    private const double BoundaryHitWidth = 10;
+    private ElementEdge? _draggingTransitionEdge;
+    private double _transitionDragStartX;
+    private TimeSpan _transitionDragStartDuration;
 
     public ElementView()
     {
@@ -47,6 +55,13 @@ public sealed partial class ElementView : UserControl
         cm?.Attach(this, TimelineTabExtension.Instance);
         (border.ContextFlyout as FAMenuFlyout)!.Opening += OnContextFlyoutOpening;
         textBox.LostFocus += OnTextBoxLostFocus;
+        foreach (Border handle in (ReadOnlySpan<Border>)[enterTransitionHandle, exitTransitionHandle])
+        {
+            handle.AddHandler(PointerPressedEvent, OnTransitionHandlePressed);
+            handle.AddHandler(PointerMovedEvent, OnTransitionHandleMoved);
+            handle.AddHandler(PointerReleasedEvent, OnTransitionHandleReleased);
+            handle.AddHandler(PointerCaptureLostEvent, OnTransitionHandleCaptureLost);
+        }
         this.SubscribeDataContextChange<ElementViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
@@ -87,6 +102,129 @@ public sealed partial class ElementView : UserControl
         // With the layer locked, clearing the element flag has no visible effect
         // (IsEditable stays false), so the toggle would read as broken.
         lockElement.IsEnabled = viewModel.LayerHeader.Value?.IsLocked.Value != true;
+        PopulateTransitionMenu(viewModel, editable);
+    }
+
+    // One item per edge, which opens its transition in the property tab, adding the default one first
+    // when there is none; its type and properties are changed there.
+    private void PopulateTransitionMenu(ElementViewModel viewModel, bool editable)
+    {
+        transitionMenu.Items.Clear();
+        transitionMenu.Items.Add(CreateTransitionEdgeItem(viewModel, ElementEdge.Start, Strings.EnterTransition, editable));
+        transitionMenu.Items.Add(CreateTransitionEdgeItem(viewModel, ElementEdge.End, Strings.ExitTransition, editable));
+    }
+
+    private FAMenuFlyoutItem CreateTransitionEdgeItem(
+        ElementViewModel viewModel, ElementEdge edge, string text, bool editable)
+    {
+        var item = new FAMenuFlyoutItem
+        {
+            Text = text,
+            IsEnabled = editable || viewModel.GetTransitionType(edge) != null,
+        };
+        item.Click += (_, _) => (DataContext as ElementViewModel)?.OpenTransition(edge);
+        return item;
+    }
+
+    private void OnTransitionHandlePressed(object? sender, PointerPressedEventArgs e)
+    {
+        ElementEdge edge = ReferenceEquals(sender, enterTransitionHandle) ? ElementEdge.Start : ElementEdge.End;
+        if (DataContext is not ElementViewModel { IsEditable.Value: true } viewModel
+            || viewModel.Timeline.IsRazorMode.Value
+            || viewModel.GetOwnTransitionDuration(edge) is not { } duration
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        _draggingTransitionEdge = edge;
+        _transitionDragStartX = e.GetPosition(border).X;
+        _transitionDragStartDuration = duration;
+        e.Pointer.Capture((IInputElement?)sender);
+        e.Handled = true;
+    }
+
+    private void OnTransitionHandleMoved(object? sender, PointerEventArgs e)
+    {
+        if (_draggingTransitionEdge is not { } edge || DataContext is not ElementViewModel viewModel) return;
+
+        viewModel.PreviewTransitionDuration(edge, GetDraggedTransitionDuration(viewModel, edge, e));
+        e.Handled = true;
+    }
+
+    private void OnTransitionHandleReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_draggingTransitionEdge is not { } edge || DataContext is not ElementViewModel viewModel) return;
+
+        _draggingTransitionEdge = null;
+        TimeSpan duration = GetDraggedTransitionDuration(viewModel, edge, e);
+        e.Pointer.Capture(null);
+        viewModel.CommitTransitionDuration(edge, duration);
+        e.Handled = true;
+    }
+
+    private void OnTransitionHandleCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (_draggingTransitionEdge is not { } edge) return;
+
+        _draggingTransitionEdge = null;
+        (DataContext as ElementViewModel)?.PreviewTransitionDuration(edge, null);
+    }
+
+    // The side grows by however far the pointer has moved since the press, away from its edge, snapped to
+    // frames and kept within the element. A press without a drag keeps the duration as it is, even when it
+    // is not a whole number of frames.
+    private TimeSpan GetDraggedTransitionDuration(ElementViewModel viewModel, ElementEdge edge, PointerEventArgs e)
+    {
+        double delta = e.GetPosition(border).X - _transitionDragStartX;
+        if (delta == 0) return _transitionDragStartDuration;
+
+        float scale = viewModel.Timeline.Options.Value.Scale;
+        int rate = FrameRateOf(viewModel);
+        if (edge == ElementEdge.End) delta = -delta;
+
+        TimeSpan duration = (_transitionDragStartDuration + delta.PixelToTimeSpan(scale)).RoundToRate(rate);
+        if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
+        if (duration > viewModel.Model.Length) duration = viewModel.Model.Length;
+        return duration;
+    }
+
+    // A double-click on a transition part edits it; one on an edge another element meets adds the default
+    // transition there, or edits the one already there. Returns whether the click was taken.
+    internal bool HandleTransitionDoubleClick(PointerPressedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return false;
+
+        if (IsWithin(e, enterTransitionPart))
+        {
+            viewModel.EditTransition(ElementEdge.Start);
+            return true;
+        }
+
+        if (IsWithin(e, exitTransitionPart))
+        {
+            viewModel.EditTransition(ElementEdge.End);
+            return true;
+        }
+
+        double x = e.GetPosition(border).X;
+        ElementEdge? edge = x < BoundaryHitWidth ? ElementEdge.Start
+            : x > border.Bounds.Width - BoundaryHitWidth ? ElementEdge.End
+            : null;
+        if (edge is not { } boundaryEdge || !viewModel.HasTransitionPartner(boundaryEdge)) return false;
+
+        if (viewModel.GetTransitionType(boundaryEdge) != null)
+            viewModel.EditTransition(boundaryEdge);
+        else
+            viewModel.ApplyTransition(boundaryEdge, typeof(CrossDissolveTransition));
+        return true;
+    }
+
+    private static bool IsWithin(RoutedEventArgs e, Visual part)
+    {
+        return part.IsVisible
+               && e.Source is Visual source
+               && (source == part || part.IsVisualAncestorOf(source));
     }
 
     private void LockElement_Click(object? sender, RoutedEventArgs e)

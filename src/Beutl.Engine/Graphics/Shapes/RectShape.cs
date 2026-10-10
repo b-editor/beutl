@@ -27,7 +27,7 @@ public sealed partial class RectShape : Shape
         private readonly RectGeometry _geometry = new();
         private RectGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(RectShape obj, CompositionContext context)
+        partial void PostReconcile(RectShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);

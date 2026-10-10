@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Reflection;
 using Avalonia.Headless.NUnit;
@@ -102,13 +103,9 @@ public sealed class AgentHostEndpointTests
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var liveSessions = new LiveSessionSource();
             LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editor));
-            var sessions = new AgentSessionManager();
-            sessions.UseSource(liveSessions);
             var gateway = new EditorProjectSessionGateway(
                 TestShell.Project,
                 TestShell.Editor,
-                liveSessions,
-                sessions,
                 new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
 
@@ -365,20 +362,73 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Default_constructor_generates_and_persists_a_random_token()
+    public async Task Independent_configurations_share_the_persisted_profile_token()
     {
         await TestReset.ResetShellAsync();
-        var config = new AiAgentConfig();
-
-        var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-        var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-
-        Assert.Multiple(() =>
+        string directory = Directory.CreateTempSubdirectory("endpoint-token-").FullName;
+        var firstConfig = new AiAgentConfig();
+        var secondConfig = new AiAgentConfig { LiveMcpToken = "old-snapshot-token" };
+        try
         {
-            Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
-            Assert.That(config.LiveMcpToken, Is.EqualTo(first.Token));
-            Assert.That(second.Token, Is.EqualTo(first.Token));
-        });
+            await using var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), firstConfig, directory);
+            await using var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), secondConfig, directory);
+            string firstInstanceId = first.InstanceId;
+            await first.StartAsync();
+            await second.StartAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.InstanceId, Is.EqualTo(firstInstanceId));
+                Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
+                Assert.That(firstConfig.LiveMcpToken, Is.Empty);
+                Assert.That(secondConfig.LiveMcpToken, Is.Empty);
+                Assert.That(second.Token, Is.EqualTo(first.Token));
+                Assert.That(LiveMcpTokenStore.GetOrCreate(directory), Is.EqualTo(first.Token));
+            });
+            using var http = new HttpClient();
+            using (HttpResponseMessage rejected = await http.GetAsync(new Uri(first.EndpointUri!, "/agent-host")))
+                Assert.That(rejected.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first.Token);
+            foreach (AgentHostEndpoint endpoint in new[] { first, second })
+            {
+                AgentHostInstanceInfo? info = await http.GetFromJsonAsync<AgentHostInstanceInfo>(new Uri(endpoint.EndpointUri!, "/agent-host"));
+                Assert.That(info?.InstanceId, Is.EqualTo(endpoint.InstanceId));
+            }
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase("live-mcp-token.json")]
+    [TestCase("settings.json")]
+    public async Task Invalid_credentials_fail_background_start_without_blocking_editor_construction(string fileName)
+    {
+        await TestReset.ResetShellAsync();
+        string directory = Directory.CreateTempSubdirectory("endpoint-invalid-token-").FullName;
+        string invalidPath = Path.Combine(directory, fileName);
+        File.WriteAllText(invalidPath, "{");
+        var config = new AiAgentConfig { LiveMcpToken = "pending-migration-token" };
+        try
+        {
+            await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config, directory);
+            Assert.That(File.Exists(Path.Combine(directory, "live-mcp-token.lock")), Is.False,
+                "Editor construction must not acquire the token store or wait for its lock.");
+            endpoint.StartInBackground();
+            Assert.ThrowsAsync<InvalidDataException>(async () => await endpoint.StartAsync());
+            using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(endpoint, config);
+            Assert.Multiple(() =>
+            {
+                Assert.That(endpoint.IsRunning, Is.False);
+                Assert.That(endpoint.EndpointUri, Is.Null);
+                Assert.That(endpoint.Token, Is.Empty);
+                Assert.That(config.LiveMcpToken, Is.EqualTo("pending-migration-token"));
+                Assert.That(File.ReadAllText(invalidPath), Is.EqualTo("{"));
+                Assert.That(settings.IsLiveMcpAvailable.Value, Is.False);
+                Assert.That(settings.LiveMcpAuthHeader.Value, Is.Empty);
+            });
+            if (fileName == "settings.json")
+                Assert.That(File.Exists(Path.Combine(directory, LiveMcpTokenStore.FileName)), Is.False);
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     [AvaloniaTest]
@@ -611,7 +661,7 @@ public sealed class AgentHostEndpointTests
             {
                 Assert.That(toolNames, Does.Not.Contain("evaluate_edit_quality"));
                 Assert.That(toolNames, Does.Contain("measure_frame_differences"));
-                Assert.That(toolNames, Does.Contain("attach_active_editor"));
+                Assert.That(toolNames, Does.Contain("list_scenes"));
                 Assert.That(toolNames, Does.Contain("apply_edit"));
                 Assert.That(toolNames, Does.Contain("render_still"));
             });
@@ -664,21 +714,22 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task AttachActiveEditor_without_open_editor_returns_typed_error()
+    public async Task ListScenes_without_open_editor_returns_an_empty_list()
     {
         await TestReset.ResetShellAsync();
         var editorService = new EditorService(new ExtensionProvider());
-        var liveSessions = new LiveSessionSource();
-        var sessions = new AgentSessionManager();
-        var tools = new AgentHostTools(editorService, liveSessions, sessions);
+        var projects = new ProjectService();
+        var gateway = new EditorProjectSessionGateway(projects, editorService,
+            new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
+        var tools = new AgentHostTools(projects, editorService, gateway);
 
-        ToolResult<AttachActiveEditorResponse> result = tools.AttachActiveEditor();
+        ToolResult<ListScenesResponse> result = tools.ListScenes();
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
-            Assert.That(result.Error?.Hint, Does.Contain("attach_active_editor"));
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Value!.Scenes, Is.Empty);
+            Assert.That(result.Value.ActiveSceneId, Is.Null);
         });
     }
 

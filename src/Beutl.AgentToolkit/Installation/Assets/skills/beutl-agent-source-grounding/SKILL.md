@@ -9,7 +9,7 @@ Resolve a concrete editing uncertainty with `get_schema`, `read_document`, `meas
 
 ## Multiple Beutl instances
 
-When using live MCP, call `list_instances` to identify the requested process by its PID, project and active scene. Pass its `instanceId` on every subsequent call, including attach/open/create, document/schema queries, edits, history, rendering and render-job polling. There is no shared selected instance: omitting the argument operates on the process hosting the connected endpoint. An `instance_unavailable` error requires rediscovery; never silently continue on another process. Stdio MCP operates on its own file-backed session and does not expose instance routing.
+When using live MCP, call `list_instances` to identify the requested process by its PID, project and active scene. Pass its `instanceId` on every subsequent call, including scene discovery/open/create, document/schema queries, edits, history, rendering and render-job polling. There is no shared selected instance: omitting the argument operates on the process hosting the connected endpoint. An `instance_unavailable` error requires rediscovery; never silently continue on another process. Call `list_scenes` on that instance and pass its `sceneId` on each scene read, edit, history, or render call. Scene calls preserve the visible editor selection; there is no attach step or shared selected scene. A missing scene ID is rejected instead of falling back to the UI selection. Catalog queries and job polling need no scene ID. Stdio MCP operates on its own file-backed session and does not expose instance or scene routing.
 
 ## Coordinates and time
 

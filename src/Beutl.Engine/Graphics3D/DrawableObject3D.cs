@@ -94,13 +94,13 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
             _content.UpdateLayout(canvasSize, density);
         }
 
-        partial void PreUpdate(DrawableObject3D obj, CompositionContext context)
+        partial void PreReconcile(DrawableObject3D obj, CompositionContext context)
         {
             if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
                 Version++;
         }
 
-        partial void PostUpdate(DrawableObject3D obj, CompositionContext context)
+        partial void PostReconcile(DrawableObject3D obj, CompositionContext context)
         {
             _meshResource ??= _mesh.ToResource(context);
             _content.Drawables = Children;

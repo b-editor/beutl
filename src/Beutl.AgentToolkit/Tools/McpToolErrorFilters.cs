@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 using Beutl.AgentToolkit.Common;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
@@ -9,6 +10,10 @@ namespace Beutl.AgentToolkit.Tools;
 public static class McpToolErrorFilters
 {
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan s_patternTimeout = TimeSpan.FromMilliseconds(100);
+
+    private static readonly string[] s_compositionKeywords =
+        ["allOf", "anyOf", "oneOf", "if", "then", "else", "dependentSchemas", "$ref", "$dynamicRef"];
 
     public static IMcpRequestFilterBuilder AddToolkitCallToolErrorFilter(this IMcpRequestFilterBuilder filters)
     {
@@ -56,18 +61,30 @@ public static class McpToolErrorFilters
         IEnumerable<string> argumentNames,
         JsonElement inputSchema)
     {
-        if (!TryGetAcceptedArgumentNames(inputSchema, out HashSet<string>? accepted))
+        if (!TryGetAcceptedArguments(inputSchema, out HashSet<string>? accepted, out List<string>? patterns))
         {
             return null;
         }
 
-        string[] unknown = argumentNames
-            .Where(argument => !accepted.Contains(argument))
-            .Order(StringComparer.Ordinal)
-            .ToArray();
+        string[] unknown;
+        try
+        {
+            // JSON Schema patterns follow ECMAScript, where \d and \w match only ASCII characters.
+            unknown = argumentNames
+                .Where(argument => !accepted.Contains(argument)
+                                   && !patterns.Any(pattern => Regex.IsMatch(argument, pattern, RegexOptions.ECMAScript, s_patternTimeout)))
+                .Order(StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch (Exception ex) when (ex is ArgumentException or RegexMatchTimeoutException)
+        {
+            // The tool owns its patterns; one this host cannot evaluate must not block the call.
+            return null;
+        }
+
         return unknown.Length == 0
             ? null
-            : CreateUnknownArgumentsResult(toolName, unknown, accepted);
+            : CreateUnknownArgumentsResult(toolName, unknown, accepted, patterns);
     }
 
     private static McpServerTool? ResolveTool(RequestContext<CallToolRequestParams> context)
@@ -87,12 +104,42 @@ public static class McpToolErrorFilters
         return tools.TryGetPrimitive(toolName, out McpServerTool? tool) ? tool : null;
     }
 
-    private static bool TryGetAcceptedArgumentNames(JsonElement inputSchema, out HashSet<string> accepted)
+    private static bool TryGetAcceptedArguments(
+        JsonElement inputSchema,
+        out HashSet<string> accepted,
+        out List<string> patterns)
     {
         accepted = new HashSet<string>(StringComparer.Ordinal);
+        patterns = [];
         if (inputSchema.ValueKind != JsonValueKind.Object)
         {
             return false;
+        }
+
+        // A schema that admits arguments beyond its named properties has no fixed name set to enforce.
+        if (inputSchema.TryGetProperty("additionalProperties", out JsonElement additional)
+            && additional.ValueKind != JsonValueKind.False)
+        {
+            return false;
+        }
+
+        // Names declared by subschemas or references are not resolved here, so they cannot be rejected.
+        if (s_compositionKeywords.Any(keyword => inputSchema.TryGetProperty(keyword, out _)))
+        {
+            return false;
+        }
+
+        if (inputSchema.TryGetProperty("patternProperties", out JsonElement patternProperties))
+        {
+            if (patternProperties.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            foreach (JsonProperty pattern in patternProperties.EnumerateObject())
+            {
+                patterns.Add(pattern.Name);
+            }
         }
 
         if (!inputSchema.TryGetProperty("properties", out JsonElement properties))
@@ -151,13 +198,18 @@ public static class McpToolErrorFilters
     private static CallToolResult CreateUnknownArgumentsResult(
         string? toolName,
         IReadOnlyList<string> unknown,
-        IReadOnlySet<string> accepted)
+        IReadOnlySet<string> accepted,
+        IReadOnlyList<string> patterns)
     {
         string target = ResolveTarget(toolName);
         string unknownList = string.Join(", ", unknown);
-        string acceptedList = accepted.Count == 0
-            ? "none"
-            : string.Join(", ", accepted.Order(StringComparer.Ordinal));
+        List<string> acceptedParts = [.. accepted.Order(StringComparer.Ordinal)];
+        if (patterns.Count > 0)
+        {
+            acceptedParts.Add($"names matching {string.Join(" or ", patterns)}");
+        }
+
+        string acceptedList = acceptedParts.Count == 0 ? "none" : string.Join(", ", acceptedParts);
         ToolResult<object?> result = ToolResult<object?>.Failure(
             ErrorCode.ValidationRejected,
             $"Unknown argument(s) for '{target}': {unknownList}. Accepted parameters: {acceptedList}.",

@@ -25,13 +25,13 @@ public sealed record ListAgentHostInstancesResponse(
 
 internal sealed class AgentHostInstanceRouter(
     AgentHostInstanceRegistry registry, ProjectService projects, EditorService editors,
-    string token, Func<string> workspaceRoot)
+    string token, Func<string> workspaceRoot, string? instanceId = null)
 {
     internal const string InstanceHeader = "X-Beutl-Instance-Id";
     private static readonly TimeSpan s_connectionTimeout = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly AgentHostInstanceAuthentication _authentication = new(token, Guid.NewGuid().ToString("N"));
+    private readonly AgentHostInstanceAuthentication _authentication = new(token, instanceId ?? Guid.NewGuid().ToString("N"));
 
     public string InstanceId => _authentication.InstanceId;
 
@@ -219,7 +219,7 @@ internal sealed class AgentHostInstanceRouter(
                 properties["instanceId"] = new JsonObject
                 {
                     ["type"] = "string",
-                    ["description"] = "Target Beutl instance ID from list_instances. Pass the same ID on every call, including attach, read, edit, history, render and job polling. Omit to operate on the connected instance."
+                    ["description"] = "Target Beutl instance ID from list_instances. Pass the same ID on every call, including scene discovery, read, edit, history, render and job polling. Omit to operate on the connected instance."
                 };
                 return node.Deserialize<Tool>()!;
             }).ToArray();

@@ -356,8 +356,8 @@ public class FormattedTextDisposalTests
         TextElements elements = resource.GetTextElements();
 
         tb.Text.CurrentValue = "DEF";
-        bool updateOnly = false;
-        resource.Update(tb, CompositionContext.Default, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(tb, CompositionContext.Default, ref versionBumped);
 
         Assert.That(elements.IsDisposed, Is.True,
             "Old TextElements must be disposed when text changes so FormattedText Skia handles are released deterministically.");

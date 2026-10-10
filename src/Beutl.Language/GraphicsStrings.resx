@@ -1488,4 +1488,64 @@
   <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
     <value>Apply to target</value>
   </data>
+  <data name="ClipTransition" xml:space="preserve">
+    <value>Transition</value>
+  </data>
+  <data name="ClipTransition_Duration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="ClipTransition_Easing" xml:space="preserve">
+    <value>Easing</value>
+  </data>
+  <data name="CrossDissolveTransition" xml:space="preserve">
+    <value>Cross Dissolve</value>
+  </data>
+  <data name="FadeTransition" xml:space="preserve">
+    <value>Fade</value>
+  </data>
+  <data name="WipeTransition" xml:space="preserve">
+    <value>Wipe</value>
+  </data>
+  <data name="DipToColorTransition" xml:space="preserve">
+    <value>Dip to Color</value>
+  </data>
+  <data name="DipToWhiteTransition" xml:space="preserve">
+    <value>Dip to White</value>
+  </data>
+  <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
+    <value>Left to Right</value>
+  </data>
+  <data name="ClipTransitionDirection_RightToLeft" xml:space="preserve">
+    <value>Right to Left</value>
+  </data>
+  <data name="ClipTransitionDirection_TopToBottom" xml:space="preserve">
+    <value>Top to Bottom</value>
+  </data>
+  <data name="ClipTransitionDirection_BottomToTop" xml:space="preserve">
+    <value>Bottom to Top</value>
+  </data>
+  <data name="PushTransition" xml:space="preserve">
+    <value>Push</value>
+  </data>
+  <data name="SlideTransition" xml:space="preserve">
+    <value>Slide</value>
+  </data>
+  <data name="ZoomTransition" xml:space="preserve">
+    <value>Cross Zoom</value>
+  </data>
+  <data name="IrisTransition" xml:space="preserve">
+    <value>Iris</value>
+  </data>
+  <data name="SplitTransition" xml:space="preserve">
+    <value>Split</value>
+  </data>
+  <data name="ClipTransition_Orientation" xml:space="preserve">
+    <value>Orientation</value>
+  </data>
+  <data name="ClipTransitionOrientation_Horizontal" xml:space="preserve">
+    <value>Horizontal</value>
+  </data>
+  <data name="ClipTransitionOrientation_Vertical" xml:space="preserve">
+    <value>Vertical</value>
+  </data>
 </root>

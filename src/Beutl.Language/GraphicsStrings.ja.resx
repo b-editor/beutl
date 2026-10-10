@@ -1486,4 +1486,64 @@
   <data name="TransformEffect_ApplyToTarget" xml:space="preserve">
     <value>描画対象に適用</value>
   </data>
+  <data name="ClipTransition" xml:space="preserve">
+    <value>トランジション</value>
+  </data>
+  <data name="ClipTransition_Duration" xml:space="preserve">
+    <value>長さ</value>
+  </data>
+  <data name="ClipTransition_Easing" xml:space="preserve">
+    <value>イージング</value>
+  </data>
+  <data name="CrossDissolveTransition" xml:space="preserve">
+    <value>クロスディゾルブ</value>
+  </data>
+  <data name="FadeTransition" xml:space="preserve">
+    <value>フェード</value>
+  </data>
+  <data name="WipeTransition" xml:space="preserve">
+    <value>ワイプ</value>
+  </data>
+  <data name="DipToColorTransition" xml:space="preserve">
+    <value>カラーへのディップ</value>
+  </data>
+  <data name="DipToWhiteTransition" xml:space="preserve">
+    <value>ホワイトへのディップ</value>
+  </data>
+  <data name="ClipTransitionDirection_LeftToRight" xml:space="preserve">
+    <value>左から右</value>
+  </data>
+  <data name="ClipTransitionDirection_RightToLeft" xml:space="preserve">
+    <value>右から左</value>
+  </data>
+  <data name="ClipTransitionDirection_TopToBottom" xml:space="preserve">
+    <value>上から下</value>
+  </data>
+  <data name="ClipTransitionDirection_BottomToTop" xml:space="preserve">
+    <value>下から上</value>
+  </data>
+  <data name="PushTransition" xml:space="preserve">
+    <value>プッシュ</value>
+  </data>
+  <data name="SlideTransition" xml:space="preserve">
+    <value>スライド</value>
+  </data>
+  <data name="ZoomTransition" xml:space="preserve">
+    <value>クロスズーム</value>
+  </data>
+  <data name="IrisTransition" xml:space="preserve">
+    <value>アイリス</value>
+  </data>
+  <data name="SplitTransition" xml:space="preserve">
+    <value>スプリット</value>
+  </data>
+  <data name="ClipTransition_Orientation" xml:space="preserve">
+    <value>向き</value>
+  </data>
+  <data name="ClipTransitionOrientation_Horizontal" xml:space="preserve">
+    <value>水平</value>
+  </data>
+  <data name="ClipTransitionOrientation_Vertical" xml:space="preserve">
+    <value>垂直</value>
+  </data>
 </root>

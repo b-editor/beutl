@@ -161,8 +161,8 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         for (int i = 0; i < RenderNodeCache.StableRequestCount + 1; i++)
         {
-            bool updateOnly = false;
-            resource.Update(effect, CompositionContext.Default, ref updateOnly);
+            bool versionBumped = false;
+            resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
             node.Update(resource);
             RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
 
@@ -1407,8 +1407,8 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
-        bool updateOnly = false;
-        resource.Update(this, context, ref updateOnly);
+        bool versionBumped = false;
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 

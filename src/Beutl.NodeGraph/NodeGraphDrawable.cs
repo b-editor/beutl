@@ -23,9 +23,9 @@ public sealed partial class NodeGraphDrawable : Drawable
 
     public override Resource ToResource(CompositionContext context)
     {
-        bool updateOnly = false;
+        bool versionBumped = false;
         var resource = new Resource();
-        resource.Update(this, context, ref updateOnly);
+        resource.Reconcile(this, context, ref versionBumped);
         return resource;
     }
 
@@ -54,9 +54,9 @@ public sealed partial class NodeGraphDrawable : Drawable
 
         public List<RenderNode> OutputRenderNode { get; private set; } = [];
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
-            base.Update(obj, context, ref updateOnly);
+            base.Reconcile(obj, context, ref versionBumped);
             OutputRenderNode.Clear();
             if (obj is NodeGraphDrawable drawable)
             {
@@ -77,7 +77,7 @@ public sealed partial class NodeGraphDrawable : Drawable
                     PullOutputValue(_model);
 
                     Version++;
-                    updateOnly = true;
+                    versionBumped = true;
                 }
             }
             else
