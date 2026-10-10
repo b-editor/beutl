@@ -3441,4 +3441,10 @@ cuando el registro del historial está activado.</value>
   <data name="ExitTransition" xml:space="preserve">
     <value>Transición de salida</value>
   </data>
+  <data name="PinTab" xml:space="preserve">
+    <value>Fijar pestaña</value>
+  </data>
+  <data name="UnpinTab" xml:space="preserve">
+    <value>Desfijar pestaña</value>
+  </data>
 </root>

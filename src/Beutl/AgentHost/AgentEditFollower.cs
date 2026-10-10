@@ -16,6 +16,7 @@ using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Reactive.Bindings;
 
 namespace Beutl.AgentHost;
 
@@ -178,7 +179,13 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             return;
         }
 
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = element;
+        // Following an edit to the element already selected still tells the editor, which reopens a closed
+        // element property tab on it.
+        IReactiveProperty<CoreObject?> selection = editor.GetRequiredService<IEditorSelection>().SelectedObject;
+        if (ReferenceEquals(selection.Value, element))
+            selection.ForceNotify();
+        else
+            selection.Value = element;
         if (!editor.Player.IsPlaying.Value)
         {
             IEditorClock clock = editor.GetRequiredService<IEditorClock>();
@@ -196,21 +203,13 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             timeline.HighlightElement.Execute(element);
         }
 
-        if (target.Object is { } edited && !ReferenceEquals(edited, element))
+        // Selecting the element above opened it in an element property tab, possibly next to tabs pinned to
+        // other elements, so reveal the edit in the tab showing this element.
+        if (target.Object is { } edited && !ReferenceEquals(edited, element)
+            && editor.FindToolTab<ElementPropertyTabViewModel>(t => t.Element.Value == element) is { } properties)
         {
-            if (editor.FindToolTab<ElementPropertyTabViewModel>() is { } properties)
-            {
-                properties.IsSelected.Value = true;
-                properties.Reveal(edited, target.PropertyName);
-            }
-            else
-            {
-                properties = new ElementPropertyTabViewModel(editor);
-                if (editor.OpenToolTab(properties))
-                    properties.Reveal(edited, target.PropertyName);
-                else
-                    properties.Dispose();
-            }
+            properties.IsSelected.Value = true;
+            properties.Reveal(edited, target.PropertyName);
         }
 
         // Selection alone does not redraw the preview, and its bounds outline the selected layer.

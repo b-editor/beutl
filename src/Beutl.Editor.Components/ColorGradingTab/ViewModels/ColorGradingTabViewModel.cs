@@ -19,11 +19,12 @@ public record ColorGradingWheelMode(string Name, int Value)
         new($"{GraphicsStrings.ColorGrading_Lift} / {GraphicsStrings.ColorGrading_Gamma} / {GraphicsStrings.ColorGrading_Gain} / {GraphicsStrings.ColorGrading_Offset}", 1);
 }
 
-public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorContextVisitor
+public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEditorContextVisitor
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly CompositeDisposable _effectDisposables = [];
+    private readonly ToolTabPin _pin;
 
     public ColorGradingTabViewModel(IEditorContext editorContext)
     {
@@ -31,6 +32,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
         Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
+
+        _pin = new ToolTabPin(Effect.Select(effect => effect != null)).DisposeWith(_disposables);
 
         HasColorGrading = Effect
             .Select(x => x != null)
@@ -69,6 +72,10 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     public ReadOnlyReactivePropertySlim<bool> HasColorGrading { get; }
 
     public ReactivePropertySlim<ColorGrading?> Effect { get; } = new();
+
+    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
+
+    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
 
     public ReactivePropertySlim<ColorGradingWheelMode> WheelMode { get; } =
         new(ColorGradingWheelMode.ShadowsMidtonesHighlights);
@@ -167,6 +174,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         {
             IsNumberEditorsVisible.Value = isVisible;
         }
+
+        _pin.ReadFromJson(json);
     }
 
     public void WriteToJson(JsonObject json)
@@ -174,6 +183,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         json["wheelMode"] = WheelMode.Value.Value;
         json["effectId"] = Effect.Value?.Id;
         json["isNumberEditorsVisible"] = IsNumberEditorsVisible.Value;
+        _pin.WriteToJson(json);
     }
 
     private void SetEditors(ColorGrading? effect)

@@ -8,10 +8,11 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 
-public sealed class ObjectPropertyTabViewModel : IToolContext
+public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
 {
     private const int MaxCachedEditors = 7;
     private const int MaxBackStackLength = 31;
+    private const string PinnedObjectJsonKey = "pinnedObjectId";
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly IPropertiesEditorFactory _factory;
@@ -20,14 +21,41 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
     private readonly List<WeakReference<ICoreObject>> _backStack = new(MaxBackStackLength + 1);
     private readonly ConditionalWeakTable<ICoreObject, IServiceProvider> _providers = new();
     private readonly ReactivePropertySlim<bool> _canBack = new();
+    private readonly ToolTabPin _pin;
+    private IHierarchical? _watchedTarget;
 
     public ObjectPropertyTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
         _factory = editorContext.GetRequiredService<IPropertiesEditorFactory>();
+        _pin = new ToolTabPin(ChildContext.Select(child => child != null)).DisposeWith(_disposables);
 
-        editorContext.GetRequiredService<IEditorSelection>().SelectedObject
-            .Subscribe(obj => NavigateCore(obj, false, null))
+        // Going back would change what a pinned tab shows.
+        CanBack = _canBack
+            .CombineLatest(_pin.IsPinned, (canBack, pinned) => canBack && !pinned)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Header = _pin.IsPinned
+            .CombineLatest(ChildContext, (pinned, child) => pinned ? child?.Target as CoreObject : null)
+            .Select(ToolTabHeaderHelper.ObserveObjectLabel)
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.Properties, label))
+            .ToReadOnlyReactivePropertySlim(Strings.Properties)
+            .DisposeWith(_disposables)!;
+
+        ChildContext.Subscribe(child => WatchTarget(child?.Target as IHierarchical))
+            .DisposeWith(_disposables);
+
+        // A pinned tab outlives the property editor that opened its object, so its editors stop taking services
+        // from that editor and take them from the tab, which finds the owning element itself.
+        _pin.IsPinned.Where(pinned => pinned)
+            .Subscribe(_ =>
+            {
+                if (ChildContext.Value is not { } child) return;
+                _providers.Remove(child.Target);
+                AcceptChildren(child, null);
+            })
             .DisposeWith(_disposables);
     }
 
@@ -35,14 +63,32 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
 
     public ReactiveProperty<IPropertiesEditorViewModel?> ChildContext { get; } = new();
 
-    public IReadOnlyReactiveProperty<bool> CanBack => _canBack;
+    public IReadOnlyReactiveProperty<bool> CanBack { get; }
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Properties);
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
+
+    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
+
+    /// <summary>
+    /// Finds the tab to show <paramref name="target"/> in: the one already showing it, else an unpinned one.
+    /// </summary>
+    public static ObjectPropertyTabViewModel? FindReusable(IEditorContext editorContext, ICoreObject? target)
+    {
+        return ToolTabReuse.Find<ObjectPropertyTabViewModel>(
+            editorContext,
+            t => ReferenceEquals(t.ChildContext.Value?.Target, target),
+            t => t.ChildContext.Value is null,
+            retargetAnyOpen: true);
+    }
 
     public void Back()
     {
+        if (IsPinned.Value) return;
+
         for (int i = _backStack.Count - 2; i >= 0; i--)
         {
             WeakReference<ICoreObject> item = _backStack[i];
@@ -62,6 +108,9 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
 
     public void NavigateCore(ICoreObject? obj, bool back, IServiceProvider? provider)
     {
+        // Showing the same object again would only clear it for a moment, which releases a pin.
+        if (obj != null && ReferenceEquals(ChildContext.Value?.Target, obj)) return;
+
         ChildContext.Value = null;
         WeakReference<ICoreObject> weakRef = _backStack.Find(x => x.TryGetTarget(out ICoreObject? item) && ReferenceEquals(item, obj))
             ?? new WeakReference<ICoreObject>(obj!);
@@ -142,17 +191,47 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
         _canBack.Value = _backStack.Count > 0;
     }
 
+    private void WatchTarget(IHierarchical? target)
+    {
+        if (_watchedTarget != null)
+            _watchedTarget.DetachedFromHierarchy -= OnTargetDetached;
+
+        _watchedTarget = target;
+        if (target != null)
+            target.DetachedFromHierarchy += OnTargetDetached;
+    }
+
+    // A removed object leaves the tab empty, which also releases the pin.
+    private void OnTargetDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        ChildContext.Value = null;
+    }
+
     public void Dispose()
     {
         _disposables.Dispose();
+        WatchTarget(null);
     }
 
     public void ReadFromJson(JsonObject json)
     {
+        if (ToolTabPin.WasPinned(json)
+            && json.TryGetPropertyValueAsJsonValue(PinnedObjectJsonKey, out Guid id)
+            && _editorContext.GetService<Scene>() is { } scene
+            && new ObjectSearcher(scene, o => o is CoreObject obj && obj.Id == id).Search() is ICoreObject target)
+        {
+            NavigateCore(target, false, null);
+            _pin.IsPinned.Value = true;
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
+        _pin.WriteToJson(json);
+        if (IsPinned.Value && ChildContext.Value?.Target is { } target)
+            json[PinnedObjectJsonKey] = target.Id;
+        else
+            json.Remove(PinnedObjectJsonKey);
     }
 
     public object? GetService(Type serviceType)

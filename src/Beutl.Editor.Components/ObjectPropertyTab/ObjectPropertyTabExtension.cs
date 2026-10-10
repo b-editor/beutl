@@ -15,13 +15,15 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 {
     public static readonly ObjectPropertyTabExtension Instance = new();
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override string Name => "Property editor";
 
     public override string DisplayName => "Property editor";
 
-    public override string? Header => Strings.Properties;
+    // Left out of the tool pickers: property editors open this tool on an object, so a picked tab would only sit
+    // empty.
+    public override string? Header => null;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Right;
 

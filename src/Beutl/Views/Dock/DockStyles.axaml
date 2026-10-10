@@ -1,13 +1,113 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:acr="using:Avalonia.Controls.Recycling"
+        xmlns:converters="using:Dock.Avalonia.Converters"
         xmlns:core="using:Dock.Model.Core"
         xmlns:dmc="using:Dock.Model.Controls"
+        xmlns:dockVm="using:Beutl.ViewModels.Dock"
         xmlns:icons="using:FluentIcons.Avalonia.Fluent"
         xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Views.Dock"
         xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Styles.Resources>
+        <!--
+            Dock's tab menu (ToolTabStripItem.axaml in Dock.Avalonia.Themes.Fluent) with "Pin Tab" on top for
+            tools that can be pinned to their target. "Dock as Document" is left out: no Beutl dockable allows it.
+        -->
+        <ContextMenu x:Key="ToolTabStripItemContextMenu"
+                     x:CompileBindings="True"
+                     x:DataType="core:IDockable">
+            <MenuItem Header="{x:Static lang:Strings.PinTab}"
+                      IsChecked="{Binding $self.((dockVm:BeutlToolDockable)DataContext).Pinnable.IsPinned.Value, Mode=TwoWay, FallbackValue=False}"
+                      IsEnabled="{Binding $self.((dockVm:BeutlToolDockable)DataContext).Pinnable.HasTarget.Value, FallbackValue=False}"
+                      IsVisible="{Binding $self.((dockVm:BeutlToolDockable)DataContext).Pinnable, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}"
+                      ToggleType="CheckBox" />
+            <Separator IsVisible="{Binding $self.((dockVm:BeutlToolDockable)DataContext).Pinnable, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}" />
+            <MenuItem Command="{Binding Owner.Factory.FloatDockable}"
+                      CommandParameter="{Binding}"
+                      Header="{DynamicResource ToolTabStripItemFloatString}">
+                <MenuItem.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanFloatMultiConverter}">
+                            <Binding />
+                            <Binding Path="CanFloat" />
+                            <Binding Path="DockCapabilityOverrides.CanFloat" />
+                            <Binding Path="((core:IDock)Owner).DockCapabilityPolicy.CanFloat" />
+                        </MultiBinding>
+                        <MultiBinding Converter="{x:Static converters:CanRemoveDockableConverter.Instance}">
+                            <Binding FallbackValue="{x:True}" Path="((core:IDock)Owner).CanCloseLastDockable" />
+                            <Binding FallbackValue="0" Path="((core:IDock)Owner).VisibleDockables.Count" />
+                        </MultiBinding>
+                    </MultiBinding>
+                </MenuItem.IsVisible>
+            </MenuItem>
+            <MenuItem Command="{Binding Owner.Factory.FloatAllDockables}"
+                      CommandParameter="{Binding}"
+                      Header="{DynamicResource ToolTabStripItemFloatAllString}">
+                <MenuItem.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanFloatMultiConverter}">
+                            <Binding />
+                            <Binding Path="CanFloat" />
+                            <Binding Path="DockCapabilityOverrides.CanFloat" />
+                            <Binding Path="((core:IDock)Owner).DockCapabilityPolicy.CanFloat" />
+                        </MultiBinding>
+                        <MultiBinding Converter="{x:Static converters:CanRemoveDockableConverter.Instance}">
+                            <Binding FallbackValue="{x:True}" Path="((core:IDock)Owner).CanCloseLastDockable" />
+                            <Binding FallbackValue="0" Path="((core:IDock)Owner).VisibleDockables.Count" />
+                        </MultiBinding>
+                    </MultiBinding>
+                </MenuItem.IsVisible>
+            </MenuItem>
+            <MenuItem Command="{Binding Owner.Factory.PinDockable}"
+                      CommandParameter="{Binding}"
+                      Header="{DynamicResource ToolTabStripItemDockString}"
+                      IsEnabled="{Binding OriginalOwner, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}">
+                <MenuItem.IsVisible>
+                    <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanPinMultiConverter}">
+                        <Binding />
+                        <Binding Path="CanPin" />
+                        <Binding Path="DockCapabilityOverrides.CanPin" />
+                        <Binding Path="((core:IDock)Owner).DockCapabilityPolicy.CanPin" />
+                    </MultiBinding>
+                </MenuItem.IsVisible>
+            </MenuItem>
+            <MenuItem Command="{Binding Owner.Factory.PinDockable}"
+                      CommandParameter="{Binding}"
+                      Header="{DynamicResource ToolTabStripItemAutoHideString}"
+                      IsEnabled="{Binding OriginalOwner, Converter={x:Static ObjectConverters.IsNull}, FallbackValue=False}">
+                <MenuItem.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanPinMultiConverter}">
+                            <Binding />
+                            <Binding Path="CanPin" />
+                            <Binding Path="DockCapabilityOverrides.CanPin" />
+                            <Binding Path="((core:IDock)Owner).DockCapabilityPolicy.CanPin" />
+                        </MultiBinding>
+                        <Binding Converter="{x:Static ObjectConverters.IsNull}" Path="$parent[HostWindow]" />
+                    </MultiBinding>
+                </MenuItem.IsVisible>
+            </MenuItem>
+            <MenuItem Command="{Binding Owner.Factory.CloseDockable}"
+                      CommandParameter="{Binding}"
+                      Header="{DynamicResource ToolTabStripItemCloseString}">
+                <MenuItem.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <MultiBinding Converter="{x:Static converters:DockCapabilityConverters.CanCloseMultiConverter}">
+                            <Binding />
+                            <Binding Path="CanClose" />
+                            <Binding Path="DockCapabilityOverrides.CanClose" />
+                            <Binding Path="((core:IDock)Owner).DockCapabilityPolicy.CanClose" />
+                        </MultiBinding>
+                        <MultiBinding Converter="{x:Static converters:CanRemoveDockableConverter.Instance}">
+                            <Binding FallbackValue="{x:True}" Path="((core:IDock)Owner).CanCloseLastDockable" />
+                            <Binding FallbackValue="0" Path="((core:IDock)Owner).VisibleDockables.Count" />
+                        </MultiBinding>
+                    </MultiBinding>
+                </MenuItem.IsVisible>
+            </MenuItem>
+        </ContextMenu>
+
         <!--  The default Fluent theme hides PART_ItemsPresenter on :singleitem; keep the lone tab visible so it can be dragged to another zone.  -->
         <ControlTheme x:Key="{x:Type ToolTabStrip}"
                       BasedOn="{StaticResource {x:Type ToolTabStrip}}"
@@ -61,20 +161,38 @@
                         title fade) is in the ToolTabStripItem style block below.
                     -->
                     <Panel Classes.closable="{Binding CanClose}">
-                        <!--
-                            The hover fade mask goes on this Border rather than the TextBlock: a TextBlock's
-                            mask is laid out against the glyph extents, so its fade would drift with the title
-                            length instead of staying anchored to the tab's right edge.
-                        -->
-                        <Border x:Name="PART_TabTitleHost"
-                                MaxWidth="180"
-                                Background="Transparent">
-                            <TextBlock x:Name="PART_TabTitle"
-                                       Padding="{DynamicResource DockHeaderContentPadding}"
-                                       Text="{Binding Title}"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip.Tip="{Binding Title}" />
-                        </Border>
+                        <DockPanel>
+                            <!--  Marks a tab pinned to its target, left of the title so the close button never covers it.  -->
+                            <Button x:Name="PART_TabUnpinButton"
+                                    x:CompileBindings="True"
+                                    Width="18"
+                                    Height="18"
+                                    Padding="0"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="{x:Static lang:Strings.UnpinTab}"
+                                    Command="{Binding $self.((dockVm:BeutlToolDockable)DataContext).UnpinCommand, FallbackValue={x:Null}}"
+                                    DockPanel.Dock="Left"
+                                    IsVisible="{Binding $self.((dockVm:BeutlToolDockable)DataContext).Pinnable.IsPinned.Value, FallbackValue=False}"
+                                    ToolTip.Tip="{x:Static lang:Strings.UnpinTab}">
+                                <icons:FluentIcon FontSize="12"
+                                                  Icon="Pin"
+                                                  IconVariant="Filled" />
+                            </Button>
+                            <!--
+                                The hover fade mask goes on this Border rather than the TextBlock: a TextBlock's
+                                mask is laid out against the glyph extents, so its fade would drift with the title
+                                length instead of staying anchored to the tab's right edge.
+                            -->
+                            <Border x:Name="PART_TabTitleHost"
+                                    MaxWidth="180"
+                                    Background="Transparent">
+                                <TextBlock x:Name="PART_TabTitle"
+                                           Padding="{DynamicResource DockHeaderContentPadding}"
+                                           Text="{Binding Title}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding Title}" />
+                            </Border>
+                        </DockPanel>
                         <Canvas Width="0"
                                 Height="0"
                                 HorizontalAlignment="Right"
@@ -339,6 +457,19 @@
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
         </Style>
         <Style Selector="^ Button#PART_TabCloseButton:pressed">
+            <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^ Button#PART_TabUnpinButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+        </Style>
+        <Style Selector="^ Button#PART_TabUnpinButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DockChromeButtonHoverBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
+        </Style>
+        <Style Selector="^ Button#PART_TabUnpinButton:pressed">
             <Setter Property="Background" Value="{DynamicResource DockChromeButtonPressedBackgroundBrush}" />
         </Style>
         <!--  :focus-visible keeps the keyboard tab stop from being an invisible way to close the tab.  -->

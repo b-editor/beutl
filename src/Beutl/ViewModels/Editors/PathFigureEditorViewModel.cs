@@ -194,8 +194,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
     {
         if (_editViewModel.Value is { } editViewModel)
         {
-            var tab = editViewModel.FindToolTab<PathEditorTabViewModel>();
-            if (tab != null && tab.FigureContext.Value == this)
+            if (editViewModel.FindToolTab<PathEditorTabViewModel>(t => t.FigureContext.Value == this) is { } tab)
             {
                 tab.FigureContext.Value = null;
             }

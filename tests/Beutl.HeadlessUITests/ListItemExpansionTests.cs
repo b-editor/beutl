@@ -92,7 +92,7 @@ public class ListItemExpansionTests
         };
         try
         {
-            selected.Value = element;
+            model.Element.Value = element;
             window.Show();
             foreach (var context in Flatten(model.Items.Single().Properties))
             {

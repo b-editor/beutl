@@ -344,6 +344,7 @@ public class ThemeCaptureTests
         }
 
         var closeUpVm = new ElementPropertyTabViewModel(editor);
+        closeUpVm.Element.Value = element;
         ExpandFilterEffectEditors(closeUpVm);
         var closeUpWindow = new Window
         {

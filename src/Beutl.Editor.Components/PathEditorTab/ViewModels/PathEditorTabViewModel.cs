@@ -14,10 +14,14 @@ using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
-public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IToolContext
+public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IPinnableToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorClock _clock;
+    private readonly ToolTabPin _pin;
+    // The editors a pinned tab detached from the property tab that lent FigureContext.
+    private IGeometryEditorContext? _ownedGeometry;
+    private IPathFigureEditorContext? _ownedFigure;
 
     public PathEditorTabViewModel(IEditorContext editorContext)
     {
@@ -34,6 +38,22 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
         PathGeometry = chain.PathGeometry;
         PathFigure = chain.PathFigure;
         Element = chain.Element;
+
+        _pin = new ToolTabPin(FigureContext.Select(context => context != null)).DisposeWith(_disposables);
+        _pin.IsPinned.Where(pinned => pinned)
+            .Subscribe(_ => DetachFigureContext())
+            .DisposeWith(_disposables);
+        FigureContext.Where(context => _ownedFigure != null && !ReferenceEquals(context, _ownedFigure))
+            .Subscribe(_ => ReleaseOwnedEditors())
+            .DisposeWith(_disposables);
+
+        Header = _pin.IsPinned
+            .CombineLatest(Element, (pinned, element) => pinned ? element : null)
+            .Select(ToolTabHeaderHelper.ObserveElementLabel)
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.PathEditor, label))
+            .ToReadOnlyReactivePropertySlim(Strings.PathEditor)
+            .DisposeWith(_disposables)!;
 
         GeometryResource = PathGeometry
             .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
@@ -164,7 +184,28 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PathEditor);
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
+
+    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
+
+    /// <summary>
+    /// Finds the tab to edit <paramref name="figure"/> in: the one already editing it, else an unpinned one.
+    /// </summary>
+    public static PathEditorTabViewModel? FindReusable(IEditorContext editorContext, PathFigure? figure)
+    {
+        return ToolTabReuse.Find<PathEditorTabViewModel>(
+            editorContext,
+            t => t.IsEditing(figure),
+            t => t.FigureContext.Value is null,
+            retargetAnyOpen: true);
+    }
+
+    public bool IsEditing(PathFigure? figure)
+    {
+        return figure != null && FigureContext.Value != null && PathFigure.Value == figure;
+    }
 
     // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(IPathFigureEditorContext context)
@@ -172,11 +213,53 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
         PathFigureContextChain.ToggleEditing(FigureContext, context);
     }
 
+    public void FinishEdit()
+    {
+        if (FigureContext.Value is { } context)
+        {
+            StartOrFinishEdit(context);
+        }
+    }
+
+    // The property tab disposes the editors it lent when it moves on to another selection, so a pinned tab
+    // switches to editors of its own for the same figure.
+    private void DetachFigureContext()
+    {
+        if (FigureContext.Value is not { } lent || ReferenceEquals(lent, _ownedFigure)) return;
+        if (PathFigure.Value is not { } figure || Element.Value is not { } element) return;
+        if (lent.GetParentContext()?.CreateDetached(new PropertyServices(EditorContext, element)) is not { } geometry)
+            return;
+
+        // Expanding creates the figure editors.
+        geometry.ExpandForEditing();
+        if (geometry.FindPathFigureContext(figure) is not { } owned)
+        {
+            (geometry as IDisposable)?.Dispose();
+            return;
+        }
+
+        owned.ExpandForEditing();
+        PathSegment? selected = SelectedOperation.Value;
+        _ownedGeometry = geometry;
+        _ownedFigure = owned;
+        FigureContext.Value = owned;
+        SelectedOperation.Value = selected;
+    }
+
+    private void ReleaseOwnedEditors()
+    {
+        IGeometryEditorContext? geometry = _ownedGeometry;
+        _ownedGeometry = null;
+        _ownedFigure = null;
+        (geometry as IDisposable)?.Dispose();
+    }
+
     public void Dispose()
     {
         if (PathFigure.Value is IHierarchical h)
             h.DetachedFromHierarchy -= OnPathFigureDetached;
         _disposables.Dispose();
+        ReleaseOwnedEditors();
         ClearPointProperties();
         PointProperties.Dispose();
         FigureContext.Dispose();

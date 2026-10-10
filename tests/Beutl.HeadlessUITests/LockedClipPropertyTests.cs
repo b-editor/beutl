@@ -51,6 +51,7 @@ public class LockedClipPropertyTests
         if (!lockAfterSelection) SetLock(true);
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         if (lockAfterSelection) SetLock(true);
         HeadlessTestHelpers.Settle();
 
@@ -153,6 +154,7 @@ public class LockedClipPropertyTests
         (EditViewModel editor, Element element, RectShape shape) = await OpenClip();
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         var property = WidthEditor(tab, shape);
         var layer = new TimelineLayer { ZIndex = element.ZIndex, IsLocked = true };
         editor.Scene.Layers.Add(layer);
@@ -179,17 +181,17 @@ public class LockedClipPropertyTests
         await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 2,
             new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         Element second = editor.Scene.Children.Last();
-        Select(editor, second);
+        tab.Element.Value = second;
         Assert.That(property.IsDisposed, Is.True);
         Assert.That(tab.CanEdit.Value, Is.True);
         element.IsLocked = true;
         Assert.That(tab.CanEdit.Value, Is.True);
-        Select(editor, null);
+        tab.Element.Value = null;
         Assert.That(tab.CanEdit.Value, Is.False);
         Assert.That(tab.Items, Is.Empty);
         element.Objects.Add(new RectShape());
-        Assert.That(tab.Items, Is.Empty, "Clearing selection must unsubscribe the old clip's objects.");
-        Select(editor, second);
+        Assert.That(tab.Items, Is.Empty, "Clearing the element must unsubscribe the old clip's objects.");
+        tab.Element.Value = second;
         Assert.That(tab.CanEdit.Value, Is.True);
     }
 
@@ -199,6 +201,7 @@ public class LockedClipPropertyTests
         (EditViewModel editor, Element element, RectShape shape) = await OpenClip();
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         var property = WidthEditor(tab, shape);
         Assert.That(property.SetExpression("1 + 2", out string? error), Is.True, error);
         var expression = shape.Width.Expression;
@@ -250,6 +253,7 @@ public class LockedClipPropertyTests
         shape.Fill.CurrentValue = brush;
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         var transform = Editors(tab.Items[0].Properties).OfType<TransformEditorViewModel>().Single();
         transform.IsExpanded.Value = true;
         var child = (TransformEditorViewModel)transform.Group.Value!.Items[0].Context!;
@@ -316,6 +320,7 @@ public class LockedClipPropertyTests
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, drawable);
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         var graph = Editors(tab.Items.Single(item => item.Model == drawable).Properties)
             .OfType<GraphModelEditorViewModel>().Single();
         GraphModelNodeMemberViewModel member = graph.NodeMembers.Single();
@@ -354,6 +359,7 @@ public class LockedClipPropertyTests
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, sound);
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         var parent = Editors(tab.Items.Single(item => item.Model == sound).Properties)
             .OfType<AudioEffectEditorViewModel>().Single();
         parent.IsExpanded.Value = true;
@@ -376,6 +382,7 @@ public class LockedClipPropertyTests
         shape.FilterEffect.CurrentValue = group;
         Select(editor, element);
         using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
         var parent = Editors(tab.Items[0].Properties).OfType<FilterEffectEditorViewModel>().Single();
         parent.IsExpanded.Value = true;
         var child = (FilterEffectEditorViewModel)parent.Group.Value!.Items[0].Context!;

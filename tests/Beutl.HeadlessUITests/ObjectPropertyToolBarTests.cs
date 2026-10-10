@@ -49,6 +49,8 @@ public class ObjectPropertyToolBarTests
         var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;
         selection.SelectedObject.Value = null;
         using var model = new ObjectPropertyTabViewModel(editor);
+        // The editor turns the property tabs it has open to the selection.
+        Assert.That(editor.OpenToolTab(model), Is.True);
         using var history = new HistoryViewModel(editor);
         var referenceView = new HistoryView { DataContext = history };
         var view = new ObjectPropertyTabView { DataContext = model };

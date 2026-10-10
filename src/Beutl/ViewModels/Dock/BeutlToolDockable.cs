@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Beutl.Services;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
+using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dock;
 
@@ -47,10 +48,22 @@ public class BeutlToolDockable : Tool, IDisposable
                 if (IsSelected != v) IsSelected = v;
             });
 
+        UnpinCommand.Subscribe(_ =>
+        {
+            if (Pinnable is { } pinnable) pinnable.IsPinned.Value = false;
+        });
+
         PropertyChanged += OnPropertyChanged;
     }
 
     public IToolContext ToolContext { get; }
+
+    /// <summary>Gets the tool when it can be pinned to its target, or <see langword="null"/>.</summary>
+    /// <remarks>Unrelated to <c>CanPin</c>, which lets Dock auto-hide the tab.</remarks>
+    public IPinnableToolContext? Pinnable => ToolContext as IPinnableToolContext;
+
+    /// <summary>Gets the command the tab header runs to unpin the tool.</summary>
+    public ReactiveCommandSlim UnpinCommand { get; } = new();
 
     /// <summary>Gets the icon the tab strip shows left of the title, or <see langword="null"/> for none.</summary>
     public FAIconSource? Icon { get; }
@@ -82,6 +95,7 @@ public class BeutlToolDockable : Tool, IDisposable
         PropertyChanged -= OnPropertyChanged;
         _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
+        UnpinCommand.Dispose();
         _usage.Dispose();
         Control? content = ToolContent;
         ToolContent = null;

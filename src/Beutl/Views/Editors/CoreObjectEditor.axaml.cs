@@ -53,8 +53,7 @@ public partial class CoreObjectEditor : UserControl
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
         ObjectPropertyTabViewModel objViewModel
-            = editViewModel.FindToolTab<ObjectPropertyTabViewModel>(i =>
-                  ReferenceEquals(i.ChildContext.Value?.Target, viewModel.Value.Value))
+            = ObjectPropertyTabViewModel.FindReusable(editViewModel, viewModel.Value.Value)
               ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);

@@ -9,7 +9,7 @@ internal sealed class TransitionEditorService(EditViewModel editViewModel) : ITr
 {
     public void Edit(Element element, ElementEdge edge)
     {
-        TransitionTabViewModel tab = editViewModel.FindToolTab<TransitionTabViewModel>()
+        TransitionTabViewModel tab = TransitionTabViewModel.FindReusable(editViewModel, element, edge)
                                      ?? new TransitionTabViewModel(editViewModel);
         tab.Show(element, edge);
         editViewModel.OpenToolTab(tab);

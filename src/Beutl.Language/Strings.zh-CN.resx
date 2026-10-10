@@ -3441,4 +3441,10 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ExitTransition" xml:space="preserve">
     <value>出场转场</value>
   </data>
+  <data name="PinTab" xml:space="preserve">
+    <value>固定标签页</value>
+  </data>
+  <data name="UnpinTab" xml:space="preserve">
+    <value>取消固定标签页</value>
+  </data>
 </root>

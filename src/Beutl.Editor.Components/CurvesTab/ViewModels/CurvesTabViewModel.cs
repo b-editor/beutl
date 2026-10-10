@@ -14,13 +14,14 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
-public sealed class CurvesTabViewModel : IToolContext
+public sealed class CurvesTabViewModel : IPinnableToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _effectDisposables = [];
     private readonly IEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
     private readonly Scene _scene;
+    private readonly ToolTabPin _pin;
 
     public CurvesTabViewModel(IEditorContext editorContext)
     {
@@ -32,6 +33,8 @@ public sealed class CurvesTabViewModel : IToolContext
 
         Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
+
+        _pin = new ToolTabPin(Effect.Select(effect => effect != null)).DisposeWith(_disposables);
 
         _player.AfterRendered.CombineLatest(IsSelected)
             .ObserveOnUIDispatcher()
@@ -215,6 +218,10 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public ReactivePropertySlim<Curves?> Effect { get; } = new();
 
+    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
+
+    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
+
     public void Dispose()
     {
         ClearEditors();
@@ -245,6 +252,8 @@ public sealed class CurvesTabViewModel : IToolContext
             var colorGrading = _scene.FindById(effectId) as Curves;
             Effect.Value = colorGrading;
         }
+
+        _pin.ReadFromJson(json);
     }
 
     public void WriteToJson(JsonObject json)
@@ -252,6 +261,7 @@ public sealed class CurvesTabViewModel : IToolContext
         json["selectedGroup"] = (int)SelectedGroup.Value;
         json["selectedChannel"] = (int)SelectedChannel.Value;
         json["effectId"] = Effect.Value?.Id;
+        _pin.WriteToJson(json);
     }
 
     public object? GetService(Type serviceType)

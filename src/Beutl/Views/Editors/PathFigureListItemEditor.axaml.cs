@@ -44,15 +44,17 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
         if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
-            var context = editViewModel.FindToolTab<PathEditorTabViewModel>()
+            PathFigure? figure = viewModel.Value.Value;
+            var context = PathEditorTabViewModel.FindReusable(editViewModel, figure)
                 ?? new PathEditorTabViewModel(editViewModel);
 
             // 既に編集中でタブが選択されている場合、編集を終了
-            if (context.FigureContext.Value == viewModel)
+            // A pinned tab edits through editors of its own, so the figure tells whether it is already open.
+            if (context.IsEditing(figure))
             {
                 if (context.IsSelected.Value)
                 {
-                    context.StartOrFinishEdit(viewModel);
+                    context.FinishEdit();
                 }
             }
             else
