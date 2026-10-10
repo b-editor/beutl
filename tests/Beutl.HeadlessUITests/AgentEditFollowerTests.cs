@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Avalonia.VisualTree;
 using Beutl.AgentHost;
+using Beutl.AgentToolkit.Common;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
@@ -118,6 +119,71 @@ public sealed class AgentEditFollowerTests
     }
 
     [AvaloniaTest]
+    public async Task A_multi_step_undo_follows_the_last_reverted_edit()
+    {
+        Fixture fixture = await CreateFixtureAsync(follow: true);
+        try
+        {
+            await using AgentHostEndpoint host = fixture.CreateHost();
+            await host.StartAsync();
+            await using McpClient client = await ConnectAsync(host);
+
+            Success(await client.CallToolAsync("apply_edit", Patch(fixture, fixture.Near, new JsonObject { ["Width"] = 150 })));
+            Success(await client.CallToolAsync("apply_edit", Patch(fixture, fixture.Far, new JsonObject { ["Width"] = 200 })));
+            Success(await client.CallToolAsync("apply_edit", Patch(fixture, fixture.Near, new JsonObject { ["Height"] = 150 })));
+            HeadlessTestHelpers.Render(2);
+            fixture.Selection.Value = null;
+
+            Dictionary<string, object?> undo = Target(fixture.Editor.Scene.Id);
+            undo["steps"] = 2;
+            Success(await client.CallToolAsync("undo", undo));
+            HeadlessTestHelpers.Render(2);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fixture.FarRect.Width.CurrentValue, Is.EqualTo(100));
+                Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far), "Follows the last edit the undo reverted.");
+            });
+        }
+        finally
+        {
+            fixture.Window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_closed_property_tab_reopens_on_the_edited_row()
+    {
+        Fixture fixture = await CreateFixtureAsync(follow: true);
+        try
+        {
+            fixture.Editor.CloseToolTab(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()!);
+            HeadlessTestHelpers.Render(5);
+            Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
+            await using AgentHostEndpoint host = fixture.CreateHost();
+            await host.StartAsync();
+            await using McpClient client = await ConnectAsync(host);
+
+            Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
+            HeadlessTestHelpers.Render(5);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()?.Items.Single()?.Model,
+                    Is.SameAs(fixture.FarRect));
+                Assert.That(Flashed(fixture.Window).Any(target => target.FindAncestorOfType<EngineObjectPropertyView>() is not null),
+                    Is.True, "The reopened tab still flashes the edited row.");
+            });
+        }
+        finally
+        {
+            fixture.Window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Render_still_moves_the_playhead_to_the_rendered_frame()
     {
         Fixture fixture = await CreateFixtureAsync(follow: true);
@@ -127,10 +193,17 @@ public sealed class AgentEditFollowerTests
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);
 
+            string output = Path.Combine(fixture.Directory, "frame.png");
             Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id);
-            arguments["outputPath"] = Path.Combine(fixture.Directory, "frame.png");
+            arguments["outputPath"] = output;
             arguments["timeSeconds"] = 13.25;
-            await client.CallToolAsync("render_still", arguments);
+            JsonObject rendered = Payload(await client.CallToolAsync("render_still", arguments));
+            if (rendered["error"]?["code"]?.GetValue<string>() != ErrorCode.RenderingUnavailable)
+            {
+                Assert.That(rendered["isSuccess"]!.GetValue<bool>(), Is.True, rendered.ToJsonString());
+                Assert.That(File.Exists(output), Is.True);
+            }
+
             HeadlessTestHelpers.Render(60);
 
             Assert.Multiple(() =>
@@ -244,15 +317,18 @@ public sealed class AgentEditFollowerTests
     }
 
     private static Dictionary<string, object?> Patch(Fixture fixture, JsonObject rect)
+        => Patch(fixture, fixture.Far, rect);
+
+    private static Dictionary<string, object?> Patch(Fixture fixture, Element element, JsonObject rect)
     {
-        rect["Id"] = fixture.FarRect.Id.ToString();
+        rect["Id"] = element.Objects.Single().Id.ToString();
         Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id);
         arguments["schemaVersion"] = "1";
         arguments["patch"] = new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = fixture.Far.Id.ToString(),
+                ["Id"] = element.Id.ToString(),
                 ["Objects"] = new JsonArray(rect)
             })
         };
@@ -279,9 +355,12 @@ public sealed class AgentEditFollowerTests
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };
 
+    private static JsonObject Payload(CallToolResult result)
+        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
+
     private static JsonObject Success(CallToolResult result)
     {
-        JsonObject payload = JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
+        JsonObject payload = Payload(result);
         Assert.That(payload["isSuccess"]!.GetValue<bool>(), Is.True, payload.ToJsonString());
         return payload["value"]!.AsObject();
     }

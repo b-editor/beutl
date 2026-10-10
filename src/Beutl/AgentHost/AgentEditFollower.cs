@@ -26,8 +26,8 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
 {
     public bool IsEnabled => config.FollowLiveMcpEdits;
 
-    // The undo stack top, taken on the UI thread before an agent call runs.
-    internal readonly record struct HistoryMark(HistoryTransaction? UndoTop);
+    // The undo stack top and redo depth, taken on the UI thread before an agent call runs.
+    internal readonly record struct HistoryMark(HistoryTransaction? UndoTop, int RedoCount);
 
     private sealed record EditTarget(
         Element? Element,
@@ -44,7 +44,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
 
         try
         {
-            return new HistoryMark(editor.HistoryManager.PeekUndo());
+            return new HistoryMark(editor.HistoryManager.PeekUndo(), editor.HistoryManager.RedoCount);
         }
         catch (ObjectDisposedException)
         {
@@ -62,15 +62,19 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         HistoryTransaction? changed;
         try
         {
-            HistoryTransaction? undoTop = editor.HistoryManager.PeekUndo();
-            HistoryTransaction? redoTop = editor.HistoryManager.PeekRedo();
-            // An undo moves the old undo top onto the redo stack; a commit or a redo puts another
-            // transaction on top of the undo stack.
-            if (redoTop is not null && ReferenceEquals(redoTop, mark.UndoTop))
-                changed = redoTop;
-            else if (undoTop is not null && !ReferenceEquals(undoTop, mark.UndoTop))
+            HistoryManager history = editor.HistoryManager;
+            HistoryTransaction? undoTop = history.PeekUndo();
+            // Undo, by any number of steps, deepens the redo stack and leaves the last reverted
+            // transaction on top of it; a commit or a redo puts another transaction on top of the
+            // undo stack.
+            if (history.RedoCount > mark.RedoCount)
+                changed = history.PeekRedo();
+            else if (!ReferenceEquals(undoTop, mark.UndoTop))
                 changed = undoTop;
             else
+                return;
+
+            if (changed is null)
                 return;
         }
         catch (ObjectDisposedException)
