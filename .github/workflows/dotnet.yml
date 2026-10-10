@@ -190,19 +190,9 @@ jobs:
         # validation. Namespace partitions are exhaustive, including untagged GPU
         # tests; unrelated test assemblies run in the "other" catch-all suite.
         include:
-          - suite: unit-quick-validation
+          - suite: validation-core
             validation: true
-          - suite: unit-golden
-            validation: true
-          - suite: unit-rendering
-            validation: true
-          - suite: unit-engine
-            validation: true
-          - suite: unit-git
-            validation: true
-          - suite: unit-other
-            validation: true
-          - suite: graphics3d
+          - suite: validation-rendering
             validation: true
 
     steps:

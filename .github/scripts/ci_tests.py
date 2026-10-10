@@ -1,6 +1,7 @@
 """Run exhaustive, disjoint CI shards against the shared Debug build."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
 import shlex
@@ -43,6 +44,10 @@ FILTERS = UNIT_FILTERS | UI_FILTERS
 # longer coverage shards, while still executing every test in both modes.
 QUICK_VALIDATION = "unit-quick-validation"
 FILTERS[QUICK_VALIDATION] = f"({UNIT_FILTERS['unit-particles']}) or ({UNIT_FILTERS['unit-audio']})"
+VALIDATION_GROUPS = {
+    "validation-core": ["unit-golden", "unit-engine", "unit-other"],
+    "validation-rendering": ["unit-rendering", QUICK_VALIDATION, "unit-git", "graphics3d"],
+}
 SHARDED_PROJECTS = {"Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests"}
 
 
@@ -77,7 +82,7 @@ def test_command(root, assembly, suite, validation):
         adapter_path += ";" + str(root / ".ci-tools" / "coverlet")
     command = [
         "dotnet", "test", str(assembly), "--test-adapter-path", adapter_path,
-        "--logger", "trx", "--results-directory", str(root / "TestResults" / assembly.stem),
+        "--logger", "trx", "--results-directory", str(root / "TestResults" / suite / assembly.stem),
         "--blame-hang", "--blame-hang-timeout", "5m", "--blame-hang-dump-type", "mini",
         "--blame-crash", "--blame-crash-dump-type", "mini",
     ]
@@ -116,19 +121,30 @@ def run(root, suite, validation):
         result = subprocess.run(command, cwd=root, check=False)
         if result.returncode != 0:
             failed = True
-        elif not has_test_results(root / "TestResults" / assembly.stem):
+        elif not has_test_results(root / "TestResults" / suite / assembly.stem):
             print(f"::error::No tests ran for {suite}: {assembly.stem}", flush=True)
             failed = True
     return 1 if failed else 0
 
 
+def run_validation_group(root, suites):
+    # No coverage instrumentation: each child reads the shared DLLs and keeps
+    # its Beutl home, GPU context and test results isolated from the other children.
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        results = list(executor.map(lambda suite: run(root, suite, True), suites))
+    return 1 if any(results) else 0
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("suite", choices=[*FILTERS, "graphics3d", "other"])
+    parser.add_argument("suite", choices=[*FILTERS, *VALIDATION_GROUPS, "graphics3d", "other"])
     parser.add_argument("--validation", action="store_true")
     arguments = parser.parse_args()
-    if arguments.validation and arguments.suite not in {*UNIT_FILTERS, QUICK_VALIDATION, "graphics3d"}:
+    if arguments.validation and arguments.suite not in {*UNIT_FILTERS, QUICK_VALIDATION, *VALIDATION_GROUPS, "graphics3d"}:
         parser.error("Vulkan validation only applies to the unit and Graphics3D suites")
-    if not arguments.validation and arguments.suite == QUICK_VALIDATION:
-        parser.error("The combined quick suite is only used for Vulkan validation")
-    raise SystemExit(run(Path(__file__).resolve().parents[2], arguments.suite, arguments.validation))
+    if not arguments.validation and arguments.suite in {QUICK_VALIDATION, *VALIDATION_GROUPS}:
+        parser.error("Combined suites are only used for Vulkan validation")
+    root = Path(__file__).resolve().parents[2]
+    if arguments.suite in VALIDATION_GROUPS:
+        raise SystemExit(run_validation_group(root, VALIDATION_GROUPS[arguments.suite]))
+    raise SystemExit(run(root, arguments.suite, arguments.validation))

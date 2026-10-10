@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -16,6 +17,29 @@ def matches(expression, name):
 
 
 class CiTestsTests(unittest.TestCase):
+    def test_validation_children_overlap_and_a_failure_is_not_hidden(self):
+        barrier = threading.Barrier(3)
+        started = set()
+
+        def child(root, suite, validation):
+            self.assertTrue(validation)
+            started.add(suite)
+            barrier.wait(timeout=2)
+            return 1 if suite == "failing" else 0
+
+        with patch.object(ci_tests, "run", side_effect=child):
+            self.assertEqual(ci_tests.run_validation_group(Path("/repo"), ["first", "failing", "third"]), 1)
+        self.assertEqual(started, {"first", "failing", "third"})
+
+    def test_same_assembly_has_separate_results_for_concurrent_suites(self):
+        root = Path("/repo")
+        assembly = root / "Beutl.UnitTests.dll"
+        first = ci_tests.test_command(root, assembly, "unit-golden", True)
+        second = ci_tests.test_command(root, assembly, "unit-engine", True)
+        self.assertNotEqual(first[first.index("--results-directory") + 1], second[second.index("--results-directory") + 1])
+        self.assertNotIn("--collect", first)
+        self.assertNotIn("--collect", second)
+
     def test_runtime_graph_keeps_all_compatible_fallbacks(self):
         graph = {
             "linux-x64": {"#import": ["linux", "unix-x64"]},
