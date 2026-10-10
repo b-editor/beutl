@@ -22,7 +22,7 @@ Open **Settings → AI Agents** in the Beutl app. The page installs the bundled 
 - Agents whose MCP registry is not a mergeable JSON file are registered through their own CLI (`claude mcp add --scope user`, `codex mcp add`) or left for manual setup; Codex subagents are converted to its TOML agent format on install.
 - Advanced overrides (folder names, MCP config file, servers property, stdio command line) apply on top; empty fields use the selected agent's defaults.
 
-The installer preserves existing JSON properties and existing MCP servers, then updates only the `beutl-agent` entry.
+The installer preserves existing JSON properties and existing MCP servers, then updates only the `beutl-agent` entry. It also removes the `beutl-live` URL entry that earlier Beutl versions installed next to it, since that entry carried the live MCP token and the single server now covers live editing. Beutl detects such an older install from `~/.beutl/agent-toolkit-install.json` and shows a startup notification with a **Reinstall** action.
 
 ### Manual `.mcp.json`
 

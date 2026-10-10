@@ -28,7 +28,8 @@ internal static class CodexMcpConfigWriter
         }
 
         TomlTable servers = CreateServers(options);
-        string updated = CodexMcpConfigEditor.Update(text, root, options.McpServersPropertyName, servers);
+        string updated = CodexMcpConfigEditor.Update(
+            text, root, options.McpServersPropertyName, servers, AgentToolkitInstaller.ObsoleteServerNames(options));
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await using FileStream? existingStream = File.Exists(path)

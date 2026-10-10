@@ -56,6 +56,12 @@ public sealed record AgentToolkitInstallOptions
 
     public string McpServerName { get; init; } = DefaultServerName;
 
+    // Earlier versions installed a second, URL-based entry under this name that carried the live
+    // MCP bearer token. Reinstalling removes it from the agent configuration.
+    public const string LegacyLiveServerName = "beutl-live";
+
+    public IReadOnlyList<string> ObsoleteMcpServerNames { get; init; } = [LegacyLiveServerName];
+
     // Written as BEUTL_WORKSPACE: the write boundary of headless project edits.
     public string? WorkspaceRoot { get; init; }
 

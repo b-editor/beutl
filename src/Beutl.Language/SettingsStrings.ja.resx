@@ -599,6 +599,14 @@
     <value>このバージョンの Beutl には、インストール済みのものより新しいスキル／サブエージェントが同梱されています。保存済みの設定で今すぐ再インストールしますか？（配布先で手動編集したファイルは上書きされます）</value>
     <comment/>
   </data>
+  <data name="AiAgents_McpChanged_Title" xml:space="preserve">
+    <value>MCP サーバーの構成が変わりました</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpChanged_Content" xml:space="preserve">
+    <value>Beutl がインストールする MCP サーバーは "beutl-agent" の 1 つになりました。エージェントが instanceId を指定すれば起動中の Beutl を、指定しなければプロジェクトファイルをヘッドレスで編集します。保存済みの設定で今すぐ再インストールしますか？エージェント設定から旧 "beutl-live" エントリとそのトークンが削除され、配布先で手動編集したファイルは上書きされます。</value>
+    <comment/>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>再インストール</value>
     <comment/>

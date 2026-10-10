@@ -170,6 +170,39 @@ public sealed class CodexMcpConfigWriterTests
     }
 
     [Test]
+    public async Task Reinstall_removes_the_live_entry_of_earlier_versions_and_keeps_the_rest()
+    {
+        const string original =
+            "# Codex settings\nmodel = 'custom'\n\n"
+            + "[mcp_servers.beutl-agent]\ncommand = \"old\"\nargs = []\n\n"
+            + "[mcp_servers.beutl-live]\nurl = \"http://127.0.0.1:59737/mcp\"\n\n"
+            + "[mcp_servers.beutl-live.http_headers]\nAuthorization = \"Bearer old-token\"\n\n"
+            + "[mcp_servers.other]\ncommand = 'keep this'\n\n"
+            + "[projects.example]\ntrust_level = 'trusted'\n";
+        await File.WriteAllTextAsync(ConfigPath, original);
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+
+        string updated = await File.ReadAllTextAsync(ConfigPath);
+        TomlTable root = TomlSerializer.Deserialize<TomlTable>(updated)!;
+        var servers = (TomlTable)root["mcp_servers"];
+        Assert.Multiple(() =>
+        {
+            Assert.That(servers.Keys, Is.EquivalentTo(new[] { "beutl-agent", "other" }));
+            Assert.That(Server(servers)["command"], Is.EqualTo(ServerCommand));
+            Assert.That(Home(Server(servers)), Is.EqualTo(ProfileHome));
+            Assert.That(updated, Does.Not.Contain("beutl-live").And.Not.Contain("old-token"));
+            Assert.That(updated, Does.StartWith("# Codex settings\nmodel = 'custom'\n"));
+            Assert.That(updated, Does.Contain("[mcp_servers.other]\ncommand = 'keep this'\n"));
+            Assert.That(updated, Does.Contain("[projects.example]\ntrust_level = 'trusted'\n"));
+        });
+
+        await AgentToolkitInstaller.InstallAsync(Options, []);
+
+        Assert.That(await File.ReadAllTextAsync(ConfigPath), Is.EqualTo(updated));
+    }
+
+    [Test]
     public void Install_requires_the_server_command()
     {
         Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
@@ -473,7 +506,6 @@ public sealed class CodexMcpConfigWriterTests
         var servers = (TomlTable)root["mcp_servers"];
         TomlTable server = Server(servers);
         var other = (TomlTable)servers["other"];
-        var legacyLive = (TomlTable)servers["beutl-live"];
         Assert.Multiple(() =>
         {
             Assert.That(result.McpConfigPath, Is.EqualTo(ConfigPath));
@@ -482,11 +514,11 @@ public sealed class CodexMcpConfigWriterTests
             Assert.That(server["command"], Is.EqualTo(ServerCommand));
             Assert.That(Home(server), Is.EqualTo(OtherHome));
             Assert.That(((TomlTable)server["env"]).ContainsKey("OLD"), Is.False);
-            Assert.That(servers, Has.Count.EqualTo(3));
-            // Entries the installer did not write under its own name, including a legacy direct
-            // live entry a user may rely on, are left exactly as they were.
-            Assert.That(legacyLive["url"], Is.EqualTo("http://127.0.0.1:59737/mcp"));
-            Assert.That(((TomlTable)legacyLive["http_headers"])["Authorization"], Is.EqualTo("Bearer legacy-token"));
+            Assert.That(servers, Has.Count.EqualTo(2));
+            // Entries the installer did not write under its own name are left exactly as they were; the
+            // "beutl-live" URL entry earlier versions wrote next to it goes away together with its token.
+            Assert.That(servers.ContainsKey("beutl-live"), Is.False);
+            Assert.That(text, Does.Not.Contain("legacy-token"));
             Assert.That(other["command"], Is.EqualTo(@"C:\tools\other.exe"));
             Assert.That((TomlArray)other["args"], Is.EqualTo(new[] { "--flag", "two words" }));
             Assert.That(((TomlTable)other["env"])["EXISTING"], Is.EqualTo("value"));

@@ -603,6 +603,14 @@
     <value>This version of Beutl bundles newer skills and subagents than the ones you installed. Reinstall them now with your saved settings? Files you edited by hand in the destination will be overwritten.</value>
     <comment/>
   </data>
+  <data name="AiAgents_McpChanged_Title" xml:space="preserve">
+    <value>The Beutl MCP server changed</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpChanged_Content" xml:space="preserve">
+    <value>Beutl now installs a single "beutl-agent" MCP server: it edits a running Beutl when the agent passes an instanceId and edits project files headlessly otherwise. Reinstall now with your saved settings? The separate "beutl-live" entry and its token are removed from the agent configuration, and files you edited by hand in the destination are overwritten.</value>
+    <comment/>
+  </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">
     <value>Reinstall</value>
     <comment/>

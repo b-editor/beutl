@@ -480,7 +480,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
         AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest(
             AgentToolkitInstallManifestStore.ComputeAssetsHash(assets),
-            [.. result.AssetFileRecords, .. carriedOver]));
+            [.. result.AssetFileRecords, .. carriedOver],
+            AgentToolkitInstallManifest.CurrentMcpLayout));
         return removed;
     }
 
@@ -512,6 +513,12 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         if (AgentMcpCliCommands.BuildRemove(agentId, scope, AgentToolkitInstallOptions.DefaultServerName) is { } removeCommand)
         {
             await McpCliRunner.RunAsync(removeCommand).ConfigureAwait(true);
+        }
+
+        // Earlier versions also registered a URL entry carrying the live token; drop it the same way.
+        if (AgentMcpCliCommands.BuildRemove(agentId, scope, AgentToolkitInstallOptions.LegacyLiveServerName) is { } removeLegacyCommand)
+        {
+            await McpCliRunner.RunAsync(removeLegacyCommand).ConfigureAwait(true);
         }
 
         McpCliResult result = await McpCliRunner.RunAsync(addCommand).ConfigureAwait(true);

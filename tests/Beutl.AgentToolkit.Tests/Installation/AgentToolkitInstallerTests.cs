@@ -115,6 +115,42 @@ public sealed class AgentToolkitInstallerTests
     }
 
     [Test]
+    public async Task InstallAsync_RemovesTheLiveEntryOfEarlierVersions()
+    {
+        string configPath = Path.Combine(_tempRoot, ".mcp.json");
+        await File.WriteAllTextAsync(
+            configPath,
+            """
+            {
+              "mcpServers": {
+                "existing": { "type": "stdio", "command": "other" },
+                "beutl-agent": { "command": "old", "args": [], "env": { "BEUTL_WORKSPACE": "/old" } },
+                "beutl-live": { "type": "http", "url": "http://127.0.0.1:59737/mcp", "headers": { "Authorization": "Bearer old-token" } }
+              }
+            }
+            """);
+
+        await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                McpCommand = "beutl-mcp",
+            },
+            []);
+
+        string json = await File.ReadAllTextAsync(configPath);
+        JsonObject servers = ReadJson(configPath)["mcpServers"]!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That(servers.Select(pair => pair.Key), Is.EquivalentTo(new[] { "existing", "beutl-agent" }));
+            Assert.That(servers["beutl-agent"]!["command"]!.GetValue<string>(), Is.EqualTo("beutl-mcp"));
+            Assert.That(json, Does.Not.Contain("old-token"));
+        });
+    }
+
+    [Test]
     public async Task InstallAsync_WritesCatalogDirectoriesAndOneProfileBoundServer()
     {
         AgentDefinition claudeCode = AgentCatalog.Find("claude-code")!;

@@ -483,6 +483,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         AgentToolkitInstallManifest? manifest = AgentToolkitInstallManifestStore.Load(manifestPath);
         Assert.That(manifest, Is.Not.Null, viewModel.Status.Value);
         Assert.That(manifest!.Files, Is.Not.Empty);
+        Assert.That(manifest.McpLayout, Is.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
 
         // Simulate a skill the previous app version installed but the new
         // bundle no longer ships: unmodified → pruned on reinstall.

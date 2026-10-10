@@ -85,6 +85,10 @@ public static class AgentToolkitInstaller
         JsonObject root = await ReadConfigRootAsync(path, cancellationToken).ConfigureAwait(false);
         JsonObject servers = GetOrCreateObject(root, options.McpServersPropertyName);
         servers[options.McpServerName] = CreateServer(options);
+        foreach (string obsolete in ObsoleteServerNames(options))
+        {
+            servers.Remove(obsolete);
+        }
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         string json = root.ToJsonString(s_jsonOptions);
@@ -132,6 +136,13 @@ public static class AgentToolkitInstaller
         }
 
         return server;
+    }
+
+    // Entries of earlier layouts are dropped unless the user pointed the installer at that very name.
+    internal static IEnumerable<string> ObsoleteServerNames(AgentToolkitInstallOptions options)
+    {
+        return options.ObsoleteMcpServerNames
+            .Where(name => !string.Equals(name, options.McpServerName, StringComparison.Ordinal));
     }
 
     private static async Task<JsonObject> ReadConfigRootAsync(string path, CancellationToken cancellationToken)
