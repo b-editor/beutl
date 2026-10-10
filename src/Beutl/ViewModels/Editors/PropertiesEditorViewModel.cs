@@ -39,16 +39,6 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         InitializeCoreObject(obj, predicate);
     }
 
-    // Shows the properties of owner that predicate picks while standing for target, so the tab can show an
-    // object through the property that holds it.
-    public PropertiesEditorViewModel(
-        ICoreObject target, ICoreObject owner, ExtensionProvider extensionProvider, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
-    {
-        _extensionProvider = extensionProvider;
-        Target = target;
-        InitializeCoreObject(owner, predicate);
-    }
-
     public PropertiesEditorViewModel(EngineObject obj, ExtensionProvider extensionProvider, Func<IProperty, bool> predicate)
     {
         _extensionProvider = extensionProvider;

@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Beutl.Services;
 
 namespace Beutl.Editor.Services;
 
@@ -16,46 +15,19 @@ public enum ElementEdge
 /// <summary>Reads and writes the transition sides of an element without committing history.</summary>
 public static class ElementTransitionEdits
 {
-    // Ordered as the library lists them.
-    private static readonly Type[] s_builtInTransitionTypes =
-    [
-        typeof(CrossDissolveTransition),
-        typeof(FadeTransition),
-        typeof(WipeTransition),
-        typeof(DipToColorTransition),
-        typeof(DipToWhiteTransition),
-        typeof(PushTransition),
-        typeof(SlideTransition),
-        typeof(ZoomTransition),
-        typeof(IrisTransition),
-        typeof(SplitTransition),
-    ];
-
     /// <summary>
-    /// Gets the transitions an element can be given: the built-in ones, then any an extension registers
-    /// with the library. Built at each call so extensions loaded later are offered too.
+    /// Gets the transition that decides how the boundary at <paramref name="edge"/> of
+    /// <paramref name="element"/> blends: the incoming side's when both elements set one, which may belong
+    /// to the element across the edge. When the boundary blends nothing, for example because the
+    /// transition is disabled, gets this element's own side there.
     /// </summary>
-    public static IReadOnlyList<Type> GetTransitionTypes()
+    public static ClipTransition? GetDecidingTransition(Element element, ElementEdge edge)
     {
-        IEnumerable<Type> registered = LibraryService.Current
-            .GetTypesFromFormat(KnownLibraryItemFormats.ClipTransition)
-            .OrderBy(type => type.FullName, StringComparer.Ordinal);
-        return s_builtInTransitionTypes.Concat(registered)
-            .Distinct()
-            .Where(IsTransitionType)
-            .ToArray();
-    }
-
-    /// <summary>
-    /// Gets which edge of its element <paramref name="property"/> holds the transition of, or
-    /// <see langword="null"/> when it is not one of the element's transition properties.
-    /// </summary>
-    public static ElementEdge? GetEdge(CoreProperty property)
-    {
-        ArgumentNullException.ThrowIfNull(property);
-        return property.Id == Element.EnterTransitionProperty.Id ? ElementEdge.Start
-            : property.Id == Element.ExitTransitionProperty.Id ? ElementEdge.End
-            : null;
+        ArgumentNullException.ThrowIfNull(element);
+        TransitionBoundary? boundary = edge == ElementEdge.Start
+            ? ElementTransitions.GetBoundaryAtStart(element)
+            : ElementTransitions.GetBoundaryAtEnd(element);
+        return boundary?.Transition ?? GetTransition(element, edge);
     }
 
     public static ClipTransition? GetTransition(Element element, ElementEdge edge)

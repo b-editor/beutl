@@ -3418,4 +3418,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ExitTransition" xml:space="preserve">
     <value>終了のトランジション</value>
   </data>
+  <data name="TransitionTab_Placeholder" xml:space="preserve">
+    <value>タイムラインでトランジションを開くと、ここで編集できます。</value>
+  </data>
 </root>

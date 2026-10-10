@@ -13,7 +13,6 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.Graphics.Transitions;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
 using Beutl.IO;
@@ -200,7 +199,6 @@ public static class PropertyEditorService
             new(typeof(Scene), new(_ => new SceneEditor(), s => new SceneEditorViewModel(s.ToTyped<Scene?>()))),
             new(typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>()))),
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
-            new(typeof(ClipTransition), new(_ => new ClipTransitionEditor(), s => new ClipTransitionEditorViewModel(s.ToTyped<ClipTransition?>()))),
             new(typeof(AudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>()))),
             new(typeof(Transform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>()))),
             new(typeof(CurveMap), new(_ => new CurveMapEditor(), s => new CurveMapEditorViewModel(s.ToTyped<CurveMap>()))),

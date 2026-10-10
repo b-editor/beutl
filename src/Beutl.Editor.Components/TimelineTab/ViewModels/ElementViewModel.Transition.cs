@@ -3,7 +3,6 @@ using System.Reactive;
 using Avalonia;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Transitions;
 using Beutl.Media;
@@ -99,18 +98,13 @@ public sealed partial class ElementViewModel
         EditTransition(edge);
     }
 
-    // Opens the transition at edge in the property tab, where its type and properties are edited: the
-    // side that decides how the boundary blends, since the other side's settings other than its duration
-    // draw nothing. That duration is dragged on the timeline.
+    // Opens the transition at edge in the transition tool, where its type and properties are edited; the
+    // tool shows the side that decides how the boundary blends.
     public void EditTransition(ElementEdge edge)
     {
-        if (GetTransition(edge) is not { } transition) return;
+        if (GetTransition(edge) == null) return;
 
-        IEditorContext editorContext = Timeline.EditorContext;
-        ObjectPropertyTabViewModel tab = editorContext.FindToolTab<ObjectPropertyTabViewModel>()
-                                         ?? new ObjectPropertyTabViewModel(editorContext);
-        tab.NavigateCore(transition, false, null);
-        editorContext.OpenToolTab(tab);
+        Timeline.EditorContext.GetService<ITransitionEditorService>()?.Edit(Model, edge);
     }
 
     // The side that decides how the boundary at edge blends, or this element's own side there when it
