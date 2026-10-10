@@ -554,6 +554,55 @@ public class ToolTabPinTests
     }
 
     [AvaloniaTest]
+    public async Task Pinned_path_editor_comes_back_pinned_from_the_layout()
+    {
+        EditViewModel editor = await OpenEditor("pin-path-editor-layout");
+        var figure = new PathFigure();
+        figure.Segments.Add(new LineSegment(80, 100));
+        Element shaped = await AddElement(editor, 0,
+            () => new GeometryShape { Data = { CurrentValue = new PathGeometry { Figures = { figure } } } });
+        SelectionOf(editor).SelectedObject.Value = shaped;
+        GeometryEditorViewModel geometry = editor.FindToolTab<ElementPropertyTabViewModel>()!.Items
+            .SelectMany(item => item.Properties)
+            .OfType<GeometryEditorViewModel>()
+            .Single();
+        geometry.ExpandForEditing();
+        var json = new JsonObject();
+        using (var tab = new PathEditorTabViewModel(editor))
+        {
+            tab.StartOrFinishEdit(geometry.FindPathFigureContext(figure)!);
+            tab.IsPinned.Value = true;
+            tab.WriteToJson(json);
+        }
+
+        using var restored = new PathEditorTabViewModel(editor);
+        restored.ReadFromJson(json);
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.IsPinned.Value, Is.True);
+            Assert.That(restored.PathFigure.Value, Is.SameAs(figure));
+            Assert.That(restored.Element.Value, Is.SameAs(shaped));
+            Assert.That(restored.Header.Value, Is.EqualTo(PinnedHeader(Strings.PathEditor, shaped)));
+        });
+
+        var added = new LineSegment(180, 100);
+        restored.FigureContext.Value!.AddSegment(added);
+        Assert.That(figure.Segments, Has.Member(added), "the restored editors edit the figure");
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(figure.Segments, Has.No.Member(added));
+
+        editor.Scene.RemoveChild(shaped);
+        HeadlessTestHelpers.Settle();
+        using var orphaned = new PathEditorTabViewModel(editor);
+        orphaned.ReadFromJson(json);
+        Assert.Multiple(() =>
+        {
+            Assert.That(orphaned.IsPinned.Value, Is.False, "a tab whose figure is gone comes back unpinned");
+            Assert.That(orphaned.FigureContext.Value, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Tab_menu_pins_the_tab_and_its_header_button_unpins_it(bool light)

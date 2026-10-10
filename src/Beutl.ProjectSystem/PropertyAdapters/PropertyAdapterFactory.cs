@@ -10,33 +10,37 @@ public static class PropertyAdapterFactory
         var adapters = new List<IPropertyAdapter>();
         foreach (var property in obj.GetDisplayProperties())
         {
-            Type adapterType;
-            var propertyType = property.GetType();
-            if (propertyType.IsGenericType)
+            adapters.Add(CreateAdapter(property, obj));
+        }
+
+        return adapters;
+    }
+
+    public static IPropertyAdapter CreateAdapter(IProperty property, EngineObject obj)
+    {
+        Type adapterType;
+        var propertyType = property.GetType();
+        if (propertyType.IsGenericType)
+        {
+            var genericTypeDef = propertyType.GetGenericTypeDefinition();
+            if (genericTypeDef == typeof(AnimatableProperty<>))
             {
-                var genericTypeDef = propertyType.GetGenericTypeDefinition();
-                if (genericTypeDef == typeof(AnimatableProperty<>))
-                {
-                    adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(property.ValueType);
-                }
-                else if (genericTypeDef == typeof(SimpleProperty<>))
-                {
-                    adapterType = typeof(SimplePropertyAdapter<>).MakeGenericType(property.ValueType);
-                }
-                else
-                {
-                    adapterType = typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType);
-                }
+                adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(property.ValueType);
+            }
+            else if (genericTypeDef == typeof(SimpleProperty<>))
+            {
+                adapterType = typeof(SimplePropertyAdapter<>).MakeGenericType(property.ValueType);
             }
             else
             {
                 adapterType = typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType);
             }
-
-            var adapter = (IPropertyAdapter)Activator.CreateInstance(adapterType, property, obj)!;
-            adapters.Add(adapter);
+        }
+        else
+        {
+            adapterType = typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType);
         }
 
-        return adapters;
+        return (IPropertyAdapter)Activator.CreateInstance(adapterType, property, obj)!;
     }
 }
