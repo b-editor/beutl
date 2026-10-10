@@ -286,11 +286,13 @@ public class TransformHandlesOverlayTests
     }
 
     // Halfway through a zoom transition the incoming clip is drawn at 1.5 times its size, and its box with it.
-    // Dragging its pivot or its body moves it with the pointer rather than 1.5 times as far.
+    // Dragging its pivot or its body moves it with the pointer rather than 1.5 times as far, even when the press
+    // is what selects it.
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Dragging_inside_a_zoom_transition_moves_the_drawable_with_the_pointer(bool body)
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    [TestCase(true, false)]
+    public async Task Dragging_inside_a_zoom_transition_moves_the_drawable_with_the_pointer(bool body, bool selected)
     {
         GpuTestGate.EnsureAvailable();
         (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.ShadowedEllipse);
@@ -319,6 +321,12 @@ public class TransformHandlesOverlayTests
             Assert.That(overlay.HitTest(from), Is.EqualTo(body
                 ? TransformHandlesOverlay.HandleKind.None
                 : TransformHandlesOverlay.HandleKind.Center));
+            if (!selected)
+            {
+                editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = null;
+                await RenderPreview(editor);
+                Assert.That(overlay.Drawable, Is.Null);
+            }
 
             window.MouseDown(ToWindow(view, window, from), MouseButton.Left);
             window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
@@ -328,6 +336,7 @@ public class TransformHandlesOverlayTests
             AvaPoint[] after = Corners(overlay);
             Assert.Multiple(() =>
             {
+                Assert.That(overlay.Drawable, Is.SameAs(incomingDrawable));
                 Assert.That(after[0].X - before[0].X, Is.EqualTo(30).Within(0.5), "moved X");
                 Assert.That(after[0].Y - before[0].Y, Is.EqualTo(20).Within(0.5), "moved Y");
             });

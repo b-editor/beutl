@@ -39,7 +39,8 @@ public partial class PlayerView
             AvaPoint PivotImage,
             AvaPoint StartImagePos,
             Transform? PressTransform,
-            // Whether StartUserMatrix and PivotLocal are the matrix and pivot the box was drawn with.
+            // Whether StartUserMatrix is the matrix the drawable was drawn with. A body drag only moves the drawable,
+            // so it records no pivot.
             bool HasDrawingMatrix);
 
         private sealed class EnsuredState
@@ -52,7 +53,8 @@ public partial class PlayerView
             // null = non-invertible (HandleTranslate will abort).
             public BtlMatrix? InvPostMatrixOfT { get; init; }
             // Takes the group's output into the frame: the pivot's offset back, the alignment and anything above
-            // the drawable. null when the press-time matrix cannot be split there (a singular group).
+            // the drawable. null when the press-time matrix cannot be split there (a singular group). A body drag
+            // records no pivot, so only the linear part holds for it, which is all a move goes through.
             public BtlMatrix? AfterGroup { get; init; }
             public required BtlMatrix RotationMatrix { get; init; }
             public required float StartTransX { get; init; }
@@ -227,14 +229,17 @@ public partial class PlayerView
             AvaPoint scaledStartPosition = new(imagePos.X / frameScale, imagePos.Y / frameScale);
 
             Drawable? drawable;
+            BtlMatrix? drawingMatrix;
             try
             {
-                drawable = RenderThread.Dispatcher.Invoke(() =>
+                (drawable, drawingMatrix) = RenderThread.Dispatcher.Invoke(() =>
                 {
-                    var compositor = EditViewModel.Renderer.Value.Compositor;
-                    var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                    return EditViewModel.Renderer.Value.HitTest(compositionFrame,
+                    SceneRenderer renderer = EditViewModel.Renderer.Value;
+                    var compositionFrame = renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                    Drawable? hit = renderer.HitTest(compositionFrame,
                         new((float)scaledStartPosition.X, (float)scaledStartPosition.Y));
+                    // The hit-test has just put the renderer on this frame, so it draws the drawable as shown.
+                    return (hit, hit is null ? null : renderer.GetLocalBoundary(hit)?.Transform);
                 });
             }
             catch (OperationCanceledException ocex)
@@ -286,24 +291,22 @@ public partial class PlayerView
                 EditorSelection.SelectedObject.Value = element;
             }
 
-            // A body drag of the drawable the box is drawn for moves it through the matrix the box was drawn with;
-            // any other drawable has none to go by.
-            TransformHandlesOverlay overlay = View.transformHandlesOverlay;
-            BtlMatrix invOverlayMatrix = BtlMatrix.Identity;
-            bool drawnByOverlay = ReferenceEquals(overlay.Drawable, drawable)
-                && overlay.UserMatrix.TryInvert(out invOverlayMatrix);
+            // A body drag moves the drawable through the matrix it is drawn with, a transition above it included,
+            // whether or not the press is what selects it.
+            BtlMatrix invDrawingMatrix = BtlMatrix.Identity;
+            bool hasDrawing = drawingMatrix is { } matrix && matrix.TryInvert(out invDrawingMatrix);
             _press = new PressState(
                 Drawable: drawable,
                 Element: element,
                 FrameScale: frameScale,
                 LocalBounds: default,
-                StartUserMatrix: drawnByOverlay ? overlay.UserMatrix : BtlMatrix.Identity,
-                InvStartUserMatrix: invOverlayMatrix,
-                PivotLocal: drawnByOverlay ? overlay.PivotLocal : default,
+                StartUserMatrix: hasDrawing ? drawingMatrix!.Value : BtlMatrix.Identity,
+                InvStartUserMatrix: invDrawingMatrix,
+                PivotLocal: default,
                 PivotImage: default,
                 StartImagePos: imagePos,
                 PressTransform: drawable.Transform.CurrentValue,
-                HasDrawingMatrix: drawnByOverlay);
+                HasDrawingMatrix: hasDrawing);
             _ensured = null;
 
             // Capture the pointer so a translate drag started here still delivers Released even when
