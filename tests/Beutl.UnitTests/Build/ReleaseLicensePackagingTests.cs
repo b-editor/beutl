@@ -104,7 +104,7 @@ public class ReleaseLicensePackagingTests
         string flatpakMetainfo = File.ReadAllText(
             Path.Combine(repositoryRoot, "packages", "flatpak", "net.beditor.Beutl.metainfo.xml"));
         string copyrightPath = Path.Combine(
-            repositoryRoot, "packages", "ubuntu22.04_amd64", "usr", "share", "doc", "beutl", "copyright");
+            repositoryRoot, "packages", "ubuntu22.04", "usr", "share", "doc", "beutl", "copyright");
         string copyright = File.ReadAllText(copyrightPath).ReplaceLineEndings("\n");
         string thirdPartyNotices = File.ReadAllText(Path.Combine(repositoryRoot, "THIRD_PARTY_NOTICES.md"));
 
@@ -139,7 +139,7 @@ public class ReleaseLicensePackagingTests
 
             Assert.That(File.Exists(copyrightPath), Is.True);
             Assert.That(
-                File.Exists(Path.Combine(repositoryRoot, "packages", "ubuntu22.04_amd64", "DEBIAN", "copyright")),
+                File.Exists(Path.Combine(repositoryRoot, "packages", "ubuntu22.04", "DEBIAN", "copyright")),
                 Is.False);
             Assert.That(copyright, Does.Contain("Source: https://github.com/b-editor/beutl"));
             Assert.That(copyright, Does.Contain("License: Expat"));

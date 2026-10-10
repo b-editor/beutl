@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rid: [linux_x64, win_x64, win_arm64, osx_x64, osx_arm64]
+        rid: [linux_x64, linux_arm64, win_x64, win_arm64, osx_x64, osx_arm64]
     steps:
     - name: Checkout
       uses: actions/checkout@v7.0.1
@@ -44,6 +44,9 @@ jobs:
           --version ${{ needs.determine-version.outputs.nugetVer }} \
           --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
           --informational-version ${{ needs.determine-version.outputs.infoVer }}
+
+    - name: Verify native architecture
+      run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/Beutl
 
     - name: Zip
       run: |

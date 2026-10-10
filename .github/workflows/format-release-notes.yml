@@ -287,11 +287,16 @@ jobs:
               "- macOS" \
               "  - [Zip (arm64)]($downloads/Beutl.osx_arm64.app.zip)" \
               "  - [Zip (x64)]($downloads/Beutl.osx_x64.app.zip)" \
-              "- Linux" \
+              "- Linux (x64)" \
               "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}ubuntu22.04_amd64.deb)" \
               "  - [Flatpak]($flatpak_url)" \
               "  - [Zip (.NET Runtime required)]($downloads/Beutl-linux-x64-$SEM_VER.zip)" \
               "  - [Zip]($downloads/Beutl-linux-x64-standalone-$SEM_VER.zip)" \
+              "- Linux (ARM64)" \
+              "  - [Debian package]($downloads/beutl_$SIMPLE_VER-${REVISION}ubuntu22.04_arm64.deb)" \
+              "  - [Flatpak]($downloads/Beutl-arm64-$SEM_VER.flatpak)" \
+              "  - [Zip (.NET Runtime required)]($downloads/Beutl-linux-arm64-$SEM_VER.zip)" \
+              "  - [Zip]($downloads/Beutl-linux-arm64-standalone-$SEM_VER.zip)" \
               ""
             # Every category may be empty: a release of dependency bumps and chores has nothing to summarize.
             if [ -n "$summary" ]; then

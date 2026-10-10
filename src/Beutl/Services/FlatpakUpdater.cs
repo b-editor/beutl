@@ -5,7 +5,7 @@ namespace Beutl.Services;
 internal sealed class FlatpakUpdater
 {
     internal const long MaximumBundleBytes = 1024L * 1024 * 1024;
-    private const string AppRef = "net.beditor.Beutl/x86_64/master";
+    private readonly string _appRef;
     private readonly string _appPath;
     private readonly Func<string[], CancellationToken, Task<string>> _runHost;
     private readonly Func<string, string?> _readBundleRef;
@@ -26,8 +26,12 @@ internal sealed class FlatpakUpdater
             .SkipWhile(line => line != "[Instance]").Skip(1).TakeWhile(line => !line.StartsWith('['))
             .Select(line => line.Split('=', 2)).Where(pair => pair.Length == 2)
             .ToDictionary(pair => pair[0], pair => pair[1], StringComparer.Ordinal);
-        if (instance.GetValueOrDefault("arch") != "x86_64" || instance.GetValueOrDefault("branch") != "master")
+        string? arch = instance.GetValueOrDefault("arch");
+        // Beutl publishes bundles for these architectures, as Flatpak names them.
+        if (arch is not ("x86_64" or "aarch64") || instance.GetValueOrDefault("branch") != "master")
             throw new InvalidDataException(MessageStrings.DownloadFailed);
+        // Update the installation that is running, never another architecture's copy of the app.
+        _appRef = $"net.beditor.Beutl/{arch}/master";
         _appPath = Unescape(instance.GetValueOrDefault("original-app-path") ?? instance.GetValueOrDefault("app-path") ?? "");
         string root = Unescape(instance.GetValueOrDefault("instance-path") ?? "");
         if (!Path.IsPathFullyQualified(root) || !Path.IsPathFullyQualified(_appPath) || !_appPath.EndsWith("/files", StringComparison.Ordinal))
@@ -42,13 +46,13 @@ internal sealed class FlatpakUpdater
     internal async Task InstallAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (_readBundleRef(DownloadPath) != "app/" + AppRef)
+        if (_readBundleRef(DownloadPath) != "app/" + _appRef)
             throw new InvalidDataException(MessageStrings.DownloadFailed);
         string installations = await _runHost(["list", "--app", "--columns=ref,installation"], cancellationToken);
         foreach (string line in installations.Split('\n'))
         {
             string[] fields = line.Split('\t', StringSplitOptions.TrimEntries);
-            if (fields.Length != 2 || fields[0] != AppRef) continue;
+            if (fields.Length != 2 || fields[0] != _appRef) continue;
             string option = fields[1] switch
             {
                 "user" => "--user",
@@ -56,7 +60,7 @@ internal sealed class FlatpakUpdater
                 var name when name.StartsWith("system (", StringComparison.Ordinal) && name.EndsWith(')') => "--installation=" + name[8..^1],
                 _ => throw new InvalidDataException(MessageStrings.DownloadFailed)
             };
-            string location = (await _runHost(["info", option, "--show-location", AppRef], cancellationToken)).Trim();
+            string location = (await _runHost(["info", option, "--show-location", _appRef], cancellationToken)).Trim();
             if (Path.GetDirectoryName(location) != Path.GetDirectoryName(Path.GetDirectoryName(_appPath))) continue;
             cancellationToken.ThrowIfCancellationRequested();
             await _runHost(["install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", DownloadPath], cancellationToken);

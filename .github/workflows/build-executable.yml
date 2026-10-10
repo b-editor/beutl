@@ -29,7 +29,7 @@ jobs:
       artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
-        rid: [ linux_x64, win_x64, win_arm64, osx_x64, osx_arm64 ]
+        rid: [ linux_x64, linux_arm64, win_x64, win_arm64, osx_x64, osx_arm64 ]
         standalone: [ true, false ]
 
     steps:
@@ -65,6 +65,10 @@ jobs:
             --version ${{ inputs.nugetVer }} \
             --assembly-version ${{ inputs.asmVer }} \
             --informational-version ${{ inputs.infoVer }}
+
+      # Cross-architecture publishes (e.g. linux_arm64 on this x64 runner) must not ship the host's libraries.
+      - name: Verify native architecture
+        run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/Beutl
 
       - name: Store Metadata
         run: |

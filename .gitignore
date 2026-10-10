@@ -359,9 +359,9 @@ tools/*
 !tools/packages.config
 
 !packages/Beutl.Sdk/
-!packages/ubuntu22.04_amd64/
-packages/ubuntu22.04_amd64/usr/lib/
-packages/ubuntu22.04_amd64/usr/bin/
+!packages/ubuntu22.04/
+packages/ubuntu22.04/usr/lib/
+packages/ubuntu22.04/usr/bin/
 !packages/flatpak/
 packages/flatpak/sources/
 packages/flatpak/build-dir/
