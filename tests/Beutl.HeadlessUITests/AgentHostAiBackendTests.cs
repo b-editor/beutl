@@ -165,6 +165,32 @@ public sealed class AgentHostAiBackendTests
     }
 
     [Test]
+    public async Task AShortReadMidFileDoesNotEndTheTranscript()
+    {
+        const int sampleRate = 8_000;
+        // Ten minutes and two seconds, with the decoder returning half a block at 100 seconds.
+        string path = WriteSource("short" + Extension);
+        var decoder = new StubDecoder(() => new StubAudioReader(sampleRate, sampleRate * 602L) { ShortReadAt = sampleRate * 100L });
+        var transcription = new StubTranscription();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            AgentTranscript transcript = await CreateBackend(transcription: transcription)
+                .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(transcription.Requests, Has.Count.EqualTo(2), "the part cut short at 100.5 s, then the rest");
+                Assert.That(transcript.Segments.Select(segment => segment.Start), Is.EqualTo(new[] { 1d, 101.5d }));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [Test]
     public async Task WhatCannotBeTranscribedIsRefusedWithItsReason()
     {
         string path = WriteSource("refused" + Extension);
@@ -393,6 +419,8 @@ public sealed class AgentHostAiBackendTests
 
         public bool Readable { get; init; } = true;
 
+        public long? ShortReadAt { get; init; }
+
         public override VideoStreamInfo VideoInfo
             => throw new InvalidOperationException("The test reader has no video stream.");
 
@@ -417,6 +445,8 @@ public sealed class AgentHostAiBackendTests
             }
 
             int decoded = (int)Math.Clamp(totalSamples - start, 0, length);
+            if (start == ShortReadAt)
+                decoded /= 2;
             var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
             pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
             sound = Ref<IPcm>.Create(pcm);

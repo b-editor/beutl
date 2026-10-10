@@ -102,17 +102,24 @@ internal sealed class AgentHostAiBackend(
         }
 
         int chunkSamples = checked((int)(s_chunkDuration.TotalSeconds * sampleRate));
-        int chunkCount = Math.Max(1, (int)Math.Ceiling(totalSamples / (double)chunkSamples));
+        int estimatedParts = Math.Max(1, (int)Math.Ceiling(totalSamples / (double)chunkSamples));
         var segments = new List<AgentTranscriptSegment>();
         var words = new List<AgentTranscriptWord>();
         bool hasWords = false;
         string? detected = null;
-        for (int index = 0; index < chunkCount; index++)
+        // Each part starts where the last one stopped reading. The encoder ends a part at a short
+        // read, which a decoder may return mid-file, so a short part is not the end of the recording.
+        long start = 0;
+        int part = 0;
+        while (start < totalSamples)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            long start = (long)index * chunkSamples;
-            int length = checked((int)Math.Min(chunkSamples, Math.Max(1, totalSamples - start)));
-            progress.Report(chunkCount == 1 ? "Transcribing" : $"Transcribing part {index + 1} of {chunkCount}");
+            long partStart = start;
+            int length = checked((int)Math.Min(chunkSamples, totalSamples - partStart));
+            part++;
+            progress.Report(estimatedParts == 1 && part == 1
+                ? "Transcribing"
+                : $"Transcribing part {part} of {Math.Max(part, estimatedParts)}");
             (string wave, FileStream stream) = AiTemporaryFileStore.Create("audio", "agent", ".wav");
             try
             {
@@ -122,7 +129,7 @@ internal sealed class AgentHostAiBackend(
                     using (stream)
                     {
                         chunk = await Task.Run(
-                            () => SpeechWaveEncoder.WriteSpeechWave(reader, checked((int)start), length, stream, cancellationToken),
+                            () => SpeechWaveEncoder.WriteSpeechWave(reader, checked((int)partStart), length, stream, cancellationToken),
                             cancellationToken).ConfigureAwait(false);
                     }
                 }
@@ -132,9 +139,13 @@ internal sealed class AgentHostAiBackend(
                 // recording's fault, so it takes the logged path for unexpected failures.
                 catch (Exception ex) when (ex is SubtitleInputException or InvalidDataException)
                 {
+                    // Nothing more to read after earlier parts: some files report a length past their
+                    // last sample, and the parts already paid for are the whole transcript.
+                    if (partStart > 0 && ex is SubtitleInputException)
+                        break;
                     throw new AgentAiException(
                         Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
-                        $"The audio could not be decoded from {TimeSpan.FromSeconds(start / (double)sampleRate):hh\\:mm\\:ss} on.");
+                        $"The audio could not be decoded from {TimeSpan.FromSeconds(partStart / (double)sampleRate):hh\\:mm\\:ss} on.");
                 }
 
                 if (chunk.SourceSampleCount <= 0)
@@ -194,7 +205,7 @@ internal sealed class AgentHostAiBackend(
                         "The transcription service returned timings outside the audio it was sent.");
                 }
 
-                double offset = start / (double)sampleRate;
+                double offset = partStart / (double)sampleRate;
                 detected ??= response.Language;
                 foreach (AiTranscriptionSegment segment in partSegments)
                     segments.Add(new AgentTranscriptSegment(segment.Start + offset, segment.End + offset, segment.Text));
@@ -226,8 +237,7 @@ internal sealed class AgentHostAiBackend(
                     }
                 }
 
-                if (chunk.SourceSampleCount < length)
-                    break;
+                start = partStart + chunk.SourceSampleCount;
             }
             finally
             {
