@@ -152,7 +152,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
         new ScrubHeaderHandlers(
                 OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
-                RoutingStrategies.Direct | RoutingStrategies.Bubble)
+                OnTextBlockPointerCaptureLost, RoutingStrategies.Direct | RoutingStrategies.Bubble)
             .Subscribe(_headerText, _disposables);
 
         UpdateErrors();
@@ -160,6 +160,13 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
+        // A move with the button up means the release never reached the header.
+        if (_scrub.IsActive && !e.Properties.IsLeftButtonPressed)
+        {
+            CompleteScrub();
+            return;
+        }
+
         if (_headerText is not { } headerText) return;
         if (!(InnerFirstTextBox.IsKeyboardFocusWithin
             || InnerSecondTextBox?.IsKeyboardFocusWithin == true
@@ -190,19 +197,32 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         if (_scrub.IsActive)
         {
-            if (FirstValue != _oldFirstValue
-                || SecondValue != _oldSecondValue
-                || ThirdValue != _oldThirdValue
-                || FourthValue != _oldFourthValue)
-            {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                    (FirstValue, SecondValue, ThirdValue, FourthValue),
-                    (_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue),
-                    ValueConfirmedEvent));
-            }
-
-            _scrub.End();
+            CompleteScrub();
             e.Handled = true;
+        }
+    }
+
+    // Another window, a dialog or a rebuilt header took the pointer; end as a release would.
+    private void OnTextBlockPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CompleteScrub();
+    }
+
+    private void CompleteScrub()
+    {
+        if (!_scrub.IsActive) return;
+
+        // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
+        _scrub.End();
+        if (FirstValue != _oldFirstValue
+            || SecondValue != _oldSecondValue
+            || ThirdValue != _oldThirdValue
+            || FourthValue != _oldFourthValue)
+        {
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+                (FirstValue, SecondValue, ThirdValue, FourthValue),
+                (_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue),
+                ValueConfirmedEvent));
         }
     }
 
