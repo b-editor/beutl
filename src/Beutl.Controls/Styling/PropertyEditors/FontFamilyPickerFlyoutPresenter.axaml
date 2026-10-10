@@ -11,7 +11,8 @@
                 <DataTemplate x:DataType="local:PinnableLibraryItem">
                     <TextBlock VerticalAlignment="Center"
                                FontFamily="{Binding UserData, Converter={x:Static local:BeutlFontFamilyToAvaloniaConverter.Instance}}"
-                               Text="{Binding DisplayName}">
+                               Text="{Binding DisplayName}"
+                               TextTrimming="CharacterEllipsis">
                         <ToolTip.Tip>
                             <TextBlock FontFamily="Default" Text="{Binding ((media:FontFamily)UserData).Name}" />
                         </ToolTip.Tip>

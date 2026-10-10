@@ -2,7 +2,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Beutl.Language;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -20,7 +22,12 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
 
     protected override Control CreatePresenter()
     {
-        var pfp = new LibraryItemPickerFlyoutPresenter();
+        // Fonts are found by name far more often than by scrolling, so the search box starts open.
+        var pfp = new LibraryItemPickerFlyoutPresenter
+        {
+            ShowSearchBox = true,
+            NoResultsText = Strings.FontFamilyPicker_NoResults
+        };
 
         pfp.CloseClicked += OnFlyoutDismissed;
         pfp.Confirmed += OnFlyoutConfirmed;
@@ -31,23 +38,44 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
         pfp.SelectedItem = viewModel.SelectedItem.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
+        // A search highlights its best match, so the selection also flows from the view model.
+        viewModel.SelectedItem.Subscribe(v => pfp.SelectedItem = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
             .Subscribe(v => viewModel.ShowAll.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
+        // Hiding the search box drops its query, so the list never stays filtered by text nobody can see.
+        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowSearchBoxProperty)
+            .Subscribe(v =>
+            {
+                if (!v)
+                {
+                    pfp.SearchText = null;
+                }
+            });
         pfp.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                OnConfirmed();
+            }
+        };
+        pfp.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
             switch (e.Key)
             {
-                case Key.Enter:
-                    OnConfirmed();
-                    break;
+                // Escape cancels the picker even from the search box, which would otherwise only close the box.
                 case Key.Escape:
+                    e.Handled = true;
                     Dismissed?.Invoke(this, EventArgs.Empty);
                     Hide();
                     break;
+                // These act on the results, so show the results for everything typed so far first.
+                case Key.Enter or Key.Up or Key.Down:
+                    viewModel.FlushSearch();
+                    break;
             }
-        };
+        }, RoutingStrategies.Tunnel);
 
         return pfp;
     }

@@ -3447,4 +3447,7 @@ when history recording is enabled.</value>
   <data name="UnpinTab" xml:space="preserve">
     <value>Unpin Tab</value>
   </data>
+  <data name="FontFamilyPicker_NoResults" xml:space="preserve">
+    <value>No matching fonts</value>
+  </data>
 </root>

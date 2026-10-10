@@ -1,8 +1,9 @@
-﻿using System.Reactive.Linq;
+﻿using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Reactive.Linq;
 using System.Text.Json;
 using Beutl.Configuration;
 using Beutl.Media;
-using DynamicData;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -13,11 +14,22 @@ namespace Beutl.Controls.PropertyEditors;
 public class FontFamilyPickerFlyoutViewModel
 {
     private const string PinnedItemsKey = "FontManager.PinnedItems";
+    private static readonly TimeSpan s_searchDelay = TimeSpan.FromMilliseconds(100);
 
-    private readonly PinnableLibraryItem[] _items;
+    private readonly Entry[] _entries;
     private readonly List<FontFamily> _pinnedItems;
+    // The font last highlighted. A search that matches nothing clears the selection but keeps this,
+    // so clearing the search highlights it again.
+    private FontFamily? _highlightedFont;
+    private string? _appliedSearchText;
 
     public FontFamilyPickerFlyoutViewModel()
+        : this(FontManager.Instance.FontFamilies, s_searchDelay)
+    {
+    }
+
+    // searchDelay waits for typing to pause before the list is rebuilt; zero applies every change at once.
+    internal FontFamilyPickerFlyoutViewModel(IEnumerable<FontFamily> fontFamilies, TimeSpan searchDelay)
     {
         string json = Preferences.Default.Get(PinnedItemsKey, "[]");
         _pinnedItems = (JsonSerializer.Deserialize<string[]>(json) ?? [])
@@ -25,27 +37,36 @@ public class FontFamilyPickerFlyoutViewModel
             .Select(s => new FontFamily(s))
             .ToList();
 
-        _items = FontManager.Instance.FontFamilies
-            .Select(v =>
-                new PinnableLibraryItem(
-                    FontManager.Instance._fontNames.TryGetValue(v, out var name)
-                        ? name.FontFamilyName ?? v.Name
-                        : v.Name,
-                    false,
-                    v))
+        _entries = fontFamilies
+            .Select(v => new Entry(
+                v,
+                FontFamilyNames.GetDisplayName(v),
+                new FontFamilySearchKey(FontFamilyNames.GetSearchNames(v))))
             .OrderBy(i => i.DisplayName)
             .ToArray();
-        ShowAll.Subscribe(_ => ProcessSearchText());
 
-        // SearchBoxが並列で変更された場合、最後の一つを処理する
-        SearchText
-            .Skip(1)
-            .Throttle(TimeSpan.FromMilliseconds(100))
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => ProcessSearchText());
+        SelectedItem.Subscribe(item =>
+        {
+            if (item?.UserData is FontFamily font)
+            {
+                _highlightedFont = font;
+            }
+        });
+        ShowAll.Subscribe(_ => UpdateItems(highlightBestMatch: false));
+
+        IObservable<string?> searches = SearchText.Skip(1);
+        if (searchDelay > TimeSpan.Zero)
+        {
+            // SearchBoxが並列で変更された場合、最後の一つを処理する
+            searches = searches
+                .Throttle(searchDelay)
+                .ObserveOnUIDispatcher();
+        }
+
+        searches.Subscribe(_ => FlushSearch());
     }
 
-    public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
+    public ReactiveCollection<PinnableLibraryItem> Items { get; } = new ResettableCollection();
 
     public ReactiveProperty<bool> ShowAll { get; } = new();
 
@@ -53,13 +74,23 @@ public class FontFamilyPickerFlyoutViewModel
 
     public ReactiveProperty<PinnableLibraryItem?> SelectedItem { get; } = new();
 
+    // Applies the search text right away instead of after the typing pause, so that a key acting on the
+    // results, such as Enter, sees the results for what was typed.
+    public void FlushSearch()
+    {
+        if (!string.Equals(SearchText.Value, _appliedSearchText, StringComparison.Ordinal))
+        {
+            UpdateItems(highlightBestMatch: true);
+        }
+    }
+
     public void Pin(PinnableLibraryItem item)
     {
         if (item.UserData is not FontFamily font) return;
 
         _pinnedItems.Add(font);
         SavePinnedItems();
-        ProcessSearchText();
+        UpdateItems(highlightBestMatch: false);
     }
 
     public void Unpin(PinnableLibraryItem item)
@@ -68,7 +99,7 @@ public class FontFamilyPickerFlyoutViewModel
 
         _pinnedItems.Remove(font);
         SavePinnedItems();
-        ProcessSearchText();
+        UpdateItems(highlightBestMatch: false);
     }
 
     private void SavePinnedItems()
@@ -84,32 +115,64 @@ public class FontFamilyPickerFlyoutViewModel
         return _pinnedItems.Contains(item);
     }
 
-    private void ProcessSearchText()
+    // highlightBestMatch moves the highlight to the first result, which a new search wants; otherwise
+    // the highlighted font stays highlighted.
+    private void UpdateItems(bool highlightBestMatch)
     {
-        Items.ClearOnScheduler();
-        var items = _items;
-        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((FontFamily)i.UserData), i.UserData))
-            .OrderByDescending(t => t.IsPinned)
-            .ToArray();
-
-        if (string.IsNullOrWhiteSpace(SearchText.Value))
+        _appliedSearchText = SearchText.Value;
+        var query = FontFamilySearchQuery.Parse(_appliedSearchText);
+        PinnableLibraryItem[] items;
+        if (query.IsEmpty)
         {
-            Items.AddRange(items);
+            items = _entries
+                .Select(CreateItem)
+                .OrderByDescending(t => t.IsPinned)
+                .ToArray();
         }
         else
         {
-            string[] segments = SearchText.Value.Split(' ')
-                .Select(x => x.Trim())
-                .Where(x => !string.IsNullOrWhiteSpace(x))
+            // The best match comes first even over a pinned font, since Enter picks the first result.
+            items = _entries
+                .Select(e => (Entry: e, Score: query.Score(e.SearchKey)))
+                .Where(t => t.Score != FontFamilySearchQuery.NoMatch)
+                .Select(t => (Item: CreateItem(t.Entry), t.Score))
+                .OrderByDescending(t => t.Score)
+                .ThenByDescending(t => t.Item.IsPinned)
+                .Select(t => t.Item)
                 .ToArray();
+        }
 
-            var newItems = items.Where(x =>
-                    segments.Any(item
-                        => x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)
-                           || ((FontFamily)x.UserData).Name.Contains(item, StringComparison.OrdinalIgnoreCase)))
-                .OrderByDescending(t => t.IsPinned)
-                .ToArray();
-            Items.AddRange(newItems);
+        FontFamily? highlighted = _highlightedFont;
+        ((ResettableCollection)Items).Reset(items);
+
+        SelectedItem.Value = highlightBestMatch && !query.IsEmpty
+            ? items.FirstOrDefault()
+            : items.FirstOrDefault(i => Equals(i.UserData, highlighted));
+    }
+
+    private PinnableLibraryItem CreateItem(Entry entry)
+    {
+        return new PinnableLibraryItem(entry.DisplayName, IsPinned(entry.Font), entry.Font);
+    }
+
+    private sealed record Entry(FontFamily Font, string DisplayName, FontFamilySearchKey SearchKey);
+
+    // Replaces every item with one Reset notification. Adding thousands of fonts one by one makes the list
+    // handle each insertion, which takes a noticeable pause on every keystroke.
+    private sealed class ResettableCollection : ReactiveCollection<PinnableLibraryItem>
+    {
+        public void Reset(IEnumerable<PinnableLibraryItem> items)
+        {
+            CheckReentrancy();
+            Items.Clear();
+            foreach (PinnableLibraryItem item in items)
+            {
+                Items.Add(item);
+            }
+
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+            OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
     }
 }

@@ -32,11 +32,9 @@ public class FontFamilyEditor : PropertyEditor
         _button.Content = GetDisplayName();
     }
 
-    private string? GetDisplayName()
+    private string GetDisplayName()
     {
-        return FontManager.Instance._fontNames.TryGetValue(Value, out var name)
-            ? name.FontFamilyName
-            : Value.Name;
+        return FontFamilyNames.GetDisplayName(Value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -51,7 +49,7 @@ public class FontFamilyEditor : PropertyEditor
         var viewModel = new FontFamilyPickerFlyoutViewModel();
         viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => (Media.FontFamily)f.UserData == Value);
         var prevValue = Value;
-        viewModel.SelectedItem.Subscribe(item =>
+        IDisposable preview = viewModel.SelectedItem.Subscribe(item =>
         {
             var value = item?.UserData as Media.FontFamily;
             if (value != prevValue && value != null)
@@ -64,12 +62,15 @@ public class FontFamilyEditor : PropertyEditor
         });
 
         var dialog = new FontFamilyPickerFlyout(viewModel);
+        // A search still waiting for typing to pause can highlight a font after the picker has closed.
+        dialog.Closed += (_, _) => preview.Dispose();
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Media.FontFamily?>();
         dialog.Pinned += (_, item) => viewModel.Pin(item);
         dialog.Unpinned += (_, item) => viewModel.Unpin(item);
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
-        dialog.Confirmed += (_, _) => tcs.SetResult(viewModel.SelectedItem.Value?.UserData as Media.FontFamily);
+        // A search that matches nothing leaves no selection; keep the font being previewed.
+        dialog.Confirmed += (_, _) => tcs.SetResult(viewModel.SelectedItem.Value?.UserData as Media.FontFamily ?? prevValue);
 
         return tcs.Task;
     }

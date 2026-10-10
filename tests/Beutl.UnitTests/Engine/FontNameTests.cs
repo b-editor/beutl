@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine;
@@ -6,10 +7,15 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class FontNameTests
 {
+    private const ushort UnicodePlatformId = 0;
+    private const ushort MacintoshPlatformId = 1;
     private const ushort WindowsPlatformId = 3;
+    private const ushort SymbolEncodingId = 0;
     private const ushort Unicode11EncodingId = 1;
     private const ushort UsEnglishLanguageId = 0x0409;
+    private const ushort JapaneseLanguageId = 0x0411;
     private const ushort FontFamilyNameId = 1;
+    private const ushort TypographicFamilyNameId = 16;
 
     public static IEnumerable<TestCaseData> UInt16Patterns()
     {
@@ -78,7 +84,117 @@ public class FontNameTests
         Assert.That(name.SampleText, Is.Empty);
     }
 
+    [Test]
+    public void GetFamilySpellings_UsesTheTypographicFamilyOverAWeightedLegacyName()
+    {
+        FontName name = Read(
+            Record(FontFamilyNameId, UsEnglishLanguageId, "Inter Thin"),
+            Record(TypographicFamilyNameId, UsEnglishLanguageId, "Inter"));
+
+        Assert.That(FontName.Localize(name.GetFamilySpellings("Inter"), CultureInfo.GetCultureInfo("en-US")),
+            Is.EqualTo("Inter"));
+    }
+
+    [Test]
+    public void GetFamilySpellings_UsesTheLegacyNameWhenTheFamilyIsGroupedUnderIt()
+    {
+        // Optical sizes share a typographic family but are separate families to a font manager.
+        FontName name = Read(
+            Record(FontFamilyNameId, UsEnglishLanguageId, "Sitka Small"),
+            Record(TypographicFamilyNameId, UsEnglishLanguageId, "Sitka"));
+
+        Assert.That(FontName.Localize(name.GetFamilySpellings("Sitka Small"), CultureInfo.GetCultureInfo("en-US")),
+            Is.EqualTo("Sitka Small"));
+    }
+
+    [Test]
+    public void GetFamilySpellings_ReturnsEveryLanguageOfTheMatchingRecord()
+    {
+        FontName name = Read(
+            Record(FontFamilyNameId, UsEnglishLanguageId, "Yu Gothic Light"),
+            Record(FontFamilyNameId, JapaneseLanguageId, "游ゴシック Light"),
+            Record(TypographicFamilyNameId, UsEnglishLanguageId, "Yu Gothic"),
+            Record(TypographicFamilyNameId, JapaneseLanguageId, "游ゴシック"));
+
+        Assert.That(name.GetFamilySpellings("yu gothic").Select(r => r.Value),
+            Is.EquivalentTo(new[] { "Yu Gothic", "游ゴシック" }));
+    }
+
+    [Test]
+    public void GetFamilySpellings_MatchesTheFamilyByAnyOfItsLanguages()
+    {
+        FontName name = Read(
+            Record(TypographicFamilyNameId, UsEnglishLanguageId, "Yu Gothic"),
+            Record(TypographicFamilyNameId, JapaneseLanguageId, "游ゴシック"));
+
+        Assert.That(FontName.Localize(name.GetFamilySpellings("游ゴシック"), CultureInfo.GetCultureInfo("en-US")),
+            Is.EqualTo("Yu Gothic"));
+    }
+
+    [Test]
+    public void GetFamilySpellings_IsEmptyForAFamilyTheTableDoesNotName()
+    {
+        FontName name = Read(Record(FontFamilyNameId, UsEnglishLanguageId, "Inter Thin"));
+
+        Assert.That(name.GetFamilySpellings("Inter"), Is.Empty);
+    }
+
+    [TestCase("ja-JP", "游ゴシック")]
+    [TestCase("en-US", "Yu Gothic")]
+    [TestCase("es-ES", "Yu Gothic")]
+    public void Localize_PrefersTheCultureThenUsEnglish(string culture, string expected)
+    {
+        FontName name = Read(
+            Record(TypographicFamilyNameId, JapaneseLanguageId, "游ゴシック"),
+            Record(TypographicFamilyNameId, UsEnglishLanguageId, "Yu Gothic"));
+
+        Assert.That(FontName.Localize(name.GetFamilySpellings("Yu Gothic"), CultureInfo.GetCultureInfo(culture)),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void ReadFontName_DecodesWindowsNamesAsUtf16WhateverTheEncodingId()
+    {
+        // Symbol fonts mark their Windows names with encoding 0; the strings are UTF-16BE all the same.
+        FontName name = Read(Record(FontFamilyNameId, UsEnglishLanguageId, "記号 Symbol", encodingId: SymbolEncodingId));
+
+        Assert.That(name.FamilyNames.Select(r => r.Value), Is.EqualTo(new[] { "記号 Symbol" }));
+    }
+
+    [Test]
+    public void ReadFontName_KeepsOnlyUnicodeAndWindowsFamilyNames()
+    {
+        FontName name = Read(
+            Record(FontFamilyNameId, 0, "Unicode Name", platformId: UnicodePlatformId),
+            Record(FontFamilyNameId, 0, "Mac Name", platformId: MacintoshPlatformId),
+            Record(FontFamilyNameId, UsEnglishLanguageId, "Windows Name"),
+            Record(4, UsEnglishLanguageId, "Windows Name Bold"));
+
+        Assert.That(name.FamilyNames.Select(r => r.Value), Is.EqualTo(new[] { "Unicode Name", "Windows Name" }));
+    }
+
+    private static FontName Read(params NameRecord[] records)
+    {
+        using var stream = new MemoryStream(BuildNameTable(records), writable: false);
+        return FontName.ReadFontName(stream);
+    }
+
+    private static NameRecord Record(
+        ushort nameId, ushort languageId, string value,
+        ushort platformId = WindowsPlatformId, ushort encodingId = Unicode11EncodingId)
+        => new(platformId, encodingId, languageId, nameId, value);
+
+    private readonly record struct NameRecord(
+        ushort PlatformId, ushort EncodingId, ushort LanguageId, ushort NameId, string Value);
+
     private static byte[] BuildNameTable(params (ushort LanguageId, string Value)[] records)
+    {
+        return BuildNameTable(records
+            .Select(record => Record(FontFamilyNameId, record.LanguageId, record.Value))
+            .ToArray());
+    }
+
+    private static byte[] BuildNameTable(params NameRecord[] records)
     {
         const int HeaderLength = 6;
         const int RecordLength = 12;
@@ -95,10 +211,10 @@ public class FontNameTests
         ushort valueOffset = 0;
         for (int index = 0; index < records.Length; index++)
         {
-            WriteBigEndian(writer, WindowsPlatformId);
-            WriteBigEndian(writer, Unicode11EncodingId);
+            WriteBigEndian(writer, records[index].PlatformId);
+            WriteBigEndian(writer, records[index].EncodingId);
             WriteBigEndian(writer, records[index].LanguageId);
-            WriteBigEndian(writer, FontFamilyNameId);
+            WriteBigEndian(writer, records[index].NameId);
             WriteBigEndian(writer, (ushort)values[index].Length);
             WriteBigEndian(writer, valueOffset);
             valueOffset += (ushort)values[index].Length;
