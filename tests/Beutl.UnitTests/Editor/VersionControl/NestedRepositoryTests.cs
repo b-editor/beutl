@@ -389,11 +389,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             CancellationToken.None);
         await File.WriteAllTextAsync(Path.Combine(projectRoot, ".gitattributes"), "data\n");
 
-        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
 
         GitCommandResult staged = await RunGitAsync(
             "diff",
@@ -402,10 +401,10 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "--",
             repository.Pathspec);
         // The outer repository ignores the whole project, which only it can report: the inner
-        // repository has no ignore rules, and staging there would have succeeded.
+        // repository has no ignore rules, and a snapshot there would have recorded the file.
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Stderr, Does.Contain("ignored"));
+            Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
             Assert.That(staged.Stdout, Is.Empty);
             Assert.That(
                 notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
@@ -1290,19 +1289,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         }
     }
 
-    private static void CreateFileSymbolicLinkOrIgnore(string linkPath, string target)
-    {
-        try
-        {
-            File.CreateSymbolicLink(linkPath, target);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
     private sealed record RecordedCommand(
         RepositoryInfo Repository,
         IReadOnlyList<string> Arguments,
@@ -1769,38 +1755,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    private sealed class TruncatedIgnoredQueryRunner(IGitCliRunner inner) : IGitCliRunner
-    {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            GitCommandResult result = await inner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken,
-                stderrProgress);
-            return arguments.FirstOrDefault() == "ls-files"
-                   && arguments.Contains("--ignored")
-                ? result with { StdoutTruncated = true }
-                : result;
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
