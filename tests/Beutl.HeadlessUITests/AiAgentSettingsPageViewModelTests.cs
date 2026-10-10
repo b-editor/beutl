@@ -559,6 +559,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             viewModel.WorkspaceRoot.Value = "/videos";
             viewModel.InstallStdioMcp.Value = false;
             viewModel.McpConfigFileName.Value = "custom-mcp.json";
+            viewModel.FollowLiveMcpEdits.Value = true;
         }
 
         Assert.Multiple(() =>
@@ -569,6 +570,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(config.WorkspaceRoot, Is.EqualTo("/videos"));
             Assert.That(config.InstallStdioMcp, Is.False);
             Assert.That(config.McpConfigFileName, Is.EqualTo("custom-mcp.json"));
+            Assert.That(config.FollowLiveMcpEdits, Is.True);
         });
 
         using AiAgentSettingsPageViewModel restored = CreateViewModel(config);
@@ -578,6 +580,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(restored.SelectedScope.Value.Scope, Is.EqualTo(AgentInstallScope.Project));
             Assert.That(restored.ProjectRoot.Value, Is.EqualTo("/repo"));
             Assert.That(restored.InstallStdioMcp.Value, Is.False);
+            Assert.That(restored.FollowLiveMcpEdits.Value, Is.True);
             Assert.That(
                 restored.ResolvedMcpConfigPath.Value,
                 Is.EqualTo(Path.Combine("/repo", "custom-mcp.json")));

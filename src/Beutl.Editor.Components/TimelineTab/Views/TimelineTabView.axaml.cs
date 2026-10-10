@@ -138,6 +138,15 @@ public sealed partial class TimelineTabView : UserControl
         ViewModel.ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
             .DisposeWith(_disposables);
 
+        // A just-inserted element gets its view during the next layout pass.
+        ViewModel.HighlightElement
+            .Subscribe(element => Dispatcher.UIThread.Post(() =>
+            {
+                if (FindElementView(element) is { } view)
+                    EditFlash.Run(view.border);
+            }, DispatcherPriority.Background))
+            .DisposeWith(_disposables);
+
         vm.CurrentTime
             .ObserveOnUIDispatcher()
             .Subscribe(OnCurrentTimeChangedForAutoScroll)

@@ -6,7 +6,8 @@ using Beutl.ViewModels;
 
 namespace Beutl.AgentHost;
 
-public sealed class EditViewModelLiveBinding(EditViewModel editViewModel) : ILiveSessionBinding
+public sealed class EditViewModelLiveBinding(EditViewModel editViewModel, AgentEditFollower? follower = null)
+    : ILiveSessionBinding
 {
     public Scene? ActiveScene => editViewModel.Scene;
 
@@ -42,13 +43,31 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel) : ILiv
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            action();
+            InvokeAndFollow(action);
         }
         else
         {
-            Dispatcher.UIThread.Invoke(action);
+            Dispatcher.UIThread.Invoke(() => InvokeAndFollow(action));
         }
     }
+
+    // Every agent mutation reaches the editor through this binding, so the history stacks before
+    // and after the call show which transaction it committed, undid or redid.
+    private TResult InvokeAndFollow<TResult>(Func<TResult> operation)
+    {
+        AgentEditFollower.HistoryMark? mark = follower?.Capture(editViewModel);
+        TResult result = operation();
+        if (mark is { } before)
+            follower!.FollowHistoryChange(editViewModel, before);
+        return result;
+    }
+
+    private void InvokeAndFollow(Action action)
+        => InvokeAndFollow(() =>
+        {
+            action();
+            return 0;
+        });
 
     public async ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
         Func<HistoryManager, bool> shouldPause,
@@ -63,7 +82,7 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel) : ILiv
             HistoryManager history = editViewModel.HistoryManager;
             return await editViewModel.ExecuteGuardedHistoryMutationAsync(
                 () => shouldPause(history),
-                () => operation(history),
+                () => InvokeAndFollow(() => operation(history)),
                 cancellationToken);
         }
 

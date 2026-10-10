@@ -305,6 +305,9 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
+    // Asks the view to flash an element so an edit made outside the timeline is easy to spot.
+    public ReactiveCommand<Element> HighlightElement { get; } = new();
+
     public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
 
     public ReactiveCommandSlim SetEndTimeToPointerPosition { get; } = new();

@@ -140,6 +140,40 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     {
     }
 
+    // Returns the top-level editor that shows `target` or its `propertyName`, or null when the
+    // change concerns the whole object. Nested objects (a transform, an effect, an animation and
+    // its keyframes) resolve to the editor of the property that holds them.
+    internal IPropertyEditorContext? FindPropertyEditor(CoreObject target, string? propertyName)
+    {
+        if (ReferenceEquals(target, Model) && propertyName is null)
+            return null;
+
+        foreach (IPropertyEditorContext? context in Properties)
+        {
+            if ((context as IServiceProvider)?.GetService(typeof(IPropertyAdapter)) is not IPropertyAdapter adapter
+                || adapter.GetEngineProperty() is not { } property)
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(property.GetOwnerObject(), target))
+            {
+                if (property.Name == propertyName)
+                    return context;
+            }
+            else if (Holds(property.CurrentValue, target) || Holds(property.Animation, target)
+                     || (property is IListProperty list && list.OfType<object>().Any(item => Holds(item, target))))
+            {
+                return context;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool Holds(object? value, CoreObject target)
+        => value is IHierarchical holder && ElementPropertyTabViewModel.IsWithin(target, holder);
+
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(EngineObject))
