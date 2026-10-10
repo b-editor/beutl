@@ -55,7 +55,7 @@ public sealed class LiveSessionTests
         Assert.Multiple(() =>
         {
             Assert.That(error.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
-            Assert.That(error.Hint, Does.Contain("attach_active_editor"));
+            Assert.That(error.Hint, Does.Contain("sceneId"));
             Assert.That(error.Hint, Does.Contain("open_project"));
         });
     }

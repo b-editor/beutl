@@ -12,8 +12,6 @@ namespace Beutl.AgentHost;
 public sealed class EditorProjectSessionGateway(
     ProjectService projectService,
     EditorService editorService,
-    LiveSessionSource liveSessions,
-    AgentSessionManager sessions,
     IWorkspaceGuard workspace) : IProjectSessionGateway
 {
     public async ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
@@ -107,7 +105,11 @@ public sealed class EditorProjectSessionGateway(
             // write leaves no unsaved scene behind in the UI.
             workspace.ResolveForWrite(project.Uri!.LocalPath);
             ProjectUriState uriState = ProjectOperations.CaptureUriState(project);
-            Scene scene = ProjectOperations.AddScene(project, options);
+            Scene scene;
+            using (editorService.SuppressProjectItemActivation())
+            {
+                scene = ProjectOperations.AddScene(project, options);
+            }
             try
             {
                 ProjectOperations.Save(project);
@@ -121,9 +123,9 @@ public sealed class EditorProjectSessionGateway(
                 ProjectOperations.RestoreUriState(project, uriState);
                 throw;
             }
-            // add_scene activates the new scene's tab, so rebind the live session to it; otherwise
-            // read_document/apply_edit would keep operating on the previously attached EditViewModel.
-            LiveEditingSession session = AttachScene(scene);
+            // Bind the new scene without selecting it. Subsequent calls still name their own
+            // sceneId rather than inheriting this operation's target or the visible editor.
+            LiveEditingSession session = BindScene(scene);
             return new ProjectSceneResult(scene, project, session);
         });
     }
@@ -137,7 +139,7 @@ public sealed class EditorProjectSessionGateway(
                 ErrorCode.ValidationRejected,
                 $"The Beutl editor already has '{currentPath}' open, and the in-app toolkit edits that single open project.",
                 requestedFullPath,
-                "Call attach_active_editor to edit the open project, or close it in the Beutl editor before opening or creating another project."));
+                "Call list_scenes and pass sceneId to edit the open project, or close it in the Beutl editor before opening or creating another project."));
         }
     }
 
@@ -149,22 +151,42 @@ public sealed class EditorProjectSessionGateway(
                           "The project does not contain a scene.",
                           project.Uri?.LocalPath));
 
-        return new ProjectSessionResult(AttachScene(scene), project);
+        return new ProjectSessionResult(BindScene(scene), project);
     }
 
-    private LiveEditingSession AttachScene(Scene scene)
+    private LiveEditingSession BindScene(Scene scene)
     {
-        editorService.ActivateTabItem(scene);
-        if (editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editViewModel)
+        EditorTabItem? tab = editorService.GetOrCreateBackgroundTabItem(scene);
+        if (tab?.Context.Value is not EditViewModel editViewModel
+            || !ReferenceEquals(editViewModel.Scene, scene))
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.NoActiveEditorSession,
-                "The Beutl editor could not open an editor tab for the project's scene.",
+                "The Beutl editor could not obtain an editor context for the project's scene.",
                 scene.Id.ToString()));
         }
 
-        LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editViewModel));
-        sessions.UseSource(liveSessions);
-        return session;
+        return LiveEditingSession.Create(new EditViewModelLiveBinding(editViewModel));
     }
+
+    // Call only on the UI thread. An open project also exposes scenes whose tabs are closed;
+    // without a project, standalone open scene tabs remain addressable.
+    internal IReadOnlyList<Scene> GetScenes()
+        => projectService.CurrentProject.Value is { } project
+            ? project.Items.OfType<Scene>().ToArray()
+            : editorService.TabItems.Select(tab => tab.Context.Value).OfType<EditViewModel>()
+                .Where(editor => !editor.IsDisposingOrDisposed && editor.Scene is not null)
+                .Select(editor => editor.Scene).Distinct().ToArray();
+
+    public LiveEditingSession ResolveScene(Guid sceneId)
+        => Dispatcher.UIThread.Invoke(() =>
+        {
+            Scene scene = GetScenes().FirstOrDefault(scene => scene.Id == sceneId)
+                ?? throw new ReconcileException(new ToolError(
+                    ErrorCode.StaleHandle,
+                    $"Scene '{sceneId}' is not available in this Beutl instance.",
+                    sceneId.ToString(),
+                    "Call list_scenes on the target instance and pass one of its sceneIds."));
+            return BindScene(scene);
+        });
 }

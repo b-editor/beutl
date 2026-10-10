@@ -219,7 +219,7 @@ internal sealed class AgentHostInstanceRouter(
                 properties["instanceId"] = new JsonObject
                 {
                     ["type"] = "string",
-                    ["description"] = "Target Beutl instance ID from list_instances. Pass the same ID on every call, including attach, read, edit, history, render and job polling. Omit to operate on the connected instance."
+                    ["description"] = "Target Beutl instance ID from list_instances. Pass the same ID on every call, including scene discovery, read, edit, history, render and job polling. Omit to operate on the connected instance."
                 };
                 return node.Deserialize<Tool>()!;
             }).ToArray();

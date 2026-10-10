@@ -38,10 +38,8 @@ public sealed class AgentHostInstanceTests
                 Assert.That(instances.Select(info => info!["projectName"]!.GetValue<string>()),
                     Is.EquivalentTo(new[] { "process-first", "process-second" }));
             });
-            var firstTarget = new Dictionary<string, object?> { ["instanceId"] = first.InstanceId };
-            var secondTarget = new Dictionary<string, object?> { ["instanceId"] = second.InstanceId };
-            AssertSuccess(await client.CallToolAsync("attach_active_editor", firstTarget));
-            AssertSuccess(await client.CallToolAsync("attach_active_editor", secondTarget));
+            var firstTarget = new Dictionary<string, object?> { ["instanceId"] = first.InstanceId, ["sceneId"] = first.SceneId };
+            var secondTarget = new Dictionary<string, object?> { ["instanceId"] = second.InstanceId, ["sceneId"] = second.SceneId };
             var edit = new Dictionary<string, object?>(secondTarget)
             {
                 ["schemaVersion"] = "1",
@@ -104,8 +102,8 @@ public sealed class AgentHostInstanceTests
                 Assert.That(instances.Single(info => info!["instanceId"]!.GetValue<string>() == second.InstanceId)!["sceneName"]!.GetValue<string>(), Is.EqualTo("second"));
             });
 
-            AssertSuccess(await client.CallToolAsync("attach_active_editor", Target(first)));
-            AssertSuccess(await client.CallToolAsync("attach_active_editor", Target(second)));
+            AssertSuccess(await client.CallToolAsync("list_scenes", Target(first)));
+            AssertSuccess(await client.CallToolAsync("list_scenes", Target(second)));
             await Task.WhenAll(
                 RenameAsync(client, second, secondScene, "second-edited"),
                 RenameAsync(otherClient, first, firstScene, "first-edited"));
@@ -115,15 +113,15 @@ public sealed class AgentHostInstanceTests
                 Assert.That(secondScene.Name, Is.EqualTo("second-edited"));
             });
 
-            AssertSuccess(await client.CallToolAsync("undo", Target(second)));
+            AssertSuccess(await client.CallToolAsync("undo", Target(second, secondScene)));
             Assert.Multiple(() =>
             {
                 Assert.That(firstScene.Name, Is.EqualTo("first-edited"));
                 Assert.That(secondScene.Name, Is.EqualTo("second"));
             });
-            AssertSuccess(await client.CallToolAsync("redo", Target(second)));
-            JsonObject remote = Payload(await client.CallToolAsync("read_document_summary", Target(second)));
-            JsonObject local = Payload(await client.CallToolAsync("read_document_summary"));
+            AssertSuccess(await client.CallToolAsync("redo", Target(second, secondScene)));
+            JsonObject remote = Payload(await client.CallToolAsync("read_document_summary", Target(second, secondScene)));
+            JsonObject local = Payload(await client.CallToolAsync("read_document_summary", Target(first, firstScene)));
             Assert.Multiple(() =>
             {
                 Assert.That(remote["value"]!["rootId"]!.GetValue<string>(), Is.EqualTo(secondScene.Id.ToString()));
@@ -160,14 +158,14 @@ public sealed class AgentHostInstanceTests
             int port = second.EndpointUri!.Port;
             await second.StopAsync();
             Assert.That(File.Exists(registrationPath), Is.False);
-            AssertError(await client.CallToolAsync("attach_active_editor", Target(second)), "instance_unavailable");
+            AssertError(await client.CallToolAsync("list_scenes", Target(second)), "instance_unavailable");
 
             await using var replacement = CreateHost(editor, directory, port);
             await replacement.StartAsync();
             Assert.That(replacement.EndpointUri!.Port, Is.EqualTo(port));
             File.WriteAllText(registrationPath, staleRegistration); // Simulate a crashed host's leftover entry.
-            AssertSuccess(await client.CallToolAsync("attach_active_editor", Target(replacement)));
-            var arguments = Target(second);
+            AssertSuccess(await client.CallToolAsync("list_scenes", Target(replacement)));
+            var arguments = Target(second, scene);
             arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = "wrong-instance" };
             arguments["schemaVersion"] = "1";
             AssertError(await client.CallToolAsync("apply_edit", arguments), "instance_unavailable");
@@ -344,12 +342,17 @@ public sealed class AgentHostInstanceTests
             AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + AgentHostInstanceTestWorker.Token }
         }));
 
-    private static Dictionary<string, object?> Target(AgentHostEndpoint endpoint)
-        => new() { ["instanceId"] = endpoint.InstanceId };
+    private static Dictionary<string, object?> Target(AgentHostEndpoint endpoint, Scene? scene = null)
+    {
+        var arguments = new Dictionary<string, object?> { ["instanceId"] = endpoint.InstanceId };
+        if (scene is not null)
+            arguments["sceneId"] = scene.Id.ToString();
+        return arguments;
+    }
 
     private static async Task RenameAsync(McpClient client, AgentHostEndpoint endpoint, Scene scene, string name)
     {
-        var arguments = Target(endpoint);
+        var arguments = Target(endpoint, scene);
         arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = name };
         arguments["schemaVersion"] = "1";
         AssertSuccess(await client.CallToolAsync("apply_edit", arguments));

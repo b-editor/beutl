@@ -48,6 +48,20 @@ public sealed partial class EditorService
     private readonly ReactivePropertySlim<IProjectVersionControlService?>
         _projectVersionControlService = new();
     private readonly IProjectFileWriteAdmission _projectFileWriteAdmission;
+    private int _projectItemActivationSuppressionCount;
+
+    internal bool ActivateAddedProjectItems => Volatile.Read(ref _projectItemActivationSuppressionCount) == 0;
+
+    internal IDisposable SuppressProjectItemActivation()
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        _projectItemActivationSuppressionCount++;
+        return Disposable.Create(() =>
+        {
+            Dispatcher.UIThread.VerifyAccess();
+            _projectItemActivationSuppressionCount--;
+        });
+    }
 
     public EditorService(ExtensionProvider extensionProvider)
         : this(
@@ -170,15 +184,32 @@ public sealed partial class EditorService
         }
         else
         {
-            EditorExtension? ext = _extensionProvider.MatchEditorExtension(path);
-
-            if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
+            if (CreateTabItem(obj, isSelected: true) is { } tabItem2)
             {
-                var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
-                TabItems.Add(tabItem2);
                 SelectedTabItem.Value = tabItem2;
             }
         }
+    }
+
+    // Background editing shares the normal context, history, save admission and tab lifecycle,
+    // without changing either the selected tab or the recent-file navigation state.
+    internal EditorTabItem? GetOrCreateBackgroundTabItem(CoreObject obj)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        return TryGetTabItem(obj, out EditorTabItem? existing)
+            ? existing
+            : CreateTabItem(obj, isSelected: false);
+    }
+
+    private EditorTabItem? CreateTabItem(CoreObject obj, bool isSelected)
+    {
+        EditorExtension? ext = _extensionProvider.MatchEditorExtension(obj.Uri!.LocalPath);
+        if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) != true)
+            return null;
+
+        var item = new EditorTabItem(context!) { IsSelected = { Value = isSelected } };
+        TabItems.Add(item);
+        return item;
     }
 
     public async ValueTask CloseTabItem(CoreObject obj)
