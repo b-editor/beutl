@@ -15,4 +15,7 @@ public static class ErrorCode
     public const string DestructiveIntent = "destructive_intent";
     public const string ProjectConflict = "project_conflict";
     public const string WorkspaceBusy = "workspace_busy";
+    public const string AiUnavailable = "ai_unavailable";
+    public const string AiGenerationFailed = "ai_generation_failed";
+    public const string AiJobNotFound = "ai_job_not_found";
 }

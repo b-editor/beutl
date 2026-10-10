@@ -230,6 +230,39 @@ Request cancellation of a running background render/export job.
 - **Output**: same snapshot shape as `read_render_job`. A still-running job transitions to `cancelled` once it observes the request (the per-job `CancellationToken` is plumbed through `StillRenderer`/`VideoExporter`).
 - **Errors**: `stale_handle` (unknown `jobId`).
 
+## AI generation *(in-app host only)*
+
+These tools run Beutl's cloud AI on the account signed in to the running app, through the same executor as the AI generation nodes, and **each call is a paid request**. They are not offered by the stdio host. Results are files saved next to the open scene (`resources/ai`); the tools never edit the scene — place a result with `apply_edit` (`SourceImage.Source` / `SourceVideo.Source` set to the returned path) or pass it to another AI tool.
+
+Generation tools start a job and wait up to `waitSeconds` (0–110, default 45) for it. A job still running returns `{ status: "Running", jobId }`; call `read_ai_job` to wait again. The job manager keeps the most recent 128 finished jobs.
+
+- **Errors**: `ai_unavailable` (not signed in, no AI plan, or the host has no API clients), `no_active_editor_session` (no scene open to save results next to), `validation_rejected` (missing prompt, unknown task or mode, a last frame without a first), `media_not_found` / `media_unsupported` (input files), `ai_generation_failed` (the service refused or failed; the job's `errorMessage` says why), `ai_job_not_found`.
+
+### `list_ai_models`
+- **Input**: `{ "operation": "image.generate" | "image.edit.<task>" | "video.generate" | "video.edit" | "video.extend" | "audio.transcribe" }`.
+- **Output**: `{ "operation", "models": [ { "id", "label", "isDefault", "isAvailable", "aspectRatios", "backgrounds", "maxReferenceImages", "durationsSeconds", "resolutions", "supportsAudio", "supportsFirstFrame", "supportsLastFrame", "supportsSeed" } ] }` — a `null` list means the model publishes none.
+
+### `generate_image`
+- **Input**: `{ "prompt": string, "aspectRatio"?: string, "background"?: "auto" | "opaque" | "transparent", "model"?: string, "seed"?: number, "referenceImagePaths"?: string[], "waitSeconds"?: number }`. The aspect ratio defaults to the one nearest the scene.
+- **Output**: an AI job snapshot (below) whose output is a PNG.
+
+### `edit_image`
+- **Input**: `{ "sourcePath": string, "task": "remove_background" | "upscale" | "restyle" | "remove_object" | "outpaint", "prompt"?: string, "outpaintExpansionPercent"?: 10 | 25 | 50, "model"?: string, "waitSeconds"?: number }`. `restyle`, `remove_object` and `outpaint` need a prompt.
+
+### `generate_video`
+- **Input**: `{ "prompt": string, "durationSeconds"?: number, "resolution"?: string, "aspectRatio"?: string, "generateAudio"?: boolean, "firstFramePath"?: string, "lastFramePath"?: string, "model"?: string, "seed"?: number, "waitSeconds"?: number }`. Resolution and aspect ratio default to the scene's.
+
+### `edit_video`
+- **Input**: `{ "sourcePath": string, "prompt": string, "mode"?: "edit" | "extend", "durationSeconds"?: number, "model"?: string, "waitSeconds"?: number }`. mp4 or webm up to 32 MB. An extension returns the whole clip with the new part at the end.
+
+### `transcribe_audio`
+- **Input**: `{ "sourcePath": string, "language"?: string, "model"?: string, "waitSeconds"?: number }`. Any decodable audio or video file; long files are sent in ten-minute parts.
+- **Output**: a job snapshot whose `output.transcript` is `{ "language", "segments": [ { "start", "end", "text" } ], "words": [ { "start", "end", "word" } ] | null }`, times in seconds from the start of the file.
+
+### `read_ai_job` / `cancel_ai_job`
+- **Input**: `{ "jobId": string, "waitSeconds"?: number }` / `{ "jobId": string }`.
+- **Output**: `{ "jobId", "operation", "status": "Running" | "Succeeded" | "Failed" | "Cancelled", "statusText", "elapsedSeconds", "output": { "outputPath", "mediaKind": "image" | "video" | "transcript", "modelId", "seed", "transcript" } | null, "errorCode", "errorMessage", "nextStep" }`. Cancelling stops waiting; a request the service already accepted is still charged, and its result can be collected from the AI tab's job history.
+
 ## Cross-cutting contract rules
 
 - **Host output lease**: direct `RenderTools` callers pass an `IOutputOperationLeaseProvider`, using `StandaloneOutputOperationLeaseProvider.Instance` outside the editor. DI and in-app hosts register their host-backed provider so render/export jobs cannot overlap a conflicting workspace operation.

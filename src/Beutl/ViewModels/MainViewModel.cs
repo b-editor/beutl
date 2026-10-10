@@ -90,6 +90,14 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        // Agents generate with the signed-in account and the AI nodes' executor.
+        _agentHostEndpoint.AiBackend = new AgentHostAiBackend(
+            () => _beutlClients.AuthenticatedUser.Value,
+            _beutlClients.GetResource<IAiEntitlementService>(),
+            _beutlClients.GetResource<IAiOperationAvailabilityService>(),
+            _beutlClients.GetResource<IAiTranscriptionService>(),
+            CreateGenerativeModelCatalog,
+            CreateGenerativeNodeExecutor);
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestRecoveryStore(Path.Combine(
