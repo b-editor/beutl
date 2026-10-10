@@ -57,6 +57,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return OpenToolTab(item, target, replacing: null);
     }
 
+    /// <summary>Opens <paramref name="item"/>, or finds it already open, in <paramref name="target"/>.</summary>
     /// <param name="activate">Whether the tab comes to the front of its dock.</param>
     internal bool OpenToolTab(IToolContext item, IToolDock? target, bool activate)
     {
