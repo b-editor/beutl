@@ -129,6 +129,9 @@ def run(root, suite, validation):
 
 
 def run_validation_group(root, suites):
+    # The first .NET CLI invocation migrates NuGet state under a named mutex.
+    # Initialize it once before child processes race to create its shared memory.
+    subprocess.run(["dotnet", "help"], cwd=root, check=True, stdout=subprocess.DEVNULL)
     # No coverage instrumentation: each child reads the shared DLLs and keeps
     # its Beutl home, GPU context and test results isolated from the other children.
     with ThreadPoolExecutor(max_workers=3) as executor:

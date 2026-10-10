@@ -27,8 +27,10 @@ class CiTestsTests(unittest.TestCase):
             barrier.wait(timeout=2)
             return 1 if suite == "failing" else 0
 
-        with patch.object(ci_tests, "run", side_effect=child):
+        with patch.object(ci_tests, "run", side_effect=child), \
+                patch.object(ci_tests.subprocess, "run") as initialize:
             self.assertEqual(ci_tests.run_validation_group(Path("/repo"), ["first", "failing", "third"]), 1)
+            initialize.assert_called_once_with(["dotnet", "help"], cwd=Path("/repo"), check=True, stdout=ci_tests.subprocess.DEVNULL)
         self.assertEqual(started, {"first", "failing", "third"})
 
     def test_same_assembly_has_separate_results_for_concurrent_suites(self):
