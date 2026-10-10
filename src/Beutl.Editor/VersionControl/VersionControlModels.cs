@@ -127,111 +127,12 @@ public enum SnapshotKind
 
 internal sealed record CheckedOutBranchTip(string RefName, string Commit);
 
-internal enum PullTransitionState
-{
-    Unchanged,
-    Applied,
-    OwnershipLost,
-    RecoveryFailed,
-}
-
 internal sealed record PullPreflightResult(
     RemoteOpResult Result,
     bool RequiresTransition,
     // The fetched upstream commit a transition would fast-forward to. Null whenever no transition
     // is required, because then nothing was verified to fast-forward to.
     string? UpstreamCommit);
-
-internal sealed record FastForwardPullResult(
-    RemoteOpResult Result,
-    CheckedOutBranchTip Tip,
-    PullTransitionState TransitionState = PullTransitionState.Unchanged,
-    CheckedOutBranchTip? TargetTip = null,
-    PendingPullRecovery? Recovery = null);
-
-internal sealed record ProjectCheckpoint(
-    string RefName,
-    string Commit,
-    CheckedOutBranchTip BaseTip);
-
-internal sealed record PendingPullRecovery(
-    string Id,
-    string DescriptorRef,
-    string DescriptorObject,
-    ProjectCheckpoint Checkpoint,
-    CheckedOutBranchTip TargetTip,
-    string ProjectFile,
-    DateTimeOffset CreatedAt)
-{
-    public string RecoveryBranchName => $"beutl/recovery/{Id}";
-
-    // A branch named beutl or beutl-recovery takes the path an earlier name needs, so Git cannot create
-    // it; the checkpoint then goes on the next name.
-    public IReadOnlyList<string> RecoveryBranchNameCandidates =>
-    [
-        RecoveryBranchName,
-        $"beutl-recovery/{Id}",
-        $"beutl-recovery-{Id}",
-    ];
-}
-
-internal enum PendingPullRecoveryOutcome
-{
-    RestoredOriginal,
-    ReappliedCheckpoint,
-}
-
-internal sealed class PendingPullRecoveryPreservedException : Exception
-{
-    public PendingPullRecoveryPreservedException(string recoveryReference, Exception? inner = null)
-        : base(
-            $"The checkpoint remains available at Git reference '{recoveryReference}', but the worktree could not be changed safely.",
-            inner)
-    {
-        RecoveryReference = recoveryReference;
-    }
-
-    public string RecoveryReference { get; }
-}
-
-internal sealed record ProjectRecoveryInfo(
-    string Id,
-    string ProjectFileName,
-    DateTimeOffset CreatedAt);
-
-internal abstract record ProjectRecoveryResult
-{
-    private ProjectRecoveryResult()
-    {
-    }
-
-    public sealed record RestoredOriginal : ProjectRecoveryResult;
-
-    public sealed record ReappliedCheckpoint(string RecoveryBranchName) : ProjectRecoveryResult;
-
-    public sealed record Declined : ProjectRecoveryResult;
-
-    public sealed record NotFoundOrChanged : ProjectRecoveryResult;
-
-    public sealed record Unavailable : ProjectRecoveryResult;
-
-    public sealed record FailedPreserved(string RecoveryReference) : ProjectRecoveryResult;
-
-    public sealed record FailedUncertain : ProjectRecoveryResult;
-}
-
-internal abstract record BranchTipRollbackResult
-{
-    private BranchTipRollbackResult()
-    {
-    }
-
-    public sealed record RolledBack : BranchTipRollbackResult;
-
-    public sealed record RefChanged(string? ActualCommit) : BranchTipRollbackResult;
-
-    public sealed record UnsafeRepositoryState : BranchTipRollbackResult;
-}
 
 public sealed record CommitInfo(
     string Sha,
@@ -515,46 +416,6 @@ internal sealed class DetachedHeadNotSupportedException : InvalidOperationExcept
 {
     public DetachedHeadNotSupportedException()
         : base("This operation requires a checked-out local branch; detached HEAD is not supported.")
-    {
-    }
-}
-
-internal sealed class ProjectCheckpointChangedException : InvalidOperationException
-{
-    public ProjectCheckpointChangedException(string refName)
-        : base($"The project checkpoint ref '{refName}' changed outside Beutl.")
-    {
-    }
-}
-
-internal sealed class ProjectCheckpointStateChangedException : InvalidOperationException
-{
-    public ProjectCheckpointStateChangedException()
-        : base("The project changed after its safety checkpoint was created.")
-    {
-    }
-}
-
-internal sealed class ProjectCheckpointStagedChangesException : InvalidOperationException
-{
-    public ProjectCheckpointStagedChangesException()
-        : base(
-            "A safety checkpoint cannot be created while the project contains staged changes.")
-    {
-    }
-}
-
-internal sealed class PendingPullRecoveryChangedException : InvalidOperationException
-{
-    public PendingPullRecoveryChangedException(string refName)
-        : base($"The pending pull recovery ref '{refName}' changed outside Beutl.")
-    {
-    }
-
-    public PendingPullRecoveryChangedException(string refName, Exception innerException)
-        : base(
-            $"The pending pull recovery ref '{refName}' changed outside Beutl.",
-            innerException)
     {
     }
 }

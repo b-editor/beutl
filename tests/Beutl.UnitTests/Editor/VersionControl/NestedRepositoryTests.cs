@@ -638,20 +638,36 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             "--name-only",
             "HEAD");
 
-        CheckedOutBranchTip currentTip = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+        string stagedSibling = Path.Combine(Root, "staged-sibling.txt");
+        await File.WriteAllTextAsync(stagedSibling, "staged outside the project\n");
+        await RunGitAsync("add", "--", "staged-sibling.txt");
+        bool targetHasProject = await service.ExecuteExclusiveAsync(
+            transaction => transaction.RevisionContainsProjectFileAsync(
+                targetSha,
+                projectFile,
+                CancellationToken.None),
             CancellationToken.None);
         await service.ExecuteExclusiveAsync(
-            transaction => transaction.CommitProjectTreeAsync(
-                currentTip,
+            transaction => transaction.RestoreProjectTreeAsync(
                 targetSha,
                 "beutl: restore target",
                 SnapshotKind.Restore,
                 CancellationToken.None),
             CancellationToken.None);
+        GitCommandResult restoreFiles = await RunGitAsync(
+            "show",
+            "--format=",
+            "--name-only",
+            "HEAD");
+        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
 
         Assert.Multiple(() =>
         {
+            // A nested project's file sits below the repository root in every commit.
+            Assert.That(targetHasProject, Is.True);
+            Assert.That(restoreFiles.Stdout, Does.Contain("nested/project/project.bep"));
+            Assert.That(restoreFiles.Stdout, Does.Not.Contain("staged-sibling.txt"));
+            Assert.That(staged.Stdout.Trim(), Is.EqualTo("staged-sibling.txt"));
             Assert.That(snapshot, Is.TypeOf<CommitResult.Committed>());
             Assert.That(snapshotFiles.Stdout, Does.Contain("nested/project/project.bep"));
             Assert.That(snapshotFiles.Stdout, Does.Not.Contain("sibling.scene"));
@@ -744,15 +760,18 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             GitCommandOptions.Network,
             CancellationToken.None);
 
-        CheckedOutBranchTip expected = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-            CancellationToken.None);
-        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
-            transaction => transaction.PullFastForwardAsync(
-                expected,
-                checkpoint: null,
-                Path.Combine(projectRoot, "project.bep"),
-                CancellationToken.None),
+        RemoteOpResult pull = await service.ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                CheckedOutBranchTip tip = await transaction.GetCheckedOutBranchTipAsync(
+                    CancellationToken.None);
+                PullPreflightResult preflight = await transaction.PreflightPullAsync(
+                    tip,
+                    CancellationToken.None);
+                return await transaction.PullFastForwardAsync(
+                    preflight.UpstreamCommit!,
+                    CancellationToken.None);
+            },
             CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -760,7 +779,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Assert.That(branchFiles.Stdout, Does.Contain("foreign.txt"));
             Assert.That(push, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(remoteFiles.Stdout, Does.Contain("foreign.txt"));
-            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "foreign-from-peer.txt")),
                 Is.EqualTo("whole repository pull\n"));

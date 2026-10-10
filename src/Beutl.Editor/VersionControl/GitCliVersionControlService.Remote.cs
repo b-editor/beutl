@@ -4,6 +4,8 @@ namespace Beutl.Editor.VersionControl;
 
 internal sealed partial class GitCliVersionControlService
 {
+    private const string PullStashMessage = "beutl: local changes before pull";
+
     private enum PullRelation
     {
         Equal,
@@ -322,463 +324,134 @@ internal sealed partial class GitCliVersionControlService
         };
     }
 
-    private async Task<FastForwardPullResult> PullFastForwardCoreAsync(
-        CheckedOutBranchTip expectedCurrent,
-        ProjectCheckpoint? checkpoint,
-        string projectFile,
+    // Fast-forwards to the commit the preflight fetched. The project's local changes would stop the
+    // merge whenever the pull touches the same files, so they wait in a stash entry and come back
+    // afterwards. When they cannot come back, Git keeps that entry and leaves the conflicts in the
+    // worktree, and the user resolves them as with any stash.
+    private async Task<RemoteOpResult> PullFastForwardCoreAsync(
+        string upstreamCommit,
         CancellationToken cancellationToken)
     {
+        GitRevisionValidator.ValidateCommitId(upstreamCommit, nameof(upstreamCommit));
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-        ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        await EnsureNoExternalRepositoryOperationAsync(
-                repository,
-                runner,
-                cancellationToken)
+        await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureNoExternalRepositoryOperationAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         EnsureWorktreeMutationAllowed();
-        await EnsureCheckedOutTipUnchangedAsync(
-                repository,
-                runner,
-                expectedCurrent,
-                "The checked-out branch changed before the fast-forward pull started.",
-                cancellationToken)
+
+        bool stashed = await StashProjectChangesAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-
-        WorktreeStateFingerprint? checkpointState = null;
-        string? checkpointTree = null;
-        if (checkpoint is null)
+        try
         {
-            if (!await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                return new FastForwardPullResult(
-                    new RemoteOpResult.RepositoryDirty(),
-                    expectedCurrent);
-            }
-        }
-        else
-        {
-            await ValidateCheckpointAsync(repository, runner, checkpoint, cancellationToken)
-                .ConfigureAwait(false);
-            if (!EqualsBranchTip(checkpoint.BaseTip, expectedCurrent))
-            {
-                throw new InvalidOperationException(
-                    "The project checkpoint does not belong to the expected pull tip.");
-            }
-
-            checkpointState = await CaptureWorktreeStateAsync(
+            // Like the branch switch, the merge refuses to overwrite an ignored file the pull adds.
+            await runner.RunAsync(
                     repository,
-                    runner,
-                    expectedCurrent.Commit,
-                    ".",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            checkpointTree = await ResolveTreeAsync(
-                    repository,
-                    runner,
-                    checkpoint.Commit,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!string.Equals(
-                    checkpointState.Tree,
-                    checkpointTree,
-                    StringComparison.OrdinalIgnoreCase)
-                || !await IsWholeIndexCleanAsync(repository, runner, cancellationToken)
-                    .ConfigureAwait(false))
-            {
-                return new FastForwardPullResult(
-                    new RemoteOpResult.RepositoryDirty(),
-                    expectedCurrent);
-            }
-        }
-
-        FetchedUpstream upstream = await FetchUpstreamAsync(
-                repository,
-                runner,
-                expectedCurrent,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (upstream.Failure is not null)
-        {
-            return new FastForwardPullResult(upstream.Failure, expectedCurrent);
-        }
-
-        string upstreamCommit = upstream.Commit;
-        PullRelation relation = upstream.Relation;
-        await EnsureCheckedOutTipUnchangedAsync(
-                repository,
-                runner,
-                expectedCurrent,
-                "The checked-out branch changed while the fast-forward pull was being prepared.",
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (relation == PullRelation.Diverged)
-        {
-            return new FastForwardPullResult(new RemoteOpResult.Diverged(), expectedCurrent);
-        }
-
-        if (relation == PullRelation.LocalAhead
-            || relation == PullRelation.Equal && checkpoint is null)
-        {
-            return new FastForwardPullResult(new RemoteOpResult.Success(), expectedCurrent);
-        }
-
-        string? ignoredCollision = await FindIgnoredIncomingPathAsync(
-                repository,
-                runner,
-                expectedCurrent.Commit,
-                upstreamCommit,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (ignoredCollision is not null)
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(
-                    $"The pull would overwrite the ignored path '{ignoredCollision}'."),
-                expectedCurrent);
-        }
-
-        await EnsureNoExternalRepositoryOperationAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (checkpoint is not null)
-        {
-            return await PullCheckpointedProjectCoreAsync(
-                    repository,
-                    runner,
-                    expectedCurrent,
-                    upstreamCommit,
-                    checkpoint,
-                    checkpointState!,
-                    checkpointTree!,
-                    projectFile,
+                    [.. s_lfsPathFilterOverrides, "merge", "--ff-only", "--no-overwrite-ignore", upstreamCommit],
+                    new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+        catch (GitOperationException mergeFailure)
+        {
+            CaptureRecoverableLock(mergeFailure);
+            string? failedPop = stashed
+                ? await TryPopStashAsync(repository, runner).ConfigureAwait(false)
+                : null;
+            await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+            return failedPop is null
+                ? MapRemoteFailure(mergeFailure)
+                : new RemoteOpResult.Failed(JoinMessages(
+                    mergeFailure.Stderr,
+                    string.Format(
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        Strings.VersionControl_PullFailedChangesKeptInStashFormat,
+                        PullStashMessage),
+                    failedPop));
+        }
+        catch when (stashed)
+        {
+            // A failure that is not Git's own still puts the local changes back.
+            await TryPopStashAsync(repository, runner).ConfigureAwait(false);
+            throw;
+        }
 
-        return await PullCleanWorktreeCoreAsync(
-                repository,
-                runner,
-                expectedCurrent,
-                upstreamCommit,
-                projectFile,
-                cancellationToken)
-            .ConfigureAwait(false);
+        string? failedRestore = stashed
+            ? await TryPopStashAsync(repository, runner).ConfigureAwait(false)
+            : null;
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return failedRestore is null
+            ? new RemoteOpResult.Success()
+            : new RemoteOpResult.Failed(JoinMessages(
+                string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    Strings.VersionControl_PullChangesKeptInStashFormat,
+                    PullStashMessage),
+                failedRestore));
     }
 
-    private async Task<FastForwardPullResult> PullCleanWorktreeCoreAsync(
+    // Returns whether Git made a stash entry: git stash push succeeds without one when the project has
+    // nothing to stash. The snapshot pathspecs keep .beutl state and .tmp files where they are.
+    private async Task<bool> StashProjectChangesAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
-        CheckedOutBranchTip expectedCurrent,
-        string upstreamCommit,
-        string projectFile,
         CancellationToken cancellationToken)
     {
-        WorktreeStateFingerprint expectedWorktree = await CaptureWorktreeStateAsync(
+        string? previous = await TryResolveCommitAsync(repository, runner, "refs/stash", cancellationToken)
+            .ConfigureAwait(false);
+        await runner.RunAsync(
                 repository,
-                runner,
-                expectedCurrent.Commit,
-                ".",
+                [
+                    .. s_lfsPathFilterOverrides,
+                    "stash",
+                    "push",
+                    "--include-untracked",
+                    "-m",
+                    PullStashMessage,
+                    "--",
+                    .. CreateSnapshotPathspecs(repository),
+                ],
+                new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs) { UseLiteralPathspecs = false },
                 cancellationToken)
             .ConfigureAwait(false);
-        string expectedTree = await ResolveTreeAsync(
-                repository,
-                runner,
-                expectedCurrent.Commit,
-                cancellationToken)
+        string? current = await TryResolveCommitAsync(repository, runner, "refs/stash", CancellationToken.None)
             .ConfigureAwait(false);
-        await EnsureCheckedOutTipUnchangedAsync(
-                repository,
-                runner,
-                expectedCurrent,
-                "The checked-out branch changed while the fast-forward pull was being prepared.",
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (!string.Equals(expectedWorktree.Tree, expectedTree, StringComparison.OrdinalIgnoreCase)
-            || !await IsWholeRepositoryCleanAsync(repository, runner, cancellationToken)
-                .ConfigureAwait(false))
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.RepositoryDirty(),
-                expectedCurrent);
-        }
-
-        string? ignoredCollision = await FindIgnoredIncomingPathAsync(
-                repository,
-                runner,
-                expectedCurrent.Commit,
-                upstreamCommit,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (ignoredCollision is not null)
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(
-                    $"The pull would overwrite the ignored path '{ignoredCollision}'."),
-                expectedCurrent);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await EnsureNoExternalRepositoryOperationAsync(
-                repository,
-                runner,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        var pulledTip = new CheckedOutBranchTip(expectedCurrent.RefName, upstreamCommit);
-        TreeTransitionResult transitionResult = await ApplyTreeTransitionAsync(
-            repository,
-            runner,
-            expectedCurrent,
-            pulledTip,
-            expectedCurrent.Commit,
-            upstreamCommit,
-            "pull: fast-forward",
-            indexPlan: null,
-            CancellationToken.None,
-            validatePreparedTarget: () =>
-                ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile))
-            .ConfigureAwait(false);
-        if (transitionResult.Outcome != TreeTransitionOutcome.AppliedTarget)
-        {
-            if (transitionResult.Error is GitOperationException operationException)
-            {
-                CaptureRecoverableLock(operationException);
-            }
-
-            RemoteOpResult failure = transitionResult.Outcome switch
-            {
-                TreeTransitionOutcome.OwnershipLost => new RemoteOpResult.Failed(
-                    transitionResult.Error?.Message
-                    ?? "The repository changed while the fast-forward pull was being applied."),
-                TreeTransitionOutcome.RestoredCurrent when transitionResult.Error is GitOperationException gitException
-                    => MapRemoteFailure(gitException),
-                _ => new RemoteOpResult.Failed(
-                    transitionResult.Error?.Message
-                    ?? "The fast-forward pull could not be applied safely."),
-            };
-            return new FastForwardPullResult(
-                failure,
-                transitionResult.ActualTip ?? expectedCurrent,
-                ToPullTransitionState(transitionResult.Outcome),
-                pulledTip);
-        }
-
-        try
-        {
-            ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile);
-        }
-        catch (Exception ex)
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(ex.Message),
-                pulledTip,
-                PullTransitionState.Applied,
-                pulledTip);
-        }
-
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
-        return new FastForwardPullResult(
-            new RemoteOpResult.Success(),
-            pulledTip,
-            PullTransitionState.Applied,
-            pulledTip);
+        return !string.Equals(previous, current, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task<FastForwardPullResult> PullCheckpointedProjectCoreAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CheckedOutBranchTip expectedCurrent,
-        string upstreamCommit,
-        ProjectCheckpoint checkpoint,
-        WorktreeStateFingerprint expectedCheckpointState,
-        string checkpointTree,
-        string projectFile,
-        CancellationToken cancellationToken)
+    // Returns null once the stash entry is applied and dropped. Otherwise git stash pop keeps the entry
+    // and this returns what Git reported, which is empty for a plain conflict because Git names the
+    // conflicted files on its standard output.
+    private async Task<string?> TryPopStashAsync(RepositoryInfo repository, IGitCliRunner runner)
     {
-        string mergedTree = await BuildMergedTreeAsync(
-                repository,
-                runner,
-                checkpoint.BaseTip.Commit,
-                upstreamCommit,
-                checkpoint.Commit,
-                cancellationToken)
-            .ConfigureAwait(false);
-        GitCommandResult commit = await runner.RunAsync(
-            repository,
-            [
-                "commit-tree",
-                mergedTree,
-                "-p",
-                upstreamCommit,
-                "-m",
-                PullSafetyCommitMessage,
-                "-m",
-                "Beutl-Snapshot: safety",
-            ],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        var safetyTip = new CheckedOutBranchTip(expectedCurrent.RefName, commit.Stdout.Trim());
-
-        cancellationToken.ThrowIfCancellationRequested();
-        PendingPullRecovery recovery = await PersistPendingPullRecoveryCoreAsync(
-                checkpoint,
-                safetyTip,
-                projectFile,
-                cancellationToken)
-            .ConfigureAwait(false);
-
         try
         {
-            await ValidateCheckpointAsync(repository, runner, checkpoint, CancellationToken.None)
-                .ConfigureAwait(false);
-            CheckedOutBranchTip ownershipTip = await GetCheckedOutBranchTipCoreAsync(
+            await runner.RunAsync(
                     repository,
-                    runner,
+                    [.. s_lfsPathFilterOverrides, "stash", "pop"],
+                    new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs),
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            WorktreeStateFingerprint ownershipState = await CaptureWorktreeStateAsync(
-                    repository,
-                    runner,
-                    expectedCurrent.Commit,
-                    ".",
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            string? ignoredCollision = await FindIgnoredIncomingPathAsync(
-                    repository,
-                    runner,
-                    expectedCurrent.Commit,
-                    upstreamCommit,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            if (!EqualsBranchTip(ownershipTip, expectedCurrent))
-            {
-                return new FastForwardPullResult(
-                    new RemoteOpResult.Failed(
-                        "The checked-out branch changed while the checkpointed pull was being prepared."),
-                    ownershipTip,
-                    PullTransitionState.OwnershipLost,
-                    safetyTip,
-                    recovery);
-            }
-
-            if (ownershipState != expectedCheckpointState
-                || !string.Equals(
-                    ownershipState.Tree,
-                    checkpointTree,
-                    StringComparison.OrdinalIgnoreCase)
-                || !await IsWholeIndexCleanAsync(repository, runner, CancellationToken.None)
-                    .ConfigureAwait(false))
-            {
-                return new FastForwardPullResult(
-                    new RemoteOpResult.RepositoryDirty(),
-                    expectedCurrent,
-                    Recovery: recovery);
-            }
-
-            if (ignoredCollision is not null)
-            {
-                return new FastForwardPullResult(
-                    new RemoteOpResult.Failed(
-                        $"The pull would overwrite the ignored path '{ignoredCollision}'."),
-                    expectedCurrent,
-                    Recovery: recovery);
-            }
-
-            await EnsureNoExternalRepositoryOperationAsync(
-                    repository,
-                    runner,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            return null;
         }
-        catch (Exception ex)
+        catch (GitOperationException ex)
         {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(ex.Message),
-                expectedCurrent,
-                PullTransitionState.RecoveryFailed,
-                safetyTip,
-                recovery);
+            LogWarningBestEffort(
+                ex,
+                "The project's local changes could not be reapplied after the pull and stay in the stash.");
+            return ex.Stderr;
         }
+    }
 
-        TreeTransitionResult transitionResult;
-        try
-        {
-            transitionResult = await ApplyTreeTransitionAsync(
-                repository,
-                runner,
-                expectedCurrent,
-                safetyTip,
-                checkpoint.Commit,
-                safetyTip.Commit,
-                "pull: fast-forward with project checkpoint",
-                new TreeTransitionIndexPlan(
-                    PrepareCommit: checkpoint.Commit,
-                    RestoreCommit: expectedCurrent.Commit),
-                CancellationToken.None,
-                validatePreparedTarget: () =>
-                    ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile))
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(ex.Message),
-                expectedCurrent,
-                PullTransitionState.RecoveryFailed,
-                safetyTip,
-                recovery);
-        }
-
-        if (transitionResult.Outcome != TreeTransitionOutcome.AppliedTarget)
-        {
-            if (transitionResult.Error is GitOperationException gitException)
-            {
-                CaptureRecoverableLock(gitException);
-            }
-            return new FastForwardPullResult(
-                transitionResult.Outcome == TreeTransitionOutcome.OwnershipLost
-                    ? new RemoteOpResult.Failed(
-                        transitionResult.Error?.Message
-                        ?? "The repository changed while the checkpointed pull was being applied.")
-                    : transitionResult.Error is GitOperationException operationException
-                        ? MapRemoteFailure(operationException)
-                        : new RemoteOpResult.Failed(
-                            transitionResult.Error?.Message
-                            ?? "The checkpointed pull could not be applied safely."),
-                transitionResult.ActualTip ?? expectedCurrent,
-                ToPullTransitionState(transitionResult.Outcome),
-                safetyTip,
-                recovery);
-        }
-
-        try
-        {
-            ValidateRecoveryProjectFilePhysicalContainment(repository, projectFile);
-        }
-        catch (Exception ex)
-        {
-            return new FastForwardPullResult(
-                new RemoteOpResult.Failed(ex.Message),
-                safetyTip,
-                PullTransitionState.RecoveryFailed,
-                safetyTip,
-                recovery);
-        }
-
-        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
-        return new FastForwardPullResult(
-            new RemoteOpResult.Success(),
-            safetyTip,
-            PullTransitionState.Applied,
-            safetyTip,
-            recovery);
+    private static string JoinMessages(params string[] messages)
+    {
+        return string.Join(
+            " ",
+            messages
+                .Where(static message => !string.IsNullOrWhiteSpace(message))
+                .Select(static message => message.Trim()));
     }
 
     // Fetches the branch's upstream and relates it to the expected tip. A refused or failed fetch comes back as
@@ -841,16 +514,6 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
         return new FetchedUpstream(upstreamCommit, relation);
-    }
-
-    private static PullTransitionState ToPullTransitionState(TreeTransitionOutcome outcome)
-    {
-        return outcome switch
-        {
-            TreeTransitionOutcome.OwnershipLost => PullTransitionState.OwnershipLost,
-            TreeTransitionOutcome.RecoveryFailed => PullTransitionState.RecoveryFailed,
-            _ => PullTransitionState.Unchanged,
-        };
     }
 
     private static async Task<PullFetchTarget> ResolvePullFetchTargetAsync(

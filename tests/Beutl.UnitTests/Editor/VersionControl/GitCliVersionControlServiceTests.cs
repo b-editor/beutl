@@ -3630,7 +3630,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitProjectTreeAsync_matches_target_and_preserves_ignored_files()
+    public async Task RestoreProjectTreeAsync_records_the_target_tree_after_the_safety_snapshot()
     {
         byte[] targetProject = [0x7b, 0x0a, 0x7d, 0x0a];
         byte[] targetElement = [0x31, 0x32, 0x33, 0x0a];
@@ -3654,22 +3654,43 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Directory.CreateDirectory(stateDirectory);
         await File.WriteAllTextAsync(Path.Combine(stateDirectory, "view.json"), "keep\n");
         await File.WriteAllTextAsync(Path.Combine(Root, "atomic.tmp"), "keep\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "elements", "later.belm"), "unsaved\n");
 
         using var service = CreateService();
-        CheckedOutBranchTip laterTip = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
+        CommitResult safety = await service.CommitAllAsync(
+            "beutl: safety snapshot before restore",
+            SnapshotKind.Safety,
             CancellationToken.None);
+        string safetySha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         CommitResult targetRestore = await service.ExecuteExclusiveAsync(
-            transaction => transaction.CommitProjectTreeAsync(
-                laterTip,
+            transaction => transaction.RestoreProjectTreeAsync(
                 targetSha,
                 "beutl: restore target",
                 SnapshotKind.Restore,
                 CancellationToken.None),
             CancellationToken.None);
 
+        string restoreSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string restoreTree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
+        string targetTree = (await RunGitAsync("rev-parse", $"{targetSha}^{{tree}}")).Stdout.Trim();
+        string restoreParent = (await RunGitAsync("rev-parse", "HEAD^")).Stdout.Trim();
+        string savedEdit = (await RunGitAsync("show", $"{safetySha}:elements/later.belm")).Stdout;
+        string message = (await RunGitAsync("show", "-s", "--format=%s%n%b", "HEAD")).Stdout;
+        string status = (await RunGitAsync("status", "--porcelain")).Stdout;
         Assert.Multiple(() =>
         {
+            Assert.That(safety, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                targetRestore,
+                Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(restoreSha))));
+            // The restore commit records exactly the target's tree, including the removal of the
+            // file the target does not have, on top of the safety snapshot of the unsaved edit.
+            Assert.That(restoreTree, Is.EqualTo(targetTree));
+            Assert.That(restoreParent, Is.EqualTo(safetySha));
+            Assert.That(savedEdit, Is.EqualTo("unsaved\n"));
+            Assert.That(message, Does.StartWith("beutl: restore target\n"));
+            Assert.That(message, Does.Contain("Beutl-Snapshot: restore"));
+            Assert.That(status, Is.Empty);
             Assert.That(File.ReadAllBytes(Path.Combine(Root, "project.bep")), Is.EqualTo(targetProject));
             Assert.That(
                 File.ReadAllBytes(Path.Combine(Root, "elements", "base.belm")),
@@ -3679,28 +3700,58 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(File.ReadAllText(Path.Combine(Root, "atomic.tmp")), Is.EqualTo("keep\n"));
         });
 
-        var targetRestoreCommit = (CommitRevision.Known)
-            ((CommitResult.Committed)targetRestore).Revision;
         await service.ExecuteExclusiveAsync(
-            transaction => transaction.CommitProjectTreeAsync(
-                new CheckedOutBranchTip(laterTip.RefName, targetRestoreCommit.Sha),
+            transaction => transaction.RestoreProjectTreeAsync(
                 laterSha,
                 "beutl: restore later",
                 SnapshotKind.Restore,
                 CancellationToken.None),
             CancellationToken.None);
 
+        string laterTree = (await RunGitAsync("rev-parse", $"{laterSha}^{{tree}}")).Stdout.Trim();
+        string secondRestoreTree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
         Assert.Multiple(() =>
         {
+            Assert.That(secondRestoreTree, Is.EqualTo(laterTree));
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("later\n"));
-            Assert.That(
-                File.ReadAllText(Path.Combine(Root, "elements", "base.belm")),
-                Is.EqualTo("changed\n"));
             Assert.That(
                 File.ReadAllText(Path.Combine(Root, "elements", "later.belm")),
                 Is.EqualTo("later\n"));
             Assert.That(File.ReadAllText(Path.Combine(stateDirectory, "view.json")), Is.EqualTo("keep\n"));
             Assert.That(File.ReadAllText(Path.Combine(Root, "atomic.tmp")), Is.EqualTo("keep\n"));
+        });
+    }
+
+    [Test]
+    public async Task RestoreProjectTreeAsync_puts_the_project_back_to_HEAD_when_the_commit_fails()
+    {
+        await CommitFileAsync("project.bep", "target\n", "target");
+        string targetSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "later\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "later.belm"), "later\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "later");
+        string laterSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        // commit-msg runs once Git has read the message, after the restored files are staged.
+        await WriteHookAsync("commit-msg", "exit 17\n");
+        using var service = CreateService();
+
+        await Assert.ThrowsAsync<GitOperationException>(() => service.ExecuteExclusiveAsync(
+            transaction => transaction.RestoreProjectTreeAsync(
+                targetSha,
+                "beutl: restore target",
+                SnapshotKind.Restore,
+                CancellationToken.None),
+            CancellationToken.None));
+
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string status = (await RunGitAsync("status", "--porcelain", "--untracked-files=all")).Stdout;
+        Assert.Multiple(() =>
+        {
+            Assert.That(head, Is.EqualTo(laterSha));
+            Assert.That(status, Is.Empty);
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("later\n"));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "later.belm")), Is.EqualTo("later\n"));
         });
     }
 
@@ -4089,12 +4140,15 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             await Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await service.ExecuteExclusiveAsync(
-                    transaction => transaction.CommitProjectTreeAsync(
-                        new CheckedOutBranchTip("refs/heads/main", head),
-                        head,
+                    transaction => transaction.RestoreProjectTreeAsync(
+                        previous,
                         "blocked restore",
                         SnapshotKind.Restore,
                         CancellationToken.None),
+                    CancellationToken.None));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await service.ExecuteExclusiveAsync(
+                    transaction => transaction.PullFastForwardAsync(head, CancellationToken.None),
                     CancellationToken.None));
             await Assert.ThrowsAsync<InvalidOperationException>(
                 async () => await service.ExecuteExclusiveAsync(
@@ -4595,9 +4649,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(
             CancellationToken.None);
-        CheckedOutBranchTip expectedTip = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-            CancellationToken.None);
 
         VersionControlConflictedException[] exceptions =
         [
@@ -4608,8 +4659,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                     CancellationToken.None)))!,
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.ExecuteExclusiveAsync(
-                    transaction => transaction.CommitProjectTreeAsync(
-                        expectedTip,
+                    transaction => transaction.RestoreProjectTreeAsync(
                         history[0].Sha,
                         "blocked restore",
                         SnapshotKind.Restore,
@@ -4640,9 +4690,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.ExecuteExclusiveAsync(
                     transaction => transaction.PullFastForwardAsync(
-                        expectedTip,
-                        checkpoint: null,
-                        Path.Combine(Root, "project.bep"),
+                        history[0].Sha,
                         CancellationToken.None),
                     CancellationToken.None)))!,
         ];
@@ -4689,7 +4737,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Conflict_free_external_merge_blocks_snapshot_and_project_tree_commit()
+    public async Task Conflict_free_external_merge_blocks_snapshot_and_restore()
     {
         await CommitFileAsync("project.bep", "base project\n", "base project");
         await CommitFileAsync("other.belm", "base other\n", "base other");
@@ -4715,10 +4763,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         VersionControlConflictedException treeCommitException =
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.ExecuteExclusiveAsync(
-                    transaction => transaction.CommitProjectTreeAsync(
-                        expectedTip,
+                    transaction => transaction.RestoreProjectTreeAsync(
                         expectedTip.Commit,
-                        "blocked project tree commit",
+                        "blocked restore",
                         SnapshotKind.Restore,
                         CancellationToken.None),
                     CancellationToken.None)))!;
@@ -4777,9 +4824,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             (await Assert.ThrowsAsync<VersionControlConflictedException>(
                 async () => await service.ExecuteExclusiveAsync(
                     transaction => transaction.PullFastForwardAsync(
-                        expectedTip,
-                        checkpoint: null,
-                        Path.Combine(Root, "project.bep"),
+                        expectedTip.Commit,
                         CancellationToken.None),
                     CancellationToken.None)))!;
 
@@ -4798,162 +4843,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Tree_transition_rechecks_external_operations_inside_the_HEAD_lease()
-    {
-        await CommitFileAsync("project.bep", "current\n", "current");
-        await RunGitAsync("switch", "-c", "incoming");
-        await CommitFileAsync("project.bep", "incoming\n", "incoming");
-        string sourceCommit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        await RunGitAsync("switch", "main");
-        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
-            .Stdout.TrimEnd('\r', '\n');
-        string mergeHeadPath = Path.GetFullPath(
-            Path.IsPathFullyQualified(mergeHeadRecord)
-                ? mergeHeadRecord
-                : Path.Combine(Root, mergeHeadRecord));
-        var runner = new AfterTransitionWorktreeAddRunner(
-            CreateRunner(),
-            () => File.WriteAllText(mergeHeadPath, $"{sourceCommit}\n"));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-        CheckedOutBranchTip expectedTip = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-            CancellationToken.None);
-
-        InvalidOperationException exception = (await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.ExecuteExclusiveAsync(
-                transaction => transaction.CommitProjectTreeAsync(
-                    expectedTip,
-                    sourceCommit,
-                    "blocked transition",
-                    SnapshotKind.Restore,
-                    CancellationToken.None),
-                CancellationToken.None)))!;
-
-        string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception.InnerException, Is.TypeOf<VersionControlConflictedException>());
-            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
-            Assert.That(actualHead, Is.EqualTo(expectedTip.Commit));
-            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("current\n"));
-            Assert.That(File.Exists(mergeHeadPath), Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Tree_transition_does_not_rollback_over_an_external_operation_started_after_checkout()
-    {
-        await CommitFileAsync("project.bep", "base\n", "initial");
-        ProjectCheckpoint checkpoint;
-        CheckedOutBranchTip baseTip;
-        using (var checkpointService = CreateService())
-        {
-            baseTip = await checkpointService.ExecuteExclusiveAsync(
-                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-                CancellationToken.None);
-            await File.WriteAllTextAsync(
-                Path.Combine(Root, "project.bep"),
-                "checkpointed\n");
-            checkpoint = await checkpointService.ExecuteExclusiveAsync(
-                transaction => transaction.CreateProjectCheckpointAsync(
-                    "beutl: external operation rollback checkpoint",
-                    CancellationToken.None),
-                CancellationToken.None);
-        }
-
-        await RunGitAsync(
-            "restore",
-            "--source=HEAD",
-            "--worktree",
-            "--",
-            "project.bep");
-        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
-            .Stdout.TrimEnd('\r', '\n');
-        string mergeHeadPath = Path.GetFullPath(
-            Path.IsPathFullyQualified(mergeHeadRecord)
-                ? mergeHeadRecord
-                : Path.Combine(Root, mergeHeadRecord));
-        var runner = new AfterTransitionCheckoutRunner(
-            CreateRunner(),
-            () => File.WriteAllText(mergeHeadPath, $"{checkpoint.Commit}\n"));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        InvalidOperationException exception = (await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.ExecuteExclusiveAsync(
-                transaction => transaction.RestoreProjectCheckpointAsync(checkpoint, CancellationToken.None),
-                CancellationToken.None)))!;
-
-        string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        string actualIndexTree = (await RunGitAsync("write-tree")).Stdout.Trim();
-        string checkpointTree = (await RunGitAsync("rev-parse", $"{checkpoint.Commit}^{{tree}}"))
-            .Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception.InnerException, Is.TypeOf<VersionControlConflictedException>());
-            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
-            Assert.That(actualHead, Is.EqualTo(baseTip.Commit));
-            Assert.That(actualIndexTree, Is.EqualTo(checkpointTree));
-            Assert.That(
-                File.ReadAllText(Path.Combine(Root, "project.bep")),
-                Is.EqualTo("checkpointed\n"));
-            Assert.That(File.Exists(mergeHeadPath), Is.True);
-        });
-    }
-
-    [Test]
-    public async Task Project_checkpoint_excludes_modified_tracked_local_state()
-    {
-        string profilePath = Path.Combine(Root, ".beutl", "output-profile.json");
-        string temporaryPath = Path.Combine(Root, "render.tmp");
-        Directory.CreateDirectory(Path.GetDirectoryName(profilePath)!);
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "baseline project\n");
-        await File.WriteAllTextAsync(profilePath, "baseline profile\n");
-        await File.WriteAllTextAsync(temporaryPath, "baseline temporary\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpoint project\n");
-        await File.WriteAllTextAsync(profilePath, "local profile\n");
-        await File.WriteAllTextAsync(temporaryPath, "local temporary\n");
-        using var service = CreateService();
-
-        ProjectCheckpoint checkpoint = await service.ExecuteExclusiveAsync(
-            transaction => transaction.CreateProjectCheckpointAsync(
-                "beutl: filtered checkpoint",
-                CancellationToken.None),
-            CancellationToken.None);
-        string checkpointProject = (await RunGitAsync(
-            "show",
-            $"{checkpoint.Commit}:project.bep")).Stdout;
-        string checkpointProfile = (await RunGitAsync(
-            "show",
-            $"{checkpoint.Commit}:.beutl/output-profile.json")).Stdout;
-        string checkpointTemporary = (await RunGitAsync(
-            "show",
-            $"{checkpoint.Commit}:render.tmp")).Stdout;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(checkpointProject, Is.EqualTo("checkpoint project\n"));
-            Assert.That(checkpointProfile, Is.EqualTo("baseline profile\n"));
-            Assert.That(checkpointTemporary, Is.EqualTo("baseline temporary\n"));
-            Assert.That(File.ReadAllText(profilePath), Is.EqualTo("local profile\n"));
-            Assert.That(File.ReadAllText(temporaryPath), Is.EqualTo("local temporary\n"));
-        });
-    }
-
-    [Test]
-    public async Task Snapshot_and_checkpoint_stage_with_the_lfs_aware_execution_kind()
+    public async Task Snapshot_stages_with_the_lfs_aware_execution_kind()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
-        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "checkpoint\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
         var runner = new RecordingArgumentsRunner(CreateRunner());
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
@@ -4961,11 +4854,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => runner);
 
-        await service.ExecuteExclusiveAsync(
-            transaction => transaction.CreateProjectCheckpointAsync(
-                "beutl: lfs-aware checkpoint",
-                CancellationToken.None),
-            CancellationToken.None);
         await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
@@ -4992,62 +4880,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             .ToArray();
         Assert.That(
             executionKinds,
-            Is.EqualTo(new[]
-            {
-                GitCommandExecutionKind.LocalWithLfs,
-                GitCommandExecutionKind.LocalWithLfs,
-            }));
-    }
-
-    [Test]
-    public async Task Branch_tip_rollback_reports_unsafe_when_an_external_operation_starts_after_checkout()
-    {
-        await CommitFileAsync("project.bep", "base\n", "initial");
-        CheckedOutBranchTip targetTip;
-        using (var readService = CreateService())
-        {
-            targetTip = await readService.ExecuteExclusiveAsync(
-                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-                CancellationToken.None);
-        }
-
-        await CommitFileAsync("project.bep", "current\n", "current");
-        CheckedOutBranchTip expectedTip;
-        using (var readService = CreateService())
-        {
-            expectedTip = await readService.ExecuteExclusiveAsync(
-                transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-                CancellationToken.None);
-        }
-
-        string mergeHeadRecord = (await RunGitAsync("rev-parse", "--git-path", "MERGE_HEAD"))
-            .Stdout.TrimEnd('\r', '\n');
-        string mergeHeadPath = Path.GetFullPath(
-            Path.IsPathFullyQualified(mergeHeadRecord)
-                ? mergeHeadRecord
-                : Path.Combine(Root, mergeHeadRecord));
-        var runner = new AfterTransitionCheckoutRunner(
-            CreateRunner(),
-            () => File.WriteAllText(mergeHeadPath, $"{targetTip.Commit}\n"));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        BranchTipRollbackResult result = await service.ExecuteExclusiveAsync(
-            transaction => transaction.TryRollbackBranchTipAsync(expectedTip, targetTip, CancellationToken.None),
-            CancellationToken.None);
-
-        string actualHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.TypeOf<BranchTipRollbackResult.UnsafeRepositoryState>());
-            Assert.That(runner.InterceptionCount, Is.EqualTo(1));
-            Assert.That(actualHead, Is.EqualTo(expectedTip.Commit));
-            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("base\n"));
-            Assert.That(File.Exists(mergeHeadPath), Is.True);
-        });
+            Is.EqualTo(new[] { GitCommandExecutionKind.LocalWithLfs }));
     }
 
     [Test]
@@ -5541,7 +5374,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Pull_treats_a_local_ahead_branch_as_success_without_a_transition()
+    public async Task Pull_preflight_treats_a_local_ahead_branch_as_success_without_a_transition()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = CreateTemporaryDirectory();
@@ -5564,13 +5397,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         PullPreflightResult preflight = await service.ExecuteExclusiveAsync(
             transaction => transaction.PreflightPullAsync(expectedTip, CancellationToken.None),
             CancellationToken.None);
-        FastForwardPullResult pull = await service.ExecuteExclusiveAsync(
-            transaction => transaction.PullFastForwardAsync(
-                expectedTip,
-                checkpoint: null,
-                Path.Combine(Root, "project.bep"),
-                CancellationToken.None),
-            CancellationToken.None);
         CheckedOutBranchTip actualTip = await service.ExecuteExclusiveAsync(
             transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
             CancellationToken.None);
@@ -5579,9 +5405,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(preflight.Result, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(preflight.RequiresTransition, Is.False);
-            Assert.That(pull.Result, Is.TypeOf<RemoteOpResult.Success>());
-            Assert.That(pull.TransitionState, Is.EqualTo(PullTransitionState.Unchanged));
-            Assert.That(pull.Tip, Is.EqualTo(expectedTip));
+            Assert.That(preflight.UpstreamCommit, Is.Null);
             Assert.That(actualTip, Is.EqualTo(expectedTip));
         });
     }
@@ -6235,7 +6059,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Worktree_transitions_clear_the_repository_lfs_path_filters()
+    public async Task Worktree_changes_clear_the_repository_lfs_path_filters()
     {
         await CommitFileAsync("project.bep", "base\n", "base");
         string baseSha = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -6247,12 +6071,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             watcher: null,
             _ => recording);
 
-        CheckedOutBranchTip tip = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-            CancellationToken.None);
         await service.ExecuteExclusiveAsync(
-            transaction => transaction.CommitProjectTreeAsync(
-                tip,
+            transaction => transaction.RestoreProjectTreeAsync(
                 baseSha,
                 "beutl: restore base",
                 SnapshotKind.Restore,
@@ -6265,20 +6085,27 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             transaction => transaction.SwitchBranchAsync("alternate", CancellationToken.None),
             CancellationToken.None);
 
-        string[][] worktreeCommands = recording.Commands
-            .Where(static arguments =>
-                arguments.Contains("checkout") || arguments.Contains("switch"))
+        string[][] restoreCommands = recording.Commands
+            .Where(static arguments => arguments.Contains("restore"))
+            .ToArray();
+        string[][] switchCommands = recording.Commands
+            .Where(static arguments => arguments.Contains("switch"))
             .ToArray();
 
-        Assert.That(worktreeCommands, Is.Not.Empty);
         Assert.Multiple(() =>
         {
-            foreach (string[] arguments in worktreeCommands)
+            Assert.That(restoreCommands, Is.Not.Empty);
+            Assert.That(switchCommands, Is.Not.Empty);
+            foreach (string[] arguments in restoreCommands.Concat(switchCommands))
             {
                 // git-lfs copies a pointer excluded by these filters through unchanged, so a
-                // transition that inherited them would leave pointer text where the media belongs.
+                // command that inherited them would leave pointer text where the media belongs.
                 Assert.That(arguments, Does.Contain("lfs.fetchinclude="), string.Join(' ', arguments));
                 Assert.That(arguments, Does.Contain("lfs.fetchexclude="), string.Join(' ', arguments));
+            }
+
+            foreach (string[] arguments in switchCommands)
+            {
                 // Overwriting ignored files is Git's default; in an enclosing repository that would
                 // silently destroy files the project never tracked.
                 Assert.That(
@@ -8097,15 +7924,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     // Worktree-mutating commands carry `-c` overrides (LFS path filters, hooks) before the
     // subcommand, so tests match past that prefix instead of pinning its exact shape.
-    private static bool IsTransitionCheckout(IReadOnlyList<string> arguments)
-    {
-        int index = SkipConfigOverrides(arguments);
-        return index + 2 < arguments.Count
-               && arguments[index] == "checkout"
-               && arguments[index + 1] == "--detach"
-               && arguments[index + 2] == "--no-overwrite-ignore";
-    }
-
     private static string? GetGitSubcommand(IReadOnlyList<string> arguments)
     {
         int index = SkipConfigOverrides(arguments);
@@ -9590,92 +9408,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    private sealed class AfterTransitionWorktreeAddRunner(
-        IGitCliRunner inner,
-        Action afterWorktreeAdd) : IGitCliRunner
-    {
-        private int _interceptionPending = 1;
-
-        public int InterceptionCount { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            GitCommandResult result = await inner.RunAsync(
-                    repository,
-                    arguments,
-                    options,
-                    cancellationToken,
-                    stderrProgress)
-                .ConfigureAwait(false);
-            if (arguments is ["worktree", "add", ..]
-                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
-            {
-                InterceptionCount++;
-                afterWorktreeAdd();
-            }
-
-            return result;
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    private sealed class AfterTransitionCheckoutRunner(
-        IGitCliRunner inner,
-        Action afterCheckout) : IGitCliRunner
-    {
-        private int _interceptionPending = 1;
-
-        public int InterceptionCount { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            GitCommandResult result = await inner.RunAsync(
-                    repository,
-                    arguments,
-                    options,
-                    cancellationToken,
-                    stderrProgress)
-                .ConfigureAwait(false);
-            if (IsTransitionCheckout(arguments)
-                && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
-            {
-                InterceptionCount++;
-                afterCheckout();
-            }
-
-            return result;
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)

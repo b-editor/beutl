@@ -19,7 +19,6 @@ internal sealed partial class VersionControlCoordinator :
     private const string CloseSnapshotMessage = "beutl: snapshot on close";
     private const string RestoreSafetySnapshotMessage = "beutl: safety snapshot before restore";
     private const string SwitchSafetySnapshotMessage = "beutl: safety snapshot before switch";
-    private const string PullSafetySnapshotMessage = "beutl: safety snapshot before pull";
     private const string RestoreRecoveryMessage =
         "beutl: recover original project state after failed restore";
 
@@ -46,12 +45,6 @@ internal sealed partial class VersionControlCoordinator :
         _candidateServiceUsers = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
         ReferenceEqualityComparer.Instance);
-    private readonly HashSet<string> _offeredPendingRecoveryIds = new(StringComparer.Ordinal);
-    // Ordinal, because GetOpeningRecoveryKey already resolved the casing the filesystem merges:
-    // a case-insensitive comparer on top of that would fold two genuinely distinct directories
-    // together on a case-sensitive volume.
-    private readonly Dictionary<string, PendingOpeningPullRecovery> _openingPullRecoveries =
-        new(StringComparer.Ordinal);
     private readonly TaskCompletionSource _propertiesDisposedCompletion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _asyncDisposalCompletion = new(
@@ -65,17 +58,14 @@ internal sealed partial class VersionControlCoordinator :
     private TaskCompletionSource? _lifecycleQuiesced;
     private TaskCompletionSource? _lockRecoveryQuiesced;
     private TaskCompletionSource? _notificationsQuiesced;
-    private TaskCompletionSource? _pendingRecoveryOffersQuiesced;
     private TaskCompletionSource? _operationsQuiesced;
     private TaskCompletionSource? _publicationDrainQuiesced;
     private TaskCompletionSource? _retirementsQuiesced;
     private CancellationTokenSource? _operationEpochCancellation = new();
     private CancellationTokenSource? _projectServiceEpochCancellation = new();
-    private PendingRecoveryOfferContext? _pendingRecoveryOffer;
     // A project created with tracking gets its repository before it opens. The initialized backend
     // waits here until the activation of that same creation adopts it.
     private PreparedNewProject? _preparedNewProject;
-    private PendingOpeningRepositoryDecision? _pendingOpeningRepositoryDecision;
     private RepositoryAdoptionRequest? _pendingRepositoryAdoption;
     private CancellationTokenSource? _configurationActivationCancellation;
     private ConfigurationActivationRequest? _pendingConfigurationActivation;
@@ -91,7 +81,6 @@ internal sealed partial class VersionControlCoordinator :
     private int _lifecycleUsers;
     private int _lockRecoveryUsers;
     private int _notificationUsers;
-    private int _pendingRecoveryOfferUsers;
     private int _operationUsers;
     private int _retirementUsers;
     private int _asyncDisposalStarted;
@@ -139,7 +128,6 @@ internal sealed partial class VersionControlCoordinator :
         ConfirmRestoreAsync = _prompts.ShowRestoreConfirmationAsync;
         ConfirmSwitchBranchAsync = ShowSwitchBranchConfirmationAsync;
         ConfirmPullAsync = _prompts.ShowPullConfirmationAsync;
-        ConfirmPendingPullRecoveryAsync = _prompts.ShowPendingPullRecoveryConfirmationAsync;
         ConfirmUseEnclosingRepositoryAsync = _prompts.ShowEnclosingRepositoryConfirmationAsync;
         ConfirmAdoptExistingRepositoryAsync = ShowAdoptExistingRepositoryConfirmationAsync;
         ConfirmRemoveStaleLockAsync = _prompts.ShowStaleLockConfirmationAsync;
@@ -149,7 +137,6 @@ internal sealed partial class VersionControlCoordinator :
         ConfirmCloseWithoutSnapshotAsync = _prompts.ShowCloseWithoutSnapshotConfirmationAsync;
         PresentPolicyNoticeAsync = _prompts.ShowPolicyNoticeAsync;
         _config.ConfigurationChanged += OnVersionControlConfigChanged;
-        _projectService.OpeningPreflight += PrepareProjectOpeningAsync;
         _projectService.Opening += InspectProjectOpeningAsync;
         _projectService.ClosingPreparing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
@@ -174,8 +161,6 @@ internal sealed partial class VersionControlCoordinator :
 
     public IReadOnlyReactiveProperty<bool> IsTracked => _isTracked;
 
-    public event EventHandler? PendingPullRecoveriesChanged;
-
     public event EventHandler? RepositoryAdoptionChanged;
 
     public RepositoryAdoptionRequest? PendingRepositoryAdoption
@@ -194,10 +179,6 @@ internal sealed partial class VersionControlCoordinator :
     internal Func<string, CancellationToken, Task<bool>> ConfirmSwitchBranchAsync { get; set; }
 
     internal Func<CancellationToken, Task<bool>> ConfirmPullAsync { get; set; }
-
-    internal Func<ProjectRecoveryInfo, CancellationToken, Task<bool>>
-        ConfirmPendingPullRecoveryAsync
-    { get; set; }
 
     internal Func<RepositoryInfo, CancellationToken, Task<bool>>
         ConfirmUseEnclosingRepositoryAsync
@@ -273,7 +254,6 @@ internal sealed partial class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
-        CancelPendingPullRecoveryOffer();
         return RunRestoreCycleAsync(sha, branchName: null, cancellationToken);
     }
 
@@ -284,7 +264,6 @@ internal sealed partial class VersionControlCoordinator :
     {
         GitRevisionValidator.ValidateCommitId(sha, nameof(sha));
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        CancelPendingPullRecoveryOffer();
         return RunRestoreCycleAsync(sha, branchName, cancellationToken);
     }
 
@@ -293,7 +272,6 @@ internal sealed partial class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        CancelPendingPullRecoveryOffer();
         return RunBranchCycleAsync(branchName.Trim(), create: true, cancellationToken);
     }
 
@@ -302,7 +280,6 @@ internal sealed partial class VersionControlCoordinator :
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
-        CancelPendingPullRecoveryOffer();
         return RunBranchCycleAsync(branchName.Trim(), create: false, cancellationToken);
     }
 
@@ -327,35 +304,7 @@ internal sealed partial class VersionControlCoordinator :
 
     public Task<RemoteOpResult> PullAsync(CancellationToken cancellationToken = default)
     {
-        CancelPendingPullRecoveryOffer();
         return RunPullCycleAsync(cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<ProjectRecoveryInfo>> GetPendingPullRecoveriesAsync(
-        CancellationToken cancellationToken = default)
-    {
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
-        IProjectVersionControlBackend service = GetTrackedBackend();
-        IReadOnlyList<PendingPullRecovery> recoveries =
-            await service.ExecuteExclusiveAsync(
-                transaction => transaction.GetPendingPullRecoveriesAsync(
-                    operation.CancellationToken),
-                operation.CancellationToken);
-        ReconcileOfferedPendingRecoveryIds(recoveries);
-        return recoveries.Select(ToRecoveryInfo).ToArray();
-    }
-
-    public Task<ProjectRecoveryResult> RecoverPendingPullAsync(
-        string recoveryId,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(recoveryId);
-        CancelPendingPullRecoveryOffer();
-        return RunPendingPullRecoveryCycleAsync(
-            recoveryId,
-            requireConfirmation: true,
-            cancellationToken);
     }
 
     public void Dispose()

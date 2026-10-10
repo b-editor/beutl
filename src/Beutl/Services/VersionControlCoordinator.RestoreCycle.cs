@@ -101,10 +101,9 @@ internal partial class VersionControlCoordinator
             return false;
         }
 
-        CheckedOutBranchTip expectedResultTip = originalTip;
-        CheckedOutBranchTip? createdBranchTip = null;
         bool projectClosed = false;
-        // The checkout below runs uncancellable with the project closed, and its LFS
+        bool restoreCommitted = false;
+        // The restore below runs uncancellable with the project closed, and its LFS
         // smudge filter would download missing objects there - a stalled endpoint would
         // strand the closed project. Pull them in first, while the operation is still
         // cancellable and the project is still open.
@@ -117,65 +116,25 @@ internal partial class VersionControlCoordinator
             await CloseProjectForOperationAsync(transition, CancellationToken.None);
             projectClosed = true;
 
-            if (branchName is null)
+            if (branchName is not null)
             {
-                CommitResult restoreResult = await service.CommitProjectTreeAsync(
-                    originalTip,
-                    sha,
-                    GetRestoreCommitMessage(sha),
-                    SnapshotKind.Restore,
+                // Branching at the selected commit would check that whole tree out, so in an
+                // enclosing repository it would roll back files outside the project and could
+                // overwrite ignored ones. Branch from the current tip instead and restore only
+                // the project tree on top of it.
+                await service.CreateBranchAsync(
+                    branchName,
+                    originalTip.Commit,
                     CancellationToken.None);
-
-                expectedResultTip = GetExpectedTipAfterCommit(
-                    originalTip,
-                    restoreResult);
-                EnsureAutomaticSnapshotWasNotSkipped(restoreResult);
             }
-            else
-            {
-                CheckedOutBranchTip branchTip;
-                try
-                {
-                    // Branching at the selected commit would check that whole tree out,
-                    // so in an enclosing repository it would roll back files outside the
-                    // project and could overwrite ignored ones. Branch from the current
-                    // tip instead and apply only the project tree on top of it.
-                    await service.CreateBranchAsync(
-                        branchName,
-                        originalTip.Commit,
-                        CancellationToken.None);
-                    createdBranchTip = new CheckedOutBranchTip(
-                        $"refs/heads/{branchName}",
-                        originalTip.Commit);
-                    branchTip = await service.GetCheckedOutBranchTipAsync(
-                        CancellationToken.None);
-                    expectedResultTip = branchTip;
-                    if (!BranchTipsEqual(branchTip, createdBranchTip))
-                    {
-                        throw new InvalidOperationException(
-                            "The restore branch changed immediately after it was created.");
-                    }
-                }
-                catch
-                {
-                    expectedResultTip = await service.GetCheckedOutBranchTipAsync(
-                        CancellationToken.None);
-                    throw;
-                }
 
-                CommitResult restoreResult = await service.CommitProjectTreeAsync(
-                    branchTip,
-                    sha,
-                    GetRestoreCommitMessage(sha),
-                    SnapshotKind.Restore,
-                    CancellationToken.None);
-
-                expectedResultTip = GetExpectedTipAfterCommit(
-                    branchTip,
-                    restoreResult);
-                createdBranchTip = expectedResultTip;
-                EnsureAutomaticSnapshotWasNotSkipped(restoreResult);
-            }
+            CommitResult restoreResult = await service.RestoreProjectTreeAsync(
+                sha,
+                GetRestoreCommitMessage(sha),
+                SnapshotKind.Restore,
+                CancellationToken.None);
+            EnsureAutomaticSnapshotWasNotSkipped(restoreResult);
+            restoreCommitted = restoreResult is CommitResult.Committed;
 
             await ReopenProjectAsync(transition, projectFile);
             return true;
@@ -183,20 +142,20 @@ internal partial class VersionControlCoordinator
         catch (Exception ex)
         {
             Exception? recoveryFailure = null;
+            bool returnedToOriginalBranch = false;
             if (projectClosed)
             {
-                recoveryFailure = await TryRestoreOriginalStateAsync(
+                (recoveryFailure, returnedToOriginalBranch) = await TryRestoreOriginalStateAsync(
                     service,
                     originalTip,
-                    expectedResultTip,
-                    branchName is null ? RecoveryKind.Restore : RecoveryKind.Branch,
+                    revertCommittedRestore: restoreCommitted && branchName is null,
                     transition,
                     projectFile);
             }
 
-            if (recoveryFailure is null && createdBranchTip is not null)
+            if (recoveryFailure is null && returnedToOriginalBranch && branchName is not null)
             {
-                PublishRetainedRestoreBranchWarning(createdBranchTip);
+                PublishRetainedRestoreBranchWarning(branchName);
             }
 
             if (recoveryFailure is not null)
@@ -295,93 +254,62 @@ internal partial class VersionControlCoordinator
                 GetErrorText(exception)));
     }
 
-    private async Task<Exception?> TryRestoreOriginalStateAsync(
+    // Brings the closed project back to where the operation started and reopens it. When HEAD
+    // moved to another branch - a switch, or a restore to a new branch - git switch returns to the
+    // original one, and the result reports that a branch the restore created stays behind. A
+    // restore committed in place is undone by restoring the original tree as a new commit, so
+    // history is never rewritten. A restore that failed before its commit has already put the
+    // project's files back.
+    private async Task<(Exception? Failure, bool ReturnedToOriginalBranch)> TryRestoreOriginalStateAsync(
         IProjectVersionControlTransaction service,
         CheckedOutBranchTip originalTip,
-        CheckedOutBranchTip expectedResultTip,
-        RecoveryKind recoveryKind,
+        bool revertCommittedRestore,
         ProjectService.ProjectTransitionScope transition,
         string projectFile)
     {
+        bool returnedToOriginalBranch = false;
         try
         {
-            CheckedOutBranchTip actualTip = await service.GetCheckedOutBranchTipAsync(
+            CheckedOutBranchTip currentTip = await service.GetCheckedOutBranchTipAsync(
                 CancellationToken.None);
-            if (!BranchTipsEqual(actualTip, expectedResultTip))
+            if (!string.Equals(currentTip.RefName, originalTip.RefName, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException(
-                    "The checked-out branch changed before the operation could be recovered.");
+                await service.SwitchBranchAsync(
+                    GetLocalBranchName(originalTip.RefName),
+                    CancellationToken.None);
+                returnedToOriginalBranch = true;
             }
-
-            if (recoveryKind == RecoveryKind.Branch)
+            else if (revertCommittedRestore)
             {
-                if (!BranchTipsEqual(actualTip, originalTip))
-                {
-                    await service.SwitchBranchAsync(
-                        GetLocalBranchName(originalTip.RefName),
-                        CancellationToken.None);
-                    CheckedOutBranchTip restoredTip = await service.GetCheckedOutBranchTipAsync(
-                        CancellationToken.None);
-                    if (!BranchTipsEqual(restoredTip, originalTip))
-                    {
-                        throw new InvalidOperationException(
-                            "The original branch ref changed while the branch operation was being recovered.");
-                    }
-                }
-            }
-            else
-            {
-                if (!string.Equals(
-                        actualTip.RefName,
-                        originalTip.RefName,
-                        StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        "The restore operation is no longer on its original branch.");
-                }
-
-                CommitResult recovery = await service.CommitProjectTreeAsync(
-                    expectedResultTip,
+                CommitResult recovery = await service.RestoreProjectTreeAsync(
                     originalTip.Commit,
                     RestoreRecoveryMessage,
                     SnapshotKind.Recovery,
                     CancellationToken.None);
                 EnsureAutomaticSnapshotWasNotSkipped(recovery);
-                CheckedOutBranchTip expectedRecoveryTip = GetExpectedTipAfterCommit(
-                    expectedResultTip,
-                    recovery);
-                CheckedOutBranchTip verifiedRecoveryTip = await service.GetCheckedOutBranchTipAsync(
-                    CancellationToken.None);
-                if (!BranchTipsEqual(verifiedRecoveryTip, expectedRecoveryTip))
-                {
-                    throw new InvalidOperationException(
-                        "The branch ref changed while the restore operation was being recovered.");
-                }
             }
         }
         catch (Exception recoveryException)
         {
-            return recoveryException;
+            return (recoveryException, returnedToOriginalBranch);
         }
 
         try
         {
             await ReopenProjectAsync(transition, projectFile);
-            return null;
+            return (null, returnedToOriginalBranch);
         }
         catch (Exception reopenException)
         {
-            return reopenException;
+            return (reopenException, returnedToOriginalBranch);
         }
     }
 
-    private void PublishRetainedRestoreBranchWarning(CheckedOutBranchTip createdBranchTip)
+    private void PublishRetainedRestoreBranchWarning(string branchName)
     {
-        string branchName = GetLocalBranchName(createdBranchTip.RefName);
         _logger.LogWarning(
-            "Retained failed restore branch {BranchRef} at {Commit} for manual cleanup.",
-            createdBranchTip.RefName,
-            createdBranchTip.Commit);
+            "Retained failed restore branch {Branch} for manual cleanup.",
+            branchName);
         PublishNotification(() =>
             NotificationService.ShowWarning(
                 Strings.VersionControl,
@@ -401,11 +329,5 @@ internal partial class VersionControlCoordinator
         }
 
         return refName[Prefix.Length..];
-    }
-
-    private enum RecoveryKind
-    {
-        Branch,
-        Restore,
     }
 }

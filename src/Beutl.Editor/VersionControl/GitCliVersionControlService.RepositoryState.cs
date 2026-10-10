@@ -57,20 +57,6 @@ internal sealed partial class GitCliVersionControlService
         return refName;
     }
 
-    private static void ValidateBranchTipForRollback(
-        CheckedOutBranchTip expectedCurrent,
-        CheckedOutBranchTip target)
-    {
-        ValidateAttachedBranchTip(expectedCurrent, nameof(expectedCurrent));
-        ValidateAttachedBranchTip(target, nameof(target));
-        if (!string.Equals(expectedCurrent.RefName, target.RefName, StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "The rollback heads must identify the same local branch.",
-                nameof(target));
-        }
-    }
-
     private static void ValidateAttachedBranchTip(CheckedOutBranchTip tip, string paramName)
     {
         ArgumentNullException.ThrowIfNull(tip, paramName);
@@ -127,21 +113,6 @@ internal sealed partial class GitCliVersionControlService
         return refName[Prefix.Length..];
     }
 
-    private static async Task<CheckedOutBranchTip?> TryGetCheckedOutBranchTipAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false);
-        }
-        catch (DetachedHeadNotSupportedException)
-        {
-            return null;
-        }
-    }
-
     private static async Task<string?> TryResolveCommitAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -160,28 +131,6 @@ internal sealed partial class GitCliVersionControlService
         }
         catch (GitOperationException ex) when (ex.ExitCode is 1 or 128
                                                 && !ex.IsRepositoryLockFailure)
-        {
-            return null;
-        }
-    }
-
-    private static async Task<string?> TryResolveObjectAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string revision,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            GitCommandResult result = await runner.RunAsync(
-                repository,
-                ["rev-parse", "--verify", "--quiet", revision],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            string objectId = result.Stdout.Trim();
-            return string.IsNullOrEmpty(objectId) ? null : objectId;
-        }
-        catch (GitOperationException ex) when (ex.ExitCode is 1 or 128)
         {
             return null;
         }
@@ -219,50 +168,6 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    // Runs commit-tree and confirms the commit object exists before the caller refers to it.
-    private static async Task<string> CommitTreeAndVerifyAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        IReadOnlyList<string> arguments,
-        GitCommandOptions options,
-        string missingCommitMessage,
-        CancellationToken cancellationToken)
-    {
-        GitCommandResult result = await runner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken)
-            .ConfigureAwait(false);
-        string commit = result.Stdout.Trim();
-        if (commit.Length == 0)
-        {
-            throw new InvalidOperationException(missingCommitMessage);
-        }
-
-        await runner.RunAsync(
-                repository,
-                ["cat-file", "-e", commit + "^{commit}"],
-                GitCommandOptions.Local,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        return commit;
-    }
-
-    private static async Task<bool> IsWholeRepositoryCleanAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        GitCommandResult result = await runner.RunAsync(
-            repository,
-            ["status", "--porcelain=v1", "--untracked-files=all", "-z"],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        return result.Stdout.Length == 0;
-    }
-
     private static async Task<bool> IsOutsideProjectCleanAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -282,66 +187,6 @@ internal sealed partial class GitCliVersionControlService
             new GitCommandOptions(GitCommandExecutionKind.Local) { UseLiteralPathspecs = false },
             cancellationToken).ConfigureAwait(false);
         return result.Stdout.Length == 0;
-    }
-
-    private static async Task<bool> IsProjectCleanAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        GitCommandResult result = await runner.RunAsync(
-            repository,
-            [
-                "status",
-                "--porcelain=v1",
-                "--untracked-files=all",
-                "-z",
-                "--",
-                repository.Pathspec,
-            ],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        return result.Stdout.Length == 0;
-    }
-
-    private static async Task<bool> IsProjectIndexCleanAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await runner.RunAsync(
-                repository,
-                ["diff", "--cached", "--quiet", "--", repository.Pathspec],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return false;
-        }
-    }
-
-    private static async Task<bool> IsWholeIndexCleanAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await runner.RunAsync(
-                repository,
-                ["diff", "--cached", "--quiet", "--", "."],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return false;
-        }
     }
 
     private static async Task<bool> IsAncestorAsync(
@@ -414,57 +259,6 @@ internal sealed partial class GitCliVersionControlService
             Path.IsPathFullyQualified(path)
                 ? path
                 : Path.Combine(repository.RepoRoot, path));
-    }
-
-    private static Task<GitCommandResult> ResetIndexAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string commit,
-        string pathspec)
-    {
-        return string.Equals(pathspec, ".", StringComparison.Ordinal)
-            ? runner.RunAsync(
-                repository,
-                ["read-tree", "--reset", commit],
-                GitCommandOptions.Local,
-                CancellationToken.None)
-            : runner.RunAsync(
-                repository,
-                ["restore", $"--source={commit}", "--staged", "--", pathspec],
-                GitCommandOptions.Local,
-                CancellationToken.None);
-    }
-
-    private static async Task<bool> IsIndexAtCommitAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string commit,
-        string pathspec,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await runner.RunAsync(
-                repository,
-                ["diff", "--cached", "--quiet", commit, "--", pathspec],
-                GitCommandOptions.Local,
-                cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-            return false;
-        }
-    }
-
-    private static string GetCheckpointRefPrefix(RepositoryInfo repository)
-    {
-        return $"refs/beutl/safety/{GetConfigKeyHash(repository.Pathspec)}/";
-    }
-
-    private static string GetPendingRecoveryRefPrefix(RepositoryInfo repository)
-    {
-        return $"refs/beutl/recovery/{GetConfigKeyHash(repository.Pathspec)}/";
     }
 
     private static bool EqualsBranchTip(CheckedOutBranchTip left, CheckedOutBranchTip right)

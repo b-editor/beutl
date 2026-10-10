@@ -183,36 +183,6 @@ internal partial class VersionControlTabViewModel
         }
     }
 
-    internal async Task RecoverPendingPullAsync()
-    {
-        string? recoveryId = _pendingRecoveryId;
-        if (_versionControlCoordinator is null
-            || recoveryId is null
-            || Interlocked.CompareExchange(ref _pendingRecoveryRequestActive, 1, 0) != 0)
-        {
-            return;
-        }
-
-        try
-        {
-            ProjectRecoveryResult result =
-                await _versionControlCoordinator.RecoverPendingPullAsync(
-                recoveryId,
-                CancellationToken.None);
-            bool recovered = result is ProjectRecoveryResult.RestoredOriginal
-                or ProjectRecoveryResult.ReappliedCheckpoint;
-            if (recovered && !_disposed)
-            {
-                _pendingRecoveryId = null;
-                HasPendingPullRecovery.Value = false;
-            }
-        }
-        finally
-        {
-            Volatile.Write(ref _pendingRecoveryRequestActive, 0);
-        }
-    }
-
     private async Task<bool> RunRestoreRequestAsync(Func<Task<bool>> operation)
     {
         if (Interlocked.CompareExchange(ref _restoreRequestActive, 1, 0) != 0)

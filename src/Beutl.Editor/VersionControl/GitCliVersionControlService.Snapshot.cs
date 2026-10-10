@@ -36,63 +36,6 @@ internal sealed partial class GitCliVersionControlService
             : $":(top,literal){repository.Pathspec}";
     }
 
-    private static async Task EnsureSnapshotTreeContainsNoGitlinksAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string tree,
-        CancellationToken cancellationToken)
-    {
-        GitCommandResult entries = await runner.RunAsync(
-                repository,
-                ["ls-tree", "-r", "-z", tree, "--", repository.Pathspec],
-                GitCommandOptions.Local with
-                {
-                    MaxStdoutBytes = MaxSnapshotTreeInspectionBytes,
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (entries.StdoutTruncated)
-        {
-            // Each entry of the full listing carries an object name and a path, so a large project,
-            // such as one holding a rendered frame sequence, overflows it long before a nested
-            // repository matters. Modes alone stay small enough to scan the whole tree.
-            GitCommandResult modes = await runner.RunAsync(
-                    repository,
-                    ["ls-tree", "-r", "-z", "--format=%(objectmode)", tree, "--", repository.Pathspec],
-                    GitCommandOptions.Local with
-                    {
-                        MaxStdoutBytes = MaxSnapshotTreeInspectionBytes,
-                    },
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (modes.StdoutTruncated)
-            {
-                throw new InvalidOperationException(
-                    "Git could not safely inspect the complete project tree for nested repositories.");
-            }
-
-            if (GitCliRunner.SplitNullSeparated(modes.Stdout).Contains("160000", StringComparer.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    "The project tree contains a nested Git repository that cannot be snapshotted safely.");
-            }
-
-            return;
-        }
-
-        string? gitlink = GitCliRunner.SplitNullSeparated(entries.Stdout)
-            .FirstOrDefault(static entry => entry.StartsWith("160000 ", StringComparison.Ordinal));
-        if (gitlink is null)
-        {
-            return;
-        }
-
-        int pathSeparator = gitlink.IndexOf('\t');
-        string path = pathSeparator >= 0 ? gitlink[(pathSeparator + 1)..] : gitlink;
-        throw new InvalidOperationException(
-            $"The nested Git repository '{path}' cannot be snapshotted safely.");
-    }
-
     private async Task<CommitResult> CommitAllCoreAsync(
         string message,
         SnapshotKind kind,
@@ -312,6 +255,103 @@ internal sealed partial class GitCliVersionControlService
         {
             return new CommitRevision.Unavailable();
         }
+    }
+
+    // Restores the project scope from the source commit and records it as a snapshot. git restore runs
+    // without overlay, so files the source does not have are deleted; the snapshot pathspecs leave
+    // .beutl state and .tmp files alone. Until the snapshot is recorded, a failure puts the scope back to
+    // HEAD, so the project reopens on the version it was closed on.
+    private async Task<CommitResult> RestoreProjectTreeCoreAsync(
+        string sourceCommit,
+        string message,
+        SnapshotKind kind,
+        CancellationToken cancellationToken)
+    {
+        GitRevisionValidator.ValidateCommitId(sourceCommit, nameof(sourceCommit));
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
+        RepositoryInfo repository = GetRepository();
+        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
+        await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureNoExternalRepositoryOperationAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        EnsureWorktreeMutationAllowed();
+        string source = await TryResolveCommitAsync(repository, runner, sourceCommit, cancellationToken)
+                            .ConfigureAwait(false)
+                        ?? throw new ArgumentException(
+                            "The restore source must identify a commit in the repository.",
+                            nameof(sourceCommit));
+
+        // Checked before any file changes: without an identity the restore could not be recorded.
+        if (await GetIdentityCoreAsync(repository, runner, cancellationToken).ConfigureAwait(false) is null)
+        {
+            if (kind == SnapshotKind.Manual)
+            {
+                throw new GitIdentityRequiredException();
+            }
+
+            await RaiseMissingIdentityNoticeIfNeededAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false);
+            return new CommitResult.SkippedNoIdentity();
+        }
+
+        CommitRevision? revision;
+        try
+        {
+            await RestoreProjectScopeAsync(repository, runner, source, cancellationToken)
+                .ConfigureAwait(false);
+            revision = await CommitProjectSnapshotAsync(
+                    repository,
+                    runner,
+                    message,
+                    kind,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception restoreFailure)
+        {
+            try
+            {
+                await RestoreProjectScopeAsync(repository, runner, "HEAD", CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception rollbackFailure)
+            {
+                throw new AggregateException(
+                    "The project could not be restored, and its files could not be put back to the checked-out version.",
+                    restoreFailure,
+                    rollbackFailure);
+            }
+
+            throw;
+        }
+
+        await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
+        return revision is null
+            ? new CommitResult.NoChanges()
+            : new CommitResult.Committed(revision);
+    }
+
+    private Task<GitCommandResult> RestoreProjectScopeAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        return runner.RunAsync(
+            repository,
+            [
+                .. s_lfsPathFilterOverrides,
+                "restore",
+                $"--source={source}",
+                "--staged",
+                "--worktree",
+                "--",
+                .. CreateSnapshotPathspecs(repository),
+            ],
+            new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs) { UseLiteralPathspecs = false },
+            cancellationToken);
     }
 
     // The project file is what a version reopens, so a rule that ignores it, such as a global *.bep,

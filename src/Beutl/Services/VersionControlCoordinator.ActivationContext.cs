@@ -26,7 +26,6 @@ internal partial class VersionControlCoordinator
             string projectRoot,
             string projectFile,
             IProjectVersionControlBackend service,
-            PendingOpeningRepositoryDecision? openingRepositoryDecision = null,
             bool isNewProject = false,
             CancellationToken cancellationToken = default)
         {
@@ -34,7 +33,6 @@ internal partial class VersionControlCoordinator
             ProjectRoot = projectRoot;
             ProjectFile = projectFile;
             Service = service;
-            OpeningRepositoryDecision = openingRepositoryDecision;
             IsNewProject = isNewProject;
             _ownedService = service;
             _cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -47,8 +45,6 @@ internal partial class VersionControlCoordinator
         public string ProjectFile { get; }
 
         public IProjectVersionControlBackend Service { get; }
-
-        public PendingOpeningRepositoryDecision? OpeningRepositoryDecision { get; }
 
         // Set for a project the app has just created, whose tracking the new-project dialog decides.
         public bool IsNewProject { get; }

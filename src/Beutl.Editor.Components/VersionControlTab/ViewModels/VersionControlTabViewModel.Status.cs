@@ -73,14 +73,12 @@ internal partial class VersionControlTabViewModel
         _historyIdentity = null;
         _lastStatusSequence = 0;
         _lastStatusHead = null;
-        _pendingRecoveryRefreshFailed = false;
         _metadataRefreshFailed = false;
         _hasMoreHistory = false;
         _aheadCount = 0;
         _behindCount = 0;
         _hasUncommittedChanges = false;
         Interlocked.Increment(ref _statusRefreshRevision);
-        Interlocked.Increment(ref _pendingRecoveryQueryRevision);
 
         bool isTracked = _service?.Repository is not null;
         IsTracked.Value = isTracked;
@@ -91,8 +89,6 @@ internal partial class VersionControlTabViewModel
         HasBlockingGuidance.Value = false;
         HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
         StaleLockGuidance.Value = Strings.VersionControl_StaleLockGuidance;
-        HasPendingPullRecovery.Value = false;
-        _pendingRecoveryId = null;
         DirtySummary.Value = string.Empty;
         StatusMessage.Value = isTracked
             ? string.Empty
@@ -191,14 +187,6 @@ internal partial class VersionControlTabViewModel
         ApplyStatus(status);
         try
         {
-            // Read metadata after the status sequence we adopt. Otherwise a queued notification
-            // already covered by that sequence could be ignored while recovery data is older.
-            await RefreshPendingPullRecoveryAsync(service, revision, cancellationToken);
-            if (!IsCurrentStatusRefresh(service, statusRefreshRevision, cancellationToken))
-            {
-                return;
-            }
-
             // Remote commands stay available through a conflict, so the remotes are read even when
             // the history of the blocked worktree is not.
             await RefreshRemotesAsync(
@@ -241,84 +229,12 @@ internal partial class VersionControlTabViewModel
         }
     }
 
-    private async Task RefreshPendingPullRecoveryAsync(
-        IProjectVersionControlService service,
-        int revision,
-        CancellationToken cancellationToken)
-    {
-        int queryRevision = Interlocked.Increment(ref _pendingRecoveryQueryRevision);
-        if (_versionControlCoordinator is null)
-        {
-            return;
-        }
-
-        bool refreshed = false;
-        try
-        {
-            IReadOnlyList<ProjectRecoveryInfo> recoveries =
-                await _versionControlCoordinator.GetPendingPullRecoveriesAsync(
-                cancellationToken);
-            if (!IsCurrentService(service, revision, cancellationToken)
-                || queryRevision != Volatile.Read(ref _pendingRecoveryQueryRevision))
-            {
-                return;
-            }
-
-            ProjectRecoveryInfo? recovery = recoveries
-                .OrderBy(static item => item.CreatedAt)
-                .ThenBy(static item => item.Id, StringComparer.Ordinal)
-                .FirstOrDefault();
-            _pendingRecoveryId = recovery?.Id;
-            HasPendingPullRecovery.Value = recovery is not null;
-            refreshed = true;
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (ObjectDisposedException)
-        {
-            return;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to refresh pending pull recovery state.");
-        }
-        finally
-        {
-            if (queryRevision == Volatile.Read(ref _pendingRecoveryQueryRevision)
-                && !cancellationToken.IsCancellationRequested)
-            {
-                _pendingRecoveryRefreshFailed = !refreshed;
-            }
-        }
-    }
-
     private void OnRepositoryAdoptionChanged(object? sender, EventArgs e)
     {
         _postToUi(() =>
         {
             if (!_disposed)
                 PendingRepositoryAdoption.Value = _repositoryAdoptionSource?.PendingRepositoryAdoption;
-        });
-    }
-
-    private void OnPendingPullRecoveriesChanged(object? sender, EventArgs e)
-    {
-        _postToUi(() =>
-        {
-            if (_disposed || _service is not { } service)
-            {
-                return;
-            }
-
-            int revision = _serviceRevision;
-            CancellationToken cancellationToken =
-                _serviceBindingCancellation?.Token ?? CancellationToken.None;
-            Initialization = RefreshPendingPullRecoveryAsync(
-                service,
-                revision,
-                cancellationToken);
         });
     }
 
@@ -416,7 +332,7 @@ internal partial class VersionControlTabViewModel
             }
 
             bool worktreeOnly = status.NotificationSequence > 0
-                && !_pendingRecoveryRefreshFailed && !_metadataRefreshFailed
+                && !_metadataRefreshFailed
                 && status.ChangeKind == RepositoryChangeKind.Worktree
                 && status.HeadCommit is not null && status.HeadCommit == _lastStatusHead
                 && _historyIdentity is { } identity && identity.Branch == status.Branch
@@ -434,7 +350,6 @@ internal partial class VersionControlTabViewModel
                 Interlocked.Increment(ref _statusRefreshRevision);
             ApplyStatus(status);
             Initialization = RunLatestStatusRefreshAsync(cancellationToken => Task.WhenAll(
-                RefreshPendingPullRecoveryAsync(eventService, _serviceRevision, cancellationToken),
                 RefreshAfterStatusChangedAsync(
                     eventService,
                     status.Branch,

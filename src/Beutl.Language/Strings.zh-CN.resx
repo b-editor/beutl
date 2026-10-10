@@ -2651,30 +2651,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git 无法检查此项目的文件夹，因此项目已在未启用版本控制的情况下打开。{0}</value>
   </data>
-  <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
-    <value>Beutl 无法检查受保护的拉取是否仍需恢复，因此未打开项目。{0}</value>
-  </data>
-  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
-    <value>受保护的仓库转换失去了所有权，或无法验证恢复。请使用版本控制中的“恢复项目”，或从最近的项目重新打开，以在加载前恢复。如果 Beutl 无法安全更改工作树，会将检查点保留在持久的 Git 引用中。</value>
-  </data>
-  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
-    <value>{0} 的受保护拉取在 {1:g} 未正常完成。要在加载项目前恢复已保存的项目状态吗？恢复所替换的项目状态将重新加载，撤销历史会被清除，从未保存的更改将被丢弃。</value>
-  </data>
-  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
-    <value>受保护的拉取未正常完成。可以从已保存的项目状态恢复。</value>
-  </data>
-  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
-    <value>恢复项目</value>
-  </data>
-  <data name="VersionControl_PullRecovered" xml:space="preserve">
-    <value>无法完成拉取，但已恢复保存的项目状态。</value>
-  </data>
-  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
-    <value>已将保存的项目状态恢复为本地更改。持久副本保留在分支 '{0}' 上。</value>
-  </data>
-  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
-    <value>Beutl 无法安全更改当前工作树。已保存的项目状态保留在 Git 引用 '{0}' 中。请使用 Git 检查此引用。</value>
-  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>分支：{0}</value>
   </data>
@@ -2757,7 +2733,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>此项目与其他文件共享仓库。切换分支会检出整个仓库，因此项目外的文件也会更改。</value>
   </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
-    <value>拉取快进更新后，项目将关闭并重新打开，当前撤销历史将被清除。未保存的更改会先保存并记录到安全快照中。是否继续？</value>
+    <value>拉取快进更新后，项目将关闭并重新打开，当前撤销历史将被清除。未保存的更改会先保存，在拉取期间暂存到 Git stash 中，完成后再恢复。是否继续？</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
     <value>分支和远程操作将应用于包含此项目的仓库：{0}</value>
@@ -2836,6 +2812,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="VersionControl_RepositoryDirty" xml:space="preserve">
     <value>拉取要求整个仓库处于干净状态。请先提交或使用 stash 暂存项目外的更改，然后重试。</value>
+  </data>
+  <data name="VersionControl_PullChangesKeptInStashFormat" xml:space="preserve">
+    <value>拉取已完成，但无法在其之上重新应用本地更改，因此 Git 将其保留在 stash '{0}' 中。请使用外部 Git 工具解决冲突，然后删除该 stash。</value>
+  </data>
+  <data name="VersionControl_PullFailedChangesKeptInStashFormat" xml:space="preserve">
+    <value>拉取失败，且无法恢复本地更改，因此 Git 将其保留在 stash '{0}' 中。</value>
   </data>
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>无法连接远程。请检查网络连接后重试。</value>

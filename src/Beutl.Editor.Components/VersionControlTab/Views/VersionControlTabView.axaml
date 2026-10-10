@@ -60,28 +60,8 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*">
-        <Border x:Name="PendingPullRecoveryBanner"
-                Grid.Row="0"
-                Margin="8"
-                Padding="10"
-                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                CornerRadius="4"
-                IsVisible="{Binding HasPendingPullRecovery.Value}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock VerticalAlignment="Center"
-                           Text="{x:Static lang:Strings.VersionControl_PendingPullRecoveryGuidance}"
-                           TextWrapping="Wrap" />
-                <Button x:Name="RecoverPendingPullButton"
-                        Grid.Column="1"
-                        usage:UsageTracking.Feature="VersionControl.RecoverPendingPullCommand"
-                        Command="{Binding RecoverPendingPullCommand}"
-                        Content="{x:Static lang:Strings.VersionControl_RecoverPendingPull}" />
-            </Grid>
-        </Border>
-
-        <ScrollViewer Grid.Row="1"
-                      HorizontalScrollBarVisibility="Disabled"
+    <Grid>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       IsVisible="{Binding HasPendingRepositoryAdoption.Value}">
             <Border x:Name="RepositoryAdoptionPanel"
                     Margin="24"
@@ -120,7 +100,7 @@
             </Border>
         </ScrollViewer>
 
-        <Panel Grid.Row="1" IsVisible="{Binding !HasPendingRepositoryAdoption.Value}">
+        <Panel IsVisible="{Binding !HasPendingRepositoryAdoption.Value}">
             <Border Margin="20"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -10,18 +9,16 @@ namespace Beutl.Editor.VersionControl;
 internal sealed partial class GitCliVersionControlService :
     IProjectVersionControlBackend
 {
-    private const int PendingPullRecoveryFormatVersion = 1;
-    private const int MaxPendingRecoveryListBytes = 1024 * 1024;
-    private const int MaxPendingRecoveryDescriptorBytes = 64 * 1024;
-    // A repository can restrict which LFS paths are hydrated (lfs.fetchinclude / lfs.fetchexclude).
-    // A transition has to reopen the project on its real media, so its checkout clears those
-    // filters: an excluded pointer is copied through unchanged, which would leave pointer text in
-    // the work tree where the media belongs. Repository-wide prefetches use the same cleared
-    // baseline; project restore narrows the scan with an explicit include or exact subtree.
     // Offers Beutl's own LFS upload agent to its pushes; see HostedGitLfsTransferAgent.
     private static readonly IReadOnlyList<string> s_lfsUploadAgentOverrides =
         HostedGitLfsTransferAgent.GitConfigArguments(Environment.ProcessPath, Assembly.GetEntryAssembly()?.Location);
 
+    // A repository can restrict which LFS paths are hydrated (lfs.fetchinclude / lfs.fetchexclude).
+    // A pull, restore or branch switch has to reopen the project on its real media, so the Git
+    // command that rewrites the files clears those filters: an excluded pointer is copied through
+    // unchanged, which would leave pointer text in the work tree where the media belongs.
+    // Repository-wide prefetches use the same cleared baseline; project restore narrows the scan
+    // with an explicit include or exact subtree.
     private static readonly string[] s_lfsPathFilterOverrides =
     [
         "-c",
@@ -30,8 +27,6 @@ internal sealed partial class GitCliVersionControlService :
         "lfs.fetchexclude=",
     ];
 
-    private static readonly JsonSerializerOptions s_recoveryJsonOptions =
-        new(JsonSerializerOptions.Strict);
     private static readonly UTF8Encoding s_strictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
@@ -46,7 +41,6 @@ internal sealed partial class GitCliVersionControlService :
     private const string LfsInstallFailedNoticeConfigKeyPrefix = "beutl.lfsInstallFailedNoticeShown-";
     private const string IgnoredProjectFilesNoticeConfigKeyPrefix = "beutl.ignoredProjectFilesNoticeShown-";
     private static readonly string[] s_lfsHookNames = ["pre-push", "post-checkout", "post-commit", "post-merge"];
-    private const string PullSafetyCommitMessage = "beutl: safety snapshot before pull";
     private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
     private const int MaxHygieneWriteAttempts = 3;
@@ -442,25 +436,6 @@ internal sealed partial class GitCliVersionControlService :
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         return RunSerializedAsync(
             () => CommitAllCoreAsync(message, kind, cancellationToken),
-            cancellationToken);
-    }
-
-    public Task<PendingPullRecovery> PersistPendingPullRecoveryAsync(
-        ProjectCheckpoint checkpoint,
-        CheckedOutBranchTip targetTip,
-        string projectFile,
-        CancellationToken cancellationToken)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(checkpoint);
-        ArgumentNullException.ThrowIfNull(targetTip);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
-        return RunSerializedAsync(
-            () => PersistPendingPullRecoveryCoreAsync(
-                checkpoint,
-                targetTip,
-                projectFile,
-                cancellationToken),
             cancellationToken);
     }
 

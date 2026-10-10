@@ -2651,30 +2651,6 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git no pudo inspeccionar la carpeta de este proyecto, por lo que se abrió sin control de versiones. {0}</value>
   </data>
-  <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
-    <value>No se abrió el proyecto porque Beutl no pudo comprobar si un pull protegido aún necesita recuperación. {0}</value>
-  </data>
-  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
-    <value>La transición protegida del repositorio perdió la propiedad o no pudo verificar la recuperación. Usa Recuperar proyecto en Control de versiones o vuelve a abrir el proyecto desde Proyectos recientes para recuperarlo antes de cargarlo. Si Beutl no puede cambiar el árbol de trabajo de forma segura, conserva el punto de control en una referencia persistente de Git.</value>
-  </data>
-  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
-    <value>Un pull protegido para {0} no finalizó correctamente el {1:g}. ¿Recuperar el estado guardado antes de cargar el proyecto? Cualquier estado del proyecto reemplazado se recargará, borrando su historial de deshacer, y se descartarán los cambios que nunca se guardaron.</value>
-  </data>
-  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
-    <value>Un pull protegido no finalizó correctamente. Hay un estado guardado del proyecto disponible para recuperarlo.</value>
-  </data>
-  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
-    <value>Recuperar proyecto</value>
-  </data>
-  <data name="VersionControl_PullRecovered" xml:space="preserve">
-    <value>No se pudo completar el pull, pero se recuperó el estado guardado del proyecto.</value>
-  </data>
-  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
-    <value>Se restauró el estado guardado del proyecto como cambios locales. Se conserva una copia persistente en la rama '{0}'.</value>
-  </data>
-  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
-    <value>Beutl no pudo cambiar el árbol de trabajo actual de forma segura. El estado guardado del proyecto se conserva en la referencia de Git '{0}'. Inspecciona esa referencia con Git.</value>
-  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>Rama: {0}</value>
   </data>
@@ -2757,7 +2733,7 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
     <value>Este proyecto comparte un repositorio con otros archivos. Al cambiar de rama se actualiza todo el repositorio, por lo que también cambian los archivos fuera del proyecto.</value>
   </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
-    <value>El proyecto se cerrará y volverá a abrirse tras obtener las actualizaciones de avance rápido, y se borrará el historial de deshacer actual. Los cambios no guardados se guardarán primero y se registrarán en una instantánea de seguridad. ¿Continuar?</value>
+    <value>El proyecto se cerrará y volverá a abrirse tras obtener las actualizaciones de avance rápido, y se borrará el historial de deshacer actual. Los cambios no guardados se guardarán primero, se apartarán en un stash de Git durante el pull y se restaurarán después. ¿Continuar?</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
     <value>Las operaciones de ramas y remotos se aplican al repositorio que contiene el proyecto: {0}</value>
@@ -2836,6 +2812,12 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   </data>
   <data name="VersionControl_RepositoryDirty" xml:space="preserve">
     <value>Para hacer pull, todo el repositorio debe estar limpio. Confirma o guarda en stash los cambios fuera del proyecto e inténtalo de nuevo.</value>
+  </data>
+  <data name="VersionControl_PullChangesKeptInStashFormat" xml:space="preserve">
+    <value>El pull terminó, pero tus cambios locales no se pudieron volver a aplicar encima, así que Git los conservó en el stash '{0}'. Resuelve los conflictos con una herramienta externa de Git y después elimina el stash.</value>
+  </data>
+  <data name="VersionControl_PullFailedChangesKeptInStashFormat" xml:space="preserve">
+    <value>El pull falló y tus cambios locales no se pudieron restaurar, así que Git los conservó en el stash '{0}'.</value>
   </data>
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>No se pudo conectar con el remoto. Comprueba tu conexión de red e inténtalo de nuevo.</value>
