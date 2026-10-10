@@ -19,6 +19,7 @@ using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using SkiaSharp;
 
 namespace Beutl.HeadlessUITests;
 
@@ -197,6 +198,18 @@ public sealed class AgentHostAiToolsTests
             Assert.That(bitmap.Save(wide, EncodedImageFormat.Png), Is.True);
         // Within the limits itself, but 9600 pixels wide once outpainted by 10%.
         ToolResult<AgentAiJobSnapshot> wideOutpaint = await tools.EditImage(wide, "outpaint", "more sky", outpaintExpansionPercent: 10);
+        // The executor puts about 95 characters in front of an outpaint's prompt.
+        ToolResult<AgentAiJobSnapshot> outpaintPrompt = await tools.EditImage(WritePng("d.png"), "outpaint", new string('a', 3_950));
+        ToolResult<AgentAiJobSnapshot> badLanguage = await tools.TranscribeAudio(WriteFile("speech.wav"), language: "english");
+        // A noisy JPEG well under the 20 MB upload limit whose widened canvas is far over it as PNG.
+        string noisy = Path.Combine(_directory, "noisy.jpg");
+        using (var noise = new SKBitmap(3_000, 3_000, SKColorType.Rgba8888, SKAlphaType.Opaque))
+        {
+            new Random(1).NextBytes(noise.GetPixelSpan());
+            using SKData jpeg = noise.Encode(SKEncodedImageFormat.Jpeg, 80);
+            File.WriteAllBytes(noisy, jpeg.ToArray());
+        }
+        ToolResult<AgentAiJobSnapshot> noisyOutpaint = await tools.EditImage(noisy, "outpaint", "more sky", outpaintExpansionPercent: 10);
         ToolResult<ListAiModelsResponse> typo = await tools.ListAiModels("image.generat");
         ToolResult<ListAiModelsResponse> blank = await tools.ListAiModels(" ");
         backend.Models["image.generate"] = [SquareModel];
@@ -218,6 +231,10 @@ public sealed class AgentHostAiToolsTests
             Assert.That(tooManyReferences.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(hugePicture.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "checked before it is decoded");
             Assert.That(wideOutpaint.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(outpaintPrompt.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(badLanguage.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(noisyOutpaint.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "measured on the widened canvas the executor would send");
+            Assert.That(backend.TranscribedPaths, Is.Empty);
             Assert.That(typo.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unknownModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));

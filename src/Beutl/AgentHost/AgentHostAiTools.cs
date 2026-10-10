@@ -166,7 +166,11 @@ internal sealed class AgentHostAiTools(
         return StartAsync($"image.edit.{taskId}", model, waitSeconds, cancellationToken, (scene, _) =>
         {
             var editTask = (AiImageEditTask)Array.IndexOf(s_imageTasks, taskId);
-            string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt) : null;
+            // The executor puts its instruction in front of an outpaint's prompt before the same limit.
+            int maxPrompt = editTask == AiImageEditTask.Outpaint
+                ? AiRequestLimits.MaxPromptLength - AiGenerativeNodeExecutor.OutpaintInstruction.Length - 1
+                : AiRequestLimits.MaxPromptLength;
+            string? text = editTask.RequiresPrompt() ? RequirePrompt(prompt, maxPrompt) : null;
             GenerativeImageInput image = ReadImage(scene, sourcePath, "source", AiRequestLimits.MaxImageUploadBytes, out PixelSize size);
             if (editTask == AiImageEditTask.Outpaint)
                 RequireOutpaintCanvas(size, outpaintExpansionPercent);
@@ -335,6 +339,9 @@ internal sealed class AgentHostAiTools(
         return await ExecuteAsync<AgentAiJobSnapshot>(async () =>
         {
             RequireWait(waitSeconds);
+            string? languageCode = string.IsNullOrWhiteSpace(language) ? null : language.Trim().ToLowerInvariant();
+            if (languageCode is not null && !AiRequestLimits.IsIso6391LanguageCode(languageCode))
+                throw Invalid($"'{language}' is not a two-letter ISO 639-1 language code such as ja or en.", "language");
             await RequireAvailableAsync(cancellationToken).ConfigureAwait(false);
             // Transcription has no executor to resolve the default model, so the one chosen here is sent.
             GenerativeModelInfo? chosen = await ResolveModelAsync("audio.transcribe", model, cancellationToken).ConfigureAwait(false);
@@ -344,7 +351,7 @@ internal sealed class AgentHostAiTools(
             string jobId = jobs.Start("audio.transcribe", async (progress, token) =>
             {
                 AgentTranscript transcript = await backend
-                    .TranscribeAsync(path, language, modelId, progress, token)
+                    .TranscribeAsync(path, languageCode, modelId, progress, token)
                     .ConfigureAwait(false);
                 return new AgentAiJobOutput(null, "transcript", modelId, null, transcript);
             });
@@ -479,9 +486,11 @@ internal sealed class AgentHostAiTools(
                 if (image.References.Sum(reference => reference.EncodedPng.LongLength) > budget)
                     throw Invalid($"The reference pictures come to more than the {budget / (double)MB:0.#} MB one generation takes in all.", "referenceImagePaths");
                 break;
-            // An outpaint uploads the expanded canvas, which only the executor builds.
-            case AiImageEditNodeRequest { Task: not AiImageEditTask.Outpaint } edit
-                when edit.Image.EncodedPng.LongLength > AiRequestLimits.MaxImageUploadBytes:
+            // An outpaint uploads the expanded canvas; built here with the executor's own code to measure it.
+            case AiImageEditNodeRequest edit
+                when (edit.Task == AiImageEditTask.Outpaint
+                        ? AiGenerativeNodeExecutor.ExpandCanvas(edit.Image.EncodedPng, edit.OutpaintExpansionPercent ?? 25).LongLength
+                        : edit.Image.EncodedPng.LongLength) > AiRequestLimits.MaxImageUploadBytes:
                 throw TooLarge("The picture", AiRequestLimits.MaxImageUploadBytes, "sourcePath");
             case AiVideoGenerationNodeRequest video
                 when video.FirstFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes
