@@ -611,7 +611,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     private Uri? TryCreateLiveMcpUri()
     {
-        return _agentHostEndpoint.EndpointUri;
+        return _agentHostEndpoint.ConnectionUri;
     }
 
     private Dictionary<string, string> BuildLiveMcpHeaders()

@@ -44,6 +44,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private bool _stopRequested;
     private WebApplication? _application;
     private Uri? _endpointUri;
+    private Uri? _connectionUri;
+    private AgentHostEndpointFailover? _failover;
+    private Task? _failoverTask;
     private Task? _startupTask;
     private Task? _stopTask;
     private IDisposable? _instanceRegistration;
@@ -181,6 +184,17 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
     }
 
+    // The settings page installs a shared URL when its owner has proved it belongs to this
+    // profile. EndpointUri stays process-specific for authenticated instance routing.
+    public Uri? ConnectionUri
+    {
+        get
+        {
+            lock (_lifecycleLock)
+                return _connectionUri;
+        }
+    }
+
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
@@ -256,20 +270,20 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         int port = _preferredPort;
         while (true)
         {
-            WebApplication app = CreateApplication(port);
+            var (app, failover) = CreateApplication(port);
 
             try
             {
                 await app.StartAsync(cancellationToken).ConfigureAwait(false);
 
-                string address = app.Services
+                IServerAddressesFeature addresses = app.Services
                     .GetRequiredService<IServer>()
                     .Features
-                    .Get<IServerAddressesFeature>()!
-                    .Addresses
-                    .Single();
+                    .Get<IServerAddressesFeature>()!;
+                string address = addresses.Addresses.Single();
 
                 var endpointUri = new Uri(new Uri(address), "/mcp");
+                Uri connectionUri = await failover.ResolveConnectionUriAsync(endpointUri, cancellationToken).ConfigureAwait(false);
 
                 bool stopRequested;
                 lock (_lifecycleLock)
@@ -288,6 +302,16 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                         // cleared it (while still null), so setting it before this check would leave
                         // a dead URL visible to the settings page after a stop-during-startup race.
                         _endpointUri = endpointUri;
+                        _connectionUri = connectionUri;
+                        _failover = failover;
+                        _failoverTask = Task.Run(() => failover.RunAsync(addresses, endpointUri, uri =>
+                        {
+                            lock (_lifecycleLock)
+                            {
+                                if (!_stopRequested)
+                                    _connectionUri = uri;
+                            }
+                        }, cancellationToken));
                     }
                 }
 
@@ -295,14 +319,16 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 // _application): stop the just-started host here instead of leaving it running.
                 if (stopRequested)
                 {
-                    await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
+                    try { await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false); }
+                    finally { failover.Dispose(); }
                 }
 
                 return;
             }
             catch (Exception ex) when (IsAddressInUse(ex))
             {
-                await app.DisposeAsync().ConfigureAwait(false);
+                try { await app.DisposeAsync().ConfigureAwait(false); }
+                finally { failover.Dispose(); }
                 if (port >= IPEndPoint.MaxPort)
                 {
                     throw;
@@ -312,7 +338,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             }
             catch
             {
-                await app.DisposeAsync().ConfigureAwait(false);
+                try { await app.DisposeAsync().ConfigureAwait(false); }
+                finally { failover.Dispose(); }
                 throw;
             }
         }
@@ -347,11 +374,14 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         {
             _stopRequested = true;
             _endpointUri = null;
+            _connectionUri = null;
             _instanceRegistration?.Dispose();
             _instanceRegistration = null;
             WebApplication? application = _application;
             _application = null;
-            stop = _stopTask ??= StopCoreAsync(application);
+            AgentHostEndpointFailover? failover = _failover;
+            _failover = null;
+            stop = _stopTask ??= StopCoreAsync(application, failover, _failoverTask);
         }
 
         _extensionTools.Dispose();
@@ -374,7 +404,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _startupCancellation.Dispose();
     }
 
-    private async Task StopCoreAsync(WebApplication? app)
+    private async Task StopCoreAsync(WebApplication? app, AgentHostEndpointFailover? failover, Task? failoverTask)
     {
         Task? startup;
         lock (_lifecycleLock)
@@ -404,11 +434,17 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         if (app is not null)
         {
-            await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
+            if (failoverTask is not null)
+            {
+                try { await failoverTask.WaitAsync(s_shutdownTimeout).ConfigureAwait(false); }
+                catch (TimeoutException) { s_logger.LogWarning("Timed out stopping live MCP port failover."); }
+            }
+            try { await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false); }
+            finally { failover?.Dispose(); }
         }
     }
 
-    private WebApplication CreateApplication(int port)
+    private (WebApplication App, AgentHostEndpointFailover Failover) CreateApplication(int port)
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -416,9 +452,11 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             ApplicationName = typeof(AgentHostEndpoint).Assembly.FullName
         });
 
+        var failover = new AgentHostEndpointFailover(_instanceRegistry, Token, InstanceId, _preferredPort);
         builder.WebHost.ConfigureKestrel(options =>
         {
             options.Listen(IPAddress.Loopback, port);
+            options.Configure(failover.Configuration, reloadOnChange: true);
         });
 
         string workspaceRoot = ResolveWorkspaceRoot(_config);
@@ -474,7 +512,13 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .WithTools<RenderTools>()
             .WithTools<AgentHostAiTools>();
 
-        WebApplication app = builder.Build();
+        WebApplication app;
+        try { app = builder.Build(); }
+        catch
+        {
+            failover.Dispose();
+            throw;
+        }
         app.Use(RequireToken);
         app.MapGet("/agent-host/identity", (string? challenge) =>
             AgentHostInstanceAuthentication.IsValidChallenge(challenge)
@@ -482,7 +526,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 : Results.BadRequest());
         app.MapGet("/agent-host", (CancellationToken cancellationToken) => InstanceRouter.GetInfoAsync(cancellationToken));
         app.MapMcp("/mcp");
-        return app;
+        return (app, failover);
     }
 
     private static async Task StopAndDisposeWithTimeoutAsync(WebApplication app)

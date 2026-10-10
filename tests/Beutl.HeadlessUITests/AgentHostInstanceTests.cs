@@ -63,6 +63,142 @@ public sealed class AgentHostInstanceTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Primary_exit_preserves_the_same_client_url_and_secondary_connection(bool crash)
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        try
+        {
+            int preferredPort = AvailablePort();
+            await using Worker first = await Worker.StartAsync(directory, "primary", preferredPort);
+            await using Worker second = await Worker.StartAsync(directory, "survivor", preferredPort);
+            Uri sharedUri = first.EndpointUri;
+            await using McpClient sharedClient = await ConnectAsync(sharedUri);
+            await using McpClient directClient = await ConnectAsync(second.EndpointUri);
+            AssertSuccess(await sharedClient.CallToolAsync("list_scenes", new Dictionary<string, object?> { ["instanceId"] = second.InstanceId }));
+            if (crash)
+                first.Process.Kill(entireProcessTree: true);
+            else
+            {
+                await first.Process.StandardInput.WriteLineAsync("stop");
+                await first.Process.StandardInput.FlushAsync();
+            }
+            await first.Process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            await WaitForOwnerAsync(sharedUri, [second.InstanceId]);
+
+            // Reuse the actual MCP clients, without a new initialize or a changed URL/header.
+            JsonObject discovery = Payload(await sharedClient.CallToolAsync("list_instances"));
+            Assert.That(discovery["value"]!["connectedInstanceId"]!.GetValue<string>(), Is.EqualTo(second.InstanceId));
+            AssertSuccess(await directClient.CallToolAsync("list_scenes"));
+            var edit = new Dictionary<string, object?>
+            {
+                ["instanceId"] = second.InstanceId,
+                ["sceneId"] = second.SceneId,
+                ["schemaVersion"] = "1",
+                ["patch"] = new JsonObject { ["Id"] = second.SceneId, ["Name"] = "after-primary-exit" }
+            };
+            AssertSuccess(await sharedClient.CallToolAsync("apply_edit", edit));
+            JsonObject document = Payload(await directClient.CallToolAsync("read_document", new Dictionary<string, object?> { ["sceneId"] = second.SceneId }));
+            Assert.That(document["value"]!["document"]!["Name"]!.GetValue<string>(), Is.EqualTo("after-primary-exit"));
+            edit["instanceId"] = first.InstanceId;
+            AssertError(await sharedClient.CallToolAsync("apply_edit", edit), "instance_unavailable");
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTest]
+    public async Task Primary_ownership_moves_across_three_hosts_without_restarting_direct_listeners()
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        int preferredPort = AvailablePort();
+        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, preferredPort);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, preferredPort);
+        await using var third = CreateHost(new EditorService(TestShell.Extensions), directory, preferredPort);
+        try
+        {
+            await first.StartAsync();
+            await second.StartAsync();
+            await third.StartAsync();
+            Uri sharedUri = first.EndpointUri!;
+            Uri secondDirectUri = second.EndpointUri!;
+            Uri thirdDirectUri = third.EndpointUri!;
+            using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(second);
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.ConnectionUri, Is.EqualTo(sharedUri));
+                Assert.That(third.ConnectionUri, Is.EqualTo(sharedUri));
+                Assert.That(settings.LiveMcpUrl.Value, Is.EqualTo(sharedUri.ToString()));
+            });
+            await using McpClient sharedClient = await ConnectAsync(sharedUri);
+            await using McpClient secondClient = await ConnectAsync(secondDirectUri);
+            await using McpClient thirdClient = await ConnectAsync(thirdDirectUri);
+            await first.StopAsync();
+            string owner = await WaitForOwnerAsync(sharedUri, [second.InstanceId, third.InstanceId]);
+            AssertSuccess(await secondClient.CallToolAsync("list_instances"));
+            AssertSuccess(await thirdClient.CallToolAsync("list_instances"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(second.EndpointUri, Is.EqualTo(secondDirectUri));
+                Assert.That(third.EndpointUri, Is.EqualTo(thirdDirectUri));
+            });
+            AgentHostEndpoint survivor = owner == second.InstanceId ? third : second;
+            await (owner == second.InstanceId ? second : third).StopAsync();
+            await WaitForOwnerAsync(sharedUri, [survivor.InstanceId]);
+            JsonObject result = Payload(await sharedClient.CallToolAsync("list_instances"));
+            Assert.That(result["value"]!["connectedInstanceId"]!.GetValue<string>(), Is.EqualTo(survivor.InstanceId));
+            await survivor.StopAsync();
+            Assert.Multiple(() =>
+            {
+                Assert.That(survivor.ConnectionUri, Is.Null);
+                Assert.That(survivor.EndpointUri, Is.Null);
+            });
+            using var probe = new TcpListener(IPAddress.Loopback, preferredPort);
+            Assert.DoesNotThrow(() => probe.Start());
+        }
+        finally
+        {
+            await third.StopAsync();
+            await second.StopAsync();
+            await first.StopAsync();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task A_foreign_token_on_the_preferred_port_keeps_the_direct_connection_url()
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        int preferredPort = AvailablePort();
+        await using var foreign = new AgentHostEndpoint(TestShell.Project, new EditorService(TestShell.Extensions),
+            preferredPort, "other-profile-token", registryDirectory: directory);
+        await using var host = CreateHost(new EditorService(TestShell.Extensions), directory, preferredPort);
+        try
+        {
+            await foreign.StartAsync();
+            await host.StartAsync();
+            using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(host);
+            Assert.Multiple(() =>
+            {
+                Assert.That(host.EndpointUri!.Port, Is.Not.EqualTo(preferredPort));
+                Assert.That(host.ConnectionUri, Is.EqualTo(host.EndpointUri));
+                Assert.That(settings.LiveMcpUrl.Value, Is.EqualTo(host.EndpointUri.ToString()));
+            });
+            await using McpClient client = await ConnectAsync(host);
+            AssertSuccess(await client.CallToolAsync("list_instances"));
+        }
+        finally
+        {
+            await host.StopAsync();
+            await foreign.StopAsync();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task One_connection_discovers_and_edits_two_hosts_without_shared_selection()
     {
         await TestReset.ResetShellAsync();
@@ -307,6 +443,27 @@ public sealed class AgentHostInstanceTests
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    private static async Task<string> WaitForOwnerAsync(Uri uri, IReadOnlyCollection<string> expectedOwners)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AgentHostInstanceTestWorker.Token);
+        Stopwatch elapsed = Stopwatch.StartNew();
+        while (elapsed.Elapsed < TimeSpan.FromSeconds(15))
+        {
+            try
+            {
+                string json = await http.GetStringAsync(new Uri(uri, "/agent-host"));
+                string owner = JsonNode.Parse(json)!["instanceId"]!.GetValue<string>();
+                if (expectedOwners.Contains(owner))
+                    return owner;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { }
+            await Task.Delay(50);
+        }
+        Assert.Fail("A surviving host did not take over the shared live MCP URL.");
+        return "";
     }
 
     private static string CreateDirectory()
