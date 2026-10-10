@@ -13,11 +13,6 @@ internal sealed partial class GitCliVersionControlService :
     private const int PendingPullRecoveryFormatVersion = 1;
     private const int MaxPendingRecoveryListBytes = 1024 * 1024;
     private const int MaxPendingRecoveryDescriptorBytes = 64 * 1024;
-    private const int MaxHistoricalGraphListBytes = 4 * 1024 * 1024;
-    private const int MaxHistoricalGraphFileCount = 16 * 1024;
-    private const long MaxHistoricalGraphBytes = 128L * 1024 * 1024;
-    private const int MaxHistoricalGraphCacheEntries = 32;
-    private const int MaxHistoricalArchivePathspecCharacters = 16 * 1024;
     // A repository can restrict which LFS paths are hydrated (lfs.fetchinclude / lfs.fetchexclude).
     // A transition has to reopen the project on its real media, so its checkout clears those
     // filters: an excluded pointer is copied through unchanged, which would leave pointer text in
@@ -49,12 +44,13 @@ internal sealed partial class GitCliVersionControlService :
     private const string LargeMediaNoticeConfigKeyPrefix = "beutl.largeMediaNoticeShown-";
     private const string MissingIdentityNoticeConfigKeyPrefix = "beutl.missingIdentityNoticeShown-";
     private const string LfsInstallFailedNoticeConfigKeyPrefix = "beutl.lfsInstallFailedNoticeShown-";
+    private const string IgnoredProjectFilesNoticeConfigKeyPrefix = "beutl.ignoredProjectFilesNoticeShown-";
     private static readonly string[] s_lfsHookNames = ["pre-push", "post-checkout", "post-commit", "post-merge"];
     private const string PullSafetyCommitMessage = "beutl: safety snapshot before pull";
     private const string ManagedLfsBeginMarker = "# BEGIN BEUTL MANAGED LFS";
     private const string ManagedLfsEndMarker = "# END BEUTL MANAGED LFS";
     private const int MaxHygieneWriteAttempts = 3;
-    private const int MaxIgnoredRequiredPathOutputBytes = 256 * 1024;
+    private const int MaxIgnoredProjectFileOutputBytes = 64 * 1024;
     private const int MaxLfsAttributeOutputBytes = 256 * 1024;
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
@@ -145,20 +141,6 @@ internal sealed partial class GitCliVersionControlService :
         s_supportedMediaExtensions,
         StringComparer.OrdinalIgnoreCase);
 
-    internal static bool IsSupportedMediaPath(string path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-        return s_mediaExtensions.Contains(Path.GetExtension(path));
-    }
-
-    // Beutl writes these itself, so they are checked by name. Every other file the project needs is in
-    // its reference graph and checked there, which leaves out files the project no longer uses.
-    private static readonly string[] s_ignoredRequiredProjectPathspecSuffixes =
-    [
-        ".gitignore",
-        ".gitattributes",
-    ];
-
     private const string TemporaryFilePathspecSuffix = "**/*.[tT][mM][pP]";
 
     private static readonly string[] s_ignoredOptionalProjectPathspecSuffixes =
@@ -206,8 +188,6 @@ internal sealed partial class GitCliVersionControlService :
     // open apart from a machine where LFS was never on.
     private bool? _lastLfsRequested;
     private bool _hygieneDeferred;
-    private readonly Dictionary<string, IReadOnlySet<string>> _historicalRequiredTemporaryPaths =
-        new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _identityRequest;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
@@ -223,8 +203,6 @@ internal sealed partial class GitCliVersionControlService :
     private readonly object _lifetimeSync = new();
     private readonly object _runtimeSync = new();
     private readonly ConcurrentQueue<WorkspaceStatus> _statusNotifications = new();
-    private IReadOnlySet<string> _requiredTemporaryProjectPaths =
-        new HashSet<string>(StringComparer.Ordinal);
     private RepositoryWatcher? _watcher;
     private GitAvailability? _cachedAvailability;
     private IGitCliRunner? _runner;
@@ -378,25 +356,6 @@ internal sealed partial class GitCliVersionControlService :
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
         {
-            if (repository is not null)
-            {
-                try
-                {
-                    IReadOnlySet<string> serializedPaths =
-                        GetSerializedProjectRelativePaths(repository.ProjectRoot);
-                    _requiredTemporaryProjectPaths = serializedPaths
-                        .Where(static path => IsTemporaryProjectFile(path))
-                        .ToHashSet(StringComparer.Ordinal);
-                    _watcher.UpdateRequiredPaths(serializedPaths);
-                }
-                catch (Exception ex) when (ex is not OutOfMemoryException)
-                {
-                    LogWarningBestEffort(
-                        ex,
-                        "The initial repository watcher paths could not be read from the serialized project graph.");
-                }
-            }
-
             _watcher.Changed += OnRepositoryChanged;
         }
 

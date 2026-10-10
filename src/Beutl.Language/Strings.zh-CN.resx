@@ -2596,6 +2596,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
     <value>项目文件已保存，但无法记录自动历史快照。请检查 Git 仓库后再次保存。</value>
   </data>
+  <data name="VersionControl_SaveSnapshotFailedFormat" xml:space="preserve">
+    <value>项目文件已保存，但无法记录自动历史快照。请检查 Git 仓库后再次保存。{0}</value>
+  </data>
   <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
     <value>还原失败，但原始项目已恢复。为安全起见，保留了分支 '{0}'。请确认没有其他 Git 工作树使用此分支后，通过外部 Git 工具手动删除。</value>
   </data>
@@ -2650,6 +2653,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git 无法检查此项目的文件夹，因此项目已在未启用版本控制的情况下打开。{0}</value>
+  </data>
+  <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
+    <value>无法为此项目启用版本控制。{0}</value>
   </data>
   <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
     <value>Beutl 无法检查受保护的拉取是否仍需恢复，因此未打开项目。{0}</value>
@@ -2741,6 +2747,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>分支名称</value>
   </data>
+  <data name="VersionControl_BranchNameUnavailableFormat" xml:space="preserve">
+    <value>无法创建分支 '{0}'，因为该名称不是有效的 Git 分支名称，或与现有分支冲突。</value>
+  </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>恢复到新分支</value>
   </data>
@@ -2786,6 +2795,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>已连接远程。</value>
   </data>
+  <data name="VersionControl_RemoteConnectFailedFormat" xml:space="preserve">
+    <value>无法连接远程。{0}</value>
+  </data>
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>正在推送版本…</value>
   </data>
@@ -2795,11 +2807,17 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
     <value>远程操作已完成。</value>
   </data>
+  <data name="VersionControl_RemoteOperationFailedFormat" xml:space="preserve">
+    <value>无法完成远程操作。{0}</value>
+  </data>
   <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
     <value>远程操作已取消。</value>
   </data>
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>大型媒体文件使用 Git LFS 存储。远程托管服务可能对 LFS 存储和带宽设置限额。</value>
+  </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>由于仓库的忽略规则，以下项目文件不会保存到版本中：{0}</value>
   </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0} 是大型文件，但未启用 Git LFS。提交此文件可能永久增大仓库历史记录的大小。提交将继续。</value>
@@ -3434,5 +3452,11 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="CommandPalette_TimeSpanHint" xml:space="preserve">
     <value>hh:mm:ss.fff</value>
+  </data>
+  <data name="EnterTransition" xml:space="preserve">
+    <value>入场转场</value>
+  </data>
+  <data name="ExitTransition" xml:space="preserve">
+    <value>出场转场</value>
   </data>
 </root>

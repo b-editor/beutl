@@ -18,4 +18,6 @@ public static class ErrorCode
     public const string AiUnavailable = "ai_unavailable";
     public const string AiGenerationFailed = "ai_generation_failed";
     public const string AiJobNotFound = "ai_job_not_found";
+    public const string ExtensionToolUnavailable = "extension_tool_unavailable";
+    public const string ExtensionToolFailed = "extension_tool_failed";
 }

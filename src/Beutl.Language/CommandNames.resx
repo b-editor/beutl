@@ -203,4 +203,16 @@
   <data name="AddMarker" xml:space="preserve">
     <value>Add Marker</value>
   </data>
+  <data name="AddTransition" xml:space="preserve">
+    <value>Add Transition</value>
+  </data>
+  <data name="ChangeTransition" xml:space="preserve">
+    <value>Change Transition</value>
+  </data>
+  <data name="RemoveTransition" xml:space="preserve">
+    <value>Remove Transition</value>
+  </data>
+  <data name="ChangeTransitionDuration" xml:space="preserve">
+    <value>Change Transition Duration</value>
+  </data>
 </root>

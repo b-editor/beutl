@@ -388,21 +388,36 @@ internal abstract record VersionControlPolicyNotice
         long SizeBytes) : VersionControlPolicyNotice;
 
     internal sealed record MissingIdentity : VersionControlPolicyNotice;
+
+    // Truncated is set when Git listed more than the capture limit holds, so Paths is incomplete.
+    internal sealed record IgnoredProjectFiles(
+        IReadOnlyList<string> Paths,
+        bool Truncated) : VersionControlPolicyNotice;
 }
 
 /// <summary>A specific stale-lock recovery offer whose identity is its object reference.</summary>
 internal sealed class RepositoryLockInfo
 {
-    public RepositoryLockInfo(string lockPath, DateTimeOffset lastWriteTimeUtc)
+    public RepositoryLockInfo(
+        string lockPath,
+        DateTimeOffset lastWriteTimeUtc,
+        bool requiresManualRemoval = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(lockPath);
         LockPath = lockPath;
         LastWriteTimeUtc = lastWriteTimeUtc;
+        RequiresManualRemoval = requiresManualRemoval;
     }
 
     public string LockPath { get; }
 
     public DateTimeOffset LastWriteTimeUtc { get; }
+
+    /// <summary>
+    /// Whether Beutl cannot remove this lock on the current platform or filesystem, so asking the
+    /// user to confirm a removal would be pointless and only manual-removal guidance applies.
+    /// </summary>
+    public bool RequiresManualRemoval { get; }
 }
 
 internal sealed record InitOptions(

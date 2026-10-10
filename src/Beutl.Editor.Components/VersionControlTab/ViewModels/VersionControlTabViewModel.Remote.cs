@@ -136,7 +136,7 @@ internal partial class VersionControlTabViewModel
                 _logger.LogError(ex, "Failed to configure the remote.");
                 NotificationService.ShowError(
                     Strings.VersionControl_ErrorTitle,
-                    MessageStrings.OperationFailed);
+                    string.Format(Strings.VersionControl_RemoteConnectFailedFormat, ex.Message));
             }
             return false;
         }
@@ -370,10 +370,12 @@ internal partial class VersionControlTabViewModel
             {
                 return;
             }
+            // A Git failure's message already carries its credential-redacted stderr, which says
+            // what went wrong.
             _logger.LogError(ex, "The remote operation command failed.");
             NotificationService.ShowError(
                 Strings.VersionControl_ErrorTitle,
-                MessageStrings.OperationFailed);
+                string.Format(Strings.VersionControl_RemoteOperationFailedFormat, ex.Message));
         }
         finally
         {

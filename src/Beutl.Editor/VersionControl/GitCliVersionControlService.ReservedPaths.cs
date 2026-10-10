@@ -69,34 +69,7 @@ internal sealed partial class GitCliVersionControlService
         return listed.Stdout
             .Split('\0', StringSplitOptions.RemoveEmptyEntries)
             .Where(path => IsReservedProjectPath(repository, path))
-            .Where(path => !IsRequiredTemporaryRepositoryPath(repository, path))
             .ToArray();
-    }
-
-    private bool IsRequiredTemporaryRepositoryPath(
-        RepositoryInfo repository,
-        string repositoryRelativePath)
-    {
-        string repositoryPath = Path.Combine(
-            repository.RepoRoot,
-            repositoryRelativePath.Replace('/', Path.DirectorySeparatorChar));
-        if (!RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, repositoryPath))
-        {
-            return false;
-        }
-
-        foreach (string requiredPath in _requiredTemporaryProjectPaths)
-        {
-            string requiredProjectPath = Path.Combine(
-                repository.ProjectRoot,
-                requiredPath.Replace('/', Path.DirectorySeparatorChar));
-            if (VersionControlPathComparison.AreSameCanonicalPath(repositoryPath, requiredProjectPath))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // .gitignore never untracks what is already tracked, and snapshot status excludes these paths -

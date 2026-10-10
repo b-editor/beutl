@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Beutl.Animation.Easings;
 
 namespace Beutl.UnitTests.Core;
 
@@ -66,5 +67,25 @@ public class OptionalJsonConverterTests
         var parsed = JsonSerializer.Deserialize<Optional<double>>(json, Options);
         Assert.That(parsed.HasValue, Is.True);
         Assert.That(parsed.Value, Is.EqualTo(3.14));
+    }
+
+    // An easing is not core-serializable, yet its own converter writes it as an object, which must be read
+    // back through that converter.
+    [Test]
+    public void RoundTrip_OptionalEasing_PreservesTheEasing()
+    {
+        var spline = new Optional<Easing>(new SplineEasing(0.25f, 0.1f, 0.4f, 1f));
+        var linear = new Optional<Easing>(new LinearEasing());
+
+        var parsedSpline = JsonSerializer.Deserialize<Optional<Easing>>(JsonSerializer.Serialize(spline, Options), Options);
+        var parsedLinear = JsonSerializer.Deserialize<Optional<Easing>>(JsonSerializer.Serialize(linear, Options), Options);
+
+        Assert.That(parsedSpline.Value, Is.TypeOf<SplineEasing>());
+        var parsed = (SplineEasing)parsedSpline.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That((parsed.X1, parsed.Y1, parsed.X2, parsed.Y2), Is.EqualTo((0.25f, 0.1f, 0.4f, 1f)));
+            Assert.That(parsedLinear.Value, Is.TypeOf<LinearEasing>());
+        });
     }
 }

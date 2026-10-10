@@ -3239,41 +3239,6 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Checkpoint_refuses_a_project_file_that_is_an_in_root_symbolic_link()
-    {
-        string targetDirectory = Path.Combine(Root, "target");
-        Directory.CreateDirectory(targetDirectory);
-        string targetProjectFile = Path.Combine(targetDirectory, "project-data");
-        string repositoryProjectAlias = Path.Combine(Root, "project.bep");
-        Beutl.Serialization.CoreSerializer.StoreToUri(new Project(), new Uri(targetProjectFile));
-        CreateFileSymbolicLinkOrIgnore(repositoryProjectAlias, "target/project-data");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "initial");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            projectFile: repositoryProjectAlias);
-
-        InvalidOperationException? refusal = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.ExecuteExclusiveAsync(
-                transaction => transaction.CreateProjectCheckpointAsync("beutl: checkpoint", CancellationToken.None),
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            // Refused even though the link resolves inside the repository: Git records the link
-            // rather than the bytes, so a restore would not put the project data back.
-            Assert.That(
-                RepositoryPathComparer.AreEquivalent(repositoryProjectAlias, targetProjectFile),
-                Is.True);
-            Assert.That(refusal!.Message, Does.Contain("project.bep"));
-            Assert.That(refusal.Message, Does.Contain("cannot be snapshotted safely"));
-        });
-    }
-
-    [Test]
     public async Task Pending_pull_recovery_accepts_case_variant_paths_on_case_insensitive_volumes()
     {
         await CommitFileAsync("project.bep", "base\n", "initial");

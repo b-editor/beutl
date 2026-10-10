@@ -65,8 +65,6 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        ValidateProjectSnapshotLayout(repository.ProjectRoot);
-
         if (Repository is not null
             && !VersionControlPathComparison.AreSameCanonicalPath(Repository.ProjectRoot, projectRoot)
             && !MatchesRepositorySelection(Repository, repository))
@@ -93,12 +91,11 @@ internal sealed partial class GitCliVersionControlService
         }
         else
         {
-            string? ignoredPath = await FindIgnoredRequiredProjectPathBeforeInitAsync(
+            await EnsureNoNestedRepositoryWouldBeStagedBeforeInitAsync(
                     repository,
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-            ThrowIfRequiredProjectPathIgnored(ignoredPath);
         }
 
         if (discoveredRepository is null)
@@ -149,6 +146,12 @@ internal sealed partial class GitCliVersionControlService
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+
+        await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
+                repository,
+                runner,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         await CommitInitialSnapshotAsync(
                 repository,
@@ -402,7 +405,7 @@ internal sealed partial class GitCliVersionControlService
         EnsureHygienePathsAreSafe(repository);
         await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        await EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+        await EnsureRepositoryStatusPreflightCoreAsync(
                 repository,
                 runner,
                 cancellationToken)
@@ -417,14 +420,14 @@ internal sealed partial class GitCliVersionControlService
         EnsureHygienePathsAreSafe(repository);
         await GetCheckedOutBranchTipCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
-        await EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+        await EnsureRepositoryStatusPreflightCoreAsync(
                 repository,
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private async Task EnsureRepositoryStatusAndIgnorePreflightCoreAsync(
+    private async Task EnsureRepositoryStatusPreflightCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         CancellationToken cancellationToken)
@@ -435,12 +438,11 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
         ThrowIfConflicted(status);
-        string? ignoredPath = await FindIgnoredRequiredProjectPathAsync(
+        await EnsureNoNestedRepositoryWouldBeStagedAsync(
                 repository,
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
-        ThrowIfRequiredProjectPathIgnored(ignoredPath);
     }
 
     private async Task EnsureRepositoryHygieneCoreAsync(
