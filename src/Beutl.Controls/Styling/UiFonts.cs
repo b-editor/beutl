@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using Avalonia.Media;
+using SkiaSharp;
 
 namespace Beutl.Controls.Styling;
 
@@ -52,7 +53,25 @@ public static class UiFonts
             DefaultFamilyName = string.Join(", ", families.Select(family => family.ToString())),
             // Also cover controls with an explicit font, such as monospace text boxes.
             FontFallbacks = families.Select(family => new FontFallback { FontFamily = family }).ToArray(),
+            FontFamilyMappings = CreateFontFamilyMappings(),
         };
+    }
+
+    private static Dictionary<string, FontFamily>? CreateFontFamilyMappings()
+    {
+        // Avalonia keeps an entry of a font list such as "Consolas, Menlo, monospace" only when the face
+        // it resolves to carries that name, so the fontconfig "monospace" alias is always dropped and Linux
+        // falls back to the proportional UI font, which breaks the terminal's cell grid. Map the alias to
+        // the family fontconfig picks for it.
+        if (!OperatingSystem.IsLinux())
+            return null;
+
+        // Ask for a Latin face like Consolas and Menlo: under a CJK locale fontconfig ranks a CJK monospace
+        // first, whose full-width box-drawing glyphs overflow the terminal's single-width cells.
+        using SKTypeface? monospace = SKFontManager.Default.MatchCharacter("monospace", SKFontStyle.Normal, ["en"], 'M');
+        return string.IsNullOrEmpty(monospace?.FamilyName)
+            ? null
+            : new Dictionary<string, FontFamily> { ["monospace"] = new FontFamily(monospace.FamilyName) };
     }
 
     public static FontFamily GetShortcutFontFamily(CultureInfo culture)
