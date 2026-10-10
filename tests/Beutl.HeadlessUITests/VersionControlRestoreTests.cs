@@ -2563,167 +2563,72 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Tracked_candidate_shared_with_the_next_activation_is_not_discarded()
+    public async Task Superseded_activation_never_publishes_its_tracked_backend()
     {
         await TestReset.ResetShellAsync();
         VersionControlCoordinator? coordinator = null;
-        Task? secondActivationSetup = null;
-        Task? disposal = null;
-        var firstHygieneStarted = new TaskCompletionSource(
+        var staleHygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var firstHygieneCompleted = new TaskCompletionSource(
+        var releaseStaleHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var firstActivationUnwinding = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseFirstActivation = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseFirstHygiene = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondHygieneStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondHygieneCompleted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseSecondHygiene = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var retirementStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseRetirement = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        int factoryCalls = 0;
-        int hygieneCalls = 0;
 
         try
         {
             Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-shared-tracked-candidate");
+                "version-control-superseded-activation");
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             var repository = new RepositoryInfo(projectRoot, projectRoot);
             var tip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
-            var initial = new PullCycleTestBackend(
-                repository: null,
-                repository,
-                tip);
-            var shared = new PullCycleTestBackend(repository, repository, tip)
+            var staleDiscovery = new PullCycleTestBackend(null, repository, tip);
+            // Finishes its hygiene once released, whether or not its activation was canceled meanwhile.
+            var staleTracked = new PullCycleTestBackend(repository, repository, tip)
             {
-                RetirementStarted = retirementStarted,
-                RetirementRelease = releaseRetirement.Task,
-                EnsureHygieneOverride = async cancellationToken =>
+                EnsureHygieneOverride = async _ =>
                 {
-                    if (Interlocked.Increment(ref hygieneCalls) == 1)
-                    {
-                        firstHygieneStarted.TrySetResult();
-                        try
-                        {
-                            await releaseFirstHygiene.Task.WaitAsync(cancellationToken);
-                        }
-                        finally
-                        {
-                            firstHygieneCompleted.TrySetResult();
-                            firstActivationUnwinding.TrySetResult();
-                            await releaseFirstActivation.Task;
-                        }
-                    }
-                    else
-                    {
-                        secondHygieneStarted.TrySetResult();
-                        try
-                        {
-                            await releaseSecondHygiene.Task.WaitAsync(cancellationToken);
-                        }
-                        finally
-                        {
-                            secondHygieneCompleted.TrySetResult();
-                        }
-                    }
+                    staleHygieneStarted.TrySetResult();
+                    await releaseStaleHygiene.Task;
                 },
             };
+            var currentDiscovery = new PullCycleTestBackend(null, repository, tip);
+            var currentTracked = new PullCycleTestBackend(repository, repository, tip);
+            var discoveries = new Queue<PullCycleTestBackend>([staleDiscovery, currentDiscovery]);
+            var trackedBackends = new Queue<PullCycleTestBackend>([staleTracked, currentTracked]);
             var editorService = new EditorService(new ExtensionProvider());
+            var publishedServices = new List<IProjectVersionControlService?>();
+            using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
+                publishedServices.Add);
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
+                new VersionControlConfig(),
                 installationLocator: null,
-                serviceFactory: _ => Interlocked.Increment(ref factoryCalls) == 1
-                    ? initial
-                    : shared);
-            await firstHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                serviceFactory: candidate => candidate is null
+                    ? discoveries.Dequeue()
+                    : trackedBackends.Dequeue());
+            await staleHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            secondActivationSetup = Task.Run(() => coordinator.OnProjectChanged(project));
-            await secondActivationSetup.WaitAsync(TimeSpan.FromSeconds(5));
-            await firstActivationUnwinding.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() => editorService.ProjectVersionControlService.Value is null);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
-            });
-            await Assert.ThrowsAsync<VersionControlLifecycleUnavailableException>(async () =>
-                await coordinator.CommitManualAsync("blocked alias"));
-            Assert.That(shared.CommitAllCalls, Is.Zero);
-
-            releaseFirstActivation.TrySetResult();
-            await firstHygieneCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await secondHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(shared.RetirementCalls, Is.Zero);
-                Assert.That(shared.DisposeCalls, Is.Zero);
-                Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
-            });
-            await Assert.ThrowsAsync<VersionControlLifecycleUnavailableException>(async () =>
-                await coordinator.CommitManualAsync("blocked during hygiene"));
-            Assert.That(shared.CommitAllCalls, Is.Zero);
-
-            releaseSecondHygiene.TrySetResult();
-            await secondHygieneCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            coordinator.OnProjectChanged(project);
             await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, shared)
-                && ReferenceEquals(editorService.ProjectVersionControlService.Value, shared));
-            disposal = Task.Run(() => coordinator.DisposeAsync().AsTask());
-            await retirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                ReferenceEquals(coordinator.CurrentService, currentTracked)
+                && coordinator.IsTracked.Value);
+            releaseStaleHygiene.TrySetResult();
+            await WaitUntilAsync(() => staleTracked.DisposeCalls == 1);
 
             Assert.Multiple(() =>
             {
-                Assert.That(shared.RetirementCalls, Is.EqualTo(1));
-                Assert.That(shared.DisposeCalls, Is.Zero);
-                Assert.That(disposal.IsCompleted, Is.False);
-            });
-
-            releaseRetirement.TrySetResult();
-            await secondActivationSetup.WaitAsync(TimeSpan.FromSeconds(5));
-            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(shared.RetirementCalls, Is.EqualTo(1));
-                Assert.That(shared.DisposeCalls, Is.EqualTo(1));
-                Assert.That(initial.RetirementCalls, Is.EqualTo(1));
-                Assert.That(initial.DisposeCalls, Is.EqualTo(1));
-                Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(coordinator.CurrentService, Is.SameAs(currentTracked));
+                Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(currentTracked));
+                Assert.That(publishedServices, Does.Not.Contain(staleTracked));
+                Assert.That(staleTracked.RetirementCalls, Is.EqualTo(1));
+                Assert.That(staleDiscovery.RetirementCalls, Is.EqualTo(1));
+                Assert.That(currentTracked.RetirementCalls, Is.Zero);
             });
         }
         finally
         {
-            releaseFirstHygiene.TrySetResult();
-            releaseFirstActivation.TrySetResult();
-            releaseSecondHygiene.TrySetResult();
-            releaseRetirement.TrySetResult();
-            if (secondActivationSetup is not null)
-            {
-                await secondActivationSetup.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            if (disposal is not null)
-            {
-                await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
+            releaseStaleHygiene.TrySetResult();
             if (coordinator is not null)
             {
                 await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
@@ -2785,136 +2690,6 @@ public class VersionControlRestoreTests
         finally
         {
             NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task Shared_tracked_candidate_is_retired_when_second_hygiene_fails()
-    {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        Task? secondActivationSetup = null;
-        var firstHygieneStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var firstActivationUnwinding = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseFirstActivation = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseFirstHygiene = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var secondHygieneStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var retirementStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseRetirement = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var disposeCompleted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        int factoryCalls = 0;
-        int hygieneCalls = 0;
-        bool sharedWasPublished = false;
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-failed-shared-tracked-candidate");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var initial = new PullCycleTestBackend(
-                repository: null,
-                repository,
-                tip);
-            var shared = new PullCycleTestBackend(repository, repository, tip)
-            {
-                RetirementStarted = retirementStarted,
-                RetirementRelease = releaseRetirement.Task,
-                DisposeCompleted = disposeCompleted,
-                EnsureHygieneOverride = async cancellationToken =>
-                {
-                    if (Interlocked.Increment(ref hygieneCalls) == 1)
-                    {
-                        firstHygieneStarted.TrySetResult();
-                        try
-                        {
-                            await releaseFirstHygiene.Task.WaitAsync(cancellationToken);
-                        }
-                        finally
-                        {
-                            firstActivationUnwinding.TrySetResult();
-                            await releaseFirstActivation.Task;
-                        }
-
-                        return;
-                    }
-
-                    secondHygieneStarted.TrySetResult();
-                    throw new InvalidOperationException("Expected second hygiene failure.");
-                },
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => Interlocked.Increment(ref factoryCalls) == 1
-                    ? initial
-                    : shared);
-            using IDisposable publication = editorService.ProjectVersionControlService.Subscribe(
-                service => sharedWasPublished |= ReferenceEquals(service, shared));
-            await firstHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            secondActivationSetup = Task.Run(() => coordinator.OnProjectChanged(project));
-            await secondActivationSetup.WaitAsync(TimeSpan.FromSeconds(5));
-            await firstActivationUnwinding.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() => editorService.ProjectVersionControlService.Value is null);
-
-            releaseFirstActivation.TrySetResult();
-            await secondHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await retirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(sharedWasPublished, Is.False);
-                Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(shared.RetirementCalls, Is.EqualTo(1));
-                Assert.That(shared.DisposeCalls, Is.Zero);
-            });
-
-            releaseRetirement.TrySetResult();
-            await disposeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(sharedWasPublished, Is.False);
-                Assert.That(shared.RetirementCalls, Is.EqualTo(1));
-                Assert.That(shared.DisposeCalls, Is.EqualTo(1));
-                Assert.That(initial.RetirementCalls, Is.EqualTo(1));
-                Assert.That(initial.DisposeCalls, Is.EqualTo(1));
-            });
-        }
-        finally
-        {
-            releaseFirstHygiene.TrySetResult();
-            releaseFirstActivation.TrySetResult();
-            releaseRetirement.TrySetResult();
-            if (secondActivationSetup is not null)
-            {
-                await secondActivationSetup.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
             if (coordinator is not null)
             {
                 await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
@@ -4169,15 +3944,6 @@ public class VersionControlRestoreTests
 
             config.GitExecutablePath = validGitPath;
             await staleHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            var synchronousReadiness = new TaskCompletionSource();
-            System.Reflection.FieldInfo? readinessField =
-                typeof(VersionControlCoordinator).GetField(
-                    "_configurationActivationQuiesced",
-                    System.Reflection.BindingFlags.Instance
-                    | System.Reflection.BindingFlags.NonPublic);
-            Assert.That(readinessField, Is.Not.Null);
-            readinessField!.SetValue(coordinator, synchronousReadiness);
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!,

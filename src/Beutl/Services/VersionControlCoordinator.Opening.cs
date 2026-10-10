@@ -9,16 +9,15 @@ internal partial class VersionControlCoordinator
         return RunOnUiThreadAsync(() => InspectProjectOpeningCoreAsync(projectFile));
     }
 
+    // Reads the project's files only, so it needs no operation gate, and the disposal stops it.
     private async Task InspectProjectOpeningCoreAsync(string projectFile)
     {
-        using NonTransactionalOperationLease? operation =
-            TryBeginNonTransactionalOperation(CancellationToken.None);
-        if (operation is null)
+        if (_disposed)
         {
             return;
         }
 
-        CancellationToken cancellationToken = operation.CancellationToken;
+        CancellationToken cancellationToken = _lifetimeCancellation.Token;
         string? markerFile = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
             cancellationToken);

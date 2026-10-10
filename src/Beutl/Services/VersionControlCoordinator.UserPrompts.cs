@@ -9,14 +9,8 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    private void PublishNotification(Action notification, long? activationRevision = null)
+    private void PublishNotification(Action notification)
     {
-        if (_disposed && _lifecycleUsers == 0
-            || activationRevision is { } expected && expected != _latestActivationRevision)
-        {
-            return;
-        }
-
         try
         {
             notification();
@@ -73,7 +67,7 @@ internal partial class VersionControlCoordinator
             await _dispatcher.InvokeAsync(() =>
             {
                 token.ThrowIfCancellationRequested();
-                if (_operationCloseBarrierActive)
+                if (_close is not null)
                 {
                     request.Respond(false);
                     return;

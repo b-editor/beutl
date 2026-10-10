@@ -86,97 +86,83 @@ internal partial class VersionControlCoordinator
         }
     }
 
+    // The token follows the project/service epoch, so a close stops the preflight while it holds the
+    // operation gate.
     private async Task<RemoteOpResult?> RunPullPreflightCycleAsync(
         CancellationToken cancellationToken)
     {
-        await BeginLifecycleOperationAsync(cancellationToken);
-        bool gateEntered = false;
+        using OperationLease operation = await BeginOperationAsync(
+            cancellationToken,
+            lifecycle: true);
+        IProjectVersionControlBackend ownedService = GetTrackedBackend();
+        return await ExecuteExclusiveOnUiThreadAsync(
+            ownedService,
+            async service =>
+            {
+                WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+                if (!EnsureRepositoryIsNotConflicted(status))
+                {
+                    return new RemoteOpResult.Failed(
+                        Strings.VersionControl_ConflictGuidance);
+                }
+
+                CheckedOutBranchTip originalHead =
+                    await service.GetCheckedOutBranchTipAsync(cancellationToken);
+                PullPreflightResult preflight = await service.PreflightPullAsync(
+                    originalHead,
+                    cancellationToken);
+                return preflight.Result is RemoteOpResult.Success
+                       && preflight.RequiresTransition
+                    ? null
+                    : preflight.Result;
+            },
+            cancellationToken);
+    }
+
+    // Like the restore and the branch switch, the pull takes its project transition before the operation
+    // gate.
+    private async Task<RemoteOpResult> RunPullMutationCycleAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfOperationUnavailable(lifecycle: true);
+        Project project = GetOpenProject();
+        string projectFile = GetProjectFile(project);
+        IProjectVersionControlBackend ownedService = GetTrackedBackend();
+        cancellationToken.ThrowIfCancellationRequested();
+        await using ProjectService.ProjectTransitionScope transition =
+            await _projectService.BeginVersionControlTransitionAsync(
+                this,
+                cancellationToken);
+        using OperationLease operation = await BeginOperationAsync(
+            cancellationToken,
+            lifecycle: true);
+        using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+        if (worktreeMutation is null)
+        {
+            return new RemoteOpResult.Failed(Strings.VersionControl_WorkspaceBusy);
+        }
+
         try
         {
-            await _lifecycleGate.WaitAsync(cancellationToken);
-            gateEntered = true;
-            ThrowIfLifecycleOperationUnavailable();
-            IProjectVersionControlBackend ownedService = GetTrackedBackend();
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
+                || !ReferenceEquals(GetOwnedBackend(), ownedService))
+            {
+                return new RemoteOpResult.Failed(PullProjectChangedMessage);
+            }
+
             return await ExecuteExclusiveOnUiThreadAsync(
                 ownedService,
-                async service =>
-                {
-                    WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
-                    if (!EnsureRepositoryIsNotConflicted(status))
-                    {
-                        return new RemoteOpResult.Failed(
-                            Strings.VersionControl_ConflictGuidance);
-                    }
-
-                    CheckedOutBranchTip originalHead =
-                        await service.GetCheckedOutBranchTipAsync(cancellationToken);
-                    PullPreflightResult preflight = await service.PreflightPullAsync(
-                        originalHead,
-                        cancellationToken);
-                    return preflight.Result is RemoteOpResult.Success
-                           && preflight.RequiresTransition
-                        ? null
-                        : preflight.Result;
-                },
+                service => PullWithinTransactionAsync(
+                    service,
+                    project,
+                    projectFile,
+                    transition,
+                    cancellationToken),
                 cancellationToken);
         }
         finally
         {
-            FinishLifecycleOperation(gateEntered);
-        }
-    }
-
-    private async Task<RemoteOpResult> RunPullMutationCycleAsync(
-        CancellationToken cancellationToken)
-    {
-        await BeginLifecycleOperationAsync(cancellationToken);
-        bool gateEntered = false;
-        try
-        {
-            await _lifecycleGate.WaitAsync(cancellationToken);
-            gateEntered = true;
-            ThrowIfLifecycleOperationUnavailable();
-            Project project = GetOpenProject();
-            string projectFile = GetProjectFile(project);
-            IProjectVersionControlBackend ownedService = GetTrackedBackend();
-            cancellationToken.ThrowIfCancellationRequested();
-            await using ProjectService.ProjectTransitionScope transition =
-                await _projectService.BeginVersionControlTransitionAsync(
-                    this,
-                    cancellationToken);
-            ThrowIfLifecycleOperationUnavailable();
-            using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
-            if (worktreeMutation is null)
-            {
-                return new RemoteOpResult.Failed(Strings.VersionControl_WorkspaceBusy);
-            }
-
-            try
-            {
-                if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
-                    || !ReferenceEquals(GetOwnedBackend(), ownedService))
-                {
-                    return new RemoteOpResult.Failed(PullProjectChangedMessage);
-                }
-
-                return await ExecuteExclusiveOnUiThreadAsync(
-                    ownedService,
-                    service => PullWithinTransactionAsync(
-                        service,
-                        project,
-                        projectFile,
-                        transition,
-                        cancellationToken),
-                    cancellationToken);
-            }
-            finally
-            {
-                FinishInternalTransition();
-            }
-        }
-        finally
-        {
-            FinishLifecycleOperation(gateEntered);
+            FinishInternalTransition();
         }
     }
 

@@ -17,8 +17,7 @@ internal partial class VersionControlCoordinator
         string message,
         CancellationToken cancellationToken)
     {
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
+        using OperationLease operation = await BeginOperationAsync(cancellationToken);
         using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
         if (worktreeMutation is null)
         {

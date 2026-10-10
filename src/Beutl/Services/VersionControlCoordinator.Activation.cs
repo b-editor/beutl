@@ -23,169 +23,85 @@ internal partial class VersionControlCoordinator
 
     private void OnProjectChanged(Project? project, ProjectTransitionContext? transition)
     {
-        bool internalTransition = IsInternalVersionControlTransition(transition);
-        bool newProject = project is not null
-                          && !internalTransition
-                          && IsProjectCreationTransition(transition);
-        if (!TryBeginProjectActivation(
-                internalTransition,
-                out CancellationTokenSource? configurationActivationCancellation,
-                out long activationRevision))
+        if (_disposed)
         {
             return;
         }
 
-        PreparedNewProject? preparedNewProject = newProject
-            ? TakePreparedNewProject(project!, transition)
-            : null;
+        _pendingConfigurationActivation = null;
         AdvanceProjectServiceEpoch();
-        CancelConfigurationActivation(configurationActivationCancellation);
-        StartProjectActivation(
-            project,
-            internalTransition,
-            activationRevision,
-            newProject,
-            preparedNewProject);
-    }
-
-    private void ActivateCurrentProject()
-    {
-        bool internalTransition = IsInternalVersionControlTransition(_projectService.CurrentTransition);
-        if (!TryBeginProjectActivation(
-                internalTransition,
-                out CancellationTokenSource? configurationActivationCancellation,
-                out long activationRevision))
+        if (IsInternalVersionControlTransition(transition))
         {
+            ShowProjectAfterInternalTransition(project);
             return;
         }
 
-        CancelConfigurationActivation(configurationActivationCancellation);
-        StartProjectActivation(
-            _projectService.CurrentProject.Value,
-            internalTransition,
-            activationRevision,
-            newProject: false,
-            preparedNewProject: null);
-    }
-
-    private void StartProjectActivation(
-        Project? project,
-        bool internalTransition,
-        long activationRevision,
-        bool newProject,
-        PreparedNewProject? preparedNewProject)
-    {
-        _ = RunProjectActivationAsync(
+        _repositoryHygieneConfigurationDirty = false;
+        bool newProject = project is not null && IsProjectCreationTransition(transition);
+        ActivateProject(
             project,
-            internalTransition,
-            activationRevision,
             newProject,
-            preparedNewProject);
+            newProject ? TakePreparedNewProject(project!, transition) : null,
+            CancellationToken.None);
     }
 
-    // Owns the prepared backend until OnProjectChangedAsync takes it over.
-    private async Task RunProjectActivationAsync(
-        Project? project,
-        bool internalTransition,
-        long activationRevision,
-        bool newProject,
-        PreparedNewProject? preparedNewProject)
+    // A version-control operation closed and reopened the project, and the backend it ran with goes on
+    // tracking the project it reopened.
+    private void ShowProjectAfterInternalTransition(Project? project)
     {
-        IProjectVersionControlBackend? preparedService = preparedNewProject?.Service;
+        if (project is null)
+        {
+            SetVisibleService(null);
+            return;
+        }
+
         try
         {
-            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+            if (GetOwnedBackend() is { Repository: { } repository } preservedService
+                && PathsEqual(repository.ProjectRoot, GetProjectRoot(project)))
             {
+                SetVisibleService(preservedService);
+                QueueRepositoryHygieneConfigurationIfDirty(project);
                 return;
             }
-
-            preparedService = null;
-            await OnProjectChangedAsync(
-                project,
-                internalTransition,
-                activationRevision,
-                newProject,
-                CancellationToken.None,
-                preparedNewProject);
         }
-        finally
+        catch (Exception ex)
         {
-            if (preparedService is not null)
-            {
-                DiscardNewProjectBackend(preparedService);
-            }
-
-            FinishActivationSetup();
+            _logger.LogError(ex, "Failed to activate version control for the open project.");
+            ClearProjectState();
+            return;
         }
+
+        ActivateProject(project, newProject: false, preparedNewProject: null, CancellationToken.None);
     }
 
-    private async Task<ActivationContext?> StartProjectActivationAsync(
+    // Starts deciding afresh how the project is tracked: an untracked backend shows the project at once,
+    // and the activation looks for its repository in the background. A backend that preparedNewProject
+    // carries already initialized the new project's repository, and the activation adopts it in place of
+    // a fresh untracked backend. Returns null when no activation starts.
+    private ActivationContext? ActivateProject(
         Project? project,
-        bool internalTransition,
-        CancellationToken cancellationToken)
-    {
-        if (!TryBeginActivationSetup(internalTransition, out long activationRevision))
-        {
-            return null;
-        }
-
-        try
-        {
-            return await OnProjectChangedAsync(
-                project,
-                internalTransition,
-                activationRevision,
-                newProject: false,
-                cancellationToken: cancellationToken);
-        }
-        finally
-        {
-            FinishActivationSetup();
-        }
-    }
-
-    // A backend that preparedNewProject carries already initialized the new project's repository, and the
-    // activation adopts it in place of a fresh untracked backend.
-    private async Task<ActivationContext?> OnProjectChangedAsync(
-        Project? project,
-        bool internalTransition,
-        long activationRevision,
         bool newProject,
+        PreparedNewProject? preparedNewProject,
         CancellationToken cancellationToken,
-        PreparedNewProject? preparedNewProject = null)
+        bool isRediscovery = false)
     {
         IProjectVersionControlBackend? preparedService = preparedNewProject?.Service;
         try
         {
-            if (internalTransition && !TryPromoteActivationRevision(activationRevision))
+            if (_disposed)
             {
                 return null;
             }
 
-            if (internalTransition)
-            {
-                if (project is null)
-                {
-                    SetVisibleService(null);
-                    return null;
-                }
-
-                string preservedRoot = GetProjectRoot(project);
-                IProjectVersionControlBackend? preservedService = GetOwnedBackend();
-                if (preservedService?.Repository is { } preservedRepository
-                    && VersionControlPathComparison.AreSameCanonicalPath(
-                        preservedRepository.ProjectRoot,
-                        preservedRoot))
-                {
-                    SetVisibleService(preservedService);
-                    QueueRepositoryHygieneConfigurationIfDirty(project);
-                    return null;
-                }
-            }
-
             if (project is null)
             {
-                ClearProjectState(activationRevision);
+                ClearProjectState();
+                return null;
+            }
+
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
+            {
                 return null;
             }
 
@@ -199,31 +115,30 @@ internal partial class VersionControlCoordinator
                     () => _projectService.CurrentProject.Value is null,
                     PresentPolicyNoticeAsync,
                     projectFile);
-            // From here the activation owns the prepared backend, and a rejected activation retires it.
             preparedService = null;
             var activation = new ActivationContext(
-                activationRevision,
                 projectRoot,
                 projectFile,
                 service,
                 newProject,
-                cancellationToken)
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    _lifetimeCancellation.Token))
             {
+                IsRediscovery = isRediscovery,
                 InterruptedNewProjectRepository = preparedNewProject?.InterruptedRepository,
             };
-            if (BeginActivation(activation, out bool cleanupRejectedService))
-            {
-                _ = ActivateRepositoryAsync(activation);
-                return activation;
-            }
-
-            await CompleteRejectedActivationAsync(activation, cleanupRejectedService);
-            return null;
+            ActivationContext? previousActivation = _activation;
+            _activation = activation;
+            TransitionOwnedService(service, service, projectRoot, previousActivation);
+            CancelActivation(previousActivation);
+            _ = ActivateRepositoryAsync(activation);
+            return activation;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to activate version control for the open project.");
-            ClearProjectState(activationRevision);
+            ClearProjectState();
             return null;
         }
         finally
@@ -235,113 +150,15 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    private bool TryBeginProjectActivation(
-        bool internalTransition,
-        out CancellationTokenSource? configurationActivationCancellation,
-        out long activationRevision)
-    {
-        _pendingConfigurationActivation = null;
-        if (!internalTransition)
-        {
-            _repositoryHygieneConfigurationDirty = false;
-        }
-
-        configurationActivationCancellation = _configurationActivationCancellation;
-        return TryBeginActivationSetup(
-            internalTransition,
-            out activationRevision);
-    }
-
-    private bool TryBeginActivationSetup(
-        bool internalTransition,
-        out long activationRevision)
-    {
-        if (_disposed)
-        {
-            activationRevision = 0;
-            return false;
-        }
-
-        _activationSetupUsers++;
-        activationRevision = ++_nextActivationRevision;
-        if (!internalTransition)
-        {
-            _latestActivationRevision = activationRevision;
-        }
-
-        return true;
-    }
-
-    private bool TryPromoteActivationRevision(long activationRevision)
-    {
-        if (_disposed || activationRevision < _latestActivationRevision)
-        {
-            return false;
-        }
-
-        _latestActivationRevision = activationRevision;
-        return true;
-    }
-
-    private void FinishActivationSetup()
-    {
-        _activationSetupUsers--;
-        if (_activationSetupUsers == 0 && _disposed)
-        {
-            _activationSetupsQuiesced?.TrySetResult();
-        }
-
-        TryStartPendingConfigurationActivation();
-    }
-
-    private async Task CompleteRejectedActivationAsync(
-        ActivationContext activation,
-        bool cleanupService)
-    {
-        try
-        {
-            CancelActivation(activation);
-            activation.Complete();
-            await activation.CancellationQuiesced;
-            if (cleanupService)
-            {
-                await RetireDiscardedServiceAsync(
-                    activation,
-                    activation.Service,
-                    cleanupAlreadyClaimed: true);
-            }
-        }
-        finally
-        {
-            activation.Finish();
-        }
-    }
-
     private async Task ActivateRepositoryAsync(ActivationContext activation)
     {
-        IProjectVersionControlBackend? candidateService = null;
-        IProjectVersionControlBackend? pendingCleanup = null;
+        using RunningWork work = BeginWork();
         try
         {
-            await activation.PredecessorsCompleted;
-            activation.CancellationToken.ThrowIfCancellationRequested();
-            if (!TryPublishActivationServiceIfCurrent(activation))
-            {
-                return;
-            }
-
             RepositoryInfo? repository = await DiscoverActivationRepositoryAsync(activation);
-            if (repository is null)
-            {
-                return;
-            }
-
-            if (!await IsActivationRepositoryAcceptedAsync(activation, repository))
-            {
-                return;
-            }
-
-            if (!IsCurrentActivation(activation))
+            if (repository is null
+                || !await IsActivationRepositoryAcceptedAsync(activation, repository)
+                || !IsCurrentActivation(activation))
             {
                 return;
             }
@@ -354,20 +171,10 @@ internal partial class VersionControlCoordinator
                     PresentPolicyNoticeAsync,
                     activation.ProjectFile,
                     RequestIdentityForSnapshotAsync);
-            candidateService = trackedService;
-            if (!TryRegisterCandidateService(activation, trackedService))
-            {
-                pendingCleanup = trackedService;
-                return;
-            }
-
-            await activation.PredecessorsCompleted;
-            activation.CancellationToken.ThrowIfCancellationRequested();
-
+            activation.Candidate = trackedService;
             try
             {
-                await trackedService.EnsureRepositoryHygieneAsync(
-                    activation.CancellationToken);
+                await trackedService.EnsureRepositoryHygieneAsync(activation.CancellationToken);
             }
             catch (Exception ex)
                 when (ex is VersionControlConflictedException or DetachedHeadNotSupportedException
@@ -382,32 +189,29 @@ internal partial class VersionControlCoordinator
             }
             catch (Exception ex)
             {
-                bool notify = !activation.CancellationToken.IsCancellationRequested && IsCurrentActivation(activation);
-                if (activation.OwnsService(trackedService))
+                if (IsCurrentActivation(activation))
                 {
-                    ClearProjectState(activation.Revision);
-                }
-                else
-                {
-                    pendingCleanup = trackedService;
+                    // The project stays open untracked, unless the factory handed out one backend for both
+                    // roles, which cannot go on as the untracked one.
+                    if (ReferenceEquals(trackedService, activation.Service))
+                    {
+                        ClearProjectState();
+                    }
+
+                    // The warning carries the reason (for example a project path the repository ignores,
+                    // or Git's own error) instead of leaving it only in the log.
+                    PublishNotification(() =>
+                        NotificationService.ShowWarning(
+                            Strings.VersionControl,
+                            string.Format(Strings.VersionControl_ActivationFailedFormat, GetErrorText(ex))));
                 }
 
-                // The project stays open untracked, so the warning carries the reason (for example a
-                // project path the repository ignores, or Git's own error) instead of leaving it only
-                // in the log.
-                if (notify)
-                    PublishNotification(
-                        () => NotificationService.ShowWarning(
-                            Strings.VersionControl,
-                            string.Format(Strings.VersionControl_ActivationFailedFormat, GetErrorText(ex))),
-                        activation.Revision);
                 throw;
             }
 
-            if (!CompleteActivation(activation, trackedService)
-                && !activation.OwnsService(trackedService))
+            if (IsCurrentActivation(activation))
             {
-                pendingCleanup = trackedService;
+                TransitionOwnedService(trackedService, trackedService, activation.ProjectRoot, activation);
             }
         }
         catch (OperationCanceledException) when (activation.CancellationToken.IsCancellationRequested)
@@ -419,10 +223,19 @@ internal partial class VersionControlCoordinator
         }
         finally
         {
-            await FinishRepositoryActivationAsync(
-                activation,
-                pendingCleanup,
-                candidateService);
+            if (ReferenceEquals(_activation, activation))
+            {
+                _activation = null;
+            }
+
+            IProjectVersionControlBackend? candidate = activation.Candidate;
+            activation.Finish();
+            // The untracked backend leaves through the state like any owned backend; a tracked backend
+            // the state never took is retired here.
+            if (candidate is not null && !ReferenceEquals(candidate, activation.Service))
+            {
+                RetireIfUnused(candidate);
+            }
         }
     }
 
@@ -471,13 +284,16 @@ internal partial class VersionControlCoordinator
                 ex,
                 "Opened {ProjectFile} without version control because repository discovery failed.",
                 activation.ProjectFile);
-            PublishNotification(
-                () => NotificationService.ShowWarning(
-                    Strings.VersionControl,
-                    string.Format(
-                        Strings.VersionControl_OpenedWithoutVersionControlFormat,
-                        GetErrorText(ex))),
-                activation.Revision);
+            if (IsCurrentActivation(activation))
+            {
+                PublishNotification(() =>
+                    NotificationService.ShowWarning(
+                        Strings.VersionControl,
+                        string.Format(
+                            Strings.VersionControl_OpenedWithoutVersionControlFormat,
+                            GetErrorText(ex))));
+            }
+
             return null;
         }
 
@@ -532,49 +348,6 @@ internal partial class VersionControlCoordinator
         }
 
         return true;
-    }
-
-    private async Task FinishRepositoryActivationAsync(
-        ActivationContext activation,
-        IProjectVersionControlBackend? pendingCleanup,
-        IProjectVersionControlBackend? candidateService)
-    {
-        try
-        {
-            activation.Complete();
-            await activation.CancellationQuiesced;
-            await activation.PredecessorsCompleted;
-            if (pendingCleanup is not null)
-            {
-                await RetireDiscardedServiceAsync(activation, pendingCleanup);
-            }
-            else if (candidateService is not null)
-            {
-                if (activation.OwnsService(candidateService))
-                {
-                    UnregisterCandidateService(activation, candidateService);
-                }
-                else
-                {
-                    await RetireDiscardedServiceAsync(activation, candidateService);
-                }
-            }
-
-            if (ReferenceEquals(_activation, activation))
-            {
-                _activation = null;
-            }
-
-            if (!ReferenceEquals(_state.OwnedService, activation.Service))
-            {
-                await RetireDiscardedServiceAsync(activation, activation.Service);
-            }
-        }
-        finally
-        {
-            activation.Finish();
-            TryStartPendingConfigurationActivation();
-        }
     }
 
     // Version tracking stays opt-in per project, so merely opening a project whose directory the

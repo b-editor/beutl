@@ -22,8 +22,7 @@ internal partial class VersionControlCoordinator
         Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         CancellationToken cancellationToken)
     {
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
+        using OperationLease operation = await BeginOperationAsync(cancellationToken);
         CancellationToken operationCancellation = operation.CancellationToken;
 
         string projectRoot = GetProjectRoot(expectedProject);
@@ -150,8 +149,7 @@ internal partial class VersionControlCoordinator
         Project project,
         CancellationToken cancellationToken)
     {
-        using NonTransactionalOperationLease operation =
-            await BeginNonTransactionalOperationAsync(cancellationToken);
+        using OperationLease operation = await BeginOperationAsync(cancellationToken);
         CancellationToken operationCancellation = operation.CancellationToken;
 
         // Only the creation that wrote the project can hand it a repository, and only before the project
@@ -341,7 +339,7 @@ internal partial class VersionControlCoordinator
 
     private void DiscardNewProjectBackend(IProjectVersionControlBackend service)
     {
-        RetireService(new ServiceRetirement(service, Task.CompletedTask));
+        RetireService(service, Task.CompletedTask);
     }
 
     private async Task UntrackReservedPathsIfConfirmedAsync(

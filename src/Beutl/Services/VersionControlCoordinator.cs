@@ -7,6 +7,9 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
+// All of the coordinator's state belongs to the UI thread. Entry points called from another thread move
+// there once, and every continuation after that stays there; only the Git commands themselves run
+// elsewhere, inside the backend.
 internal sealed partial class VersionControlCoordinator :
     IProjectVersionControlCoordinator,
     IRepositoryAdoptionConfirmationSource,
@@ -31,56 +34,36 @@ internal sealed partial class VersionControlCoordinator :
     private readonly VersionControlConfirmationPresenter _prompts;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly ILogger _logger = Log.CreateLogger<VersionControlCoordinator>();
-    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
-    private readonly SemaphoreSlim _lockRecoveryGate = new(1, 1);
-    private readonly SemaphoreSlim _operationCloseGate = new(1, 1);
+    // Held by every operation that changes the repository, the open project or how it is tracked: commits
+    // and snapshots, push, remote changes, initialization, restore, branch changes, pull, the stale-lock
+    // removal, a configuration change and a project close.
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly ReactivePropertySlim<bool> _isGitAvailable = new();
     private readonly ReactivePropertySlim<bool> _isTracked = new();
-    private readonly Dictionary<ProjectService.ProjectCloseContext, NonTransactionalCloseBarrier>
-        _preparedCloseBarriers = new();
-    private readonly HashSet<ProjectService.ProjectCloseContext> _closesWithoutSnapshot = new();
-    private readonly Dictionary<IProjectVersionControlBackend, HashSet<ActivationContext>>
-        _candidateServiceUsers = new(ReferenceEqualityComparer.Instance);
-    private readonly HashSet<IProjectVersionControlBackend> _managedServices = new(
-        ReferenceEqualityComparer.Instance);
-    private readonly TaskCompletionSource _asyncDisposalCompletion = new(
+    private readonly TaskCompletionSource _disposalCompletion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private CoordinatorState _state = CoordinatorState.Empty;
     private ActivationContext? _activation;
-    private TaskCompletionSource? _activationSetupsQuiesced;
-    private TaskCompletionSource? _availabilityQuiesced;
-    private TaskCompletionSource? _closeBarriersQuiesced;
-    private TaskCompletionSource? _configurationActivationQuiesced;
-    private TaskCompletionSource? _lifecycleQuiesced;
-    private TaskCompletionSource? _lockRecoveryQuiesced;
-    private TaskCompletionSource? _operationsQuiesced;
-    private TaskCompletionSource? _retirementsQuiesced;
-    private CancellationTokenSource? _operationEpochCancellation = new();
-    private CancellationTokenSource? _projectServiceEpochCancellation = new();
+    private PreparedClose? _close;
+    // Canceled when a project close begins, which stops the operation then running and any waiting for the
+    // operation gate.
+    private CancellationTokenSource _operationEpochCancellation = new();
+    // Canceled whenever the open project, its branch or the Git executable changes, which stops a pull that
+    // is still checking the remote or waiting for confirmation.
+    private CancellationTokenSource _projectServiceEpochCancellation = new();
     // A project created with tracking gets its repository before it opens. The initialized backend
     // waits here until the activation of that same creation adopts it.
     private PreparedNewProject? _preparedNewProject;
     private RepositoryAdoptionRequest? _pendingRepositoryAdoption;
-    private CancellationTokenSource? _configurationActivationCancellation;
     private ConfigurationActivationRequest? _pendingConfigurationActivation;
-    private long _nextActivationRevision;
-    private long _latestActivationRevision;
-    private long _nextConfigurationActivationRevision;
-    private int _availabilityRevision;
-    private int _activationSetupUsers;
-    private int _availabilityUsers;
-    private int _closeBarrierUsers;
-    private int _lifecycleUsers;
-    private int _lockRecoveryUsers;
-    private int _operationUsers;
-    private int _retirementUsers;
+    private object? _latestAvailabilityProbe;
+    private TaskCompletionSource? _workDrained;
+    private int _runningWork;
     private string? _observedGitExecutablePath;
     private bool _observedUseLfsWhenAvailable;
-    private bool _configurationActivationActive;
-    private bool _operationCloseBarrierActive;
+    private bool _configurationActivationRunning;
     private bool _repositoryHygieneConfigurationDirty;
     private bool _propertiesDisposed;
-    private bool _disposalStarted;
     private bool _disposed;
 
     public VersionControlCoordinator(
@@ -95,8 +78,7 @@ internal sealed partial class VersionControlCoordinator :
     {
     }
 
-    // Constructed on the UI thread, which owns all of the coordinator's state. Entry points called from
-    // another thread move there first.
+    // Constructed on the UI thread.
     internal VersionControlCoordinator(
         ProjectService projectService,
         EditorService editorService,
@@ -130,7 +112,11 @@ internal sealed partial class VersionControlCoordinator :
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
         _projectService.TransitionCommitted += OnProjectChanged;
         _editorService.ProjectVersionControlCoordinator = this;
-        ActivateCurrentProject();
+        ActivateProject(
+            _projectService.CurrentProject.Value,
+            newProject: false,
+            preparedNewProject: null,
+            CancellationToken.None);
         StartAvailabilityRefresh();
     }
 
@@ -184,8 +170,7 @@ internal sealed partial class VersionControlCoordinator :
         return RunOnUiThreadAsync(() =>
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _availabilityUsers++;
-            return GetAvailabilityTrackedAsync(cancellationToken);
+            return GetAvailabilityCoreAsync(cancellationToken);
         });
     }
 
@@ -206,8 +191,7 @@ internal sealed partial class VersionControlCoordinator :
     {
         return RunOnUiThreadAsync(async () =>
         {
-            using NonTransactionalOperationLease operation =
-                await BeginNonTransactionalOperationAsync(cancellationToken);
+            using OperationLease operation = await BeginOperationAsync(cancellationToken);
             await CommitSnapshotAsync(
                 _config.AutoCommitOnSave,
                 SaveSnapshotMessage,
@@ -262,8 +246,7 @@ internal sealed partial class VersionControlCoordinator :
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
         return RunOnUiThreadAsync(async () =>
         {
-            using NonTransactionalOperationLease operation =
-                await BeginNonTransactionalOperationAsync(cancellationToken);
+            using OperationLease operation = await BeginOperationAsync(cancellationToken);
             await GetTrackedBackend().SetRemoteAsync(url.Trim(), operation.CancellationToken);
         });
     }
@@ -274,8 +257,7 @@ internal sealed partial class VersionControlCoordinator :
     {
         return RunOnUiThreadAsync(async () =>
         {
-            using NonTransactionalOperationLease operation =
-                await BeginNonTransactionalOperationAsync(cancellationToken);
+            using OperationLease operation = await BeginOperationAsync(cancellationToken);
             return await GetTrackedBackend().PushAsync(progress, operation.CancellationToken);
         });
     }
@@ -287,14 +269,14 @@ internal sealed partial class VersionControlCoordinator :
 
     public void Dispose()
     {
-        if (!_dispatcher.CheckAccess())
+        if (_dispatcher.CheckAccess())
         {
-            _dispatcher.Post(Dispose, DispatcherPriority.Normal);
-            return;
+            BeginDisposal();
         }
-
-        BeginDisposal();
-        StartDisposalCompletion();
+        else
+        {
+            _dispatcher.Post(BeginDisposal, DispatcherPriority.Normal);
+        }
     }
 
     public ValueTask DisposeAsync()
@@ -307,23 +289,34 @@ internal sealed partial class VersionControlCoordinator :
         }
 
         BeginDisposal();
-        StartDisposalCompletion();
-        return new ValueTask(_asyncDisposalCompletion.Task);
+        return new ValueTask(_disposalCompletion.Task);
     }
 
-    // The coordinator's state belongs to the UI thread. A caller on another thread moves there once, here,
-    // and the operation's continuations stay there.
+    // Moves a caller on another thread to the UI thread, and counts the operation as running work until
+    // it finishes.
     private Task RunOnUiThreadAsync(Func<Task> operation)
     {
         return _dispatcher.CheckAccess()
-            ? operation()
-            : _dispatcher.InvokeAsync(operation, DispatcherPriority.Normal);
+            ? RunAsync()
+            : _dispatcher.InvokeAsync(RunAsync, DispatcherPriority.Normal);
+
+        async Task RunAsync()
+        {
+            using RunningWork work = BeginWork();
+            await operation();
+        }
     }
 
     private Task<TResult> RunOnUiThreadAsync<TResult>(Func<Task<TResult>> operation)
     {
         return _dispatcher.CheckAccess()
-            ? operation()
-            : _dispatcher.InvokeAsync(operation, DispatcherPriority.Normal);
+            ? RunAsync()
+            : _dispatcher.InvokeAsync(RunAsync, DispatcherPriority.Normal);
+
+        async Task<TResult> RunAsync()
+        {
+            using RunningWork work = BeginWork();
+            return await operation();
+        }
     }
 }

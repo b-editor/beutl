@@ -4,30 +4,6 @@ namespace Beutl.Services;
 
 internal partial class VersionControlCoordinator
 {
-    private void StartDisposalCompletion()
-    {
-        if (_disposalStarted)
-        {
-            return;
-        }
-
-        _disposalStarted = true;
-        _ = CompleteDisposalAsync();
-        _ = ObserveDisposalCompletionAsync();
-    }
-
-    private async Task ObserveDisposalCompletionAsync()
-    {
-        try
-        {
-            await _asyncDisposalCompletion.Task;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to complete version-control coordinator disposal.");
-        }
-    }
-
     private void BeginDisposal()
     {
         if (_disposed)
@@ -39,12 +15,6 @@ internal partial class VersionControlCoordinator
         _pendingConfigurationActivation = null;
         PreparedNewProject? preparedNewProject = _preparedNewProject;
         _preparedNewProject = null;
-        CancellationTokenSource? configurationActivationCancellation = _configurationActivationCancellation;
-        CancellationTokenSource? projectServiceEpochCancellation = _projectServiceEpochCancellation;
-        _projectServiceEpochCancellation = null;
-        bool clearProjectState = _closeBarrierUsers == 0
-                                 && _lifecycleUsers == 0
-                                 && _operationUsers == 0;
         try
         {
             _lifetimeCancellation.Cancel();
@@ -56,8 +26,6 @@ internal partial class VersionControlCoordinator
                 "A cancellation callback failed while disposing version control.");
         }
 
-        CancelConfigurationActivation(configurationActivationCancellation);
-        CancelProjectServiceEpoch(projectServiceEpochCancellation);
         if (preparedNewProject?.Service is { } preparedService)
         {
             DiscardNewProjectBackend(preparedService);
@@ -73,55 +41,30 @@ internal partial class VersionControlCoordinator
             _editorService.ProjectVersionControlCoordinator = null;
         }
 
-        if (clearProjectState)
-        {
-            ClearProjectState();
-        }
-        else
-        {
-            SetVisibleService(null);
-        }
-
+        // Work still running may use the backend, so it is hidden now and retired once that work is over.
+        SetVisibleService(null);
         DisposePublishedProperties();
+        _ = CompleteDisposalAsync();
     }
 
     private async Task CompleteDisposalAsync()
     {
         try
         {
-            await WaitForQuiescenceAsync(ref _availabilityUsers, ref _availabilityQuiesced);
-            await WaitForQuiescenceAsync(ref _operationUsers, ref _operationsQuiesced);
-            await WaitForQuiescenceAsync(ref _closeBarrierUsers, ref _closeBarriersQuiesced);
-            await WaitForQuiescenceAsync(ref _lifecycleUsers, ref _lifecycleQuiesced);
-            await WaitForQuiescenceAsync(ref _activationSetupUsers, ref _activationSetupsQuiesced);
+            await WaitForRunningWorkAsync();
             ClearProjectState();
-            await WaitForQuiescenceAsync(ref _lockRecoveryUsers, ref _lockRecoveryQuiesced);
-            await WaitForQuiescenceAsync(ref _retirementUsers, ref _retirementsQuiesced);
-            _operationEpochCancellation?.Dispose();
-            _operationEpochCancellation = null;
+            await WaitForRunningWorkAsync();
+            _operationEpochCancellation.Dispose();
+            _projectServiceEpochCancellation.Dispose();
             _lifetimeCancellation.Dispose();
-            _asyncDisposalCompletion.TrySetResult();
         }
         catch (Exception ex)
         {
-            _asyncDisposalCompletion.TrySetException(ex);
+            _logger.LogError(ex, "Failed to complete version-control coordinator disposal.");
         }
-    }
-
-    // The counter and its completion source are passed by reference so the wait is created only
-    // while work of that kind is still running.
-    private static Task WaitForQuiescenceAsync(ref int users, ref TaskCompletionSource? quiesced)
-    {
-        if (users == 0)
+        finally
         {
-            return Task.CompletedTask;
+            _disposalCompletion.TrySetResult();
         }
-
-        return (quiesced ??= CreateCompletionSource()).Task;
-    }
-
-    private static TaskCompletionSource CreateCompletionSource()
-    {
-        return new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 }

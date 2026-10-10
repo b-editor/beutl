@@ -15,40 +15,21 @@ internal partial class VersionControlCoordinator
             return;
         }
 
-        if (_disposed)
+        if (!_disposed)
         {
-            return;
-        }
-
-        _lockRecoveryUsers++;
-        _ = RunLockRecoveryAsync(sender, lockInfo);
-    }
-
-    private async Task RunLockRecoveryAsync(object? sender, RepositoryLockInfo lockInfo)
-    {
-        try
-        {
-            await OfferLockRecoveryAsync(sender, lockInfo);
-        }
-        finally
-        {
-            _lockRecoveryUsers--;
-            if (_lockRecoveryUsers == 0 && _disposed)
-            {
-                _lockRecoveryQuiesced?.TrySetResult();
-            }
+            _ = OfferLockRecoveryAsync(sender, lockInfo);
         }
     }
 
+    // Offered under the operation gate, so one offer is shown at a time and the lock is never removed
+    // while another operation runs Git. A project close cancels the offer.
     private async Task OfferLockRecoveryAsync(object? sender, RepositoryLockInfo lockInfo)
     {
-        bool gateEntered = false;
+        using RunningWork work = BeginWork();
         try
         {
-            await _lockRecoveryGate.WaitAsync(_lifetimeCancellation.Token);
-            gateEntered = true;
-            if (_disposed
-                || sender is not IRepositoryLockRecoveryService recovery
+            using OperationLease operation = await BeginOperationAsync(CancellationToken.None);
+            if (sender is not IRepositoryLockRecoveryService recovery
                 || !ReferenceEquals(CurrentService, sender)
                 || !ReferenceEquals(recovery.RecoverableLock, lockInfo))
             {
@@ -62,7 +43,7 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            if (!await ConfirmRemoveStaleLockAsync(lockInfo, _lifetimeCancellation.Token)
+            if (!await ConfirmRemoveStaleLockAsync(lockInfo, operation.CancellationToken)
                 || _disposed
                 || !ReferenceEquals(CurrentService, sender)
                 || !ReferenceEquals(recovery.RecoverableLock, lockInfo))
@@ -72,7 +53,7 @@ internal partial class VersionControlCoordinator
 
             bool removed = await recovery.RemoveRecoverableLockAsync(
                 lockInfo,
-                _lifetimeCancellation.Token);
+                operation.CancellationToken);
             if (removed)
             {
                 _logger.LogWarning(
@@ -88,19 +69,15 @@ internal partial class VersionControlCoordinator
                 ShowStaleLockManualRemovalWarning(lockInfo);
             }
         }
-        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+        catch (Exception ex)
+            when (ex is OperationCanceledException or VersionControlLifecycleUnavailableException
+                  || ex is ObjectDisposedException && _disposed)
         {
+            // A close or the disposal ended the offer.
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to recover a stale Git repository lock.");
-        }
-        finally
-        {
-            if (gateEntered)
-            {
-                _lockRecoveryGate.Release();
-            }
         }
     }
 
