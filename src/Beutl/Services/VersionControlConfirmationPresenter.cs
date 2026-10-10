@@ -135,17 +135,11 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
             : mainWindow;
     }
 
-    // A truncated list ends in "…" even when it names fewer paths than fit, since more exist.
-    private static string FormatPathList(IReadOnlyList<string> paths, bool truncated)
+    private static string FormatPathList(IReadOnlyList<string> paths)
     {
         const int MaxListedPaths = 5;
         string listed = string.Join(", ", paths.Take(MaxListedPaths));
-        if (paths.Count <= MaxListedPaths && !truncated)
-        {
-            return listed;
-        }
-
-        return listed.Length == 0 ? "…" : listed + ", …";
+        return paths.Count > MaxListedPaths ? listed + ", …" : listed;
     }
 
     internal async Task ShowPolicyNoticeAsync(
@@ -168,7 +162,7 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
             VersionControlPolicyNotice.IgnoredProjectFiles ignored
                 => string.Format(
                     Strings.VersionControl_IgnoredProjectFilesNoticeFormat,
-                    FormatPathList(ignored.Paths, ignored.Truncated)),
+                    FormatPathList(ignored.Paths)),
             _ => throw new ArgumentOutOfRangeException(nameof(notice)),
         };
 

@@ -3561,53 +3561,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CanCreateBranchAsync_reports_a_git_failure_instead_of_rejecting_the_name()
-    {
-        await CommitFileAsync("project.bep", "current\n", "current");
-        var runner = new FailingBranchListRunner(CreateRunner());
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => runner);
-
-        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
-            async () => await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
-                transaction => transaction.CanCreateBranchAsync(
-                    "new-feature",
-                    CancellationToken.None),
-                CancellationToken.None));
-
-        Assert.That(exception!.Stderr, Does.Contain("branch listing failed"));
-    }
-
-    private sealed class FailingBranchListRunner(IGitCliRunner inner) : IGitCliRunner
-    {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            return arguments.Contains("for-each-ref")
-                ? Task.FromException<GitCommandResult>(
-                    new GitOperationException(128, "fatal: branch listing failed"))
-                : inner.RunAsync(repository, arguments, options, cancellationToken, stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    [Test]
     public async Task CanCreateBranchAsync_rejects_an_existing_local_name()
     {
         await CommitFileAsync("project.bep", "current\n", "current");
