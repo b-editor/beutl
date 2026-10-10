@@ -1,5 +1,7 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
@@ -29,7 +31,13 @@ internal sealed class AgentHostInstanceRouter(
     private static readonly TimeSpan s_connectionTimeout = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public string InstanceId { get; } = Guid.NewGuid().ToString("N");
+    private readonly AgentHostInstanceAuthentication _authentication = new(token, Guid.NewGuid().ToString("N"));
+
+    public string InstanceId => _authentication.InstanceId;
+
+    public AgentHostIdentityProof CreateIdentityProof(string challenge) => _authentication.CreateProof(challenge);
+
+    public bool IsForwardToken(string provided) => _authentication.IsForwardToken(provided);
 
     public async Task<AgentHostInstanceInfo> GetInfoAsync(CancellationToken cancellationToken)
         => await Dispatcher.UIThread.InvokeAsync(() =>
@@ -47,10 +55,11 @@ internal sealed class AgentHostInstanceRouter(
 
     public async Task<ListAgentHostInstancesResponse> ListAsync(CancellationToken cancellationToken)
     {
-        Task<AgentHostInstanceInfo?>[] tasks = registry.Read()
+        AgentHostInstanceInfo self = await GetInfoAsync(cancellationToken).ConfigureAwait(false);
+        Task<AgentHostInstanceInfo?>[] tasks = registry.Read().Where(entry => entry.InstanceId != InstanceId)
             .Select(entry => ReadInfoAsync(entry, cancellationToken)).ToArray();
         AgentHostInstanceInfo?[] instances = await Task.WhenAll(tasks).ConfigureAwait(false);
-        return new ListAgentHostInstancesResponse(InstanceId, instances.OfType<AgentHostInstanceInfo>()
+        return new ListAgentHostInstancesResponse(InstanceId, instances.OfType<AgentHostInstanceInfo>().Prepend(self)
             .OrderBy(info => info.ProcessId).ThenBy(info => info.InstanceId, StringComparer.Ordinal).ToArray());
     }
 
@@ -65,9 +74,14 @@ internal sealed class AgentHostInstanceRouter(
         using HttpClient http = CreateHttpClient(registration.InstanceId);
         try
         {
+            if (!await AuthenticatePeerAsync(registration, http, timeout.Token).ConfigureAwait(false))
+                return null;
             var info = await http.GetFromJsonAsync<AgentHostInstanceInfo>(
                 new Uri(registration.EndpointUri, "/agent-host"), s_jsonOptions, timeout.Token).ConfigureAwait(false);
-            return info?.InstanceId == registration.InstanceId ? info : null;
+            if (info?.InstanceId == registration.InstanceId)
+                return info;
+            registry.RemoveIfUnchanged(registration);
+            return null;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException
                                    || ex is OperationCanceledException && !cancellationToken.IsCancellationRequested)
@@ -94,6 +108,8 @@ internal sealed class AgentHostInstanceRouter(
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(s_connectionTimeout);
+            if (!await AuthenticatePeerAsync(registration, http, timeout.Token).ConfigureAwait(false))
+                return Unavailable(instanceId);
             await using McpClient client = await McpClient.CreateAsync(
                 transport, cancellationToken: timeout.Token).ConfigureAwait(false);
             await using IAsyncDisposable progress = client.RegisterNotificationHandler(
@@ -121,9 +137,54 @@ internal sealed class AgentHostInstanceRouter(
         {
             Timeout = Timeout.InfiniteTimeSpan
         };
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         http.DefaultRequestHeaders.Add(InstanceHeader, instanceId);
         return http;
+    }
+
+    private async Task<bool> AuthenticatePeerAsync(
+        AgentHostInstanceRegistration registration, HttpClient http, CancellationToken cancellationToken)
+    {
+        string challenge = AgentHostInstanceAuthentication.CreateChallenge();
+        try
+        {
+            var proof = await http.GetFromJsonAsync<AgentHostIdentityProof>(
+                new Uri(registration.EndpointUri, "/agent-host/identity?challenge=" + challenge),
+                s_jsonOptions, cancellationToken).ConfigureAwait(false);
+            if (!_authentication.VerifyProof(registration.InstanceId, challenge, proof))
+            {
+                // A different token does not prove that a host is dead. Prune only an identity
+                // mismatch; leave transient failures and same-ID authentication failures intact.
+                if (proof?.InstanceId != registration.InstanceId)
+                    registry.RemoveIfUnchanged(registration);
+                return false;
+            }
+
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer", _authentication.CreateForwardToken(registration.InstanceId));
+            return true;
+        }
+        catch (HttpRequestException ex) when (IsMissingIdentityEndpoint(ex))
+        {
+            registry.RemoveIfUnchanged(registration);
+            return false;
+        }
+        catch (JsonException)
+        {
+            registry.RemoveIfUnchanged(registration);
+            return false;
+        }
+    }
+
+    private static bool IsMissingIdentityEndpoint(HttpRequestException exception)
+    {
+        if (exception.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone or HttpStatusCode.Conflict)
+            return true;
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SocketException { SocketErrorCode: SocketError.ConnectionRefused })
+                return true;
+        }
+        return false;
     }
 
     private static CallToolResult Unavailable(string instanceId)

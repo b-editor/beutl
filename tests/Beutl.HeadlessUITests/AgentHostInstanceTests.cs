@@ -172,6 +172,7 @@ public sealed class AgentHostInstanceTests
             arguments["schemaVersion"] = "1";
             AssertError(await client.CallToolAsync("apply_edit", arguments), "instance_unavailable");
             Assert.That(scene.Name, Is.EqualTo("replacement"));
+            Assert.That(File.Exists(registrationPath), Is.False);
             JsonArray instances = Payload(await client.CallToolAsync("list_instances"))["value"]!["instances"]!.AsArray();
             Assert.That(instances.Select(info => info!["instanceId"]!.GetValue<string>()),
                 Is.EquivalentTo(new[] { first.InstanceId, replacement.InstanceId }));
@@ -244,8 +245,60 @@ public sealed class AgentHostInstanceTests
             registration["processStartTime"] = 0;
             File.WriteAllText(validPath, registration.ToJsonString());
             Assert.That(registry.Read(), Is.Empty);
+            Assert.That(File.Exists(validPath), Is.False);
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    public void Pruning_and_old_leases_preserve_a_replaced_registration()
+    {
+        string directory = CreateDirectory();
+        var registry = new AgentHostInstanceRegistry(directory);
+        string instanceId = Guid.NewGuid().ToString("N");
+        try
+        {
+            using IDisposable lease = registry.Register(instanceId, new Uri("http://127.0.0.1:59737/mcp"));
+            AgentHostInstanceRegistration original = registry.Read().Single();
+            AgentHostInstanceRegistration replacement = original with { EndpointUri = new Uri("http://127.0.0.1:59738/mcp") };
+            string path = Path.Combine(directory, instanceId + ".json");
+            File.WriteAllText(path, JsonSerializer.Serialize(replacement, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            registry.RemoveIfUnchanged(original);
+            lease.Dispose();
+            Assert.That(registry.Read().Single(), Is.EqualTo(replacement));
+            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(1));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
+    [Platform("Linux,MacOSX")]
+    public void Directory_read_permission_errors_return_no_peers_and_preserve_registrations()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix directory permissions are unavailable on Windows.");
+            return;
+        }
+        string directory = CreateDirectory();
+        var registry = new AgentHostInstanceRegistry(directory);
+        UnixFileMode permissions = File.GetUnixFileMode(directory);
+        try
+        {
+            using IDisposable lease = registry.Register(Guid.NewGuid().ToString("N"), new Uri("http://127.0.0.1:59737/mcp"));
+            try
+            {
+                File.SetUnixFileMode(directory, UnixFileMode.UserExecute);
+                Assert.That(registry.Read(), Is.Empty);
+            }
+            finally { File.SetUnixFileMode(directory, permissions); }
+            Assert.That(registry.Read(), Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            File.SetUnixFileMode(directory, permissions);
+            Directory.Delete(directory, true);
+        }
     }
 
     private static AgentHostEndpoint CreateHost(EditorService editor, string directory, int? firstPort = null)

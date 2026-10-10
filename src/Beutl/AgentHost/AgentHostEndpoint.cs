@@ -250,7 +250,12 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                     stopRequested = _stopRequested;
                     if (!stopRequested)
                     {
-                        _instanceRegistration = _instanceRegistry.Register(InstanceId, endpointUri);
+                        try { _instanceRegistration = _instanceRegistry.Register(InstanceId, endpointUri); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            s_logger.LogWarning(ex,
+                                "Could not register the agent host for discovery. Direct live MCP access remains available.");
+                        }
                         _application = app;
                         // Publish EndpointUri only after the stop check: TakeApplication already
                         // cleared it (while still null), so setting it before this check would leave
@@ -426,6 +431,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         WebApplication app = builder.Build();
         app.Use(RequireToken);
+        app.MapGet("/agent-host/identity", (string? challenge) =>
+            AgentHostInstanceAuthentication.IsValidChallenge(challenge)
+                ? Results.Json(_instanceRouter.CreateIdentityProof(challenge!))
+                : Results.BadRequest());
         app.MapGet("/agent-host", (CancellationToken cancellationToken) => _instanceRouter.GetInfoAsync(cancellationToken));
         app.MapMcp("/mcp");
         return app;
@@ -488,9 +497,20 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         const string scheme = "Bearer ";
         string? authorization = context.Request.Headers.Authorization;
 
+        if (HttpMethods.IsGet(context.Request.Method) && context.Request.Path == "/agent-host/identity")
+        {
+            if (context.Request.Headers.TryGetValue(AgentHostInstanceRouter.InstanceHeader, out var expectedId)
+                && !string.Equals(expectedId, InstanceId, StringComparison.Ordinal))
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+            else
+                await next(context).ConfigureAwait(false);
+            return;
+        }
+
         if (authorization is null
             || !authorization.StartsWith(scheme, StringComparison.Ordinal)
-            || !FixedTimeTokenEquals(authorization[scheme.Length..], Token))
+            || !(FixedTimeTokenEquals(authorization[scheme.Length..], Token)
+                 || _instanceRouter.IsForwardToken(authorization[scheme.Length..])))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
