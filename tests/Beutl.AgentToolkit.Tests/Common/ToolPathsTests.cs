@@ -1,4 +1,4 @@
-using Beutl.AgentToolkit.Common;
+﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 
 namespace Beutl.AgentToolkit.Tests.Common;

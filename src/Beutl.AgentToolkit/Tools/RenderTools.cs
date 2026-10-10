@@ -208,7 +208,7 @@ public sealed partial class RenderTools(
     [McpServerTool(Name = "analyze_audio_rhythm")]
     [Description("Decodes an audio/music-bed file through Beutl's audio source path and returns measured BPM, beat times, and strong onset times as measurement data. Reads are unrestricted; nonexistent paths return media_not_found.")]
     public ValueTask<ToolResult<AnalyzeAudioRhythmResponse>> AnalyzeAudioRhythm(
-        [Description("Readable audio file path. Relative paths are resolved against the current process directory.")]
+        [Description("Absolute path of a readable audio file.")]
         string path,
         [Description("Optional start time in seconds for the analysis window. Defaults to 0.")]
         double? startSeconds = null,
@@ -223,7 +223,7 @@ public sealed partial class RenderTools(
         return ExecuteAsync(async () =>
         {
             AudioRhythmAnalysis analysis = await audioRhythmAnalyzer.AnalyzeFileAsync(
-                path,
+                ToolPaths.RequireAbsolute(path, nameof(path)),
                 startSeconds,
                 durationSeconds,
                 expectedBpmMin,

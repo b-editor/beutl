@@ -1140,6 +1140,23 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
+    [Test]
+    public async Task Audio_rhythm_analysis_rejects_a_relative_path()
+    {
+        RenderTools tools = CreateTools(new AgentSessionManager(), StandaloneOutputOperationLeaseProvider.Instance);
+
+        ToolResult<AnalyzeAudioRhythmResponse> result = await tools.AnalyzeAudioRhythm(
+            "beat.wav",
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("path"));
+        });
+    }
+
     private static RenderTools CreateTools(AgentToolkitTestSession session)
         => CreateToolsWithManager(session).Tools;
 

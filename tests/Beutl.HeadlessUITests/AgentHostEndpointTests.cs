@@ -672,7 +672,10 @@ public sealed class AgentHostEndpointTests
 
             CallToolResult result = await client.CallToolAsync(
                 "analyze_audio_rhythm",
-                new Dictionary<string, object?> { ["path"] = "does-not-exist.wav" });
+                new Dictionary<string, object?>
+                {
+                    ["path"] = Path.Combine(Path.GetTempPath(), $"does-not-exist-{Guid.NewGuid():N}.wav")
+                });
 
             string text = string.Join(
                 "\n",
