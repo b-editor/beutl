@@ -219,6 +219,11 @@ public sealed class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         IList<EngineObject.Resource>? oldFlow = context.Flow;
         TimeSpan time = context.Time;
+        IList<Element> elements = context.CurrentElements;
+        // A portal takes the elements it draws out of the current ones, so each side starts from the same
+        // elements; whatever either side took stays out of the frame afterwards.
+        Element[] inputs = [.. elements];
+        var incomingInputs = new List<Element>(inputs);
         try
         {
             if (boundary.Outgoing is { } outgoing)
@@ -232,11 +237,21 @@ public sealed class SceneCompositor : ICompositor
             {
                 context.Flow = to;
                 context.Time = boundary.GetIncomingTime(time);
+                context.CurrentElements = incomingInputs;
                 CollectElementObjects(incoming, context, tmpObjects);
             }
         }
         finally
         {
+            context.CurrentElements = elements;
+            foreach (Element input in inputs)
+            {
+                if (!incomingInputs.Contains(input))
+                {
+                    elements.Remove(input);
+                }
+            }
+
             context.Flow = oldFlow;
             context.Time = time;
         }

@@ -311,6 +311,32 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    // Both sides draw the layer above them through a portal; the outgoing side taking that layer must not
+    // leave the incoming side without it, nor let it draw a second time on its own.
+    [Test]
+    public void BothSidesOfATransition_ReachTheLayerTheirPortalsDraw()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_portals", duration: Seconds(10));
+        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
+        outgoing.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        Element incoming = harness.AddElement(Seconds(2), Seconds(2));
+        incoming.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        var providerShape = new RectShape();
+        Element provider = harness.AddElement(TimeSpan.Zero, Seconds(4), zIndex: 1);
+        provider.Objects.Add(providerShape);
+        incoming.EnterTransition = Transition(1);
+        using var compositor = new SceneCompositor(harness.Scene);
+
+        CompositionFrame frame = compositor.EvaluateGraphics(Seconds(2.25));
+        ClipTransitionPresenter.Resource presenter = SinglePresenter(frame);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(presenter.From.Select(r => r.GetOriginal()), Does.Contain(providerShape));
+            Assert.That(presenter.To.Select(r => r.GetOriginal()), Does.Contain(providerShape));
+        });
+    }
+
     [Test]
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {
