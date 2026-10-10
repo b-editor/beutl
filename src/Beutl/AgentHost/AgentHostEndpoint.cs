@@ -49,29 +49,21 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     {
     }
 
-    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config)
-        : this(projectService, editorService, DefaultPort, ResolveToken(config), config)
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config,
+        string? tokenStoreDirectory = null)
+        : this(projectService, editorService, DefaultPort, ResolveToken(config, tokenStoreDirectory), config)
     {
     }
 
-    // A fresh 128-bit local secret; a shared constant would let any local process that knows it drive
-    // the loopback editing endpoint.
-    internal static string GenerateToken()
-    {
-        return Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
-    }
-
-    internal static string ResolveToken(AiAgentConfig config)
+    internal static string ResolveToken(AiAgentConfig config, string? tokenStoreDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        if (!string.IsNullOrWhiteSpace(config.LiveMcpToken))
-        {
-            return config.LiveMcpToken;
-        }
-
-        string token = GenerateToken();
-        config.LiveMcpToken = token;
+        string token = LiveMcpTokenStore.GetOrCreate(
+            tokenStoreDirectory ?? BeutlEnvironment.GetHomeDirectoryPath(), config.LiveMcpToken);
+        // Clear the migrated setting only after the dedicated token has been durably published.
+        // Global configuration auto-save now omits it, so stale settings cannot rotate the token.
+        config.LiveMcpToken = "";
         return token;
     }
 

@@ -365,20 +365,26 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Default_constructor_generates_and_persists_a_random_token()
+    public async Task Independent_configurations_share_the_persisted_profile_token()
     {
         await TestReset.ResetShellAsync();
-        var config = new AiAgentConfig();
-
-        var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-        var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-
-        Assert.Multiple(() =>
+        string directory = Directory.CreateTempSubdirectory("endpoint-token-").FullName;
+        var firstConfig = new AiAgentConfig();
+        var secondConfig = new AiAgentConfig { LiveMcpToken = "old-snapshot-token" };
+        try
         {
-            Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
-            Assert.That(config.LiveMcpToken, Is.EqualTo(first.Token));
-            Assert.That(second.Token, Is.EqualTo(first.Token));
-        });
+            await using var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), firstConfig, directory);
+            await using var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), secondConfig, directory);
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
+                Assert.That(firstConfig.LiveMcpToken, Is.Empty);
+                Assert.That(secondConfig.LiveMcpToken, Is.Empty);
+                Assert.That(second.Token, Is.EqualTo(first.Token));
+                Assert.That(LiveMcpTokenStore.GetOrCreate(directory), Is.EqualTo(first.Token));
+            });
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     [AvaloniaTest]

@@ -22,11 +22,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     {
         _agentHostEndpoint = agentHostEndpoint;
         _config = config ?? GlobalConfiguration.Instance.AiAgentConfig;
-        if (string.IsNullOrWhiteSpace(_config.LiveMcpToken))
-        {
-            _config.LiveMcpToken = _agentHostEndpoint.Token;
-        }
-
         AgentToolkitMcpServerCommand? command = AgentToolkitMcpServerLocator.ResolveDefault();
 
         AgentChoices =

@@ -31,7 +31,7 @@ public class AiAgentConfigTests
     }
 
     [Test]
-    public void Serialization_roundtrips_all_values()
+    public void Serialization_roundtrips_settings_without_persisting_the_legacy_token()
     {
         var source = new AiAgentConfig
         {
@@ -68,7 +68,8 @@ public class AiAgentConfigTests
             Assert.That(restored.InstallLiveMcp, Is.EqualTo(source.InstallLiveMcp));
             Assert.That(restored.McpConfigFileName, Is.EqualTo(source.McpConfigFileName));
             Assert.That(restored.McpServersPropertyName, Is.EqualTo(source.McpServersPropertyName));
-            Assert.That(restored.LiveMcpToken, Is.EqualTo(source.LiveMcpToken));
+            Assert.That(json.ContainsKey(nameof(AiAgentConfig.LiveMcpToken)), Is.False);
+            Assert.That(restored.LiveMcpToken, Is.Empty);
         });
     }
 
@@ -82,5 +83,15 @@ public class AiAgentConfigTests
         config.AgentId = "claude-code";
 
         Assert.That(raised, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Legacy_token_can_be_loaded_for_migration_but_is_omitted_from_new_saves()
+    {
+        var config = new AiAgentConfig();
+        CoreSerializer.PopulateFromJsonObject(config,
+            new JsonObject { [nameof(AiAgentConfig.LiveMcpToken)] = "legacy-migration-token" });
+        Assert.That(config.LiveMcpToken, Is.EqualTo("legacy-migration-token"));
+        Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey(nameof(AiAgentConfig.LiveMcpToken)), Is.False);
     }
 }
