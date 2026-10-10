@@ -187,6 +187,12 @@ internal partial class VersionControlCoordinator
     {
         if (!await service.CanCreateBranchAsync(branchName, cancellationToken))
         {
+            // A silent refusal would leave the user wondering why nothing happened. The backend answers
+            // an invalid name and a clash with an existing branch alike, so the warning names both.
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    string.Format(Strings.VersionControl_BranchNameUnavailableFormat, branchName)));
             return false;
         }
 
