@@ -99,20 +99,17 @@ public sealed partial class ElementViewModel
         EditTransition(edge);
     }
 
-    // Shows the element that holds the transition at edge in the property tab, where its type and
-    // properties are edited: this element when it sets its own side there, or else the element across the
-    // edge whose side decides how the boundary blends.
+    // Opens the transition at edge in the property tab, where its type and properties are edited: this
+    // element's own side when it sets one, or else the side across the edge that decides how the boundary
+    // blends.
     public void EditTransition(ElementEdge edge)
     {
-        if (GetTransition(edge) is not { } transition) return;
+        if ((ElementTransitionEdits.GetTransition(Model, edge) ?? GetTransition(edge)) is not { } transition) return;
 
-        Element owner = ElementTransitionEdits.GetTransition(Model, edge) != null
-            ? Model
-            : transition.FindHierarchicalParent<Element>() ?? Model;
         IEditorContext editorContext = Timeline.EditorContext;
         ObjectPropertyTabViewModel tab = editorContext.FindToolTab<ObjectPropertyTabViewModel>()
                                          ?? new ObjectPropertyTabViewModel(editorContext);
-        tab.NavigateCore(owner, false, null);
+        tab.NavigateCore(transition, false, null);
         editorContext.OpenToolTab(tab);
     }
 

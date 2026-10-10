@@ -15,6 +15,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Transitions;
 using Beutl.Language;
 using Beutl.ProjectSystem;
@@ -30,7 +31,7 @@ namespace Beutl.HeadlessUITests;
 public class ElementTransitionTimelineTests
 {
     // The menu has one item per edge, which adds the default transition when the edge has none and opens
-    // the element in the property tab, where the type and properties are edited.
+    // it in the property tab, alone, where its type and properties are edited.
     [AvaloniaTest]
     public async Task TheContextMenu_OpensTheTransitionAtEitherEdge()
     {
@@ -64,8 +65,8 @@ public class ElementTransitionTimelineTests
                     "a new boundary transition is centred on the cut");
                 Assert.That(undoAfterAdding, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoAfterAdding), "opening it again adds nothing");
-                Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target, Is.SameAs(incoming.Model));
-                Assert.That(TransitionEditorOf(editor, ElementEdge.Start).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(TransitionEditorOf(editor).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
             });
         }
         finally
@@ -87,7 +88,7 @@ public class ElementTransitionTimelineTests
             (view, window) = Show(incoming);
             incoming.OpenTransition(ElementEdge.Start);
             HeadlessTestHelpers.Settle(3);
-            ClipTransitionEditorViewModel transitionEditor = TransitionEditorOf(editor, ElementEdge.Start);
+            ClipTransitionEditorViewModel transitionEditor = TransitionEditorOf(editor);
             int undoCount = editor.HistoryManager.UndoCount;
 
             transitionEditor.ChangeType(typeof(WipeTransition));
@@ -259,8 +260,8 @@ public class ElementTransitionTimelineTests
             bool partVisible = incoming.EnterTransitionPart.Value.IsVisible;
             Type? type = incoming.GetTransitionType(ElementEdge.Start);
             incoming.EditTransition(ElementEdge.Start);
-            object? edited = TransitionEditorOf(editor, ElementEdge.Start).Value.Value;
-            TransitionEditorOf(editor, ElementEdge.Start).ChangeType(null);
+            object? edited = TransitionEditorOf(editor).Value.Value;
+            TransitionEditorOf(editor).ChangeType(null);
 
             Assert.Multiple(() =>
             {
@@ -292,11 +293,11 @@ public class ElementTransitionTimelineTests
             incoming.EditTransition(ElementEdge.Start);
             BaseEditorViewModel unlocked = EditorOf(editor);
             bool readOnlyWhileUnlocked = unlocked.IsReadOnly.Value;
-            bool typeEditableWhileUnlocked = TransitionEditorOf(editor, ElementEdge.Start).CanChangeType.Value;
+            bool typeEditableWhileUnlocked = TransitionEditorOf(editor).CanChangeType.Value;
             incoming.Model.IsLocked = true;
             HeadlessTestHelpers.Settle(3);
             bool readOnlyOnceLocked = unlocked.IsReadOnly.Value;
-            bool typeEditableOnceLocked = TransitionEditorOf(editor, ElementEdge.Start).CanChangeType.Value;
+            bool typeEditableOnceLocked = TransitionEditorOf(editor).CanChangeType.Value;
 
             Assert.Multiple(() =>
             {
@@ -312,7 +313,7 @@ public class ElementTransitionTimelineTests
         }
 
         static BaseEditorViewModel EditorOf(EditViewModel editor)
-            => TransitionEditorOf(editor, ElementEdge.Start).Properties.Value!.Properties
+            => TransitionEditorOf(editor).Properties.Value!.Properties
                 .OfType<EasingEditorViewModel<Easing>>()
                 .Single();
     }
@@ -384,9 +385,9 @@ public class ElementTransitionTimelineTests
             ObjectPropertyTabViewModel? tab = editor.FindToolTab<ObjectPropertyTabViewModel>();
             Assert.Multiple(() =>
             {
-                Assert.That(tab?.ChildContext.Value?.Target, Is.SameAs(incoming.Model));
-                Assert.That(TransitionEditorOf(editor, ElementEdge.Start).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
-                Assert.That(TransitionEditorOf(editor, ElementEdge.Start).Properties.Value?.Properties,
+                Assert.That(tab?.ChildContext.Value?.Target, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(TransitionEditorOf(editor).Value.Value, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(TransitionEditorOf(editor).Properties.Value?.Properties,
                     Has.Some.TypeOf<EasingEditorViewModel<Easing>>());
             });
         }
@@ -423,14 +424,13 @@ public class ElementTransitionTimelineTests
         }
     }
 
-    // The editor of the shown element's transition at edge in the property tab; the element lists its
-    // enter transition before its exit transition.
-    private static ClipTransitionEditorViewModel TransitionEditorOf(EditViewModel editor, ElementEdge edge)
+    // The editor of the transition open in the property tab, which shows that transition and nothing
+    // else of its element.
+    private static ClipTransitionEditorViewModel TransitionEditorOf(EditViewModel editor)
     {
-        ClipTransitionEditorViewModel[] editors = [.. editor.FindToolTab<ObjectPropertyTabViewModel>()!.ChildContext.Value!.Properties
-            .OfType<ClipTransitionEditorViewModel>()];
-        Assert.That(editors, Has.Length.EqualTo(2));
-        return editors[edge == ElementEdge.Start ? 0 : 1];
+        IReadOnlyList<IPropertyEditorContext> properties = editor.FindToolTab<ObjectPropertyTabViewModel>()!.ChildContext.Value!.Properties;
+        Assert.That(properties, Has.Count.EqualTo(1));
+        return (ClipTransitionEditorViewModel)properties[0];
     }
 
     // Avalonia's headless hit test answers only after the window has rendered a frame, so a press made
