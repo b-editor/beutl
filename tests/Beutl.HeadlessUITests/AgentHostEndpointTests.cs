@@ -6,6 +6,7 @@ using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
@@ -414,7 +415,6 @@ public sealed class AgentHostEndpointTests
                 "Editor construction must not acquire the token store or wait for its lock.");
             endpoint.StartInBackground();
             await Assert.ThrowsAsync<InvalidDataException>(async () => await endpoint.StartAsync());
-            using var settings = new Beutl.ViewModels.SettingsPages.AiAgentSettingsPageViewModel(endpoint, config);
             Assert.Multiple(() =>
             {
                 Assert.That(endpoint.IsRunning, Is.False);
@@ -422,8 +422,6 @@ public sealed class AgentHostEndpointTests
                 Assert.That(endpoint.Token, Is.Empty);
                 Assert.That(config.LiveMcpToken, Is.EqualTo("pending-migration-token"));
                 Assert.That(File.ReadAllText(invalidPath), Is.EqualTo("{"));
-                Assert.That(settings.IsLiveMcpAvailable.Value, Is.False);
-                Assert.That(settings.LiveMcpAuthHeader.Value, Is.Empty);
             });
             if (fileName == "settings.json")
                 Assert.That(File.Exists(Path.Combine(directory, LiveMcpTokenStore.FileName)), Is.False);

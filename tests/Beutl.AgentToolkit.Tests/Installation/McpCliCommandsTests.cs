@@ -30,23 +30,20 @@ public sealed class McpCliCommandsTests
     }
 
     [Test]
-    public void Claude_code_global_remote_uses_http_transport_with_auth_header()
+    public void Claude_code_global_registration_passes_the_profile_home_without_credentials()
     {
-        McpCliCommand? command = AgentMcpCliCommands.BuildRemote(
-            "claude-code",
-            AgentInstallScope.Global,
-            "beutl-live",
-            new Uri("http://127.0.0.1:5008/mcp"),
-            new Dictionary<string, string> { ["Authorization"] = "Bearer abc" });
+        McpCliCommand? command = AgentMcpCliCommands.BuildStdio(
+            "claude-code", AgentInstallScope.Global, "beutl-agent", "beutl-mcp", [],
+            new Dictionary<string, string> { ["BEUTL_WORKSPACE"] = "/videos", ["BEUTL_HOME"] = "/home/user/.beutl" });
 
         Assert.That(command, Is.Not.Null);
-        // Name and URL precede --header: the flag is variadic in the Claude
-        // CLI and would otherwise swallow them.
+        // No URL and no Authorization header: the server authenticates to the running editors itself.
         Assert.That(command!.Arguments, Is.EqualTo(new[]
         {
-            "mcp", "add", "--scope", "user", "--transport", "http",
-            "beutl-live", "http://127.0.0.1:5008/mcp",
-            "--header", "Authorization: Bearer abc",
+            "mcp", "add", "--scope", "user", "beutl-agent",
+            "--env", "BEUTL_WORKSPACE=/videos",
+            "--env", "BEUTL_HOME=/home/user/.beutl",
+            "--", "beutl-mcp",
         }));
     }
 
@@ -92,11 +89,6 @@ public sealed class McpCliCommandsTests
                 Is.Null);
             Assert.That(
                 AgentMcpCliCommands.BuildStdio("cursor", AgentInstallScope.Global, "s", "cmd", [], s_environment),
-                Is.Null);
-            Assert.That(
-                AgentMcpCliCommands.BuildRemote(
-                    "codex", AgentInstallScope.Global, "s", new Uri("http://localhost/"),
-                    new Dictionary<string, string>()),
                 Is.Null);
             Assert.That(AgentMcpCliCommands.SupportsStdio("custom", AgentInstallScope.Global), Is.False);
         });

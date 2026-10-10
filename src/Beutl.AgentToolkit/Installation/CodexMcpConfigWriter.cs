@@ -73,55 +73,35 @@ internal static class CodexMcpConfigWriter
         }
     }
 
+    // A stdio launcher; the server authenticates to the running editors itself, so no URL or
+    // token is stored in the Codex config.
     private static TomlTable CreateServers(AgentToolkitInstallOptions options)
     {
-        var servers = new TomlTable();
-        if (options.InstallStdioMcp)
+        if (string.IsNullOrWhiteSpace(options.McpCommand))
         {
-            if (string.IsNullOrWhiteSpace(options.StdioMcpCommand))
-            {
-                throw new InvalidOperationException("Stdio MCP installation requires a command.");
-            }
-
-            var arguments = new TomlArray();
-            foreach (string argument in options.StdioMcpArguments)
-            {
-                arguments.Add(argument);
-            }
-
-            var server = new TomlTable { ["command"] = options.StdioMcpCommand, ["args"] = arguments };
-            TomlTable environment = ToTable(options.StdioMcpEnvironment);
-            if (!string.IsNullOrWhiteSpace(options.WorkspaceRoot)
-                && !environment.ContainsKey("BEUTL_WORKSPACE"))
-            {
-                environment["BEUTL_WORKSPACE"] = Path.GetFullPath(options.WorkspaceRoot);
-            }
-
-            if (environment.Count > 0)
-            {
-                server["env"] = environment;
-            }
-
-            servers[options.StdioMcpServerName] = server;
+            throw new InvalidOperationException("MCP installation requires a command.");
         }
 
-        if (options.InstallLiveMcp)
+        var arguments = new TomlArray();
+        foreach (string argument in options.McpArguments)
         {
-            if (options.LiveMcpUri is null)
-            {
-                throw new InvalidOperationException("Live MCP installation requires a live MCP URI.");
-            }
-
-            var server = new TomlTable { ["url"] = options.LiveMcpUri.ToString() };
-            if (options.LiveMcpHeaders.Count > 0)
-            {
-                server["http_headers"] = ToTable(options.LiveMcpHeaders);
-            }
-
-            servers[options.LiveMcpServerName] = server;
+            arguments.Add(argument);
         }
 
-        return servers;
+        var server = new TomlTable { ["command"] = options.McpCommand, ["args"] = arguments };
+        TomlTable environment = ToTable(options.McpEnvironment);
+        if (!string.IsNullOrWhiteSpace(options.WorkspaceRoot)
+            && !environment.ContainsKey("BEUTL_WORKSPACE"))
+        {
+            environment["BEUTL_WORKSPACE"] = Path.GetFullPath(options.WorkspaceRoot);
+        }
+
+        if (environment.Count > 0)
+        {
+            server["env"] = environment;
+        }
+
+        return new TomlTable { [options.McpServerName] = server };
     }
 
     private static async Task WriteContentsAsync(Stream stream, string text, CancellationToken cancellationToken)

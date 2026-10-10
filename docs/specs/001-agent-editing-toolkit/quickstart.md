@@ -18,11 +18,11 @@ dotnet build Beutl.slnx
 Open **Settings → AI Agents** in the Beutl app. The page installs the bundled Skills, Subagents, and MCP configuration for a selected agent.
 
 - Pick the agent (Claude Code, Codex, Cursor, Gemini CLI, ... or Custom for manual paths) and an install scope: Global (user profile) or Project (a chosen folder). The catalog resolves each agent's folder conventions and MCP config file/format; the "Install destinations" panel previews the resolved paths and any CLI commands the install will run.
-- Choose whether to install Skills, Subagents, live MCP, or the optional stdio MCP. Live MCP (editing the running editor) is the default; components an agent cannot host automatically are disabled with an explanation.
+- Choose whether to install Skills, Subagents, and the MCP server. One server covers both live editing of running Beutl editors and headless editing of project files; components an agent cannot host automatically are disabled with an explanation.
 - Agents whose MCP registry is not a mergeable JSON file are registered through their own CLI (`claude mcp add --scope user`, `codex mcp add`) or left for manual setup; Codex subagents are converted to its TOML agent format on install.
 - Advanced overrides (folder names, MCP config file, servers property, stdio command line) apply on top; empty fields use the selected agent's defaults.
 
-The installer preserves existing JSON properties and existing MCP servers, then updates only the `beutl-agent` and `beutl-live` entries.
+The installer preserves existing JSON properties and existing MCP servers, then updates only the `beutl-agent` entry.
 
 ### Manual `.mcp.json`
 
@@ -33,22 +33,27 @@ The installer preserves existing JSON properties and existing MCP servers, then 
       "type": "stdio",
       "command": "dotnet",
       "args": ["run", "--project", "<abs>/src/Beutl.AgentToolkit.Mcp/Beutl.AgentToolkit.Mcp.csproj"],
-      "env": { "BEUTL_WORKSPACE": "<abs>/my-video-workspace" }   // writes are confined here
+      "env": {
+        "BEUTL_WORKSPACE": "<abs>/my-video-workspace",   // headless writes are confined here
+        "BEUTL_HOME": "<profile dir, ~/.beutl by default>" // running editors of this profile become live targets
+      }
     }
   }
 }
 ```
 
-In release, point `command` at the published exe. `BEUTL_WORKSPACE` is the write boundary: project saves and render/export outputs must resolve under it; reads (e.g. source media) may come from anywhere.
+In release, point `command` at the published exe. `BEUTL_WORKSPACE` is the write boundary of headless editing: project saves and render/export outputs must resolve under it; reads (e.g. source media) may come from anywhere. `BEUTL_HOME` names the Beutl profile whose running editors the same server can edit live (next section); omit it to use the default profile.
 
 > **stdio rule**: the server logs to **STDERR only** — STDOUT is the JSON-RPC channel. (Handled by `LogToStandardErrorThreshold = LogLevel.Trace`.)
 
-### In-app live mode (target scenes without switching the UI)
+### Live editing of a running Beutl (same server, `instanceId`)
 
-To see edits appear live in the running Beutl editor, connect to the **in-app endpoint** instead of spawning the headless server. With a project open in the editor (which hosts a loopback HTTP/SSE endpoint), point the agent host at it:
+The same server edits running Beutl editors; the agent decides per call. Call `list_instances` to see the editors of the profile (instance ID, PID, project, active scene). To work inside one of them, pass its `instanceId` on every call: the server discovers the process through `$BEUTL_HOME/agent-hosts`, proves its identity with the profile's live MCP token before sending any credential to its port, forwards the call over the process's loopback endpoint, and the edit appears live in that editor's preview and undo history. Scene operations there take `sceneId` from `list_scenes` instead of a file session. Tools that exist only inside an editor (`list_scenes`, AI generation, extension tools) are listed while an editor runs and always require `instanceId`. Calls without `instanceId` stay headless, exactly like the former stdio server; a `sceneId` without an `instanceId` is rejected. The agent configuration never holds a process URL or the bearer token.
+
+A raw HTTP client can still talk to one editor's **in-app endpoint** directly. It listens on loopback (port 59737 when free) and authenticates with the profile token stored in `~/.beutl/live-mcp-token.json`:
 
 ```jsonc
-{ "mcpServers": { "beutl-live": { "type": "http", "url": "http://127.0.0.1:<port>/mcp", "headers": { "Authorization": "Bearer <token>" } } } }
+{ "mcpServers": { "beutl-live-direct": { "type": "http", "url": "http://127.0.0.1:<port>/mcp", "headers": { "Authorization": "Bearer <token>" } } } }
 ```
 
 Call `list_scenes` to discover the open project's scene IDs, then pass `sceneId` on each scene operation. Live requests resolve their target independently, and edits use that scene's normal undo history. Editing the visible scene updates its preview/timeline/property panels; targeting a different scene preserves the visible editor selection. A closed target scene receives an unselected background editor tab for normal history and saving. The endpoint binds loopback only and authenticates agent connections via the `Authorization: Bearer <token>` header; the former `?token=` query form was removed so the secret never appears in URLs.
@@ -70,13 +75,15 @@ curl -sS -X POST \
 
 After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `list_scenes`. Pass the chosen `sceneId` on each scene operation. `notifications/initialized` may have no response body; that is normal. Tool results are nested as JSON text under `result.content[0].text` in raw HTTP clients, so decode that text payload after reading the SSE `data:` line. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
 
-With multiple Beutl processes running, one live MCP connection can operate on all instances in the same Beutl profile. Call `list_instances` to inspect their instance IDs, PIDs, projects and active scenes, then pass the chosen `instanceId` on every tool call (including scene discovery/open/create, reads, edits, undo/redo, renders and background-job polling). Scene operations also take the chosen `sceneId`. Without `instanceId`, a tool operates on the connected process. Selection is per call, so simultaneous agents can target different processes and scenes. If the target exits or its port is reused, the call returns `instance_unavailable` instead of switching to another process. Hosts with different profiles or live MCP tokens require their own authenticated connection. The stdio host remains a file-backed editor.
+With multiple Beutl processes running, one connection can operate on all instances in the same Beutl profile. Call `list_instances` to inspect their instance IDs, PIDs, projects and active scenes, then pass the chosen `instanceId` on every tool call (including scene discovery/open/create, reads, edits, undo/redo, renders and background-job polling). Scene operations also take the chosen `sceneId`. On a direct connection to an editor, a call without `instanceId` operates on that process; through the installed server it works headlessly on files. Selection is per call, so simultaneous agents can target different processes and scenes. If the target exits or its port is reused, the call returns `instance_unavailable` instead of switching to another process. Hosts with different profiles or live MCP tokens require their own authenticated connection.
+
+Through the installed server there is no connected instance: `connectedInstanceId` is `null`, and every live call names its target. When that process exits, calls naming its `instanceId` return `instance_unavailable` instead of reaching a replacement or the headless editor; call `list_instances` again and choose a running instance. The server itself keeps running for the agent session, so no reconnect or configuration change is needed. Calls in flight when a process exits fail and are never replayed by Beutl; read back the target state before retrying an edit. The server sends `notifications/tools/list_changed` as editors start and exit, so editor-only tools appear and disappear with them.
 
 ## The declarative loop (worked example)
 
 A creator asks the agent: *"10-second 1080p clip: a title that fades in over a background image for the first 3 s, then a logo bottom-right."*
 
-This example uses stdio's current file-backed scene. In live mode, discover the target with `list_scenes` or the project-creation result and include its `sceneId` in every scene operation below; live calls do not use session handles.
+This example uses the headless file-backed scene. To run it inside a running Beutl instead, pass `instanceId` on every call and include the `sceneId` (from `list_scenes` or the project-creation result) in every scene operation below; live calls do not use session handles.
 
 1. **Discover** what's editable:
    ```

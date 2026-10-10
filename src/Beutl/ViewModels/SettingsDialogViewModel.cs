@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Subjects;
-using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services;
@@ -23,7 +22,6 @@ public sealed class SettingsDialogViewModel : IDisposable
     public SettingsDialogViewModel(
         BeutlApiApplication clients,
         ExtensionProvider extensionProvider,
-        AgentHostEndpoint agentHostEndpoint,
         IAiPlanCoordinator aiPlanCoordinator)
     {
         ArgumentNullException.ThrowIfNull(aiPlanCoordinator);
@@ -34,7 +32,7 @@ public sealed class SettingsDialogViewModel : IDisposable
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel(extensionProvider));
         _information = new(() => new InformationPageViewModel());
         _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>(), extensionProvider));
-        _aiAgent = new(() => new AiAgentSettingsPageViewModel(agentHostEndpoint));
+        _aiAgent = new(() => new AiAgentSettingsPageViewModel());
     }
 
     public AccountSettingsPageViewModel Account => _account.Value;

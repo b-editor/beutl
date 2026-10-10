@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />
     <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />

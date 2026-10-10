@@ -176,7 +176,7 @@ public sealed partial class MainView : UserControl
     {
         try
         {
-            using var settingsViewModel = new AiAgentSettingsPageViewModel(viewModel.AgentHostEndpoint);
+            using var settingsViewModel = new AiAgentSettingsPageViewModel();
             await settingsViewModel.InstallAsync();
             NotificationService.ShowInformation(SettingsStrings.AiAgents, settingsViewModel.Status.Value);
         }

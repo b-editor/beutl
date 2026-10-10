@@ -270,7 +270,6 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
         return new SettingsDialogViewModel(
             _beutlClients,
             _extensionProvider,
-            _agentHostEndpoint,
             _aiPlanCoordinator);
     }
 

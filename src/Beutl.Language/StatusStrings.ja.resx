@@ -28,6 +28,7 @@
   <data name="None" xml:space="preserve"><value>なし</value></data>
   <data name="OpenAiJobs" xml:space="preserve"><value>AIジョブを開く</value></data>
   <data name="ConnectedServices" xml:space="preserve"><value>連携サービス</value></data>
+  <data name="LiveMcp" xml:space="preserve"><value>Live MCP</value></data>
   <data name="Stopped" xml:space="preserve"><value>停止中</value></data>
   <data name="Account" xml:space="preserve"><value>Beutlアカウント</value></data>
   <data name="NotSignedIn" xml:space="preserve"><value>サインインしていません</value></data>

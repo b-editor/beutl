@@ -12,21 +12,15 @@ public enum AgentInstallScope
 /// non-standard server shapes, app-managed storage) have no location and
 /// require manual registration.
 /// <para>
-/// <paramref name="StdioTypeValue"/>: value of the stdio entry's "type" key,
-/// or null to omit it (most agents infer stdio from "command").
-/// <paramref name="RemoteUrlPropertyName"/>: property carrying a remote
-/// (HTTP) server's URL, or null when the agent's remote-entry shape is
-/// unknown/unsupported — the live MCP entry is then not written.
-/// <paramref name="RemoteTypeValue"/>: value of the remote entry's "type"
-/// key, or null to omit it.
+/// <paramref name="StdioTypeValue"/>: value of the "type" key on the Beutl
+/// server entry, a stdio launcher, or null to omit it (most agents infer stdio
+/// from "command").
 /// </para>
 /// </summary>
 public sealed record AgentMcpLocation(
     string ConfigFileName,
     string ServersPropertyName,
     string? StdioTypeValue = null,
-    string? RemoteUrlPropertyName = "url",
-    string? RemoteTypeValue = null,
     McpConfigFormat Format = McpConfigFormat.Json);
 
 /// <summary>
@@ -60,7 +54,7 @@ public sealed record AgentDefinition(
 public static class AgentCatalog
 {
     private static readonly AgentMcpLocation s_repoRootMcpJson =
-        new(".mcp.json", "mcpServers", RemoteTypeValue: "http");
+        new(".mcp.json", "mcpServers");
 
     private static readonly AgentMcpLocation s_codexMcpToml =
         new(Path.Combine(".codex", "config.toml"), "mcp_servers", Format: McpConfigFormat.CodexToml);
@@ -75,8 +69,7 @@ public static class AgentCatalog
             ProjectSubagentsDirectory: Path.Combine(".claude", "agents"),
             GlobalSubagentsDirectory: Path.Combine(".claude", "agents"),
             ProjectMcp: s_repoRootMcpJson),
-        // Write TOML directly so Live MCP's static Authorization header works
-        // without requiring the Codex CLI or an inherited environment variable.
+        // Write TOML directly so installs work without requiring the Codex CLI.
         new("codex", "Codex",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
             GlobalSkillsDirectory: Path.Combine(".agents", "skills"),
@@ -98,24 +91,19 @@ public static class AgentCatalog
         new("github-copilot", "GitHub Copilot",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
             GlobalSkillsDirectory: Path.Combine(".copilot", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                ".mcp.json", "mcpServers", StdioTypeValue: "stdio", RemoteTypeValue: "http"),
+            ProjectMcp: new AgentMcpLocation(".mcp.json", "mcpServers", StdioTypeValue: "stdio"),
             GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".copilot", "mcp-config.json"), "mcpServers",
-                StdioTypeValue: "stdio", RemoteTypeValue: "http")),
+                Path.Combine(".copilot", "mcp-config.json"), "mcpServers", StdioTypeValue: "stdio")),
         new("gemini-cli", "Gemini CLI",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
             GlobalSkillsDirectory: Path.Combine(".gemini", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                Path.Combine(".gemini", "settings.json"), "mcpServers", RemoteUrlPropertyName: "httpUrl"),
-            GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".gemini", "settings.json"), "mcpServers", RemoteUrlPropertyName: "httpUrl")),
+            ProjectMcp: new AgentMcpLocation(Path.Combine(".gemini", "settings.json"), "mcpServers"),
+            GlobalMcp: new AgentMcpLocation(Path.Combine(".gemini", "settings.json"), "mcpServers")),
         new("windsurf", "Windsurf",
             ProjectSkillsDirectory: Path.Combine(".windsurf", "skills"),
             GlobalSkillsDirectory: Path.Combine(".codeium", "windsurf", "skills"),
             GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".codeium", "windsurf", "mcp_config.json"), "mcpServers",
-                RemoteUrlPropertyName: "serverUrl")),
+                Path.Combine(".codeium", "windsurf", "mcp_config.json"), "mcpServers")),
         new("cline", "Cline",
             ProjectSkillsDirectory: Path.Combine(".agents", "skills"),
             GlobalSkillsDirectory: Path.Combine(".agents", "skills")),
@@ -143,46 +131,36 @@ public static class AgentCatalog
         new("roo", "Roo Code",
             ProjectSkillsDirectory: Path.Combine(".roo", "skills"),
             GlobalSkillsDirectory: Path.Combine(".roo", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                Path.Combine(".roo", "mcp.json"), "mcpServers", RemoteTypeValue: "streamable-http")),
+            ProjectMcp: new AgentMcpLocation(Path.Combine(".roo", "mcp.json"), "mcpServers")),
         new("kilo", "Kilo Code",
             ProjectSkillsDirectory: Path.Combine(".kilocode", "skills"),
             GlobalSkillsDirectory: Path.Combine(".kilocode", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                Path.Combine(".kilocode", "mcp.json"), "mcpServers", RemoteTypeValue: "streamable-http")),
+            ProjectMcp: new AgentMcpLocation(Path.Combine(".kilocode", "mcp.json"), "mcpServers")),
         new("continue", "Continue",
             ProjectSkillsDirectory: Path.Combine(".continue", "skills"),
             GlobalSkillsDirectory: Path.Combine(".continue", "skills")),
         new("qwen-code", "Qwen Code",
             ProjectSkillsDirectory: Path.Combine(".qwen", "skills"),
             GlobalSkillsDirectory: Path.Combine(".qwen", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                Path.Combine(".qwen", "settings.json"), "mcpServers", RemoteUrlPropertyName: "httpUrl"),
-            GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".qwen", "settings.json"), "mcpServers", RemoteUrlPropertyName: "httpUrl")),
-        // ~/.openhands/mcp.json documents stdio entries only, so the live
-        // (HTTP) entry stays manual.
+            ProjectMcp: new AgentMcpLocation(Path.Combine(".qwen", "settings.json"), "mcpServers"),
+            GlobalMcp: new AgentMcpLocation(Path.Combine(".qwen", "settings.json"), "mcpServers")),
+        // ~/.openhands/mcp.json documents stdio entries, which both Beutl entries are.
         new("openhands", "OpenHands",
             ProjectSkillsDirectory: Path.Combine(".openhands", "skills"),
             GlobalSkillsDirectory: Path.Combine(".openhands", "skills"),
-            GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".openhands", "mcp.json"), "mcpServers", RemoteUrlPropertyName: null)),
+            GlobalMcp: new AgentMcpLocation(Path.Combine(".openhands", "mcp.json"), "mcpServers")),
         // Crush requires an explicit "type" on every entry.
         new("crush", "Crush",
             ProjectSkillsDirectory: Path.Combine(".crush", "skills"),
             GlobalSkillsDirectory: Path.Combine(".config", "crush", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                ".crush.json", "mcp", StdioTypeValue: "stdio", RemoteTypeValue: "http"),
+            ProjectMcp: new AgentMcpLocation(".crush.json", "mcp", StdioTypeValue: "stdio"),
             GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".config", "crush", "crush.json"), "mcp",
-                StdioTypeValue: "stdio", RemoteTypeValue: "http")),
+                Path.Combine(".config", "crush", "crush.json"), "mcp", StdioTypeValue: "stdio")),
         new("droid", "Droid (Factory)",
             ProjectSkillsDirectory: Path.Combine(".factory", "skills"),
             GlobalSkillsDirectory: Path.Combine(".factory", "skills"),
-            ProjectMcp: new AgentMcpLocation(
-                Path.Combine(".factory", "mcp.json"), "mcpServers", RemoteTypeValue: "http"),
-            GlobalMcp: new AgentMcpLocation(
-                Path.Combine(".factory", "mcp.json"), "mcpServers", RemoteTypeValue: "http")),
+            ProjectMcp: new AgentMcpLocation(Path.Combine(".factory", "mcp.json"), "mcpServers"),
+            GlobalMcp: new AgentMcpLocation(Path.Combine(".factory", "mcp.json"), "mcpServers")),
         new("trae", "Trae",
             ProjectSkillsDirectory: Path.Combine(".trae", "skills"),
             GlobalSkillsDirectory: Path.Combine(".trae", "skills")),

@@ -37,9 +37,9 @@ public sealed record AgentToolkitInstallOptions
 
     public bool InstallSubagents { get; init; } = true;
 
-    public bool InstallStdioMcp { get; init; } = true;
-
-    public bool InstallLiveMcp { get; init; }
+    // One stdio server covers both ways of working: it edits a running Beutl editor live whenever
+    // a call names an instanceId, and project files headlessly otherwise.
+    public bool InstallMcp { get; init; } = true;
 
     public string McpConfigFileName { get; init; } = ".mcp.json";
 
@@ -50,43 +50,29 @@ public sealed record AgentToolkitInstallOptions
     public string McpServersPropertyName { get; init; } = "mcpServers";
 
     // null omits the "type" key; most agents infer stdio from "command".
-    public string? StdioMcpTypeValue { get; init; }
+    public string? McpTypeValue { get; init; }
 
-    public string LiveMcpUrlPropertyName { get; init; } = "url";
+    public const string DefaultServerName = "beutl-agent";
 
-    // null omits the "type" key on the live (remote) entry.
-    public string? LiveMcpTypeValue { get; init; } = "http";
+    public string McpServerName { get; init; } = DefaultServerName;
 
-    public const string DefaultStdioServerName = "beutl-agent";
-
-    public const string DefaultLiveServerName = "beutl-live";
-
-    public string StdioMcpServerName { get; init; } = DefaultStdioServerName;
-
-    public string LiveMcpServerName { get; init; } = DefaultLiveServerName;
-
+    // Written as BEUTL_WORKSPACE: the write boundary of headless project edits.
     public string? WorkspaceRoot { get; init; }
 
-    public string? StdioMcpCommand { get; init; }
+    public string? McpCommand { get; init; }
 
-    public IReadOnlyList<string> StdioMcpArguments { get; init; } = [];
+    public IReadOnlyList<string> McpArguments { get; init; } = [];
 
-    public IReadOnlyDictionary<string, string> StdioMcpEnvironment { get; init; }
-        = new Dictionary<string, string>();
-
-    public Uri? LiveMcpUri { get; init; }
-
-    // Written as the remote entry's "headers" object; carries the
-    // Authorization bearer token, which never travels in the URL.
-    public IReadOnlyDictionary<string, string> LiveMcpHeaders { get; init; }
+    // Typically BEUTL_HOME, so the server discovers the editors of the same profile as the
+    // installing Beutl; the agent configuration never carries the live MCP token or a URL.
+    public IReadOnlyDictionary<string, string> McpEnvironment { get; init; }
         = new Dictionary<string, string>();
 }
 
 public sealed record AgentToolkitInstallResult(
     IReadOnlyList<string> InstalledFiles,
     string? McpConfigPath,
-    bool InstalledStdioMcp,
-    bool InstalledLiveMcp,
+    bool InstalledMcp,
     IReadOnlyList<InstalledFileRecord> AssetFileRecords);
 
 public sealed record AgentToolkitMcpServerCommand(

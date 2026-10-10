@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Threading;
+using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
@@ -140,8 +141,10 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _beforeStart = beforeStart;
         _tokenFactory = tokenFactory;
         Token = token;
+        // The same directory the live MCP broker reads, so an agent launched outside this process
+        // discovers every editor of the profile.
         _instanceRegistry = new AgentHostInstanceRegistry(registryDirectory
-            ?? Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "agent-hosts"));
+            ?? AgentHostInstanceRegistry.GetDefaultDirectory(BeutlEnvironment.GetHomeDirectoryPath()));
         if (tokenFactory is null)
             _instanceRouter = CreateInstanceRouter(token);
         _extensionTools = new ExtensionMcpToolCatalog(editorService);
@@ -264,12 +267,11 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             {
                 await app.StartAsync(cancellationToken).ConfigureAwait(false);
 
-                string address = app.Services
+                IServerAddressesFeature addresses = app.Services
                     .GetRequiredService<IServer>()
                     .Features
-                    .Get<IServerAddressesFeature>()!
-                    .Addresses
-                    .Single();
+                    .Get<IServerAddressesFeature>()!;
+                string address = addresses.Addresses.Single();
 
                 var endpointUri = new Uri(new Uri(address), "/mcp");
 
@@ -296,9 +298,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 // StopAsync ran while app.StartAsync was in flight (so it couldn't see/take
                 // _application): stop the just-started host here instead of leaving it running.
                 if (stopRequested)
-                {
                     await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
-                }
 
                 return;
             }
@@ -405,9 +405,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
 
         if (app is not null)
-        {
             await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
-        }
     }
 
     private WebApplication CreateApplication(int port)
@@ -418,10 +416,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             ApplicationName = typeof(AgentHostEndpoint).Assembly.FullName
         });
 
-        builder.WebHost.ConfigureKestrel(options =>
-        {
-            options.Listen(IPAddress.Loopback, port);
-        });
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
 
         string workspaceRoot = ResolveWorkspaceRoot(_config);
 

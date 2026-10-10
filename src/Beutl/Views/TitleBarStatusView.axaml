@@ -176,7 +176,7 @@
                                     <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Classes="label" Text="{x:Static lang:SettingsStrings.AiAgents_LiveMcp}" />
+                                <TextBlock Classes="label" Text="{x:Static lang:StatusStrings.LiveMcp}" />
                                 <StackPanel Grid.Column="1" Spacing="2">
                                     <TextBlock Text="{Binding LiveMcpText.Value}" />
                                     <SelectableTextBlock FontSize="12"

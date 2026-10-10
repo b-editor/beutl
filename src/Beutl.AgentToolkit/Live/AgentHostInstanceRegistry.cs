@@ -2,16 +2,23 @@
 using System.Globalization;
 using System.Text.Json;
 
-namespace Beutl.AgentHost;
+namespace Beutl.AgentToolkit.Live;
 
-internal sealed record AgentHostInstanceRegistration(
+public sealed record AgentHostInstanceRegistration(
     string InstanceId, int ProcessId, long ProcessStartTime, Uri EndpointUri);
 
-// Discovery is scoped to the Beutl profile. Entries contain no credentials; hosts in the same
-// profile authenticate forwarding with the live MCP token already used by the agent connection.
-internal sealed class AgentHostInstanceRegistry(string directory)
+// Discovery is scoped to the Beutl profile. Entries contain no credentials; hosts and the live MCP
+// broker in the same profile authenticate forwarding with the live MCP token of that profile.
+public sealed class AgentHostInstanceRegistry(string directory)
 {
+    public const string DirectoryName = "agent-hosts";
+
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+
+    public static string GetDefaultDirectory(string profileDirectory)
+        => Path.Combine(profileDirectory, DirectoryName);
+
+    public string Location => directory;
 
     public IDisposable Register(string instanceId, Uri endpointUri)
     {

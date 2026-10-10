@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
+using Beutl.AgentToolkit.Live;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

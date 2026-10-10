@@ -1,11 +1,11 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace Beutl.AgentHost;
+namespace Beutl.AgentToolkit.Live;
 
-internal sealed record AgentHostIdentityProof(string InstanceId, string Challenge, string Proof);
+public sealed record AgentHostIdentityProof(string InstanceId, string Challenge, string Proof);
 
-internal sealed class AgentHostInstanceAuthentication(string token, string instanceId)
+public sealed class AgentHostInstanceAuthentication(string token, string instanceId)
 {
     private readonly byte[] _key = Encoding.UTF8.GetBytes(token);
 

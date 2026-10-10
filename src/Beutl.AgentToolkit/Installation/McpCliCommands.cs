@@ -22,7 +22,8 @@ public sealed record McpCliResult(bool Success, int ExitCode, string Output);
 /// <summary>
 /// Builds `&lt;agent&gt; mcp add` command lines for agents whose MCP registry
 /// cannot be edited as a JSON file (Codex's TOML config) or should not be
-/// (Claude Code's app-managed ~/.claude.json).
+/// (Claude Code's app-managed ~/.claude.json). The Beutl entry is a stdio
+/// launcher that also forwards to running editors.
 /// </summary>
 public static class AgentMcpCliCommands
 {
@@ -32,14 +33,9 @@ public static class AgentMcpCliCommands
             or ("codex", AgentInstallScope.Global);
     }
 
-    public static bool SupportsRemote(string agentId, AgentInstallScope scope)
-    {
-        return (agentId, scope) is ("claude-code", AgentInstallScope.Global);
-    }
-
-    // `--env` / `--header` are variadic in the Claude CLI and swallow every
-    // following argument, so the server name (and URL) must come first and
-    // variadic options must be terminated by `--` or the end of the line.
+    // `--env` is variadic in the Claude CLI and swallows every following
+    // argument, so the server name must come first and the option list must
+    // be terminated by `--` before the command.
     public static McpCliCommand? BuildStdio(
         string agentId,
         AgentInstallScope scope,
@@ -56,25 +52,6 @@ public static class AgentMcpCliCommands
             ("codex", AgentInstallScope.Global) => new McpCliCommand(
                 "codex",
                 ["mcp", "add", serverName, .. EnvFlags(environment), "--", command, .. arguments]),
-            _ => null,
-        };
-    }
-
-    public static McpCliCommand? BuildRemote(
-        string agentId,
-        AgentInstallScope scope,
-        string serverName,
-        Uri url,
-        IReadOnlyDictionary<string, string> headers)
-    {
-        return (agentId, scope) switch
-        {
-            ("claude-code", AgentInstallScope.Global) => new McpCliCommand(
-                "claude",
-                [
-                    "mcp", "add", "--scope", "user", "--transport", "http",
-                    serverName, url.ToString(), .. HeaderFlags(headers),
-                ]),
             _ => null,
         };
     }
@@ -99,15 +76,6 @@ public static class AgentMcpCliCommands
         {
             yield return "--env";
             yield return $"{pair.Key}={pair.Value}";
-        }
-    }
-
-    private static IEnumerable<string> HeaderFlags(IReadOnlyDictionary<string, string> headers)
-    {
-        foreach (KeyValuePair<string, string> pair in headers)
-        {
-            yield return "--header";
-            yield return $"{pair.Key}: {pair.Value}";
         }
     }
 }

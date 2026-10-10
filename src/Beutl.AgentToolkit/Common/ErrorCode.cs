@@ -20,4 +20,6 @@ public static class ErrorCode
     public const string AiJobNotFound = "ai_job_not_found";
     public const string ExtensionToolUnavailable = "extension_tool_unavailable";
     public const string ExtensionToolFailed = "extension_tool_failed";
+    public const string InstanceUnavailable = "instance_unavailable";
+    public const string LiveUnavailable = "live_unavailable";
 }

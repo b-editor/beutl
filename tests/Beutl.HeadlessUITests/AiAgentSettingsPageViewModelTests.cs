@@ -5,14 +5,11 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using Beutl.AgentHost;
 using Beutl.AgentToolkit.Installation;
-using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Language;
 using Beutl.Pages.SettingsPages;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
 using Tomlyn;
@@ -23,11 +20,7 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class AiAgentSettingsPageViewModelTests
 {
-    private static AiAgentSettingsPageViewModel CreateViewModel(AiAgentConfig config)
-    {
-        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-        return new AiAgentSettingsPageViewModel(endpoint, config);
-    }
+    private static AiAgentSettingsPageViewModel CreateViewModel(AiAgentConfig config) => new(config);
 
     private static AgentChoiceItem Choice(AiAgentSettingsPageViewModel viewModel, string id)
     {
@@ -51,19 +44,17 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Is.EqualTo(Path.Combine(home, ".claude", "skills")));
-            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Not.Contain("beutl-agent"));
             Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
-            // Live MCP is the primary integration; stdio is opt-in.
-            Assert.That(viewModel.InstallLiveMcp.Value, Is.True);
-            Assert.That(viewModel.InstallStdioMcp.Value, Is.False);
-            Assert.That(viewModel.CanInstallStdioMcp.Value, Is.True);
-            Assert.That(viewModel.IsStdioCommandMissing.Value, Is.False);
+            // One MCP server serves live and headless editing; it is on by default.
+            Assert.That(viewModel.InstallMcp.Value, Is.True);
+            Assert.That(viewModel.CanInstallMcpServer.Value, Is.True);
+            Assert.That(viewModel.IsMcpCommandMissing.Value, Is.False);
         });
     }
 
     [AvaloniaTest]
-    public void Missing_stdio_command_disables_the_stdio_toggle()
+    public void Missing_launcher_command_disables_the_mcp_toggle()
     {
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
 
@@ -71,8 +62,8 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.CanInstallStdioMcp.Value, Is.False);
-            Assert.That(viewModel.IsStdioCommandMissing.Value, Is.True);
+            Assert.That(viewModel.CanInstallMcpServer.Value, Is.False);
+            Assert.That(viewModel.IsMcpCommandMissing.Value, Is.True);
             Assert.That(viewModel.CanInstallMcp.Value, Is.True);
         });
     }
@@ -106,8 +97,8 @@ public sealed class AiAgentSettingsPageViewModelTests
         {
             Assert.That(viewModel.CanInstallMcp.Value, Is.True);
             Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.EndWith("config.toml"));
-            // The endpoint has not started yet.
-            Assert.That(viewModel.CanInstallLiveMcp.Value, Is.False);
+            // The server is a launcher, so no running editor is needed to install it.
+            Assert.That(viewModel.CanInstallMcpServer.Value, Is.True);
             Assert.That(viewModel.CanInstallSubagents.Value, Is.True);
             Assert.That(
                 viewModel.ResolvedSubagentsPath.Value,
@@ -140,8 +131,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 McpServersPropertyName = "mcpServers",
                 InstallSkills = false,
                 InstallSubagents = false,
-                InstallLiveMcp = false,
-                InstallStdioMcp = true,
+                InstallMcp = true,
                 StdioCommand = "beutl-mcp",
             };
             using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
@@ -185,8 +175,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 ProjectRoot = Path.Combine(BeutlHomeIsolation.CurrentHome!, relativeHome),
                 InstallSkills = false,
                 InstallSubagents = false,
-                InstallLiveMcp = false,
-                InstallStdioMcp = true,
+                InstallMcp = true,
                 StdioCommand = "beutl-mcp",
             };
             using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
@@ -256,8 +245,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 SubagentsDirectory = Path.Combine(temporaryDirectory, "agents"),
                 InstallSkills = installSkills,
                 InstallSubagents = installSubagents,
-                InstallLiveMcp = true,
-                InstallStdioMcp = false,
+                InstallMcp = true,
             };
             using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
             Assert.That(viewModel.CanInstallMcp.Value, Is.False);
@@ -281,12 +269,10 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     [TestCase(AgentInstallScope.Global)]
     [TestCase(AgentInstallScope.Project)]
-    public async Task Codex_live_mcp_is_available_in_both_scopes(AgentInstallScope scope)
+    public void Codex_mcp_is_available_in_both_scopes(AgentInstallScope scope)
     {
         var config = new AiAgentConfig { AgentId = "codex", InstallScope = scope.ToString(), ProjectRoot = "/repo" };
-        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-        await endpoint.StartAsync();
-        using var viewModel = new AiAgentSettingsPageViewModel(endpoint, config);
+        using var viewModel = new AiAgentSettingsPageViewModel(config);
 
         string root = scope == AgentInstallScope.Project
             ? Path.Combine("/repo", ".codex")
@@ -295,34 +281,30 @@ public sealed class AiAgentSettingsPageViewModelTests
                 : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.CanInstallLiveMcp.Value, Is.True);
-            Assert.That(viewModel.InstallLiveMcp.Value, Is.True);
-            Assert.That(viewModel.InstallStdioMcp.Value, Is.False);
+            Assert.That(viewModel.CanInstallMcpServer.Value, Is.True);
+            Assert.That(viewModel.InstallMcp.Value, Is.True);
             Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(root, "config.toml")));
         });
     }
 
     [AvaloniaTest]
-    public async Task Cli_preview_tracks_selected_transports_without_a_stdio_fallback()
+    public void Cli_preview_shows_the_single_server_registration()
     {
-        var config = new AiAgentConfig();
-        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config);
-        await endpoint.StartAsync();
-        using var viewModel = new AiAgentSettingsPageViewModel(endpoint, config);
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
-        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-live").And.Not.Contain("beutl-agent"));
-        viewModel.InstallLiveMcp.Value = false;
+        // Claude Code's user scope registers through its CLI: one entry, profile bound, no token.
+        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-agent").And.Contain("BEUTL_HOME=")
+            .And.Not.Contain("beutl-live").And.Not.Contain("Bearer"));
+        viewModel.InstallMcp.Value = false;
         Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Not.Contain("mcp add"));
-        viewModel.InstallStdioMcp.Value = true;
-        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-agent").And.Not.Contain("beutl-live"));
-        viewModel.InstallLiveMcp.Value = true;
-        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("beutl-agent").And.Contain("beutl-live"));
+        viewModel.InstallMcp.Value = true;
+        Assert.That(viewModel.ResolvedMcpConfigPath.Value, Does.Contain("mcp add"));
     }
 
     [AvaloniaTest]
     [TestCase(480, false)]
     [TestCase(800, true)]
-    public async Task Codex_settings_install_live_mcp_and_display_the_actual_config_path(int width, bool light)
+    public async Task Codex_settings_install_the_mcp_server_and_display_the_actual_config_path(int width, bool light)
     {
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "codex-install-" + Guid.NewGuid().ToString("N"));
         var config = new AiAgentConfig
@@ -334,14 +316,10 @@ public sealed class AiAgentSettingsPageViewModelTests
             McpServersPropertyName = "mcpServers",
             InstallSkills = false,
             InstallSubagents = false,
-            LiveMcpToken = "headless-test-token",
         };
-        await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config,
-            Path.Combine(root, "profile"));
-        await endpoint.StartAsync();
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
-        using var viewModel = new AiAgentSettingsPageViewModel(endpoint, config);
+        using var viewModel = new AiAgentSettingsPageViewModel(config);
         var page = new AiAgentSettingsPage { DataContext = viewModel };
         var window = new Window
         {
@@ -371,15 +349,14 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(overrides, Has.Length.EqualTo(2));
             Assert.That(overrides.All(row => !row.IsVisible), Is.True);
 
-            OptionsDisplayItem liveRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_LiveMcp));
-            OptionsDisplayItem stdioRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_StdioMcp));
-            var liveToggle = (ToggleSwitch)liveRow.ActionButton!;
-            var stdioToggle = (ToggleSwitch)stdioRow.ActionButton!;
+            // A single MCP row: the server decides per call between live and headless editing.
+            OptionsDisplayItem mcpRow = rows.Single(row => Equals(row.Header, SettingsStrings.AiAgents_Mcp));
+            var mcpToggle = (ToggleSwitch)mcpRow.ActionButton!;
             Assert.Multiple(() =>
             {
-                Assert.That(liveRow.IsEnabled, Is.True);
-                Assert.That(liveToggle.IsChecked, Is.True);
-                Assert.That(stdioToggle.IsChecked, Is.False);
+                Assert.That(mcpRow.IsEnabled, Is.True);
+                Assert.That(mcpToggle.IsChecked, Is.True);
+                Assert.That(rows.Any(row => Equals(row.Header, "Live MCP サーバー") || Equals(row.Header, "Stdio MCP サーバー")), Is.False);
             });
 
             await viewModel.InstallAsync();
@@ -387,25 +364,29 @@ public sealed class AiAgentSettingsPageViewModelTests
             string path = viewModel.ResolvedMcpConfigPath.Value;
             Assert.That(path, Is.EqualTo(Path.Combine(root, ".codex", "config.toml")));
             Assert.That(File.Exists(path), Is.True, viewModel.Status.Value);
-            var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(path))!["mcp_servers"];
-            var live = (TomlTable)servers["beutl-live"];
+            string toml = await File.ReadAllTextAsync(path);
+            var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(toml)!["mcp_servers"];
+            var server = (TomlTable)servers["beutl-agent"];
             Assert.Multiple(() =>
             {
-                Assert.That(servers.ContainsKey("beutl-agent"), Is.False);
-                Assert.That(live["url"], Is.EqualTo(endpoint.EndpointUri!.ToString()));
-                Assert.That(((TomlTable)live["http_headers"])["Authorization"], Is.EqualTo("Bearer headless-test-token"));
+                Assert.That(servers.Keys, Is.EqualTo(new[] { "beutl-agent" }));
+                Assert.That(server["command"], Is.EqualTo(viewModel.McpCommand.Value));
+                Assert.That(((TomlTable)server["env"])["BEUTL_HOME"], Is.EqualTo(BeutlEnvironment.GetHomeDirectoryPath()));
+                Assert.That(((TomlTable)server["env"])["BEUTL_WORKSPACE"], Is.EqualTo(Path.GetFullPath(viewModel.WorkspaceRoot.Value)));
+                Assert.That(server.ContainsKey("url"), Is.False);
+                Assert.That(toml, Does.Not.Contain("Bearer").And.Not.Contain("127.0.0.1"));
                 Assert.That(viewModel.InstalledFiles, Has.Count.EqualTo(1));
                 Assert.That(page.GetVisualDescendants().OfType<SelectableTextBlock>().Any(block => block.Text == path), Is.True);
             });
 
-            stdioRow.BringIntoView();
+            mcpRow.BringIntoView();
             HeadlessTestHelpers.Render();
             if (Environment.GetEnvironmentVariable("BEUTL_CODEX_MCP_CAPTURE") is { Length: > 0 } directory)
             {
                 Directory.CreateDirectory(directory);
                 using var image = window.CaptureRenderedFrame();
                 Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"codex-live-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
+                image!.Save(Path.Combine(directory, $"codex-mcp-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
                 File.Copy(path, Path.Combine(directory, "config.toml"), overwrite: true);
                 advanced.BringIntoView();
                 HeadlessTestHelpers.Render();
@@ -434,6 +415,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.CanInstallMcp.Value, Is.False);
+            Assert.That(viewModel.CanInstallMcpServer.Value, Is.False);
             Assert.That(viewModel.CanInstallSubagents.Value, Is.False);
             Assert.That(
                 viewModel.ResolvedMcpConfigPath.Value,
@@ -493,8 +475,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
         viewModel.WorkspaceRoot.Value = root;
-        viewModel.InstallStdioMcp.Value = false;
-        viewModel.InstallLiveMcp.Value = false;
+        viewModel.InstallMcp.Value = false;
 
         await viewModel.InstallAsync();
 
@@ -534,19 +515,6 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
-    public void Endpoint_not_running_reports_live_mcp_unavailable()
-    {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.IsLiveMcpAvailable.Value, Is.False);
-            Assert.That(viewModel.CanInstallLiveMcp.Value, Is.False);
-            Assert.That(viewModel.LiveMcpUrl.Value, Is.Empty);
-        });
-    }
-
-    [AvaloniaTest]
     public void Edits_write_through_to_config_and_restore_in_a_new_view_model()
     {
         var config = new AiAgentConfig();
@@ -557,7 +525,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 s => s.Scope == AgentInstallScope.Project);
             viewModel.ProjectRoot.Value = "/repo";
             viewModel.WorkspaceRoot.Value = "/videos";
-            viewModel.InstallStdioMcp.Value = false;
+            viewModel.InstallMcp.Value = false;
             viewModel.McpConfigFileName.Value = "custom-mcp.json";
             viewModel.FollowLiveMcpEdits.Value = true;
         }
@@ -568,7 +536,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(config.InstallScope, Is.EqualTo(nameof(AgentInstallScope.Project)));
             Assert.That(config.ProjectRoot, Is.EqualTo("/repo"));
             Assert.That(config.WorkspaceRoot, Is.EqualTo("/videos"));
-            Assert.That(config.InstallStdioMcp, Is.False);
+            Assert.That(config.InstallMcp, Is.False);
             Assert.That(config.McpConfigFileName, Is.EqualTo("custom-mcp.json"));
             Assert.That(config.FollowLiveMcpEdits, Is.True);
         });
@@ -579,7 +547,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(restored.SelectedAgent.Value.Id, Is.EqualTo("cursor"));
             Assert.That(restored.SelectedScope.Value.Scope, Is.EqualTo(AgentInstallScope.Project));
             Assert.That(restored.ProjectRoot.Value, Is.EqualTo("/repo"));
-            Assert.That(restored.InstallStdioMcp.Value, Is.False);
+            Assert.That(restored.InstallMcp.Value, Is.False);
             Assert.That(restored.FollowLiveMcpEdits.Value, Is.True);
             Assert.That(
                 restored.ResolvedMcpConfigPath.Value,
@@ -588,7 +556,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
-    public void Customized_stdio_command_survives_reopening()
+    public void Customized_mcp_command_survives_reopening()
     {
         var config = new AiAgentConfig();
         using (AiAgentSettingsPageViewModel viewModel = CreateViewModel(config))

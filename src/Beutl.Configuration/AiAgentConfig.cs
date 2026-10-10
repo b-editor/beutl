@@ -15,8 +15,7 @@ public sealed class AiAgentConfig : ConfigurationBase
     public static readonly CoreProperty<string> SubagentsDirectoryProperty;
     public static readonly CoreProperty<bool> InstallSkillsProperty;
     public static readonly CoreProperty<bool> InstallSubagentsProperty;
-    public static readonly CoreProperty<bool> InstallStdioMcpProperty;
-    public static readonly CoreProperty<bool> InstallLiveMcpProperty;
+    public static readonly CoreProperty<bool> InstallMcpProperty;
     public static readonly CoreProperty<string> McpConfigFileNameProperty;
     public static readonly CoreProperty<string> McpServersPropertyNameProperty;
     public static readonly CoreProperty<string> LiveMcpTokenProperty;
@@ -58,13 +57,8 @@ public sealed class AiAgentConfig : ConfigurationBase
             .DefaultValue(true)
             .Register();
 
-        // Live MCP (edit the running editor) is the primary integration; the
-        // headless stdio server is opt-in.
-        InstallStdioMcpProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallStdioMcp))
-            .DefaultValue(false)
-            .Register();
-
-        InstallLiveMcpProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallLiveMcp))
+        // One MCP server covers live editing of running editors and headless file editing.
+        InstallMcpProperty = ConfigureProperty<bool, AiAgentConfig>(nameof(InstallMcp))
             .DefaultValue(true)
             .Register();
 
@@ -148,16 +142,10 @@ public sealed class AiAgentConfig : ConfigurationBase
         set => SetValue(InstallSubagentsProperty, value);
     }
 
-    public bool InstallStdioMcp
+    public bool InstallMcp
     {
-        get => GetValue(InstallStdioMcpProperty);
-        set => SetValue(InstallStdioMcpProperty, value);
-    }
-
-    public bool InstallLiveMcp
-    {
-        get => GetValue(InstallLiveMcpProperty);
-        set => SetValue(InstallLiveMcpProperty, value);
+        get => GetValue(InstallMcpProperty);
+        set => SetValue(InstallMcpProperty, value);
     }
 
     public string McpConfigFileName

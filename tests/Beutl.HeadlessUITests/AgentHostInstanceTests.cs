@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO.Pipes;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
@@ -6,10 +7,15 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
+using Beutl.AgentToolkit;
+using Beutl.AgentToolkit.Live;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -58,6 +64,126 @@ public sealed class AgentHostInstanceTests
             AssertError(await client.CallToolAsync("apply_edit", edit), "instance_unavailable");
             JsonArray survivors = Payload(await client.CallToolAsync("list_instances"))["value"]!["instances"]!.AsArray();
             Assert.That(survivors.Select(info => info!["instanceId"]!.GetValue<string>()), Is.EqualTo(new[] { first.InstanceId }));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Agent_server_routes_explicit_instances_and_keeps_headless_calls_local(bool crash)
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        try
+        {
+            int preferredPort = AvailablePort();
+            await using Worker first = await Worker.StartAsync(directory, "first", preferredPort);
+            await using Worker second = await Worker.StartAsync(directory, "second", preferredPort);
+            await using AgentServerHarness server = await AgentServerHarness.StartAsync(directory);
+            McpClient client = server.Client;
+
+            var tools = await client.ListToolsAsync();
+            McpClientTool applyEdit = tools.Single(tool => tool.Name == "apply_edit");
+            McpClientTool listScenes = tools.Single(tool => tool.Name == "list_scenes");
+            string?[] applyRequired = applyEdit.JsonSchema.TryGetProperty("required", out JsonElement required)
+                ? required.EnumerateArray().Select(item => item.GetString()).ToArray()
+                : [];
+            Assert.Multiple(() =>
+            {
+                Assert.That(tools.Count(tool => tool.Name == "list_instances"), Is.EqualTo(1));
+                Assert.That(applyEdit.JsonSchema.GetProperty("properties").TryGetProperty("instanceId", out _), Is.True);
+                Assert.That(applyRequired, Does.Not.Contain("session"));
+                // Editor-only tools are described from a running editor and always need an instance.
+                Assert.That(listScenes.JsonSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString()),
+                    Does.Contain("instanceId"));
+            });
+
+            JsonObject discovery = Payload(await client.CallToolAsync("list_instances"));
+            Assert.Multiple(() =>
+            {
+                Assert.That(discovery["value"]!["connectedInstanceId"], Is.Null);
+                Assert.That(discovery["value"]!["instances"]!.AsArray().Select(info => info!["instanceId"]!.GetValue<string>()),
+                    Is.EquivalentTo(new[] { first.InstanceId, second.InstanceId }));
+            });
+
+            // Without instanceId the server works headlessly; with it, inside the named editor.
+            JsonObject status = Payload(await client.CallToolAsync("read_operation_status"));
+            Assert.That(status["value"]!["hasActiveSession"]!.GetValue<bool>(), Is.False);
+            AssertError(await client.CallToolAsync("list_scenes"), "validation_rejected");
+            JsonObject scenes = Payload(await client.CallToolAsync("list_scenes",
+                new Dictionary<string, object?> { ["instanceId"] = first.InstanceId }));
+            Assert.That(scenes["value"]!["scenes"]!.AsArray().Single()!["sceneId"]!.GetValue<string>(), Is.EqualTo(first.SceneId));
+            var edit = new Dictionary<string, object?>
+            {
+                ["instanceId"] = second.InstanceId,
+                ["sceneId"] = second.SceneId,
+                ["schemaVersion"] = "1",
+                ["patch"] = new JsonObject { ["Id"] = second.SceneId, ["Name"] = "edited-through-agent-server" }
+            };
+            AssertSuccess(await client.CallToolAsync("apply_edit", edit));
+
+            if (crash)
+                first.Process.Kill(entireProcessTree: true);
+            else
+            {
+                await first.Process.StandardInput.WriteLineAsync("stop");
+                await first.Process.StandardInput.FlushAsync();
+            }
+            await first.Process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+
+            // The agent keeps its session: the survivor stays reachable by its instanceId, while the
+            // exited instance stays an error rather than reaching another process or the headless editor.
+            discovery = Payload(await client.CallToolAsync("list_instances"));
+            Assert.That(discovery["value"]!["instances"]!.AsArray().Select(info => info!["instanceId"]!.GetValue<string>()),
+                Is.EqualTo(new[] { second.InstanceId }));
+            edit["instanceId"] = first.InstanceId;
+            AssertError(await client.CallToolAsync("apply_edit", edit), "instance_unavailable");
+            AssertError(await client.CallToolAsync("list_scenes",
+                new Dictionary<string, object?> { ["instanceId"] = first.InstanceId }), "instance_unavailable");
+            JsonObject document = Payload(await client.CallToolAsync("read_document",
+                new Dictionary<string, object?> { ["instanceId"] = second.InstanceId, ["sceneId"] = second.SceneId }));
+            Assert.That(document["value"]!["document"]!["Name"]!.GetValue<string>(), Is.EqualTo("edited-through-agent-server"));
+            Assert.That((await client.ListToolsAsync()).Select(tool => tool.Name), Does.Contain("list_scenes"));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTest]
+    public async Task Agent_server_announces_live_tools_as_editors_start_and_exit()
+    {
+        await TestReset.ResetShellAsync();
+        string directory = CreateDirectory();
+        try
+        {
+            await using AgentServerHarness server = await AgentServerHarness.StartAsync(directory, TimeSpan.FromMilliseconds(100));
+            using var changes = new SemaphoreSlim(0);
+            await using IAsyncDisposable subscription = server.Client.RegisterNotificationHandler(
+                NotificationMethods.ToolListChangedNotification, (_, _) =>
+                {
+                    changes.Release();
+                    return default;
+                });
+            Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("list_scenes"));
+            AssertError(await server.Client.CallToolAsync("list_scenes"), "validation_rejected");
+            // Headless work needs no editor at all.
+            AssertSuccess(await server.Client.CallToolAsync("read_operation_status"));
+
+            Worker worker = await Worker.StartAsync(directory, "appearing", AvailablePort());
+            try
+            {
+                Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "A starting editor must announce its tools.");
+                Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Contain("list_scenes"));
+                JsonObject scenes = Payload(await server.Client.CallToolAsync("list_scenes",
+                    new Dictionary<string, object?> { ["instanceId"] = worker.InstanceId }));
+                Assert.That(scenes["value"]!["scenes"]!.AsArray().Single()!["sceneId"]!.GetValue<string>(), Is.EqualTo(worker.SceneId));
+            }
+            finally { await worker.DisposeAsync(); }
+
+            Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "An exiting editor must announce the removed tools.");
+            Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("list_scenes"));
+            AssertError(await server.Client.CallToolAsync("list_scenes",
+                new Dictionary<string, object?> { ["instanceId"] = worker.InstanceId }), "instance_unavailable");
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -366,6 +492,57 @@ public sealed class AgentHostInstanceTests
 
     private static void AssertError(CallToolResult result, string code)
         => Assert.That(Payload(result)["error"]?["code"]?.GetValue<string>(), Is.EqualTo(code), Payload(result).ToJsonString());
+
+    // The installed MCP server, wired like Program.cs but over an in-memory stdio pair and pointed
+    // at the test registry and token; the Beutl instances it routes to are real separate processes.
+    private sealed class AgentServerHarness(
+        IHost host, McpClient client, Task watch, CancellationTokenSource cancellation, IReadOnlyList<Stream> streams)
+        : IAsyncDisposable
+    {
+        public McpClient Client => client;
+
+        public static async Task<AgentServerHarness> StartAsync(string registryDirectory, TimeSpan? watchInterval = null)
+        {
+            string workspace = Path.Combine(registryDirectory, "workspace");
+            Directory.CreateDirectory(workspace);
+            var serverInput = new AnonymousPipeServerStream(PipeDirection.In);
+            var serverOutput = new AnonymousPipeServerStream(PipeDirection.Out);
+            var clientOutput = new AnonymousPipeClientStream(PipeDirection.Out, serverInput.ClientSafePipeHandle);
+            var clientInput = new AnonymousPipeClientStream(PipeDirection.In, serverOutput.ClientSafePipeHandle);
+
+            HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+            builder.Logging.ClearProviders();
+            builder.Services.AddAgentToolkitServer(workspace, registryDirectory);
+            builder.Services.AddSingleton(new LiveMcpBroker(
+                new AgentHostInstanceRegistry(registryDirectory), () => AgentHostInstanceTestWorker.Token));
+            builder.Services
+                .AddMcpServer()
+                .WithStreamServerTransport(serverInput, serverOutput)
+                .WithAgentToolkitTools();
+            IHost host = builder.Build();
+            await host.StartAsync();
+
+            var cancellation = new CancellationTokenSource();
+            Task watch = host.Services.GetRequiredService<LiveMcpBroker>()
+                .WatchAsync(watchInterval ?? TimeSpan.FromMilliseconds(200), cancellation.Token);
+            McpClient client = await McpClient.CreateAsync(new StreamClientTransport(clientOutput, clientInput));
+            return new AgentServerHarness(host, client, watch, cancellation,
+                [serverInput, serverOutput, clientOutput, clientInput]);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await client.DisposeAsync();
+            cancellation.Cancel();
+            try { await watch.WaitAsync(TimeSpan.FromSeconds(5)); }
+            catch (Exception) { }
+            await host.StopAsync();
+            host.Dispose();
+            foreach (Stream stream in streams)
+                await stream.DisposeAsync();
+            cancellation.Dispose();
+        }
+    }
 
     private sealed class Worker(Process process, JsonObject ready, Task<string> errors) : IAsyncDisposable
     {

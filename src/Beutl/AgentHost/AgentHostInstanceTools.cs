@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Live;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentHost;
