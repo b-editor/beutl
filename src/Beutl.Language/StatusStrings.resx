@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Status</value></data>
+  <data name="Rendering" xml:space="preserve"><value>Rendering</value></data>
+  <data name="Gpu" xml:space="preserve"><value>GPU</value></data>
+  <data name="GraphicsApi" xml:space="preserve"><value>Graphics API</value></data>
+  <data name="VideoMemory" xml:space="preserve"><value>Video memory</value></data>
+  <data name="Rendering3D" xml:space="preserve"><value>3D rendering</value></data>
+  <data name="MaxTextureSize" xml:space="preserve"><value>Max texture size</value></data>
+  <data name="Available" xml:space="preserve"><value>Available</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>Unavailable</value></data>
+  <data name="GraphicsUnavailable" xml:space="preserve"><value>The rendering backend could not be initialized.</value></data>
+  <data name="Loading" xml:space="preserve"><value>Loading…</value></data>
+  <data name="Resources" xml:space="preserve"><value>Resource usage</value></data>
+  <data name="ProcessMemory" xml:space="preserve"><value>Process memory</value></data>
+  <data name="ManagedHeap" xml:space="preserve"><value>Managed heap</value></data>
+  <data name="FrameCacheUsage" xml:space="preserve"><value>{0} (limit {1} per scene)</value></data>
+  <data name="Disabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="BackgroundTasks" xml:space="preserve"><value>Background tasks</value></data>
+  <data name="Startup" xml:space="preserve"><value>Startup</value></data>
+  <data name="Running" xml:space="preserve"><value>Running</value></data>
+  <data name="Done" xml:space="preserve"><value>Done</value></data>
+  <data name="RunningCount" xml:space="preserve"><value>{0} running</value></data>
+  <data name="None" xml:space="preserve"><value>None</value></data>
+  <data name="OpenAiJobs" xml:space="preserve"><value>Open AI jobs</value></data>
+  <data name="ConnectedServices" xml:space="preserve"><value>Connected services</value></data>
+  <data name="Stopped" xml:space="preserve"><value>Stopped</value></data>
+  <data name="Account" xml:space="preserve"><value>Beutl account</value></data>
+  <data name="NotSignedIn" xml:space="preserve"><value>Not signed in</value></data>
+</root>

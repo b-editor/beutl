@@ -137,6 +137,14 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
             _editorService.ProjectVersionControlService,
             _versionControlCoordinator.IsGitAvailable,
             _versionControlCoordinator);
+        Status = new TitleBarStatusViewModel(
+            IsRunningStartupTasks,
+            _editorService,
+            _agentHostEndpoint,
+            _beutlClients.AuthenticatedUser,
+            _beutlClients.GetResource<IAiJobMonitor>().Snapshot,
+            _beutlClients.GetResource<IAiJobKindRegistry>(),
+            OpenAiJobCenter);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -189,6 +197,8 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
     internal TitleBarBranchViewModel TitleBarBranch { get; }
+
+    public TitleBarStatusViewModel Status { get; }
 
     public EditorHostViewModel EditorHost { get; }
 

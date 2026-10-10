@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Title" xml:space="preserve"><value>Estado</value></data>
+  <data name="Rendering" xml:space="preserve"><value>Renderizado</value></data>
+  <data name="Gpu" xml:space="preserve"><value>GPU</value></data>
+  <data name="GraphicsApi" xml:space="preserve"><value>API gráfica</value></data>
+  <data name="VideoMemory" xml:space="preserve"><value>Memoria de vídeo</value></data>
+  <data name="Rendering3D" xml:space="preserve"><value>Renderizado 3D</value></data>
+  <data name="MaxTextureSize" xml:space="preserve"><value>Tamaño máximo de textura</value></data>
+  <data name="Available" xml:space="preserve"><value>Disponible</value></data>
+  <data name="Unavailable" xml:space="preserve"><value>No disponible</value></data>
+  <data name="GraphicsUnavailable" xml:space="preserve"><value>No se pudo inicializar el backend de renderizado.</value></data>
+  <data name="Loading" xml:space="preserve"><value>Cargando…</value></data>
+  <data name="Resources" xml:space="preserve"><value>Uso de recursos</value></data>
+  <data name="ProcessMemory" xml:space="preserve"><value>Memoria del proceso</value></data>
+  <data name="ManagedHeap" xml:space="preserve"><value>Montón administrado</value></data>
+  <data name="FrameCacheUsage" xml:space="preserve"><value>{0} (límite de {1} por escena)</value></data>
+  <data name="Disabled" xml:space="preserve"><value>Desactivada</value></data>
+  <data name="BackgroundTasks" xml:space="preserve"><value>Tareas en segundo plano</value></data>
+  <data name="Startup" xml:space="preserve"><value>Inicio</value></data>
+  <data name="Running" xml:space="preserve"><value>En ejecución</value></data>
+  <data name="Done" xml:space="preserve"><value>Completado</value></data>
+  <data name="RunningCount" xml:space="preserve"><value>{0} en ejecución</value></data>
+  <data name="None" xml:space="preserve"><value>Ninguna</value></data>
+  <data name="OpenAiJobs" xml:space="preserve"><value>Abrir tareas de IA</value></data>
+  <data name="ConnectedServices" xml:space="preserve"><value>Servicios conectados</value></data>
+  <data name="Stopped" xml:space="preserve"><value>Detenido</value></data>
+  <data name="Account" xml:space="preserve"><value>Cuenta de Beutl</value></data>
+  <data name="NotSignedIn" xml:space="preserve"><value>Sin iniciar sesión</value></data>
+</root>

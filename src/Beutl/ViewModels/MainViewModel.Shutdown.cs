@@ -226,6 +226,7 @@ public partial class MainViewModel
             _aiJobCompletionNotifier.Dispose();
             CommandPalette.Dispose();
             TabSwitcher.Dispose();
+            Status.Dispose();
         }
         catch (Exception ex)
         {

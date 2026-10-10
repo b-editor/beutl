@@ -1,0 +1,215 @@
+<UserControl x:Class="Beutl.Views.TitleBarStatusView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             d:DesignHeight="32"
+             d:DesignWidth="32"
+             x:CompileBindings="True"
+             x:DataType="vm:TitleBarStatusViewModel"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <Style Selector="StackPanel.section > TextBlock.header">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+        <Style Selector="Grid.rows > TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="Grid.rows > TextBlock.label">
+            <Setter Property="MaxWidth" Value="148" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style Selector="TextBlock.warning">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Button x:Name="StatusButton"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            ToolTip.Tip="{Binding ToolTip.Value}"
+            Theme="{StaticResource TitleBarButtonStyle}">
+        <Button.Flyout>
+            <Flyout Closed="OnFlyoutClosed"
+                    FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}"
+                    Opening="OnFlyoutOpening"
+                    Placement="BottomEdgeAlignedRight">
+                <ScrollViewer MaxHeight="560" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Width="320"
+                                Margin="12,8"
+                                Grid.IsSharedSizeScope="True"
+                                Spacing="16">
+                        <TextBlock Text="{x:Static lang:StatusStrings.Title}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                        <!--  描画環境  -->
+                        <StackPanel Classes="section" Spacing="4">
+                            <TextBlock Classes="header" Text="{x:Static lang:StatusStrings.Rendering}" />
+                            <TextBlock Classes="warning"
+                                       IsVisible="{Binding IsGraphicsUnavailable.Value}"
+                                       Text="{x:Static lang:StatusStrings.GraphicsUnavailable}"
+                                       TextWrapping="Wrap" />
+                            <Grid Classes="rows"
+                                  ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                  RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Classes="label" Text="{x:Static lang:StatusStrings.Gpu}" />
+                                <TextBlock Grid.Column="1" Text="{Binding GpuText.Value}" />
+                                <TextBlock Grid.Row="1"
+                                           Classes="label"
+                                           Text="{x:Static lang:StatusStrings.GraphicsApi}" />
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding GraphicsApiText.Value}" />
+                                <TextBlock Grid.Row="2"
+                                           Classes="label"
+                                           Text="{x:Static lang:StatusStrings.VideoMemory}" />
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="1"
+                                           Text="{Binding VideoMemoryText.Value}" />
+                                <TextBlock Grid.Row="3"
+                                           Classes="label"
+                                           Text="{x:Static lang:StatusStrings.Rendering3D}" />
+                                <TextBlock Grid.Row="3"
+                                           Grid.Column="1"
+                                           Classes.warning="{Binding IsRendering3DUnavailable.Value}"
+                                           Text="{Binding Rendering3DText.Value}" />
+                                <TextBlock Grid.Row="4"
+                                           Classes="label"
+                                           Text="{x:Static lang:StatusStrings.MaxTextureSize}" />
+                                <TextBlock Grid.Row="4"
+                                           Grid.Column="1"
+                                           Text="{Binding MaxTextureSizeText.Value}" />
+                            </Grid>
+                        </StackPanel>
+
+                        <!--  リソース使用量  -->
+                        <StackPanel Classes="section" Spacing="4">
+                            <TextBlock Classes="header" Text="{x:Static lang:StatusStrings.Resources}" />
+                            <Grid Classes="rows"
+                                  ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto,Auto"
+                                  RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Classes="label" Text="{x:Static lang:StatusStrings.ProcessMemory}" />
+                                <TextBlock Grid.Column="1" Text="{Binding ProcessMemoryText.Value}" />
+                                <TextBlock Grid.Row="1"
+                                           Classes="label"
+                                           Text="{x:Static lang:StatusStrings.ManagedHeap}" />
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding ManagedHeapText.Value}" />
+                                <TextBlock Grid.Row="2"
+                                           Classes="label"
+                                           Text="{x:Static lang:Strings.FrameCache}" />
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="1"
+                                           Text="{Binding FrameCacheText.Value}" />
+                            </Grid>
+                        </StackPanel>
+
+                        <!--  バックグラウンド処理  -->
+                        <StackPanel Classes="section" Spacing="4">
+                            <TextBlock Classes="header" Text="{x:Static lang:StatusStrings.BackgroundTasks}" />
+                            <Grid Classes="rows"
+                                  ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto,Auto"
+                                  RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Classes="label" Text="{x:Static lang:StatusStrings.Startup}" />
+                                <TextBlock Grid.Column="1" Text="{Binding StartupText.Value}" />
+                                <TextBlock Grid.Row="1"
+                                           Classes="label"
+                                           Text="{x:Static lang:Strings.Output}" />
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           IsVisible="{Binding !HasRunningOutputs.Value}"
+                                           Text="{x:Static lang:StatusStrings.None}" />
+                                <ItemsControl Grid.Row="1"
+                                              Grid.Column="1"
+                                              IsVisible="{Binding HasRunningOutputs.Value}"
+                                              ItemsSource="{Binding RunningOutputs.Value}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Grid.Row="2"
+                                           Classes="label"
+                                           Text="{x:Static lang:Strings.AiJobCenter}" />
+                                <WrapPanel Grid.Row="2"
+                                           Grid.Column="1"
+                                           ItemSpacing="8"
+                                           LineSpacing="2">
+                                    <TextBlock VerticalAlignment="Center" Text="{Binding AiJobsText.Value}" />
+                                    <HyperlinkButton Padding="0"
+                                                     VerticalAlignment="Center"
+                                                     Click="OnOpenAiJobsClick"
+                                                     Content="{x:Static lang:StatusStrings.OpenAiJobs}" />
+                                </WrapPanel>
+                            </Grid>
+                        </StackPanel>
+
+                        <!--  連携サービス  -->
+                        <StackPanel Classes="section" Spacing="4">
+                            <TextBlock Classes="header" Text="{x:Static lang:StatusStrings.ConnectedServices}" />
+                            <Grid Classes="rows"
+                                  ColumnSpacing="12"
+                                  RowDefinitions="Auto,Auto"
+                                  RowSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Classes="label" Text="{x:Static lang:SettingsStrings.AiAgents_LiveMcp}" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="{Binding LiveMcpText.Value}" />
+                                    <SelectableTextBlock FontSize="12"
+                                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                         IsVisible="{Binding LiveMcpEndpoint.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                         Text="{Binding LiveMcpEndpoint.Value}"
+                                                         TextWrapping="Wrap" />
+                                </StackPanel>
+                                <TextBlock Grid.Row="1"
+                                           Classes="label"
+                                           Text="{x:Static lang:StatusStrings.Account}" />
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding AccountText.Value}" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Flyout>
+        </Button.Flyout>
+        <Panel>
+            <icons:FluentIcon HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Icon="Pulse"
+                              IsVisible="{Binding !IsBusy.Value}" />
+            <ProgressRing Width="20"
+                          Height="20"
+                          MinWidth="0"
+                          MinHeight="0"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          BorderThickness="4"
+                          IsIndeterminate="{Binding IsBusy.Value}"
+                          IsVisible="{Binding IsBusy.Value}" />
+        </Panel>
+    </Button>
+</UserControl>
