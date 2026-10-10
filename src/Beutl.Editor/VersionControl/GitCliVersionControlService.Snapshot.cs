@@ -401,6 +401,9 @@ internal sealed partial class GitCliVersionControlService
             return null;
         }
 
+        // check-ignore reads its input as pathspecs and refuses literal magic, so :(top) keeps a name
+        // that starts with a colon from being read as magic. Git echoes each match as it was given.
+        const string TopMagic = ":(top)";
         try
         {
             GitCommandResult ignored = await runner.RunAsync(
@@ -408,11 +411,14 @@ internal sealed partial class GitCliVersionControlService
                     ["check-ignore", "--stdin", "-z"],
                     new GitCommandOptions(
                         GitCommandExecutionKind.Local,
-                        StandardInput: string.Join('\0', existingPaths) + '\0',
+                        StandardInput: string.Concat(existingPaths.Select(path => $"{TopMagic}{path}\0")),
                         UseLiteralPathspecs: false),
                     cancellationToken)
                 .ConfigureAwait(false);
-            return GitCliRunner.SplitNullSeparated(ignored.Stdout).FirstOrDefault();
+            string? match = GitCliRunner.SplitNullSeparated(ignored.Stdout).FirstOrDefault();
+            return match is not null && match.StartsWith(TopMagic, StringComparison.Ordinal)
+                ? match[TopMagic.Length..]
+                : match;
         }
         catch (GitOperationException ex) when (ex.ExitCode == 1)
         {
