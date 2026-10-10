@@ -14,23 +14,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  compile:
     permissions:
       contents: read
-
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      dotnet-version: ${{ steps.dotnet-sdk.outputs.version }}
 
     steps:
-      # ubuntu-latest ships ~19GB of pre-installed tooling this .NET-only job never
-      # uses (Android SDK, Haskell/GHC, CodeQL, cached Docker images). When a runner
-      # starts with little headroom the build+test+coverage run exhausts the disk and
-      # aborts with "No space left on device". Reclaiming it up front keeps the job's
-      # free space consistent across runners.
+      # Some runner images have little free disk space; others have over 80 GB.
+      # Keep the low-disk safeguard without spending minutes deleting unused tools
+      # when the runner already has enough room for restore, build and its archive.
       - name: Free disk space
         run: |
           df -h /
-          # Independent directory trees can be removed concurrently; wait for all
-          # removals before checkout so the same disk headroom is still reclaimed.
+          available_kb=$(df -Pk / | awk 'NR == 2 { print $4 }')
+          if (( available_kb >= 30 * 1024 * 1024 )); then
+            echo "At least 30 GB is available; skipping disk cleanup."
+            exit 0
+          fi
           printf '%s\0' /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
             | xargs -0 -n 1 -P 4 sudo rm -rf
           sudo docker image prune --all --force || true
@@ -55,6 +58,18 @@ jobs:
       - name: Resolve .NET SDK version
         id: dotnet-sdk
         run: echo "version=$(dotnet --version)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify test sharding
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+
+      - name: Restore NuGet cache
+        id: nuget-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', '!**/obj/**', '!**/bin/**') }}
+          restore-keys: |
+            dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-
 
       - name: Restore .NET build cache
         id: build-cache
@@ -115,8 +130,6 @@ jobs:
             done < <(git diff --name-only -z --diff-filter=ACMRTUXB "$CACHED_SHA" HEAD --)
           fi
 
-      - run: dotnet tool install -g dotnet-reportgenerator-globaltool
-
       - name: Restore dependencies
         run: dotnet restore Beutl.slnx
 
@@ -131,83 +144,138 @@ jobs:
             **/obj
           key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
 
-      - name: Test
-        timeout-minutes: 45
-        run: >-
-          dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0
-          --collect:"XPlat Code Coverage" --settings coverlet.runsettings --logger trx
-          --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini
-          --blame-crash --blame-crash-dump-type mini
-        env:
-          # GPU golden tests must fail loudly (not Assert.Ignore) when the bundled
-          # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
-          BEUTL_REQUIRE_GPU: "1"
+      - name: Save NuGet cache
+        if: steps.nuget-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', '!**/obj/**', '!**/bin/**') }}
 
-      # A validation error names API misuse the driver is not required to diagnose - a render pass instance
-      # begun inside another, a handle submitted to a device that never created it - so a suite that runs
-      # green while reporting one has already entered undefined behaviour. The layer stays off for the run
-      # above because it costs time on all 7,000 tests and is only meaningful for the GPU-backed ones; this
-      # step turns it on for exactly those. VulkanTestEnvironment/GpuTestEnvironment compare the validation
-      # log around every render-thread invocation, so an error fails the test that reported it, and
-      # VulkanValidationGateTests fails if the layer was requested but did not load - a gate that cannot
-      # observe anything must not pass quietly.
+      # Archive test outputs once, including their copied app/worker dependencies.
+      # Subprocess tests launch their own assembly or the worker copied next to it.
+      # tar preserves executable bits; test jobs run DLLs directly, so they need no
+      # obj directories, package restore or repeated solution build. The SDK's
+      # RID graph preserves host-compatible native/managed fallbacks while other
+      # platforms' assets are omitted from this Linux-only test artifact.
+      - name: Archive test binaries
+        run: |
+          coverlet_version=$(python3 -c 'import xml.etree.ElementTree as ET; print(next(p.attrib["Version"] for p in ET.parse("Directory.Packages.props").iter("PackageVersion") if p.attrib.get("Include") == "coverlet.collector"))')
+          mkdir -p .ci-tools
+          cp -a "$HOME/.nuget/packages/coverlet.collector/$coverlet_version/build/net10.0" .ci-tools/coverlet
+          python3 .github/scripts/archive_ci.py --rid linux-x64 \
+            --runtime-graph "$DOTNET_ROOT/sdk/$(dotnet --version)/PortableRuntimeIdentifierGraph.json" \
+            | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/test-binaries.tar.zst"
+          du -h "$RUNNER_TEMP/test-binaries.tar.zst"
+
+      - name: Share test binaries
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: TestBinaries
+          path: ${{ runner.temp }}/test-binaries.tar.zst
+          compression-level: 0
+          retention-days: 1
+
+  test:
+    needs: compile
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-d, ui-e-i, ui-j-m, ui-n-r, ui-other, graphics3d, other]
+        validation: [false]
+        # Every unit and Graphics3D test still runs both normally and under Vulkan
+        # validation. Namespace partitions are exhaustive, including untagged GPU
+        # tests; unrelated test assemblies run in the "other" catch-all suite.
+        include:
+          - suite: validation-core
+            validation: true
+          - suite: validation-rendering
+            validation: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
+
+      - name: Download test binaries
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: TestBinaries
+          path: ${{ runner.temp }}/test-binaries
+
+      - name: Extract test binaries
+        run: tar --zstd -xf "$RUNNER_TEMP/test-binaries/test-binaries.tar.zst"
+
       - name: Install Vulkan validation layers
+        if: matrix.validation
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends vulkan-validationlayers
 
-      # No category filter on the unit project: a category has to be remembered, and a GPU test that
-      # forgets one is exactly the test this gate would then not cover. Every test runs instead - the ones
-      # that never reach the render thread only cost their own runtime, and the ones that do are checked.
-      - name: GPU tests under Vulkan validation
-        timeout-minutes: 30
-        run: |
-          dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
-            --logger trx \
-            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
-            --blame-crash --blame-crash-dump-type mini
-          dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0 \
-            --logger trx \
-            --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
-            --blame-crash --blame-crash-dump-type mini
+      - name: Test
+        run: python3 .github/scripts/ci_tests.py "$TEST_SUITE" ${{ matrix.validation && '--validation' || '' }}
         env:
+          TEST_SUITE: ${{ matrix.suite }}
           BEUTL_REQUIRE_GPU: "1"
-          BEUTL_VULKAN_VALIDATION: "1"
+          BEUTL_VULKAN_VALIDATION: ${{ matrix.validation && '1' || '0' }}
 
       - name: Capture runner diagnostics after failure
         if: failure()
         run: |
-          mkdir -p tests/ci-diagnostics
-          free -h > tests/ci-diagnostics/memory.log
-          df -h > tests/ci-diagnostics/disk.log
-          ps -eo pid,ppid,comm,rss,etimes > tests/ci-diagnostics/processes.log
-          sudo dmesg --ctime > tests/ci-diagnostics/kernel.log 2>&1 || true
+          mkdir -p TestResults/ci-diagnostics
+          free -h > TestResults/ci-diagnostics/memory.log
+          df -h > TestResults/ci-diagnostics/disk.log
+          ps -eo pid,ppid,comm,rss,etimes > TestResults/ci-diagnostics/processes.log
+          sudo dmesg --ctime 2>&1 | tee TestResults/ci-diagnostics/kernel.log > /dev/null || true
 
       - name: Save test diagnostics
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: TestDiagnostics
+          name: TestDiagnostics-${{ matrix.suite }}-${{ matrix.validation && 'validation' || 'coverage' }}
           path: |
-            tests/**/TestResults/**/*.trx
-            tests/**/TestResults/**/Sequence_*.xml
-            tests/**/TestResults/**/*.dmp
-            tests/ci-diagnostics/
+            TestResults/**/*.trx
+            TestResults/**/Sequence_*.xml
+            TestResults/**/*.dmp
+            TestResults/ci-diagnostics/
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Merge coverage reports
-        # Every test project now collects coverage (coverlet.collector is shared via
-        # tests/Directory.Build.props), so dotnet test emits one cobertura file per test
-        # project. Merge them into a single report so the summary de-duplicates packages
-        # instead of listing each package once per test assembly.
-        run: reportgenerator -reports:"tests/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Cobertura;Html"
-
-      - name: Save
+      - name: Save coverage reports
+        if: ${{ !matrix.validation }}
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: Coverage
-          path: coveragereport
+          name: Coverage-${{ matrix.suite }}
+          path: |
+            TestResults/**/coverage.cobertura.xml
+            !TestResults/**/In/**
+          if-no-files-found: error
+          retention-days: 1
+
+  # Preserve the required "build" check: it must include every test shard, even
+  # if compile fails or a dependency is skipped. A compile-only green check would
+  # let existing branch protection admit revisions whose tests failed.
+  build:
+    if: always()
+    needs: [compile, test]
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful build and tests
+        env:
+          COMPILE_RESULT: ${{ needs.compile.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: test "$COMPILE_RESULT" = success && test "$TEST_RESULT" = success
 
   macos-font-tests:
     permissions:
@@ -285,7 +353,7 @@ jobs:
           retention-days: 7
 
   upload-coverage:
-    needs: build
+    needs: [build, compile]
     permissions:
       contents: read
       id-token: write
@@ -298,8 +366,24 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Download coverage report
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
+
+      - name: Download coverage reports
         uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: Coverage-*
+          path: coverage-shards
+
+      - name: Merge coverage reports
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
+
+      - name: Save merged coverage
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: Coverage
           path: coveragereport

@@ -34,10 +34,11 @@ and its `GpuTestEnvironment` twin read `VulkanValidationErrorLog.Shared` before 
 render-thread invocation and fail the test that reported an error, so API misuse the driver is not required
 to diagnose — a nested render pass instance, a handle from another device — cannot pass as green.
 
-CI runs `Beutl.UnitTests` and `Beutl.Graphics3DTests` a second time with the layer installed (`GPU tests
-under Vulkan validation` in `.github/workflows/dotnet.yml`). Neither run filters by category: a category has
-to be remembered, and a GPU test that forgets one is exactly the test the gate would then not cover. A test
-that never reaches the render thread costs only its own runtime on that second pass. Locally:
+CI builds the solution once and shares its binaries with parallel test jobs in `.github/workflows/dotnet.yml`.
+The unit and headless UI suites use exhaustive, disjoint filters in `.github/scripts/ci_tests.py`; a catch-all
+shard covers new namespaces. Every `Beutl.UnitTests` and `Beutl.Graphics3DTests` test also runs in a separate
+Vulkan validation job with the layer installed. Neither pass filters by category: a category has to be
+remembered, and a GPU test that forgets one is exactly the test the gate would then not cover. Locally:
 
 ```bash
 BEUTL_REQUIRE_GPU=1 BEUTL_VULKAN_VALIDATION=1 \
