@@ -111,7 +111,10 @@ internal sealed class AgentHostAiBackend(
         // read, which a decoder may return mid-file, so a short part is not the end of the recording.
         long start = 0;
         int part = 0;
-        while (start < totalSamples)
+        // Every part is a paid request, so a decoder that keeps reading short cannot multiply them:
+        // at most twice the parts the length calls for, and no part cut short under a second.
+        int maxParts = estimatedParts * 2;
+        while (start < totalSamples && part < maxParts)
         {
             cancellationToken.ThrowIfCancellationRequested();
             long partStart = start;
@@ -150,6 +153,17 @@ internal sealed class AgentHostAiBackend(
 
                 if (chunk.SourceSampleCount <= 0)
                     break;
+                if (chunk.SourceSampleCount < length && chunk.SourceSampleCount < sampleRate)
+                {
+                    if (segments.Count == 0)
+                    {
+                        throw new AgentAiException(
+                            Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+                            "The audio decoder returned too little audio to transcribe.");
+                    }
+
+                    break;
+                }
 
                 bool covered;
                 try

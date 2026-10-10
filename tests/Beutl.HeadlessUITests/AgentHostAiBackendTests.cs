@@ -215,6 +215,9 @@ public sealed class AgentHostAiBackendTests
             // The check refuses outright when the plan lapsed after the call was accepted.
             AgentAiException? planLapsed = await CatchAsync(
                 CreateBackend(availability: new StubAvailability { Error = new AiPlanRequiredException() }, transcription: transcription), path);
+            // A decoder that returns one sample at a time would otherwise make every sample a paid part.
+            next = new StubAudioReader(16_000, 16_000 * 60L) { Trickle = true };
+            AgentAiException? trickle = await CatchAsync(CreateBackend(transcription: transcription), path);
             next = new StubAudioReader(16_000, 16_000) { Readable = false };
             AgentAiException? undecodable = await CatchAsync(CreateBackend(transcription: transcription), path);
             next = new StubAudioReader(16_000, 16_000);
@@ -231,6 +234,7 @@ public sealed class AgentHostAiBackendTests
                 Assert.That(badTimes?.Code, Is.EqualTo(ErrorCode.AiGenerationFailed));
                 Assert.That(undecodable?.Code, Is.EqualTo(ErrorCode.MediaUnsupported), "it opened, but its audio does not decode");
                 Assert.That(planLapsed?.Code, Is.EqualTo(ErrorCode.AiUnavailable));
+                Assert.That(trickle?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
                 Assert.That(transcription.Requests, Is.Empty, "nothing was sent for a refused file");
             });
         }
@@ -421,6 +425,8 @@ public sealed class AgentHostAiBackendTests
 
         public long? ShortReadAt { get; init; }
 
+        public bool Trickle { get; init; }
+
         public override VideoStreamInfo VideoInfo
             => throw new InvalidOperationException("The test reader has no video stream.");
 
@@ -447,6 +453,8 @@ public sealed class AgentHostAiBackendTests
             int decoded = (int)Math.Clamp(totalSamples - start, 0, length);
             if (start == ShortReadAt)
                 decoded /= 2;
+            if (Trickle)
+                decoded = Math.Min(decoded, 1);
             var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
             pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
             sound = Ref<IPcm>.Create(pcm);
