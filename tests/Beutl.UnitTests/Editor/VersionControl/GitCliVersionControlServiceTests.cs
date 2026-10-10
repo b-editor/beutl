@@ -5662,6 +5662,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    // Nothing outside the project is staged, so the snapshot commits the index as staged instead of
+    // reading the changed files through their clean filters again, as git commit --only would.
+    [Test]
+    public async Task CommitAllAsync_runs_the_clean_filter_once_for_a_changed_file()
+    {
+        string filterLog = Path.Combine(CreateTemporaryDirectory(), "clean.log");
+        string logPath = filterLog.Replace('\\', '/');
+        await RunGitAsync("config", "filter.count.clean", $"sh -c 'echo clean >> \"{logPath}\"; cat'");
+        await RunGitAsync("config", "filter.count.smudge", "cat");
+        await CommitFileAsync(".gitattributes", "*.mp4 filter=count\n", "attributes");
+        string media = Path.Combine(Root, "clip.mp4");
+        await File.WriteAllTextAsync(media, "media\n");
+        // Old enough that Git does not treat the staged entry as racily clean and read it again.
+        File.SetLastWriteTimeUtc(media, DateTime.UtcNow.AddMinutes(-1));
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult recorded = await RunGitAsync("show", "HEAD:clip.mp4");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(recorded.Stdout, Is.EqualTo("media\n"));
+            Assert.That(File.ReadAllLines(filterLog), Has.Length.EqualTo(1));
+        });
+    }
+
     // Git has saved the snapshot once git commit returns, so a lookup that times out afterwards leaves
     // only which commit it is unknown.
     [Test]
@@ -8096,7 +8126,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (arguments.Contains("commit") && arguments.Contains("--only"))
+            if (arguments.Contains("commit") && arguments.Contains("--file=-"))
             {
                 _committed = true;
             }

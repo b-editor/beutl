@@ -1,4 +1,6 @@
-﻿namespace Beutl.Editor.VersionControl;
+﻿using Microsoft.Extensions.Logging;
+
+namespace Beutl.Editor.VersionControl;
 
 internal sealed partial class GitCliVersionControlService
 {
@@ -201,27 +203,35 @@ internal sealed partial class GitCliVersionControlService
                 pathspecOptions,
                 cancellationToken)
             .ConfigureAwait(false);
-        try
+        GitCommandOptions stagedOptions = pathspecOptions with { ExecutionKind = GitCommandExecutionKind.Local };
+        GitCommandResult projectStaged = await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--name-only", "--no-renames", "-z", "--", .. pathspecs],
+                stagedOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        int projectStagedCount = GitCliRunner.SplitNullSeparated(projectStaged.Stdout).Count;
+        if (projectStagedCount == 0)
         {
-            // Exit code 1 means the index differs from HEAD within the project.
-            await runner.RunAsync(
-                    repository,
-                    ["diff", "--cached", "--quiet", "--", .. pathspecs],
-                    pathspecOptions with { ExecutionKind = GitCommandExecutionKind.Local },
-                    cancellationToken)
-                .ConfigureAwait(false);
             return null;
         }
-        catch (GitOperationException ex) when (ex.ExitCode == 1)
-        {
-        }
+
+        GitCommandResult allStaged = await runner.RunAsync(
+                repository,
+                ["diff", "--cached", "--name-only", "--no-renames", "-z"],
+                stagedOptions,
+                cancellationToken)
+            .ConfigureAwait(false);
+        // git commit --only reads the project's changed files from the worktree again, through their
+        // clean filters, which for Git LFS media means reading whole files once more. It is needed only
+        // to leave something the user staged outside the project out of the snapshot.
+        bool stagedOutsideProject = GitCliRunner.SplitNullSeparated(allStaged.Stdout).Count != projectStagedCount;
 
         // The message goes through standard input, so its length is not bound by the command line.
         var arguments = new List<string>
         {
             "commit",
             "--quiet",
-            "--only",
             "--file=-",
         };
         if (kind != SnapshotKind.Manual)
@@ -231,8 +241,13 @@ internal sealed partial class GitCliVersionControlService
             arguments.Add("--no-gpg-sign");
         }
 
-        arguments.Add("--");
-        arguments.AddRange(pathspecs);
+        if (stagedOutsideProject)
+        {
+            arguments.Add("--only");
+            arguments.Add("--");
+            arguments.AddRange(pathspecs);
+        }
+
         string branchRef = await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         string? parent = await TryResolveCommitAsync(repository, runner, branchRef, cancellationToken)
@@ -241,7 +256,7 @@ internal sealed partial class GitCliVersionControlService
         // cancellation stops them.
         try
         {
-            await runner.RunAsync(
+            GitCommandResult committed = await runner.RunAsync(
                     repository,
                     arguments,
                     pathspecOptions with
@@ -252,6 +267,13 @@ internal sealed partial class GitCliVersionControlService
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(committed.Stderr))
+            {
+                // A post-commit hook cannot fail the commit, so what it reports reaches only the log.
+                _logger.LogWarning(
+                    "Git reported while recording a snapshot: {Diagnostic}",
+                    committed.Stderr.Trim());
+            }
         }
         catch (OperationCanceledException)
         {
