@@ -2591,6 +2591,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>Large media is stored with Git LFS. Remote hosting quotas may apply to LFS storage and bandwidth.</value>
   </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>The repository's ignore rules leave these project files out of versions: {0}</value>
+  </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0} is large and Git LFS is not active. Committing it can permanently increase repository history size. The commit will continue.</value>
   </data>

@@ -388,6 +388,8 @@ internal abstract record VersionControlPolicyNotice
         long SizeBytes) : VersionControlPolicyNotice;
 
     internal sealed record MissingIdentity : VersionControlPolicyNotice;
+
+    internal sealed record IgnoredProjectFiles(IReadOnlyList<string> Paths) : VersionControlPolicyNotice;
 }
 
 /// <summary>A specific stale-lock recovery offer whose identity is its object reference.</summary>

@@ -447,14 +447,6 @@ public class NoMigrationRegressionTests
         });
     }
 
-    [Test]
-    public void Serialization_graph_accepts_temporary_migration_reports()
-    {
-        Assert.DoesNotThrow(() =>
-            VersionControlSerializationGraph.DiscoverSerializationGraph(
-                new MigrationNodeContainer()));
-    }
-
     [TestCase(false)]
     [TestCase(true)]
     public void Json_population_records_missing_discriminators(bool populateElement)
@@ -943,8 +935,8 @@ public class NoMigrationRegressionTests
         });
     }
 
-    // Resource inspection walks the live project through a context of its own and declines
-    // migration reports on purpose, so a transfer must stop at any owner that is not the serializer.
+    // A walk over a live project can use a context of its own that declines migration reports, so a
+    // transfer must stop at any owner that is not the serializer.
     [Test]
     public void A_context_outside_the_serializer_takes_no_migration_from_the_value_it_inspects()
     {
@@ -1432,7 +1424,7 @@ public class NoMigrationRegressionTests
         }
     }
 
-    // Stands in for VersionControlSerializationGraph's context: it owns the walk, not the serializer.
+    // Stands in for a context that owns a walk over a value, not the serializer.
     private sealed class InspectingSerializationContext : ICoreSerializationContext
     {
         public CoreSerializationMode Mode => CoreSerializationMode.Write;
@@ -1559,24 +1551,6 @@ public class NoMigrationRegressionTests
         {
             base.Deserialize(context);
             throw new InvalidOperationException("legacy population failed");
-        }
-    }
-
-    private sealed class MigrationNodeContainer : ProjectItem
-    {
-        public override void Serialize(ICoreSerializationContext context)
-        {
-            base.Serialize(context);
-            var jsonContext = (IJsonSerializationContext)context;
-            JsonObject child = CoreSerializer.SerializeToJsonObject(
-                new MigratingLeaf("7.0.0"));
-            // A nested sealed contract has no discriminator in its serialized representation.
-            child.Remove("$type");
-            jsonContext.SetNode(
-                "MigrationAwareChild",
-                typeof(MigratingLeaf),
-                typeof(MigratingLeaf),
-                child);
         }
     }
 

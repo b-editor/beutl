@@ -101,65 +101,86 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Serialized_plugin_media_extension_receives_the_large_media_policy()
+    public async Task Ignored_project_files_are_reported_once_and_left_out_of_snapshots()
     {
-        const string mediaRelativePath = "resources/large.pluginvideo";
-        string projectFile = Path.Combine(Root, "project.bep");
-        string sceneFile = Path.Combine(Root, "main.scene");
-        string elementFile = Path.Combine(
-            Root,
-            "elements",
-            "11111111111111111111111111111111.belm");
-        string mediaFile = Path.Combine(Root, mediaRelativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
-        Directory.CreateDirectory(Path.GetDirectoryName(mediaFile)!);
-        var project = new Project { Uri = new Uri(projectFile) };
-        var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
-        var element = new Element { Uri = new Uri(elementFile) };
-        var mediaSource = new ImageSource();
-        mediaSource.ReadFrom(new Uri(mediaFile));
-        var image = new SourceImage();
-        image.Source.CurrentValue = mediaSource;
-        element.Objects.Add(image);
-        scene.Children.Add(element);
-        project.Items.Add(scene);
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        CoreSerializer.StoreToUri(scene, new Uri(sceneFile));
-        CoreSerializer.StoreToUri(element, new Uri(elementFile));
-        await File.WriteAllBytesAsync(mediaFile, [0]);
-        await RunGitAsync("add", "-A", "--", ".");
-        await RunGitAsync("commit", "-m", "saved project baseline");
-        await File.WriteAllBytesAsync(mediaFile, new byte[(1024 * 1024) + 1]);
-        Assert.That(
-            SerializedProjectGraph.GetFileSourceRelativePaths(projectFile, Root),
-            Does.Contain(mediaRelativePath));
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitignore"),
+            "**/.beutl/\n*.[tT][mM][pP]\nfootage/\n*.wav\n");
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await WriteProjectFileAsync("footage/clip.mp4", "clip\n");
+        await WriteProjectFileAsync("audio/voice.wav", "voice\n");
+        await WriteProjectFileAsync(".beutl/view-state.json", "{}\n");
+        await WriteProjectFileAsync("render-cache.tmp", "scratch\n");
         var notices = new List<VersionControlPolicyNotice>();
         using var service = CreateService(
-            CreateLargeMediaConfig(),
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        await WriteProjectFileAsync("project.bep", "first\n");
+        CommitResult first = await service.CommitAllAsync(
+            "first",
+            SnapshotKind.Save,
+            CancellationToken.None);
+        await WriteProjectFileAsync("project.bep", "second\n");
+        CommitResult second = await service.CommitAllAsync(
+            "second",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult trackedFiles = await RunGitAsync("ls-tree", "-r", "--name-only", "HEAD");
+        Assert.Multiple(() =>
+        {
+            // The user's own ignore rules decide, as with plain Git; the snapshot is not refused.
+            Assert.That(first, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(second, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(trackedFiles.Stdout, Does.Not.Contain("footage/"));
+            Assert.That(trackedFiles.Stdout, Does.Not.Contain("voice.wav"));
+            Assert.That(notices, Has.Count.EqualTo(1));
+            Assert.That(
+                notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
+                Is.EquivalentTo(new[] { "audio/voice.wav", "footage/" }));
+        });
+    }
+
+    [Test]
+    public async Task Ignored_project_files_notice_names_the_project_folder_an_enclosing_repository_ignores()
+    {
+        string projectRoot = Path.Combine(Root, "projects", "movie");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "projects/\n");
+        await RunGitAsync("add", "--", ".gitignore");
+        await RunGitAsync("commit", "-m", "ignore projects");
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        var repository = new RepositoryInfo(Root, projectRoot);
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            new VersionControlConfig(),
             lfsInstalled: false,
             notice =>
             {
                 notices.Add(notice);
                 return Task.CompletedTask;
             },
-            projectFile: projectFile);
+            repository: repository);
 
-        CommitResult result = await service.CommitAllAsync(
-            "plugin media",
-            SnapshotKind.Manual,
-            CancellationToken.None);
+        // Git itself refuses to stage a folder it ignores, and that refusal is reported as is.
+        GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.CommitAllAsync(
+                "snapshot",
+                SnapshotKind.Save,
+                CancellationToken.None));
 
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(exception!.Stderr, Does.Contain("ignored"));
             Assert.That(
-                notices,
-                Is.EqualTo(new[]
-                {
-                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(
-                        mediaRelativePath,
-                        (1024 * 1024) + 1),
-                }));
+                notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
+                Is.EqualTo(new[] { "projects/" }));
         });
     }
 
@@ -947,6 +968,13 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             (notice, _) => presentNotice(notice),
             projectFile,
             identityRequest);
+    }
+
+    private async Task WriteProjectFileAsync(string relativePath, string contents)
+    {
+        string path = Path.Combine(Root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, contents);
     }
 
     private static VersionControlConfig CreateLargeMediaConfig()

@@ -135,6 +135,13 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
             : mainWindow;
     }
 
+    private static string FormatPathList(IReadOnlyList<string> paths)
+    {
+        const int MaxListedPaths = 5;
+        string listed = string.Join(", ", paths.Take(MaxListedPaths));
+        return paths.Count > MaxListedPaths ? listed + ", …" : listed;
+    }
+
     internal async Task ShowPolicyNoticeAsync(
         VersionControlPolicyNotice notice,
         CancellationToken cancellationToken)
@@ -152,6 +159,10 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
                     largeMedia.Path),
             VersionControlPolicyNotice.MissingIdentity
                 => Strings.VersionControl_MissingIdentityNotice,
+            VersionControlPolicyNotice.IgnoredProjectFiles ignored
+                => string.Format(
+                    Strings.VersionControl_IgnoredProjectFilesNoticeFormat,
+                    FormatPathList(ignored.Paths)),
             _ => throw new ArgumentOutOfRangeException(nameof(notice)),
         };
 

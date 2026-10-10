@@ -66,8 +66,6 @@ internal sealed partial class GitCliVersionControlService
         long thresholdBytes = Math.Max(
             0L,
             (long)_installationLocator.Config.LargeMediaWarningThresholdMb * 1024 * 1024);
-        IReadOnlySet<string> serializedFileSources =
-            GetSerializedFileSourceRelativePaths(repository.ProjectRoot);
         var candidates = new List<(FileChange Change, string Path)>();
         foreach (FileChange change in status.Changes)
         {
@@ -75,7 +73,6 @@ internal sealed partial class GitCliVersionControlService
             string? path = GetLargeMediaPath(
                 repository,
                 change.Path,
-                serializedFileSources,
                 thresholdBytes);
             if (path is not null)
             {
@@ -164,6 +161,121 @@ internal sealed partial class GitCliVersionControlService
         return false;
     }
 
+    // Ignore rules are the user's to set, so a snapshot leaves an ignored file out as plain Git does.
+    // Saying so once keeps a rule that also matches project files from going unnoticed.
+    private async Task RaiseIgnoredProjectFilesNoticeIfNeededAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        string acknowledgementKey = GetNoticeAcknowledgementKey(
+            IgnoredProjectFilesNoticeConfigKeyPrefix,
+            repository);
+        if (await GetLocalBooleanConfigAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        IReadOnlyList<string> ignoredPaths;
+        try
+        {
+            ignoredPaths = await FindIgnoredProjectFilesAsync(repository, runner, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogWarningBestEffort(ex, "Failed to list the project files that Git ignores.");
+            return;
+        }
+
+        if (ignoredPaths.Count == 0)
+        {
+            return;
+        }
+
+        await PresentOneTimeNoticeAsync(
+                repository,
+                runner,
+                acknowledgementKey,
+                new VersionControlPolicyNotice.IgnoredProjectFiles(ignoredPaths),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    // Project-relative paths that the ignore rules keep out of a snapshot, an ignored folder named
+    // once. Beutl's own per-user state and scratch files are ignored on purpose and left out.
+    private static async Task<IReadOnlyList<string>> FindIgnoredProjectFilesAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await runner.RunAsync(
+                repository,
+                [
+                    "ls-files",
+                    "--others",
+                    "--ignored",
+                    "--exclude-standard",
+                    "--directory",
+                    "--full-name",
+                    "-z",
+                    "--",
+                    CreateSnapshotBasePathspec(repository),
+                ],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    MaxStdoutBytes: MaxIgnoredProjectFileOutputBytes,
+                    UseLiteralPathspecs: false),
+                cancellationToken)
+            .ConfigureAwait(false);
+        string prefix = GetProjectPathPrefix(repository);
+        var paths = new List<string>();
+        foreach (string path in GitCliRunner.SplitNullSeparated(result.Stdout))
+        {
+            if (!path.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                // A folder of the enclosing repository that holds the project is ignored as a whole.
+                if (path.EndsWith('/') && prefix.StartsWith(path, StringComparison.Ordinal))
+                {
+                    paths.Add(path);
+                }
+
+                continue;
+            }
+
+            string projectRelativePath = path[prefix.Length..];
+            if (projectRelativePath.Length == 0)
+            {
+                paths.Add(path);
+                continue;
+            }
+
+            if (IsTemporaryProjectFile(projectRelativePath.TrimEnd('/'))
+                || projectRelativePath
+                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .Any(static segment => string.Equals(
+                        segment,
+                        ".beutl",
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            paths.Add(projectRelativePath);
+        }
+
+        // Git can also list the untracked folder that holds an ignored file; the file says more.
+        return paths
+            .Where(path => !path.EndsWith('/')
+                           || !paths.Any(other => other.Length > path.Length
+                                                  && other.StartsWith(path, StringComparison.Ordinal)))
+            .ToArray();
+    }
+
     private async Task RaiseMissingIdentityNoticeIfNeededAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -249,7 +361,6 @@ internal sealed partial class GitCliVersionControlService
     private static string? GetLargeMediaPath(
         RepositoryInfo repository,
         string repoRelativePath,
-        IReadOnlySet<string> serializedFileSources,
         long thresholdBytes)
     {
         string normalizedPath = NormalizeGitPath(repoRelativePath);
@@ -267,8 +378,7 @@ internal sealed partial class GitCliVersionControlService
             return null;
         }
 
-        if (!s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath))
-            && !serializedFileSources.Contains(projectRelativePath))
+        if (!s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath)))
         {
             return null;
         }

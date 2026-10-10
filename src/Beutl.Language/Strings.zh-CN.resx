@@ -2801,6 +2801,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>大型媒体文件使用 Git LFS 存储。远程托管服务可能对 LFS 存储和带宽设置限额。</value>
   </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>由于仓库的忽略规则，以下项目文件不会保存到版本中：{0}</value>
+  </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0} 是大型文件，但未启用 Git LFS。提交此文件可能永久增大仓库历史记录的大小。提交将继续。</value>
   </data>

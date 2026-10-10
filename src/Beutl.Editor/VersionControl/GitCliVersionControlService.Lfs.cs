@@ -777,12 +777,10 @@ internal sealed partial class GitCliVersionControlService
         }
 
         string prefix = GetProjectPathPrefix(repository);
-        // A placeholder per media type still shows whether media added later would go through LFS.
-        string[] mediaPaths = GetRequiredProjectRelativePaths(repository.ProjectRoot)
-            .Where(path => s_mediaExtensions.Contains(Path.GetExtension(path)))
-            .Concat(s_mediaExtensions.Select(static extension => $"resources/beutl-required-media{extension}"))
-            .Distinct(StringComparer.Ordinal)
-            .Select(path => prefix + path)
+        // A placeholder per media type in the folder Beutl imports media into shows whether media
+        // would go through LFS.
+        string[] mediaPaths = s_mediaExtensions
+            .Select(extension => $"{prefix}resources/beutl-required-media{extension}")
             .ToArray();
         HashSet<string> coveredPaths = await GetEffectiveLfsPathsAsync(
                 repository,

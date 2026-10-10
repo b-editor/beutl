@@ -2801,6 +2801,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>대용량 미디어는 Git LFS로 저장됩니다. 원격 호스팅에서 LFS 저장 공간과 대역폭에 한도가 적용될 수 있습니다.</value>
   </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>저장소의 무시 규칙 때문에 다음 프로젝트 파일은 버전에 저장되지 않습니다: {0}</value>
+  </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0}은(는) 큰 파일이지만 Git LFS가 활성화되어 있지 않습니다. 커밋하면 저장소 기록의 크기가 영구적으로 커질 수 있습니다. 커밋은 계속됩니다.</value>
   </data>

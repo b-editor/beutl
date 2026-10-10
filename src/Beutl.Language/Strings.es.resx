@@ -2801,6 +2801,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="VersionControl_LfsQuotaNotice" xml:space="preserve">
     <value>Los archivos multimedia grandes se almacenan con Git LFS. El alojamiento remoto puede aplicar cuotas al almacenamiento y al ancho de banda de LFS.</value>
   </data>
+  <data name="VersionControl_IgnoredProjectFilesNoticeFormat" xml:space="preserve">
+    <value>Las reglas de exclusión del repositorio dejan fuera de las versiones estos archivos del proyecto: {0}</value>
+  </data>
   <data name="VersionControl_LargeMediaWarningFormat" xml:space="preserve">
     <value>{0} es un archivo grande y Git LFS no está activo. Confirmarlo puede aumentar permanentemente el tamaño del historial del repositorio. El commit continuará.</value>
   </data>

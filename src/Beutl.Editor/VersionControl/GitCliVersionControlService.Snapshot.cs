@@ -5,35 +5,21 @@ internal sealed partial class GitCliVersionControlService
     private sealed record SnapshotTreeCapture(
         string Tree,
         string IndexPath,
-        IndexFileSnapshot Index,
-        IReadOnlyList<string> TemporaryPathspecsToReconcile);
-
-    private sealed record SnapshotIndexCommandPlan(
-        IReadOnlyList<IReadOnlyList<string>> Commands,
-        IReadOnlyList<string> TemporaryPathspecsToReconcile);
-
-    private sealed record SnapshotTreeBuildResult(
-        string Tree,
-        IReadOnlyList<string> TemporaryPathspecsToReconcile);
+        IndexFileSnapshot Index);
 
     private IReadOnlyList<string> CreateSnapshotExcludePathspecs(RepositoryInfo repository)
     {
         string prefix = repository.Pathspec == "."
             ? string.Empty
             : EscapeGitGlobPath(repository.Pathspec) + "/";
-        // Broad staging always excludes `.tmp` scratch files. Serialized `.tmp` sidecars are
-        // added by exact literal path through CreateSnapshotIndexCommands so one required sidecar
-        // never widens the snapshot to every temporary file in the project.
+        // Broad staging always excludes Beutl's per-user state and `.tmp` scratch files, the same
+        // paths the generated ignore rules name.
         return s_ignoredOptionalProjectPathspecSuffixes
             .Select(suffix => $":(top,exclude,glob){prefix}{suffix}")
             .ToArray();
     }
 
-    private async Task<SnapshotIndexCommandPlan> CreateSnapshotIndexCommandsAsync(
-        RepositoryInfo repository,
-        IGitCliRunner runner,
-        string? baseCommit,
-        CancellationToken cancellationToken)
+    private IReadOnlyList<string> CreateSnapshotIndexCommand(RepositoryInfo repository)
     {
         var addArguments = new List<string>
         {
@@ -45,70 +31,12 @@ internal sealed partial class GitCliVersionControlService
             CreateSnapshotBasePathspec(repository),
         };
         addArguments.AddRange(CreateSnapshotExcludePathspecs(repository));
-
-        var commands = new List<IReadOnlyList<string>> { addArguments };
-        IReadOnlyList<string> requiredTemporaryPathspecs =
-            GetRequiredTemporaryRepositoryPathspecs(repository);
-        IReadOnlySet<string> previousRequiredTemporaryPaths = baseCommit is null
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : await GetRequiredTemporaryProjectPathsAtCommitAsync(
-                    repository,
-                    runner,
-                    baseCommit,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        string[] noLongerRequiredPathspecs = previousRequiredTemporaryPaths
-            .Where(previousPath => !_requiredTemporaryProjectPaths.Any(
-                currentPath => AreSameProjectRelativePath(
-                    repository.ProjectRoot,
-                    previousPath,
-                    currentPath)))
-            .Select(path => CreateRequiredTemporaryPathspec(repository, path))
-            .ToArray();
-        string[] pathspecsToRemove = requiredTemporaryPathspecs
-            .Concat(noLongerRequiredPathspecs)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        if (pathspecsToRemove.Length > 0)
-        {
-            // Removing current paths refreshes their blob or records a physical deletion. Removing
-            // paths required by the base graph but not the current graph prevents a dereferenced
-            // sidecar from leaking into the next tree. Unrelated tracked scratch files stay in the
-            // base tree and are not widened into the snapshot.
-            commands.Add(
-            [
-                "--literal-pathspecs",
-                "update-index",
-                "--force-remove",
-                "--",
-                .. pathspecsToRemove.Select(GetRepositoryPathFromLiteralPathspec),
-            ]);
-        }
-
-        string[] existingPathspecs = requiredTemporaryPathspecs
-            .Where(pathspec => File.Exists(GetProjectPathFromLiteralPathspec(repository, pathspec)))
-            .ToArray();
-        if (existingPathspecs.Length > 0)
-        {
-            commands.Add(
-            [
-                "-c",
-                "advice.addIgnoredFile=false",
-                "add",
-                "-A",
-                "-f",
-                "--",
-                .. existingPathspecs,
-            ]);
-        }
-
-        return new SnapshotIndexCommandPlan(commands, pathspecsToRemove);
+        return addArguments;
     }
 
     private IReadOnlyList<IReadOnlyList<string>> CreateSnapshotIndexReconciliationCommands(
         RepositoryInfo repository,
-        string commit,
-        IReadOnlyList<string> temporaryPathspecsToReconcile)
+        string commit)
     {
         var resetProject = new List<string>
         {
@@ -119,57 +47,7 @@ internal sealed partial class GitCliVersionControlService
             CreateSnapshotBasePathspec(repository),
         };
         resetProject.AddRange(CreateSnapshotExcludePathspecs(repository));
-
-        var commands = new List<IReadOnlyList<string>> { resetProject };
-        if (temporaryPathspecsToReconcile.Count > 0)
-        {
-            commands.Add(
-            [
-                "reset",
-                "-q",
-                commit,
-                "--",
-                .. temporaryPathspecsToReconcile,
-            ]);
-        }
-
-        return commands;
-    }
-
-    private IReadOnlyList<string> GetRequiredTemporaryRepositoryPathspecs(
-        RepositoryInfo repository)
-    {
-        return _requiredTemporaryProjectPaths
-            .Select(path => CreateRequiredTemporaryPathspec(repository, path))
-            .ToArray();
-    }
-
-    private static string CreateRequiredTemporaryPathspec(
-        RepositoryInfo repository,
-        string projectRelativePath)
-    {
-        string prefix = GetProjectPathPrefix(repository);
-        return $":(top,literal){prefix}{projectRelativePath}";
-    }
-
-    private static string GetProjectPathFromLiteralPathspec(
-        RepositoryInfo repository,
-        string pathspec)
-    {
-        const string literalPrefix = ":(top,literal)";
-        string repositoryRelativePath = pathspec[literalPrefix.Length..];
-        string projectRelativePath = repository.Pathspec == "."
-            ? repositoryRelativePath
-            : repositoryRelativePath[(repository.Pathspec.Length + 1)..];
-        return Path.Combine(
-            repository.ProjectRoot,
-            projectRelativePath.Replace('/', Path.DirectorySeparatorChar));
-    }
-
-    private static string GetRepositoryPathFromLiteralPathspec(string pathspec)
-    {
-        const string literalPrefix = ":(top,literal)";
-        return pathspec[literalPrefix.Length..];
+        return [resetProject];
     }
 
     private static string CreateSnapshotBasePathspec(RepositoryInfo repository)
@@ -179,7 +57,7 @@ internal sealed partial class GitCliVersionControlService
             : $":(top,literal){repository.Pathspec}";
     }
 
-    private async Task<SnapshotTreeBuildResult> BuildSnapshotTreeAsync(
+    private async Task<string> BuildSnapshotTreeAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string? baseCommit,
@@ -201,21 +79,12 @@ internal sealed partial class GitCliVersionControlService
                     indexOptions with { ExecutionKind = GitCommandExecutionKind.Local },
                     cancellationToken)
                 .ConfigureAwait(false);
-            SnapshotIndexCommandPlan indexPlan = await CreateSnapshotIndexCommandsAsync(
+            await runner.RunAsync(
                     repository,
-                    runner,
-                    baseCommit,
+                    CreateSnapshotIndexCommand(repository),
+                    indexOptions,
                     cancellationToken)
                 .ConfigureAwait(false);
-            foreach (IReadOnlyList<string> command in indexPlan.Commands)
-            {
-                await runner.RunAsync(
-                        repository,
-                        command,
-                        indexOptions,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-            }
 
             GitCommandResult tree = await runner.RunAsync(
                     repository,
@@ -231,9 +100,7 @@ internal sealed partial class GitCliVersionControlService
                     treeId,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return new SnapshotTreeBuildResult(
-                treeId,
-                indexPlan.TemporaryPathspecsToReconcile);
+            return treeId;
         }
         finally
         {
@@ -265,17 +132,13 @@ internal sealed partial class GitCliVersionControlService
                 indexPath,
                 cancellationToken)
             .ConfigureAwait(false);
-        SnapshotTreeBuildResult tree = await BuildSnapshotTreeAsync(
+        string tree = await BuildSnapshotTreeAsync(
                 repository,
                 runner,
                 expectedBranchTip,
                 cancellationToken)
             .ConfigureAwait(false);
-        return new SnapshotTreeCapture(
-            tree.Tree,
-            indexPath,
-            index,
-            tree.TemporaryPathspecsToReconcile);
+        return new SnapshotTreeCapture(tree, indexPath, index);
     }
 
     private async Task<HeadOwnershipLease> AcquireSnapshotHeadLeaseAsync(
@@ -624,10 +487,7 @@ internal sealed partial class GitCliVersionControlService
                     runner,
                     snapshot.IndexPath,
                     snapshot.Index,
-                    CreateSnapshotIndexReconciliationCommands(
-                        repository,
-                        commit,
-                        snapshot.TemporaryPathspecsToReconcile),
+                    CreateSnapshotIndexReconciliationCommands(repository, commit),
                     new GitCommandOptions(GitCommandExecutionKind.Local)
                     {
                         UseLiteralPathspecs = false,
@@ -669,9 +529,6 @@ internal sealed partial class GitCliVersionControlService
                 throw;
             }
 
-            CacheHistoricalRequiredTemporaryPaths(
-                commit,
-                _requiredTemporaryProjectPaths);
         }
         finally
         {
@@ -699,22 +556,19 @@ internal sealed partial class GitCliVersionControlService
             await EnsureRepositoryHygieneSerializedCoreAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        await ValidateProjectSnapshotLayoutPreferringConflictAsync(repository, cancellationToken)
-            .ConfigureAwait(false);
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
         string branchRef = await GetAttachedBranchRefCoreAsync(
                 repository,
                 runner,
                 cancellationToken)
             .ConfigureAwait(false);
-        string? ignoredPath = await FindIgnoredExistingRequiredProjectPathAsync(
-                repository,
-                runner,
-                cancellationToken)
-            .ConfigureAwait(false);
-        ThrowIfRequiredProjectPathIgnored(ignoredPath);
         WorkspaceStatus status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         ThrowIfConflicted(status);
+        // Before the no-changes check: a project folder that is ignored as a whole never changes.
+        await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
+            repository,
+            runner,
+            cancellationToken).ConfigureAwait(false);
         await EnsureNoExternalRepositoryOperationAsync(
                 repository,
                 runner,
@@ -741,7 +595,7 @@ internal sealed partial class GitCliVersionControlService
                 return new CommitResult.NoChanges();
             }
         }
-        else if (status.IsClean && _requiredTemporaryProjectPaths.Count == 0)
+        else if (status.IsClean)
         {
             return new CommitResult.NoChanges();
         }
@@ -809,44 +663,6 @@ internal sealed partial class GitCliVersionControlService
 
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
         return new CommitResult.Committed(new CommitRevision.Known(commit.Commit));
-    }
-
-    private async Task ValidateProjectSnapshotLayoutPreferringConflictAsync(
-        RepositoryInfo repository,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            ValidateProjectSnapshotLayout(repository.ProjectRoot);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException
-                                   and not OutOfMemoryException)
-        {
-            // Git can begin a merge after the initial status check and write conflict
-            // markers before the project graph is deserialized. Prefer the conflict
-            // guidance when that race is observed, but preserve unrelated parse errors.
-            try
-            {
-                await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (VersionControlConflictedException)
-            {
-                throw;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (OutOfMemoryException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-            }
-
-            throw;
-        }
     }
 
     private async Task<(string? OriginalBranchTip, SnapshotTreeCapture Snapshot)> CaptureBranchSnapshotAsync(

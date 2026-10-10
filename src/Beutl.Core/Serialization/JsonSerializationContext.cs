@@ -108,9 +108,9 @@ public partial class JsonSerializationContext(
             return;
         }
 
-        // Decline unless every owner up to the root writes real persisted state. Resource
-        // inspection walks the live project through a context of its own (see
-        // VersionControlSerializationGraph), and its temporary reports must not reach the project.
+        // Decline unless every owner up to the root writes real persisted state. A walk over the
+        // live project can use a context of its own, and its temporary reports must not reach the
+        // project.
         for (ICoreSerializationContext? context = owner; context is not null;)
         {
             if (context is not JsonSerializationContext jsonContext)

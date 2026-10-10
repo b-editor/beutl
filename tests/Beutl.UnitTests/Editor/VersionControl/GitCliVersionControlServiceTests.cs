@@ -1083,70 +1083,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task InitializeAsync_rejects_ignored_data_in_a_new_repository_before_mutation()
-    {
-        string projectRoot = CreateTemporaryDirectory();
-        string projectFile = Path.Combine(projectRoot, "project.bep");
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, ".gitignore"), "*.bep\n");
-        CoreSerializer.StoreToUri(new Project(), new Uri(projectFile));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner(),
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.InitializeAsync(
-                new InitOptions(
-                    new RepositoryInfo(projectRoot, projectRoot),
-                    UseLfsWhenAvailable: false)
-                {
-                    Identity = new GitIdentity("Beutl Test", "beutl-test@example.invalid"),
-                },
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("ignore rules"));
-            Assert.That(service.Repository, Is.Null);
-            Assert.That(Directory.Exists(Path.Combine(projectRoot, ".git")), Is.False);
-            Assert.That(
-                File.ReadAllText(Path.Combine(projectRoot, ".gitignore")),
-                Is.EqualTo("*.bep\n"));
-        });
-    }
-
-    [TestCase(".gitignore")]
-    [TestCase(".gitattributes")]
-    public async Task InitializeAsync_rejects_ignored_future_hygiene_paths_in_top_level_repository(
-        string fileName)
-    {
-        await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
-        // The rule lives outside the work tree, so the hygiene file it matches is still untracked.
-        string excludePath = Path.Combine(Root, ".git", "info", "exclude");
-        Directory.CreateDirectory(Path.GetDirectoryName(excludePath)!);
-        await File.AppendAllTextAsync(excludePath, $"/{fileName}\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner());
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.InitializeAsync(
-                new InitOptions(Repository, UseLfsWhenAvailable: false),
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("ignore rules"));
-            Assert.That(service.Repository, Is.Null);
-            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
-        });
-    }
-
-    [Test]
     public async Task InitializeAsync_allows_ignoring_a_media_type_the_project_does_not_use()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");
@@ -1860,43 +1796,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             async () => await service.HasCheckedOutCommitAsync(
                 new RepositoryInfo(directory, directory),
                 CancellationToken.None));
-    }
-
-    [Test]
-    public async Task EnsureRepositoryHygieneAsync_rejects_ignored_required_data_before_mutation()
-    {
-        string projectFile = Path.Combine(Root, "project.bep");
-        string sidecarFile = Path.Combine(Root, "resources", "item.custom-sidecar");
-        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
-        var item = new SnapshotTestProjectItem
-        {
-            Uri = new Uri(sidecarFile),
-        };
-        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
-        var project = new Project();
-        project.Items.Add(item);
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        string ignorePath = Path.Combine(Root, ".gitignore");
-        await File.WriteAllTextAsync(ignorePath, "/resources/\n");
-        await RunGitAsync("add", "--", "project.bep", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore a referenced resource");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("ignore rules"));
-            Assert.That(exception.Message, Does.Contain("resources/item.custom-sidecar"));
-            Assert.That(File.ReadAllText(ignorePath), Is.EqualTo("/resources/\n"));
-            Assert.That(File.Exists(Path.Combine(Root, ".gitattributes")), Is.False);
-        });
     }
 
     [Test]
@@ -2788,40 +2687,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitAllAsync_rejects_an_ignored_referenced_file_beneath_resources()
-    {
-        string projectFile = Path.Combine(Root, "project.bep");
-        string sidecarFile = Path.Combine(Root, "resources", "item.custom-sidecar");
-        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
-        var item = new SnapshotTestProjectItem
-        {
-            Uri = new Uri(sidecarFile),
-        };
-        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
-        var project = new Project();
-        project.Items.Add(item);
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        await File.WriteAllTextAsync(
-            Path.Combine(Root, ".gitignore"),
-            "*.custom-sidecar\n");
-        await RunGitAsync("add", "--", "project.bep", ".gitignore");
-        await RunGitAsync("commit", "-m", "resource project item");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => true,
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.That(exception!.Message, Does.Contain("resources/item.custom-sidecar"));
-    }
-
-    [Test]
     public async Task CommitAllAsync_ignores_Beutl_state_scene_artifacts()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
@@ -2839,90 +2704,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
 
         Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_a_referenced_scene_in_the_Beutl_state_directory()
-    {
-        string stateDirectory = Path.Combine(Root, ".beutl");
-        Directory.CreateDirectory(stateDirectory);
-        string projectFile = Path.Combine(Root, "project.bep");
-        string sceneFile = Path.Combine(stateDirectory, "linked.scene");
-        var project = new Project();
-        project.Items.Add(new Scene(1920, 1080, "LinkedScene")
-        {
-            Uri = new Uri(sceneFile),
-        });
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        await RunGitAsync("add", "--", "project.bep");
-        await RunGitAsync("commit", "-m", "baseline");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => true,
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.That(exception!.Message, Does.Contain(".beutl/linked.scene"));
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_an_ignored_plugin_project_item_sidecar()
-    {
-        string projectFile = Path.Combine(Root, "project.bep");
-        string sidecarFile = Path.Combine(Root, "plugin-data", "item.custom-sidecar");
-        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
-        var item = new SnapshotTestProjectItem
-        {
-            Uri = new Uri(sidecarFile),
-        };
-        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
-        var project = new Project();
-        project.Items.Add(item);
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        await File.WriteAllTextAsync(
-            Path.Combine(Root, ".gitignore"),
-            "*.custom-sidecar\n");
-        await RunGitAsync("add", "--", "project.bep", ".gitignore");
-        await RunGitAsync("commit", "-m", "plugin project item");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            isWorktreeMutationAllowed: static () => true,
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.That(exception!.Message, Does.Contain("plugin-data/item.custom-sidecar"));
-    }
-
-    [TestCase(".git:clip.png")]
-    [TestCase(".beutl.")]
-    [TestCase(".git ")]
-    public void Reserved_path_detection_preserves_legal_Unix_filename_characters(
-        string fileName)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("These trailing and stream-like names are reserved on Windows.");
-        }
-
-        var rootUri = new Uri(Path.TrimEndingDirectorySeparator(Root)
-                              + Path.DirectorySeparatorChar);
-        var uri = new Uri(rootUri, Uri.EscapeDataString(fileName));
-
-        Assert.That(
-            VersionControlSerializationGraph.IsInReservedProjectPath(uri, Root),
-            Is.False);
     }
 
     [TestCase(".beutl", ".beutl")]
@@ -2983,73 +2764,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
             Assert.That(File.Exists(stateFile), Is.True);
-        });
-    }
-
-    [Test]
-    public async Task CommitAllAsync_fails_closed_when_an_ignored_required_path_cannot_be_enumerated()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Unix directory permissions are not available on Windows.");
-            return;
-        }
-
-        string projectFile = Path.Combine(Root, "project.bep");
-        string opaqueDirectory = Path.Combine(Root, "opaque");
-        string requiredPath = Path.Combine(opaqueDirectory, "item.custom-sidecar");
-        Directory.CreateDirectory(opaqueDirectory);
-        var item = new SnapshotTestProjectItem
-        {
-            Uri = new Uri(requiredPath),
-        };
-        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
-        var project = new Project();
-        project.Items.Add(item);
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/opaque/\n");
-        await RunGitAsync("add", "--", "project.bep", ".gitignore");
-        await RunGitAsync("commit", "-m", "ignore a referenced directory");
-        // Searchable but not listable: the project still loads the file it references, yet nothing
-        // can enumerate the folder that holds it.
-        File.SetUnixFileMode(opaqueDirectory, UnixFileMode.UserExecute);
-        InvalidOperationException? exception;
-        try
-        {
-            try
-            {
-                _ = Directory.EnumerateFileSystemEntries(opaqueDirectory).FirstOrDefault();
-                Assert.Ignore("The current user can still enumerate an unreadable directory.");
-                return;
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-
-            using var service = new GitCliVersionControlService(
-                CreateInstalledLocator(),
-                Repository,
-                watcher: null,
-                _ => CreateRunner(),
-                projectFile: projectFile);
-
-            exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await service.CommitAllAsync(
-                    "beutl: snapshot on save",
-                    SnapshotKind.Save,
-                    CancellationToken.None));
-        }
-        finally
-        {
-            File.SetUnixFileMode(
-                opaqueDirectory,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("opaque/item.custom-sidecar"));
-            Assert.That(File.Exists(requiredPath), Is.True);
         });
     }
 
@@ -4754,44 +4468,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task CommitAllAsync_rejects_required_content_beneath_a_symbolic_link_directory()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
-        }
-
-        await CommitFileAsync("project.bep", "{}\n", "initial");
-        string externalRoot = CreateTemporaryDirectory();
-        string linkedDirectory = Path.Combine(Root, "linked");
-        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
-        var project = new Project();
-        project.Items.Add(new Scene(1920, 1080, "LinkedScene")
-        {
-            Uri = new Uri(Path.Combine(linkedDirectory, "linked.scene")),
-        });
-        string projectFile = Path.Combine(Root, "project.bep");
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        Assert.That(
-            SerializedProjectGraph.GetRelativePaths(projectFile, Root),
-            Does.Contain("linked/linked.scene"));
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.That(exception!.Message, Does.Contain("symbolic-link directory 'linked'"));
-    }
-
-    [Test]
     public async Task CommitAllAsync_does_not_traverse_an_unreferenced_directory_symbolic_link()
     {
         if (OperatingSystem.IsWindows())
@@ -4824,48 +4500,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
 
         Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
-    }
-
-    [Test]
-    public async Task CommitAllAsync_rejects_a_referenced_file_symbolic_link()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
-        }
-
-        string projectFile = Path.Combine(Root, "project.bep");
-        string linkedFile = Path.Combine(Root, "resources", "linked.custom-sidecar");
-        Directory.CreateDirectory(Path.GetDirectoryName(linkedFile)!);
-        var item = new SnapshotTestProjectItem
-        {
-            Uri = new Uri(linkedFile),
-        };
-        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
-        var project = new Project();
-        project.Items.Add(item);
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        await RunGitAsync("add", "--", "project.bep");
-        await RunGitAsync("commit", "-m", "initial");
-        string externalFile = Path.Combine(CreateTemporaryDirectory(), "external.custom-sidecar");
-        File.Move(linkedFile, externalFile);
-        CreateFileSymbolicLinkOrIgnore(linkedFile, externalFile);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            Repository,
-            watcher: null,
-            _ => CreateRunner(),
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.CommitAllAsync(
-                "beutl: snapshot on save",
-                SnapshotKind.Save,
-                CancellationToken.None));
-
-        Assert.That(
-            exception!.Message,
-            Does.Contain("file symbolic link 'resources/linked.custom-sidecar'"));
     }
 
     [Test]
@@ -8574,58 +8208,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 cache,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
-    }
-
-    [Test]
-    public void Snapshot_walk_skips_only_unreferenced_folders_it_cannot_list()
-    {
-        var serializedPaths = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "project.bep",
-            "scenes/main.scene",
-        };
-
-        // A folder can be unreadable, or vanish or fail to list while the walk runs. Git only warns
-        // about it, so neither blocks a snapshot unless the project references something inside.
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                GitCliVersionControlService.CanSkipUnlistedDirectory(
-                    new UnauthorizedAccessException(),
-                    "render-cache",
-                    serializedPaths),
-                Is.True);
-            Assert.That(
-                GitCliVersionControlService.CanSkipUnlistedDirectory(
-                    new DirectoryNotFoundException(),
-                    "render-cache",
-                    serializedPaths),
-                Is.True);
-            Assert.That(
-                GitCliVersionControlService.CanSkipUnlistedDirectory(
-                    new IOException("Input/output error"),
-                    "render-cache",
-                    serializedPaths),
-                Is.True);
-            Assert.That(
-                GitCliVersionControlService.CanSkipUnlistedDirectory(
-                    new IOException("Input/output error"),
-                    "scenes",
-                    serializedPaths),
-                Is.False);
-            Assert.That(
-                GitCliVersionControlService.CanSkipUnlistedDirectory(
-                    new DirectoryNotFoundException(),
-                    ".",
-                    serializedPaths),
-                Is.False);
-            Assert.That(
-                GitCliVersionControlService.CanSkipUnlistedDirectory(
-                    new InvalidOperationException(),
-                    "render-cache",
-                    serializedPaths),
-                Is.False);
-        });
     }
 
     [Test]
