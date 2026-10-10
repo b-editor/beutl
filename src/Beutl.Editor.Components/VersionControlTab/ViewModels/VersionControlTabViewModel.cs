@@ -57,15 +57,11 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
     private int _statusRefreshRevision;
     private long _lastStatusSequence;
     private string? _lastStatusHead;
-    private bool _pendingRecoveryRefreshFailed;
     private bool _metadataRefreshFailed;
-    private int _pendingRecoveryQueryRevision;
     private int _nextHistoryOffset;
     private int _aheadCount;
     private int _behindCount;
     private int _restoreRequestActive;
-    private int _pendingRecoveryRequestActive;
-    private string? _pendingRecoveryId;
     private HistoryIdentity? _historyIdentity;
     private bool _hasMoreHistory;
     private bool _hasUncommittedChanges;
@@ -114,11 +110,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
         _versionControlCoordinator = versionControlCoordinator;
         _repositoryAdoptionSource = versionControlCoordinator as IRepositoryAdoptionConfirmationSource;
         _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
-        if (_versionControlCoordinator is not null)
-        {
-            _versionControlCoordinator.PendingPullRecoveriesChanged +=
-                OnPendingPullRecoveriesChanged;
-        }
         _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(
             timeProvider ?? TimeProvider.System,
             culture ?? CultureInfo.CurrentUICulture);
@@ -145,8 +136,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         StaleLockGuidance = new ReactivePropertySlim<string>(
                 Strings.VersionControl_StaleLockGuidance)
-            .DisposeWith(_disposables);
-        HasPendingPullRecovery = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         DirtySummary = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
@@ -245,13 +234,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .WithSubscribe(() => RunCommandAsync(
                 RemoveStaleLockAsync,
                 nameof(RemoveStaleLockCommand)))
-            .DisposeWith(_disposables);
-        // An observable for the same reason: a shared property is set back to true when the command
-        // finishes, which brought the banner back after a successful recovery.
-        RecoverPendingPullCommand = new AsyncReactiveCommand(HasPendingPullRecovery.AsObservable())
-            .WithSubscribe(() => RunCommandAsync(
-                RecoverPendingPullAsync,
-                nameof(RecoverPendingPullCommand)))
             .DisposeWith(_disposables);
         IObservable<bool> canMutate = ObserveCanMutate();
         CommitCommand = new AsyncReactiveCommand(
@@ -439,8 +421,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
 
     public ReactivePropertySlim<string> StaleLockGuidance { get; }
 
-    public ReactivePropertySlim<bool> HasPendingPullRecovery { get; }
-
     public ReactivePropertySlim<string> DirtySummary { get; }
 
     public ReactivePropertySlim<RepositoryAdoptionRequest?> PendingRepositoryAdoption { get; }
@@ -505,8 +485,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
 
     public AsyncReactiveCommand RemoveStaleLockCommand { get; }
 
-    public AsyncReactiveCommand RecoverPendingPullCommand { get; }
-
     public AsyncReactiveCommand CommitCommand { get; }
 
     public AsyncReactiveCommand SetRemoteCommand { get; }
@@ -562,15 +540,9 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
         _disposed = true;
         Disposed?.Invoke(this, EventArgs.Empty);
         Interlocked.Increment(ref _statusRefreshRevision);
-        Interlocked.Increment(ref _pendingRecoveryQueryRevision);
         if (_repositoryAdoptionSource is not null)
         {
             _repositoryAdoptionSource.RepositoryAdoptionChanged -= OnRepositoryAdoptionChanged;
-        }
-        if (_versionControlCoordinator is not null)
-        {
-            _versionControlCoordinator.PendingPullRecoveriesChanged -=
-                OnPendingPullRecoveriesChanged;
         }
 
         DetachServiceEvents();

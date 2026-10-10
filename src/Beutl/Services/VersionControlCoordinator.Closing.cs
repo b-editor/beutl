@@ -15,7 +15,6 @@ internal partial class VersionControlCoordinator
             return;
         }
 
-        CancelPendingPullRecoveryOffer();
         // The close can wait on Git for a while, first for work already running and then for the close
         // snapshot, and the editor cannot be used meanwhile. The editor area shows the close instead of an
         // editor that looks usable, until the close completes or is aborted.

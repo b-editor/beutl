@@ -866,42 +866,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Project_checkpoint_creation_reports_missing_identity_before_mutation()
-    {
-        await CommitFileAsync("project.bep", "initial\n", "initial");
-        await File.WriteAllTextAsync(Path.Combine(Root, "local.belm"), "local edit\n");
-        await RunGitAsync("config", "--local", "user.name", "");
-        await RunGitAsync("config", "--local", "user.email", "");
-        var notices = new List<VersionControlPolicyNotice>();
-        using var service = CreateService(
-            new VersionControlConfig(),
-            lfsInstalled: false,
-            notice =>
-            {
-                notices.Add(notice);
-                return Task.CompletedTask;
-            });
-
-        await Assert.ThrowsAsync<GitIdentityRequiredException>(
-            async () => await service.ExecuteExclusiveAsync(
-                transaction => transaction.CreateProjectCheckpointAsync("safety checkpoint", CancellationToken.None),
-                CancellationToken.None));
-        GitCommandResult staged = await RunGitAsync("diff", "--cached", "--name-only");
-        GitCommandResult checkpoints = await RunGitAsync(
-            "for-each-ref",
-            "--format=%(refname)",
-            "refs/beutl/checkpoints");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(staged.Stdout, Is.Empty);
-            Assert.That(checkpoints.Stdout, Is.Empty);
-            Assert.That(notices.Single(), Is.TypeOf<VersionControlPolicyNotice.MissingIdentity>());
-        });
-    }
-
-    [Test]
-    public async Task Project_tree_skip_reports_missing_identity()
+    public async Task Restore_reports_missing_identity_before_changing_files()
     {
         await CommitFileAsync("project.bep", "original\n", "original");
         string original = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
@@ -915,15 +880,11 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 notices.Add(notice);
                 return Task.CompletedTask;
             });
-        CheckedOutBranchTip current = await service.ExecuteExclusiveAsync(
-            transaction => transaction.GetCheckedOutBranchTipAsync(CancellationToken.None),
-            CancellationToken.None);
         await RunGitAsync("config", "--local", "user.name", "");
         await RunGitAsync("config", "--local", "user.email", "");
 
         CommitResult result = await service.ExecuteExclusiveAsync(
-            transaction => transaction.CommitProjectTreeAsync(
-                current,
+            transaction => transaction.RestoreProjectTreeAsync(
                 original,
                 "restore snapshot",
                 SnapshotKind.Restore,
@@ -933,6 +894,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.TypeOf<CommitResult.SkippedNoIdentity>());
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("current\n"));
             Assert.That(notices.Single(), Is.TypeOf<VersionControlPolicyNotice.MissingIdentity>());
         });
     }

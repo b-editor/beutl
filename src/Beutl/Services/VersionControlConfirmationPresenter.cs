@@ -36,19 +36,6 @@ internal sealed class VersionControlConfirmationPresenter(Dispatcher dispatcher)
             cancellationToken);
     }
 
-    internal Task<bool> ShowPendingPullRecoveryConfirmationAsync(
-        ProjectRecoveryInfo recovery,
-        CancellationToken cancellationToken)
-    {
-        return ShowConfirmationAsync(
-            Strings.VersionControl,
-            string.Format(
-                Strings.VersionControl_PendingPullRecoveryConfirmation,
-                recovery.ProjectFileName,
-                recovery.CreatedAt.ToLocalTime()),
-            cancellationToken);
-    }
-
     internal Task<bool> ShowEnclosingRepositoryConfirmationAsync(
         RepositoryInfo repository,
         CancellationToken cancellationToken)

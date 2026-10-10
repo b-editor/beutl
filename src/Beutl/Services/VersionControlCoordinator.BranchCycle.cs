@@ -115,40 +115,28 @@ internal partial class VersionControlCoordinator
         // is still cancellable and the project is still open.
         await service.PrefetchBranchLfsObjectsAsync(branchName, cancellationToken);
 
-        CheckedOutBranchTip expectedResultTip = originalTip;
         bool projectClosed = false;
         try
         {
             await CloseProjectForOperationAsync(transition, CancellationToken.None);
             projectClosed = true;
-            try
-            {
-                await service.SwitchBranchAsync(
-                    branchName,
-                    CancellationToken.None);
-            }
-            catch
-            {
-                expectedResultTip = await service.GetCheckedOutBranchTipAsync(
-                    CancellationToken.None);
-                throw;
-            }
-
-            expectedResultTip = await service.GetCheckedOutBranchTipAsync(
+            await service.SwitchBranchAsync(
+                branchName,
                 CancellationToken.None);
             await ReopenProjectAsync(transition, projectFile);
             return true;
         }
         catch (Exception ex)
         {
+            // A failed git switch leaves HEAD where it was; a project the target branch cannot
+            // reopen goes back to the original branch.
             Exception? recoveryFailure = projectClosed
-                ? await TryRestoreOriginalStateAsync(
+                ? (await TryRestoreOriginalStateAsync(
                     service,
                     originalTip,
-                    expectedResultTip,
-                    RecoveryKind.Branch,
+                    revertCommittedRestore: false,
                     transition,
-                    projectFile)
+                    projectFile)).Failure
                 : null;
             return HandleCycleFailure(
                 ex,

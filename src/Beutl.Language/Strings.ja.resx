@@ -2438,30 +2438,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
     <value>このプロジェクトでバージョン管理を有効にできませんでした。{0}</value>
   </data>
-  <data name="VersionControl_OpenAbortedFormat" xml:space="preserve">
-    <value>中断した pull の復旧が必要かどうかを確認できなかったため、プロジェクトを開きませんでした。{0}</value>
-  </data>
-  <data name="VersionControl_PullTransitionUncertain" xml:space="preserve">
-    <value>保護されたリポジトリ遷移の所有権が失われたか、復旧を検証できませんでした。バージョン管理の「プロジェクトを復旧」を使用するか、「最近使ったプロジェクト」から再度開くと読み込み前に復旧できます。作業ツリーを安全に変更できない場合、Beutl はチェックポイントを永続的な Git 参照に保持します。</value>
-  </data>
-  <data name="VersionControl_PendingPullRecoveryConfirmation" xml:space="preserve">
-    <value>{0} の保護されたプルが {1:g} に正常終了しませんでした。プロジェクトを読み込む前に保存された状態を復旧しますか？復旧で置き換えられるプロジェクト状態は再読み込みされ、取り消し履歴が消去されます。保存されていない変更は破棄されます。</value>
-  </data>
-  <data name="VersionControl_PendingPullRecoveryGuidance" xml:space="preserve">
-    <value>保護されたプルが正常終了しませんでした。保存されたプロジェクト状態から復旧できます。</value>
-  </data>
-  <data name="VersionControl_RecoverPendingPull" xml:space="preserve">
-    <value>プロジェクトを復旧</value>
-  </data>
-  <data name="VersionControl_PullRecovered" xml:space="preserve">
-    <value>プルは完了できませんでしたが、保存されたプロジェクト状態を復旧しました。</value>
-  </data>
-  <data name="VersionControl_CheckpointReappliedOnRecoveryBranch" xml:space="preserve">
-    <value>保存されたプロジェクト状態をローカル変更として復旧しました。永続的なコピーはブランチ '{0}' に保持されています。</value>
-  </data>
-  <data name="VersionControl_CheckpointPreservedOnRecoveryBranch" xml:space="preserve">
-    <value>現在の作業ツリーを安全に変更できませんでした。保存されたプロジェクト状態は Git 参照 '{0}' に保持されています。Git でこの参照を確認してください。</value>
-  </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>ブランチ: {0}</value>
   </data>
@@ -2547,7 +2523,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>このプロジェクトは他のファイルとリポジトリを共有しています。ブランチを切り替えるとリポジトリ全体がチェックアウトされ、プロジェクト外のファイルも変更されます。</value>
   </data>
   <data name="VersionControl_PullConfirmation" xml:space="preserve">
-    <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、安全スナップショットへ記録されます。続行しますか？</value>
+    <value>fast-forward 更新のプル後にプロジェクトを閉じて開き直すため、現在の取り消し履歴は消去されます。未保存の変更は先に保存され、プルの間は Git のスタッシュに退避され、終了後に戻されます。続行しますか？</value>
   </data>
   <data name="VersionControl_EnclosingRepositoryScopeFormat" xml:space="preserve">
     <value>ブランチとリモートの操作は親リポジトリ全体に適用されます: {0}</value>
@@ -2635,6 +2611,12 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="VersionControl_RepositoryDirty" xml:space="preserve">
     <value>プルするにはリポジトリ全体をクリーンにする必要があります。プロジェクト外の変更をコミットまたはスタッシュしてから再試行してください。</value>
+  </data>
+  <data name="VersionControl_PullChangesKeptInStashFormat" xml:space="preserve">
+    <value>プルは完了しましたが、ローカルの変更をその上に再適用できなかったため、Git はそれらをスタッシュ '{0}' に保持しています。外部の Git ツールで競合を解決してから、スタッシュを削除してください。</value>
+  </data>
+  <data name="VersionControl_PullFailedChangesKeptInStashFormat" xml:space="preserve">
+    <value>プルに失敗し、ローカルの変更も元に戻せなかったため、Git はそれらをスタッシュ '{0}' に保持しています。</value>
   </data>
   <data name="VersionControl_Offline" xml:space="preserve">
     <value>リモートに接続できませんでした。ネットワーク接続を確認して再試行してください。</value>

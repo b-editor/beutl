@@ -12,7 +12,8 @@ internal sealed partial class GitCliVersionControlService
         RepositoryInfo repository = GetRepository();
         IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken)
             .ConfigureAwait(false);
-        string relativeProjectFile = GetRecoveryProjectFile(repository, projectFile);
+        // Relative to the repository root, which a nested project's path in a commit starts at.
+        string relativeProjectFile = GetRepositoryRelativeProjectFilePath(repository, projectFile);
         try
         {
             await runner.RunAsync(

@@ -74,24 +74,11 @@ Snapshot of the current repo state, produced by one `git status --porcelain=v2 -
 ## CommitResult / RemoteOpResult
 
 - `CommitResult`: `NoChanges` | `Committed(CommitRevision Revision)` | `SkippedNoIdentity` (auto-triggers only; one-time warning surfaced). `CommitRevision` is `Known(string Sha)` or `Unavailable`. The built-in Git backend reads HEAD after `git commit` and therefore always returns `Known`; `Unavailable` remains a defensive state for alternative coordinator implementations whose durable commit cannot be identified safely.
-- `RemoteOpResult`: `Success` | `AuthFailed(string Guidance)` | `Diverged` | `Offline` | `RepositoryDirty` | `Failed(string Stderr)` — each maps to a distinct actionable message (FR-031/FR-032, edge cases). `RepositoryDirty` is reserved for a failed whole-repository cleanliness precondition; it never represents ownership loss or an unverified recovery.
+- `RemoteOpResult`: `Success` | `AuthFailed(string Guidance)` | `Diverged` | `Offline` | `RepositoryDirty` | `Failed(string Stderr)` — each maps to a distinct actionable message (FR-031/FR-032, edge cases). `RepositoryDirty` is reserved for the pull preflight's cleanliness precondition.
 
-## CheckedOutBranchTip / ProjectCheckpoint
+## CheckedOutBranchTip
 
 - `CheckedOutBranchTip(RefName, Commit)` identifies one attached local branch and its exact commit. Detached HEAD is not a valid input to a close/reopen mutation cycle.
-- `ProjectCheckpoint(RefName, Commit, BaseTip)` identifies a commit reachable through `refs/beutl/safety/*`. It captures the project pathspec with a temporary index while leaving the checked-out branch, working tree, and user's index unchanged.
-- A checkpoint is valid only while its ref resolves to the recorded commit, that commit's first parent equals `BaseTip.Commit`, and the same local branch remains checked out. Branch rollback uses the recorded ref plus expected-old commit as one compare-and-swap.
-
-## PullTransitionState
-
-Internal result state returned with a fast-forward pull:
-
-- `Unchanged`: no durable branch/tree transition remains; normal recovery/reopen is safe.
-- `Applied`: the exact target tree/index was prepared and the expected-old branch CAS reached the target.
-- `OwnershipLost`: an external ref, worktree, or index update invalidated Beutl's captured ownership; Beutl does not overwrite it.
-- `RecoveryFailed`: mutation started and the backend could not verify either the target or restored original state.
-
-`OwnershipLost` and `RecoveryFailed` leave the project closed and retain any private checkpoint. They remain distinct internally because the coordinator must not attempt a second rollback against uncertain ownership; only at the public coordinator boundary are both rendered as the exact localized uncertain-transition `Failed` result, without inner result text.
 
 ## BranchInfo / RemoteInfo / GitIdentity
 

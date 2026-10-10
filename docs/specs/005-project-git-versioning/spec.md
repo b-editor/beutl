@@ -144,7 +144,7 @@ The user connects the project to a remote repository, pushes their history for b
 **Acceptance Scenarios**:
 
 1. **Given** a tracked project and a remote URL, **When** the user connects the remote and pushes, **Then** the full history transfers using the user's existing Git authentication, with visible progress and the ability to cancel.
-2. **Given** a remote with new versions, **When** the user pulls and the local history has not diverged, **Then** the project updates to the remote state via the same safe close/reopen cycle, after a safety snapshot.
+2. **Given** a remote with new versions, **When** the user pulls and the local history has not diverged, **Then** the project updates to the remote state via the same safe close/reopen cycle, with local project changes set aside in a Git stash and brought back afterwards.
 3. **Given** local and remote histories have diverged, **When** the user pulls or pushes, **Then** the app clearly explains the situation, preserves both sides untouched, and directs the user to external Git tooling — it never merges, overwrites, or discards either side.
 4. **Given** authentication fails, **When** the user pushes or pulls, **Then** the failure surfaces immediately with actionable guidance (credential helper / SSH agent setup), and the app never prompts for or stores passwords itself.
 5. **Given** a project committed on Windows and cloned on macOS or Linux, **When** it is opened, **Then** it loads with zero path or line-ending errors.
@@ -163,7 +163,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **Interrupted version operation (crash mid-commit)**: a stale repository lock is detected on next open. One-click removal is available only when the platform can exclusively open the same file identity and bind deletion to that handle; otherwise Beutl refuses deletion and directs the user to close external Git processes and inspect/remove the lock manually. The project files themselves are always intact thanks to atomic saves.
 - **Remote failures (offline, rejected auth, non-fast-forward push)**: each failure mode surfaces an actionable, distinct message; saving and editing are never blocked by remote problems.
 - **Stale per-user view state after restore**: reopening tolerates view state that references elements that no longer exist (view state is untracked and may lag the restored content).
-- **Second writer (e.g. a headless agent or external Git session) on the same project**: Beutl serializes its own mutations; tree transitions lock the worktree HEAD, validate scoped fingerprints, and use expected-old branch updates. A detected external change aborts without being overwritten and may leave the project closed with its checkpoint retained. Ordinary snapshots still capture only completed atomic file writes.
+- **Second writer (e.g. a headless agent or external Git session) on the same project**: Beutl serializes its own mutations and runs plain Git, so a concurrent Git process surfaces as Git's own error rather than being worked around. Ordinary snapshots still capture only completed atomic file writes.
 - **Project Save As / rename**: saving a copy to a new location starts a fresh, independent history for the copy (the original keeps its history); an in-place rename of project items relies on rename detection and does not lose history.
 
 ## Requirements *(mandatory)*
@@ -205,7 +205,7 @@ The user connects the project to a remote repository, pushes their history for b
 **Restore**
 
 - **FR-021**: Users MUST be able to restore the whole project to any past version. Restore MUST be recorded as a new version on the current line of history — the system MUST NOT rewrite, delete, or orphan any existing version to perform a restore.
-- **FR-022**: Before any operation that changes files under the editor (restore, branch switch, pull), the system MUST durably preserve the current state when there are changes, then close the project, apply the operation, and reopen it. Restore and branch switch use an ordinary safety commit; pull uses a reachable private checkpoint that does not move the branch and promotes it to a safety commit after fast-forward.
+- **FR-022**: Before any operation that changes files under the editor (restore, branch switch, pull), the system MUST durably preserve the current state when there are changes, then close the project, apply the operation, and reopen it. Restore and branch switch use an ordinary safety commit; pull sets local project changes aside in a Git stash and brings them back after the fast-forward.
 - **FR-023**: The restore confirmation MUST disclose that the project will close and reopen and that the in-session undo history will be cleared.
 - **FR-024**: A restored project MUST match the selected version exactly, including the removal of elements that were added after that version.
 - **FR-025**: A secondary "restore to a new branch" action MUST be available for users who want to keep the restored line separate.
@@ -223,7 +223,7 @@ The user connects the project to a remote repository, pushes their history for b
 
 - **FR-029**: Users MUST be able to associate one remote with the project and change its URL.
 - **FR-030**: Push MUST transfer the current branch with visible progress and cancellation; push MUST NOT require closing the project.
-- **FR-031**: Pull MUST apply only fast-forward updates via the durable-checkpoint + close/reopen cycle. On success, dirty local project state MUST be reapplied and committed on the fast-forwarded tip. On divergence or failure, the system MUST restore the exact captured local branch tip and project state without overwriting a concurrent external ref movement, preserve both sides, and direct the user to external Git tooling when automatic recovery is unsafe. `RepositoryDirty` MUST describe only a failed cleanliness precondition; ownership loss or unverified recovery MUST surface as one localized uncertain-transition failure without composing an inner remote-result message.
+- **FR-031**: Pull MUST apply only fast-forward updates (`git merge --ff-only`) through the close/reopen cycle. Local project changes MUST be stashed for the merge and restored afterwards as local changes; when they conflict with the pull, Git keeps them in the stash and the user is told so and directed to external Git tooling. On divergence or failure, the branch and the local changes MUST stay as they were and Git's error is reported. `RepositoryDirty` MUST describe only a failed cleanliness precondition.
 - **FR-032**: Authentication MUST be fully delegated to the user's existing Git credential mechanisms; the app MUST NOT collect, store, or transmit credentials itself, and auth failures MUST surface immediately with actionable guidance.
 - **FR-033**: When the repository is in a conflicted state (e.g. after an external merge attempt), versioning operations that change the work tree, index, or history MUST be blocked with clear guidance while the editor itself remains usable; as in plain Git, configuring the remote and pushing remain available. A detached HEAD blocks the same operations with its own guidance, and the project stays tracked in both states. The app MUST warn before opening project files that contain conflict markers.
 
@@ -252,7 +252,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **Branch**: a named line of history; exactly one is active per project.
 - **Remote**: a single associated backup/collaboration endpoint per project.
 - **Ignore/attribute rules**: generated repository configuration that excludes per-user state and pins cross-platform text policies.
-- **Safety snapshot**: the reachable preservation point taken when project state is dirty, making restore/switch/pull non-destructive without creating empty commits for clean state. For pull it begins as a private checkpoint and becomes an ordinary commit on the fast-forwarded branch tip.
+- **Safety snapshot**: the reachable preservation point taken when project state is dirty, making restore and branch switch non-destructive without creating empty commits for clean state. Pull does not take one; it keeps local project changes in a Git stash entry instead.
 
 ## Success Criteria *(mandatory)*
 
@@ -261,7 +261,7 @@ The user connects the project to a remote repository, pushes their history for b
 - **SC-001** (integrity): Restoring any version from a 50-version history reopens the project with zero load errors, and the reopened project renders frame-identically to the state that was saved at that version.
 - **SC-002** (diff minimality): Changing one property of one element and saving produces a version that touches exactly that element's file (plus the scene file for structural edits) — never the project file, per-user state, or unrelated files.
 - **SC-003** (performance): Recording a snapshot of a 500-element project completes within 2 seconds without blocking the UI; the history view opens within 1 second for a 200-version history.
-- **SC-004** (safety): 100% of restore, branch-switch, and pull flows with dirty project state create a durable reachable preservation point before mutating files; successful dirty pulls promote that checkpoint to a safety commit, clean flows create no empty safety version, and no sequence of in-app versioning operations can lose committed work or the currently saved project state.
+- **SC-004** (safety): 100% of restore, branch-switch, and pull flows with dirty project state preserve it before mutating files (a safety commit for restore and switch, a Git stash entry for pull); clean flows create no empty safety version, and no sequence of in-app versioning operations can lose committed work or the currently saved project state.
 - **SC-005** (discoverability): A user new to the feature can enable tracking, find the history view, and restore a prior version within 2 minutes using only in-app UI.
 - **SC-006** (portability): A project committed on Windows, pushed, and cloned on macOS or Linux opens with zero path or line-ending errors and renders identically.
 - **SC-007** (degradation): With Git absent, a full pass over the editor's feature surface produces zero versioning-related errors or dialogs beyond the single guidance state.

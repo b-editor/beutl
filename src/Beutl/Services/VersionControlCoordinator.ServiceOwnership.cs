@@ -49,7 +49,6 @@ internal partial class VersionControlCoordinator
             return false;
         }
 
-        CancelPendingPullRecoveryOffer();
         SchedulePublicationDrain(schedulePublication);
         CancelActivation(previousActivation);
 
@@ -233,7 +232,6 @@ internal partial class VersionControlCoordinator
                 out _);
         }
 
-        CancelPendingPullRecoveryOffer();
         SchedulePublicationDrain(schedulePublication);
         CancelActivation(activation);
     }
@@ -414,7 +412,6 @@ internal partial class VersionControlCoordinator
         SchedulePublicationDrain(schedulePublication);
         if (detached)
         {
-            CancelPendingPullRecoveryOffer();
             DisposeService(service);
         }
     }

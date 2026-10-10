@@ -40,10 +40,8 @@ internal partial class VersionControlCoordinator
 
             _disposed = true;
             _pendingConfigurationActivation = null;
-            _pendingOpeningRepositoryDecision = null;
             preparedNewProject = _preparedNewProject;
             _preparedNewProject = null;
-            _openingPullRecoveries.Clear();
             configurationActivationCancellation = _configurationActivationCancellation;
             projectServiceEpochCancellation = _projectServiceEpochCancellation;
             _projectServiceEpochCancellation = null;
@@ -70,7 +68,6 @@ internal partial class VersionControlCoordinator
         }
 
         _config.ConfigurationChanged -= OnVersionControlConfigChanged;
-        _projectService.OpeningPreflight -= PrepareProjectOpeningAsync;
         _projectService.Opening -= InspectProjectOpeningAsync;
         _projectService.ClosingPreparing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
@@ -101,7 +98,6 @@ internal partial class VersionControlCoordinator
             await WaitForQuiescenceAsync(ref _closeBarrierUsers, ref _closeBarriersQuiesced).ConfigureAwait(false);
             await WaitForQuiescenceAsync(ref _lifecycleUsers, ref _lifecycleQuiesced).ConfigureAwait(false);
             await WaitForQuiescenceAsync(ref _activationSetupUsers, ref _activationSetupsQuiesced).ConfigureAwait(false);
-            await WaitForQuiescenceAsync(ref _pendingRecoveryOfferUsers, ref _pendingRecoveryOffersQuiesced).ConfigureAwait(false);
             ClearProjectState();
             await WaitForQuiescenceAsync(ref _lockRecoveryUsers, ref _lockRecoveryQuiesced).ConfigureAwait(false);
             await WaitForQuiescenceAsync(ref _notificationUsers, ref _notificationsQuiesced).ConfigureAwait(false);

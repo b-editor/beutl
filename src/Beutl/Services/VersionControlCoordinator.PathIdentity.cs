@@ -23,40 +23,6 @@ internal partial class VersionControlCoordinator
                && PathsEqual(left.ProjectRoot, right.ProjectRoot);
     }
 
-    private static bool RecoveryProjectPathsEqual(string left, string right)
-    {
-        string lexicalLeft = Path.TrimEndingDirectorySeparator(Path.GetFullPath(left));
-        string lexicalRight = Path.TrimEndingDirectorySeparator(Path.GetFullPath(right));
-        if (string.Equals(lexicalLeft, lexicalRight, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        try
-        {
-            return PathsEqual(left, right);
-        }
-        catch (Exception ex) when (IsPathResolutionFailure(ex))
-        {
-            return false;
-        }
-    }
-
-    private static bool RecoveryProjectPathsEqual(
-        RepositoryInfo repository,
-        string left,
-        string right)
-    {
-        if (TryGetPathRelativeToRoot(repository.ProjectRoot, left, out string? leftRelative)
-            && TryGetPathRelativeToRoot(repository.ProjectRoot, right, out string? rightRelative)
-            && string.Equals(leftRelative, rightRelative, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return RecoveryProjectPathsEqual(left, right);
-    }
-
     // Walks up from the path to the ancestor that is the root, and reports whether the path stays
     // inside it.
     private static bool TryGetPathRelativeToRoot(

@@ -132,27 +132,13 @@ internal interface IProjectVersionControlTransaction
         CheckedOutBranchTip expectedCurrent,
         CancellationToken cancellationToken);
 
-    Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
-        string message,
-        CancellationToken cancellationToken);
-
-    Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
-        CancellationToken cancellationToken);
-
-    Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryAsync(
-        PendingPullRecovery recovery,
-        CancellationToken cancellationToken);
-
-    Task CompletePendingPullRecoveryAsync(
-        PendingPullRecovery recovery,
-        CancellationToken cancellationToken);
-
-    Task RestoreProjectCheckpointAsync(
-        ProjectCheckpoint checkpoint,
-        CancellationToken cancellationToken);
-
-    Task<CommitResult> CommitProjectTreeAsync(
-        CheckedOutBranchTip expectedCurrent,
+    /// <summary>
+    /// Replaces the project's files with their state at <paramref name="sourceCommit"/> and records
+    /// that as a snapshot of <paramref name="kind"/>. Files the commit does not have are deleted;
+    /// Beutl's own state and temporary files stay. A failure before the snapshot is recorded puts the
+    /// project's files back to HEAD.
+    /// </summary>
+    Task<CommitResult> RestoreProjectTreeAsync(
         string sourceCommit,
         string message,
         SnapshotKind kind,
@@ -161,15 +147,6 @@ internal interface IProjectVersionControlTransaction
     Task<bool> RevisionContainsProjectFileAsync(
         string sha,
         string projectFile,
-        CancellationToken cancellationToken);
-
-    Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
-        CheckedOutBranchTip expectedCurrent,
-        CheckedOutBranchTip target,
-        CancellationToken cancellationToken);
-
-    Task<bool> DeleteProjectCheckpointAsync(
-        ProjectCheckpoint checkpoint,
         CancellationToken cancellationToken);
 
     Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken);
@@ -193,9 +170,9 @@ internal interface IProjectVersionControlTransaction
     Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The same prefetch for a target commit, so pull and restore do not reach the network from
-    /// their uncancellable checkout either. A pull uses <see cref="LfsPrefetchScope.RepositoryWide"/>
-    /// because it transitions the enclosing repository; a restore uses
+    /// The same prefetch for a target commit, so pull and restore do not reach the network while
+    /// the project is closed either. A pull uses <see cref="LfsPrefetchScope.RepositoryWide"/>
+    /// because it moves the whole repository; a restore uses
     /// <see cref="LfsPrefetchScope.ProjectPathspec"/> because it changes only the project tree.
     /// Best effort, exactly like the branch variant.
     /// </summary>
@@ -206,10 +183,13 @@ internal interface IProjectVersionControlTransaction
 
     Task SwitchBranchAsync(string name, CancellationToken cancellationToken);
 
-    Task<FastForwardPullResult> PullFastForwardAsync(
-        CheckedOutBranchTip expectedCurrent,
-        ProjectCheckpoint? checkpoint,
-        string projectFile,
+    /// <summary>
+    /// Fast-forwards the checked-out branch to <paramref name="upstreamCommit"/> with
+    /// <c>git merge --ff-only</c>. The project's local changes are stashed for the merge and popped
+    /// afterwards; when they cannot be popped, Git keeps the stash entry and the result says so.
+    /// </summary>
+    Task<RemoteOpResult> PullFastForwardAsync(
+        string upstreamCommit,
         CancellationToken cancellationToken);
 }
 

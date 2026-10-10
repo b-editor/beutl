@@ -55,7 +55,6 @@ public class VersionControlCompositionLayoutTests
         service.Setup(x => x.GetDiffAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("diff --git a/scenes/main.scene b/scenes/main.scene\n@@ -1,2 +1,2 @@\n- previous value\n+ updated value\n unchanged");
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.SetReturnsDefault(Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
         using var serviceSource = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         using var model = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(),
             serviceSource, coordinator.Object, action => action());

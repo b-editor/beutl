@@ -8,10 +8,6 @@ internal partial class VersionControlCoordinator
     internal void OnProjectChanged(Project? project)
     {
         bool internalTransition = IsInternalVersionControlTransition();
-        PendingOpeningRepositoryDecision? openingRepositoryDecision =
-            project is null || internalTransition
-                ? null
-                : TryTakeOpeningRepositoryDecision(project);
         bool newProject = project is not null && !internalTransition && IsProjectCreationTransition();
         CancellationTokenSource? configurationActivationCancellation;
         long activationRevision;
@@ -36,15 +32,10 @@ internal partial class VersionControlCoordinator
 
         AdvanceProjectServiceEpoch();
         CancelConfigurationActivation(configurationActivationCancellation);
-        if (!internalTransition)
-        {
-            CancelPendingPullRecoveryOffer();
-        }
         StartProjectActivation(
             project,
             internalTransition,
             activationRevision,
-            openingRepositoryDecision,
             newProject,
             preparedNewProject);
     }
@@ -74,15 +65,10 @@ internal partial class VersionControlCoordinator
         }
 
         CancelConfigurationActivation(configurationActivationCancellation);
-        if (!internalTransition)
-        {
-            CancelPendingPullRecoveryOffer();
-        }
         StartProjectActivation(
             project,
             internalTransition,
             activationRevision,
-            openingRepositoryDecision: null,
             newProject: false,
             preparedNewProject: null);
     }
@@ -91,25 +77,22 @@ internal partial class VersionControlCoordinator
         Project? project,
         bool internalTransition,
         long activationRevision,
-        PendingOpeningRepositoryDecision? openingRepositoryDecision,
         bool newProject,
         PreparedNewProject? preparedNewProject)
     {
-        _ = StartProjectActivationAfterOpeningRecoveryAsync(
+        _ = RunProjectActivationAsync(
             project,
             internalTransition,
             activationRevision,
-            openingRepositoryDecision,
             newProject,
             preparedNewProject);
     }
 
     // Owns the prepared backend until OnProjectChangedAsync takes it over.
-    private async Task StartProjectActivationAfterOpeningRecoveryAsync(
+    private async Task RunProjectActivationAsync(
         Project? project,
         bool internalTransition,
         long activationRevision,
-        PendingOpeningRepositoryDecision? openingRepositoryDecision,
         bool newProject,
         PreparedNewProject? preparedNewProject)
     {
@@ -121,21 +104,11 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
-            if (project is not null)
-            {
-                await CompleteOpeningPullRecoveryAfterPublishedAsync(project).ConfigureAwait(false);
-                if (!ReferenceEquals(_projectService.CurrentProject.Value, project))
-                {
-                    return;
-                }
-            }
-
             preparedService = null;
             await OnProjectChangedAsync(
                     project,
                     internalTransition,
                     activationRevision,
-                    openingRepositoryDecision,
                     newProject,
                     CancellationToken.None,
                     preparedNewProject)
@@ -168,7 +141,6 @@ internal partial class VersionControlCoordinator
                     project,
                     internalTransition,
                     activationRevision,
-                    openingRepositoryDecision: null,
                     newProject: false,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
@@ -185,7 +157,6 @@ internal partial class VersionControlCoordinator
         Project? project,
         bool internalTransition,
         long activationRevision,
-        PendingOpeningRepositoryDecision? openingRepositoryDecision,
         bool newProject,
         CancellationToken cancellationToken,
         PreparedNewProject? preparedNewProject = null)
@@ -242,7 +213,6 @@ internal partial class VersionControlCoordinator
                 projectRoot,
                 projectFile,
                 service,
-                openingRepositoryDecision,
                 newProject,
                 cancellationToken)
             {
@@ -380,7 +350,6 @@ internal partial class VersionControlCoordinator
     {
         IProjectVersionControlBackend? candidateService = null;
         IProjectVersionControlBackend? pendingCleanup = null;
-        IProjectVersionControlBackend? pendingRecoveryOfferService = null;
         try
         {
             await activation.PredecessorsCompleted.ConfigureAwait(false);
@@ -464,15 +433,10 @@ internal partial class VersionControlCoordinator
                 throw;
             }
 
-            bool activationCompleted = CompleteActivation(activation, trackedService);
-            if (!activationCompleted && !activation.OwnsService(trackedService))
+            if (!CompleteActivation(activation, trackedService)
+                && !activation.OwnsService(trackedService))
             {
                 pendingCleanup = trackedService;
-            }
-
-            if (activationCompleted)
-            {
-                pendingRecoveryOfferService = trackedService;
             }
         }
         catch (OperationCanceledException) when (activation.CancellationToken.IsCancellationRequested)
@@ -487,15 +451,14 @@ internal partial class VersionControlCoordinator
             await FinishRepositoryActivationAsync(
                     activation,
                     pendingCleanup,
-                    candidateService,
-                    pendingRecoveryOfferService)
+                    candidateService)
                 .ConfigureAwait(false);
         }
     }
 
-    // Null when Git is missing, a new project's own decision stands, or there is no repository with a
-    // checked-out commit to track.
-    private static async Task<RepositoryInfo?> DiscoverActivationRepositoryAsync(
+    // Null when Git is missing, a new project's own decision stands, Git cannot inspect the folder, or
+    // there is no repository with a checked-out commit to track.
+    private async Task<RepositoryInfo?> DiscoverActivationRepositoryAsync(
         ActivationContext activation)
     {
         GitAvailability availability = await activation.Service.GetAvailabilityAsync(
@@ -511,9 +474,43 @@ internal partial class VersionControlCoordinator
             return null;
         }
 
-        RepositoryInfo? repository = await activation.Service.DiscoverRepositoryAsync(
-            activation.ProjectRoot,
-            activation.CancellationToken);
+        RepositoryInfo? repository;
+        try
+        {
+            repository = await activation.Service.DiscoverRepositoryAsync(
+                activation.ProjectRoot,
+                activation.CancellationToken);
+        }
+        catch (ArgumentException ex) when (activation.ProjectRoot.Any(char.IsControl))
+        {
+            // Git commands cannot safely carry control-character repository paths through the
+            // line-oriented discovery protocol. Version control is optional, so the project stays
+            // untracked.
+            _logger.LogInformation(
+                ex,
+                "Opened {ProjectFile} without version control because its path is unsupported by repository discovery.",
+                activation.ProjectFile);
+            return null;
+        }
+        catch (Exception ex)
+            when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            // Git refused the folder itself (for example dubious ownership on a shared or
+            // removable volume). The project stays open without version control and says why.
+            _logger.LogWarning(
+                ex,
+                "Opened {ProjectFile} without version control because repository discovery failed.",
+                activation.ProjectFile);
+            PublishNotification(
+                () => NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    string.Format(
+                        Strings.VersionControl_OpenedWithoutVersionControlFormat,
+                        GetErrorText(ex))),
+                activation.Revision);
+            return null;
+        }
+
         if (repository is null)
         {
             return null;
@@ -548,26 +545,10 @@ internal partial class VersionControlCoordinator
         }
         else if (repository.IsNestedInForeignRepo)
         {
-            PendingOpeningRepositoryDecision? openingDecision =
-                activation.OpeningRepositoryDecision;
-            bool matchesOpeningDecision = openingDecision is not null
-                                          && RepositoriesEqual(
-                                              openingDecision.Repository,
-                                              repository)
-                                          && VersionControlPathComparison.AreSameCanonicalPath(
-                                              repository.ProjectRoot,
-                                              activation.ProjectRoot);
-            if (matchesOpeningDecision)
-            {
-                if (!openingDecision!.Accepted)
-                {
-                    return false;
-                }
-            }
-            else if (!await ConfirmUseEnclosingRepositoryIfNeededAsync(
-                         activation.Service,
-                         repository,
-                         activation.CancellationToken))
+            if (!await ConfirmUseEnclosingRepositoryIfNeededAsync(
+                    activation.Service,
+                    repository,
+                    activation.CancellationToken))
             {
                 return false;
             }
@@ -586,8 +567,7 @@ internal partial class VersionControlCoordinator
     private async Task FinishRepositoryActivationAsync(
         ActivationContext activation,
         IProjectVersionControlBackend? pendingCleanup,
-        IProjectVersionControlBackend? candidateService,
-        IProjectVersionControlBackend? pendingRecoveryOfferService)
+        IProjectVersionControlBackend? candidateService)
     {
         try
         {
@@ -632,11 +612,6 @@ internal partial class VersionControlCoordinator
         finally
         {
             activation.Finish();
-            if (pendingRecoveryOfferService is not null)
-            {
-                StartPendingPullRecoveryOffer(pendingRecoveryOfferService);
-            }
-
             TryStartPendingConfigurationActivation();
         }
     }

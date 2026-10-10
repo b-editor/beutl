@@ -26,38 +26,12 @@ internal sealed partial class GitCliVersionControlService
             CancellationToken cancellationToken)
             => _service.PreflightPullCoreAsync(expectedCurrent, cancellationToken);
 
-        public Task<ProjectCheckpoint> CreateProjectCheckpointAsync(
-            string message,
-            CancellationToken cancellationToken)
-            => _service.CreateProjectCheckpointCoreAsync(message, cancellationToken);
-
-        public Task<IReadOnlyList<PendingPullRecovery>> GetPendingPullRecoveriesAsync(
-            CancellationToken cancellationToken)
-            => _service.GetPendingPullRecoveriesCoreAsync(cancellationToken);
-
-        public Task<PendingPullRecoveryOutcome> RecoverPendingPullRecoveryAsync(
-            PendingPullRecovery recovery,
-            CancellationToken cancellationToken)
-            => _service.RecoverPendingPullRecoveryCoreAsync(recovery, cancellationToken);
-
-        public Task CompletePendingPullRecoveryAsync(
-            PendingPullRecovery recovery,
-            CancellationToken cancellationToken)
-            => _service.CompletePendingPullRecoveryCoreAsync(recovery, cancellationToken);
-
-        public Task RestoreProjectCheckpointAsync(
-            ProjectCheckpoint checkpoint,
-            CancellationToken cancellationToken)
-            => _service.RestoreProjectCheckpointCoreAsync(checkpoint, cancellationToken);
-
-        public Task<CommitResult> CommitProjectTreeAsync(
-            CheckedOutBranchTip expectedCurrent,
+        public Task<CommitResult> RestoreProjectTreeAsync(
             string sourceCommit,
             string message,
             SnapshotKind kind,
             CancellationToken cancellationToken)
-            => _service.CommitProjectTreeCoreAsync(
-                expectedCurrent,
+            => _service.RestoreProjectTreeCoreAsync(
                 sourceCommit,
                 message,
                 kind,
@@ -71,17 +45,6 @@ internal sealed partial class GitCliVersionControlService
                 sha,
                 projectFile,
                 cancellationToken);
-
-        public Task<BranchTipRollbackResult> TryRollbackBranchTipAsync(
-            CheckedOutBranchTip expectedCurrent,
-            CheckedOutBranchTip target,
-            CancellationToken cancellationToken)
-            => _service.TryRollbackBranchTipCoreAsync(expectedCurrent, target, cancellationToken);
-
-        public Task<bool> DeleteProjectCheckpointAsync(
-            ProjectCheckpoint checkpoint,
-            CancellationToken cancellationToken)
-            => _service.DeleteProjectCheckpointCoreAsync(checkpoint, cancellationToken);
 
         public Task<WorkspaceStatus> GetStatusAsync(CancellationToken cancellationToken)
             => _service.GetStatusCoreAsync(cancellationToken);
@@ -113,15 +76,9 @@ internal sealed partial class GitCliVersionControlService
         public Task SwitchBranchAsync(string name, CancellationToken cancellationToken)
             => _service.SwitchBranchCoreAsync(name, cancellationToken);
 
-        public Task<FastForwardPullResult> PullFastForwardAsync(
-            CheckedOutBranchTip expectedCurrent,
-            ProjectCheckpoint? checkpoint,
-            string projectFile,
+        public Task<RemoteOpResult> PullFastForwardAsync(
+            string upstreamCommit,
             CancellationToken cancellationToken)
-            => _service.PullFastForwardCoreAsync(
-                expectedCurrent,
-                checkpoint,
-                projectFile,
-                cancellationToken);
+            => _service.PullFastForwardCoreAsync(upstreamCommit, cancellationToken);
     }
 }
