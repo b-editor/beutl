@@ -55,7 +55,6 @@ internal sealed class AgentAiJobManager : IDisposable
     private readonly ConcurrentDictionary<string, Job> _jobs = new(StringComparer.Ordinal);
     // Admission and disposal share it, so no job is added after Dispose has cancelled the others.
     private readonly object _lifetimeSync = new();
-    private long _sequence;
     private bool _disposed;
 
     public string Start(
@@ -64,7 +63,7 @@ internal sealed class AgentAiJobManager : IDisposable
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         ArgumentNullException.ThrowIfNull(run);
-        var job = new Job(Guid.NewGuid().ToString("N"), operation, Interlocked.Increment(ref _sequence));
+        var job = new Job(Guid.NewGuid().ToString("N"), operation);
         lock (_lifetimeSync)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -117,7 +116,9 @@ internal sealed class AgentAiJobManager : IDisposable
 
     private void Prune()
     {
-        Job[] finished = _jobs.Values.Where(job => job.IsFinished).OrderBy(job => job.Sequence).ToArray();
+        // By when they finished, not when they started: a long job that finishes last is the
+        // newest result, and dropping it would lose a request the agent just paid for.
+        Job[] finished = _jobs.Values.Where(job => job.IsFinished).OrderBy(job => job.FinishOrder).ToArray();
         for (int index = 0; index < finished.Length - RetainedFinishedJobs; index++)
             _jobs.TryRemove(finished[index].Id, out _);
     }
@@ -161,7 +162,7 @@ internal sealed class AgentAiJobManager : IDisposable
         public void Report(string value) => job.SetStatus(value);
     }
 
-    private sealed class Job(string id, string operation, long sequence)
+    private sealed class Job(string id, string operation)
     {
         public string Operation { get; } = operation;
 
@@ -173,10 +174,19 @@ internal sealed class AgentAiJobManager : IDisposable
         private string? _errorCode;
         private string? _errorMessage;
         private TimeSpan? _elapsed;
+        private static long s_finishOrder;
+        private long _finishOrder;
 
         public string Id { get; } = id;
 
-        public long Sequence { get; } = sequence;
+        public long FinishOrder
+        {
+            get
+            {
+                lock (_gate)
+                    return _finishOrder;
+            }
+        }
 
         public bool IsFinished
         {
@@ -210,6 +220,7 @@ internal sealed class AgentAiJobManager : IDisposable
                 _errorCode = errorCode;
                 _errorMessage = errorMessage;
                 _elapsed = _clock.Elapsed;
+                _finishOrder = Interlocked.Increment(ref s_finishOrder);
             }
         }
 

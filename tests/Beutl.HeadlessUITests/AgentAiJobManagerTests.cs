@@ -41,6 +41,33 @@ public sealed class AgentAiJobManagerTests
     }
 
     [Test]
+    public async Task AJobThatFinishesLastKeepsItsResultThoughItStartedFirst()
+    {
+        using var jobs = new AgentAiJobManager();
+        var gate = new TaskCompletionSource();
+        string slow = jobs.Start("video.generate", async (_, token) =>
+        {
+            await gate.Task.WaitAsync(token);
+            return new AgentAiJobOutput("slow.mp4", "video", null, null);
+        });
+        string[] quick = [.. Enumerable.Range(0, AgentAiJobManager.RetainedFinishedJobs).Select(_ => jobs.Start(
+            "image.generate",
+            (_, _) => Task.FromResult(new AgentAiJobOutput("quick.png", "image", null, null))))];
+        foreach (string id in quick)
+            await jobs.WaitAsync(id, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        gate.SetResult();
+        AgentAiJobSnapshot? finished = await jobs.WaitAsync(slow, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(finished?.Output?.OutputPath, Is.EqualTo("slow.mp4"));
+            Assert.That(jobs.Get(slow), Is.Not.Null, "the newest result is kept");
+            Assert.That(quick.Count(id => jobs.Get(id) is null), Is.EqualTo(1), "the earliest finished one makes room");
+        });
+    }
+
+    [Test]
     public async Task AnUnexpectedFailureKeepsItsMessageOutOfTheResult()
     {
         using var jobs = new AgentAiJobManager();
