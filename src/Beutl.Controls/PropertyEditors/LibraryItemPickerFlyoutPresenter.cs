@@ -70,10 +70,14 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ReferenceItemsProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(ReferenceItems));
 
+    public static readonly StyledProperty<string?> NoResultsTextProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, string?>(nameof(NoResultsText));
+
     private const string SearchBoxPseudoClass = ":search-box";
     private const string IsBusyPseudoClass = ":busy";
     private const string ShowReferencesPseudoClass = ":show-references";
     private const string ShowReferencesTabPseudoClass = ":show-references-tab";
+    private const string NoResultsPseudoClass = ":no-results";
 
     private readonly CompositeDisposable _keyboardDisposables = [];
     private TextBox? _searchTextBox;
@@ -138,6 +142,13 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(ReferenceItemsProperty, value);
     }
 
+    // 検索に一致する項目がないとき、リストの代わりに表示する文言 (null なら何も表示しない)
+    public string? NoResultsText
+    {
+        get => GetValue(NoResultsTextProperty);
+        set => SetValue(NoResultsTextProperty, value);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _keyboardDisposables.Clear();
@@ -152,6 +163,9 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
+        this.AddDisposableHandler(TextInputEvent, OnPresenterTextInput)
+            .DisposeWith(_keyboardDisposables);
+
         _searchTextBox?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
             .DisposeWith(_keyboardDisposables);
 
@@ -159,6 +173,14 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
             .DisposeWith(_keyboardDisposables);
 
         _referenceListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+            .DisposeWith(_keyboardDisposables);
+
+        _listBox?.GetObservable(ItemsControl.ItemCountProperty)
+            .Subscribe(_ => UpdateNoResults())
+            .DisposeWith(_keyboardDisposables);
+
+        _referenceListBox?.GetObservable(ItemsControl.ItemCountProperty)
+            .Subscribe(_ => UpdateNoResults())
             .DisposeWith(_keyboardDisposables);
     }
 
@@ -195,8 +217,14 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         switch (e.Key)
         {
+            case Key.Up:
             case Key.Down:
-                FocusListBox();
+                // 検索ボックスにフォーカスを残したまま、結果の選択を移動する
+                if (GetCurrentListBox() is { } listBox)
+                {
+                    PickerListNavigation.MoveSelection(listBox, e);
+                }
+
                 e.Handled = true;
                 break;
             case Key.Escape:
@@ -208,9 +236,34 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
     }
 
+    // リストにフォーカスがあるときに入力された文字は、検索ボックスに送って検索を始める
+    // (空白は入力済みの語の区切りとしてだけ送り、それ以外はリスト側のキー操作として扱う)
+    private void OnPresenterTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (_searchTextBox is null || string.IsNullOrEmpty(e.Text)) return;
+        if (string.IsNullOrWhiteSpace(e.Text) && string.IsNullOrEmpty(SearchText)) return;
+
+        ShowSearchBox = true;
+        string text = SearchText + e.Text;
+        SearchText = text;
+        _searchTextBox.Focus();
+        _searchTextBox.CaretIndex = text.Length;
+        e.Handled = true;
+    }
+
     public void FocusInitialElement()
     {
-        Dispatcher.UIThread.Post(FocusListBox, DispatcherPriority.Input);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ShowSearchBox && _searchTextBox is not null)
+            {
+                _searchTextBox.Focus();
+            }
+            else
+            {
+                FocusListBox();
+            }
+        }, DispatcherPriority.Input);
     }
 
     private void FocusListBox()
@@ -239,11 +292,24 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             PseudoClasses.Set(ShowReferencesPseudoClass, ShowReferences);
             SelectedItem = null;
+            UpdateNoResults();
         }
         else if (change.Property == ShowReferencesTabProperty)
         {
             PseudoClasses.Set(ShowReferencesTabPseudoClass, ShowReferencesTab);
         }
+        else if (change.Property == SearchTextProperty || change.Property == NoResultsTextProperty)
+        {
+            UpdateNoResults();
+        }
+    }
+
+    private void UpdateNoResults()
+    {
+        PseudoClasses.Set(NoResultsPseudoClass,
+            !string.IsNullOrEmpty(NoResultsText)
+            && !string.IsNullOrWhiteSpace(SearchText)
+            && GetCurrentListBox() is { ItemCount: 0 });
     }
 
     internal void UpdatePinState(PinnableLibraryItem item, bool isPinned)

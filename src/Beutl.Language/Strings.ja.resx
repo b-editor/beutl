@@ -3442,4 +3442,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="UnpinTab" xml:space="preserve">
     <value>タブの固定を解除</value>
   </data>
+  <data name="FontFamilyPicker_NoResults" xml:space="preserve">
+    <value>一致するフォントがありません</value>
+  </data>
 </root>

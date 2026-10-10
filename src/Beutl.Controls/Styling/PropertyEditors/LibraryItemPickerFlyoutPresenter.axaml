@@ -249,31 +249,43 @@
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
                                      PlaceholderText="{x:Static lang:Strings.Search}" />
 
-                            <ListBox x:Name="PART_ListBox"
-                                     Height="250"
-                                     Margin="4,4,4,0"
-                                     ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
-                                     ItemsSource="{TemplateBinding Items}"
-                                     SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
-                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                            <Panel>
+                                <ListBox x:Name="PART_ListBox"
+                                         Height="250"
+                                         Margin="4,4,4,0"
+                                         ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
+                                         ItemsSource="{TemplateBinding Items}"
+                                         SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="local:PinnableLibraryItem">
+                                            <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
 
-                            <ListBox x:Name="PART_ReferenceListBox"
-                                     Height="250"
-                                     Margin="4,4,4,0"
-                                     IsVisible="False"
-                                     ItemsSource="{TemplateBinding ReferenceItems}"
-                                     SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
-                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                                <ListBox x:Name="PART_ReferenceListBox"
+                                         Height="250"
+                                         Margin="4,4,4,0"
+                                         IsVisible="False"
+                                         ItemsSource="{TemplateBinding ReferenceItems}"
+                                         SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="local:PinnableLibraryItem">
+                                            <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <TextBlock Name="PART_NoResultsTextBlock"
+                                           Margin="16"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           IsVisible="False"
+                                           Text="{TemplateBinding NoResultsText}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </Panel>
                         </StackPanel>
 
                         <ProgressRing Name="PART_ProgressRing"
@@ -295,6 +307,10 @@
         </Style>
 
         <Style Selector="^:search-box /template/ TextBox#SearchTextBox">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:no-results /template/ TextBlock#PART_NoResultsTextBlock">
             <Setter Property="IsVisible" Value="True" />
         </Style>
 

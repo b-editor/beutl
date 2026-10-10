@@ -3447,4 +3447,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="UnpinTab" xml:space="preserve">
     <value>取消固定标签页</value>
   </data>
+  <data name="FontFamilyPicker_NoResults" xml:space="preserve">
+    <value>没有匹配的字体</value>
+  </data>
 </root>

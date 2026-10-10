@@ -3447,4 +3447,7 @@ cuando el registro del historial está activado.</value>
   <data name="UnpinTab" xml:space="preserve">
     <value>Desfijar pestaña</value>
   </data>
+  <data name="FontFamilyPicker_NoResults" xml:space="preserve">
+    <value>No hay fuentes coincidentes</value>
+  </data>
 </root>
