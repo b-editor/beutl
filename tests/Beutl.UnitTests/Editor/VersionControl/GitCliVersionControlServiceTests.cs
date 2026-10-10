@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Beutl.Configuration;
@@ -2953,6 +2954,59 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             RepositoryInfo repository,
             RepositoryLockInfo lockInfo)
             => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    [Test]
+    public async Task CommitAllAsync_reports_a_snapshot_saved_before_its_post_commit_hook_is_cancelled()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This test uses a POSIX shell hook that waits.");
+        }
+
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        string started = Path.Combine(Root, "post-commit-started");
+        await WriteHookAsync("post-commit", $"touch '{started}'\nsleep 30\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+        using var cancellation = new CancellationTokenSource();
+
+        Task<CommitResult> commit = service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            cancellation.Token);
+        Stopwatch waited = Stopwatch.StartNew();
+        while (!File.Exists(started) && waited.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            await Task.Delay(20);
+        }
+
+        cancellation.Cancel();
+        CommitResult result = await commit.WaitAsync(TimeSpan.FromSeconds(20));
+
+        string mainTip = (await RunGitAsync("rev-parse", "main")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(started), Is.True);
+            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(mainTip))));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_leaves_a_manual_message_to_verbatim_cleanup()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("config", "commit.cleanup", "verbatim");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        await service.CommitAllAsync(
+            "  indented subject  \n\nbody\n\n",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        string recorded = (await RunGitAsync("show", "-s", "--format=%B", "HEAD")).Stdout;
+        Assert.That(recorded, Does.StartWith("  indented subject  \n\nbody\n\nBeutl-Snapshot: manual"));
     }
 
     [Test]

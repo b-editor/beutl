@@ -138,6 +138,10 @@ internal sealed partial class GitCliVersionControlService
             {
                 return new CommitResult.SkippedNoIdentity();
             }
+
+            // The project can change while the identity prompt is open, and the large-media notice
+            // reads the changes that are about to be staged.
+            status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
         }
 
         await RaiseLargeMediaNoticeIfNeededAsync(
@@ -175,6 +179,10 @@ internal sealed partial class GitCliVersionControlService
         await EnsureNoExternalRepositoryOperationAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         await EnsureNoNestedRepositoryWouldBeStagedAsync(repository, runner, cancellationToken)
+            .ConfigureAwait(false);
+        // Checked again right before staging: a notice or prompt shown since can have given the user
+        // time to change the ignore rules.
+        await EnsureProjectFileIsVersionedAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         IReadOnlyList<string> pathspecs = CreateSnapshotPathspecs(repository);
         var pathspecOptions = new GitCommandOptions(GitCommandExecutionKind.LocalWithLfs)
@@ -225,24 +233,42 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         // Hooks and a signer are the user's own programs and can wait on the user, so only
         // cancellation stops them.
-        await runner.RunAsync(
-                repository,
-                arguments,
-                pathspecOptions with
-                {
-                    ExecutionKind = GitCommandExecutionKind.LocalUnbounded,
-                    EnvironmentOverrides = new Dictionary<string, string?> { ["GIT_EDITOR"] = ":" },
-                    StandardInput = CreateSnapshotCommitMessage(message, kind),
-                },
-                cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            await runner.RunAsync(
+                    repository,
+                    arguments,
+                    pathspecOptions with
+                    {
+                        ExecutionKind = GitCommandExecutionKind.LocalUnbounded,
+                        EnvironmentOverrides = new Dictionary<string, string?> { ["GIT_EDITOR"] = ":" },
+                        StandardInput = CreateSnapshotCommitMessage(message, kind),
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // A post-commit hook runs once the commit is made, so cancelling it does not undo the
+            // snapshot; a commit that already moved the branch is reported as saved.
+            if (await ObserveSnapshotCommitAsync(repository, runner, branchRef, parent)
+                    .ConfigureAwait(false) is CommitRevision.Known published)
+            {
+                return published;
+            }
+
+            throw;
+        }
+
         return await ObserveSnapshotCommitAsync(repository, runner, branchRef, parent)
             .ConfigureAwait(false);
     }
 
     private static string CreateSnapshotCommitMessage(string message, SnapshotKind kind)
     {
-        return $"{message.Trim()}\n\nBeutl-Snapshot: {kind.ToString().ToLowerInvariant()}\n";
+        // Only the line breaks at the end make way for the trailer; the rest is left to Git's cleanup
+        // mode, which may be verbatim.
+        return $"{message.TrimEnd('\r', '\n')}\n\nBeutl-Snapshot: {kind.ToString().ToLowerInvariant()}\n";
     }
 
     // git commit moves the branch HEAD named when it ran. A post-commit hook or another Git process

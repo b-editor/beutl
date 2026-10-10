@@ -959,6 +959,68 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Large_media_added_while_the_identity_prompt_is_open_is_still_reported()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("config", "--local", "user.name", "");
+        await RunGitAsync("config", "--local", "user.email", "");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            requestIdentity: async () =>
+            {
+                await WriteLargeMediaAsync(Root, "resources/late.mp4");
+                return new GitIdentity("Prompted User", "prompted@example.invalid");
+            });
+
+        await service.CommitAllAsync("beutl: snapshot on save", SnapshotKind.Save, CancellationToken.None);
+
+        Assert.That(
+            notices.OfType<VersionControlPolicyNotice.LargeMediaWithoutLfs>().Single().Path,
+            Is.EqualTo("resources/late.mp4"));
+    }
+
+    [Test]
+    public async Task Project_file_ignored_while_the_identity_prompt_is_open_is_refused()
+    {
+        await CommitFileAsync("notes.txt", "initial\n", "initial");
+        await RunGitAsync("config", "--local", "user.name", "");
+        await RunGitAsync("config", "--local", "user.email", "");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            _ => Task.CompletedTask,
+            projectFile: projectFile,
+            requestIdentity: async () =>
+            {
+                await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.bep\n");
+                return new GitIdentity("Prompted User", "prompted@example.invalid");
+            });
+
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("project.bep"));
+            Assert.That(RunGitAsync("rev-parse", "HEAD").Result.Stdout.Trim(), Is.EqualTo(baseTip));
+        });
+    }
+
+    [Test]
     public async Task First_automatic_snapshot_without_identity_asks_once_and_records_the_snapshot()
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
