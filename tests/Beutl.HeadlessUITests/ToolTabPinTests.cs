@@ -419,6 +419,26 @@ public class ToolTabPinTests
     }
 
     [AvaloniaTest]
+    public async Task A_property_tab_a_layout_lacks_opens_behind_the_tab_it_put_in_front()
+    {
+        EditViewModel editor = await OpenEditor("property-tab-layout-new-tab");
+        Element element = await AddElement(editor, 0, () => new RectShape());
+        SelectionOf(editor).SelectedObject.Value = element;
+        editor.CloseToolTab(editor.FindToolTab<ElementPropertyTabViewModel>()!);
+        Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
+
+        Assert.That(editor.DockHost.ApplyLayout(editor.DockHost.CaptureLayout()), Is.True);
+
+        IToolDock right = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Right)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element));
+            Assert.That((right.ActiveDockable as BeutlToolDockable)?.ToolContext,
+                Is.Not.InstanceOf<ElementPropertyTabViewModel>(), "the added tab stays behind the tab the layout put in front");
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Pinned_transition_tabs_name_their_edge()
     {
         EditViewModel editor = await OpenEditor("pin-transition-edge");

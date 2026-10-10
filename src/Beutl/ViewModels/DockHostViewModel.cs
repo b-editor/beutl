@@ -57,7 +57,13 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return OpenToolTab(item, target, replacing: null);
     }
 
-    private bool OpenToolTab(IToolContext item, IToolDock? target, NewToolTabDockable? replacing)
+    /// <param name="activate">Whether the tab comes to the front of its dock.</param>
+    internal bool OpenToolTab(IToolContext item, IToolDock? target, bool activate)
+    {
+        return OpenToolTab(item, target, replacing: null, activate);
+    }
+
+    private bool OpenToolTab(IToolContext item, IToolDock? target, NewToolTabDockable? replacing, bool activate = true)
     {
         _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
@@ -67,7 +73,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             var existing = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
             if (existing is not null)
             {
-                Factory.SetActiveDockable(existing);
+                if (activate) Factory.SetActiveDockable(existing);
                 return true;
             }
 
@@ -83,7 +89,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 .FirstOrDefault(t => t.ToolContext.Extension == item.Extension)?.Owner as IToolDock;
 
             var dockable = replacing is null
-                ? Factory.AddTool(item, target)
+                ? Factory.AddTool(item, target, activate)
                 : Factory.ReplaceNewToolTab(replacing, item);
             if (dockable is null)
             {

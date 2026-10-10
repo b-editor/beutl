@@ -7,8 +7,8 @@ namespace Beutl.ViewModels;
 
 public partial class EditViewModel
 {
-    // While set, an open property tab shows the selection where it is, so a layout being restored or applied
-    // keeps the tabs it put in front.
+    // While set, a property tab shows the selection without coming to the front, whether it was open or is
+    // added, so a layout being restored or applied keeps the tabs it put in front.
     private bool _keepFrontTabs;
 
     // A layout change replaces the property tabs with empty ones, which show the selection only once it is
@@ -59,13 +59,12 @@ public partial class EditViewModel
     {
         T tab = reusable ?? create();
         show(tab);
-        if (reusable != null && _keepFrontTabs) return;
 
         // A new tab joins the open tabs of its kind, or, with none open, goes to its tool's own dock.
         IToolDock? dock = FindToolTab<T>() == null
             ? DockHost.Factory.GetAnchoredDock(tab.Extension.DefaultAnchor)
             : null;
-        if (!DockHost.OpenToolTab(tab, dock) && reusable == null)
+        if (!DockHost.OpenToolTab(tab, dock, activate: !_keepFrontTabs) && reusable == null)
         {
             tab.Dispose();
         }

@@ -16,6 +16,7 @@ using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Reactive.Bindings;
 
 namespace Beutl.AgentHost;
 
@@ -178,7 +179,13 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             return;
         }
 
-        editor.GetRequiredService<IEditorSelection>().SelectedObject.Value = element;
+        // Following an edit to the element already selected still tells the editor, which reopens a closed
+        // element property tab on it.
+        IReactiveProperty<CoreObject?> selection = editor.GetRequiredService<IEditorSelection>().SelectedObject;
+        if (ReferenceEquals(selection.Value, element))
+            selection.ForceNotify();
+        else
+            selection.Value = element;
         if (!editor.Player.IsPlaying.Value)
         {
             IEditorClock clock = editor.GetRequiredService<IEditorClock>();

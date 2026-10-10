@@ -153,6 +153,33 @@ public sealed class AgentEditFollowerTests
     }
 
     [AvaloniaTest]
+    public async Task A_closed_property_tab_reopens_when_the_selected_element_is_edited()
+    {
+        Fixture fixture = await CreateFixtureAsync(follow: true);
+        try
+        {
+            fixture.Selection.Value = fixture.Far;
+            fixture.Editor.CloseToolTab(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()!);
+            HeadlessTestHelpers.Render(5);
+            Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
+            await using AgentHostEndpoint host = fixture.CreateHost();
+            await host.StartAsync();
+            await using McpClient client = await ConnectAsync(host);
+
+            Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
+            HeadlessTestHelpers.Render(5);
+
+            Assert.That(fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(fixture.Far),
+                "the selection does not change, but following the edit still reopens the tab");
+        }
+        finally
+        {
+            fixture.Window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task A_closed_property_tab_reopens_on_the_edited_row()
     {
         Fixture fixture = await CreateFixtureAsync(follow: true);
