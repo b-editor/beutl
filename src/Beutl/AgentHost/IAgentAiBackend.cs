@@ -1,4 +1,5 @@
-﻿using Beutl.NodeGraph.Generative;
+﻿using Beutl.Api.Services;
+using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentHost;
@@ -28,6 +29,9 @@ internal interface IAgentAiBackend
     /// <summary>An executor that keeps its results with <paramref name="scene"/>.</summary>
     IGenerativeNodeExecutor CreateExecutor(Scene scene);
 
+    /// <summary>How many bytes of reference pictures one image generation may carry in all.</summary>
+    Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken);
+
     Task<AgentTranscript> TranscribeAsync(
         string path,
         string? language,
@@ -49,6 +53,9 @@ internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
 
     public IGenerativeNodeExecutor CreateExecutor(Scene scene)
         => throw new InvalidOperationException("AI generation is not available in this host.");
+
+    public Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
+        => Task.FromResult(AiRequestLimits.MaxImageReferencesTotalBytes);
 
     public Task<AgentTranscript> TranscribeAsync(
         string path,

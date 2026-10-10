@@ -14,7 +14,8 @@ internal sealed class AgentHostAiBackend(
     IAiOperationAvailabilityService availability,
     IAiTranscriptionService transcription,
     Func<IGenerativeModelCatalog> catalog,
-    Func<Scene, IGenerativeNodeExecutor> executor) : IAgentAiBackend
+    Func<Scene, IGenerativeNodeExecutor> executor,
+    IAiModelCatalogService modelCatalog) : IAgentAiBackend
 {
     // The longest piece of audio sent at once: ten minutes of 16 kHz mono stays under the upload limit.
     private static readonly TimeSpan s_chunkDuration = TimeSpan.FromMinutes(10);
@@ -47,6 +48,20 @@ internal sealed class AgentHostAiBackend(
         => catalog().GetModelsAsync(operationId, cancellationToken);
 
     public IGenerativeNodeExecutor CreateExecutor(Scene scene) => executor(scene);
+
+    public async Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            AiModelCatalog loaded = await modelCatalog.GetAsync(cancellationToken).ConfigureAwait(false);
+            return loaded.GetImageReferenceLimits(AiOperations.ImageGeneration).MaxTotalBytes;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Unreachable: the executor checks again against whatever catalog it loads.
+            return AiRequestLimits.MaxImageReferencesTotalBytes;
+        }
+    }
 
     public async Task<AgentTranscript> TranscribeAsync(
         string path,

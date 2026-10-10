@@ -185,6 +185,10 @@ public sealed class AgentHostAiToolsTests
         ToolResult<ListAiModelsResponse> blank = await tools.ListAiModels(" ");
         backend.Models["image.generate"] = [SquareModel];
         ToolResult<AgentAiJobSnapshot> unknownModel = await tools.GenerateImage("a cat", model: "nope");
+        backend.Models.Clear();
+        ToolResult<AgentAiJobSnapshot> negativeSeed = await tools.GenerateImage("a cat", seed: -1);
+        backend.ReferenceBudget = 10;
+        ToolResult<AgentAiJobSnapshot> overBudget = await tools.GenerateImage("a cat", referenceImagePaths: [WritePng("budget.png")]);
 
         Assert.Multiple(() =>
         {
@@ -200,6 +204,8 @@ public sealed class AgentHostAiToolsTests
             Assert.That(typo.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(blank.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(unknownModel.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(negativeSeed.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(overBudget.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected), "the references come to more than the catalog's budget");
             Assert.That(backend.Requests, Is.Empty);
         });
     }
@@ -257,6 +263,9 @@ public sealed class AgentHostAiToolsTests
             await tools.GenerateVideo("a cat", aspectRatio: "16:9"),
             await tools.EditVideo(WriteFile("clip.mp4"), "more", mode: "extend", durationSeconds: 6),
             await tools.TranscribeAudio(WriteFile("voice.wav"), model: "nope"),
+            await tools.GenerateImage("a cat", seed: 7),
+            await tools.GenerateVideo("a cat", seed: 7),
+            await tools.GenerateImage(new string('a', 4_001)),
         ];
 
         Assert.Multiple(() =>
@@ -306,10 +315,14 @@ public sealed class AgentHostAiToolsTests
         {
             ToolResult<AgentAiJobSnapshot> broken = await tools.EditVideo(WriteFile("broken.webm"), "rain");
             ToolResult<AgentAiJobSnapshot> edited = await tools.EditVideo(WriteFile("clip.mp4"), "rain", waitSeconds: 10);
+            // The stub clip lasts six seconds.
+            backend.Models["video.edit"] = [PortraitModel with { Video = PortraitModel.Video! with { MaxSourceVideoSeconds = 5 } }];
+            ToolResult<AgentAiJobSnapshot> tooLong = await tools.EditVideo(WriteFile("long.mp4"), "rain");
 
             Assert.Multiple(() =>
             {
                 Assert.That(broken.Error?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+                Assert.That(tooLong.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
                 Assert.That(edited.IsSuccess, Is.True, edited.Error?.Message);
                 Assert.That(((AiVideoEditNodeRequest)backend.Requests.Single()).SourceVideo.Name, Is.EqualTo("source.mp4"));
             });
@@ -323,7 +336,7 @@ public sealed class AgentHostAiToolsTests
     [Test]
     public async Task AFileThatCannotBeDecodedIsUnsupportedMediaNotAFailedGeneration()
     {
-        var backend = new AgentHostAiBackend(() => null, null!, null!, null!, () => null!, _ => null!);
+        var backend = new AgentHostAiBackend(() => null, null!, null!, null!, () => null!, _ => null!, null!);
         string path = WriteFile("noise.wav");
 
         AgentAiException? error = await Assert.ThrowsAsync<AgentAiException>(
@@ -512,6 +525,11 @@ public sealed class AgentHostAiToolsTests
         public List<string> TranscribedPaths { get; } = [];
 
         public Dictionary<string, IReadOnlyList<GenerativeModelInfo>> Models { get; } = [];
+
+        public long ReferenceBudget { get; set; } = AiRequestLimits.MaxImageReferencesTotalBytes;
+
+        public Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
+            => Task.FromResult(ReferenceBudget);
 
         public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
 

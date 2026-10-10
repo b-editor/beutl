@@ -97,7 +97,8 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
             _beutlClients.GetResource<IAiOperationAvailabilityService>(),
             _beutlClients.GetResource<IAiTranscriptionService>(),
             CreateGenerativeModelCatalog,
-            CreateGenerativeNodeExecutor);
+            CreateGenerativeNodeExecutor,
+            _beutlClients.GetResource<IAiModelCatalogService>());
         _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestRecoveryStore(Path.Combine(

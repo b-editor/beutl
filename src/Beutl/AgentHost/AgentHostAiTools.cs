@@ -109,6 +109,7 @@ internal sealed class AgentHostAiTools(
         return StartAsync("image.generate", model, waitSeconds, cancellationToken, (scene, chosen) =>
         {
             string text = RequirePrompt(prompt);
+            RequireSeed(seed, chosen?.Image?.SupportsSeed, chosen?.Id);
             string ratio = string.IsNullOrWhiteSpace(aspectRatio)
                 ? GenerativeShapeSuggestion.NearestAspectRatio(
                     Offered(chosen?.Image?.AspectRatios, GenerativeImageCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
@@ -214,7 +215,8 @@ internal sealed class AgentHostAiTools(
     {
         return StartAsync("video.generate", model, waitSeconds, cancellationToken, (scene, chosen) =>
         {
-            string text = RequirePrompt(prompt);
+            string text = RequirePrompt(prompt, MaxPromptLength(chosen?.Video));
+            RequireSeed(seed, chosen?.Video?.SupportsSeed, chosen?.Id);
             if (lastFramePath is not null && firstFramePath is null)
                 throw Invalid("A last frame needs a first frame.", "lastFramePath");
             GenerativeVideoCapabilities? offered = chosen?.Video;
@@ -283,16 +285,25 @@ internal sealed class AgentHostAiTools(
         return StartAsync(modeId == "extend" ? "video.extend" : "video.edit", model, waitSeconds, cancellationToken, (scene, chosen) =>
         {
             bool extend = modeId == "extend";
-            string text = RequirePrompt(prompt);
+            string text = RequirePrompt(prompt, MaxPromptLength(chosen?.Video));
             int duration = extend ? durationSeconds ?? DefaultDuration(chosen?.Video) : 0;
             if (extend && chosen?.Video is { } offered)
                 RequireOffered(duration, offered.DurationChoices, chosen.Id, "durationSeconds");
+            (GenerativeFileInput source, double seconds) = ReadVideo(scene, sourcePath);
+            // As the executor checks the clip against the model before anything is reserved.
+            GenerativeVideoCapabilities limits = chosen?.Video ?? GenerativeVideoCapabilities.Unrestricted;
+            if (source.Content.LongLength > limits.MaxSourceVideoBytes)
+                throw Invalid($"The clip is larger than the {limits.MaxSourceVideoBytes / (1024 * 1024)} MB the model takes.", "sourcePath");
+            double shortest = limits.MinSourceVideoSeconds ?? 0;
+            double longest = Math.Min(limits.MaxSourceVideoSeconds ?? 60, 60);
+            if (!double.IsFinite(seconds) || seconds <= 0 || seconds < shortest || seconds > longest)
+                throw Invalid($"The clip lasts {seconds:0.#} seconds; the model takes clips of {shortest:0.#} to {longest:0.#} seconds.", "sourcePath");
             return new AiVideoEditNodeRequest(extend ? "video.extend" : "video.edit")
             {
                 Mode = extend ? AiVideoEditMode.Extend : AiVideoEditMode.Edit,
                 Prompt = text,
                 DurationSeconds = duration,
-                SourceVideo = ReadVideo(scene, sourcePath),
+                SourceVideo = source,
                 ModelId = NormalizeModel(model),
                 RequestKeySeed = Guid.NewGuid().ToString("N"),
                 ParameterFingerprint = GenerativeFingerprint.Combine([modeId, text, extend ? duration.ToString(CultureInfo.InvariantCulture) : null, model]),
@@ -393,6 +404,7 @@ internal sealed class AgentHostAiTools(
                 throw Invalid(ex.Message, null);
             }
 
+            await RequireUploadSizesAsync(request, cancellationToken).ConfigureAwait(false);
             IGenerativeNodeExecutor executor = backend.CreateExecutor(scene);
             string jobId = jobs.Start(operation, async (progress, token) =>
             {
@@ -447,6 +459,33 @@ internal sealed class AgentHostAiTools(
 
         return offered.FirstOrDefault(candidate => candidate.IsAvailable && candidate.IsDefault)
                ?? offered.FirstOrDefault(candidate => candidate.IsAvailable);
+    }
+
+    // The upload sizes the executor refuses inside the job, measured on the PNGs it would send.
+    private async Task RequireUploadSizesAsync(GenerativeRequest request, CancellationToken cancellationToken)
+    {
+        const long MB = 1024 * 1024;
+        switch (request)
+        {
+            case AiImageGenerationNodeRequest { References.Count: > 0 } image:
+                if (image.References.Any(reference => reference.EncodedPng.LongLength > AiRequestLimits.MaxImageUploadBytes))
+                    throw TooLarge("A reference picture", AiRequestLimits.MaxImageUploadBytes, "referenceImagePaths");
+                long budget = await backend.GetImageReferenceBudgetAsync(cancellationToken).ConfigureAwait(false);
+                if (image.References.Sum(reference => reference.EncodedPng.LongLength) > budget)
+                    throw Invalid($"The reference pictures come to more than the {budget / (double)MB:0.#} MB one generation takes in all.", "referenceImagePaths");
+                break;
+            // An outpaint uploads the expanded canvas, which only the executor builds.
+            case AiImageEditNodeRequest { Task: not AiImageEditTask.Outpaint } edit
+                when edit.Image.EncodedPng.LongLength > AiRequestLimits.MaxImageUploadBytes:
+                throw TooLarge("The picture", AiRequestLimits.MaxImageUploadBytes, "sourcePath");
+            case AiVideoGenerationNodeRequest video
+                when video.FirstFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes
+                     || video.LastFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes:
+                throw TooLarge("A frame picture", AiRequestLimits.MaxFrameUploadBytes, video.FirstFrame?.EncodedPng.LongLength > AiRequestLimits.MaxFrameUploadBytes ? "firstFramePath" : "lastFramePath");
+        }
+
+        static ReconcileException TooLarge(string what, long limit, string target)
+            => new(new ToolError(ErrorCode.MediaUnsupported, $"{what} is larger than {limit / MB} MB once saved as PNG.", target));
     }
 
     // As the executor checks a request against the model, but as the call's error, before a job starts.
@@ -517,10 +556,30 @@ internal sealed class AgentHostAiTools(
     private static string? NormalizeModel(string? model)
         => string.IsNullOrWhiteSpace(model) ? null : model.Trim();
 
-    private static string RequirePrompt(string? prompt)
-        => string.IsNullOrWhiteSpace(prompt)
-            ? throw Invalid("A prompt is required.", "prompt")
-            : prompt.Trim();
+    private static string RequirePrompt(string? prompt, int maxLength = AiRequestLimits.MaxPromptLength)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            throw Invalid("A prompt is required.", "prompt");
+        string text = prompt.Trim();
+        return text.Length > maxLength
+            ? throw Invalid($"The prompt is {text.Length} characters; this request takes at most {maxLength}.", "prompt")
+            : text;
+    }
+
+    private static int MaxPromptLength(GenerativeVideoCapabilities? model)
+        => Math.Min(model?.MaxPromptLength ?? int.MaxValue, AiRequestLimits.MaxPromptLength);
+
+    // The executor drops a seed the model does not take; refused instead, since the caller asked
+    // for a result it can reproduce.
+    private static void RequireSeed(int? seed, bool? supportsSeed, string? modelId)
+    {
+        if (seed is not { } value)
+            return;
+        if (value < AiRequestLimits.MinSeed)
+            throw Invalid($"seed must be between {AiRequestLimits.MinSeed} and {AiRequestLimits.MaxSeed}.", "seed");
+        if (supportsSeed == false)
+            throw Invalid($"The model '{modelId}' does not take a seed. Omit seed, or choose a model whose supportsSeed is true.", "seed");
+    }
 
     // An input is uploaded to the AI service, so a path an agent passes must not reach files the user
     // never shared with it: only the workspace and the open scene's AI results (to build on an earlier
@@ -574,7 +633,7 @@ internal sealed class AgentHostAiTools(
         }
     }
 
-    private GenerativeFileInput ReadVideo(Scene scene, string path)
+    private (GenerativeFileInput Input, double Seconds) ReadVideo(Scene scene, string path)
     {
         string full = RequireFile(scene, path, "sourcePath");
         if (!GenerativeInputs.IsSupportedVideoFile(full))
@@ -586,10 +645,7 @@ internal sealed class AgentHostAiTools(
         {
             using MediaReader reader = MediaReader.Open(full, new MediaOptions(MediaMode.Video) { PreferProxy = false });
             if (reader.HasVideo)
-            {
-                _ = reader.VideoInfo.Duration;
-                return input;
-            }
+                return (input, reader.VideoInfo.Duration.ToDouble());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

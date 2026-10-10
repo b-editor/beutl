@@ -84,14 +84,20 @@ public sealed class AgentHostAiBackendTests
             {
                 seen = scene;
                 return executor;
-            });
+            },
+            new StubModelCatalog());
         var scene = new Scene();
 
         IReadOnlyList<GenerativeModelInfo> models = await backend.GetModelsAsync("image.generate", CancellationToken.None);
+        long budget = await backend.GetImageReferenceBudgetAsync(CancellationToken.None);
+        long offlineBudget = await CreateBackend(modelCatalog: new StubModelCatalog { Error = new HttpRequestException("offline") })
+            .GetImageReferenceBudgetAsync(CancellationToken.None);
 
         Assert.Multiple(() =>
         {
             Assert.That(models, Is.EqualTo(new[] { model }));
+            Assert.That(budget, Is.EqualTo(AiRequestLimits.MaxImageReferencesTotalBytes), "an empty catalog publishes no budget of its own");
+            Assert.That(offlineBudget, Is.EqualTo(AiRequestLimits.MaxImageReferencesTotalBytes));
             Assert.That(catalog.Operations, Is.EqualTo(new[] { "image.generate" }));
             Assert.That(backend.CreateExecutor(scene), Is.SameAs(executor));
             Assert.That(seen, Is.SameAs(scene));
@@ -104,9 +110,11 @@ public sealed class AgentHostAiBackendTests
         UnavailableAgentAiBackend backend = UnavailableAgentAiBackend.Instance;
         string? reason = await backend.GetUnavailableReasonAsync(CancellationToken.None);
         IReadOnlyList<GenerativeModelInfo> models = await backend.GetModelsAsync("image.generate", CancellationToken.None);
+        long budget = await backend.GetImageReferenceBudgetAsync(CancellationToken.None);
 
         Assert.Multiple(() =>
         {
+            Assert.That(budget, Is.EqualTo(AiRequestLimits.MaxImageReferencesTotalBytes));
             Assert.That(reason, Is.Not.Null);
             Assert.That(models, Is.Empty);
             Assert.That(() => backend.CreateExecutor(new Scene()), Throws.InvalidOperationException);
@@ -212,14 +220,16 @@ public sealed class AgentHostAiBackendTests
         Func<AuthenticatedUser?>? user = null,
         IAiEntitlementService? entitlements = null,
         IAiOperationAvailabilityService? availability = null,
-        IAiTranscriptionService? transcription = null)
+        IAiTranscriptionService? transcription = null,
+        IAiModelCatalogService? modelCatalog = null)
         => new(
             user ?? (() => null),
             entitlements ?? new StubEntitlements(),
             availability ?? new StubAvailability(),
             transcription ?? new StubTranscription(),
             () => new StubCatalog([]),
-            _ => new StubExecutor());
+            _ => new StubExecutor(),
+            modelCatalog ?? new StubModelCatalog());
 
     private static AuthenticatedUser CreateUser(BeutlApiApplication app)
     {
@@ -306,6 +316,18 @@ public sealed class AgentHostAiBackendTests
         {
             Operations.Add(operationId);
             return Task.FromResult(models);
+        }
+    }
+
+    private sealed class StubModelCatalog : IAiModelCatalogService
+    {
+        public Exception? Error { get; init; }
+
+        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
+            => Error is { } error ? Task.FromException<AiModelCatalog>(error) : Task.FromResult(AiModelCatalog.Empty);
+
+        public void Invalidate()
+        {
         }
     }
 
