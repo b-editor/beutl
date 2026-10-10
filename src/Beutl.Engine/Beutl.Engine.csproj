@@ -66,8 +66,12 @@
     回避策として、ターゲット OS/アーキに合わせたネイティブを bin 直下にもコピーし、
     Silk.NET の BaseDirectoryResolver で拾えるようにする。
 
-    クロスターゲットビルド (例: x64 ホストから dotnet publish -r linux-arm64) では $(RuntimeIdentifier) が
-    指定されるので、それを優先して使う。未指定時のみホスト OS/アーキを検出してフォールバックする。
+    Beutl.Engine 自体を RID 付きでビルドしたときは $(RuntimeIdentifier) を優先し、未指定時のみホスト OS/アーキを検出する。
+    ただし ProjectReference として参照されると、アプリを -r linux-arm64 で publish しても Beutl.Engine は RID なしで
+    評価されるため、ここで選ばれるのはビルドホストのネイティブになる。RID 付き publish では NuGet が対象 RID の
+    ネイティブを出力直下に展開するので、このコピーは publish しない (CopyToPublishDirectory=Never)。
+    publish に流すと、x64 ホストからの linux-arm64 publish で SDK の重複解決が x64 版を選び、arm64 版が出力から消える。
+    RID なしの publish では直下のコピーも無くなるが、配布物はすべて RID 付きで publish している。
   -->
   <PropertyGroup>
     <_ShadercNativeRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ShadercNativeRid>
@@ -89,17 +93,19 @@
     <Content Include="$(PkgSilk_NET_Shaderc_Native)\runtimes\$(_ShadercNativeRid)\native\*">
       <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
       <Visible>False</Visible>
     </Content>
   </ItemGroup>
 
   <!-- Assimp uses the same Silk loader and distro-specific RID lookup as Shaderc.
-       Make the target RID's bundled libraries available through BaseDirectoryResolver. -->
+       Make the bundled libraries available to RID-neutral outputs through BaseDirectoryResolver;
+       a RID-specific publish gets the target's own copies from NuGet, as with Shaderc above. -->
   <ItemGroup Condition="'$(_ShadercNativeRid)' != '' And '$(PkgUltz_Native_Assimp)' != '' And Exists('$(PkgUltz_Native_Assimp)\runtimes\$(_ShadercNativeRid)\native')">
     <Content Include="$(PkgUltz_Native_Assimp)\runtimes\$(_ShadercNativeRid)\native\*">
       <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
       <Visible>False</Visible>
     </Content>
   </ItemGroup>

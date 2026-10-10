@@ -52,6 +52,9 @@ jobs:
           python3 -m unittest discover -s native/SkiaSharp -p 'test_*.py'
           python3 native/SkiaSharp/verify.py
 
+      - name: Test the native architecture check
+        run: python3 -m unittest discover -s build -p 'test_*.py'
+
       - name: Resolve .NET SDK version
         id: dotnet-sdk
         run: echo "version=$(dotnet --version)" >> "$GITHUB_OUTPUT"
@@ -208,6 +211,55 @@ jobs:
         with:
           name: Coverage
           path: coveragereport
+
+  # Releases cross-publish linux-arm64 from x64, so only a native ARM64 run shows that the bundled
+  # libraries (Skia, HarfBuzz, SwiftShader, Shaderc, Assimp) load and render there.
+  linux-arm64-tests:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: |
+          dotnet build tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net10.0
+          dotnet build tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
+
+      - name: Test on Linux ARM64
+        timeout-minutes: 45
+        run: |
+          status=0
+          for project in Beutl.UnitTests Beutl.Graphics3DTests; do
+            dotnet test "tests/$project/$project.csproj" --no-build -f net10.0 \
+              --logger trx --results-directory TestResults/linux-arm64 \
+              --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
+              --blame-crash --blame-crash-dump-type mini || status=1
+          done
+          exit $status
+        env:
+          # Fail instead of skipping when the bundled ARM64 SwiftShader ICD does not load.
+          BEUTL_REQUIRE_GPU: "1"
+
+      - name: Save Linux ARM64 test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: LinuxArm64TestDiagnostics
+          path: TestResults/linux-arm64/
+          if-no-files-found: ignore
+          retention-days: 7
 
   macos-font-tests:
     permissions:

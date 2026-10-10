@@ -25,48 +25,64 @@ public sealed class FlatpakUpdaterTests
     { LatestVersion = "2.0.0", Url = null, DownloadUrl = Url, IsLatest = false, MustLatest = false }, true, updater, client);
 
     private FlatpakUpdater Updater(string scope = "user", Func<string[], CancellationToken, Task<string>>? run = null,
-        Func<string, string?>? read = null) => new($"""
+        Func<string, string?>? read = null, string arch = "x86_64", string branch = "master") => new($"""
         [Application]
         name=net.beditor.Beutl
         [Instance]
-        arch=x86_64
-        branch=master
+        arch={arch}
+        branch={branch}
         instance-path={_root.Replace("\\", "\\\\").Replace(" ", "\\s")}
-        app-path=/install/{scope}/app/{Ref}/old/files
+        app-path=/install/{scope}/app/net.beditor.Beutl/{arch}/{branch}/old/files
         """, run, read);
 
-    [TestCase("user", "--user")]
-    [TestCase("system", "--system")]
-    [TestCase("external", "--installation=external")]
-    public async Task InstallTargetsTheRunningCopy(string scope, string option)
+    [TestCase("user", "--user", "x86_64")]
+    [TestCase("system", "--system", "x86_64")]
+    [TestCase("external", "--installation=external", "x86_64")]
+    [TestCase("user", "--user", "aarch64")]
+    [TestCase("system", "--system", "aarch64")]
+    public async Task InstallTargetsTheRunningCopy(string scope, string option, string arch)
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
+        string reference = $"net.beditor.Beutl/{arch}/master";
+        // The other architecture's copy is listed first: only the running one may be updated.
+        string other = arch == "x86_64" ? "net.beditor.Beutl/aarch64/master" : Ref;
         string[]? install = null;
         var updater = Updater(scope, (args, _) =>
         {
             if (args[0] == "install") install = args;
+            if (args[0] == "info") Assert.That(args[^1], Is.EqualTo(reference));
             return Task.FromResult(args[0] switch
             {
-                "list" => $"{Ref}\tuser\n{Ref}\tsystem\n{Ref}\tsystem (external)\n",
-                "info" => $"/install/{(args[1] == "--user" ? "user" : args[1] == "--system" ? "system" : "external")}/app/{Ref}/new",
+                "list" => $"{other}\tuser\n{reference}\tuser\n{reference}\tsystem\n{reference}\tsystem (external)\n",
+                "info" => $"/install/{(args[1] == "--user" ? "user" : args[1] == "--system" ? "system" : "external")}/app/{reference}/new",
                 _ => ""
             });
-        }, _ => "app/" + Ref);
+        }, _ => "app/" + reference, arch);
         await updater.InstallAsync(default);
         Assert.That(install, Is.EqualTo(new[] { "install", option, "--bundle", "--or-update", "--noninteractive", "--assumeyes", updater.DownloadPath }));
         Assert.That(updater.DownloadPath, Does.StartWith(Path.Combine(_root, "cache")));
     }
 
-    [TestCase("app/org.example.Other/x86_64/master")]
-    [TestCase("app/net.beditor.Beutl/aarch64/master")]
-    [TestCase("app/net.beditor.Beutl/x86_64/stable")]
-    [TestCase("runtime/net.beditor.Beutl/x86_64/master")]
-    [TestCase(null)]
-    public async Task WrongBundleNeverReachesTheHostInstaller(string? reference)
+    [TestCase("x86_64", "app/org.example.Other/x86_64/master")]
+    [TestCase("x86_64", "app/net.beditor.Beutl/aarch64/master")]
+    [TestCase("x86_64", "app/net.beditor.Beutl/x86_64/stable")]
+    [TestCase("x86_64", "runtime/net.beditor.Beutl/x86_64/master")]
+    [TestCase("x86_64", null)]
+    [TestCase("aarch64", "app/net.beditor.Beutl/x86_64/master")]
+    public async Task WrongBundleNeverReachesTheHostInstaller(string arch, string? reference)
     {
         if (OperatingSystem.IsWindows()) Assert.Ignore("Flatpak uses Unix paths.");
         await Assert.ThrowsAsync<InvalidDataException>(() => Updater(run:
-            (_, _) => throw new AssertionException("The host must not be invoked."), read: _ => reference).InstallAsync(default));
+            (_, _) => throw new AssertionException("The host must not be invoked."), read: _ => reference, arch: arch).InstallAsync(default));
+    }
+
+    [TestCase("i386", "master")]
+    [TestCase("arm", "master")]
+    [TestCase("", "master")]
+    [TestCase("aarch64", "stable")]
+    public void InstallationWithoutPublishedBundlesIsRejected(string arch, string branch)
+    {
+        Assert.Throws<InvalidDataException>(() => Updater(arch: arch, branch: branch));
     }
 
     [AvaloniaTest]

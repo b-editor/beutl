@@ -56,7 +56,7 @@ modules:
       - install -Dm644 net.beditor.Beutl.svg /app/share/icons/hicolor/scalable/apps/net.beditor.Beutl.svg
     sources:
       - type: dir
-        path: sources/Beutl-linux-x64-standalone
+        path: sources/Beutl-linux-standalone
         dest: beutl-bin
       - type: file
         path: beutl-launcher.sh
