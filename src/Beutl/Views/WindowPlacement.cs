@@ -32,17 +32,21 @@ internal static class WindowPlacement
 
         // A window that no screen shows, because a display was unplugged or rearranged after the
         // position was saved, is brought onto the primary screen.
-        Screen? screen = window.Screens.ScreenFromWindow(window)
-                         ?? window.Screens.Primary
-                         ?? window.Screens.All.FirstOrDefault();
+        Screen? screen = window.Screens.ScreenFromWindow(window);
+        bool offScreen = screen == null;
+        screen ??= window.Screens.Primary ?? window.Screens.All.FirstOrDefault();
         if (screen == null)
             return;
+
+        // Moved there before it is measured, so it already has that screen's scaling.
+        if (offScreen)
+            window.Position = screen.WorkingArea.Position;
 
         // The position and the working area are in screen pixels, the size in device-independent units.
         double scaling = window.DesktopScaling;
         PixelRect area = screen.WorkingArea;
         var rect = new PixelRect(window.Position, PixelSize.FromSize(window.ClientSize, scaling));
-        if (area.Contains(rect))
+        if (!offScreen && area.Contains(rect))
             return;
 
         rect = rect.WithWidth(Math.Min(area.Width, rect.Width)).WithHeight(Math.Min(area.Height, rect.Height));

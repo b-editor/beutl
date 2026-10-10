@@ -34,6 +34,34 @@ public class WindowPlacementTests
     }
 
     [AvaloniaTest]
+    public void A_window_that_no_screen_shows_is_measured_at_the_scaling_of_the_screen_it_moves_to()
+    {
+        // Saved on a 200% display that has since been unplugged; the primary screen is at 100%.
+        var window = new Window { Width = 800, Height = 600, Position = new PixelPoint(5000, -3000) };
+        try
+        {
+            window.Show();
+            window.SetRenderScaling(2);
+            // As the platforms do, the window takes a screen's scaling once it is moved onto it.
+            window.PositionChanged += (_, _) =>
+            {
+                if (window.Screens.ScreenFromWindow(window) is { } screen)
+                    window.SetRenderScaling(screen.Scaling);
+            };
+
+            WindowPlacement.FitToWorkingArea(window);
+
+            Assert.That(window.DesktopScaling, Is.EqualTo(1), "precondition: the window took the primary screen's scaling");
+            Assert.That(window.Position, Is.EqualTo(new PixelPoint(560, 340)));
+            Assert.That((window.Width, window.Height), Is.EqualTo((800d, 600d)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task An_editor_window_saved_on_an_unplugged_display_opens_on_the_primary_screen(bool mac)
