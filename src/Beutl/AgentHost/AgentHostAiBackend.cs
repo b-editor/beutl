@@ -113,6 +113,7 @@ internal sealed class AgentHostAiBackend(
         // read, which a decoder may return mid-file, so a short part is not the end of the recording.
         long start = 0;
         int part = 0;
+        bool reachedEnd = false;
         // Every part is a paid request, so a decoder that keeps reading short cannot multiply them:
         // at most twice the parts the length calls for, and no part cut short under a second.
         int maxParts = estimatedParts * 2;
@@ -146,7 +147,10 @@ internal sealed class AgentHostAiBackend(
                     bool remaining => remaining,
                 };
                 if (!readable)
+                {
+                    reachedEnd = true;
                     break;
+                }
             }
 
             (string wave, FileStream stream) = AiTemporaryFileStore.Create("audio", "agent", ".wav");
@@ -176,16 +180,7 @@ internal sealed class AgentHostAiBackend(
                 if (chunk.SourceSampleCount <= 0)
                     break;
                 if (chunk.SourceSampleCount < length && chunk.SourceSampleCount < sampleRate)
-                {
-                    if (segments.Count == 0)
-                    {
-                        throw new AgentAiException(
-                            Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
-                            "The audio decoder returned too little audio to transcribe.");
-                    }
-
-                    break;
-                }
+                    throw IncompleteRead(partStart, sampleRate);
 
                 bool covered;
                 try
@@ -281,8 +276,18 @@ internal sealed class AgentHostAiBackend(
             }
         }
 
+        // A decoder that kept reading short ran out of parts before the end: a transcript of part of
+        // the recording is not one to hand back as a success.
+        if (!reachedEnd && start < totalSamples)
+            throw IncompleteRead(start, sampleRate);
+
         return new AgentTranscript(detected ?? language, segments, hasWords ? words : null);
     }
+
+    private static AgentAiException IncompleteRead(long position, int sampleRate)
+        => new(
+            Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+            $"The audio decoder returned the recording in pieces too short to transcribe, from {TimeSpan.FromSeconds(position / (double)sampleRate):hh\\:mm\\:ss} on; it was not read to the end.");
 
     private static void TryDelete(string path)
     {

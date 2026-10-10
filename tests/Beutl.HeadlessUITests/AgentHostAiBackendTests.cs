@@ -205,6 +205,12 @@ public sealed class AgentHostAiBackendTests
             next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
             AgentTranscript shorter = await CreateBackend(transcription: transcription)
                 .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+            // Every read from one second on comes back half full, so parts keep ending early: the
+            // recording is never read to the end, and a part of it is not a success.
+            next = new StubAudioReader(sampleRate, sampleRate * 60L) { ShortReadsFrom = sampleRate };
+            AgentAiException? pieces = await CatchAsync(
+                CreateBackend(transcription: new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 1, Text = "a" }] }),
+                path);
             // Reads fail from 10:00: not the end of the recording, and not a success.
             next = new StubAudioReader(sampleRate, sampleRate * 602L) { FailFrom = sampleRate * 600L };
             AgentAiException? failed = await CatchAsync(CreateBackend(transcription: transcription), path);
@@ -213,6 +219,7 @@ public sealed class AgentHostAiBackendTests
             {
                 Assert.That(shorter.Segments, Has.Count.EqualTo(1));
                 Assert.That(failed?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
+                Assert.That(pieces?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
             });
         }
         finally
@@ -462,6 +469,8 @@ public sealed class AgentHostAiBackendTests
 
         public long? FailFrom { get; init; }
 
+        public long? ShortReadsFrom { get; init; }
+
         public override VideoStreamInfo VideoInfo
             => throw new InvalidOperationException("The test reader has no video stream.");
 
@@ -490,6 +499,8 @@ public sealed class AgentHostAiBackendTests
                 decoded /= 2;
             if (Trickle)
                 decoded = Math.Min(decoded, 1);
+            if (start >= ShortReadsFrom && decoded > 0)
+                decoded = Math.Max(1, decoded / 2);
             var pcm = new Pcm<Stereo32BitFloat>(sampleRate, decoded);
             pcm.DataSpan.Fill(new Stereo32BitFloat(0.25f, -0.25f));
             sound = Ref<IPcm>.Create(pcm);
