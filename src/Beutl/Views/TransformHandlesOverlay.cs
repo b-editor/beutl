@@ -12,7 +12,7 @@ using AvaVector = Avalonia.Vector;
 using BtlDrawable = Beutl.Graphics.Drawable;
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
-using BtlSize = Beutl.Graphics.Size;
+using BtlRect = Beutl.Graphics.Rect;
 using Element = Beutl.ProjectSystem.Element;
 
 namespace Beutl.Views;
@@ -40,7 +40,7 @@ internal sealed class TransformHandlesOverlay : Control
 
     private BtlDrawable? _drawable;
     private Element? _element;
-    private BtlSize _localSize;
+    private BtlRect _localBounds;
     private BtlMatrix _userMatrix = BtlMatrix.Identity;
     private double _frameScale = 1.0;
     private readonly AvaPoint[] _imageCorners = new AvaPoint[4];
@@ -48,8 +48,8 @@ internal sealed class TransformHandlesOverlay : Control
 
     private bool HasShape =>
         _drawable != null
-        && _localSize.Width > 0
-        && _localSize.Height > 0
+        && _localBounds.Width > 0
+        && _localBounds.Height > 0
         && _frameScale > 0
         && _userMatrix.HasInverse;
 
@@ -77,7 +77,8 @@ internal sealed class TransformHandlesOverlay : Control
 
     public Element? Element => _element;
 
-    public BtlSize LocalSize => _localSize;
+    // The box in the drawable's own space, which does not have to start at its origin.
+    public BtlRect LocalBounds => _localBounds;
 
     public BtlMatrix UserMatrix => _userMatrix;
 
@@ -90,7 +91,7 @@ internal sealed class TransformHandlesOverlay : Control
     public void Update(
         BtlDrawable? drawable,
         Element? element,
-        BtlSize localSize,
+        BtlRect localBounds,
         BtlMatrix userMatrix,
         BtlPoint pivotLocal,
         AvaSize imageSize,
@@ -98,7 +99,7 @@ internal sealed class TransformHandlesOverlay : Control
     {
         if (ReferenceEquals(_drawable, drawable)
             && ReferenceEquals(_element, element)
-            && _localSize == localSize
+            && _localBounds == localBounds
             && _userMatrix == userMatrix
             && _frameScale == frameScale
             && PivotLocal == pivotLocal)
@@ -108,12 +109,12 @@ internal sealed class TransformHandlesOverlay : Control
 
         _drawable = drawable;
         _element = element;
-        _localSize = localSize;
+        _localBounds = localBounds;
         _userMatrix = userMatrix;
         _frameScale = frameScale;
         PivotLocal = pivotLocal;
 
-        if (drawable != null && localSize.Width > 0 && localSize.Height > 0 && frameScale > 0 && !userMatrix.HasInverse)
+        if (drawable != null && localBounds.Width > 0 && localBounds.Height > 0 && frameScale > 0 && !userMatrix.HasInverse)
         {
             s_logger.LogDebug(
                 "TransformHandlesOverlay: userMatrix non-invertible, hiding overlay. Drawable={DrawableType}",
@@ -128,7 +129,7 @@ internal sealed class TransformHandlesOverlay : Control
     {
         _drawable = null;
         _element = null;
-        _localSize = default;
+        _localBounds = default;
         _userMatrix = BtlMatrix.Identity;
         InvalidateVisual();
     }
@@ -137,12 +138,10 @@ internal sealed class TransformHandlesOverlay : Control
     {
         if (!HasShape) return;
 
-        double w = _localSize.Width;
-        double h = _localSize.Height;
-        _imageCorners[0] = LocalToImage(0, 0);
-        _imageCorners[1] = LocalToImage(w, 0);
-        _imageCorners[2] = LocalToImage(w, h);
-        _imageCorners[3] = LocalToImage(0, h);
+        _imageCorners[0] = LocalToImage(_localBounds.Left, _localBounds.Top);
+        _imageCorners[1] = LocalToImage(_localBounds.Right, _localBounds.Top);
+        _imageCorners[2] = LocalToImage(_localBounds.Right, _localBounds.Bottom);
+        _imageCorners[3] = LocalToImage(_localBounds.Left, _localBounds.Bottom);
         _pivotImage = LocalToImage(PivotLocal.X, PivotLocal.Y);
     }
 

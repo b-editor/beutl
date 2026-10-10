@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 using AvaPoint = Avalonia.Point;
 using BtlMatrix = Beutl.Graphics.Matrix;
 using BtlPoint = Beutl.Graphics.Point;
-using BtlSize = Beutl.Graphics.Size;
+using BtlRect = Beutl.Graphics.Rect;
 
 namespace Beutl.Views;
 
@@ -32,7 +32,7 @@ public partial class PlayerView
             Drawable Drawable,
             Element? Element,
             double FrameScale,
-            BtlSize LocalSize,
+            BtlRect LocalBounds,
             BtlMatrix StartUserMatrix,
             BtlMatrix InvStartUserMatrix,
             BtlPoint PivotLocal,
@@ -156,12 +156,12 @@ public partial class PlayerView
             Drawable? drawable = overlay.Drawable;
             Element? element = overlay.Element;
             double frameScale = overlay.FrameScale;
-            BtlSize localSize = overlay.LocalSize;
+            BtlRect localBounds = overlay.LocalBounds;
             BtlMatrix startUserMatrix = overlay.UserMatrix;
             BtlPoint pivotLocal = overlay.PivotLocal;
 
             if (drawable == null || element == null || frameScale <= 0
-                || localSize.Width <= 0 || localSize.Height <= 0
+                || localBounds.Width <= 0 || localBounds.Height <= 0
                 || !startUserMatrix.TryInvert(out BtlMatrix invStartUserMatrix))
             {
                 _logger.LogWarning(
@@ -179,7 +179,7 @@ public partial class PlayerView
                 Drawable: drawable,
                 Element: element,
                 FrameScale: frameScale,
-                LocalSize: localSize,
+                LocalBounds: localBounds,
                 StartUserMatrix: startUserMatrix,
                 InvStartUserMatrix: invStartUserMatrix,
                 PivotLocal: pivotLocal,
@@ -284,7 +284,7 @@ public partial class PlayerView
                 Drawable: drawable,
                 Element: element,
                 FrameScale: frameScale,
-                LocalSize: default,
+                LocalBounds: default,
                 StartUserMatrix: BtlMatrix.Identity,
                 InvStartUserMatrix: BtlMatrix.Identity,
                 PivotLocal: default,
@@ -517,8 +517,8 @@ public partial class PlayerView
             double newWidth = grabLeft ? (anchorX - currentLocal.X) : (currentLocal.X - anchorX);
             double newHeight = grabTop ? (anchorY - currentLocal.Y) : (currentLocal.Y - anchorY);
 
-            double ratioX = newWidth / press.LocalSize.Width;
-            double ratioY = newHeight / press.LocalSize.Height;
+            double ratioX = newWidth / press.LocalBounds.Width;
+            double ratioY = newHeight / press.LocalBounds.Height;
 
             if (_shift)
             {
@@ -547,7 +547,7 @@ public partial class PlayerView
             if (horizontal)
             {
                 double newWidth = grabLeft ? (anchorX - currentLocal.X) : (currentLocal.X - anchorX);
-                double ratioX = newWidth / press.LocalSize.Width;
+                double ratioX = newWidth / press.LocalBounds.Width;
                 newScaleX = (float)(ensured.StartScaleX * ratioX);
                 if (_shift)
                 {
@@ -557,7 +557,7 @@ public partial class PlayerView
             else
             {
                 double newHeight = grabTop ? (anchorY - currentLocal.Y) : (currentLocal.Y - anchorY);
-                double ratioY = newHeight / press.LocalSize.Height;
+                double ratioY = newHeight / press.LocalBounds.Height;
                 newScaleY = (float)(ensured.StartScaleY * ratioY);
                 if (_shift)
                 {
@@ -658,20 +658,19 @@ public partial class PlayerView
             return press.InvStartUserMatrix.Transform(new BtlPoint((float)sceneX, (float)sceneY));
         }
 
-        // Anchors are local-rect coordinates (0,0)-(w,h). Drawable.GetTransformMatrix assumes the same
-        // origin; for Shapes whose Geometry.Bounds.Position != (0,0) the overlay can misalign — that is
-        // a rendering-model limitation, out of scope here. Each anchor is the OPPOSITE corner/edge of
-        // the grabbed handle (so the grabbed side moves while the anchor stays put).
+        // Anchors are points on the overlay's box, in the drawable's own space (the space PivotLocal is in).
+        // The box need not start at (0,0): it follows what the drawable draws, such as a drop shadow or a
+        // geometry whose bounds start elsewhere. Each anchor is the OPPOSITE corner/edge of the grabbed
+        // handle (so the grabbed side moves while the anchor stays put).
         private static (double X, double Y) CornerAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
-            BtlSize size = press.LocalSize;
-            double w = size.Width, h = size.Height;
+            BtlRect bounds = press.LocalBounds;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.TopLeft => (w, h),
-                TransformHandlesOverlay.HandleKind.TopRight => (0, h),
-                TransformHandlesOverlay.HandleKind.BottomRight => (0, 0),
-                TransformHandlesOverlay.HandleKind.BottomLeft => (w, 0),
+                TransformHandlesOverlay.HandleKind.TopLeft => (bounds.Right, bounds.Bottom),
+                TransformHandlesOverlay.HandleKind.TopRight => (bounds.Left, bounds.Bottom),
+                TransformHandlesOverlay.HandleKind.BottomRight => (bounds.Left, bounds.Top),
+                TransformHandlesOverlay.HandleKind.BottomLeft => (bounds.Right, bounds.Top),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Corner anchor requested for non-corner HandleKind."),
             };
         }
@@ -680,14 +679,14 @@ public partial class PlayerView
         // Shift-dragging an edge introduce sideways drift on the orthogonal axis.
         private static (double X, double Y) EdgeAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
-            BtlSize size = press.LocalSize;
-            double w = size.Width, h = size.Height;
+            BtlRect bounds = press.LocalBounds;
+            BtlPoint center = bounds.Center;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.Top => (w * 0.5, h),
-                TransformHandlesOverlay.HandleKind.Bottom => (w * 0.5, 0),
-                TransformHandlesOverlay.HandleKind.Left => (w, h * 0.5),
-                TransformHandlesOverlay.HandleKind.Right => (0, h * 0.5),
+                TransformHandlesOverlay.HandleKind.Top => (center.X, bounds.Bottom),
+                TransformHandlesOverlay.HandleKind.Bottom => (center.X, bounds.Top),
+                TransformHandlesOverlay.HandleKind.Left => (bounds.Right, center.Y),
+                TransformHandlesOverlay.HandleKind.Right => (bounds.Left, center.Y),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Edge anchor requested for non-edge HandleKind."),
             };
         }

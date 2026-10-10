@@ -389,7 +389,7 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
+        (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
         try
         {
             BtlDrawable target = drawable;
@@ -423,7 +423,7 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        transformHandlesOverlay.Update(drawable, element, s.localSize, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
+        transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
     }
 
     // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
@@ -445,9 +445,10 @@ public partial class PlayerView : UserControl
         return drawable;
     }
 
-    // Use an independent Resource on RenderThread so we evaluate animations against ctxTime
-    // without piggybacking on the renderer's cached render node.
-    private (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
+    // The box comes from the frame the renderer last drew. The pivot (and the fallback layout box) use an
+    // independent Resource on RenderThread so we evaluate animations against ctxTime without piggybacking
+    // on the renderer's cached render node.
+    private (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
         SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, TimeSpan ctxTime)
     {
         BtlRect? bounds = renderer.GetBoundary(target);
@@ -472,13 +473,21 @@ public partial class PlayerView : UserControl
         BtlSize localSize = target.MeasureInternal(availableSize, resource);
         if (localSize.Width <= 0 || localSize.Height <= 0) return null;
 
-        BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
         BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);
 
-        // userMatrix omits FilterEffect-induced offsets; align against rendered bounds.
+        // The box is what the drawable draws (glyph extents, effects, offset geometry), measured inside its
+        // transform: it turns with the drawable, and its axis-aligned extent is the boundary drawn in the frame.
+        if (renderer.GetLocalBoundary(target) is { } drawn)
+        {
+            return (drawn.Bounds, drawn.Transform, pivot);
+        }
+
+        // A drawable that does not draw under a transform of its own gets its layout box instead. userMatrix
+        // omits FilterEffect-induced offsets; align against rendered bounds.
+        BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
         BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value, new BtlRect(availableSize));
 
-        return ((BtlSize, BtlMatrix, BtlPoint)?)(localSize, adjusted, pivot);
+        return (new BtlRect(localSize), adjusted, pivot);
     }
 
     private void ClearTransformHandleOverlay()

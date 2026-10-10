@@ -365,6 +365,50 @@ public class TransitionRenderTests
         });
     }
 
+    // The preview's transform handles sit on the box a drawable draws in its own space, so inside a moving
+    // transition that box has to be placed through the transition too.
+    [Test]
+    public void LocalBoundary_InsideAMovingTransitionIsPlacedWhereTheDrawableIsShown()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var scene = new Scene(Width, Height, string.Empty);
+            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            outgoing.Objects.Add(CreateRect(s_red));
+            scene.Children.Add(outgoing);
+
+            RectShape corner = CreateRect(s_blue);
+            corner.Width.CurrentValue = 8;
+            corner.Height.CurrentValue = 8;
+            corner.AlignmentX.CurrentValue = AlignmentX.Right;
+            corner.AlignmentY.CurrentValue = AlignmentY.Top;
+            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            incoming.Objects.Add(corner);
+            incoming.EnterTransition = new PushTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            scene.Children.Add(incoming);
+
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
+
+            (Rect Bounds, Matrix Transform)? local = renderer.GetLocalBoundary(corner);
+
+            Assert.That(local, Is.Not.Null);
+            (Rect bounds, Matrix transform) = local!.Value;
+            Point topLeft = transform.Transform(bounds.TopLeft);
+            Point bottomRight = transform.Transform(bounds.BottomRight);
+            Assert.Multiple(() =>
+            {
+                Assert.That(bounds.Width, Is.EqualTo(8).Within(0.5f));
+                Assert.That(bounds.Height, Is.EqualTo(8).Within(0.5f));
+                Assert.That(topLeft.X, Is.EqualTo((Width / 2f) - 8).Within(0.5f), "the box follows the push");
+                Assert.That(topLeft.Y, Is.EqualTo(0).Within(0.5f));
+                Assert.That(bottomRight.X, Is.EqualTo(Width / 2f).Within(0.5f));
+                Assert.That(bottomRight.Y, Is.EqualTo(8).Within(0.5f));
+            });
+        });
+    }
+
     private static ClipTransition CreateDirectional(Type type, ClipTransitionDirection direction)
     {
         if (type == typeof(PushTransition)) return new PushTransition { Direction = { CurrentValue = direction } };
