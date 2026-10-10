@@ -35,6 +35,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly Func<CancellationToken, Task>? _beforeStart;
     private readonly AgentHostInstanceRegistry _instanceRegistry;
     private readonly AgentHostInstanceRouter _instanceRouter;
+    private readonly ExtensionMcpToolCatalog _extensionTools;
     private readonly object _lifecycleLock = new();
     private readonly CancellationTokenSource _startupCancellation = new();
     private bool _stopRequested;
@@ -148,6 +149,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             ?? Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "agent-hosts"));
         _instanceRouter = new AgentHostInstanceRouter(
             _instanceRegistry, projectService, editorService, token, () => ResolveWorkspaceRoot(config));
+        _extensionTools = new ExtensionMcpToolCatalog(editorService);
     }
 
     public string Token { get; }
@@ -327,6 +329,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             stop = _stopTask ??= StopCoreAsync(application);
         }
 
+        _extensionTools.Dispose();
         try
         {
             _startupCancellation.Cancel();
@@ -415,7 +418,15 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         builder.Services
             .AddMcpServer()
-            .WithHttpTransport(options => options.Stateless = true)
+            .WithHttpTransport(options =>
+            {
+                options.Stateless = true;
+                options.ConfigureSessionOptions = (_, serverOptions, _) =>
+                {
+                    _extensionTools.AddTo(serverOptions);
+                    return Task.CompletedTask;
+                };
+            })
             .WithRequestFilters(filters =>
             {
                 AgentHostInstanceRouter.AddFilters(filters);

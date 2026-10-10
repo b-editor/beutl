@@ -95,6 +95,14 @@ public static class McpToolErrorFilters
             return false;
         }
 
+        // A schema that admits arguments beyond its named properties has no fixed name set to enforce.
+        if (inputSchema.TryGetProperty("patternProperties", out _)
+            || (inputSchema.TryGetProperty("additionalProperties", out JsonElement additional)
+                && additional.ValueKind != JsonValueKind.False))
+        {
+            return false;
+        }
+
         if (!inputSchema.TryGetProperty("properties", out JsonElement properties))
         {
             return true;

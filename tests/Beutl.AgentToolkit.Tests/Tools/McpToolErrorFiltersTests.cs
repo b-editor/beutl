@@ -65,6 +65,35 @@ public sealed class McpToolErrorFiltersTests
         Assert.That(result, Is.Null);
     }
 
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "additionalProperties": true }""")]
+    [TestCase("""{ "type": "object", "additionalProperties": { "type": "string" } }""")]
+    [TestCase("""{ "type": "object", "patternProperties": { "^x-": {} } }""")]
+    public void Schema_that_admits_extra_properties_accepts_unlisted_arguments(string json)
+    {
+        using JsonDocument schema = JsonDocument.Parse(json);
+
+        CallToolResult? result = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool",
+            ["a", "x-extra"],
+            schema.RootElement);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void Schema_that_forbids_extra_properties_rejects_unlisted_arguments()
+    {
+        using JsonDocument schema = JsonDocument.Parse(
+            """{ "type": "object", "properties": { "a": {} }, "additionalProperties": false }""");
+
+        CallToolResult? result = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool",
+            ["a", "b"],
+            schema.RootElement);
+
+        Assert.That(ReadToolResult(result!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+    }
+
     private static ToolResult<object?> ReadToolResult(CallToolResult result)
     {
         string text = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(block => block.Text));
