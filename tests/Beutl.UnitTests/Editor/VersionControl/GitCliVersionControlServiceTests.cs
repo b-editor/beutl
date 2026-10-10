@@ -3000,6 +3000,53 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_keeps_a_symbolic_link_project_file_when_a_hook_changes_another_file()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Git for Windows records symbolic links only when core.symlinks is enabled.");
+            return;
+        }
+
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project-target.bep"), "{}\n");
+        CreateFileSymbolicLinkOrIgnore(projectFile, "project-target.bep");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline");
+        await WriteHookAsync(
+            "pre-commit",
+            "printf 'hooked\\n' > hook-added.txt\n"
+            + "git add -- hook-added.txt\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project-target.bep"), "{ }\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string[] committedPaths = (await RunGitAsync(
+                "show",
+                "--format=",
+                "--name-only",
+                "HEAD"))
+            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        string projectEntry = (await RunGitAsync("ls-tree", "HEAD", "--", "project.bep")).Stdout;
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(committedPaths, Does.Contain("hook-added.txt"));
+            Assert.That(committedPaths, Does.Contain("project-target.bep"));
+            Assert.That(projectEntry, Does.StartWith("120000 "));
+        });
+    }
+
+    [Test]
     public async Task CommitAllAsync_honors_automatic_comment_character_selection()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");

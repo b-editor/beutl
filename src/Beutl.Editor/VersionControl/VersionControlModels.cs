@@ -389,7 +389,10 @@ internal abstract record VersionControlPolicyNotice
 
     internal sealed record MissingIdentity : VersionControlPolicyNotice;
 
-    internal sealed record IgnoredProjectFiles(IReadOnlyList<string> Paths) : VersionControlPolicyNotice;
+    // Truncated is set when Git listed more than the capture limit holds, so Paths is incomplete.
+    internal sealed record IgnoredProjectFiles(
+        IReadOnlyList<string> Paths,
+        bool Truncated) : VersionControlPolicyNotice;
 }
 
 /// <summary>A specific stale-lock recovery offer whose identity is its object reference.</summary>

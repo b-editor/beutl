@@ -778,9 +778,24 @@ internal sealed partial class GitCliVersionControlService
 
         string prefix = GetProjectPathPrefix(repository);
         // A placeholder per media type in the folder Beutl imports media into shows whether media
-        // would go through LFS.
+        // would go through LFS; the media the project already tracks covers rules scoped elsewhere.
+        GitCommandResult tracked = await runner.RunAsync(
+                repository,
+                ["ls-files", "-z", "--", CreateSnapshotBasePathspec(repository)],
+                new GitCommandOptions(
+                    GitCommandExecutionKind.Local,
+                    MaxStdoutBytes: MaxSnapshotTreeInspectionBytes,
+                    UseLiteralPathspecs: false),
+                cancellationToken)
+            .ConfigureAwait(false);
+        string trackedListing = tracked.StdoutTruncated
+            ? tracked.Stdout[..(tracked.Stdout.LastIndexOf('\0') + 1)]
+            : tracked.Stdout;
         string[] mediaPaths = s_mediaExtensions
             .Select(extension => $"{prefix}resources/beutl-required-media{extension}")
+            .Concat(GitCliRunner.SplitNullSeparated(trackedListing)
+                .Where(static path => s_mediaExtensions.Contains(Path.GetExtension(path))))
+            .Distinct(StringComparer.Ordinal)
             .ToArray();
         HashSet<string> coveredPaths = await GetEffectiveLfsPathsAsync(
                 repository,

@@ -4,6 +4,7 @@ using Beutl.Graphics;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -236,6 +237,172 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             Assert.That(
                 RunGitAsync("show", "HEAD:project.bep").Result.Stdout,
                 Is.EqualTo("changed\n"));
+        });
+    }
+
+    [Test]
+    public async Task Ignored_scratch_files_do_not_crowd_reportable_files_out_of_the_notice()
+    {
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitignore"),
+            "**/.beutl/\n*.[tT][mM][pP]\n*.wav\n");
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        // Sorted ahead of the media file, these alone would overflow the capture limit below.
+        for (int i = 0; i < 64; i++)
+        {
+            await WriteProjectFileAsync($"render-{i:D3}.tmp", "scratch\n");
+        }
+
+        await WriteProjectFileAsync("voice.wav", "voice\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            runner: new IgnoredListingCapRunner(Runner, maxStdoutBytes: 256));
+
+        await WriteProjectFileAsync("project.bep", "changed\n");
+        CommitResult result = await service.CommitAllAsync(
+            "snapshot",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        var notice = notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(notice.Paths, Is.EqualTo(new[] { "voice.wav" }));
+            Assert.That(notice.Truncated, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Ignored_project_files_notice_says_when_the_listing_was_cut_off()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.wav\n");
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string[] ignoredFiles = Enumerable.Range(0, 64)
+            .Select(static i => $"voice-{i:D3}.wav")
+            .ToArray();
+        foreach (string ignoredFile in ignoredFiles)
+        {
+            await WriteProjectFileAsync(ignoredFile, "voice\n");
+        }
+
+        var notices = new List<VersionControlPolicyNotice>();
+        var logger = new RecordingLogger();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(false, new VersionControlConfig()),
+            Repository,
+            watcher: null,
+            _ => new IgnoredListingCapRunner(Runner, maxStdoutBytes: 100),
+            logger: logger,
+            policyNoticeSink: (notice, _) =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        await WriteProjectFileAsync("project.bep", "changed\n");
+        await service.CommitAllAsync("snapshot", SnapshotKind.Save, CancellationToken.None);
+
+        var notice = notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(notice.Truncated, Is.True);
+            // 100 bytes hold seven whole 14-byte entries; the cut-off eighth is not reported.
+            Assert.That(notice.Paths, Is.EqualTo(ignoredFiles.Take(7)));
+            // The notice shows only a few paths, so the full list is logged with it.
+            Assert.That(
+                logger.Entries,
+                Has.One.Matches<(LogLevel Level, string Message)>(entry =>
+                    entry.Level == LogLevel.Information
+                    && ignoredFiles.Take(7).All(entry.Message.Contains)));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_refuses_an_untracked_project_file_that_an_ignore_rule_matches()
+    {
+        await CommitFileAsync(".gitignore", "*.bep\n", "ignore project files");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await WriteProjectFileAsync("notes.txt", "notes\n");
+        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            _ => Task.CompletedTask,
+            projectFile: projectFile);
+
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "snapshot",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("'project.bep'"));
+            Assert.That(exception.Message, Does.Contain("ignore rules"));
+            Assert.That(
+                RunGitAsync("rev-parse", "HEAD").GetAwaiter().GetResult().Stdout.Trim(),
+                Is.EqualTo(baseTip));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_refuses_an_untracked_project_file_that_an_ignore_rule_matches()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.bep\n");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            _ => Task.CompletedTask,
+            projectFile: projectFile);
+
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(Repository, UseLfsWhenAvailable: false),
+                CancellationToken.None));
+
+        GitCommandResult commits = await RunGitAsync("rev-list", "--all", "--count");
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("'project.bep'"));
+            Assert.That(commits.Stdout.Trim(), Is.EqualTo("0"));
+        });
+    }
+
+    [Test]
+    public async Task A_tracked_project_file_that_an_ignore_rule_matches_still_snapshots()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await CommitFileAsync(".gitignore", "*.bep\n", "ignore project files");
+        string projectFile = Path.Combine(Root, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "changed\n");
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            _ => Task.CompletedTask,
+            projectFile: projectFile);
+
+        CommitResult result = await service.CommitAllAsync(
+            "snapshot",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult committed = await RunGitAsync("show", "HEAD:project.bep");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(committed.Stdout, Is.EqualTo("changed\n"));
         });
     }
 
@@ -632,6 +799,33 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
 
         await service.SetRemoteAsync(
             Path.Combine(Root, "nested-remote.git"),
+            CancellationToken.None);
+
+        Assert.That(
+            notices,
+            Is.EqualTo(new[] { new VersionControlPolicyNotice.LfsRemoteQuota() }));
+    }
+
+    [Test]
+    public async Task Lfs_rule_scoped_to_tracked_media_outside_resources_shows_the_quota_notice()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await CommitFileAsync("media/clip.mp4", "clip\n", "media");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "media/** filter=lfs diff=lfs merge=lfs -text\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            new VersionControlConfig { UseLfsWhenAvailable = false },
+            lfsInstalled: true,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        await service.SetRemoteAsync(
+            Path.Combine(Root, "media-remote.git"),
             CancellationToken.None);
 
         Assert.That(
@@ -1076,6 +1270,64 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             RepositoryInfo repository,
             RepositoryLockInfo lockInfo)
             => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    // Lowers the capture limit of the ignored-files listing so a few entries overflow it.
+    private sealed class IgnoredListingCapRunner(IGitCliRunner inner, int maxStdoutBytes) : IGitCliRunner
+    {
+        public bool HasActiveProcess => inner.HasActiveProcess;
+
+        public Task<GitCommandResult> RunAsync(
+            RepositoryInfo repository,
+            IReadOnlyList<string> arguments,
+            GitCommandOptions options,
+            CancellationToken cancellationToken,
+            IProgress<string>? stderrProgress = null)
+        {
+            if (arguments.FirstOrDefault() == "ls-files" && arguments.Contains("--ignored"))
+            {
+                options = options with { MaxStdoutBytes = maxStdoutBytes };
+            }
+
+            return inner.RunAsync(
+                repository,
+                arguments,
+                options,
+                cancellationToken,
+                stderrProgress);
+        }
+
+        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
+            => inner.GetRecoverableRepositoryLock(repository);
+
+        public bool RemoveRecoverableRepositoryLock(
+            RepositoryInfo repository,
+            RepositoryLockInfo lockInfo)
+            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
+    }
+
+    private sealed class RecordingLogger : ILogger
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+            => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            lock (Entries)
+            {
+                Entries.Add((logLevel, formatter(state, exception)));
+            }
+        }
     }
 
     private sealed class LargeMediaAcknowledgementFailingRunner(IGitCliRunner inner)

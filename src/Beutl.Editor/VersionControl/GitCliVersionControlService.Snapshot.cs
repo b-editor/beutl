@@ -287,8 +287,10 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
+        // A project file that is gone is not one the ignore rules left out.
         if (_projectFile is null
-            || !RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, _projectFile))
+            || !RepositoryPathComparer.IsContainedWithin(repository.ProjectRoot, _projectFile)
+            || !File.Exists(_projectFile))
         {
             return;
         }
