@@ -1289,19 +1289,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         }
     }
 
-    private static void CreateFileSymbolicLinkOrIgnore(string linkPath, string target)
-    {
-        try
-        {
-            File.CreateSymbolicLink(linkPath, target);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
     private sealed record RecordedCommand(
         RepositoryInfo Repository,
         IReadOnlyList<string> Arguments,
@@ -1768,38 +1755,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 options,
                 cancellationToken,
                 stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    private sealed class TruncatedIgnoredQueryRunner(IGitCliRunner inner) : IGitCliRunner
-    {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            GitCommandResult result = await inner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken,
-                stderrProgress);
-            return arguments.FirstOrDefault() == "ls-files"
-                   && arguments.Contains("--ignored")
-                ? result with { StdoutTruncated = true }
-                : result;
         }
 
         public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
