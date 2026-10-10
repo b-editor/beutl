@@ -621,7 +621,7 @@ public class GitInstallationLocatorTests
     {
         using var process = new Process();
 
-        Assert.DoesNotThrow(() => ProcessGitInstallationProbe.TryKillProcessTree(process));
+        Assert.DoesNotThrow(() => GitProcess.KillProcessTree(process));
     }
 
     [Test]
@@ -629,7 +629,7 @@ public class GitInstallationLocatorTests
     {
         using Process process = Process.GetCurrentProcess();
 
-        Assert.DoesNotThrow(() => ProcessGitInstallationProbe.TryKillProcessTree(
+        Assert.DoesNotThrow(() => GitProcess.KillProcessTree(
             process,
             static _ => throw new AggregateException("A descendant could not be terminated.")));
     }
@@ -841,7 +841,7 @@ public class GitInstallationLocatorTests
         try
         {
             using Process process = Process.GetProcessById(processId);
-            ProcessGitInstallationProbe.TryKillProcessTree(process);
+            GitProcess.KillProcessTree(process);
         }
         catch (ArgumentException)
         {

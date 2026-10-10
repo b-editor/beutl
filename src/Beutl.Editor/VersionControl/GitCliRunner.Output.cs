@@ -17,7 +17,8 @@ internal sealed partial class GitCliRunner
 
     internal static async Task<string> ReadStandardErrorAsync(
         TextReader reader,
-        IProgress<string>? progress)
+        IProgress<string>? progress,
+        CancellationToken cancellationToken = default)
     {
         var retainedRecords = new Queue<string>();
         int retainedLength = 0;
@@ -99,7 +100,7 @@ internal sealed partial class GitCliRunner
         }
 
         int count;
-        while ((count = await reader.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        while ((count = await reader.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             for (int i = 0; i < count; i++)
             {
@@ -167,7 +168,8 @@ internal sealed partial class GitCliRunner
 
     internal static async Task<(string Output, bool Truncated)> ReadStandardOutputAsync(
         Stream stream,
-        int? maxBytes)
+        int? maxBytes,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
         if (maxBytes is < 0)
@@ -182,11 +184,11 @@ internal sealed partial class GitCliRunner
                 Encoding.UTF8,
                 detectEncodingFromByteOrderMarks: true,
                 leaveOpen: true);
-            return (await reader.ReadToEndAsync().ConfigureAwait(false), false);
+            return (await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false), false);
         }
 
         (byte[] captured, int capturedCount, bool truncated) =
-            await CaptureBoundedAsync(stream, maxBytes.Value).ConfigureAwait(false);
+            await CaptureBoundedAsync(stream, maxBytes.Value, cancellationToken).ConfigureAwait(false);
         int completeByteCount = GetCompleteUtf8PrefixLength(
             captured.AsSpan(0, capturedCount));
         return (
@@ -198,23 +200,27 @@ internal sealed partial class GitCliRunner
         CaptureStandardOutputAsync(
             Stream stream,
             int? maxBytes,
-            bool captureBytes)
+            bool captureBytes,
+            CancellationToken cancellationToken)
     {
         if (!captureBytes)
         {
-            (string output, bool truncated) = await ReadStandardOutputAsync(stream, maxBytes)
-                .ConfigureAwait(false);
+            (string output, bool truncated) = await ReadStandardOutputAsync(
+                stream,
+                maxBytes,
+                cancellationToken).ConfigureAwait(false);
             return (output, null, truncated);
         }
 
         (byte[] outputBytes, bool outputTruncated) =
-            await ReadStandardOutputBytesAsync(stream, maxBytes).ConfigureAwait(false);
+            await ReadStandardOutputBytesAsync(stream, maxBytes, cancellationToken).ConfigureAwait(false);
         return (Encoding.UTF8.GetString(outputBytes), outputBytes, outputTruncated);
     }
 
     internal static async Task<(byte[] Output, bool Truncated)> ReadStandardOutputBytesAsync(
         Stream stream,
-        int? maxBytes)
+        int? maxBytes,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
         if (maxBytes is < 0)
@@ -225,12 +231,12 @@ internal sealed partial class GitCliRunner
         if (maxBytes is null)
         {
             using var output = new MemoryStream();
-            await stream.CopyToAsync(output).ConfigureAwait(false);
+            await stream.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
             return (output.ToArray(), false);
         }
 
         (byte[] captured, int capturedCount, bool truncated) =
-            await CaptureBoundedAsync(stream, maxBytes.Value).ConfigureAwait(false);
+            await CaptureBoundedAsync(stream, maxBytes.Value, cancellationToken).ConfigureAwait(false);
         if (capturedCount != captured.Length)
         {
             Array.Resize(ref captured, capturedCount);
@@ -242,14 +248,15 @@ internal sealed partial class GitCliRunner
     // Reads the stream to its end and keeps its first limit bytes.
     private static async Task<(byte[] Captured, int Count, bool Truncated)> CaptureBoundedAsync(
         Stream stream,
-        int limit)
+        int limit,
+        CancellationToken cancellationToken)
     {
         var captured = new byte[limit];
         var buffer = new byte[8192];
         int capturedCount = 0;
         bool truncated = false;
         int count;
-        while ((count = await stream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        while ((count = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             int copyCount = Math.Min(count, limit - capturedCount);
             if (copyCount > 0)
