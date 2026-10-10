@@ -232,11 +232,11 @@ Request cancellation of a running background render/export job.
 
 ## AI generation *(in-app host only)*
 
-These tools run Beutl's cloud AI on the account signed in to the running app, through the same executor as the AI generation nodes, and **each call is a paid request**. They are not offered by the stdio host. Results are files saved next to the open scene (`resources/ai`); the tools never edit the scene — place a result with `apply_edit` (`SourceImage.Source` / `SourceVideo.Source` set to the returned path) or pass it to another AI tool.
+These tools run Beutl's cloud AI on the account signed in to the running app, through the same executor as the AI generation nodes, and **each call is a paid request**. They are not offered by the stdio host. Results are files saved next to the open scene (`resources/ai`); the tools never edit the scene — place a result with `apply_edit` (`SourceImage.Source` / `SourceVideo.Source` set to the returned path) or pass it to another AI tool. Input files (`sourcePath`, `referenceImagePaths`, `firstFramePath`, `lastFramePath`) are uploaded to the service, so they must resolve, after following links, inside the workspace or the open scene's `resources/ai`; relative paths are workspace-relative.
 
 Generation tools start a job and wait up to `waitSeconds` (0–110, default 45) for it. A job still running returns `{ status: "Running", jobId }`; call `read_ai_job` to wait again. The job manager keeps the most recent 128 finished jobs.
 
-- **Errors**: `ai_unavailable` (not signed in, no AI plan, or the host has no API clients), `no_active_editor_session` (no scene open to save results next to), `validation_rejected` (missing prompt, unknown task or mode, a last frame without a first), `media_not_found` / `media_unsupported` (input files), `ai_generation_failed` (the service refused or failed; the job's `errorMessage` says why), `ai_job_not_found`.
+- **Errors**: `ai_unavailable` (not signed in, no AI plan, or the host has no API clients), `no_active_editor_session` (no scene open to save results next to), `validation_rejected` (missing prompt, unknown task or mode, a last frame without a first), `workspace_boundary` (an input outside the workspace and the scene's AI results; checked before the file's existence), `media_not_found` / `media_unsupported` (input files), `ai_generation_failed` (the service refused or failed; the job's `errorMessage` says why), `ai_job_not_found`.
 
 ### `list_ai_models`
 - **Input**: `{ "operation": "image.generate" | "image.edit.<task>" | "video.generate" | "video.edit" | "video.extend" | "audio.transcribe" }`.
@@ -266,7 +266,7 @@ Generation tools start a job and wait up to `waitSeconds` (0–110, default 45) 
 ## Cross-cutting contract rules
 
 - **Host output lease**: direct `RenderTools` callers pass an `IOutputOperationLeaseProvider`, using `StandaloneOutputOperationLeaseProvider.Instance` outside the editor. DI and in-app hosts register their host-backed provider so render/export jobs cannot overlap a conflicting workspace operation.
-- **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded.
+- **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded, except the in-app AI tools' inputs, which are uploaded off the machine.
 - **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored.
 - **Atomicity**: `apply_edit` commits as exactly one undoable transaction; a mid-batch failure rolls back wholly (FR-012).
 - **Validation surfaced**: coercion/rejection is always reported in the result, never silently applied (FR-007).

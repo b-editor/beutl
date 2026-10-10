@@ -4,12 +4,14 @@ using System.Net.Sockets;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -91,7 +93,7 @@ public sealed class AgentHostAiToolsTests
         Scene scene = await OpenSceneAsync("agent-ai-image");
         var backend = new FakeBackend { Result = WritePng("result.png") };
         using var jobs = new AgentAiJobManager();
-        var tools = new AgentHostAiTools(TestShell.Editor, jobs, backend);
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
 
         ToolResult<AgentAiJobSnapshot> result = await tools.GenerateImage("a lighthouse at dusk", waitSeconds: 10);
 
@@ -117,7 +119,7 @@ public sealed class AgentHostAiToolsTests
         await OpenSceneAsync("agent-ai-video");
         var backend = new FakeBackend { Result = WriteFile("clip.mp4"), Gate = new TaskCompletionSource() };
         using var jobs = new AgentAiJobManager();
-        var tools = new AgentHostAiTools(TestShell.Editor, jobs, backend);
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
 
         AgentAiJobSnapshot running = (await tools.GenerateVideo("waves", waitSeconds: 0)).Value!;
         backend.Gate.SetResult();
@@ -145,7 +147,7 @@ public sealed class AgentHostAiToolsTests
         await OpenSceneAsync("agent-ai-transcribe");
         var backend = new FakeBackend();
         using var jobs = new AgentAiJobManager();
-        var tools = new AgentHostAiTools(TestShell.Editor, jobs, backend);
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
 
         ToolResult<AgentAiJobSnapshot> result = await tools.TranscribeAudio(WriteFile("voice.wav"), language: "ja", waitSeconds: 10);
 
@@ -160,7 +162,7 @@ public sealed class AgentHostAiToolsTests
         await OpenSceneAsync("agent-ai-errors");
         var backend = new FakeBackend();
         using var jobs = new AgentAiJobManager();
-        var tools = new AgentHostAiTools(TestShell.Editor, jobs, backend);
+        var tools = CreateTools(TestShell.Editor, jobs, backend);
 
         ToolResult<AgentAiJobSnapshot> unknownTask = await tools.EditImage(WritePng("a.png"), "sharpen");
         ToolResult<AgentAiJobSnapshot> missingFile = await tools.EditImage(Path.Combine(_directory, "missing.png"), "upscale");
@@ -178,11 +180,75 @@ public sealed class AgentHostAiToolsTests
     }
 
     [AvaloniaTest]
+    public async Task AnInputOutsideTheWorkspaceIsRefusedBeforeAnythingIsUploaded()
+    {
+        await TestReset.ResetShellAsync();
+        Scene scene = await OpenSceneAsync("agent-ai-boundary");
+        string outside = Path.Combine(Path.GetTempPath(), "beutl-agent-ai-outside-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outside);
+        try
+        {
+            string secret = Path.Combine(outside, "secret.png");
+            using (var bitmap = new Bitmap(4, 4))
+                Assert.That(bitmap.Save(secret, EncodedImageFormat.Png), Is.True);
+            string? linked = null;
+            if (!OperatingSystem.IsWindows())
+            {
+                linked = Path.Combine(_directory, "linked.png");
+                File.CreateSymbolicLink(linked, secret);
+            }
+
+            // Results of earlier calls sit beside the scene, which here is outside the workspace.
+            string resultDirectory = AiResultImporter.GetResourceDirectory(scene);
+            Directory.CreateDirectory(resultDirectory);
+            string earlierResult = Path.Combine(resultDirectory, "earlier.png");
+            File.Copy(secret, earlierResult);
+            WritePng("relative.png");
+
+            var backend = new FakeBackend { Result = WritePng("result.png") };
+            using var jobs = new AgentAiJobManager();
+            var tools = CreateTools(TestShell.Editor, jobs, backend);
+
+            ToolResult<AgentAiJobSnapshot> edit = await tools.EditImage(secret, "upscale", waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> reference = await tools.GenerateImage("a cat", referenceImagePaths: [secret], waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> firstFrame = await tools.GenerateVideo("a cat", firstFramePath: secret, waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> video = await tools.EditVideo(secret, "a cat", waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> transcript = await tools.TranscribeAudio(secret, waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> probe = await tools.EditImage(Path.Combine(outside, "missing.png"), "upscale", waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot>? link = linked is null ? null : await tools.EditImage(linked, "upscale", waitSeconds: 0);
+
+            Assert.Multiple(() =>
+            {
+                foreach (ToolResult<AgentAiJobSnapshot> refused in new[] { edit, reference, firstFrame, video, transcript, probe })
+                    Assert.That(refused.Error?.Code, Is.EqualTo(ErrorCode.WorkspaceBoundary));
+                if (link is not null)
+                    Assert.That(link.Error?.Code, Is.EqualTo(ErrorCode.WorkspaceBoundary), "a link inside the workspace is followed");
+                Assert.That(backend.Requests, Is.Empty);
+                Assert.That(backend.TranscribedPaths, Is.Empty);
+            });
+
+            ToolResult<AgentAiJobSnapshot> chained = await tools.EditImage(earlierResult, "upscale", waitSeconds: 10);
+            ToolResult<AgentAiJobSnapshot> relative = await tools.EditImage("relative.png", "upscale", waitSeconds: 10);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(chained.IsSuccess, Is.True, chained.Error?.Message);
+                Assert.That(relative.IsSuccess, Is.True, relative.Error?.Message);
+                Assert.That(backend.Requests, Has.Count.EqualTo(2));
+            });
+        }
+        finally
+        {
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task WithoutAnOpenSceneThereIsNowhereToSaveTheResult()
     {
         await TestReset.ResetShellAsync();
         using var jobs = new AgentAiJobManager();
-        var tools = new AgentHostAiTools(new EditorService(new ExtensionProvider()), jobs, new FakeBackend());
+        var tools = CreateTools(new EditorService(new ExtensionProvider()), jobs, new FakeBackend());
 
         ToolResult<AgentAiJobSnapshot> result = await tools.GenerateImage("a lighthouse", waitSeconds: 0);
 
@@ -199,6 +265,9 @@ public sealed class AgentHostAiToolsTests
         HeadlessTestHelpers.Settle();
         return scene;
     }
+
+    private AgentHostAiTools CreateTools(EditorService editor, AgentAiJobManager jobs, FakeBackend backend)
+        => new(editor, jobs, backend, new WorkspaceGuard(_directory));
 
     private string WritePng(string name)
     {
@@ -232,6 +301,8 @@ public sealed class AgentHostAiToolsTests
 
         public List<Scene> Scenes { get; } = [];
 
+        public List<string> TranscribedPaths { get; } = [];
+
         public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
 
         public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
@@ -260,6 +331,9 @@ public sealed class AgentHostAiToolsTests
             string? modelId,
             IProgress<string> progress,
             CancellationToken cancellationToken)
-            => Task.FromResult(new AgentTranscript(language, [new AgentTranscriptSegment(0, 1.5, "こんにちは")], null));
+        {
+            TranscribedPaths.Add(path);
+            return Task.FromResult(new AgentTranscript(language, [new AgentTranscriptSegment(0, 1.5, "こんにちは")], null));
+        }
     }
 }
