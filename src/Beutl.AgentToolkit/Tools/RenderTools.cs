@@ -269,10 +269,11 @@ public sealed partial class RenderTools(
             using OwnedOutputOperation outputOperation = BeginOutputOperation();
             Scene scene = RequireSceneSnapshot();
             renderScale = ValidateRenderScale(scene, renderScale, "export_video");
+            string resolvedPath = ToolPaths.ResolveForWrite(outputPath, nameof(outputPath));
 
             // Only preflight-reject when FFmpeg is the sole encoder for this container; a non-FFmpeg
             // encoder (e.g. AVFoundation for macOS .mp4/.mov) can export without the worker.
-            if (videoExporter.RequiresFFmpegWorker(outputPath)
+            if (videoExporter.RequiresFFmpegWorker(resolvedPath)
                 && !FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
             {
                 throw new ReconcileException(new ToolError(
@@ -284,7 +285,6 @@ public sealed partial class RenderTools(
 
             ValidateExportOptions(frameRateNumerator, frameRateDenominator, crf, bitrate);
 
-            string resolvedPath = ToolPaths.ResolveForWrite(outputPath, nameof(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
             async Task<ExportVideoResponse> RunExportAsync(RenderJobProgressReporter progress, CancellationToken token)

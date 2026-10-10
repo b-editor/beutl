@@ -1141,6 +1141,26 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public async Task Export_video_rejects_a_relative_path_before_the_encoder_preflight()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
+        RenderTools tools = CreateTools(session);
+
+        // .webm needs the FFmpeg worker, which a test host may lack; the path is still checked first.
+        ToolResult<ExportVideoResult> result = await tools.ExportVideo(
+            "movie.webm",
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("outputPath"));
+        });
+    }
+
+    [Test]
     public async Task Audio_rhythm_analysis_rejects_a_relative_path()
     {
         RenderTools tools = CreateTools(new AgentSessionManager(), StandaloneOutputOperationLeaseProvider.Instance);
