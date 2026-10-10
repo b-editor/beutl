@@ -38,7 +38,9 @@ public partial class PlayerView
             BtlPoint PivotLocal,
             AvaPoint PivotImage,
             AvaPoint StartImagePos,
-            Transform? PressTransform);
+            Transform? PressTransform,
+            // Whether StartUserMatrix and PivotLocal are the matrix and pivot the box was drawn with.
+            bool HasDrawingMatrix);
 
         private sealed class EnsuredState
         {
@@ -188,7 +190,8 @@ public partial class PlayerView
                 PivotLocal: pivotLocal,
                 PivotImage: pivotImage,
                 StartImagePos: startImagePos,
-                PressTransform: drawable.Transform.CurrentValue);
+                PressTransform: drawable.Transform.CurrentValue,
+                HasDrawingMatrix: true);
 
             _ensured = null;
 
@@ -283,17 +286,24 @@ public partial class PlayerView
                 EditorSelection.SelectedObject.Value = element;
             }
 
+            // A body drag of the drawable the box is drawn for moves it through the matrix the box was drawn with;
+            // any other drawable has none to go by.
+            TransformHandlesOverlay overlay = View.transformHandlesOverlay;
+            BtlMatrix invOverlayMatrix = BtlMatrix.Identity;
+            bool drawnByOverlay = ReferenceEquals(overlay.Drawable, drawable)
+                && overlay.UserMatrix.TryInvert(out invOverlayMatrix);
             _press = new PressState(
                 Drawable: drawable,
                 Element: element,
                 FrameScale: frameScale,
                 LocalBounds: default,
-                StartUserMatrix: BtlMatrix.Identity,
-                InvStartUserMatrix: BtlMatrix.Identity,
-                PivotLocal: default,
+                StartUserMatrix: drawnByOverlay ? overlay.UserMatrix : BtlMatrix.Identity,
+                InvStartUserMatrix: invOverlayMatrix,
+                PivotLocal: drawnByOverlay ? overlay.PivotLocal : default,
                 PivotImage: default,
                 StartImagePos: imagePos,
-                PressTransform: drawable.Transform.CurrentValue);
+                PressTransform: drawable.Transform.CurrentValue,
+                HasDrawingMatrix: drawnByOverlay);
             _ensured = null;
 
             // Capture the pointer so a translate drag started here still delivers Released even when
@@ -361,7 +371,7 @@ public partial class PlayerView
             // The press-time box was drawn through (-pivot) · group · AfterGroup.
             BtlMatrix intoGroup = BtlMatrix.CreateTranslation(-_press.PivotLocal.X, -_press.PivotLocal.Y)
                 * ensured.Group.CreateMatrix(ctx);
-            BtlMatrix? afterGroup = intoGroup.TryInvert(out BtlMatrix outOfGroup)
+            BtlMatrix? afterGroup = _press.HasDrawingMatrix && intoGroup.TryInvert(out BtlMatrix outOfGroup)
                 ? outOfGroup * _press.StartUserMatrix
                 : null;
             // A translate moves the drawable through everything applied after it, a transition's zoom included.

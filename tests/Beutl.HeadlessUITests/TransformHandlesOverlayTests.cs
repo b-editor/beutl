@@ -51,6 +51,8 @@ public class TransformHandlesOverlayTests
         ScaledAfterTranslate,
         // A box a couple of pixels tall, whose corner handles overlap.
         Thin,
+        // Turned and drawn at twice its size, in the handles' own [Translate, Rotation, Scale] layout.
+        ScaledAndTurned,
     }
 
     [AvaloniaTest]
@@ -247,10 +249,45 @@ public class TransformHandlesOverlayTests
         }
     }
 
-    // Halfway through a zoom transition the incoming clip is drawn at 1.5 times its size, and its box with it.
-    // Dragging its pivot moves it with the pointer rather than 1.5 times as far.
+    // Dragging a drawable by its body, away from every handle, moves it with the pointer however it is scaled or
+    // turned.
     [AvaloniaTest]
-    public async Task Dragging_the_pivot_inside_a_zoom_transition_moves_the_drawable_with_the_pointer()
+    public async Task Dragging_the_body_of_a_scaled_and_turned_drawable_moves_it_with_the_pointer()
+    {
+        GpuTestGate.EnsureAvailable();
+        (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.ScaledAndTurned);
+        try
+        {
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            AvaPoint[] before = Corners(overlay);
+            AvaPoint from = Midpoint(overlay.PivotImage, before[0]);
+            AvaPoint to = from + new Avalonia.Vector(30, 20);
+            Assert.That(overlay.HitTest(from), Is.EqualTo(TransformHandlesOverlay.HandleKind.None));
+
+            window.MouseDown(ToWindow(view, window, from), MouseButton.Left);
+            window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(ToWindow(view, window, to), MouseButton.Left);
+            await RenderPreview(editor);
+
+            AvaPoint[] after = Corners(overlay);
+            Assert.Multiple(() =>
+            {
+                Assert.That(after[0].X - before[0].X, Is.EqualTo(30).Within(0.5), "moved X");
+                Assert.That(after[0].Y - before[0].Y, Is.EqualTo(20).Within(0.5), "moved Y");
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Halfway through a zoom transition the incoming clip is drawn at 1.5 times its size, and its box with it.
+    // Dragging its pivot or its body moves it with the pointer rather than 1.5 times as far.
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Dragging_inside_a_zoom_transition_moves_the_drawable_with_the_pointer(bool body)
     {
         GpuTestGate.EnsureAvailable();
         (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.ShadowedEllipse);
@@ -274,9 +311,11 @@ public class TransformHandlesOverlayTests
             TransformHandlesOverlay overlay = view.transformHandlesOverlay;
             Assert.That(overlay.Drawable, Is.SameAs(incomingDrawable));
             AvaPoint[] before = Corners(overlay);
-            AvaPoint from = overlay.PivotImage;
+            AvaPoint from = body ? Midpoint(overlay.PivotImage, before[0]) : overlay.PivotImage;
             AvaPoint to = from + new Avalonia.Vector(30, 20);
-            Assert.That(overlay.HitTest(from), Is.EqualTo(TransformHandlesOverlay.HandleKind.Center));
+            Assert.That(overlay.HitTest(from), Is.EqualTo(body
+                ? TransformHandlesOverlay.HandleKind.None
+                : TransformHandlesOverlay.HandleKind.Center));
 
             window.MouseDown(ToWindow(view, window, from), MouseButton.Left);
             window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
@@ -368,6 +407,16 @@ public class TransformHandlesOverlayTests
                 layout.Children.Add(new ScaleTransform(100, 100, 106));
                 layout.Children.Add(new TranslateTransform(0, -60));
                 return scaled;
+
+            case Content.ScaledAndTurned:
+                var big = new RectShape();
+                big.Width.CurrentValue = 120;
+                big.Height.CurrentValue = 80;
+                var canonical = (TransformGroup)big.Transform.CurrentValue!;
+                canonical.Children.Add(new TranslateTransform());
+                canonical.Children.Add(new RotationTransform(30));
+                canonical.Children.Add(new ScaleTransform(200, 200));
+                return big;
 
             case Content.Thin:
                 var thin = new RectShape();
