@@ -205,6 +205,12 @@ public sealed class AgentHostAiBackendTests
             next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 600L };
             AgentTranscript shorter = await CreateBackend(transcription: transcription)
                 .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
+            // Reports 10:02 but its audio stops at 10:00.2: the 0.2 s tail is the real end, so it is
+            // sent with the first part rather than taken for a broken read.
+            next = new StubAudioReader(sampleRate, sampleRate * 602L) { DataEnd = sampleRate * 6002L / 10 };
+            var shortSegments = new StubTranscription { Segments = [new AiTranscriptionSegment { Start = 0, End = 0.1, Text = "a" }] };
+            AgentTranscript withTail = await CreateBackend(transcription: shortSegments)
+                .TranscribeAsync(path, null, null, new Progress<string>(), CancellationToken.None);
             // Every read from one second on comes back half full, so parts keep ending early: the
             // recording is never read to the end, and a part of it is not a success.
             next = new StubAudioReader(sampleRate, sampleRate * 60L) { ShortReadsFrom = sampleRate };
@@ -218,6 +224,8 @@ public sealed class AgentHostAiBackendTests
             Assert.Multiple(() =>
             {
                 Assert.That(shorter.Segments, Has.Count.EqualTo(1));
+                Assert.That(shortSegments.Requests, Has.Count.EqualTo(2), "the tail is transcribed too");
+                Assert.That(withTail.Segments.Select(segment => segment.Start), Is.EqualTo(new[] { 0d, 600d }));
                 Assert.That(failed?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
                 Assert.That(pieces?.Code, Is.EqualTo(ErrorCode.MediaUnsupported));
             });

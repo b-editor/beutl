@@ -129,28 +129,10 @@ internal sealed class AgentHostAiBackend(
             // Some files report a length past their last sample. A read there succeeds with nothing,
             // which ends the recording; a read that fails is a decode error the caller must hear
             // about, not a shorter transcript. The encoder raises the same exception for both.
-            if (partStart > 0)
+            if (partStart > 0 && !await HasAudioAtAsync(reader, partStart, sampleRate, cancellationToken).ConfigureAwait(false))
             {
-                bool readable = await Task.Run(
-                    () =>
-                    {
-                        if (!reader.ReadAudio(checked((int)partStart), 1, out Ref<IPcm>? probe))
-                            return (bool?)null;
-                        using (probe)
-                            return probe.Value.NumSamples > 0;
-                    },
-                    cancellationToken).ConfigureAwait(false) switch
-                {
-                    null => throw new AgentAiException(
-                        Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
-                        $"The audio could not be decoded from {TimeSpan.FromSeconds(partStart / (double)sampleRate):hh\\:mm\\:ss} on."),
-                    bool remaining => remaining,
-                };
-                if (!readable)
-                {
-                    reachedEnd = true;
-                    break;
-                }
+                reachedEnd = true;
+                break;
             }
 
             (string wave, FileStream stream) = AiTemporaryFileStore.Create("audio", "agent", ".wav");
@@ -179,8 +161,15 @@ internal sealed class AgentHostAiBackend(
 
                 if (chunk.SourceSampleCount <= 0)
                     break;
+                // Cut short under a second: the true end of the audio, in a file that reports a length
+                // past it, or a decoder reading in pieces. Only the end is sent.
+                bool tail = false;
                 if (chunk.SourceSampleCount < length && chunk.SourceSampleCount < sampleRate)
-                    throw IncompleteRead(partStart, sampleRate);
+                {
+                    if (await HasAudioAtAsync(reader, partStart + chunk.SourceSampleCount, sampleRate, cancellationToken).ConfigureAwait(false))
+                        throw IncompleteRead(partStart, sampleRate);
+                    tail = true;
+                }
 
                 bool covered;
                 try
@@ -269,6 +258,11 @@ internal sealed class AgentHostAiBackend(
                 }
 
                 start = partStart + chunk.SourceSampleCount;
+                if (tail)
+                {
+                    reachedEnd = true;
+                    break;
+                }
             }
             finally
             {
@@ -282,6 +276,25 @@ internal sealed class AgentHostAiBackend(
             throw IncompleteRead(start, sampleRate);
 
         return new AgentTranscript(detected ?? language, segments, hasWords ? words : null);
+    }
+
+    // Whether audio remains at a position: a read there that succeeds with nothing is the end of the
+    // recording; one that fails is a decode error the caller must hear about, not a shorter
+    // transcript. The encoder raises the same exception for both, so it cannot tell them apart.
+    private static async Task<bool> HasAudioAtAsync(MediaReader reader, long position, int sampleRate, CancellationToken cancellationToken)
+    {
+        bool? remaining = await Task.Run(
+            () =>
+            {
+                if (!reader.ReadAudio(checked((int)position), 1, out Ref<IPcm>? probe))
+                    return (bool?)null;
+                using (probe)
+                    return probe.Value.NumSamples > 0;
+            },
+            cancellationToken).ConfigureAwait(false);
+        return remaining ?? throw new AgentAiException(
+            Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+            $"The audio could not be decoded from {TimeSpan.FromSeconds(position / (double)sampleRate):hh\\:mm\\:ss} on.");
     }
 
     private static AgentAiException IncompleteRead(long position, int sampleRate)
