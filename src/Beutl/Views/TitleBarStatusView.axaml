@@ -29,6 +29,7 @@
     </UserControl.Styles>
 
     <Button x:Name="StatusButton"
+            AutomationProperties.Name="{x:Static lang:StatusStrings.Title}"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             ToolTip.Tip="{Binding ToolTip.Value}"
