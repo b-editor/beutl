@@ -110,13 +110,7 @@ internal sealed partial class DeclarativeDocumentApplier
             // their setters: attaching a validator does not retroactively change old keyframes, and
             // reassigning those values here would silently coerce or reject pre-existing project data
             // that the caller did not edit.
-            JsonObject currentJson = CoreSerializer.SerializeToJsonObject(
-                currentObject,
-                new CoreSerializerOptions
-                {
-                    BaseUri = ResolveBaseUri(currentObject) ?? _documentBaseUri,
-                    Mode = CoreSerializationMode.EmbedReferencedObjects
-                });
+            JsonObject currentJson = SerializeCurrent(currentObject);
             if (JsonNode.DeepEquals(currentJson, animationJson))
             {
                 return;
