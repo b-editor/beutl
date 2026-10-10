@@ -65,7 +65,7 @@ class CiTestsTests(unittest.TestCase):
                 self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
         name = "Beutl.HeadlessUITests.PlayerTests"
         self.assertEqual(sum(matches(filter_, name) for filter_ in ci_tests.UI_FILTERS.values()), 1)
-        for suite in ["ui-a-g", "ui-h-p"]:
+        for suite in ["ui-a-d", "ui-e-m", "ui-n-r"]:
             self.assertFalse(matches(ci_tests.UI_FILTERS[suite], "Beutl.HeadlessUITests.AssemblySetUp"))
 
     def test_other_suite_follows_solution_and_excludes_helpers_and_sharded_projects(self):

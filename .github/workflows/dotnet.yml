@@ -184,17 +184,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [unit-particles, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-g, ui-h-p, ui-other, graphics3d, other]
+        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-d, ui-e-m, ui-n-r, ui-other, graphics3d, other]
         validation: [false]
         # Every unit and Graphics3D test still runs both normally and under Vulkan
         # validation. Namespace partitions are exhaustive, including untagged GPU
         # tests; unrelated test assemblies run in the "other" catch-all suite.
         include:
-          - suite: unit-particles
+          - suite: unit-quick-validation
+            validation: true
+          - suite: unit-golden
             validation: true
           - suite: unit-rendering
-            validation: true
-          - suite: unit-audio
             validation: true
           - suite: unit-engine
             validation: true

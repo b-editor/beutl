@@ -23,6 +23,7 @@ def partition(groups, suffix=""):
 
 UNIT_FILTERS = partition([
     ("unit-particles", ["Beutl.UnitTests.Engine.Graphics.Particles."]),
+    ("unit-golden", ["Beutl.UnitTests.Engine.Graphics.Rendering.Golden."]),
     ("unit-rendering", ["Beutl.UnitTests.Engine.Graphics.Rendering."]),
     ("unit-audio", ["Beutl.UnitTests.Engine.Audio."]),
     ("unit-engine", ["Beutl.UnitTests.Engine."]),
@@ -32,11 +33,16 @@ UNIT_FILTERS = partition([
 # A prefix matching AssemblySetUp selects its entire subtree in NUnit. Matching
 # test fixture names keeps that namespace-wide SetUpFixture out of the partition.
 UI_FILTERS = partition([
-    ("ui-a-g", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABCDEFG"]),
-    ("ui-h-p", [f"Beutl.HeadlessUITests.{letter}" for letter in "HIJKLMNOP"]),
+    ("ui-a-d", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABCD"]),
+    ("ui-e-m", [f"Beutl.HeadlessUITests.{letter}" for letter in "EFGHIJKLM"]),
+    ("ui-n-r", [f"Beutl.HeadlessUITests.{letter}" for letter in "NOPQR"]),
     ("ui-other", []),
 ], suffix=".*Tests$")
 FILTERS = UNIT_FILTERS | UI_FILTERS
+# These short validation-only groups share a runner to leave room for the
+# longer coverage shards, while still executing every test in both modes.
+QUICK_VALIDATION = "unit-quick-validation"
+FILTERS[QUICK_VALIDATION] = f"({UNIT_FILTERS['unit-particles']}) or ({UNIT_FILTERS['unit-audio']})"
 SHARDED_PROJECTS = {"Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests"}
 
 
@@ -50,7 +56,7 @@ def test_projects(root):
 
 
 def assemblies(root, suite):
-    if suite in UNIT_FILTERS:
+    if suite in UNIT_FILTERS or suite == QUICK_VALIDATION:
         names = ["Beutl.UnitTests"]
     elif suite in UI_FILTERS:
         names = ["Beutl.HeadlessUITests"]
@@ -121,6 +127,8 @@ if __name__ == "__main__":
     parser.add_argument("suite", choices=[*FILTERS, "graphics3d", "other"])
     parser.add_argument("--validation", action="store_true")
     arguments = parser.parse_args()
-    if arguments.validation and arguments.suite not in {*UNIT_FILTERS, "graphics3d"}:
+    if arguments.validation and arguments.suite not in {*UNIT_FILTERS, QUICK_VALIDATION, "graphics3d"}:
         parser.error("Vulkan validation only applies to the unit and Graphics3D suites")
+    if not arguments.validation and arguments.suite == QUICK_VALIDATION:
+        parser.error("The combined quick suite is only used for Vulkan validation")
     raise SystemExit(run(Path(__file__).resolve().parents[2], arguments.suite, arguments.validation))
