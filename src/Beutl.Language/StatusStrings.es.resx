@@ -28,6 +28,7 @@
   <data name="None" xml:space="preserve"><value>Ninguna</value></data>
   <data name="OpenAiJobs" xml:space="preserve"><value>Abrir tareas de IA</value></data>
   <data name="ConnectedServices" xml:space="preserve"><value>Servicios conectados</value></data>
+  <data name="LiveMcp" xml:space="preserve"><value>Live MCP</value></data>
   <data name="Stopped" xml:space="preserve"><value>Detenido</value></data>
   <data name="Account" xml:space="preserve"><value>Cuenta de Beutl</value></data>
   <data name="NotSignedIn" xml:space="preserve"><value>Sin iniciar sesión</value></data>

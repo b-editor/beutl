@@ -516,6 +516,36 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
+    public async Task Manifest_keeps_the_old_mcp_layout_until_the_mcp_entry_is_replaced()
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-migrate-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
+        // Written by a version that installed the separate beutl-live entry: no layout recorded.
+        AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest("stale", []));
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.WorkspaceRoot.Value = root;
+        viewModel.McpCommand.Value = "";
+
+        // MCP is wanted but there is no launcher to write, so the agent config still has the old entries.
+        await viewModel.InstallAsync();
+        AgentToolkitInstallManifest? withoutLauncher = AgentToolkitInstallManifestStore.Load(manifestPath);
+
+        viewModel.McpCommand.Value = "beutl-mcp";
+        await viewModel.InstallAsync();
+        AgentToolkitInstallManifest? replaced = AgentToolkitInstallManifestStore.Load(manifestPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withoutLauncher!.McpLayout, Is.EqualTo(0), viewModel.Status.Value);
+            Assert.That(File.Exists(Path.Combine(root, ".mcp.json")), Is.True, viewModel.Status.Value);
+            Assert.That(replaced!.McpLayout, Is.EqualTo(AgentToolkitInstallManifest.CurrentMcpLayout));
+        });
+    }
+
+    [AvaloniaTest]
     public void Edits_write_through_to_config_and_restore_in_a_new_view_model()
     {
         var config = new AiAgentConfig();

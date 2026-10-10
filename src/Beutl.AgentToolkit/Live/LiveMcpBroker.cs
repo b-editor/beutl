@@ -31,7 +31,9 @@ public sealed class LiveMcpBroker
     private readonly object _lock = new();
     private AgentHostPeerClient? _peers;
     private McpServer? _server;
-    private string[]? _advertisedInstances;
+    private string[]? _advertisedKeys;
+    private string[] _pendingRetry = [];
+    private readonly HashSet<string> _retried = new(StringComparer.Ordinal);
 
     public LiveMcpBroker(AgentHostInstanceRegistry registry, Func<string> tokenProvider, ILogger? logger = null)
     {
@@ -92,16 +94,23 @@ public sealed class LiveMcpBroker
         {
             while (true)
             {
-                string[] current = ReadInstanceIds();
+                string[] current = ReadAdvertisedKeys();
                 McpServer? server;
                 bool changed;
                 lock (_lock)
                 {
                     // Compare against the set the last tools/list answer was based on; before any
                     // tools/list there is nothing a client could have cached.
-                    changed = _advertisedInstances is not null && !current.SequenceEqual(_advertisedInstances);
+                    changed = _advertisedKeys is not null && !current.SequenceEqual(_advertisedKeys);
                     if (changed)
-                        _advertisedInstances = current;
+                        _advertisedKeys = current;
+                    if (_pendingRetry.Length > 0)
+                    {
+                        changed = true;
+                        _retried.UnionWith(_pendingRetry);
+                        _pendingRetry = [];
+                    }
+
                     server = _server;
                 }
 
@@ -154,16 +163,40 @@ public sealed class LiveMcpBroker
         }
 
         IReadOnlyList<AgentHostInstanceRegistration> registrations = _registry.Read();
-        lock (_lock)
-            _advertisedInstances = registrations.Select(entry => entry.InstanceId).Order(StringComparer.Ordinal).ToArray();
+        var unreachable = new List<string>();
 
         // Tools that exist only inside an editor (scene discovery, AI generation, extension tools)
-        // are described from any running instance and always need an instanceId.
-        if (TryGetPeers(out AgentHostPeerClient? peers, out _)
-            && Oldest(registrations) is { } source
-            && await peers.ListToolsAsync(source, cancellationToken).ConfigureAwait(false) is { } remote)
+        // always need an instanceId. Every running instance is asked, oldest first, so a package
+        // loaded in only one editor is still listed and one unresponsive editor hides nothing.
+        if (registrations.Count > 0 && TryGetPeers(out AgentHostPeerClient? peers, out _))
         {
-            tools.AddRange(remote.Where(tool => !localNames.Contains(tool.Name)).Select(RequireInstance));
+            AgentHostInstanceRegistration[] ordered = OldestFirst(registrations).ToArray();
+            IList<Tool>?[] remote = await Task.WhenAll(ordered
+                .Select(registration => peers.ListToolsAsync(registration, cancellationToken))).ConfigureAwait(false);
+            for (int i = 0; i < ordered.Length; i++)
+            {
+                if (remote[i] is not { } listed)
+                {
+                    unreachable.Add(ordered[i].InstanceId);
+                    continue;
+                }
+
+                foreach (Tool tool in listed)
+                {
+                    if (localNames.Add(tool.Name))
+                        tools.Add(RequireInstance(tool));
+                }
+            }
+        }
+
+        lock (_lock)
+        {
+            _advertisedKeys = registrations.Select(AdvertisedKey).Order(StringComparer.Ordinal).ToArray();
+            // An editor that did not answer gets one more tools/list_changed from the watcher, so a
+            // transient failure does not leave its tools out until the registry changes. One that
+            // keeps failing is not announced again until it answers or exits.
+            _retried.RemoveWhere(id => !unreachable.Contains(id));
+            _pendingRetry = unreachable.Where(id => !_retried.Contains(id)).ToArray();
         }
 
         local.Tools = tools;
@@ -241,14 +274,18 @@ public sealed class LiveMcpBroker
             _server ??= server;
     }
 
-    private string[] ReadInstanceIds()
-        => _registry.Read().Select(entry => entry.InstanceId).Order(StringComparer.Ordinal).ToArray();
+    // Instance ID plus tools version: a package that added or removed tools in a running editor is
+    // announced the same way a started or exited editor is.
+    private string[] ReadAdvertisedKeys()
+        => _registry.Read().Select(AdvertisedKey).Order(StringComparer.Ordinal).ToArray();
 
-    private static AgentHostInstanceRegistration? Oldest(IReadOnlyList<AgentHostInstanceRegistration> registrations)
+    private static string AdvertisedKey(AgentHostInstanceRegistration registration)
+        => registration.InstanceId + ":" + registration.ToolsVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static IEnumerable<AgentHostInstanceRegistration> OldestFirst(IReadOnlyList<AgentHostInstanceRegistration> registrations)
         => registrations
             .OrderBy(entry => entry.ProcessStartTime)
-            .ThenBy(entry => entry.InstanceId, StringComparer.Ordinal)
-            .FirstOrDefault();
+            .ThenBy(entry => entry.InstanceId, StringComparer.Ordinal);
 
     private static bool IsLocalTool(McpServer server, string name)
         => server.ServerOptions.ToolCollection is { } collection && collection.TryGetPrimitive(name, out _);
@@ -267,11 +304,17 @@ public sealed class LiveMcpBroker
             ["type"] = "string",
             ["description"] = "ID of the running Beutl instance (from list_instances) to run this call in; the edit then appears live in its editor. Omit to work headlessly on project files in the workspace."
         };
-        properties[SceneIdArgument] = new JsonObject
+        // Only the tools the editor scene-routes take a scene; on any other tool the editor would
+        // reject sceneId as an unknown argument.
+        if (AgentHostSceneRouting.AcceptsScene(tool.Name))
         {
-            ["type"] = "string",
-            ["description"] = "Live only: ID of the target scene in that instance (from list_scenes there). Scene operations require it together with instanceId; omit it for headless file sessions."
-        };
+            properties[SceneIdArgument] = new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "Live only: ID of the target scene in that instance (from list_scenes there). Pass it together with instanceId; omit it for headless file sessions."
+            };
+        }
+
         if (properties[SessionArgument] is JsonObject session)
         {
             string description = session["description"]?.GetValue<string>() ?? "";

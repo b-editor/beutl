@@ -253,8 +253,9 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     // The server discovers the editors of this profile through BEUTL_HOME and authenticates to
     // them itself, so the agent config never holds a process-specific URL or the bearer token.
+    // Absolute, because the agent host starts the server from a working directory of its own.
     private static Dictionary<string, string> McpServerEnvironment()
-        => new() { [BeutlEnvironment.HomeVariable] = BeutlEnvironment.GetHomeDirectoryPath() };
+        => new() { [BeutlEnvironment.HomeVariable] = Path.GetFullPath(BeutlEnvironment.GetHomeDirectoryPath()) };
 
     private void SubscribeRecompute()
     {
@@ -368,15 +369,13 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 InstalledFiles.Add(file);
             }
 
-            foreach (string file in UpdateInstallManifest(targets, result, assets, installSubagents))
+            var cliErrors = new List<string>();
+            bool cliRegistered = targets.UseCliForMcp
+                                 && await RegisterMcpThroughCliAsync(cliErrors).ConfigureAwait(true);
+
+            foreach (string file in UpdateInstallManifest(targets, result, assets, installSubagents, installMcp || cliRegistered))
             {
                 InstalledFiles.Add("removed: " + file);
-            }
-
-            var cliErrors = new List<string>();
-            if (targets.UseCliForMcp)
-            {
-                await RegisterMcpThroughCliAsync(cliErrors).ConfigureAwait(true);
             }
 
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
@@ -441,7 +440,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         ResolvedTargets targets,
         AgentToolkitInstallResult result,
         IReadOnlyList<AgentToolkitAsset> assets,
-        bool installedSubagents)
+        bool installedSubagents,
+        bool installedMcp)
     {
         string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
         AgentToolkitInstallManifest? previous = AgentToolkitInstallManifestStore.Load(manifestPath);
@@ -478,10 +478,16 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 && File.Exists(f.Path)));
         }
 
+        // The layout advances once this install replaced the MCP entry, or when the user opted out
+        // of MCP altogether. A missing launcher or a failed CLI registration keeps the older layout,
+        // so the migration notice returns on the next start instead of being lost.
+        int mcpLayout = installedMcp || !InstallMcp.Value
+            ? AgentToolkitInstallManifest.CurrentMcpLayout
+            : previous?.McpLayout ?? 0;
         AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest(
             AgentToolkitInstallManifestStore.ComputeAssetsHash(assets),
             [.. result.AssetFileRecords, .. carriedOver],
-            AgentToolkitInstallManifest.CurrentMcpLayout));
+            mcpLayout));
         return removed;
     }
 
@@ -497,13 +503,14 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
-    private async Task RegisterMcpThroughCliAsync(List<string> errors)
+    // Returns whether the agent's CLI now holds the current entry.
+    private async Task<bool> RegisterMcpThroughCliAsync(List<string> errors)
     {
         if (!InstallMcp.Value
             || string.IsNullOrWhiteSpace(McpCommand.Value)
             || BuildCliMcpCommand() is not { } addCommand)
         {
-            return;
+            return false;
         }
 
         string agentId = SelectedAgent.Value.Id;
@@ -526,6 +533,8 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         {
             errors.Add($"{addCommand.ToDisplayString()}: {result.Output}");
         }
+
+        return result.Success;
     }
 
     private static string FirstNonEmpty(string configured, string fallback)

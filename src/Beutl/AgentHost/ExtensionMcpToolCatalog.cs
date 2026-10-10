@@ -32,6 +32,10 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
 
     public IReadOnlyList<ExtensionMcpTool> Tools => Volatile.Read(ref _snapshot).Tools;
 
+    // Raised after the set of tool names changed, on the thread that changed the extensions and
+    // outside the catalog's lock.
+    public event EventHandler? ToolsChanged;
+
     // Built-in tools are already in the collection, so they win a name collision.
     public void AddTo(McpServerOptions options)
     {
@@ -69,6 +73,7 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
 
     private void Rebuild()
     {
+        bool changed;
         // Serialized so a rebuild that started before a change cannot publish after the rebuild for it.
         lock (_gate)
         {
@@ -111,7 +116,12 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                     .Concat(previous.Tools.Select(tool => tool.ProtocolTool.Name))
                     .Where(name => !names.Contains(name))
                     .ToFrozenSet(StringComparer.Ordinal)));
+            changed = !tools.Select(tool => tool.ProtocolTool.Name).ToHashSet(StringComparer.Ordinal)
+                .SetEquals(previous.Tools.Select(tool => tool.ProtocolTool.Name));
         }
+
+        if (changed)
+            ToolsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     // A client may call a tool it listed before the package was removed. That request no longer

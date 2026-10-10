@@ -1,6 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Frozen;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Live;
 using Beutl.AgentToolkit.Sessions;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
@@ -11,18 +13,9 @@ namespace Beutl.AgentHost;
 internal static class AgentHostSceneRouter
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly HashSet<string> s_required = new(StringComparer.Ordinal)
-    {
-        "read_document_summary", "read_document", "apply_edit", "duplicate_object",
-        "plan_composition", "apply_composition", "measure_object_bounds",
-        "undo", "redo", "read_history", "render_still", "render_storyboard",
-        "measure_frame_differences", "export_video", "add_scene", "save_project"
-    };
-
-    private static readonly HashSet<string> s_optional = new(StringComparer.Ordinal)
-    {
-        "read_operation_status", "list_compositions", "render_composition_patch"
-    };
+    // Shared with the installed server, which advertises sceneId on exactly these tools.
+    private static readonly FrozenSet<string> s_required = AgentHostSceneRouting.SceneRequired;
+    private static readonly FrozenSet<string> s_optional = AgentHostSceneRouting.SceneOptional;
 
     public static void AddFilters(IMcpRequestFilterBuilder filters)
     {

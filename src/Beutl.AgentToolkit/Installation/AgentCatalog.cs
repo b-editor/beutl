@@ -144,7 +144,7 @@ public static class AgentCatalog
             GlobalSkillsDirectory: Path.Combine(".qwen", "skills"),
             ProjectMcp: new AgentMcpLocation(Path.Combine(".qwen", "settings.json"), "mcpServers"),
             GlobalMcp: new AgentMcpLocation(Path.Combine(".qwen", "settings.json"), "mcpServers")),
-        // ~/.openhands/mcp.json documents stdio entries, which both Beutl entries are.
+        // ~/.openhands/mcp.json documents stdio entries, which the Beutl entry is.
         new("openhands", "OpenHands",
             ProjectSkillsDirectory: Path.Combine(".openhands", "skills"),
             GlobalSkillsDirectory: Path.Combine(".openhands", "skills"),

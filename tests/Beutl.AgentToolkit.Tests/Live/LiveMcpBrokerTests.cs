@@ -43,6 +43,7 @@ public sealed class LiveMcpBrokerTests
         string[] names = tools.Select(tool => tool.Name).ToArray();
         McpClientTool applyEdit = tools.Single(tool => tool.Name == "apply_edit");
         JsonElement applyEditProperties = applyEdit.JsonSchema.GetProperty("properties");
+        JsonElement getSchemaProperties = tools.Single(tool => tool.Name == "get_schema").JsonSchema.GetProperty("properties");
         // add_scene is the headless tool whose file session handle is required.
         McpClientTool addScene = tools.Single(tool => tool.Name == "add_scene");
         JsonElement addSceneProperties = addScene.JsonSchema.GetProperty("properties");
@@ -59,6 +60,9 @@ public sealed class LiveMcpBrokerTests
             // Every headless tool also accepts a live target; the file session is then optional.
             Assert.That(applyEditProperties.TryGetProperty("instanceId", out _), Is.True);
             Assert.That(applyEditProperties.TryGetProperty("sceneId", out _), Is.True);
+            // sceneId is advertised only where the editor's scene router accepts it.
+            Assert.That(getSchemaProperties.TryGetProperty("instanceId", out _), Is.True);
+            Assert.That(getSchemaProperties.TryGetProperty("sceneId", out _), Is.False);
             Assert.That(addSceneProperties.TryGetProperty("instanceId", out _), Is.True);
             Assert.That(addSceneProperties.GetProperty("session").GetProperty("description").GetString(), Does.Contain("Headless only"));
             Assert.That(addSceneRequired, Does.Not.Contain("session"));
@@ -144,6 +148,39 @@ public sealed class LiveMcpBrokerTests
         AssertSuccess(await client.CallToolAsync("read_operation_status"));
     }
 
+    [Test]
+    public async Task Watcher_announces_editors_that_start_change_their_tools_and_exit()
+    {
+        await using InProcessServer server = await InProcessServer.StartAsync(Workspace, Registry, () => "test-token");
+        using var changes = new SemaphoreSlim(0);
+        await using IAsyncDisposable subscription = server.Client.RegisterNotificationHandler(
+            NotificationMethods.ToolListChangedNotification, (_, _) =>
+            {
+                changes.Release();
+                return default;
+            });
+        await server.Client.ListToolsAsync();
+        using var stop = new CancellationTokenSource();
+        Task watcher = server.Broker.WatchAsync(TimeSpan.FromMilliseconds(50), stop.Token);
+        try
+        {
+            // This process stands in for an editor; the watcher only reads the registry.
+            var registry = new AgentHostInstanceRegistry(Registry);
+            AgentHostInstanceLease lease = registry.Register(Guid.NewGuid().ToString("N"), new Uri("http://127.0.0.1:59737/mcp"));
+            Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "A starting editor is announced.");
+            lease.UpdateTools(1);
+            Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "A changed tool set is announced.");
+            lease.Dispose();
+            Assert.That(await changes.WaitAsync(TimeSpan.FromSeconds(10)), Is.True, "An exiting editor is announced.");
+            Assert.That(await changes.WaitAsync(TimeSpan.FromMilliseconds(300)), Is.False, "Nothing else is announced.");
+        }
+        finally
+        {
+            stop.Cancel();
+            await watcher;
+        }
+    }
+
     private static JsonObject Payload(CallToolResult result)
         => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
 
@@ -168,6 +205,8 @@ public sealed class LiveMcpBrokerTests
         }
 
         public McpClient Client { get; }
+
+        public LiveMcpBroker Broker => _host.Services.GetRequiredService<LiveMcpBroker>();
 
         public static async Task<InProcessServer> StartAsync(string workspace, string registryDirectory, Func<string> tokenProvider)
         {

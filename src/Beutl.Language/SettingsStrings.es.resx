@@ -462,34 +462,6 @@
     <value>Definiciones de agentes especializados para tareas de línea de tiempo, apariencia y revisión de calidad</value>
     <comment />
   </data>
-  <data name="AiAgents_StdioMcp" xml:space="preserve">
-    <value>Servidor MCP Stdio</value>
-    <comment />
-  </data>
-  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
-    <value>Servidor sin interfaz opcional que edita archivos de proyecto sin iniciar la GUI</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp" xml:space="preserve">
-    <value>Servidor MCP en vivo</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
-    <value>Recomendado: conecta agentes a este editor en ejecución; las ediciones aparecen en vivo en la vista previa y el historial de deshacer</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
-    <value>El punto de conexión MCP en vivo no está en ejecución</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
-    <value>URL de MCP en vivo</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
-    <value>URL de conexión para clientes MCP. Envía el encabezado de autenticación de abajo con cada solicitud; trátalo como una contraseña</value>
-    <comment />
-  </data>
   <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
     <value>Seguir las ediciones de Live MCP (experimental)</value>
     <comment />
@@ -503,7 +475,7 @@
     <comment />
   </data>
   <data name="AiAgents_Advanced_Description" xml:space="preserve">
-    <value>Anulaciones para nombres de carpeta y el archivo de configuración MCP, y la línea de comandos del servidor stdio. Los campos vacíos usan los valores predeterminados del agente seleccionado</value>
+    <value>Anulaciones para nombres de carpeta y el archivo de configuración MCP, y la línea de comandos del servidor MCP. Los campos vacíos usan los valores predeterminados del agente seleccionado</value>
     <comment />
   </data>
   <data name="AiAgents_SkillsDirectory" xml:space="preserve">
@@ -611,20 +583,32 @@
 {0}</value>
     <comment />
   </data>
-  <data name="AiAgents_StdioMissing" xml:space="preserve">
-    <value>No se encontró el binario del servidor MCP stdio junto a la aplicación. Introduce un comando en Avanzado o reinstala Beutl.</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
-    <value>Encabezado de autenticación</value>
-    <comment />
-  </data>
   <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
     <value>Se actualizaron los recursos del agente de IA</value>
     <comment />
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
     <value>Esta versión de Beutl incluye habilidades y subagentes más nuevos que los que instalaste. ¿Reinstalarlos ahora con tu configuración guardada? Los archivos que editaste manualmente en el destino se sobrescribirán.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Mcp" xml:space="preserve">
+    <value>Servidor MCP</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Mcp_Description" xml:space="preserve">
+    <value>Recomendado: permite al agente editar en vivo un editor de Beutl en ejecución cuando apunta a una instancia, o los archivos del proyecto sin interfaz en caso contrario</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpMissing" xml:space="preserve">
+    <value>No se encontró el binario del servidor MCP junto a la aplicación. Introduce un comando en Avanzado o reinstala Beutl.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpChanged_Title" xml:space="preserve">
+    <value>El servidor MCP de Beutl ha cambiado</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpChanged_Content" xml:space="preserve">
+    <value>Beutl ahora instala un único servidor MCP "beutl-agent": edita un Beutl en ejecución cuando el agente indica un instanceId y, en caso contrario, edita los archivos del proyecto sin interfaz. ¿Reinstalar ahora con la configuración guardada? La entrada "beutl-live" separada y su token se eliminan de la configuración del agente, y los archivos editados a mano en el destino se sobrescriben.</value>
     <comment />
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

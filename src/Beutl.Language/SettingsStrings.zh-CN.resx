@@ -462,34 +462,6 @@
     <value>用于时间轴、外观和质量审查任务的专用代理定义</value>
     <comment />
   </data>
-  <data name="AiAgents_StdioMcp" xml:space="preserve">
-    <value>Stdio MCP 服务器</value>
-    <comment />
-  </data>
-  <data name="AiAgents_StdioMcp_Description" xml:space="preserve">
-    <value>可选的无头服务器，无需启动 GUI 即可编辑项目文件</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp" xml:space="preserve">
-    <value>实时 MCP 服务器</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp_Description" xml:space="preserve">
-    <value>推荐：将代理连接到正在运行的编辑器；编辑会实时显示在预览和撤销历史中</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcp_NotRunning" xml:space="preserve">
-    <value>实时 MCP 端点未运行</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpUrl" xml:space="preserve">
-    <value>实时 MCP URL</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpUrl_Description" xml:space="preserve">
-    <value>MCP 客户端的连接 URL。每次请求都发送下面的身份验证标头——像对待密码一样对待它</value>
-    <comment />
-  </data>
   <data name="AiAgents_FollowLiveMcpEdits" xml:space="preserve">
     <value>跟随 Live MCP 编辑（实验性）</value>
     <comment />
@@ -503,7 +475,7 @@
     <comment />
   </data>
   <data name="AiAgents_Advanced_Description" xml:space="preserve">
-    <value>覆盖文件夹名称和 MCP 配置文件，以及 stdio 服务器命令行。空字段使用所选代理的默认值</value>
+    <value>覆盖文件夹名称和 MCP 配置文件，以及 MCP 服务器命令行。空字段使用所选代理的默认值</value>
     <comment />
   </data>
   <data name="AiAgents_SkillsDirectory" xml:space="preserve">
@@ -611,20 +583,32 @@
 {0}</value>
     <comment />
   </data>
-  <data name="AiAgents_StdioMissing" xml:space="preserve">
-    <value>在应用程序旁边未找到 stdio MCP 服务器二进制文件。在“高级”下输入命令，或重新安装 Beutl。</value>
-    <comment />
-  </data>
-  <data name="AiAgents_LiveMcpAuthHeader" xml:space="preserve">
-    <value>身份验证标头</value>
-    <comment />
-  </data>
   <data name="AiAgents_UpdateAvailable_Title" xml:space="preserve">
     <value>AI 代理资源已更新</value>
     <comment />
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
     <value>此版本的 Beutl 捆绑了比您安装的更新的技能和子代理。现在使用您保存的设置重新安装它们吗？您在目标位置手动编辑的文件将被覆盖。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Mcp" xml:space="preserve">
+    <value>MCP 服务器</value>
+    <comment />
+  </data>
+  <data name="AiAgents_Mcp_Description" xml:space="preserve">
+    <value>推荐：代理指定实例时实时编辑正在运行的 Beutl 编辑器，否则以无界面方式编辑项目文件</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpMissing" xml:space="preserve">
+    <value>未在应用旁找到 MCP 服务器二进制文件。请在“高级”中输入命令，或重新安装 Beutl。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpChanged_Title" xml:space="preserve">
+    <value>Beutl MCP 服务器已更改</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpChanged_Content" xml:space="preserve">
+    <value>Beutl 现在只安装一个 "beutl-agent" MCP 服务器：当代理传入 instanceId 时编辑正在运行的 Beutl，否则以无界面方式编辑项目文件。是否立即使用已保存的设置重新安装？单独的 "beutl-live" 条目及其令牌将从代理配置中移除，目标位置中手动编辑的文件将被覆盖。</value>
     <comment />
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

@@ -375,6 +375,25 @@ public sealed class AgentHostInstanceTests
     }
 
     [Test]
+    public void Registry_republishes_the_tools_version_and_removes_the_updated_registration_on_dispose()
+    {
+        string directory = CreateDirectory();
+        var registry = new AgentHostInstanceRegistry(directory);
+        string instanceId = Guid.NewGuid().ToString("N");
+        try
+        {
+            AgentHostInstanceLease lease = registry.Register(instanceId, new Uri("http://127.0.0.1:59737/mcp"));
+            Assert.That(registry.Read().Single().ToolsVersion, Is.EqualTo(0));
+            lease.UpdateTools(2);
+            Assert.That(registry.Read().Single(), Is.EqualTo(registry.Read().Single() with { ToolsVersion = 2 }));
+            lease.Dispose();
+            Assert.That(registry.Read(), Is.Empty);
+            Assert.That(Directory.GetFiles(directory), Is.Empty);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Test]
     public void Pruning_and_old_leases_preserve_a_replaced_registration()
     {
         string directory = CreateDirectory();
