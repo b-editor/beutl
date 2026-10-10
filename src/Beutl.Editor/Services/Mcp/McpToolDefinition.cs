@@ -18,7 +18,10 @@ public sealed class McpToolDefinition
     /// A JSON Schema object with <c>"type": "object"</c> that describes the arguments. Omit it for a
     /// tool without arguments. Arguments that are neither listed under <c>properties</c> nor matched by
     /// a <c>patternProperties</c> pattern are rejected before the tool runs, unless the schema sets
-    /// <c>additionalProperties</c> to something other than <see langword="false"/>.
+    /// <c>additionalProperties</c> to something other than <see langword="false"/> or combines
+    /// subschemas at the top level (<c>allOf</c>, <c>anyOf</c>, <c>oneOf</c>, <c>if</c>,
+    /// <c>dependentSchemas</c>, or <c>$ref</c>). The schema must not declare, require, or match the
+    /// reserved <c>instanceId</c> argument.
     /// </param>
     public McpToolDefinition(string name, string description, JsonElement? inputSchema = null)
     {

@@ -12,6 +12,9 @@ public static class McpToolErrorFilters
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan s_patternTimeout = TimeSpan.FromMilliseconds(100);
 
+    private static readonly string[] s_compositionKeywords =
+        ["allOf", "anyOf", "oneOf", "if", "then", "else", "dependentSchemas", "$ref", "$dynamicRef"];
+
     public static IMcpRequestFilterBuilder AddToolkitCallToolErrorFilter(this IMcpRequestFilterBuilder filters)
     {
         return filters.AddCallToolFilter(next => async (context, cancellationToken) =>
@@ -66,9 +69,10 @@ public static class McpToolErrorFilters
         string[] unknown;
         try
         {
+            // JSON Schema patterns follow ECMAScript, where \d and \w match only ASCII characters.
             unknown = argumentNames
                 .Where(argument => !accepted.Contains(argument)
-                                   && !patterns.Any(pattern => Regex.IsMatch(argument, pattern, RegexOptions.None, s_patternTimeout)))
+                                   && !patterns.Any(pattern => Regex.IsMatch(argument, pattern, RegexOptions.ECMAScript, s_patternTimeout)))
                 .Order(StringComparer.Ordinal)
                 .ToArray();
         }
@@ -115,6 +119,12 @@ public static class McpToolErrorFilters
         // A schema that admits arguments beyond its named properties has no fixed name set to enforce.
         if (inputSchema.TryGetProperty("additionalProperties", out JsonElement additional)
             && additional.ValueKind != JsonValueKind.False)
+        {
+            return false;
+        }
+
+        // Names declared by subschemas or references are not resolved here, so they cannot be rejected.
+        if (s_compositionKeywords.Any(keyword => inputSchema.TryGetProperty(keyword, out _)))
         {
             return false;
         }

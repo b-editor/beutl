@@ -69,6 +69,9 @@ public sealed class McpToolErrorFiltersTests
     [TestCase("""{ "type": "object", "additionalProperties": { "type": "string" } }""")]
     [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} } }""")]
     [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "[": {} } }""")]
+    [TestCase("""{ "type": "object", "allOf": [{ "properties": { "x-extra": {} } }] }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "anyOf": [{ "properties": { "x-extra": {} } }] }""")]
+    [TestCase("""{ "type": "object", "$ref": "#/$defs/args", "$defs": { "args": { "properties": { "x-extra": {} } } } }""")]
     public void Schema_that_admits_extra_properties_accepts_unlisted_arguments(string json)
     {
         using JsonDocument schema = JsonDocument.Parse(json);
@@ -113,6 +116,24 @@ public sealed class McpToolErrorFiltersTests
             Assert.That(toolResult.Error.Message, Does.Contain(": y."));
             Assert.That(toolResult.Error.Message, Does.Not.Contain("x-extra"));
             Assert.That(toolResult.Error.Message, Does.Contain("names matching ^x-"));
+        });
+    }
+
+    [Test]
+    public void Pattern_properties_use_ecmascript_character_classes()
+    {
+        using JsonDocument schema = JsonDocument.Parse(
+            """{ "type": "object", "patternProperties": { "^\\d+$": {} }, "additionalProperties": false }""");
+
+        CallToolResult? ascii = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool", ["12"], schema.RootElement);
+        CallToolResult? arabicIndic = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool", ["١"], schema.RootElement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ascii, Is.Null);
+            Assert.That(ReadToolResult(arabicIndic!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
         });
     }
 

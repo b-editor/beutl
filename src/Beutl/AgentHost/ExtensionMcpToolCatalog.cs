@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Beutl.Editor.Services.Mcp;
 using Beutl.Logging;
 using Beutl.Services;
@@ -146,9 +147,7 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
             return null;
         }
 
-        if (definition.InputSchema.TryGetProperty("properties", out JsonElement properties)
-            && properties.ValueKind == JsonValueKind.Object
-            && properties.TryGetProperty("instanceId", out _))
+        if (ConstrainsInstanceId(definition.InputSchema, depth: 0))
         {
             // The instance router adds and consumes instanceId on every tool.
             s_logger.LogWarning(
@@ -184,6 +183,68 @@ internal sealed class ExtensionMcpToolCatalog : IDisposable
                 }
         };
         return new ExtensionMcpTool(descriptor.Id, descriptor.TypeName, protocolTool, _editorService, _services);
+    }
+
+    // Looks through the subschemas that apply to the same arguments object; $ref targets are not followed.
+    private static bool ConstrainsInstanceId(JsonElement schema, int depth)
+    {
+        const string name = "instanceId";
+        if (schema.ValueKind != JsonValueKind.Object || depth > 32)
+            return false;
+
+        if (schema.TryGetProperty("properties", out JsonElement properties)
+            && properties.ValueKind == JsonValueKind.Object
+            && properties.TryGetProperty(name, out _))
+        {
+            return true;
+        }
+
+        if (schema.TryGetProperty("required", out JsonElement required)
+            && required.ValueKind == JsonValueKind.Array
+            && required.EnumerateArray().Any(item => item.ValueKind == JsonValueKind.String && item.ValueEquals(name)))
+        {
+            return true;
+        }
+
+        if (schema.TryGetProperty("patternProperties", out JsonElement patterns)
+            && patterns.ValueKind == JsonValueKind.Object
+            && patterns.EnumerateObject().Any(pattern => MatchesPattern(pattern.Name, name)))
+        {
+            return true;
+        }
+
+        foreach (string keyword in (ReadOnlySpan<string>)["allOf", "anyOf", "oneOf"])
+        {
+            if (schema.TryGetProperty(keyword, out JsonElement branches)
+                && branches.ValueKind == JsonValueKind.Array
+                && branches.EnumerateArray().Any(branch => ConstrainsInstanceId(branch, depth + 1)))
+            {
+                return true;
+            }
+        }
+
+        foreach (string keyword in (ReadOnlySpan<string>)["if", "then", "else"])
+        {
+            if (schema.TryGetProperty(keyword, out JsonElement branch) && ConstrainsInstanceId(branch, depth + 1))
+                return true;
+        }
+
+        return schema.TryGetProperty("dependentSchemas", out JsonElement dependents)
+               && dependents.ValueKind == JsonValueKind.Object
+               && dependents.EnumerateObject().Any(dependent =>
+                   dependent.NameEquals(name) || ConstrainsInstanceId(dependent.Value, depth + 1));
+    }
+
+    private static bool MatchesPattern(string pattern, string name)
+    {
+        try
+        {
+            return Regex.IsMatch(name, pattern, RegexOptions.ECMAScript, TimeSpan.FromMilliseconds(100));
+        }
+        catch (Exception ex) when (ex is ArgumentException or RegexMatchTimeoutException)
+        {
+            return false;
+        }
     }
 
     private sealed class Snapshot(ExtensionMcpTool[] tools)

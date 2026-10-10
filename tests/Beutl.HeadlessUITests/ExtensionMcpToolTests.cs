@@ -195,7 +195,8 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(tools, Is.Not.Empty);
                 foreach (McpClientTool tool in tools)
                 {
-                    Assert.That(tool.JsonSchema.TryGetProperty("patternProperties", out _), Is.False, tool.Name);
+                    foreach (string keyword in new[] { "patternProperties", "allOf", "anyOf", "oneOf", "if", "then", "else", "dependentSchemas", "$ref", "$dynamicRef" })
+                        Assert.That(tool.JsonSchema.TryGetProperty(keyword, out _), Is.False, $"{tool.Name}: {keyword}");
                     if (tool.JsonSchema.TryGetProperty("additionalProperties", out JsonElement additional))
                         Assert.That(additional.ValueKind, Is.EqualTo(JsonValueKind.False), tool.Name);
                 }
@@ -249,7 +250,13 @@ public sealed class ExtensionMcpToolTests
             [
                 new McpToolDefinition("test.shared", "Second provider."),
                 new McpToolDefinition("test.reserved", "Declares the routing argument.", Schema(
-                    """{"type":"object","properties":{"instanceId":{"type":"string"}}}"""))
+                    """{"type":"object","properties":{"instanceId":{"type":"string"}}}""")),
+                new McpToolDefinition("test.reserved-required", "Requires the routing argument.", Schema(
+                    """{"type":"object","required":["instanceId"]}""")),
+                new McpToolDefinition("test.reserved-pattern", "Matches the routing argument.", Schema(
+                    """{"type":"object","patternProperties":{"^inst":{"type":"integer"}}}""")),
+                new McpToolDefinition("test.reserved-composed", "Declares it in a subschema.", Schema(
+                    """{"type":"object","allOf":[{"properties":{"instanceId":{"type":"integer"}}}]}"""))
             ],
             _ => new(McpToolResult.Text("second")))]);
         await using AgentHostEndpoint host = CreateHost(new EditorService(provider), directory);
@@ -266,7 +273,7 @@ public sealed class ExtensionMcpToolTests
                 Assert.That(tools.Count(tool => tool.Name == "undo"), Is.EqualTo(1));
                 Assert.That(tools.Single(tool => tool.Name == "undo").Description, Is.Not.EqualTo("Shadows a built-in tool."));
                 Assert.That(tools.Single(tool => tool.Name == "test.shared").Description, Is.EqualTo("First provider."));
-                Assert.That(tools.Select(tool => tool.Name), Does.Not.Contain("test.reserved"));
+                Assert.That(tools.Select(tool => tool.Name).Where(name => name.StartsWith("test.reserved", StringComparison.Ordinal)), Is.Empty);
                 Assert.That(Text(shared), Is.EqualTo("first"));
                 Assert.That(Text(undo), Does.Not.Contain("first"));
             });
