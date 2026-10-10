@@ -184,7 +184,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-d, ui-e-m, ui-n-r, ui-other, graphics3d, other]
+        suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-d, ui-e-i, ui-j-m, ui-n-r, ui-other, graphics3d, other]
         validation: [false]
         # Every unit and Graphics3D test still runs both normally and under Vulkan
         # validation. Namespace partitions are exhaustive, including untagged GPU
@@ -380,7 +380,7 @@ jobs:
       - name: Merge coverage reports
         run: |
           dotnet tool install -g dotnet-reportgenerator-globaltool
-          reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Cobertura;Html"
+          reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
 
       - name: Save merged coverage
         uses: actions/upload-artifact@v7.0.1

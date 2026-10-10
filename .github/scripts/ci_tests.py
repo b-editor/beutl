@@ -35,7 +35,8 @@ UNIT_FILTERS = partition([
 # test fixture names keeps that namespace-wide SetUpFixture out of the partition.
 UI_FILTERS = partition([
     ("ui-a-d", [f"Beutl.HeadlessUITests.{letter}" for letter in "ABCD"]),
-    ("ui-e-m", [f"Beutl.HeadlessUITests.{letter}" for letter in "EFGHIJKLM"]),
+    ("ui-e-i", [f"Beutl.HeadlessUITests.{letter}" for letter in "EFGHI"]),
+    ("ui-j-m", [f"Beutl.HeadlessUITests.{letter}" for letter in "JKLM"]),
     ("ui-n-r", [f"Beutl.HeadlessUITests.{letter}" for letter in "NOPQR"]),
     ("ui-other", []),
 ], suffix=".*Tests$")
