@@ -99,6 +99,19 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
     public override void Revert(OperationExecutionContext context) => SetValue(OldValue);
 
+    // Mirrors the setters SetValue goes through: an engine property replaces its animation or
+    // expression by reference, and a value by the property's replacement rule.
+    public bool IsNoop
+    {
+        get
+        {
+            var (_, updateAnimation, updateExpression) = ParsePropertyPath();
+            return updateAnimation || updateExpression
+                ? ReferenceEquals(NewValue, OldValue)
+                : !ValueReplacement.RequiresReplacement(OldValue, NewValue, replaceEquivalent: false);
+        }
+    }
+
     public bool TryMerge(ChangeOperation other)
     {
         if (other is not UpdatePropertyValueOperation<T> op) return false;

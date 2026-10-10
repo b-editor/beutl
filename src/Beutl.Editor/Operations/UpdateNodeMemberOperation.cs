@@ -50,6 +50,12 @@ public sealed class UpdateNodeMemberOperation(
         UpdateValue(OldValue);
     }
 
+    // Mirrors the property adapters: animations and expressions are replaced by reference, values by
+    // equality.
+    public bool IsNoop => PropertyPath.Split('.')[^1] is "Animation" or "Expression"
+        ? ReferenceEquals(NewValue, OldValue)
+        : Equals(NewValue, OldValue);
+
     public bool TryMerge(ChangeOperation other)
     {
         if (other is not UpdateNodeMemberOperation op)

@@ -378,7 +378,12 @@ public sealed class EasingEditorTests
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
                 Assert.That(history.History.UndoCount, Is.Zero);
+                Assert.That(history.History.HasPendingOperations, Is.False);
             });
+
+            // A commit from another feature, such as the one before an export, must not record the drag.
+            history.History.Commit();
+            Assert.That(history.History.UndoCount, Is.Zero);
         }
         finally
         {

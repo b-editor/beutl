@@ -666,6 +666,39 @@ public class UpdateSplineEasingOperationTests
 
     #endregion
 
+    #region IsNoop Tests
+
+    [Test]
+    public void IsNoop_IsTrue_WhenMergedWritesReturnToTheOldValue()
+    {
+        var easing = new SplineEasing();
+        var op = CreateOp(easing, "X1", 0.5f, 0.25f);
+
+        op.TryMerge(CreateOp(easing, "X1", 0.25f, 0.5f));
+
+        Assert.That(op.IsNoop, Is.True);
+    }
+
+    [Test]
+    public void IsNoop_TreatsAnUntouchedNaNControlPointAsUnchanged()
+    {
+        var easing = new SplineEasing();
+        var op = CreateOp(easing, "Y1", float.NaN, float.NaN);
+
+        Assert.That(op.IsNoop, Is.True);
+    }
+
+    [Test]
+    public void IsNoop_IsFalse_WhileTheValueDiffers()
+    {
+        var easing = new SplineEasing();
+        var op = CreateOp(easing, "Y1", 0.5f, 0.25f);
+
+        Assert.That(op.IsNoop, Is.False);
+    }
+
+    #endregion
+
     #region PropertyPath Parsing Tests
 
     [Test]

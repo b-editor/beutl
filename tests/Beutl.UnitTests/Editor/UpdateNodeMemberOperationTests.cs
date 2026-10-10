@@ -596,6 +596,43 @@ public class UpdateNodeMemberOperationTests
 
     #endregion
 
+    #region IsNoop Tests
+
+    [Test]
+    public void IsNoop_IsTrue_WhenMergedWritesReturnToTheOldValue()
+    {
+        var nodeMember = new TestNodeMember<int>("TestProperty", 10);
+        var op = CreateOp(nodeMember, "Property", 20, 10);
+
+        op.TryMerge(CreateOp(nodeMember, "Property", 10, 20));
+
+        // Each 10 is boxed separately, so only an equality check sees them as the same value.
+        Assert.That(op.IsNoop, Is.True);
+    }
+
+    [Test]
+    public void IsNoop_IsFalse_WhileTheValueDiffers()
+    {
+        var nodeMember = new TestNodeMember<int>("TestProperty", 10);
+        var op = CreateOp(nodeMember, "Property", 20, 10);
+
+        Assert.That(op.IsNoop, Is.False);
+    }
+
+    // The adapters replace an animation or expression by reference, so an equal one that is not the
+    // same instance is still a change.
+    [TestCase("Property.Animation")]
+    [TestCase("Property.Expression")]
+    public void IsNoop_ComparesAnimationsAndExpressionsByReference(string propertyPath)
+    {
+        var nodeMember = new TestNodeMember<int>("TestProperty", 10);
+        var op = CreateOp(nodeMember, propertyPath, 10, 10);
+
+        Assert.That(op.IsNoop, Is.False);
+    }
+
+    #endregion
+
     #region SequenceNumber Tests
 
     [Test]
