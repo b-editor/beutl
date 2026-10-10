@@ -51,7 +51,7 @@ public abstract partial class ClipTransition : EngineObject
     // frame, so the duration takes no expression.
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Duration), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(TimeSpan), "00:00:00", "01:00:00", ParseLimitsInInvariantCulture = true)]
-    public new IProperty<TimeSpan> Duration { get; } = new SimpleProperty<TimeSpan>(DefaultDuration) { SupportsExpression = false };
+    public new IProperty<TimeSpan> Duration { get; } = Property.CreateWithoutExpression(DefaultDuration);
 
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Easing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Easing> Easing { get; } = Property.Create<Easing>(new LinearEasing());
