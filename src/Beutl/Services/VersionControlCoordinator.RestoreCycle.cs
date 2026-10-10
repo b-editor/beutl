@@ -22,7 +22,8 @@ internal partial class VersionControlCoordinator
                         "The open project is not tracked with Git.");
                 }
 
-                return await ownedService.ExecuteExclusiveAsync(
+                return await ExecuteExclusiveOnUiThreadAsync(
+                    ownedService,
                     service => RestoreWithinTransactionAsync(
                         service,
                         sha,

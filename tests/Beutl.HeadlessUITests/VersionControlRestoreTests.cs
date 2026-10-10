@@ -6259,6 +6259,98 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    [TestCase("restore")]
+    [TestCase("switch")]
+    [TestCase("pull")]
+    public async Task Exclusive_operation_started_on_the_thread_pool_suspends_editors_and_reopens_on_the_UI_thread(
+        string operation)
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        Action<Project?>? recordTransition = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                $"version-control-thread-pool-{operation}");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RunsExclusiveOperationsOnThreadPool = true,
+                Branches =
+                [
+                    new BranchInfo("main", true, null),
+                    new BranchInfo("other", false, null),
+                ],
+                PullResult = new RemoteOpResult.Success(),
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            var editorChanges = new List<(bool Enabled, bool OnUiThread)>();
+            using IDisposable editorSubscription = context.IsEnabled
+                .Skip(1)
+                .Subscribe(enabled => editorChanges.Add(
+                    (enabled, Avalonia.Threading.Dispatcher.UIThread.CheckAccess())));
+            var transitionsOnUiThread = new List<bool>();
+            recordTransition = _ => transitionsOnUiThread.Add(
+                Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
+            TestShell.Project.TransitionCommitted += recordTransition;
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig { AutoCommitOnClose = false },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+
+            bool succeeded = operation switch
+            {
+                "restore" => await coordinator.RestoreAsync(
+                    "2222222222222222222222222222222222222222"),
+                "switch" => await coordinator.SwitchBranchAsync("other"),
+                _ => await coordinator.PullAsync() is RemoteOpResult.Success,
+            };
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(succeeded, Is.True);
+                Assert.That(
+                    editorChanges,
+                    Is.EqualTo(new[] { (false, true), (true, true) }),
+                    "The editors are suspended and given back on the UI thread.");
+                Assert.That(
+                    transitionsOnUiThread,
+                    Is.EqualTo(new[] { true, true }),
+                    "The project is closed and reopened on the UI thread.");
+            });
+        }
+        finally
+        {
+            if (recordTransition is not null)
+            {
+                TestShell.Project.TransitionCommitted -= recordTransition;
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Restore_prefetches_lfs_objects_while_the_project_is_still_open()
     {
         await TestReset.ResetShellAsync();
@@ -11051,6 +11143,10 @@ public class VersionControlRestoreTests
 
         public bool RequireIdentityForCommit { get; init; }
 
+        // Starts an exclusive operation on the thread pool, as the Git backend does whenever another
+        // command held its gate.
+        public bool RunsExclusiveOperationsOnThreadPool { get; init; }
+
         public int InitializeCalls { get; private set; }
 
         public int SetLocalIdentityCalls { get; private set; }
@@ -11252,7 +11348,9 @@ public class VersionControlRestoreTests
             await _exclusiveGate.WaitAsync(cancellationToken);
             try
             {
-                return await operation(this);
+                return RunsExclusiveOperationsOnThreadPool
+                    ? await Task.Run(() => operation(this), cancellationToken)
+                    : await operation(this);
             }
             finally
             {

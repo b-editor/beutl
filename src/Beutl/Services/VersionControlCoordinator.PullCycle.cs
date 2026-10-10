@@ -84,7 +84,8 @@ internal partial class VersionControlCoordinator
             gateEntered = true;
             ThrowIfLifecycleOperationUnavailable();
             IProjectVersionControlBackend ownedService = GetTrackedBackend();
-            return await ownedService.ExecuteExclusiveAsync(
+            return await ExecuteExclusiveOnUiThreadAsync(
+                ownedService,
                 async service =>
                 {
                     WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
@@ -145,7 +146,8 @@ internal partial class VersionControlCoordinator
                     return new RemoteOpResult.Failed(PullProjectChangedMessage);
                 }
 
-                return await ownedService.ExecuteExclusiveAsync(
+                return await ExecuteExclusiveOnUiThreadAsync(
+                    ownedService,
                     service => PullWithinTransactionAsync(
                         service,
                         project,

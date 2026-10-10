@@ -51,6 +51,21 @@ internal partial class VersionControlCoordinator
         }
     }
 
+    // The backend starts an exclusive operation from its own gate continuation, which runs on the thread
+    // pool whenever another Git command held the gate. The operations suspend the editors and close and
+    // reopen the project, so they are brought back to the UI thread first.
+    private Task<TResult> ExecuteExclusiveOnUiThreadAsync<TResult>(
+        IProjectVersionControlBackend service,
+        Func<IProjectVersionControlTransaction, Task<TResult>> operation,
+        CancellationToken cancellationToken)
+    {
+        return service.ExecuteExclusiveAsync(
+            transaction => _dispatcher.CheckAccess()
+                ? operation(transaction)
+                : _dispatcher.InvokeAsync(() => operation(transaction), DispatcherPriority.Normal),
+            cancellationToken);
+    }
+
     private async Task ReleaseEditorSuspensionAsync(IDisposable? suspension)
     {
         if (suspension is null)
