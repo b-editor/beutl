@@ -96,7 +96,7 @@ public sealed class SchemaGenerationTests
             Assert.That(textBlock.BaseFields.Any(field => field.Name == nameof(CoreObject.Id)), Is.True);
             Assert.That(size.ValueType, Is.EqualTo(typeof(float).FullName));
             Assert.That(size.Range, Is.Not.Null);
-            Assert.That(size.Default, Is.EqualTo(12f));
+            Assert.That(size.Default, Is.EqualTo(72f));
             Assert.That(size.Animatable, Is.True);
             Assert.That(blendMode.ValueType, Is.EqualTo(typeof(BlendMode).FullName));
             Assert.That(blendMode.EnumValues, Does.Contain(nameof(BlendMode.SrcOver)));
