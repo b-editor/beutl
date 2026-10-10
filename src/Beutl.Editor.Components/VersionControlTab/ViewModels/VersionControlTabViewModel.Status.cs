@@ -87,8 +87,7 @@ internal partial class VersionControlTabViewModel
         IsConflicted.Value = false;
         IsDetachedHead.Value = false;
         HasBlockingGuidance.Value = false;
-        HasRecoverableLock.Value = _lockRecoveryService?.RecoverableLock is not null;
-        StaleLockGuidance.Value = Strings.VersionControl_StaleLockGuidance;
+        ShowRecoverableLock(_lockRecoveryService?.RecoverableLock);
         DirtySummary.Value = string.Empty;
         StatusMessage.Value = isTracked
             ? string.Empty
@@ -446,10 +445,28 @@ internal partial class VersionControlTabViewModel
                 && ReferenceEquals(sender, _service)
                 && ReferenceEquals(_lockRecoveryService?.RecoverableLock, lockInfo))
             {
-                StaleLockGuidance.Value = Strings.VersionControl_StaleLockGuidance;
-                HasRecoverableLock.Value = true;
+                ShowRecoverableLock(lockInfo);
             }
         });
+    }
+
+    // A lock Beutl cannot remove gets the manual-removal steps instead of a remove action that
+    // could never succeed.
+    private void ShowRecoverableLock(RepositoryLockInfo? lockInfo)
+    {
+        StaleLockGuidance.Value = lockInfo is { RequiresManualRemoval: true }
+            ? FormatStaleLockManualRemovalGuidance(lockInfo)
+            : Strings.VersionControl_StaleLockGuidance;
+        CanRemoveStaleLock.Value = lockInfo is { RequiresManualRemoval: false };
+        HasRecoverableLock.Value = lockInfo is not null;
+    }
+
+    private static string FormatStaleLockManualRemovalGuidance(RepositoryLockInfo lockInfo)
+    {
+        return string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+            lockInfo.LockPath);
     }
 
     private void ApplyStatus(WorkspaceStatus status)

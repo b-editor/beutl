@@ -41,12 +41,17 @@ internal partial class VersionControlCoordinator
                 "Skipped pull because its project/service epoch was unavailable before confirmation.");
             return new RemoteOpResult.Failed(PullProjectChangedMessage);
         }
-        catch (InvalidOperationException ex)
+        catch (VersionControlLifecycleUnavailableException ex)
         {
             _logger.LogInformation(
                 ex,
                 "Skipped pull because the project lifecycle changed before confirmation.");
             return new RemoteOpResult.Failed(PullProjectChangedMessage);
+        }
+        catch (InvalidOperationException ex) when (ex is not VersionControlConflictedException)
+        {
+            _logger.LogWarning(ex, "The pull failed before confirmation.");
+            return new RemoteOpResult.Failed(ex.Message);
         }
         finally
         {
@@ -64,12 +69,20 @@ internal partial class VersionControlCoordinator
                 "Skipped pull because its backend retired after confirmation.");
             return new RemoteOpResult.Failed(PullProjectChangedMessage);
         }
-        catch (InvalidOperationException ex)
+        catch (VersionControlLifecycleUnavailableException ex)
         {
             _logger.LogInformation(
                 ex,
                 "Skipped pull because the project lifecycle changed after confirmation.");
             return new RemoteOpResult.Failed(PullProjectChangedMessage);
+        }
+        catch (InvalidOperationException ex) when (ex is not VersionControlConflictedException)
+        {
+            // Every version-control domain failure derives from InvalidOperationException, such as a
+            // missing Git LFS or a missing identity for the safety snapshot. Its own reason is what the
+            // user can act on.
+            _logger.LogWarning(ex, "The pull failed after confirmation.");
+            return new RemoteOpResult.Failed(ex.Message);
         }
     }
 

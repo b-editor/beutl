@@ -68,6 +68,8 @@ curl -sS -X POST \
 
 After `initialize`, send `notifications/initialized`, then `tools/list`, then `get_started` or `attach_active_editor`. `notifications/initialized` may have no response body; that is normal. Tool results are nested as JSON text under `result.content[0].text` in raw HTTP clients, so decode that text payload after reading the SSE `data:` line. For progress checks, prefer `read_document_summary` over `read_document` until you need the full JSON.
 
+With multiple Beutl processes running, one live MCP connection can operate on all instances in the same Beutl profile. Call `list_instances` to inspect their instance IDs, PIDs, projects and active scenes, then pass the chosen `instanceId` on every tool call (including attach/open/create, reads, edits, undo/redo, renders and background-job polling). Without `instanceId`, a tool operates on the connected process. Selection is per call, so simultaneous agents can target different processes. If the target exits or its port is reused, the call returns `instance_unavailable` instead of switching to another process. Hosts with different profiles or live MCP tokens require their own authenticated connection. The stdio host remains a file-backed editor.
+
 ## The declarative loop (worked example)
 
 A creator asks the agent: *"10-second 1080p clip: a title that fades in over a background image for the first 3 s, then a logo bottom-right."*

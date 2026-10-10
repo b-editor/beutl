@@ -2596,6 +2596,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_SaveSnapshotFailed" xml:space="preserve">
     <value>프로젝트 파일은 저장되었지만 자동 기록 스냅샷을 만들지 못했습니다. Git 저장소를 확인한 후 다시 저장하세요.</value>
   </data>
+  <data name="VersionControl_SaveSnapshotFailedFormat" xml:space="preserve">
+    <value>프로젝트 파일은 저장되었지만 자동 기록 스냅샷을 만들지 못했습니다. Git 저장소를 확인한 후 다시 저장하세요. {0}</value>
+  </data>
   <data name="VersionControl_RestoreBranchRetainedFormat" xml:space="preserve">
     <value>복원에 실패했지만 원래 프로젝트는 복구되었습니다. 안전을 위해 '{0}' 브랜치를 유지했습니다. 다른 Git 작업 트리에서 사용하지 않는지 확인한 후 외부 Git 도구로 직접 삭제하세요.</value>
   </data>
@@ -2650,6 +2653,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="VersionControl_OpenedWithoutVersionControlFormat" xml:space="preserve">
     <value>Git이 이 프로젝트 폴더를 확인하지 못하여 버전 관리 없이 프로젝트를 열었습니다. {0}</value>
+  </data>
+  <data name="VersionControl_ActivationFailedFormat" xml:space="preserve">
+    <value>이 프로젝트의 버전 관리를 활성화하지 못했습니다. {0}</value>
   </data>
   <data name="VersionControl_BranchFormat" xml:space="preserve">
     <value>브랜치: {0}</value>
@@ -2717,6 +2723,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_BranchName" xml:space="preserve">
     <value>브랜치 이름</value>
   </data>
+  <data name="VersionControl_BranchNameUnavailableFormat" xml:space="preserve">
+    <value>'{0}' 브랜치를 만들지 못했습니다. 올바른 Git 브랜치 이름이 아니거나 기존 브랜치와 충돌합니다.</value>
+  </data>
   <data name="VersionControl_CreateBranchTitle" xml:space="preserve">
     <value>새 브랜치로 복원</value>
   </data>
@@ -2762,6 +2771,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="VersionControl_RemoteConnected" xml:space="preserve">
     <value>원격에 연결했습니다.</value>
   </data>
+  <data name="VersionControl_RemoteConnectFailedFormat" xml:space="preserve">
+    <value>원격에 연결하지 못했습니다. {0}</value>
+  </data>
   <data name="VersionControl_Pushing" xml:space="preserve">
     <value>버전을 푸시하는 중…</value>
   </data>
@@ -2770,6 +2782,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="VersionControl_RemoteOperationSucceeded" xml:space="preserve">
     <value>원격 작업이 완료되었습니다.</value>
+  </data>
+  <data name="VersionControl_RemoteOperationFailedFormat" xml:space="preserve">
+    <value>원격 작업을 완료하지 못했습니다. {0}</value>
   </data>
   <data name="VersionControl_RemoteOperationCanceled" xml:space="preserve">
     <value>원격 작업이 취소되었습니다.</value>

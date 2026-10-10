@@ -94,11 +94,11 @@ internal partial class VersionControlCoordinator
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         IProjectVersionControlBackend service = GetOperationReadyBackend()
-                                                ?? throw new InvalidOperationException(
+                                                ?? throw new VersionControlLifecycleUnavailableException(
                                                     "Version control is not available.");
         if (service.Repository is null)
         {
-            throw new InvalidOperationException(
+            throw new VersionControlLifecycleUnavailableException(
                 "The open project is not tracked with Git.");
         }
 
@@ -120,7 +120,7 @@ internal partial class VersionControlCoordinator
     private Project GetOpenProject()
     {
         return _projectService.CurrentProject.Value
-               ?? throw new InvalidOperationException("No project is open.");
+               ?? throw new VersionControlLifecycleUnavailableException("No project is open.");
     }
 
     private static string GetProjectFile(Project project)

@@ -57,7 +57,7 @@ internal partial class VersionControlCoordinator
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_operationCloseBarrierActive)
         {
-            throw new InvalidOperationException(
+            throw new VersionControlLifecycleUnavailableException(
                 "Lifecycle version-control operations cannot run while the project is closing.");
         }
     }

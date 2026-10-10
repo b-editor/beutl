@@ -185,6 +185,36 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Edits_made_while_the_ignored_files_notice_is_shown_are_recorded()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await CommitFileAsync(".gitignore", "*.log\n", "ignore logs");
+        await File.WriteAllTextAsync(Path.Combine(Root, "render.log"), "ignored\n");
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            async notice =>
+            {
+                if (notice is VersionControlPolicyNotice.IgnoredProjectFiles)
+                {
+                    await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "edited\n");
+                }
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        GitCommandResult recorded = await RunGitAsync("show", "HEAD:project.bep");
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(recorded.Stdout, Is.EqualTo("edited\n"));
+        });
+    }
+
+    [Test]
     public async Task Snapshot_refuses_a_project_file_that_the_ignore_rules_leave_out()
     {
         await CommitFileAsync("notes.txt", "baseline\n", "baseline");
@@ -207,6 +237,45 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(exception!.Message, Does.Contain("project.bep"));
+            Assert.That(
+                RunGitAsync("rev-parse", "HEAD").Result.Stdout.Trim(),
+                Is.EqualTo(baseTip));
+        });
+    }
+
+    // check-ignore reads its input as pathspecs, so a folder name that starts with a colon would
+    // otherwise be taken as pathspec magic and a different path checked.
+    [Test]
+    public async Task Snapshot_refuses_an_ignored_project_file_in_a_folder_whose_name_starts_with_a_colon()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows does not allow a colon in a folder name.");
+        }
+
+        await CommitFileAsync("notes.txt", "baseline\n", "baseline");
+        string projectRoot = Path.Combine(Root, ":movie");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "/:movie/*.bep\n");
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            _ => Task.CompletedTask,
+            projectFile: projectFile,
+            repository: new RepositoryInfo(Root, projectRoot));
+
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.CommitAllAsync(
+                "snapshot",
+                SnapshotKind.Save,
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain(":movie/project.bep"));
             Assert.That(
                 RunGitAsync("rev-parse", "HEAD").Result.Stdout.Trim(),
                 Is.EqualTo(baseTip));
@@ -985,6 +1054,43 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         Assert.That(
             notices.OfType<VersionControlPolicyNotice.LargeMediaWithoutLfs>().Single().Path,
             Is.EqualTo("resources/late.mp4"));
+    }
+
+    [Test]
+    public async Task Project_files_ignored_while_the_identity_prompt_is_open_are_still_reported()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        await RunGitAsync("config", "--local", "user.name", "");
+        await RunGitAsync("config", "--local", "user.email", "");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "changed\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            new VersionControlConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            requestIdentity: async () =>
+            {
+                await File.WriteAllTextAsync(Path.Combine(Root, ".gitignore"), "*.log\n");
+                await File.WriteAllTextAsync(Path.Combine(Root, "render.log"), "late\n");
+                return new GitIdentity("Prompted User", "prompted@example.invalid");
+            });
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
+                Is.EqualTo(new[] { "render.log" }));
+        });
     }
 
     [Test]

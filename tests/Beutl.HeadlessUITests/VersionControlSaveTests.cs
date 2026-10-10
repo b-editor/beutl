@@ -460,7 +460,11 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
 
             string hookPath = Path.Combine(projectRoot, ".git", "hooks", "pre-commit");
-            await File.WriteAllTextAsync(hookPath, "#!/bin/sh\nexit 17\n");
+            // A rejecting hook explains itself on stderr; the warning has to pass that on.
+            const string hookReason = "pre-commit: simulated lint rejection";
+            await File.WriteAllTextAsync(
+                hookPath,
+                $"#!/bin/sh\necho '{hookReason}' >&2\nexit 17\n");
             if (!OperatingSystem.IsWindows())
             {
                 File.SetUnixFileMode(
@@ -491,10 +495,14 @@ public class VersionControlSaveTests
                     observed.Count(item => item.Type == NotificationType.Success),
                     Is.EqualTo(1));
                 Assert.That(
+                    observed.Count(item => item.Type == NotificationType.Warning),
+                    Is.EqualTo(1));
+                Assert.That(
                     observed.Count(item =>
                         item.Type == NotificationType.Warning
-                        && item.Message == Strings.VersionControl_SaveSnapshotFailed),
-                    Is.EqualTo(1));
+                        && item.Message.Contains(hookReason, StringComparison.Ordinal)),
+                    Is.EqualTo(1),
+                    "The snapshot warning must carry the hook's reason.");
                 Assert.That(
                     observed.Any(item => item.Type == NotificationType.Error),
                     Is.False);

@@ -55,6 +55,13 @@ internal partial class VersionControlCoordinator
                 return;
             }
 
+            if (lockInfo.RequiresManualRemoval)
+            {
+                // Consent cannot lead to a removal here, so go straight to the manual steps.
+                ShowStaleLockManualRemovalWarning(lockInfo);
+                return;
+            }
+
             if (!await ConfirmRemoveStaleLockAsync(lockInfo, _lifetimeCancellation.Token)
                 || _disposed
                 || !ReferenceEquals(CurrentService, sender)
@@ -78,12 +85,7 @@ internal partial class VersionControlCoordinator
             }
             else
             {
-                NotificationService.ShowWarning(
-                    Strings.VersionControl,
-                    string.Format(
-                        CultureInfo.CurrentCulture,
-                        Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-                        lockInfo.LockPath));
+                ShowStaleLockManualRemovalWarning(lockInfo);
             }
         }
         catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
@@ -100,5 +102,15 @@ internal partial class VersionControlCoordinator
                 _lockRecoveryGate.Release();
             }
         }
+    }
+
+    private static void ShowStaleLockManualRemovalWarning(RepositoryLockInfo lockInfo)
+    {
+        NotificationService.ShowWarning(
+            Strings.VersionControl,
+            string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                lockInfo.LockPath));
     }
 }

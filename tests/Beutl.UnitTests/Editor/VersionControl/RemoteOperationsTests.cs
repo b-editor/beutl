@@ -842,6 +842,126 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         });
     }
 
+    [Test]
+    public async Task Pull_brings_back_staged_project_changes_as_staged()
+    {
+        await CommitFileAsync("scene.belm", "initial scene\n", "scene");
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
+        await File.WriteAllTextAsync(Path.Combine(Root, "scene.belm"), "staged scene\n");
+        await RunGitAsync("add", "--", "scene.belm");
+        await File.WriteAllTextAsync(Path.Combine(Root, "scene.belm"), "working scene\n");
+
+        RemoteOpResult pull = await PullAsync(service);
+
+        GitCommandResult staged = await RunGitAsync("show", ":scene.belm");
+        GitCommandResult stashes = await RunGitAsync("stash", "list");
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("from peer\n"));
+            Assert.That(staged.Stdout, Is.EqualTo("staged scene\n"));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "scene.belm")),
+                Is.EqualTo("working scene\n"));
+            Assert.That(stashes.Stdout, Is.Empty);
+        });
+    }
+
+    // git stash pop --index refuses when the staged change no longer applies to the pulled index;
+    // the change still merges into the worktree, so it comes back unstaged.
+    [Test]
+    public async Task Staged_changes_the_pull_also_touches_come_back_unstaged()
+    {
+        await CommitFileAsync("scene.belm", "one\ntwo\nthree\nfour\nfive\nsix\n", "scene");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        await CommitInRepositoryAsync(
+            peer,
+            "scene.belm",
+            "one\ntwo\nTHREE\nfour\nfive\nsix\n",
+            "peer scene update");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, "scene.belm"),
+            "ONE\ntwo\nthree\nfour\nfive\nsix\n");
+        await RunGitAsync("add", "--", "scene.belm");
+
+        RemoteOpResult pull = await PullAsync(service);
+
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        string remoteHead = await ReadRemoteHeadAsync(remoteRoot);
+        GitCommandResult stagedNames = await RunGitAsync("diff", "--cached", "--name-only");
+        GitCommandResult stashes = await RunGitAsync("stash", "list");
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(head, Is.EqualTo(remoteHead));
+            Assert.That(
+                File.ReadAllText(Path.Combine(Root, "scene.belm")),
+                Is.EqualTo("ONE\ntwo\nTHREE\nfour\nfive\nsix\n"));
+            Assert.That(stagedNames.Stdout, Is.Empty);
+            Assert.That(stashes.Stdout, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Pull_reapplies_its_own_stash_entry_when_a_merge_hook_stashes_another()
+    {
+        await CommitFileAsync("project.bep", "initial\n", "initial");
+        string remoteRoot = await CreateBareRemoteAsync();
+        using var service = CreateService();
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
+        RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
+        await CommitInRepositoryAsync(peer, "remote.belm", "remote\n", "remote update");
+        await WritePostMergeHookAsync(
+            "echo hook > hook-note.txt\n"
+            + "git stash push --include-untracked -m \"hook entry\" -- hook-note.txt\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local edit\n");
+
+        RemoteOpResult pull = await PullAsync(service);
+
+        GitCommandResult stashes = await RunGitAsync("stash", "list");
+        Assert.Multiple(() =>
+        {
+            Assert.That(pull, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(File.ReadAllText(Path.Combine(Root, "remote.belm")), Is.EqualTo("remote\n"));
+            Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("local edit\n"));
+            Assert.That(stashes.Stdout, Does.Contain("hook entry"));
+            Assert.That(stashes.Stdout, Does.Not.Contain("beutl: local changes before pull"));
+        });
+    }
+
+    private async Task WritePostMergeHookAsync(string body)
+    {
+        string hookRecord = (await RunGitAsync("rev-parse", "--git-path", "hooks/post-merge"))
+            .Stdout.TrimEnd('\r', '\n');
+        string hookPath = Path.GetFullPath(
+            Path.IsPathFullyQualified(hookRecord) ? hookRecord : Path.Combine(Root, hookRecord));
+        Directory.CreateDirectory(Path.GetDirectoryName(hookPath)!);
+        await File.WriteAllTextAsync(hookPath, "#!/bin/sh\n" + body, new System.Text.UTF8Encoding(false));
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                hookPath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
     [TestCase("fatal: Authentication failed for 'https://example.invalid/repo.git/'")]
     [TestCase("git@example.invalid: Permission denied (publickey).")]
     public void Authentication_failures_are_classified_with_actionable_guidance(string stderr)
