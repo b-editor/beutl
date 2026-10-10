@@ -146,26 +146,26 @@ internal sealed partial class GitCliVersionControlService
             status,
             cancellationToken).ConfigureAwait(false);
 
-        string? commit = await CommitProjectSnapshotAsync(
+        CommitRevision? revision = await CommitProjectSnapshotAsync(
                 repository,
                 runner,
                 message,
                 kind,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (commit is null)
+        if (revision is null)
         {
             return new CommitResult.NoChanges();
         }
 
         await TryQueueStatusChangedCoreAsync().ConfigureAwait(false);
-        return new CommitResult.Committed(new CommitRevision.Known(commit));
+        return new CommitResult.Committed(revision);
     }
 
     // Stages the project and commits it with git commit --only, which records the project scope alone
     // and leaves anything else the user has staged in place. Git runs the hooks, signs the commit and
     // updates the branch under its own locks; returns null when staging found nothing to record.
-    private async Task<string?> CommitProjectSnapshotAsync(
+    private async Task<CommitRevision?> CommitProjectSnapshotAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string message,
@@ -221,6 +221,8 @@ internal sealed partial class GitCliVersionControlService
 
         arguments.Add("--");
         arguments.AddRange(pathspecs);
+        string? parent = await TryResolveCommitAsync(repository, runner, "HEAD", cancellationToken)
+            .ConfigureAwait(false);
         // Hooks and a signer are the user's own programs and can wait on the user, so only
         // cancellation stops them.
         await runner.RunAsync(
@@ -233,15 +235,48 @@ internal sealed partial class GitCliVersionControlService
                 },
                 cancellationToken)
             .ConfigureAwait(false);
-        GitCommandResult head = await runner.RunAsync(
-                repository,
-                ["rev-parse", "--verify", "HEAD"],
-                GitCommandOptions.Local,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        string commit = head.Stdout.Trim();
-        GitRevisionValidator.ValidateCommitId(commit, nameof(commit));
-        return commit;
+        return await ObserveSnapshotCommitAsync(repository, runner, parent).ConfigureAwait(false);
+    }
+
+    // A post-commit hook or another Git process can move HEAD once the commit is made, so HEAD names
+    // this snapshot only while it is a child of the commit it was made on. Otherwise the snapshot is
+    // still saved, but which commit it is cannot be told.
+    private static async Task<CommitRevision> ObserveSnapshotCommitAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string? parent)
+    {
+        try
+        {
+            string? head = await TryResolveCommitAsync(
+                    repository,
+                    runner,
+                    "HEAD",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (head is null)
+            {
+                return new CommitRevision.Unavailable();
+            }
+
+            GitCommandResult parents = await runner.RunAsync(
+                    repository,
+                    ["rev-list", "--parents", "-n", "1", head],
+                    GitCommandOptions.Local,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            string[] ids = parents.Stdout.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            bool madeOnParent = parent is null
+                ? ids.Length == 1
+                : ids.Length == 2 && string.Equals(ids[1], parent, StringComparison.OrdinalIgnoreCase);
+            return madeOnParent
+                ? new CommitRevision.Known(head)
+                : new CommitRevision.Unavailable();
+        }
+        catch (GitOperationException)
+        {
+            return new CommitRevision.Unavailable();
+        }
     }
 
     // The project file is what a version reopens, so a rule that ignores it, such as a global *.bep,

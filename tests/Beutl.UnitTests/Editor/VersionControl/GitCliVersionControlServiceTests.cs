@@ -2803,6 +2803,67 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task CommitAllAsync_does_not_name_a_commit_that_a_post_commit_hook_added()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await WriteHookAsync(
+            "post-commit",
+            "test -n \"$BEUTL_TEST_INNER_COMMIT\" && exit 0\n"
+            + "BEUTL_TEST_INNER_COMMIT=1 git commit --allow-empty --no-verify -q -m 'hook commit'\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string snapshotSubject = (await RunGitAsync("show", "-s", "--format=%s", "HEAD~1")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Unavailable())));
+            Assert.That(snapshotSubject, Is.EqualTo("beutl: snapshot on save"));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_reports_a_saved_snapshot_when_a_post_commit_hook_leaves_the_branch()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await WriteHookAsync("post-commit", "git switch -q --orphan elsewhere\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string mainSubject = (await RunGitAsync("show", "-s", "--format=%s", "main")).Stdout.Trim();
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(new CommitResult.Committed(new CommitRevision.Unavailable())));
+            Assert.That(mainSubject, Is.EqualTo("beutl: snapshot on save"));
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_names_the_snapshot_commit_it_made()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        var result = (CommitResult.Committed)await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        Assert.That(result.Revision, Is.EqualTo(new CommitRevision.Known(head)));
+    }
+
+    [Test]
     public async Task CommitAllAsync_honors_pre_commit_rejection_without_running_post_commit()
     {
         await CommitFileAsync("project.bep", "baseline\n", "baseline");
