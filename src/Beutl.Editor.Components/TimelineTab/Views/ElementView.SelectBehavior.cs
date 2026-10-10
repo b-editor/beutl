@@ -78,7 +78,7 @@ public sealed partial class ElementView
                 {
                     if (e.ClickCount == 2)
                     {
-                        if (obj.ViewModel is { IsEditable.Value: true })
+                        if (!obj.HandleTransitionDoubleClick(e) && obj.ViewModel is { IsEditable.Value: true })
                         {
                             obj.BeginRename();
                         }

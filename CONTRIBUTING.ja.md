@@ -101,5 +101,7 @@ XAMLファイル
 [解像度非依存レンダリングのガイド](docs/extension-authoring/resolution-independent-rendering.md)も参照してください。
 ドッキング可能なエディターツールを追加する場合は、
 [ツールタブ拡張ガイド](docs/extension-authoring/tool-tabs.md)を参照してください。
+Beutl のライブ MCP エンドポイントから AI エージェントにツールを提供する場合は、
+[MCP ツール拡張ガイド](docs/extension-authoring/mcp-tools.md)を参照してください。
 
 [プロジェクト構成ガイド](docs/development/project-structure.md)には、各モジュールの責務と依存境界をまとめています。

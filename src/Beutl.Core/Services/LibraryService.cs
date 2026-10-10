@@ -171,6 +171,7 @@ public static class KnownLibraryItemFormats
     public const string Easing = "Beutl.Animation.Easings.Easing";
     public const string Geometry = "Beutl.Media.Geometry";
     public const string Pen = "Beutl.Media.Pen";
+    public const string ClipTransition = "Beutl.Graphics.Transitions.ClipTransition";
 }
 
 public sealed class LibraryService

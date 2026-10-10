@@ -26,7 +26,11 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public bool IsAnimatable { get; } = false;
 
-    public bool SupportsExpression { get; } = true;
+    /// <summary>
+    /// Gets whether the property takes an expression. A property whose value has no meaning that varies
+    /// with time, such as one that shapes a structure, sets this to <see langword="false"/>.
+    /// </summary>
+    public bool SupportsExpression { get; init; } = true;
 
     public T DefaultValue { get; } = defaultValue;
 
@@ -81,6 +85,11 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         get => _expression;
         set
         {
+            if (value != null && !SupportsExpression)
+            {
+                throw new InvalidOperationException($"Property '{Name}' does not support expressions.");
+            }
+
             if (_expression != value)
             {
                 _expression = value;
@@ -252,6 +261,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public void DeserializeExpression(JsonNode expressionNode)
     {
+        if (!SupportsExpression) return;
+
         Expression = Expressions.Expression.CreateFromNode<T>(expressionNode);
     }
 

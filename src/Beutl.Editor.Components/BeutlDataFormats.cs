@@ -19,6 +19,7 @@ public static class BeutlDataFormats
     public static readonly DataFormat<string> Sound = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Sound);
     public static readonly DataFormat<string> Transform = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Transform);
     public static readonly DataFormat<string> FilterEffect = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.FilterEffect);
+    public static readonly DataFormat<string> ClipTransition = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.ClipTransition);
     public static readonly DataFormat<string> AudioEffect = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.AudioEffect);
     public static readonly DataFormat<string> Brush = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Brush);
     public static readonly DataFormat<string> Easing = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Easing);

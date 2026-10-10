@@ -27,7 +27,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
             && typeToConvert.GetGenericArguments()[0] is Type valueType)
         {
             object? instance;
-            if (jsonNode is JsonObject jsonObject)
+            if (jsonNode is JsonObject jsonObject && CanHoldCoreSerializable(valueType))
             {
                 instance = CoreSerializer.DeserializeFromJsonObject(jsonObject, valueType);
                 goto Return;
@@ -43,6 +43,16 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
         }
 
         throw new Exception("Invalid Optional<T>");
+    }
+
+    // Write stores a core-serializable value as a core object and anything else, such as an easing, with
+    // its type's own JSON converter. A type that cannot hold a core-serializable value was written by
+    // the latter even when its JSON is an object.
+    private static bool CanHoldCoreSerializable(Type valueType)
+    {
+        return typeof(ICoreSerializable).IsAssignableFrom(valueType)
+               || valueType.IsInterface
+               || valueType == typeof(object);
     }
 
     public override void Write(Utf8JsonWriter writer, IOptional value, JsonSerializerOptions options)

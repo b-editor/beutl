@@ -75,11 +75,15 @@ public sealed class ElementStructureService : IElementStructureService
 
                     backward.Start = at;
                     backward.Length = backwardDuration;
+                    // The cut joins the two halves directly: the front keeps the clip's start transition and
+                    // the back its end transition.
+                    backward.EnterTransition = null;
 
                     ShiftLocalKeyFrames(backward, -forwardDuration);
 
                     CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id));
                     storedFiles.Add(backward.Uri!.LocalPath);
+                    target.ExitTransition = null;
                     scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
                     scene.AddChild(backward);
                     backward.NotifySplitted(true, forwardDuration, -forwardDuration);

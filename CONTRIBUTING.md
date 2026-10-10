@@ -120,7 +120,8 @@ Extension authors should also read the
 [resolution-independent rendering guide](docs/extension-authoring/resolution-independent-rendering.md)
 before implementing custom drawables, filter effects, brushes, or shaders, and
 the [tool-tab extension guide](docs/extension-authoring/tool-tabs.md) before
-adding a dockable editor tool.
+adding a dockable editor tool. To give AI agents new tools through Beutl's live
+MCP endpoint, see the [MCP tool extension guide](docs/extension-authoring/mcp-tools.md).
 
 Extensions built for Avalonia 11 must follow the
 [Avalonia 12 migration guide](docs/extension-authoring/avalonia-12-migration.md)
