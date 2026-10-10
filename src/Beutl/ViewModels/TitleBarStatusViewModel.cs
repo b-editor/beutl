@@ -7,6 +7,7 @@ using Beutl.Configuration;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
+using Beutl.Models;
 using Beutl.Services;
 using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
     private readonly Action _openAiJobCenter;
     private DispatcherTimer? _refreshTimer;
     private bool _graphicsRequested;
+    private bool _isSamplingFrameCache;
 
     internal TitleBarStatusViewModel(
         IObservable<bool> isRunningStartupTasks,
@@ -83,8 +85,12 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        // A profile refresh renames the user in place and then publishes a new response.
         AccountText = authenticatedUser
-            .Select(user => user?.Profile.Name ?? StatusStrings.NotSignedIn)
+            .Select(user => user is null
+                ? Observable.Return(StatusStrings.NotSignedIn)
+                : user.Profile.Response.Select(_ => user.Profile.Name))
+            .Switch()
             .ObserveOnUIDispatcher()
             .ToReadOnlyReactivePropertySlim(StatusStrings.NotSignedIn)
             .DisposeWith(_disposables);
@@ -168,7 +174,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
     {
         ProcessMemoryText.Value = StringFormats.ToHumanReadableSize(Environment.WorkingSet);
         ManagedHeapText.Value = StringFormats.ToHumanReadableSize(GC.GetTotalMemory(false));
-        FrameCacheText.Value = DescribeFrameCache();
+        _ = SampleFrameCacheAsync();
 
         // The endpoint does not notify when it starts or stops, so it is sampled with the rest.
         Uri? endpoint = _agentHostEndpoint.IsRunning ? _agentHostEndpoint.EndpointUri : null;
@@ -176,21 +182,42 @@ public sealed class TitleBarStatusViewModel : IDisposable
         LiveMcpEndpoint.Value = endpoint?.ToString();
     }
 
-    private string DescribeFrameCache()
+    // A cache is counted under the lock its frame conversions hold, so the count runs off the UI thread
+    // to keep playback from stalling the popup.
+    private async Task SampleFrameCacheAsync()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         if (!config.IsFrameCacheEnabled)
-            return StatusStrings.Disabled;
+        {
+            FrameCacheText.Value = StatusStrings.Disabled;
+            return;
+        }
 
-        long used = _editorService.TabItems
+        if (_isSamplingFrameCache)
+            return;
+
+        FrameCacheManager[] caches = _editorService.TabItems
             .Select(item => item.Context.Value)
             .OfType<EditViewModel>()
-            .Sum(editor => editor.FrameCacheManager.Value?.CalculateByteCount(int.MinValue, int.MaxValue) ?? 0);
+            .Select(editor => editor.FrameCacheManager.Value)
+            .OfType<FrameCacheManager>()
+            .ToArray();
+        string limit = StringFormats.ToHumanReadableSize(config.FrameCacheMaxSize * 1024 * 1024);
 
-        return string.Format(
-            StatusStrings.FrameCacheUsage,
-            StringFormats.ToHumanReadableSize(used),
-            StringFormats.ToHumanReadableSize(config.FrameCacheMaxSize * 1024 * 1024));
+        _isSamplingFrameCache = true;
+        try
+        {
+            long used = await Task.Run(() => caches.Sum(cache => cache.CalculateByteCount(int.MinValue, int.MaxValue)));
+            FrameCacheText.Value = string.Format(StatusStrings.FrameCacheUsage, StringFormats.ToHumanReadableSize(used), limit);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to measure the frame cache.");
+        }
+        finally
+        {
+            _isSamplingFrameCache = false;
+        }
     }
 
     // The device does not change while the application runs, so it is read once, on the render thread

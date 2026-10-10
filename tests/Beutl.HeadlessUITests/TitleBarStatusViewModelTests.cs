@@ -81,6 +81,47 @@ public sealed class TitleBarStatusViewModelTests
         });
     }
 
+    [AvaloniaTest]
+    public async Task Opening_the_popup_samples_resources_and_services()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), editorService, AgentHostEndpoint.DefaultPort, "test-token");
+        using var status = new TitleBarStatusViewModel(
+            Observable.Return(false),
+            editorService,
+            endpoint,
+            Observable.Return<AuthenticatedUser?>(null),
+            Observable.Return(AiJobMonitorSnapshot.Empty),
+            CreateJobKinds(),
+            () => { });
+
+        status.OnPopupOpened();
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(status.ProcessMemoryText.Value, Is.Not.EqualTo(StatusStrings.Loading));
+                Assert.That(status.ManagedHeapText.Value, Is.Not.EqualTo(StatusStrings.Loading));
+                Assert.That(status.LiveMcpText.Value, Is.EqualTo(StatusStrings.Stopped));
+                Assert.That(status.LiveMcpEndpoint.Value, Is.Null);
+            });
+
+            // The frame cache is counted off the UI thread.
+            for (int i = 0; i < 50 && status.FrameCacheText.Value == StatusStrings.Loading; i++)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.That(status.FrameCacheText.Value, Is.Not.EqualTo(StatusStrings.Loading));
+        }
+        finally
+        {
+            status.OnPopupClosed();
+        }
+    }
+
     private static IAiJobKindRegistry CreateJobKinds()
     {
         var jobKinds = new Mock<IAiJobKindRegistry>();
