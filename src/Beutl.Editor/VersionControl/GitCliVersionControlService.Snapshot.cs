@@ -139,9 +139,13 @@ internal sealed partial class GitCliVersionControlService
                 return new CommitResult.SkippedNoIdentity();
             }
 
-            // The project can change while the identity prompt is open, and the large-media notice
-            // reads the changes that are about to be staged.
+            // The project can change while the identity prompt is open, and the large-media and
+            // ignored-files notices read what is about to be staged or left out.
             status = await GetSnapshotStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+            await RaiseIgnoredProjectFilesNoticeIfNeededAsync(
+                repository,
+                runner,
+                cancellationToken).ConfigureAwait(false);
         }
 
         await RaiseLargeMediaNoticeIfNeededAsync(
@@ -333,13 +337,15 @@ internal sealed partial class GitCliVersionControlService
         string path = GetRepositoryRelativeProjectFilePath(repository, _projectFile);
         try
         {
-            // Exit code 1: not ignored. Git never reports a tracked file as ignored.
+            // Exit code 1: not ignored. Git never reports a tracked file as ignored. check-ignore reads
+            // its input as pathspecs and refuses literal magic, so :(top) keeps a leading colon in a
+            // folder name from being read as magic.
             await runner.RunAsync(
                     repository,
                     ["check-ignore", "--stdin", "-z"],
                     new GitCommandOptions(
                         GitCommandExecutionKind.Local,
-                        StandardInput: path + "\0",
+                        StandardInput: $":(top){path}\0",
                         UseLiteralPathspecs: false),
                     cancellationToken)
                 .ConfigureAwait(false);
