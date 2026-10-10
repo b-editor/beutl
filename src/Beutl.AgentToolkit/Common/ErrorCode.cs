@@ -15,4 +15,6 @@ public static class ErrorCode
     public const string DestructiveIntent = "destructive_intent";
     public const string ProjectConflict = "project_conflict";
     public const string WorkspaceBusy = "workspace_busy";
+    public const string ExtensionToolUnavailable = "extension_tool_unavailable";
+    public const string ExtensionToolFailed = "extension_tool_failed";
 }

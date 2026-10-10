@@ -65,6 +65,60 @@ public sealed class McpToolErrorFiltersTests
         Assert.That(result, Is.Null);
     }
 
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "additionalProperties": true }""")]
+    [TestCase("""{ "type": "object", "additionalProperties": { "type": "string" } }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} } }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "[": {} } }""")]
+    [TestCase("""{ "type": "object", "allOf": [{ "properties": { "x-extra": {} } }] }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "anyOf": [{ "properties": { "x-extra": {} } }] }""")]
+    [TestCase("""{ "type": "object", "$ref": "#/$defs/args", "$defs": { "args": { "properties": { "x-extra": {} } } } }""")]
+    public void Schema_that_admits_extra_properties_accepts_unlisted_arguments(string json)
+    {
+        using JsonDocument schema = JsonDocument.Parse(json);
+
+        CallToolResult? result = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool",
+            ["a", "x-extra"],
+            schema.RootElement);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public void Schema_that_forbids_extra_properties_rejects_unlisted_arguments()
+    {
+        using JsonDocument schema = JsonDocument.Parse(
+            """{ "type": "object", "properties": { "a": {} }, "additionalProperties": false }""");
+
+        CallToolResult? result = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool",
+            ["a", "b"],
+            schema.RootElement);
+
+        Assert.That(ReadToolResult(result!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+    }
+
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} } }""")]
+    [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} }, "additionalProperties": false }""")]
+    public void Pattern_properties_accept_only_matching_names(string json)
+    {
+        using JsonDocument schema = JsonDocument.Parse(json);
+
+        CallToolResult? result = McpToolErrorFilters.CreateUnknownArgumentsResultOrNull(
+            "extension_tool",
+            ["a", "x-extra", "y"],
+            schema.RootElement);
+        ToolResult<object?> toolResult = ReadToolResult(result!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(toolResult.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(toolResult.Error.Message, Does.Contain(": y."));
+            Assert.That(toolResult.Error.Message, Does.Not.Contain("x-extra"));
+            Assert.That(toolResult.Error.Message, Does.Contain("names matching ^x-"));
+        });
+    }
+
     private static ToolResult<object?> ReadToolResult(CallToolResult result)
     {
         string text = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(block => block.Text));
