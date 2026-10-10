@@ -283,19 +283,6 @@
                            IsVisible="{CompiledBinding IsDebuggerAttached}"
                            Text="{x:Static lang:Strings.Debug}" />
 
-                <Border Margin="4,0,0,0"
-                        WindowDecorationProperties.ElementRole="User"
-                        Background="Transparent"
-                        ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}">
-                    <ProgressRing Width="20"
-                                  Height="20"
-                                  MinWidth="0"
-                                  MinHeight="0"
-                                  BorderThickness="4"
-                                  IsIndeterminate="{Binding IsRunningStartupTasks.Value}"
-                                  IsVisible="{Binding IsRunningStartupTasks.Value}" />
-                </Border>
-
                 <Button x:Name="OpenFeedbackButton"
                         WindowDecorationProperties.ElementRole="User"
                         Click="OpenFeedbackClick"
@@ -303,6 +290,10 @@
                         Theme="{StaticResource TitleBarButtonStyle}">
                     <icons:FluentIcon Icon="Chat" Margin="0,0,0,2" />
                 </Button>
+
+                <views:TitleBarStatusView x:Name="TitleBarStatus"
+                                          WindowDecorationProperties.ElementRole="User"
+                                          DataContext="{Binding Status}" />
 
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"

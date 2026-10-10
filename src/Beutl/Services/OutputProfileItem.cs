@@ -165,9 +165,11 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         bool canceled = false;
         CancellationToken executionToken = executionCancellation.Token;
         List<Exception>? failures = null;
+        IDisposable? runningOutput = null;
         try
         {
             _isRunning.Value = true;
+            runningOutput = _editorService.TrackRunningOutput(this);
 
             executionToken.ThrowIfCancellationRequested();
             await Context.RunAsync(executionToken);
@@ -183,6 +185,11 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         }
         finally
         {
+            if (runningOutput is not null)
+            {
+                CaptureCleanupFailure(runningOutput.Dispose, ref failures);
+            }
+
             CaptureCleanupFailure(executionCancellation.Dispose, ref failures);
 
             // Restore the editor-facing state while the workspace is still reserved. Releasing the
