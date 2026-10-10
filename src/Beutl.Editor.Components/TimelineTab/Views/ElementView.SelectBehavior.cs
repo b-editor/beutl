@@ -49,7 +49,11 @@ public sealed partial class ElementView
         private void Select(ElementView obj, TimelineTabViewModel timeline)
         {
             var selection = timeline.EditorContext.GetRequiredService<IEditorSelection>();
-            selection.SelectedObject.Value = obj.ViewModel.Model;
+            // Clicking the selected clip again still tells the editor, which reopens a closed property tab on it.
+            if (ReferenceEquals(selection.SelectedObject.Value, obj.ViewModel.Model))
+                selection.SelectedObject.ForceNotify();
+            else
+                selection.SelectedObject.Value = obj.ViewModel.Model;
 
             timeline.ClearSelected();
             timeline.SelectElement(obj.ViewModel);

@@ -15,6 +15,8 @@ using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -337,6 +339,58 @@ public class ToolTabPinTests
             Assert.That(picked, Does.Not.Contain(ObjectPropertyTabExtension.Instance),
                 "property editors open the property tab, so the tool pickers leave it out");
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Selecting_an_element_leaves_its_element_property_tab_in_front_of_the_property_tab()
+    {
+        EditViewModel editor = await OpenEditor("property-tabs-order");
+        Element element = await AddElement(editor, 0, () => new RectShape());
+        IEditorSelection selection = SelectionOf(editor);
+        selection.SelectedObject.Value = null;
+        IToolDock right = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Right)!;
+        Assert.That(editor.DockHost.OpenToolTab(new ObjectPropertyTabViewModel(editor), right), Is.True);
+
+        selection.SelectedObject.Value = element;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>()?.ChildContext.Value?.Target, Is.SameAs(element));
+            Assert.That((right.ActiveDockable as BeutlToolDockable)?.ToolContext, Is.InstanceOf<ElementPropertyTabViewModel>());
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Clicking_the_selected_element_reopens_a_closed_element_property_tab()
+    {
+        EditViewModel editor = await OpenEditor("property-tab-reclick");
+        Element element = await AddElement(editor, 0, () => new RectShape());
+        SelectionOf(editor).SelectedObject.Value = element;
+        var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 700 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            editor.CloseToolTab(editor.FindToolTab<ElementPropertyTabViewModel>()!);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>(), Is.Null);
+
+            ElementView view = window.GetVisualDescendants().OfType<ElementView>()
+                .Single(v => ((ElementViewModel)v.DataContext!).Model == element);
+            Point center = view.border.TranslatePoint(
+                new Point(view.border.Bounds.Width / 2, view.border.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(center, MouseButton.Left);
+            window.MouseUp(center, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(editor.FindToolTab<ElementPropertyTabViewModel>()?.Element.Value, Is.SameAs(element),
+                "the selection did not change, but the click still reopens the tab");
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]
