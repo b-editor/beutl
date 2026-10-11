@@ -462,14 +462,37 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     restart = false;
                 }
 
-                if (restart && !_sessionGuard.TryApply(
-                        generation,
-                        () => IsPlaying.Value = true))
+                if (restart && !await TryApplyOnUIThreadAsync(generation, () => IsPlaying.Value = true))
                 {
                     restart = false;
                 }
             } while (restart);
         });
+    }
+
+    // Changes the playback state on the UI thread, where the editor's subscribers run, after whatever the
+    // playback already posted there. False when the session no longer owns the state or a subscriber threw.
+    private async Task<bool> TryApplyOnUIThreadAsync(int generation, Action update)
+    {
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            () => TryApplyLogged(generation, update),
+            Avalonia.Threading.DispatcherPriority.Normal);
+    }
+
+    // On the UI thread an exception that escapes a dispatcher job ends the process, so a subscriber that throws
+    // is logged instead.
+    private bool TryApplyLogged(int generation, Action update)
+    {
+        try
+        {
+            return _sessionGuard.TryApply(generation, update);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while changing the playback state. ({SceneId})",
+                _editViewModel.SceneId);
+            return false;
+        }
     }
 
     private async Task<bool> PlayInternal(int generation, CancellationToken playbackToken)
@@ -556,7 +579,14 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // task detached on entry) only while this task still owns the session. If a Pause()
             // timeout disowned it and a newer session took over, restoring here would stomp that
             // session, so the new owner — or Pause()'s timeout path — restores it instead.
-            _sessionGuard.TryApply(generation, RestoreStoppedPreviewState);
+            // Both on the UI thread, where IsPlaying subscribers run: the ticker is retired there first,
+            // so no frame or stop it posted can land after the stopped state, the rewind or a restart.
+            PlaybackTicker? finishedTicker = ticker;
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                finishedTicker?.Retire();
+                TryApplyLogged(generation, RestoreStoppedPreviewState);
+            }, Avalonia.Threading.DispatcherPriority.Normal);
 
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
         }
@@ -565,9 +595,10 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
         // A task disowned by a Pause() timeout must not rewind the playhead of a stopped editor or
         // the session that replaced it, so gate the shared CurrentTime write on ownership too.
-        if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true } && Scene != null)
+        if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true }
+            && Scene is { } loopScene)
         {
-            return _sessionGuard.TryApply(generation, () => _editorClock.CurrentTime.Value = Scene.Start);
+            return await TryApplyOnUIThreadAsync(generation, () => _editorClock.CurrentTime.Value = loopScene.Start);
         }
 
         return false;
