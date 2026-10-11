@@ -43,8 +43,7 @@ internal static partial class SlippableMedia
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo);
             Project? project = element.FindHierarchicalParent<Project>();
-            _sampleRate = project?.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value) == true
-                && int.TryParse(value, out int rate) && rate > 0 ? rate : 44100;
+            _sampleRate = project.GetSampleRate();
         }
 
         public List<Target> Collect()

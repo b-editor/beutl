@@ -59,7 +59,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     return newController;
                 }
 
-                return newEncoder.CreateController(newFile);
+                var controller = newEncoder.CreateController(newFile);
+                Project? project = Model.FindHierarchicalParent<Project>();
+                controller.VideoSettings.FrameRate = new Rational(project.GetFrameRate(), 1);
+                controller.AudioSettings.SampleRate = project.GetSampleRate();
+                return controller;
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
