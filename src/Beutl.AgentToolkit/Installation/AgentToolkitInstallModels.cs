@@ -70,13 +70,32 @@ public sealed record AgentToolkitInstallOptions
     // installing Beutl; the agent configuration never carries the live MCP token or a URL.
     public IReadOnlyDictionary<string, string> McpEnvironment { get; init; }
         = new Dictionary<string, string>();
+
+    // The files an earlier install wrote, with the hashes of what it wrote (from the install manifest).
+    // A skill or subagent file whose content no longer matches, or that no install recorded, is backed
+    // up before the bundled version replaces it.
+    public IReadOnlyList<InstalledFileRecord> PreviousFiles { get; init; } = [];
 }
 
 public sealed record AgentToolkitInstallResult(
     IReadOnlyList<string> InstalledFiles,
     string? McpConfigPath,
     bool InstalledMcp,
-    IReadOnlyList<InstalledFileRecord> AssetFileRecords);
+    IReadOnlyList<InstalledFileRecord> AssetFileRecords)
+{
+    // Set when the JSON MCP configuration has comments and needed a change: writing it would drop the
+    // comments, so it was left unchanged and the user has to make the edit.
+    public ManualMcpEdit? ManualMcpEdit { get; init; }
+
+    // Skill and subagent files the user had edited, copied aside before the bundled version replaced them.
+    public IReadOnlyList<BackedUpFile> BackedUpFiles { get; init; } = [];
+}
+
+// Snippet is a JSON object that shows where the entry goes; ObsoleteEntries are the server entries of
+// earlier versions to remove from the file.
+public sealed record ManualMcpEdit(string ConfigPath, string Snippet, IReadOnlyList<string> ObsoleteEntries);
+
+public sealed record BackedUpFile(string Path, string BackupPath);
 
 public sealed record AgentToolkitMcpServerCommand(
     string Command,

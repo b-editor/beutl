@@ -70,6 +70,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         ResolvedSubagentsPath = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         ResolvedMcpConfigPath = new ReactivePropertySlim<string>().DisposeWith(_disposables);
         Status = new ReactivePropertySlim<string>().DisposeWith(_disposables);
+        ManualMcpSnippet = new ReactivePropertySlim<string>("").DisposeWith(_disposables);
         IsInstalling = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         HasInstalledFiles = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
 
@@ -139,6 +140,10 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<string> ResolvedMcpConfigPath { get; }
 
     public ReactivePropertySlim<string> Status { get; }
+
+    // The MCP entry to add by hand when the agent's JSON configuration has comments, which Beutl does not
+    // rewrite; empty otherwise.
+    public ReactivePropertySlim<string> ManualMcpSnippet { get; }
 
     public ReactivePropertySlim<bool> IsInstalling { get; }
 
@@ -314,6 +319,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         {
             IsInstalling.Value = true;
             Status.Value = "";
+            ManualMcpSnippet.Value = "";
             InstalledFiles.Clear();
             HasInstalledFiles.Value = false;
             RecomputeTargets();
@@ -338,8 +344,11 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             bool installMcp = InstallMcp.Value && canWriteMcp && commandAvailable;
 
             IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
+            // The recorded hashes tell an untouched earlier install from a file the user edited.
+            AgentToolkitInstallManifest? previous =
+                AgentToolkitInstallManifestStore.Load(AgentToolkitInstallManifestStore.GetDefaultPath());
             AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
-                BuildInstallOptions(targets, installSubagents, installMcp),
+                BuildInstallOptions(targets, installSubagents, installMcp) with { PreviousFiles = previous?.Files ?? [] },
                 assets);
 
             foreach (string file in result.InstalledFiles)
@@ -347,17 +356,24 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
                 InstalledFiles.Add(file);
             }
 
+            foreach (BackedUpFile file in result.BackedUpFiles)
+            {
+                InstalledFiles.Add("backed up: " + file.BackupPath);
+            }
+
+            ManualMcpSnippet.Value = result.ManualMcpEdit?.Snippet ?? "";
+
             var cliErrors = new List<string>();
             bool cliRegistered = targets.UseCliForMcp
                                  && await RegisterMcpThroughCliAsync(cliErrors).ConfigureAwait(true);
 
-            foreach (string file in UpdateInstallManifest(targets, result, assets, installSubagents, installMcp || cliRegistered))
+            foreach (string file in UpdateInstallManifest(targets, result, assets, installSubagents, result.InstalledMcp || cliRegistered))
             {
                 InstalledFiles.Add("removed: " + file);
             }
 
             HasInstalledFiles.Value = InstalledFiles.Count > 0;
-            PublishInstallStatus(mcpError, cliErrors);
+            PublishInstallStatus(mcpError, cliErrors, result);
         }
         catch (Exception ex)
         {
@@ -395,9 +411,22 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     }
 
     // Reports how many files the install wrote, then any MCP configuration and CLI registration problems.
-    private void PublishInstallStatus(string? mcpError, List<string> cliErrors)
+    private void PublishInstallStatus(string? mcpError, List<string> cliErrors, AgentToolkitInstallResult result)
     {
         Status.Value = string.Format(SettingsStrings.AiAgents_InstallCompleted, InstalledFiles.Count);
+        if (result.BackedUpFiles.Count > 0)
+            Status.Value += Environment.NewLine + string.Format(SettingsStrings.AiAgents_EditedFilesBackedUp, result.BackedUpFiles.Count);
+        if (result.ManualMcpEdit is { } manual)
+        {
+            Status.Value += Environment.NewLine + string.Format(SettingsStrings.AiAgents_McpConfigHasComments, manual.ConfigPath);
+            if (manual.ObsoleteEntries.Count > 0)
+            {
+                Status.Value += Environment.NewLine + string.Format(
+                    SettingsStrings.AiAgents_McpConfigObsoleteEntries,
+                    string.Join(", ", manual.ObsoleteEntries.Select(name => $"\"{name}\"")));
+            }
+        }
+
         if (mcpError is not null)
             Status.Value += Environment.NewLine + mcpError;
         if (cliErrors.Count > 0)

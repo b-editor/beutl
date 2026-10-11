@@ -212,6 +212,15 @@
                                      Text="{Binding Status.Value}"
                                      TextWrapping="Wrap" />
 
+                <TextBox Margin="0,8,0,0"
+                         AcceptsReturn="True"
+                         FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                         FontSize="12"
+                         IsReadOnly="True"
+                         IsVisible="{Binding ManualMcpSnippet.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                         Text="{Binding ManualMcpSnippet.Value}"
+                         TextWrapping="NoWrap" />
+
                 <Border Classes="options-group" IsVisible="{Binding HasInstalledFiles.Value}">
                     <ctrls:OptionsGroupPanel>
                         <ctrls:OptionsDisplayItem Expands="True"

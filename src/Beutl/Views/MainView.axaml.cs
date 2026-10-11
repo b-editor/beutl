@@ -181,7 +181,11 @@ public sealed partial class MainView : UserControl
         {
             using var settingsViewModel = new AiAgentSettingsPageViewModel();
             await settingsViewModel.InstallAsync();
-            NotificationService.ShowInformation(SettingsStrings.AiAgents, settingsViewModel.Status.Value);
+            // The entry to add by hand, when the agent's MCP configuration has comments Beutl keeps.
+            string message = settingsViewModel.ManualMcpSnippet.Value is { Length: > 0 } snippet
+                ? settingsViewModel.Status.Value + Environment.NewLine + snippet
+                : settingsViewModel.Status.Value;
+            NotificationService.ShowInformation(SettingsStrings.AiAgents, message);
         }
         catch (Exception ex)
         {
