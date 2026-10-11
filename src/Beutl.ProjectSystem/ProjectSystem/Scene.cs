@@ -299,10 +299,10 @@ public partial class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                if (TryGetStoredElementPattern(dirPath, item, out string? itemPath, out string? rel)
-                    && _excludeElements.Contains(rel) && File.Exists(itemPath))
+                if (TryGetStoredElementPattern(dirPath, item, out _, out string? rel))
                 {
-                    _excludeElements.Remove(rel);
+                    // Undo/Redo can reattach an element before auto-save recreates its file.
+                    _excludeElements.RemoveAll(pattern => AreSameElementPaths(dirPath!, pattern, rel));
                 }
 
                 affectedRange.Add(item.Range);

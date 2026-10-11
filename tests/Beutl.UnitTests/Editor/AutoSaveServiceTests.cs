@@ -1,13 +1,17 @@
 ﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
@@ -35,6 +39,71 @@ public class AutoSaveServiceTests
     }
 
     private Uri CreateUri(string relativePath) => new(Path.Combine(_directory, relativePath));
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AutoSave_RestoredElementSurvivesSceneReload(bool undoAddition)
+    {
+        var scene = new Scene { Uri = CreateUri("main.scene") };
+        var element = new Element
+        {
+            Uri = CreateUri("elements/restored.belm"),
+            Length = TimeSpan.FromSeconds(1),
+        };
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        CoreSerializer.StoreToUri(element, element.Uri);
+        using var harness = new HistoryHarness(scene);
+        using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var errorSubscription = service.SaveError.Subscribe(errors.Add);
+        using var saveSubscription = harness.Observer.Operations
+            .Buffer(harness.History.StateChanged)
+            .Subscribe(operations => service.AutoSave(operations));
+
+        scene.AddChild(element);
+        harness.History.Commit("Add element");
+        Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+
+        if (undoAddition)
+            harness.History.Undo();
+        else
+            new ElementStructureService(harness.History).Exclude(scene, [element]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.Children, Is.Empty);
+            Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
+            Assert.That(errors, Is.Empty);
+        });
+
+        if (undoAddition)
+            harness.History.Redo();
+        else
+            harness.History.Undo();
+
+        Assert.That(scene.Children, Is.EqualTo(new[] { element }));
+        for (int i = 0; i < 3; i++)
+        {
+            element.Name = $"Restored element {i}";
+            harness.History.Commit("Rename element");
+        }
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        JsonNode include = patterns["Include"]!;
+        string[] includes = include is JsonArray array
+            ? array.Select(node => node!.GetValue<string>()).ToArray()
+            : [include.GetValue<string>()];
+        Assert.Multiple(() =>
+        {
+            Assert.That(errors, Is.Empty);
+            Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
+            Assert.That(restored.Children.Select(child => child.Name), Is.EqualTo(new[] { element.Name }));
+            Assert.That(patterns["Exclude"], Is.Null);
+            Assert.That(includes, Is.Unique);
+        });
+    }
 
     [Test]
     public void AutoSave_StandaloneSceneKeepsSceneAndAttachedElements()
