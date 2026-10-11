@@ -2,9 +2,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -16,6 +18,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using SkiaSharp;
@@ -512,6 +515,77 @@ public sealed class AgentHostAiToolsTests
         }
     }
 
+    // The generation tools take sceneId like the scene tools: the result is saved for the scene the call
+    // names and shaped by its frame, whichever tab is selected. Only a call without sceneId uses the
+    // selected tab's scene.
+    [AvaloniaTest]
+    public async Task AGenerationIsSavedForTheSceneItsSceneIdNames()
+    {
+        await TestReset.ResetShellAsync();
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-ai-scene-target");
+        Directory.CreateDirectory(workspace);
+        Project project = (await TestShell.Project.CreateProject(640, 360, 30, 44100, "agent-ai-scene-target", workspace))!;
+        Scene landscape = project.Items.OfType<Scene>().Single();
+        Scene portrait = ProjectOperations.AddScene(project, new SceneCreateOptions(
+            360, 640, TimeSpan.Zero, TimeSpan.FromSeconds(5), "Portrait"));
+        ProjectOperations.Save(project);
+        TestShell.Editor.ActivateTabItem(landscape);
+        HeadlessTestHelpers.Settle();
+        // As the real executor does, the result is kept in the scene's resources/ai folder.
+        var backend = new FakeBackend { ResultForScene = scene => WritePngIn(AiResultImporter.GetResourceDirectory(scene)) };
+        var endpoint = new AgentHostEndpoint(
+            TestShell.Project,
+            TestShell.Editor,
+            GetAvailableLoopbackPort(),
+            "test-token",
+            registryDirectory: _directory)
+        {
+            AiBackend = backend,
+        };
+        try
+        {
+            await endpoint.StartAsync();
+            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            {
+                Endpoint = endpoint.EndpointUri!,
+                TransportMode = HttpTransportMode.StreamableHttp,
+                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + endpoint.Token },
+            });
+            await using McpClient client = await McpClient.CreateAsync(transport);
+
+            JsonObject targeted = Succeeded(await client.CallToolAsync(
+                "generate_image",
+                new Dictionary<string, object?>
+                {
+                    ["prompt"] = "a lighthouse",
+                    ["waitSeconds"] = 10,
+                    ["sceneId"] = portrait.Id.ToString(),
+                }));
+            JsonObject selected = Succeeded(await client.CallToolAsync(
+                "generate_image",
+                new Dictionary<string, object?> { ["prompt"] = "a harbour", ["waitSeconds"] = 10 }));
+
+            AiImageGenerationNodeRequest[] requests = [.. backend.Requests.Cast<AiImageGenerationNodeRequest>()];
+            Assert.Multiple(() =>
+            {
+                Assert.That(targeted["status"]?.GetValue<string>(), Is.EqualTo("Succeeded"));
+                Assert.That(targeted["sceneId"]?.GetValue<string>(), Is.EqualTo(portrait.Id.ToString()));
+                Assert.That(targeted["output"]?["outputPath"]?.GetValue<string>(),
+                    Does.StartWith(AiResultImporter.GetResourceDirectory(portrait)));
+                Assert.That(requests[0].AspectRatio, Is.EqualTo("9:16"));
+                Assert.That(selected["sceneId"]?.GetValue<string>(), Is.EqualTo(landscape.Id.ToString()));
+                Assert.That(requests[1].AspectRatio, Is.EqualTo("16:9"));
+                Assert.That(backend.Scenes, Is.EqualTo(new[] { portrait, landscape }));
+                Assert.That(((EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value).Scene,
+                    Is.SameAs(landscape), "the call leaves the user's selected tab alone");
+            });
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
     [AvaloniaTest]
     public async Task WithoutAnOpenSceneThereIsNowhereToSaveTheResult()
     {
@@ -556,7 +630,23 @@ public sealed class AgentHostAiToolsTests
         new("square", "Square", IsDefault: true, IsAvailable: true, new GenerativeImageCapabilities(["1:1"], ["opaque"], SupportsSeed: false, MaxReferenceImages: 4));
 
     private AgentHostAiTools CreateTools(EditorService editor, AgentAiJobManager jobs, FakeBackend backend)
-        => new(editor, jobs, backend);
+        => new(editor, jobs, backend, new AgentSessionManager());
+
+    private static JsonObject Succeeded(CallToolResult result)
+    {
+        JsonObject payload = JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
+        Assert.That(payload["isSuccess"]?.GetValue<bool>(), Is.True, payload.ToJsonString());
+        return payload["value"]!.AsObject();
+    }
+
+    private static string WritePngIn(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, $"{Guid.NewGuid():N}.png");
+        using var bitmap = new Bitmap(4, 4);
+        Assert.That(bitmap.Save(path, EncodedImageFormat.Png), Is.True);
+        return path;
+    }
 
     private string WritePng(string name)
     {
@@ -621,6 +711,19 @@ public sealed class AgentHostAiToolsTests
         }
     }
 
+    private sealed class SceneExecutor(FakeBackend owner, Scene scene) : IGenerativeNodeExecutor
+    {
+        public Task<GenerativeExecutionResult> ExecuteAsync(
+            GenerativeRequest request,
+            IProgress<GenerativeProgress> progress,
+            CancellationToken cancellationToken)
+        {
+            owner.Requests.Add(request);
+            return Task.FromResult(new GenerativeExecutionResult(
+                new Uri(owner.ResultForScene!(scene)), "model", 1, request.Operation == GenerativeOperation.VideoGeneration));
+        }
+    }
+
     private sealed class FakeBackend : IAgentAiBackend, IGenerativeNodeExecutor
     {
         public string Result { get; set; } = string.Empty;
@@ -651,10 +754,13 @@ public sealed class AgentHostAiToolsTests
         public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
             => Task.FromResult(Models.GetValueOrDefault(operationId) ?? []);
 
+        // When set, an executor keeps its result where this puts it for the scene it was made for.
+        public Func<Scene, string>? ResultForScene { get; set; }
+
         public IGenerativeNodeExecutor CreateExecutor(Scene scene)
         {
             Scenes.Add(scene);
-            return this;
+            return ResultForScene is null ? this : new SceneExecutor(this, scene);
         }
 
         public async Task<GenerativeExecutionResult> ExecuteAsync(
