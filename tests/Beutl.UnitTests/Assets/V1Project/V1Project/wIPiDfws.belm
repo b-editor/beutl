@@ -1,0 +1,65 @@
+{
+  "Start": "00:00:00",
+  "Length": "00:00:08",
+  "ZIndex": 10,
+  "AccentColor": "#ff8cd484",
+  "IsEnabled": true,
+  "UseNode": false,
+  "Id": "e60be939-5c11-4f55-b134-157d354b83c2",
+  "Name": "Opening theme.wav",
+  "Operation": {
+    "Id": "f52cb0ec-ca0a-4595-936b-75ad7560a89e",
+    "Name": "",
+    "Children": [
+      {
+        "Value": {
+          "Source": "C:\\Users\\beutl\\Music\\Opening theme.wav",
+          "OffsetPosition": "00:00:01",
+          "Gain": 50,
+          "Speed": 120,
+          "Effect": {
+            "IsEnabled": true,
+            "Id": "d73f9619-79dc-47a6-af73-c87f715a9d3c",
+            "Name": "",
+            "Animations": {},
+            "Children": [
+              {
+                "DelayTime": 250,
+                "Feedback": 30,
+                "DryMix": 60,
+                "WetMix": 40,
+                "IsEnabled": true,
+                "Id": "5b72ea75-1b52-46f4-8745-24140b511ee4",
+                "Name": "",
+                "Animations": {},
+                "$type": "[Beutl.Engine]Beutl.Audio.Effects:DelayEffect"
+              }
+            ],
+            "$type": "[Beutl.Engine]Beutl.Audio.Effects:AudioEffectGroup"
+          },
+          "IsVisible": true,
+          "ZIndex": 0,
+          "TimeRange": {
+            "Start": "00:00:00",
+            "Duration": "00:00:00",
+            "End": "00:00:00",
+            "IsEmpty": false
+          },
+          "Id": "7607bcb5-f63a-49c5-8087-c63927c728de",
+          "Name": "",
+          "Animations": {}
+        },
+        "IsEnabled": true,
+        "Id": "1a760aca-b32a-4f7e-9c4f-41c3892e0fb4",
+        "Name": "",
+        "$type": "[Beutl.Operators].Source:SourceSoundOperator"
+      }
+    ]
+  },
+  "NodeTree": {
+    "Id": "104372a2-6fd7-4e4b-b25d-cd684cc0f4b2",
+    "Name": "",
+    "Nodes": [],
+    "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel"
+  }
+}

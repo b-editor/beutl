@@ -1,0 +1,111 @@
+{
+  "Start": "00:00:00",
+  "Length": "00:00:05",
+  "ZIndex": 5,
+  "AccentColor": "#ff5ccd54",
+  "IsEnabled": true,
+  "UseNode": false,
+  "Id": "c2018e17-a2c7-4cc0-a83b-67561a07e69d",
+  "Name": "Geometry",
+  "Operation": {
+    "Id": "7aa24d82-50cd-4042-ac76-d5be70650961",
+    "Name": "",
+    "Children": [
+      {
+        "Value": {
+          "Data": {
+            "FillType": 0,
+            "Transform": null,
+            "Id": "00275966-55ab-4c09-8277-67c154c17005",
+            "Name": "",
+            "Animations": {},
+            "Figures": [
+              {
+                "IsClosed": true,
+                "StartPoint": "0, 0",
+                "Id": "43203e3f-494b-4d5f-aa9d-a799902c8786",
+                "Name": "",
+                "Animations": {},
+                "Segments": [
+                  {
+                    "Point": "200, 0",
+                    "Id": "64d06960-0759-41ca-a040-29a994e5aa2d",
+                    "Name": "",
+                    "Animations": {},
+                    "$type": "[Beutl.Engine]Beutl.Media:LineSegment"
+                  },
+                  {
+                    "Point": "100, 160",
+                    "Id": "11036f1a-eecc-4cbd-81ad-dd87cd0ac6ce",
+                    "Name": "",
+                    "Animations": {},
+                    "$type": "[Beutl.Engine]Beutl.Media:LineSegment"
+                  }
+                ]
+              }
+            ],
+            "$type": "[Beutl.Engine]Beutl.Media:PathGeometry"
+          },
+          "Width": -1,
+          "Height": -1,
+          "Stretch": 0,
+          "Pen": null,
+          "CreatedGeometry": null,
+          "Transform": {
+            "IsEnabled": true,
+            "Id": "94810a5f-7871-4c5d-bcfb-f04e15ed1518",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+          },
+          "FilterEffect": {
+            "IsEnabled": true,
+            "Id": "a71258d6-f436-4c3d-bd6a-dfd82462ce8d",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+          },
+          "AlignmentX": 0,
+          "AlignmentY": 0,
+          "TransformOrigin": "50%, 50%",
+          "Fill": {
+            "Color": "#ff2196f3",
+            "Opacity": 100,
+            "Transform": null,
+            "TransformOrigin": "0%, 0%",
+            "Id": "6bfbbc8c-ba54-4a20-a39b-27ec71455f2b",
+            "Name": "",
+            "Animations": {},
+            "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+          },
+          "OpacityMask": null,
+          "BlendMode": 3,
+          "Opacity": 100,
+          "IsVisible": true,
+          "ZIndex": 0,
+          "TimeRange": {
+            "Start": "00:00:00",
+            "Duration": "00:00:00",
+            "End": "00:00:00",
+            "IsEmpty": false
+          },
+          "Id": "f03b71e7-a365-4462-96f9-0b7f411e3d33",
+          "Name": "",
+          "Animations": {}
+        },
+        "IsEnabled": true,
+        "Id": "54f9be26-05cb-465e-acf2-9509b4fffb08",
+        "Name": "",
+        "$type": "[Beutl.Operators].Source:GeometryOperator"
+      }
+    ]
+  },
+  "NodeTree": {
+    "Id": "92ac430e-6709-4020-b3ad-1e0e435cba82",
+    "Name": "",
+    "Nodes": [],
+    "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel"
+  }
+}

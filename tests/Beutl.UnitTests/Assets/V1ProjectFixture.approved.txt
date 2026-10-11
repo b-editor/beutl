@@ -1,0 +1,202 @@
+Project variables: framerate=30, samplerate=44100
+Scene "V1Project": 1920x1080, duration 00:05:00, 12 elements
+
+Notices on open:
+  Warning for the project: Node trees from Beutl 1.x were not migrated
+    The node trees of these elements were made in Beutl 1.x and were not migrated, so they are not drawn: Node tree. Their files are kept unchanged until you remove the object that holds the node tree. Saving converts the rest of the project, after which Beutl 1.x cannot open it. Edits and closing the project also save it, so keep a copy of the project now if you still need it in Beutl 1.x.
+  Warning for the scene "V1Project": Some elements could not be fully loaded
+    These elements in V1Project could not be fully loaded, usually because an extension is not installed: Node tree. Their edits are not saved until the missing type is available or the unavailable object is removed, so they are read-only until then.
+
+Layer 0: "Group" (Qr8pynXH.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ffcb52ca
+  1.1.0 wrote: operators [TakeAfterOperator, GroupOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] PortalObject
+      Count = 2
+  [1] DrawableGroup
+      1.1.0 values not read: Fill, OpacityMask, IsVisible, TimeRange
+      Transform.Children: 1 item(s)
+      Transform.Children[0]: RotationTransform
+      Transform.Children[0].Rotation = 15
+      FilterEffect.Children: 1 item(s)
+      FilterEffect.Children[0]: DropShadow
+      FilterEffect.Children[0].Position = "10, 10"
+      FilterEffect.Children[0].Sigma = "4, 4"
+      FilterEffect.Children[0].Color = "#80000000"
+
+Layer 1: "Ellipse" (7GwgTlYf.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ff82e2a8
+  1.1.0 wrote: operators [EllipseOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] EllipseShape
+      1.1.0 values not read: Stretch, CreatedGeometry, OpacityMask, IsVisible, TimeRange
+      Animations.Width: KeyFrameAnimation<Single>
+      Animations.Width.KeyFrames: 3 item(s)
+      Animations.Width.KeyFrames[0]: KeyFrame<Single>
+      Animations.Width.KeyFrames[0].Value = 300
+      Animations.Width.KeyFrames[0].Easing.X1 = 0
+      Animations.Width.KeyFrames[0].Easing.Y1 = 0
+      Animations.Width.KeyFrames[0].Easing.X2 = 1
+      Animations.Width.KeyFrames[0].Easing.Y2 = 1
+      Animations.Width.KeyFrames[1]: KeyFrame<Single>
+      Animations.Width.KeyFrames[1].Value = 600
+      Animations.Width.KeyFrames[1].KeyTime = "00:00:02"
+      Animations.Width.KeyFrames[1].Easing = "[Beutl.Engine]Beutl.Animation.Easings:SineEaseInOut"
+      Animations.Width.KeyFrames[2]: KeyFrame<Single>
+      Animations.Width.KeyFrames[2].Value = 450
+      Animations.Width.KeyFrames[2].KeyTime = "00:00:04"
+      Animations.Width.KeyFrames[2].Easing.X1 = 0.25
+      Animations.Width.KeyFrames[2].Easing.Y1 = 0.1
+      Animations.Width.KeyFrames[2].Easing.X2 = 0.25
+      Animations.Width.KeyFrames[2].Easing.Y2 = 1
+      Width = 300
+      Height = 200
+      Fill.Color = "#ffff4081"
+      Fill.TransformOrigin = "0%, 0%"
+
+Layer 2: "Rectangle" (bRgyZBAD.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ffb08be1
+  1.1.0 wrote: operators [RectOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] RectShape
+      1.1.0 values not read: Stretch, CreatedGeometry, OpacityMask, IsVisible, TimeRange
+      Width = 400
+      Height = 120
+      Pen: Pen
+      Pen.Brush: SolidColorBrush
+      Pen.Brush.Color = "Black"
+      Pen.Brush.TransformOrigin = "0%, 0%"
+      Pen.Thickness = 8
+      Pen.StrokeAlignment = 2
+      Fill.TransformOrigin = "0%, 0%"
+      Transform.Children: 1 item(s)
+      Transform.Children[0]: TranslateTransform
+      Transform.Children[0].Animations.X: KeyFrameAnimation<Single>
+      Transform.Children[0].Animations.X.KeyFrames: 2 item(s)
+      Transform.Children[0].Animations.X.KeyFrames[0]: KeyFrame<Single>
+      Transform.Children[0].Animations.X.KeyFrames[0].Value = -200
+      Transform.Children[0].Animations.X.KeyFrames[0].Easing.X1 = 0
+      Transform.Children[0].Animations.X.KeyFrames[0].Easing.Y1 = 0
+      Transform.Children[0].Animations.X.KeyFrames[0].Easing.X2 = 1
+      Transform.Children[0].Animations.X.KeyFrames[0].Easing.Y2 = 1
+      Transform.Children[0].Animations.X.KeyFrames[1]: KeyFrame<Single>
+      Transform.Children[0].Animations.X.KeyFrames[1].Value = 200
+      Transform.Children[0].Animations.X.KeyFrames[1].KeyTime = "00:00:03"
+      Transform.Children[0].Animations.X.KeyFrames[1].Easing = "[Beutl.Engine]Beutl.Animation.Easings:QuadraticEaseOut"
+      Transform.Children[0].X = -200
+      Transform.Children[0].Y = 100
+
+Layer 3: "Decorator" (DF8DDAUl.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ffd48e8d
+  1.1.0 wrote: operators [TakeAfterOperator, DecorateOperator (turned off)], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] PortalObject
+      Count = 1
+  [1] DrawableDecorator
+      KNOWN GAP: 1.1.0 wrote this operator turned off, but the migrated object is enabled
+      1.1.0 values not read: Child, Fill, OpacityMask, IsVisible, TimeRange
+      Transform.Children: 1 item(s)
+      Transform.Children[0]: ScaleTransform
+      Transform.Children[0].Scale = 150
+      FilterEffect.Children: 1 item(s)
+      FilterEffect.Children[0]: Blur
+      FilterEffect.Children[0].Sigma = "6, 6"
+      BlendMode = 14
+
+Layer 4: "Rounded rectangle" (2XF2IFLH.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ff73d74b
+  1.1.0 wrote: operators [RoundedRectOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] RoundedRectShape
+      1.1.0 values not read: Stretch, CreatedGeometry, OpacityMask, IsVisible, TimeRange
+      Width = 320
+      Height = 180
+      CornerRadius = "40,40,40,40"
+      Smoothing = 60
+      Fill.Color = "#ff4caf50"
+      Fill.TransformOrigin = "0%, 0%"
+
+Layer 5: "Geometry" (N5gCNNPP.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ff5ccd54
+  1.1.0 wrote: operators [GeometryOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] GeometryShape
+      1.1.0 values not read: Width, Height, Stretch, CreatedGeometry, OpacityMask, IsVisible, TimeRange
+      Data.Figures: 1 item(s)
+      Data.Figures[0]: PathFigure
+      Data.Figures[0].IsClosed = true
+      Data.Figures[0].StartPoint = "0, 0"
+      Data.Figures[0].Segments: 2 item(s)
+      Data.Figures[0].Segments[0]: LineSegment
+      Data.Figures[0].Segments[0].Point = "200, 0"
+      Data.Figures[0].Segments[1]: LineSegment
+      Data.Figures[0].Segments[1].Point = "100, 160"
+      Fill.Color = "#ff2196f3"
+      Fill.TransformOrigin = "0%, 0%"
+      AlignmentX = 0
+      AlignmentY = 0
+
+Layer 6: "Text" (XUXNqSRb.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ffe18c7b
+  1.1.0 wrote: operators [TextBlockOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] TextBlock
+      1.1.0 values not read: OpacityMask, IsVisible, TimeRange
+      Size = 48
+      FontFamily = "Noto Sans JP"
+      FontWeight = 700
+      Spacing = 4
+      Text = "Made with Beutl 1.1.0"
+      Fill.Color = "#ffffeb3b"
+      Fill.TransformOrigin = "0%, 0%"
+
+Layer 7: "clip.mp4" (SEur90lf.belm)
+  start 00:00:00, length 00:00:10, enabled True, accent color #ff99d9da
+  1.1.0 wrote: operators [SourceVideoOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] SourceVideo
+      1.1.0 values not read: Fill, OpacityMask, IsVisible, TimeRange
+      OffsetPosition = "00:00:02"
+      Speed = 150
+      Source = "file:///C:/Users/beutl/Videos/clip.mp4"
+      IsLoop = true
+
+Layer 8: "photo.png" (bdw5eHw0.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ffd1d687
+  1.1.0 wrote: operators [SourceImageOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] SourceImage
+      1.1.0 values not read: Fill, OpacityMask, IsVisible, TimeRange
+      Source = "file:///C:/Users/beutl/Pictures/素材/photo.png"
+      Opacity = 80
+
+Layer 9: "Backdrop" (tAQPWWCV.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color #ff62d1b2
+  1.1.0 wrote: operators [SourceBackdropOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] SourceBackdrop
+      1.1.0 values not read: Fill, OpacityMask, IsVisible, TimeRange
+      Clear = true
+      Opacity = 50
+
+Layer 10: "Opening theme.wav" (wIPiDfws.belm)
+  start 00:00:00, length 00:00:08, enabled True, accent color #ff8cd484
+  1.1.0 wrote: operators [SourceSoundOperator], UseNode False, 0 nodes
+  editable: recovery does not keep the file
+  [0] SourceSound
+      1.1.0 values not read: IsVisible, TimeRange
+      Source = "file:///C:/Users/beutl/Music/Opening theme.wav"
+      OffsetPosition = "00:00:01"
+      Gain = 50
+      Speed = 120
+      Effect.Children: 1 item(s)
+      Effect.Children[0]: DelayEffect
+      Effect.Children[0].DelayTime = 250
+      Effect.Children[0].Feedback = 30
+
+Layer 11: "Node tree" (HGaK9eb9.belm)
+  start 00:00:00, length 00:00:05, enabled True, accent color Teal
+  1.1.0 wrote: operators [], UseNode True, 3 nodes
+  read-only: recovery keeps the file as 1.1.0 wrote it
+  [0] FallbackEngineObject for [Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel (TypeNotFound)
+      nodes: RectGeometryNode, GeometryShapeNode, LayerOutputNode

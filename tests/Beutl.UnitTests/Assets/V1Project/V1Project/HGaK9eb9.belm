@@ -1,0 +1,189 @@
+{
+  "Start": "00:00:00",
+  "Length": "00:00:05",
+  "ZIndex": 11,
+  "AccentColor": "Teal",
+  "IsEnabled": true,
+  "UseNode": true,
+  "Id": "24779988-b420-4a7c-b4d0-b292c675cf53",
+  "Name": "Node tree",
+  "Operation": {
+    "Id": "75e009f9-444f-483d-9311-9aa7b5f237ee",
+    "Name": "",
+    "Children": []
+  },
+  "NodeTree": {
+    "Id": "2bdfe9a4-dcd6-4cae-8b56-b88da021bf52",
+    "Name": "",
+    "Nodes": [
+      {
+        "Id": "af8ec0a5-8044-4279-a495-a70676322925",
+        "Name": "",
+        "Position": "120,80",
+        "Items": [
+          {
+            "LocalId": 0,
+            "Id": "49ddbc7b-b053-4c9a-a8ae-3cd055fd6260",
+            "Name": "Geometry",
+            "connection-inputs": [
+              "315c68a4-0f8d-4a58-988f-9ec4c8dc2f0e"
+            ],
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:OutputSocket<[Beutl.Engine]Beutl.Media:RectGeometry>"
+          },
+          {
+            "LocalId": 1,
+            "Id": "47396abc-0c28-4b70-994e-10b52ecba527",
+            "Name": "",
+            "Property": "Width",
+            "Target": "[Beutl.Engine]Beutl.Media:RectGeometry",
+            "Setter": 640,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[System.Private.CoreLib]System:Single>"
+          },
+          {
+            "LocalId": 2,
+            "Id": "2d87d816-6f92-4143-a38a-ac50498108c3",
+            "Name": "",
+            "Property": "Height",
+            "Target": "[Beutl.Engine]Beutl.Media:RectGeometry",
+            "Setter": 360,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[System.Private.CoreLib]System:Single>"
+          }
+        ],
+        "$type": "[Beutl.ProjectSystem]Beutl.NodeTree.Nodes.Geometry:RectGeometryNode"
+      },
+      {
+        "Id": "27252907-eaed-4e0f-8612-6a9d41f1d651",
+        "Name": "",
+        "Position": "360,80",
+        "Items": [
+          {
+            "LocalId": 0,
+            "Id": "8c81fb09-c2d7-4abc-ae87-51439408a922",
+            "Name": "GeometryShape",
+            "connection-inputs": [
+              "0e0a5bfa-36a7-41e2-ad34-47fc77541057"
+            ],
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:OutputSocket<[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape>"
+          },
+          {
+            "LocalId": 1,
+            "Id": "315c68a4-0f8d-4a58-988f-9ec4c8dc2f0e",
+            "Name": "",
+            "connection-output": "49ddbc7b-b053-4c9a-a8ae-3cd055fd6260",
+            "Property": "Data",
+            "Target": "[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape",
+            "Setter": null,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Media:Geometry>"
+          },
+          {
+            "LocalId": 2,
+            "Id": "7e35e0df-5ad7-49fa-bb96-39ef517fdeb0",
+            "Name": "",
+            "Property": "Width",
+            "Target": "[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape",
+            "Setter": 0,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[System.Private.CoreLib]System:Single>"
+          },
+          {
+            "LocalId": 3,
+            "Id": "1d162cdb-822c-4207-bcc4-0d0a81084703",
+            "Name": "",
+            "Property": "Height",
+            "Target": "[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape",
+            "Setter": 0,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[System.Private.CoreLib]System:Single>"
+          },
+          {
+            "LocalId": 4,
+            "Id": "05c4c757-39b8-41d3-8432-a112eff80c35",
+            "Name": "",
+            "Property": "Stretch",
+            "Target": "[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape",
+            "Setter": 0,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Media:Stretch>"
+          },
+          {
+            "LocalId": 5,
+            "Id": "91b1af11-8e31-42e1-ad04-7c3bce42435d",
+            "Name": "",
+            "Property": "FillType",
+            "Target": "[Beutl.Engine]Beutl.Media:Geometry",
+            "Setter": 0,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Media:PathFillType>"
+          },
+          {
+            "LocalId": 6,
+            "Id": "a3f2367b-5abe-4a26-8058-498bf5aa4617",
+            "Name": "",
+            "Property": "Pen",
+            "Target": "[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape",
+            "Setter": null,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Media:IPen>"
+          },
+          {
+            "LocalId": 7,
+            "Id": "347f742f-1303-4524-a3c9-a3f4cbf23ce4",
+            "Name": "",
+            "Property": "Transform",
+            "Target": "[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape",
+            "Setter": null,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Graphics.Transformation:ITransform>"
+          }
+        ],
+        "$type": "[Beutl.ProjectSystem]Beutl.NodeTree.Nodes:GeometryShapeNode"
+      },
+      {
+        "Id": "4a1c8b01-675f-4ead-ac9c-f184201abfab",
+        "Name": "",
+        "Position": "600,80",
+        "Items": [
+          {
+            "LocalId": 0,
+            "Id": "0e0a5bfa-36a7-41e2-ad34-47fc77541057",
+            "Name": "Drawable",
+            "connection-output": "8c81fb09-c2d7-4abc-ae87-51439408a922",
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Graphics:Drawable>"
+          },
+          {
+            "LocalId": 1,
+            "Id": "597bd0ac-5380-43f3-95db-8f8894a2caab",
+            "Name": "",
+            "Property": "BlendMode",
+            "Target": "[Beutl.Engine]Beutl.Graphics:Drawable",
+            "Setter": 3,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Graphics:BlendMode>"
+          },
+          {
+            "LocalId": 2,
+            "Id": "dd8e2546-a11b-423e-94be-0c5088f9c5b2",
+            "Name": "",
+            "Property": "AlignmentX",
+            "Target": "[Beutl.Engine]Beutl.Graphics:Drawable",
+            "Setter": 1,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Media:AlignmentX>"
+          },
+          {
+            "LocalId": 3,
+            "Id": "433e6827-0edd-4dff-a6ae-578bf5915351",
+            "Name": "",
+            "Property": "AlignmentY",
+            "Target": "[Beutl.Engine]Beutl.Graphics:Drawable",
+            "Setter": 1,
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Media:AlignmentY>"
+          },
+          {
+            "LocalId": 4,
+            "Id": "1d5bd122-54dc-4e8f-a859-f07e7cd6e6c6",
+            "Name": "",
+            "Property": "TransformOrigin",
+            "Target": "[Beutl.Engine]Beutl.Graphics:Drawable",
+            "Setter": "50%, 50%",
+            "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:DefaultInputSocket<[Beutl.Engine]Beutl.Graphics:RelativePoint>"
+          }
+        ],
+        "$type": "[Beutl.ProjectSystem]Beutl.NodeTree.Nodes:LayerOutputNode"
+      }
+    ],
+    "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel"
+  }
+}

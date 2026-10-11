@@ -1,0 +1,12 @@
+{
+  "FrameSize": "1920, 1080",
+  "Start": "00:00:00",
+  "Duration": "00:05:00",
+  "Id": "aeacb145-a16c-42b2-afad-1fd31fb9e6d9",
+  "Name": "V1Project",
+  "Width": 1920,
+  "Height": 1080,
+  "Elements": {
+    "Include": "**/*.belm"
+  }
+}

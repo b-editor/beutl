@@ -1,0 +1,69 @@
+{
+  "Start": "00:00:00",
+  "Length": "00:00:10",
+  "ZIndex": 7,
+  "AccentColor": "#ff99d9da",
+  "IsEnabled": true,
+  "UseNode": false,
+  "Id": "79edf19d-01c5-4bf0-92b3-b93dbc805696",
+  "Name": "clip.mp4",
+  "Operation": {
+    "Id": "f8af4133-9c64-4698-88cd-0156e28fa353",
+    "Name": "",
+    "Children": [
+      {
+        "Value": {
+          "OffsetPosition": "00:00:02",
+          "Speed": 150,
+          "Source": "C:\\Users\\beutl\\Videos\\clip.mp4",
+          "IsLoop": true,
+          "Transform": {
+            "IsEnabled": true,
+            "Id": "ceab5b4d-0b5e-41e2-bcc9-5404d6f1b50b",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+          },
+          "FilterEffect": {
+            "IsEnabled": true,
+            "Id": "f90f474a-1a62-4fa9-a0d8-04337ab51eb0",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+          },
+          "AlignmentX": 1,
+          "AlignmentY": 1,
+          "TransformOrigin": "50%, 50%",
+          "Fill": null,
+          "OpacityMask": null,
+          "BlendMode": 3,
+          "Opacity": 100,
+          "IsVisible": true,
+          "ZIndex": 0,
+          "TimeRange": {
+            "Start": "00:00:00",
+            "Duration": "00:00:00",
+            "End": "00:00:00",
+            "IsEmpty": false
+          },
+          "Id": "94fae3c5-a45e-40da-93bc-927660664fbb",
+          "Name": "",
+          "Animations": {},
+          "$type": "[Beutl.Engine]Beutl.Graphics:SourceVideo"
+        },
+        "IsEnabled": true,
+        "Id": "ac661e7b-f5e8-4c55-9b34-12f2cecce046",
+        "Name": "",
+        "$type": "[Beutl.Operators].Source:SourceVideoOperator"
+      }
+    ]
+  },
+  "NodeTree": {
+    "Id": "0fa63608-2d72-4821-9c4c-9ebefa1edaea",
+    "Name": "",
+    "Nodes": [],
+    "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel"
+  }
+}
