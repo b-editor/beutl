@@ -97,8 +97,7 @@ public sealed partial class EditViewModel
                 // for admission. Keep its save intent until the final stable scan.
                 if (_fingerprintScanRequested) continue;
                 MergeSavedMediaFingerprints(scene);
-                var saved = _savedMediaFingerprints
-                    .ToDictionary(pair => UriHelper.ToSerializedUri(new Uri(pair.Key), uri).ToString(), pair => pair.Value);
+                var saved = Scene.ToSerializedMediaFingerprints(_savedMediaFingerprints, uri);
                 // Patch advisory metadata only; never serialize unsaved scene or element edits.
                 bool changed = CoreSerializer.UpdateStoredMetadata(uri, scene.Id, nameof(Scene.MediaFingerprints),
                     saved.Count == 0 ? null : JsonSerializer.SerializeToNode(saved));
