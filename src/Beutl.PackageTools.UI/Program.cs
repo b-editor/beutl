@@ -30,6 +30,7 @@ internal class Program
         config.Restore(GlobalConfiguration.DefaultFilePath);
 
         using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
+        config.LogRestoreFailures();
         ILogger<Program> logger = Log.CreateLogger<Program>();
 
         try

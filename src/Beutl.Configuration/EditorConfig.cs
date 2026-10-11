@@ -382,10 +382,8 @@ public sealed partial class EditorConfig : ConfigurationBase
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Dictionary<string, LibraryTabDisplayMode>? items
-            = context.GetValue<Dictionary<string, LibraryTabDisplayMode>>(nameof(LibraryTabDisplayModes));
-
-        if (items != null)
+        if (TryReadValue(context, nameof(LibraryTabDisplayModes), out Dictionary<string, LibraryTabDisplayMode>? items)
+            && items != null)
         {
             // A tab introduced after this config was written has no saved entry, and the
             // view binds per tab id — without the default carried over it resolves nothing.

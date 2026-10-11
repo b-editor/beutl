@@ -27,11 +27,13 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
         {
             var r = (Resource)resource;
             Size availableSize = context.Size;
-            var boundsMemory = context.UseMemory<Rect>();
-            var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
 
             foreach (var child in r.Children)
             {
+                // Replayed bounds nodes do not write again, so each child must retain its own bounds.
+                var boundsMemory = context.UseMemory<Rect>();
+                var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
+
                 using (context.PushBlendMode(r.BlendMode))
                 using (DrawableGroup.PushCustomTransform(context, transformParams))
                 using (context.PushOpacity(resource.Opacity / 100f))

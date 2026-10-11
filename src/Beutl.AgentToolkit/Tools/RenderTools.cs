@@ -242,16 +242,16 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to an absolute output path. Omitted frame and audio sample rates use the project settings (30 fps / 44100 Hz without a project rate). Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
         [Description("Absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Existing files require confirmOverwrite.")]
         string outputPath,
-        [Description("Frame-rate numerator.")]
-        int frameRateNumerator = 30,
+        [Description("Frame-rate numerator. Defaults to the project frame rate, or 30 without a project rate.")]
+        int? frameRateNumerator = null,
         [Description("Frame-rate denominator.")]
         int frameRateDenominator = 1,
-        [Description("Audio sample rate.")]
-        int sampleRate = 44100,
+        [Description("Audio sample rate. Defaults to the project sample rate, or 44100 without a project rate.")]
+        int? sampleRate = null,
         [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Constant Rate Factor for the FFmpeg H.264/x265 encoder (0-51, lower is higher quality/larger file; libx264 default is 23). Mutually exclusive with bitrate. AVFoundation has no CRF control; when it is selected, the successful result contains a warning that crf was ignored. Raise it (e.g. 28-30) to shrink hard-to-compress content such as full-frame grain.")]
@@ -283,7 +283,10 @@ public sealed partial class RenderTools(
                     "The stdio MCP host (source-run or standalone install) does not place the FFmpeg worker next to the server. Use the in-app MCP endpoint (Tools > AI Agents) for video export, or run from the installed Beutl app directory where the worker is copied under FFmpegWorker/."));
             }
 
-            ValidateExportOptions(frameRateNumerator, frameRateDenominator, crf, bitrate);
+            Project? project = scene.FindHierarchicalParent<Project>();
+            int resolvedFrameRateNumerator = frameRateNumerator ?? project.GetFrameRate();
+            int resolvedSampleRate = sampleRate ?? project.GetSampleRate();
+            ValidateExportOptions(resolvedFrameRateNumerator, frameRateDenominator, crf, bitrate);
 
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
@@ -295,8 +298,8 @@ public sealed partial class RenderTools(
                 ExportVideoResponse exported = await videoExporter.ExportAsync(
                     scene,
                     resolvedPath,
-                    new Rational(frameRateNumerator, frameRateDenominator),
-                    sampleRate,
+                    new Rational(resolvedFrameRateNumerator, frameRateDenominator),
+                    resolvedSampleRate,
                     renderScale,
                     token,
                     crf,

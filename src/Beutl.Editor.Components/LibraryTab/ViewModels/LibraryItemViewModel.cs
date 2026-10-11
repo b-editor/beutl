@@ -23,7 +23,7 @@ public class LibraryItemViewModel
 
     public string? Type { get; init; }
 
-    public List<LibraryItemViewModel> Children { get; } = [];
+    public CoreList<LibraryItemViewModel> Children { get; } = [];
 
     public static LibraryItemViewModel CreateFromGraphNodeRegistryItem(GraphNodeRegistry.BaseRegistryItem registryItem,
         string? parentFullName = null)

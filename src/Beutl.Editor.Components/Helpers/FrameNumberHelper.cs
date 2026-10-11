@@ -36,22 +36,6 @@ public static class FrameNumberHelper
         }
     }
 
-    public static int GetFrameRate(this Project? project)
-    {
-        return project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
-            && int.TryParse(value, out int rate)
-            ? rate
-            : 30;
-    }
-
-    public static int GetSampleRate(this Project? project)
-    {
-        return project?.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value) == true
-            && int.TryParse(value, out int rate)
-            ? rate
-            : 44100;
-    }
-
     public static double TimeToPixel(this TimeSpan time, float scale)
     {
         return time.TotalSeconds * SecondWidth * scale;

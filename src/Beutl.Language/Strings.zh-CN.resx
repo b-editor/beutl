@@ -113,6 +113,9 @@
   <data name="History_OperationFailed" xml:space="preserve">
     <value>历史记录操作失败。</value>
   </data>
+  <data name="History_RestrictedAfterFailure" xml:space="preserve">
+    <value>历史记录操作失败。历史记录已保留，但无法跨越此位置撤销或重做。请检查当前编辑内容。您仍可继续编辑、保存，以及撤销或重做新的编辑。</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>设置</value>
   </data>

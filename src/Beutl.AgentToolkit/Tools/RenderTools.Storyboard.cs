@@ -426,18 +426,7 @@ public sealed partial class RenderTools
         return TimeSpan.FromSeconds(0.5d / frameRate);
     }
 
-    internal static int GetSceneFrameRate(Scene scene)
-    {
-        Project? project = scene.FindHierarchicalParent<Project>();
-        if (project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
-            && int.TryParse(value, out int rate)
-            && rate > 0)
-        {
-            return rate;
-        }
-
-        return DefaultSceneFrameRate;
-    }
+    internal static int GetSceneFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
 
     private static bool IsDuplicateStoryboardTime(TimeSpan left, TimeSpan right, TimeSpan tolerance)
     {

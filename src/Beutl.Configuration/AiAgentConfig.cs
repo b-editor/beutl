@@ -193,7 +193,8 @@ public sealed class AiAgentConfig : ConfigurationBase
         // opted out of MCP; keep that choice instead of re-enabling the unified option.
         if (!context.Contains(nameof(InstallMcp))
             && context.Contains(LegacyInstallStdioMcp) && context.Contains(LegacyInstallLiveMcp)
-            && !context.GetValue<bool>(LegacyInstallStdioMcp) && !context.GetValue<bool>(LegacyInstallLiveMcp))
+            && TryReadValue(context, LegacyInstallStdioMcp, out bool stdio) && !stdio
+            && TryReadValue(context, LegacyInstallLiveMcp, out bool live) && !live)
         {
             InstallMcp = false;
         }

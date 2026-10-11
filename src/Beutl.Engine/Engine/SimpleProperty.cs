@@ -17,7 +17,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     private Attribute[]? _attributes;
     private string? _name;
     private EngineObject? _owner;
-    private IExpression<T>? _expression;
+    private ExpressionEvaluationState<T>? _expressionState;
     private PropertyLookup? _propertyLookup;
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
@@ -82,7 +82,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public IExpression<T>? Expression
     {
-        get => _expression;
+        get => Volatile.Read(ref _expressionState)?.Expression;
         set
         {
             if (value != null && !SupportsExpression)
@@ -90,10 +90,10 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
                 throw new InvalidOperationException($"Property '{Name}' does not support expressions.");
             }
 
-            if (_expression != value)
+            if (Expression != value)
             {
-                _expression = value;
-                ExpressionChanged?.Invoke(_expression);
+                Volatile.Write(ref _expressionState, value == null ? null : new ExpressionEvaluationState<T>(value));
+                ExpressionChanged?.Invoke(value);
                 Edited?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -101,7 +101,9 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public bool HasLocalValue { get; private set; }
 
-    public bool HasExpression => _expression != null;
+    public bool HasExpression => Volatile.Read(ref _expressionState) != null;
+
+    public string? ExpressionError => Volatile.Read(ref _expressionState)?.Error;
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
@@ -121,7 +123,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
     public T GetValue(CompositionContext context)
     {
-        if (_expression != null)
+        if (Volatile.Read(ref _expressionState) is { } expressionState)
         {
             _propertyLookup ??= new PropertyLookup(
                 _owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
@@ -141,8 +143,13 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             expressionContext.BeginEvaluation(this);
             try
             {
-                T value = _expression.Evaluate(expressionContext);
+                T value = expressionState.Expression.Evaluate(expressionContext);
+                expressionState.ClearError();
                 return ValidateAndCoerce(value);
+            }
+            catch (ExpressionException ex)
+            {
+                expressionState.ReportFailure(_name, _owner, ex);
             }
             finally
             {
@@ -235,8 +242,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     public bool HasValidator => _validator != null;
 
     public override string ToString() =>
-        _expression != null
-            ? $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple, Expression: {_expression.ExpressionString})"
+        Expression is { } expression
+            ? $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple, Expression: {expression.ExpressionString})"
             : $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple)";
 
     public void DeserializeValue(ICoreSerializationContext context)

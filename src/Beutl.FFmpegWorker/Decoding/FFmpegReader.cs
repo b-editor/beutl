@@ -298,16 +298,8 @@ public sealed class FFmpegReader : MediaReader
 
         try
         {
-            int srcRowBytes = filterFrame.Linesize[0];
-            int dstRowBytes = width * bytesPerPixel;
-            for (int y = 0; y < height; y++)
-            {
-                Buffer.MemoryCopy(
-                    (void*)(filterFrame.Data[0] + (long)y * srcRowBytes),
-                    (void*)((byte*)bmp.Data + (long)y * dstRowBytes),
-                    dstRowBytes,
-                    dstRowBytes);
-            }
+            FFmpegUtil.CopyPlane((IntPtr)filterFrame.Data[0], filterFrame.Linesize[0],
+                bmp.Data, bmp.RowBytes, width * bytesPerPixel, height);
         }
         catch
         {
@@ -337,7 +329,7 @@ public sealed class FFmpegReader : MediaReader
             int width = filterFrame.Width;
             int height = filterFrame.Height;
             int bytesPerPixel = BytesPerPixel;
-            int byteCount = width * height * bytesPerPixel;
+            int byteCount = checked(width * height * bytesPerPixel);
 
             info = new VideoFrameInfo
             {
@@ -352,12 +344,11 @@ public sealed class FFmpegReader : MediaReader
             if (byteCount > destination.Length)
                 return false;
 
-            int srcRowBytes = filterFrame.Linesize[0];
             int dstRowBytes = width * bytesPerPixel;
-            for (int y = 0; y < height; y++)
+            fixed (byte* dst = destination)
             {
-                new ReadOnlySpan<byte>((void*)(filterFrame.Data[0] + (long)y * srcRowBytes), dstRowBytes)
-                    .CopyTo(destination.Slice(y * dstRowBytes));
+                FFmpegUtil.CopyPlane((IntPtr)filterFrame.Data[0], filterFrame.Linesize[0],
+                    (IntPtr)dst, dstRowBytes, dstRowBytes, height);
             }
             return true;
         }

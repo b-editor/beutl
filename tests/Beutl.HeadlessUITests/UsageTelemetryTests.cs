@@ -872,6 +872,36 @@ public sealed class UsageTelemetryTests
     }
 
     [AvaloniaTest]
+    public async Task Library_search_that_follows_a_library_change_records_no_usage()
+    {
+        using var library = new LibraryTabViewModel(new Mock<IEditorContext>().Object);
+        await library.Search("Xyzzy", CancellationToken.None);
+        _usage.Flush();
+        Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1));
+        try
+        {
+            LibraryService.Current.Register<LateLibraryItem>("Beutl.HeadlessUITests.LateLibraryItem", "Xyzzy");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (!library.SearchResult.Any(item => item.Value.DisplayName == "Xyzzy"))
+            {
+                HeadlessTestHelpers.Settle();
+                await Task.Delay(10, timeout.Token);
+            }
+
+            _usage.Flush();
+            Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1),
+                "Searching again after a library change is not a search by the user.");
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(LateLibraryItem)]);
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    private sealed class LateLibraryItem;
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task History_actions_do_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
