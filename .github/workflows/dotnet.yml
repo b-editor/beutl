@@ -8,10 +8,10 @@ on:
   pull_request:
     branches: [ main ]
 
-# A newer PR revision supersedes its previous checks. Keep main runs independent.
+# Cancel superseded checks for the same branch or pull request.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   compile:
