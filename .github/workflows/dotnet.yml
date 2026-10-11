@@ -225,11 +225,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends vulkan-validationlayers
 
+      # The "other" suite holds the FFmpeg worker and IPC tests, which skip themselves without the
+      # FFmpeg 8 libraries. Use the BtbN build the app's own installer offers. It is pinned to a
+      # month-end autobuild because BtbN keeps those for about two years. BEUTL_REQUIRE_FFMPEG below
+      # makes ci_tests.py fail the suite if a test still skips because FFmpeg is missing.
+      - name: Install FFmpeg 8
+        if: matrix.suite == 'other'
+        env:
+          FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n8.1.3-9-g29e619e767-linux64-gpl-shared-8.1.tar.xz
+          FFMPEG_SHA256: 76649c19a7a4615b367251ba4a8adc643f65831278a00e7a0c38398f7f06484b
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/ffmpeg.tar.xz" "$FFMPEG_URL"
+          echo "$FFMPEG_SHA256  $RUNNER_TEMP/ffmpeg.tar.xz" | sha256sum --check --strict
+          mkdir "$RUNNER_TEMP/ffmpeg"
+          tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
+          ls "$RUNNER_TEMP/ffmpeg/lib"
+          # The worker's loader also searches LD_LIBRARY_PATH, and the worker process inherits it.
+          echo "LD_LIBRARY_PATH=$RUNNER_TEMP/ffmpeg/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
       - name: Test
         run: python3 .github/scripts/ci_tests.py "$TEST_SUITE" ${{ matrix.validation && '--validation' || '' }}
         env:
           TEST_SUITE: ${{ matrix.suite }}
           BEUTL_REQUIRE_GPU: "1"
+          BEUTL_REQUIRE_FFMPEG: ${{ matrix.suite == 'other' && '1' || '0' }}
           BEUTL_VULKAN_VALIDATION: ${{ matrix.validation && '1' || '0' }}
 
       - name: Capture runner diagnostics after failure

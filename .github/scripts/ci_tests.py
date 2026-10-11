@@ -2,6 +2,7 @@
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
 import re
 import shlex
@@ -50,6 +51,11 @@ VALIDATION_GROUPS = {
     "validation-rendering": ["unit-rendering", QUICK_VALIDATION, "unit-git", "graphics3d"],
 }
 SHARDED_PROJECTS = {"Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests"}
+# The skip reasons FFmpeg-backed tests give when the FFmpeg 8 libraries or the worker are missing,
+# for example "FFmpeg native libraries are not available." or "FFmpeg natives unavailable (...)".
+FFMPEG_MISSING = re.compile(
+    r"\bFFmpeg (?:native|natives|shared librar|worker)\w*\b.*\b(?:unavailable|not available|not present)\b",
+    re.IGNORECASE)
 
 
 def test_projects(root):
@@ -109,8 +115,22 @@ def has_test_results(directory):
     return False
 
 
+def ffmpeg_skips(directory):
+    # A skipped test still counts as a pass, so a job that provides FFmpeg checks the reasons.
+    skipped = []
+    for path in directory.glob("*.trx"):
+        for result in ET.parse(path).iterfind(".//{*}UnitTestResult"):
+            message = result.find("{*}Output/{*}ErrorInfo/{*}Message")
+            if (result.attrib.get("outcome") == "NotExecuted" and message is not None
+                    and FFMPEG_MISSING.search(message.text or "")):
+                skipped.append(result.attrib["testName"])
+    return skipped
+
+
 def run(root, suite, validation):
     failed = False
+    # CI sets this where it installs FFmpeg 8; there, a skip for missing FFmpeg means broken provisioning.
+    require_ffmpeg = os.environ.get("BEUTL_REQUIRE_FFMPEG", "").lower() in {"1", "true"}
     selected = assemblies(root, suite)
     if not selected:
         raise RuntimeError(f"No test assemblies for {suite}")
@@ -120,10 +140,15 @@ def run(root, suite, validation):
         command = test_command(root, assembly, suite, validation)
         print(shlex.join(command), flush=True)
         result = subprocess.run(command, cwd=root, check=False)
+        results = root / "TestResults" / suite / assembly.stem
         if result.returncode != 0:
             failed = True
-        elif not has_test_results(root / "TestResults" / suite / assembly.stem):
+        elif not has_test_results(results):
             print(f"::error::No tests ran for {suite}: {assembly.stem}", flush=True)
+            failed = True
+        if require_ffmpeg and (skipped := ffmpeg_skips(results)):
+            print(f"::error::BEUTL_REQUIRE_FFMPEG is set, but {len(skipped)} {assembly.stem} tests skipped "
+                  f"because FFmpeg is missing: {', '.join(skipped[:5])}", flush=True)
             failed = True
     return 1 if failed else 0
 
