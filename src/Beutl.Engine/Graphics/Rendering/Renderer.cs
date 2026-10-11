@@ -887,16 +887,18 @@ public class Renderer : IRenderer
     {
         foreach (var child in container.Children)
         {
+            // A drawable node is a container too, so it is compared before the nodes it holds are searched.
+            if (child is DrawableRenderNode childDrawable &&
+                childDrawable.Drawable?.Resource.GetOriginal() == drawable)
+            {
+                return childDrawable;
+            }
+
             if (child is ContainerRenderNode childContainer)
             {
                 var result = FindChildRenderNode(childContainer, drawable);
                 if (result != null)
                     return result;
-            }
-            else if (child is DrawableRenderNode childDrawable &&
-                     childDrawable.Drawable?.Resource.GetOriginal() == drawable)
-            {
-                return childDrawable;
             }
         }
 
