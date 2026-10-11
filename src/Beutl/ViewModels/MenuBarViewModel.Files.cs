@@ -87,8 +87,6 @@ public partial class MenuBarViewModel
     //    Exit
     public AsyncReactiveCommand CreateNewProject { get; } = new();
 
-    public ReactiveCommandSlim CreateNew { get; } = new();
-
     public AsyncReactiveCommand OpenProject { get; } = new();
 
     public AsyncReactiveCommand OpenFile { get; } = new();
