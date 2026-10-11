@@ -1,5 +1,7 @@
-﻿using Beutl.Composition;
+﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Graphics.Particles;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Particles;
@@ -61,6 +63,80 @@ public sealed class ParticleSimulatorDeterminismTests
             sequential.GetAliveParticles().ToArray(),
             Is.EqualTo(direct.GetAliveParticles().ToArray()),
             "ParticleEmitter.Resource must preserve deterministic seek semantics at the exact export timestamp.");
+    }
+
+    [TestCase(30, false)]
+    [TestCase(30, true)]
+    [TestCase(60, false)]
+    [TestCase(60, true)]
+    public void AnimatedParameters_WithAnimatedTransformMatchColdSeek(int frameRate, bool animateTransform)
+    {
+        var emitter = CreateSyntheticEmitter();
+        emitter.EmissionRate.Animation = CreateAnimation(30, 90);
+        emitter.Gravity.Animation = CreateAnimation(0, 60);
+        if (animateTransform)
+        {
+            emitter.Transform.CurrentValue = new TranslateTransform
+            {
+                X = { Animation = CreateAnimation(0, 200) },
+            };
+        }
+
+        using var sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
+        for (int frame = 1; frame <= frameRate * 2; frame++)
+        {
+            bool versionBumped = false;
+            sequential.Reconcile(emitter, new CompositionContext(ExportTimestamp(frame, frameRate)), ref versionBumped);
+        }
+
+        // Reuse the playback resource for backward and forward seeks, including cached steps.
+        foreach (double seconds in new[] { 2, 0.75, 1.25 })
+        {
+            var context = new CompositionContext(TimeSpan.FromSeconds(seconds));
+            bool versionBumped = false;
+            sequential.Reconcile(emitter, context, ref versionBumped);
+            using var cold = emitter.ToResource(context);
+
+            Assert.That(cold.GetAliveParticles().Length, Is.GreaterThan(0));
+            Assert.That(sequential.GetAliveParticles().ToArray(), Is.EqualTo(cold.GetAliveParticles().ToArray()),
+                $"Animated particle parameters at {seconds}s must not reuse checkpoints from earlier values.");
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ParameterAndBasePropertyEdits_AtSameTimeRebuildParticles(bool changeTransform)
+    {
+        var emitter = CreateSyntheticEmitter();
+        var transform = new TranslateTransform();
+        emitter.Transform.CurrentValue = transform;
+        var context = new CompositionContext(TimeSpan.FromSeconds(1));
+        using var resource = emitter.ToResource(context);
+        var before = resource.GetAliveParticles().ToArray();
+        int version = resource.Version;
+
+        if (changeTransform)
+            transform.X.CurrentValue = 100;
+        else
+            emitter.Opacity.CurrentValue = 50;
+
+        emitter.EmissionRate.CurrentValue = 90;
+        emitter.Gravity.CurrentValue = 60;
+        bool versionBumped = false;
+        resource.Reconcile(emitter, context, ref versionBumped);
+        using var cold = emitter.ToResource(context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.Version, Is.EqualTo(version + 1), "One reconcile pass must only bump the version once.");
+            Assert.That(resource.GetAliveParticles().ToArray(), Is.Not.EqualTo(before));
+            Assert.That(resource.GetAliveParticles().ToArray(), Is.EqualTo(cold.GetAliveParticles().ToArray()));
+        });
+
+        version = resource.Version;
+        versionBumped = false;
+        resource.Reconcile(emitter, context, ref versionBumped);
+        Assert.That(resource.Version, Is.EqualTo(version), "An unchanged frame must keep its render version.");
     }
 
     [TestCase(89, ParticlePreset.Near)]
@@ -227,6 +303,18 @@ public sealed class ParticleSimulatorDeterminismTests
 
     private static TimeSpan ExportTimestamp(long frame, long frameRate)
         => TimeSpan.FromTicks(frame * TimeSpan.TicksPerSecond / frameRate);
+
+    private static KeyFrameAnimation<float> CreateAnimation(float start, float end)
+    {
+        return new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = start },
+                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = end },
+            },
+        };
+    }
 
     public enum ParticlePreset
     {
