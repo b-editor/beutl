@@ -254,6 +254,10 @@
   <data name="FailedToLoadScript" xml:space="preserve">
     <value>스크립트를 로드하지 못했습니다.</value>
   </data>
+  <data name="TerminalNotFound" xml:space="preserve">
+    <value>터미널 에뮬레이터를 찾을 수 없습니다. 업데이트를 완료하려면 터미널에서 다음 명령을 실행하세요.
+{0}</value>
+  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>참조된 소스 파일이 없어 내보내기를 시작할 수 없습니다: {0}({1}개 누락).</value>
   </data>

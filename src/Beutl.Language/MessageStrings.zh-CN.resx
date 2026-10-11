@@ -254,6 +254,10 @@
   <data name="FailedToLoadScript" xml:space="preserve">
     <value>加载脚本失败。</value>
   </data>
+  <data name="TerminalNotFound" xml:space="preserve">
+    <value>未找到终端模拟器。要完成更新，请在终端中运行以下命令：
+{0}</value>
+  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>无法开始导出，因为引用的源文件缺失：{0}（缺少 {1} 个）。</value>
   </data>

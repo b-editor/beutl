@@ -254,6 +254,10 @@ You can keep editing when this finishes.</value>
   <data name="FailedToLoadScript" xml:space="preserve">
     <value>Failed to load script.</value>
   </data>
+  <data name="TerminalNotFound" xml:space="preserve">
+    <value>No terminal emulator was found. To finish the update, run this command in a terminal:
+{0}</value>
+  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>Export cannot start because a referenced source file is missing: {0} ({1} missing).</value>
   </data>
