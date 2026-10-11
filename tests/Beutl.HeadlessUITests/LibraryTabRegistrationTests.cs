@@ -16,6 +16,8 @@ public sealed class LibraryTabRegistrationTests
     // One word that no built-in item contains, since a search matches any of its words.
     private const string LateName = "Xyzzy";
 
+    private const string LateGroupName = "Xyzzy group";
+
     [AvaloniaTest]
     public void An_item_registered_after_the_tab_opens_is_listed_until_its_type_unloads()
     {
@@ -46,6 +48,32 @@ public sealed class LibraryTabRegistrationTests
             Assert.That(viewModel.LibraryItems, Is.EqualTo(before));
             Assert.That(viewModel.AllItems.Select(item => item.Value.DisplayName), Has.No.Member(LateName));
         });
+    }
+
+    [AvaloniaTest]
+    public void An_item_registered_into_a_group_goes_with_its_type()
+    {
+        using var viewModel = new LibraryTabViewModel(Mock.Of<IEditorContext>());
+        LibraryItemViewModel[] before = [.. viewModel.LibraryItems];
+        try
+        {
+            LibraryService.Current.RegisterGroup(LateGroupName, group => group.Add<LateItem>(LateFormat, LateName));
+            Dispatcher.UIThread.RunJobs();
+
+            LibraryItemViewModel group = viewModel.LibraryItems.Last();
+            Assert.Multiple(() =>
+            {
+                Assert.That(group.DisplayName, Is.EqualTo(LateGroupName));
+                Assert.That(group.Children.Select(child => child.DisplayName), Is.EqualTo(new[] { LateName }));
+            });
+        }
+        finally
+        {
+            TypeUnloadNotifier.NotifyUnloading([typeof(LateItem)]);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Assert.That(viewModel.LibraryItems, Is.EqualTo(before), "unloading the type empties the group, so the group goes too");
     }
 
     [AvaloniaTest]

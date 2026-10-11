@@ -134,7 +134,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         SyncItems(LibraryItems, LibraryService.Current.Items, null);
         AllItems.Replace(CreateAllItems(AllItems.Count));
         if (_query is { } query)
-            _ = Search(query, CancellationToken.None);
+            _ = SearchCore(query, CancellationToken.None, recordUsage: false);
     }
 
     // Brings `viewModels` in line with `items`. The view models of the items that stay are kept, with their
@@ -184,10 +184,18 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public void ClearSearch()
     {
         _query = null;
+        // A search still running, such as one a library change started, must not fill the results again.
+        Interlocked.Increment(ref _searchVersion);
         SearchResult.Clear();
     }
 
-    public async Task Search(string str, CancellationToken cancellationToken)
+    public Task Search(string str, CancellationToken cancellationToken)
+    {
+        return SearchCore(str, cancellationToken, recordUsage: true);
+    }
+
+    // A search that only follows a library change is not a search by the user, so it records no usage.
+    private async Task SearchCore(string str, CancellationToken cancellationToken, bool recordUsage)
     {
         if (Volatile.Read(ref _disposed) != 0)
             return;
@@ -197,7 +205,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
         UsageTelemetry? usage = UsageTelemetry.Current;
         long epoch = 0;
-        bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
+        bool collect = recordUsage && usage?.TryGetCollectionEpoch(out epoch) == true;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeToken);
         CancellationToken token = cancellation.Token;
         try
