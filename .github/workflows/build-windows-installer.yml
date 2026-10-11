@@ -41,7 +41,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@v8.0.2
         with:
           name: beutl-win_${{ matrix.arch }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
           path: artifacts

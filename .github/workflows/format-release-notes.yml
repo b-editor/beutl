@@ -107,7 +107,7 @@ jobs:
     permissions: {}
     steps:
       - name: Download the changelog
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8.0.2
         with:
           name: changelog
           path: ${{ runner.temp }}/input
@@ -190,7 +190,7 @@ jobs:
 
       - name: Download the summary
         if: steps.release.outputs.mode == 'format' && needs.summarize.result == 'success'
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8.0.2
         with:
           name: summary
           path: ${{ runner.temp }}/summary
