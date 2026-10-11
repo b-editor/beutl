@@ -20,7 +20,9 @@ public sealed class FileThumbnailService : IDisposable
 
     private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
     private readonly ConcurrentDictionary<string, CachedThumbnail> _cache = new();
-    private readonly ConcurrentDictionary<string, (MediaFileInfo Info, long LastAccessTicks)> _mediaInfoCache = new();
+    private readonly ConcurrentDictionary<
+        string,
+        (MediaFileInfo Info, long LastAccessTicks, (long Length, DateTime LastWriteUtc) File)> _mediaInfoCache = new();
     private readonly ConcurrentDictionary<TemplateDirectoryMembershipKey, bool>
         _templateDirectoryMembership = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
@@ -98,7 +100,10 @@ public sealed class FileThumbnailService : IDisposable
         if (_disposed)
             return null;
 
-        if (TryGetCachedMediaInfo(filePath, out MediaFileInfo? cached))
+        // A file listed while it was still being copied was probed partway, so a cached result holds
+        // only while the file is unchanged.
+        (long Length, DateTime LastWriteUtc) file = GetFileStampOrDefault(filePath);
+        if (TryGetCachedMediaInfo(filePath, file, out MediaFileInfo? cached))
             return cached;
 
         MediaFileKind kind = DecoderFileExtensions.Classify(filePath);
@@ -108,7 +113,7 @@ public sealed class FileThumbnailService : IDisposable
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            if (TryGetCachedMediaInfo(filePath, out cached))
+            if (TryGetCachedMediaInfo(filePath, file, out cached))
                 return cached;
 
             var info = await Task.Run(() =>
@@ -119,7 +124,7 @@ public sealed class FileThumbnailService : IDisposable
 
             if (info != null)
             {
-                _mediaInfoCache[filePath] = (info, Environment.TickCount64);
+                _mediaInfoCache[filePath] = (info, Environment.TickCount64, file);
                 EvictMediaInfoCacheIfNeeded();
             }
 
@@ -140,12 +145,15 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
-    private bool TryGetCachedMediaInfo(string filePath, [NotNullWhen(true)] out MediaFileInfo? info)
+    private bool TryGetCachedMediaInfo(
+        string filePath,
+        (long Length, DateTime LastWriteUtc) file,
+        [NotNullWhen(true)] out MediaFileInfo? info)
     {
-        if (_mediaInfoCache.TryGetValue(filePath, out var entry))
+        if (_mediaInfoCache.TryGetValue(filePath, out var entry) && entry.File == file)
         {
             // LRU: 最終アクセス時刻を更新
-            _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64), entry);
+            _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64, entry.File), entry);
             info = entry.Info;
             return true;
         }
@@ -425,6 +433,19 @@ public sealed class FileThumbnailService : IDisposable
         try
         {
             return File.GetLastWriteTimeUtc(filePath);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private static (long Length, DateTime LastWriteUtc) GetFileStampOrDefault(string filePath)
+    {
+        try
+        {
+            var info = new FileInfo(filePath);
+            return info.Exists ? (info.Length, info.LastWriteTimeUtc) : default;
         }
         catch
         {

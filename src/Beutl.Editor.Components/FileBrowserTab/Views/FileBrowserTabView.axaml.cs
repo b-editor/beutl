@@ -290,20 +290,22 @@ public partial class FileBrowserTabView : UserControl
         if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null)
             return;
 
+        // The drop reads everything it needs from the event before the transfer starts, and the
+        // transfer runs off the UI thread, so the editor keeps responding while the files are written.
         if (ViewModel.IsHomeView.Value)
         {
-            HandleHomeViewDrop(e);
+            await HandleHomeViewDrop(e);
         }
         else
         {
-            HandleBrowseViewDrop(e);
+            await HandleBrowseViewDrop(e);
         }
     }
 
-    private void HandleHomeViewDrop(DragEventArgs e)
+    private Task HandleHomeViewDrop(DragEventArgs e)
     {
         if (ViewModel == null)
-            return;
+            return Task.CompletedTask;
 
         var files = GetDroppedFiles(e);
         bool isInternal = FileItemDragBehavior.IsInternalDragInProgress;
@@ -312,70 +314,60 @@ public partial class FileBrowserTabView : UserControl
         if (IsDropOverElement(favoritesSection, e))
         {
             ViewModel.AddPathsToFavorites(files.Select(f => f.LocalPath));
-            return;
+            return Task.CompletedTask;
         }
 
         if (IsDropOverElement(projectDirectorySection, e))
         {
             // その他（プロジェクトディレクトリセクション等）
-            TransferToDropTarget(e, files, isInternal, ViewModel.ProjectDirectory);
-            return;
+            return TransferToDropTarget(e, files, isInternal, ViewModel.ProjectDirectory);
         }
 
         // メディアファイルセクション上にドロップ → resources フォルダへ
         var payload = files.Select(f => (f.LocalPath, f.IsDirectory));
-        if (isInternal)
-        {
-            ViewModel.MoveFilesToResources(payload);
-        }
-        else
-        {
-            ViewModel.CopyFilesToResources(payload);
-        }
+        return isInternal
+            ? ViewModel.MoveFilesToResourcesAsync(payload)
+            : ViewModel.CopyFilesToResourcesAsync(payload);
     }
 
-    private void HandleBrowseViewDrop(DragEventArgs e)
+    private Task HandleBrowseViewDrop(DragEventArgs e)
     {
         if (ViewModel == null)
-            return;
+            return Task.CompletedTask;
 
         var files = GetDroppedFiles(e);
         bool isInternal = FileItemDragBehavior.IsInternalDragInProgress;
 
-        TransferToDropTarget(e, files, isInternal, ViewModel.RootPath.Value);
+        return TransferToDropTarget(e, files, isInternal, ViewModel.RootPath.Value);
     }
 
     // A folder under the pointer takes the files; otherwise the directory being shown does, while it exists.
-    private void TransferToDropTarget(
+    private Task TransferToDropTarget(
         DragEventArgs e, List<(string LocalPath, bool IsDirectory)> files, bool isInternal, string? fallbackDirectory)
     {
         FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
         if (folderItem != null && Directory.Exists(folderItem.FullPath))
         {
-            TransferFiles(files, folderItem.FullPath, isInternal);
-            return;
+            return TransferFiles(files, folderItem.FullPath, isInternal);
         }
 
         if (!string.IsNullOrEmpty(fallbackDirectory) && Directory.Exists(fallbackDirectory))
         {
-            TransferFiles(files, fallbackDirectory, isInternal);
+            return TransferFiles(files, fallbackDirectory, isInternal);
         }
+
+        return Task.CompletedTask;
     }
 
-    private void TransferFiles(List<(string LocalPath, bool IsDirectory)> files, string targetDir, bool isInternal)
+    private Task TransferFiles(List<(string LocalPath, bool IsDirectory)> files, string targetDir, bool isInternal)
     {
         if (ViewModel == null)
-            return;
+            return Task.CompletedTask;
 
         var payload = files.Select(f => (f.LocalPath, f.IsDirectory));
-        if (isInternal)
-        {
-            ViewModel.MoveFilesToDirectory(payload, targetDir);
-        }
-        else
-        {
-            ViewModel.CopyFilesToDirectory(payload, targetDir);
-        }
+        return isInternal
+            ? ViewModel.MoveFilesToDirectoryAsync(payload, targetDir)
+            : ViewModel.CopyFilesToDirectoryAsync(payload, targetDir);
     }
 
     private static bool IsStaleStorageDrag(DragEventArgs e)

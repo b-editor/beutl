@@ -435,6 +435,33 @@ public class DirectoryWatcherServiceTests
         }
     }
 
+    // A file listed while it was still being copied is probed partway. The result is kept only while
+    // the file is unchanged, so the next listing after the copy shows the finished file.
+    [Test]
+    public async Task Media_info_is_probed_again_once_the_file_changes()
+    {
+        string clip = Path.Combine(_projectRoot, "clip.mp4");
+        File.WriteAllBytes(clip, [0]);
+        FileThumbnailService service = FileThumbnailService.Instance;
+        service.ClearCache();
+        try
+        {
+            MediaFileInfo? partlyWritten = await service.GetMediaInfoAsync(clip);
+            File.WriteAllBytes(clip, new byte[4096]);
+            MediaFileInfo? finished = await service.GetMediaInfoAsync(clip);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(partlyWritten?.FileSize, Is.EqualTo(1));
+                Assert.That(finished?.FileSize, Is.EqualTo(4096));
+            });
+        }
+        finally
+        {
+            service.ClearCache();
+        }
+    }
+
     [Test]
     [NonParallelizable]
     public void Template_thumbnail_scope_resolves_a_bare_relative_file_path()

@@ -23,6 +23,7 @@ public class FileSystemItemViewModel : IDisposable
     private readonly CancellationTokenSource _metadataCts = new();
     private bool _disposed;
     private bool _childrenLoaded;
+    private int _mediaInfoLoad;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
     {
@@ -140,9 +141,12 @@ public class FileSystemItemViewModel : IDisposable
 
         try
         {
+            // A reload reads the file as it is now, so an earlier load still running must not
+            // replace what the reload shows.
+            int load = Interlocked.Increment(ref _mediaInfoLoad);
             CancellationToken token = _metadataCts.Token;
             var info = await service.GetMediaInfoAsync(FullPath, token);
-            if (!token.IsCancellationRequested && info != null)
+            if (!token.IsCancellationRequested && info != null && load == Volatile.Read(ref _mediaInfoLoad))
             {
                 MediaInfoText.Value = info.ToDisplayString();
             }
@@ -294,6 +298,24 @@ public class FileSystemItemViewModel : IDisposable
         {
             foreach (var child in Children)
                 child.RefreshEntriesForDirectory(directory);
+        }
+    }
+
+    // Reads the size and details of the listed files at or below the given paths again.
+    internal void ReloadDetailsAtOrBelow(IReadOnlyCollection<string> paths)
+    {
+        if (_disposed)
+            return;
+
+        if (!IsDirectory)
+        {
+            if (paths.Any(path => FilePathComparison.IsSameOrDescendantCanonicalPath(path, FullPath)))
+                _ = LoadMediaInfoAsync();
+        }
+        else if (_childrenLoaded && Children is not null)
+        {
+            foreach (FileSystemItemViewModel child in Children)
+                child.ReloadDetailsAtOrBelow(paths);
         }
     }
 
