@@ -113,6 +113,69 @@ public class PluginDependencyResolutionTests
         Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Is.EqualTo(new[] { Identity("Root", "1.0.0") }));
     }
 
+    // PackageTools.UI deletes the downloaded nupkg from the local source after installing (#2832).
+    [Test]
+    public async Task Re_resolution_uses_the_installed_package_after_its_download_is_deleted()
+    {
+        CreatePackage("Common", "1.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        DeleteDownloads();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        Assert.That(File.Exists(Path.Combine(root, ResolvedPackageDependencies.FileName)), Is.True);
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()),
+            Is.EquivalentTo(new[] { Identity("Root", "1.0.0"), Identity("Common", "1.0.0") }));
+    }
+
+    [Test]
+    public async Task Re_resolution_of_an_installed_graph_does_not_ask_other_sources()
+    {
+        CreatePackage("Common", "1.0.0");
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        DeleteDownloads();
+        // A source that cannot be reached, as nuget.org is when offline.
+        int port;
+        using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0))
+        {
+            listener.Start();
+            port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+
+        new XElement("configuration", new XElement("packageSources", new XElement("clear"),
+            new XElement("add", new XAttribute("key", "test"), new XAttribute("value", Helper.LocalSourcePath)),
+            new XElement("add", new XAttribute("key", "unreachable"), new XAttribute("value", $"http://127.0.0.1:{port}/v3/index.json"))))
+            .Save(Path.Combine(Helper.AppRoot, "nuget.config"));
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        Assert.That(File.Exists(Path.Combine(root, ResolvedPackageDependencies.FileName)), Is.True);
+    }
+
+    [Test]
+    public async Task Startup_re_resolution_records_the_current_Beutl_version_after_the_download_is_deleted()
+    {
+        CreatePackage("Common", "1.0.0");
+        CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        DeleteDownloads();
+        var repository = new InstalledPackageRepository();
+        repository.UpgradePackages(Identity("Root", "1.0.0"));
+        repository.SetResolvedBeutlVersion(_prefix + "Root", "1.0.0-older");
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, repository, null!);
+
+        var task = new Beutl.Services.StartupTasks.ResolvePackageDependenciesTask(repository, installer);
+        await task.Task;
+
+        Assert.That(task.Failures, Is.Empty);
+        Assert.That(repository.GetPackagesNeedingDependencyReResolution(), Is.Empty);
+    }
+
     [TestCase("invalid-json")]
     [TestCase("missing-list")]
     [TestCase("wrong-root")]
@@ -222,6 +285,12 @@ public class PluginDependencyResolutionTests
     }
 
     private PackageIdentity Identity(string name, string version) => new(_prefix + name, NuGetVersion.Parse(version));
+
+    // Removes the nupkgs these tests put in the local source; the installed package folders keep their copies.
+    private void DeleteDownloads()
+    {
+        foreach (string archive in _archives) File.Delete(archive);
+    }
 
     private string CreatePackage(string name, string version, params (string Name, string Version)[] dependencies)
         => CreatePackageDependingOn(name, version, dependencies.Select(dependency => (_prefix + dependency.Name, dependency.Version)).ToArray());

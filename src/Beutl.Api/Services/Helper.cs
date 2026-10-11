@@ -96,6 +96,10 @@ internal static class Helper
                     cancellationToken)
                     .ConfigureAwait(false);
             }
+
+            // The first source that has the package is the one used. Asking the remaining sources
+            // only adds requests, which fail when a remote source cannot be reached.
+            return;
         }
     }
 
