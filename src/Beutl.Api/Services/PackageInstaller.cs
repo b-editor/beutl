@@ -412,7 +412,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     nuGetFramework,
                     _cacheContext,
                     logger,
-                    repositories,
+                    // Installed packages come first. Re-resolving after a Beutl update must work from them:
+                    // PackageTools.UI deletes the downloaded nupkg from the local source, and store packages
+                    // are not on nuget.org.
+                    [CreateInstalledPackagesRepository(), .. repositories],
                     availablePackages,
                     cancellationToken)
                     .ConfigureAwait(false);
@@ -475,6 +478,15 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 _installingContexts.Remove(package);
             }
         }
+    }
+
+    // Each installed package folder keeps its own copy of the nupkg, so installed packages
+    // can be resolved without the local source or the network.
+    private SourceRepository CreateInstalledPackagesRepository()
+    {
+        return _sourceRepositoryProvider.CreateRepository(
+            new PackageSource(Helper.InstallPath, "Beutl Installed Packages"),
+            NuGet.Protocol.FeedType.FileSystemPackagesConfig);
     }
 
     // Downloads and extracts a resolved package that is not installed yet; returns where it landed, or null.
