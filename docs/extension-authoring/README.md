@@ -14,6 +14,8 @@ Extensions build against the `Beutl.Extensibility.Sdk` release that matches the 
 
 ## Migration guides
 
+- [Default font](default-font-migration.md): extensions compiled against the
+  `FontFamily.Default` field.
 - [Avalonia 12](avalonia-12-migration.md): extensions built for Avalonia 11 and FluentAvalonia 2.
 - [Audio effect latency](audio-effect-latency-migration.md): overrides of `AudioEffect.GetLatencySamples`.
 - [Resource reconcile](resource-reconcile-migration.md): overrides of `EngineObject.Resource.Update`, the
