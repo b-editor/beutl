@@ -27,20 +27,33 @@ internal static class WindowPlacement
 
     public static void FitToWorkingArea(Window window)
     {
-        Screen? screen = window.Screens.ScreenFromWindow(window);
-        if (screen != null && window.WindowState != WindowState.Maximized)
-        {
-            var rect = new PixelRect(window.Position, PixelSize.FromSize(window.ClientSize, 1));
-            if (!screen.WorkingArea.Contains(rect))
-            {
-                int width = Math.Min(screen.WorkingArea.Width, rect.Width);
-                int height = Math.Min(screen.WorkingArea.Height, rect.Height);
-                rect = rect.WithWidth(width).WithHeight(height);
+        if (window.WindowState == WindowState.Maximized)
+            return;
 
-                rect = screen.WorkingArea.CenterRect(rect);
-                SetRect(window, rect);
-            }
-        }
+        // A window that no screen shows, because a display was unplugged or rearranged after the
+        // position was saved, is brought onto the primary screen.
+        Screen? screen = window.Screens.ScreenFromWindow(window);
+        bool offScreen = screen == null;
+        screen ??= window.Screens.Primary ?? window.Screens.All.FirstOrDefault();
+        if (screen == null)
+            return;
+
+        // Moved there before it is measured, so it already has that screen's scaling.
+        if (offScreen)
+            window.Position = screen.WorkingArea.Position;
+
+        // The position and the working area are in screen pixels, the size in device-independent units.
+        double scaling = window.DesktopScaling;
+        PixelRect area = screen.WorkingArea;
+        var rect = new PixelRect(window.Position, PixelSize.FromSize(window.ClientSize, scaling));
+        if (!offScreen && area.Contains(rect))
+            return;
+
+        rect = rect.WithWidth(Math.Min(area.Width, rect.Width)).WithHeight(Math.Min(area.Height, rect.Height));
+        rect = area.CenterRect(rect);
+        window.Position = rect.Position;
+        window.Width = rect.Width / scaling;
+        window.Height = rect.Height / scaling;
     }
 
     public static void Save(Window window)
