@@ -50,12 +50,12 @@ public sealed class Project : Hierarchical
     public string AppVersion => RootFileVersions.GetAppVersion(this) ?? BeutlApplication.Version;
 
     /// <summary>
-    /// Gets the oldest version of Beutl that can open the project file, as the file records it, or
-    /// <see cref="FileFormat.Floor"/> for a project whose file records none or that has no file yet.
+    /// Gets the oldest version of Beutl that can open the project: what its file records, raised to what the
+    /// scene and element files read or written with it record, or <see cref="FileFormat.Floor"/> for a
+    /// project whose files record none or that has no file yet.
     /// </summary>
     /// <remarks>
-    /// A save writes the higher of this and <see cref="FileFormat.Floor"/>, raised to what any file of the
-    /// project written before it requires.
+    /// A save of the project file writes the higher of this and <see cref="FileFormat.Floor"/>.
     /// </remarks>
     public string MinAppVersion => RootFileVersions.GetMinAppVersion(this) ?? FileFormat.Floor;
 

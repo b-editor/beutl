@@ -41,6 +41,17 @@ public static class FileFormat
     internal const string MinAppVersionKey = "minAppVersion";
 
     /// <summary>
+    /// Returns whether <paramref name="recorded"/> is a version this build can compare and is at least
+    /// <paramref name="required"/>.
+    /// </summary>
+    internal static bool IsAtLeast(string recorded, string required)
+    {
+        return NuGetVersion.TryParse(recorded, out NuGetVersion? recordedVersion)
+               && NuGetVersion.TryParse(required, out NuGetVersion? requiredVersion)
+               && VersionComparer.VersionRelease.Compare(recordedVersion, requiredVersion) >= 0;
+    }
+
+    /// <summary>
     /// Returns the higher of <paramref name="recorded"/> and <paramref name="required"/>, or
     /// <paramref name="recorded"/> when it is not a version this build can compare, so a constraint it
     /// cannot read is kept rather than weakened.

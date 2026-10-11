@@ -193,11 +193,33 @@ public class FormatFloorTests
         });
     }
 
+    // An auto-save of a project property writes the project file alone.
+    [Test]
+    public void A_save_of_the_project_file_alone_records_what_the_files_read_with_it_record()
+    {
+        SaveProject();
+        string recorded = AboveFloor;
+        SetVersionFields(_elementPath, null, recorded);
+
+        Project project = LoadProject();
+        string loaded = project.MinAppVersion;
+        CoreSerializer.StoreToUri(project, project.Uri!, CoreSerializationMode.Write);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded, Is.EqualTo(recorded));
+            Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(recorded));
+        });
+    }
+
     [Test]
     public void A_project_reports_the_version_fields_of_its_file_until_it_is_saved()
     {
         SaveProject();
         SetVersionFields(_projectPath, "2.0.0-preview.3", OlderMinAppVersion);
+        // Files that record a minimum would raise the project's.
+        SetVersionFields(_scenePath, null, null);
+        SetVersionFields(_elementPath, null, null);
 
         Project project = LoadProject();
         (string AppVersion, string MinAppVersion) loaded = (project.AppVersion, project.MinAppVersion);
@@ -471,6 +493,53 @@ public class FormatFloorTests
             Assert.That(replaced.Select(replacement => replacement.Path), Is.EqualTo(new[] { _scenePath }));
             Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(recorded));
         });
+    }
+
+    // A save writes many files. Once the project file is known to record enough, it is not read again while
+    // its timestamp and length stay the same: held open without sharing, it could not be read at all.
+    [Test]
+    public void A_save_that_needs_no_raise_does_not_read_the_project_file_again()
+    {
+        SaveProject();
+        Project project = LoadProject();
+        Scene scene = (Scene)project.Items.Single();
+        string sceneDirectory = Path.GetDirectoryName(_scenePath)!;
+        Element[] added =
+        [
+            new Element { ZIndex = 1, Uri = new Uri(Path.Combine(sceneDirectory, "second.belm")) },
+            new Element { ZIndex = 2, Uri = new Uri(Path.Combine(sceneDirectory, "third.belm")) },
+        ];
+        foreach (Element element in added)
+        {
+            scene.Children.Add(element);
+        }
+
+        using (new FileStream(_projectPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            // Writes every element file of the scene, then the scene file.
+            Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(scene, scene.Uri!));
+        }
+
+        Assert.That(added.Select(element => File.Exists(element.Uri!.LocalPath)), Is.All.True);
+    }
+
+    // A checkout, for example, can put an older project file in place while the project is open.
+    [Test]
+    public void A_project_file_changed_outside_Beutl_is_read_again()
+    {
+        SaveProject();
+        Project project = LoadProject();
+        Scene scene = (Scene)project.Items.Single();
+        long length = new FileInfo(_projectPath).Length;
+        DateTime timestamp = File.GetLastWriteTimeUtc(_projectPath);
+        // The same length, and a later timestamp whatever the resolution of the file system.
+        SetVersionFields(_projectPath, BeutlApplication.Version, OlderMinAppVersion);
+        File.SetLastWriteTimeUtc(_projectPath, timestamp.AddSeconds(2));
+        Assume.That(new FileInfo(_projectPath).Length, Is.EqualTo(length));
+
+        CoreSerializer.StoreToUri(scene, scene.Uri!, CoreSerializationMode.Write);
+
+        Assert.That((string?)Read(_projectPath)["minAppVersion"], Is.EqualTo(FileFormat.Floor));
     }
 
     // A save must not walk past a project file it could not raise.

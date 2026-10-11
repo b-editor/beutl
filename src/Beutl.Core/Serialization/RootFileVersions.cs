@@ -13,7 +13,9 @@ namespace Beutl.Serialization;
 /// </para>
 /// <para>
 /// The project is what lets a file-backed object outside the hierarchy, saved on its own, find the
-/// project file to raise first. Objects in the hierarchy find it through their ancestors.
+/// project file to raise first. Objects in the hierarchy find it through their ancestors. A file read
+/// with a project also raises the project's own requirement to what the file records, so that any later
+/// save of the project file records at least that, even one that writes no other file.
 /// </para>
 /// </remarks>
 internal static class RootFileVersions
@@ -42,15 +44,21 @@ internal static class RootFileVersions
 
     /// <summary>
     /// Records the <c>minAppVersion</c> <paramref name="obj"/>'s file recorded when it was read, and the
-    /// project being read around it, if any.
+    /// project being read around it, if any, whose requirement it raises.
     /// </summary>
     internal static void RecordRead(ICoreSerializable obj, string? minAppVersion)
     {
+        Project? project = obj is Project ? null : s_readingProject.Value;
         Entry entry = s_entries.GetValue(obj, static _ => new Entry());
         lock (entry)
         {
             entry.MinAppVersion = minAppVersion;
-            entry.Project = obj is Project ? null : s_readingProject.Value;
+            entry.Project = project;
+        }
+
+        if (project is not null && minAppVersion is not null)
+        {
+            RaiseMinAppVersion(project, minAppVersion);
         }
     }
 
@@ -92,6 +100,28 @@ internal static class RootFileVersions
         }
     }
 
+    internal static ProjectFileState? GetProjectFileState(Project project)
+    {
+        if (!s_entries.TryGetValue(project, out Entry? entry))
+        {
+            return null;
+        }
+
+        lock (entry)
+        {
+            return entry.ProjectFile;
+        }
+    }
+
+    internal static void SetProjectFileState(Project project, ProjectFileState? state)
+    {
+        Entry entry = s_entries.GetValue(project, static _ => new Entry());
+        lock (entry)
+        {
+            entry.ProjectFile = state;
+        }
+    }
+
     /// <summary>
     /// Makes <paramref name="project"/> the project that files read on this flow belong to, until the
     /// returned scope is disposed.
@@ -108,6 +138,16 @@ internal static class RootFileVersions
         public void Dispose() => s_readingProject.Value = previous;
     }
 
+    /// <summary>
+    /// The <c>minAppVersion</c> a project file on disk is known to record, as this process last read or
+    /// wrote it, with the timestamp and length the file had then.
+    /// </summary>
+    internal readonly record struct ProjectFileState(
+        string Path,
+        DateTime LastWriteTimeUtc,
+        long Length,
+        string MinAppVersion);
+
     private sealed class Entry
     {
         public string? MinAppVersion;
@@ -116,5 +156,7 @@ internal static class RootFileVersions
 
         // Kept for a project only.
         public string? AppVersion;
+
+        public ProjectFileState? ProjectFile;
     }
 }

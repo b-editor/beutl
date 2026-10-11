@@ -283,7 +283,7 @@ public static partial class CoreSerializer
                 coreObject.Uri = uri;
             }
 
-            RecordRead(unknownTypeFallback, version);
+            RecordRead(unknownTypeFallback, version, uri);
             return unknownTypeFallback;
         }
 
@@ -309,7 +309,7 @@ public static partial class CoreSerializer
                     coreObject.Uri = uri;
                 }
 
-                RecordRead(incompatibleTypeFallback, version);
+                RecordRead(incompatibleTypeFallback, version, uri);
                 return incompatibleTypeFallback;
             }
 
@@ -321,7 +321,7 @@ public static partial class CoreSerializer
             var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
-            RecordRead(obj, version);
+            RecordRead(obj, version, uri);
             PopulateFromStorage(obj, type, jsonObject, uri);
             MarkFallbackInstance(obj);
             return obj;
@@ -331,7 +331,7 @@ public static partial class CoreSerializer
         {
             if (fallback is CoreObject coreObject)
                 coreObject.Uri = uri;
-            RecordRead(fallback, version);
+            RecordRead(fallback, version, uri);
             return fallback;
         }
     }
@@ -348,7 +348,7 @@ public static partial class CoreSerializer
         JsonObject jsonObject = ParseStoredObject(stream, uri);
         StoredVersion version = TakeVersionFields(jsonObject, uri);
         AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
-        RecordRead(obj, version);
+        RecordRead(obj, version, uri);
         PopulateFromStorage(obj, type, jsonObject, uri);
     }
 

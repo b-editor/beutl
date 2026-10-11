@@ -157,6 +157,7 @@ public static partial class CoreSerializer
                 if (obj is Project savedProject)
                 {
                     RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
+                    RememberProjectFile(savedProject, uri.LocalPath, minAppVersion);
                 }
             }
         }

@@ -43,7 +43,7 @@ public static partial class CoreSerializer
         return new StoredVersion(appVersion, minAppVersion);
     }
 
-    private static void RecordRead(ICoreSerializable obj, StoredVersion version)
+    private static void RecordRead(ICoreSerializable obj, StoredVersion version, Uri uri)
     {
         RootFileVersions.RecordRead(obj, version.MinAppVersion);
         // Only a project file records the version that last saved it. Another file read with an appVersion,
@@ -51,6 +51,10 @@ public static partial class CoreSerializer
         if (obj is Project project)
         {
             RootFileVersions.RecordAppVersion(project, version.AppVersion);
+            if (uri.IsFile && version.MinAppVersion is { } minAppVersion)
+            {
+                RememberProjectFile(project, uri.LocalPath, minAppVersion);
+            }
         }
     }
 
@@ -145,7 +149,20 @@ public static partial class CoreSerializer
         string path = projectUri.LocalPath;
         lock (s_projectFileSync)
         {
-            if (!File.Exists(path))
+            var info = new FileInfo(path);
+            if (!info.Exists)
+            {
+                return;
+            }
+
+            // A save writes many files, and the project file it raised or read for the first is still the
+            // same file for the others. One changed outside Beutl, by a checkout for example, has another
+            // timestamp or length, and is read again.
+            if (RootFileVersions.GetProjectFileState(project) is { } known
+                && string.Equals(known.Path, path, StringComparison.Ordinal)
+                && known.LastWriteTimeUtc == info.LastWriteTimeUtc
+                && known.Length == info.Length
+                && FileFormat.IsAtLeast(known.MinAppVersion, required))
             {
                 return;
             }
@@ -161,8 +178,18 @@ public static partial class CoreSerializer
                 return;
             }
 
-            if (node is not JsonObject json || !RecordsLowerVersion(json, required))
+            if (node is not JsonObject json)
             {
+                return;
+            }
+
+            if (!RecordsLowerVersion(json, required))
+            {
+                if (json[FileFormat.MinAppVersionKey] is JsonValue value && value.TryGetValue(out string? recorded))
+                {
+                    RememberProjectFile(project, path, recorded);
+                }
+
                 return;
             }
 
@@ -172,7 +199,25 @@ public static partial class CoreSerializer
                 isCompatibilityGate: true,
                 writer => json.WriteTo(writer, JsonHelper.SerializerOptions));
             RootFileVersions.RecordAppVersion(project, BeutlApplication.Version);
+            RememberProjectFile(project, path, required);
         }
+    }
+
+    // Remembers what the project file at path records, with its timestamp and length now, so that a later
+    // write that needs no more skips reading it while nothing else changes it. A storage write transaction
+    // that rolls back puts other bytes there, so it forgets them.
+    private static void RememberProjectFile(Project project, string path, string minAppVersion)
+    {
+        var info = new FileInfo(path);
+        if (!info.Exists || !NuGetVersion.TryParse(minAppVersion, out _))
+        {
+            return;
+        }
+
+        RootFileVersions.SetProjectFileState(
+            project,
+            new RootFileVersions.ProjectFileState(path, info.LastWriteTimeUtc, info.Length, minAppVersion));
+        StorageWriteTransaction.Current?.OnRollback(() => RootFileVersions.SetProjectFileState(project, null));
     }
 
     // Whether a project file records a minAppVersion below required. A version this build cannot compare,
