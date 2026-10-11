@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Platform;
-using Avalonia.Skia;
 using FluentAvalonia.UI.Media;
-using SkiaSharp;
 
 namespace FluentAvalonia.UI.Controls;
 
@@ -75,18 +74,15 @@ public partial class ColorSpectrum : ColorPickerComponent
                         minD, minD);
                 }
 
-                Rect x = new Rect(_lastWheelRect.X + 1, _lastWheelRect.Y + 1, minD - 2, minD - 2);
-                context.FillRectangle(Brushes.Black, x, (float)minD * 2);
+                // The wheel shows the current value, so only a value change redraws it
+                if (_wheelBitmapValue != Color.Valuef)
+                    CreateBitmap();
 
-                // Rather than creating the bitmap everytime the color changes, we can fake the change in
-                // Value by drawing a Black ellipse behind the image and the using the Value as the opacity
-                // to draw the bitmap
-                using (context.PushOpacity(Color.Valuef))
-                    context.DrawImage(bitmap, new Rect(bitmap.Size), _lastWheelRect);
+                context.DrawImage(bitmap, new Rect(bitmap.Size), _lastWheelRect);
             }
             else if (Shape == ColorSpectrumShape.Triangle)
             {
-                if (_triangleDirty || _tempBitmap == null)
+                if (!IsTriangleBitmapCurrent())
                 {
                     CreateBitmap();
                 }
@@ -213,13 +209,6 @@ public partial class ColorSpectrum : ColorPickerComponent
                     break;
             }
         }
-        else if (Shape == ColorSpectrumShape.Triangle)
-        {
-            // Check _tempBitmap to make sure we've initialized to not trigger this
-            // if the color changes before we've init-d
-            if (_tempBitmap != null && newColor.Hue >= 0 && Hue != oldColor.Hue)
-                _triangleDirty = true;
-        }
 
         // From WinUI (ColorSpectrum.cpp - SelectionEllipseShouldBeLight)
         // Alt would be to calculate HSL Lightness from HSV
@@ -293,29 +282,29 @@ public partial class ColorSpectrum : ColorPickerComponent
         }
         else if (Shape == ColorSpectrumShape.Wheel)
         {
-            if (_tempBitmap == null || !(_tempBitmap is RenderTargetBitmap))
+            if (_tempBitmap == null || !(_tempBitmap is WriteableBitmap))
             {
                 _tempBitmap?.Dispose();
-                _tempBitmap = new RenderTargetBitmap(new PixelSize(_defBitmapSize, _defBitmapSize));
+                _tempBitmap = new WriteableBitmap(new PixelSize(_defBitmapSize, _defBitmapSize), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
             }
 
             DrawWheelBitmap();
         }
         else if (Shape == ColorSpectrumShape.Triangle)
         {
-            _tempBitmap?.Dispose();
-            _tempBitmap = new RenderTargetBitmap(new PixelSize((int)_lastWheelRect.Width, (int)_lastWheelRect.Height));
+            var size = GetTriangleBitmapSize();
+            if (_tempBitmap is not WriteableBitmap { } bitmap || bitmap.PixelSize != size)
+            {
+                _tempBitmap?.Dispose();
+                _tempBitmap = new WriteableBitmap(size, new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
+            }
 
             DrawTriangleWheelBitmap();
-            _triangleDirty = false;
         }
     }
 
     private WriteableBitmap GetWriteableBitmap()
         => _tempBitmap as WriteableBitmap ?? throw new InvalidOperationException("The spectrum bitmap is unavailable.");
-
-    private RenderTargetBitmap GetRenderTargetBitmap()
-        => _tempBitmap as RenderTargetBitmap ?? throw new InvalidOperationException("The wheel bitmap is unavailable.");
 
     private void DrawValueSaturationBitmap()
     {
@@ -489,177 +478,146 @@ public partial class ColorSpectrum : ColorPickerComponent
 
     private void DrawWheelBitmap()
     {
-        using (var dc = GetRenderTargetBitmap().CreateDrawingContext())
+        var value = Color.Valuef;
+        using (var lok = GetWriteableBitmap().Lock())
         {
-            //var leaseFeature = dc.GetFeature<ISkiaSharpApiLeaseFeature>();
-            //if (leaseFeature == null)
-            //    throw new NotSupportedException("Skia must be the render backend for the FAColorPicker");
+            unsafe
+            {
+                var pixels = (byte*)lok.Address;
+                var rowBytes = lok.RowBytes;
+                var size = lok.Size.Width;
+                // The wheel fills the bitmap, which is drawn into _lastWheelRect, so a point's
+                // distance from the center over half the width is the saturation that
+                // SetColorFromHitTestPosition picks there
+                float radius = size / 2f;
 
-            //using var lease = leaseFeature.Lease();
-            //var skDC = lease.SkCanvas;
-
-            //SKRect rect = SKRect.Create(0, 0, _tempBitmap.PixelSize.Width, _tempBitmap.PixelSize.Height);
-            //SKPoint center = new SKPoint(rect.MidX, rect.MidY);
-            //float radius = (rect.Width / 2f) - ((float)WheelPadding / 2f);
-
-            //SKShader spectrum = SKShader.CreateSweepGradient(center,
-            //    new SKColor[]
-            //    {
-            //        new SKColor(255, 0, 0),
-            //        new SKColor(255, 0, 255),
-            //        new SKColor(0, 0, 255),
-            //        new SKColor(0, 255, 255),
-            //        new SKColor(0, 255, 0),
-            //        new SKColor(255, 255, 0),
-            //        new SKColor(255, 0, 0)
-            //    });
-
-            //SKPaint paint = new SKPaint();
-            //paint.Shader = spectrum;
-            //paint.Style = SKPaintStyle.StrokeAndFill;
-            //paint.StrokeWidth = 1f;
-            //paint.IsAntialias = true;
-
-            //skDC.DrawCircle(center, radius, paint);
-
-            //spectrum.Dispose();
-
-            //var grad = SKShader.CreateRadialGradient(center, radius,
-            //    new SKColor[] { SKColor.Parse("#FFFFFFFF"), SKColor.Parse("#00FFFFFF") },
-            //    new float[] { 0, 1 }, SKShaderTileMode.Clamp);
-
-            //paint.Shader = grad;
-            //paint.Style = SKPaintStyle.Fill;
-            //paint.IsAntialias = true;
-
-            //skDC.DrawCircle(center, radius, paint);
-
-            //paint.Dispose();
-            //grad.Dispose();
+                Parallel.For(0, size, i =>
+                {
+                    var row = (uint*)(pixels + i * rowBytes);
+                    var dy = radius - (i + 0.5f);
+                    for (int j = 0; j < size; j++)
+                    {
+                        var dx = j + 0.5f - radius;
+                        var dist = MathF.Sqrt(dx * dx + dy * dy);
+                        var coverage = float.Clamp(radius - dist + 0.5f, 0, 1);
+                        row[j] = coverage > 0
+                            ? HSVToPremultipliedUInt(AngleToHue(dx, dy), MathF.Min(dist / radius, 1), value, coverage)
+                            : 0;
+                    }
+                });
+            }
         }
+
+        _wheelBitmapValue = value;
     }
 
     private void DrawTriangleWheelBitmap()
     {
-        using (var dc = GetRenderTargetBitmap().CreateDrawingContext())
+        var hue = Color.Huef;
+        using (var lok = GetWriteableBitmap().Lock())
         {
-            //var leaseFeature = dc.GetFeature<ISkiaSharpApiLeaseFeature>();
-            //if (leaseFeature == null)
-            //    throw new NotSupportedException("Skia must be the render backend for the FAColorPicker");
+            unsafe
+            {
+                var pixels = (byte*)lok.Address;
+                var rowBytes = lok.RowBytes;
+                var width = lok.Size.Width;
+                var height = lok.Size.Height;
 
-            //using var lease = leaseFeature.Lease();
-            //var skDC = lease.SkCanvas;
+                // Work in the control's units, like RenderTriangleSelector and HitTestPoint, so the
+                // color drawn at a point is the color picked there
+                var wheelSize = (float)_lastWheelRect.Width;
+                var pixelSize = wheelSize / width;
+                var center = wheelSize / 2f;
+                var outerRadius = center - (float)WheelPadding / 2f;
+                var innerRadius = outerRadius - TriangleWheelThickness * (wheelSize / 500);
 
-            //SKRect rect = SKRect.Create(0, 0, _tempBitmap.PixelSize.Width, _tempBitmap.PixelSize.Height);
-            //SKPoint center = new SKPoint(rect.MidX, rect.MidY);
-            //float radius = (rect.Width / 2f) - ((float)WheelPadding / 2f);
+                // Same frame as SetColorFromHitTestPosition: the hue corner points up, the white
+                // corner sits bottom left and the black corner bottom right
+                var angle = -MathF.PI / 2 + hue * MathF.PI / 180;
+                var cos = MathF.Cos(angle);
+                var sin = MathF.Sin(angle);
+                var sqrt3 = MathF.Sqrt(3);
 
-            ////Apply scale to TriangleWheelThickness
-            //var wheelThicc = TriangleWheelThickness * (rect.Width / 500);
+                Parallel.For(0, height, i =>
+                {
+                    var row = (uint*)(pixels + i * rowBytes);
+                    var y = (i + 0.5f) * pixelSize - center;
+                    for (int j = 0; j < width; j++)
+                    {
+                        var x = (j + 0.5f) * pixelSize - center;
+                        var dist = MathF.Sqrt(x * x + y * y);
 
-            //SKShader spectrum = SKShader.CreateSweepGradient(center,
-            //    new SKColor[]
-            //    {
-            //        new SKColor(255, 0, 0),
-            //        new SKColor(255, 0, 255),
-            //        new SKColor(0, 0, 255),
-            //        new SKColor(0, 255, 255),
-            //        new SKColor(0, 255, 0),
-            //        new SKColor(255, 255, 0),
-            //        new SKColor(255, 0, 0)
-            //    });
+                        float b = 0, g = 0, r = 0, a = 0;
 
-            //SKPaint paint = new SKPaint();
-            //paint.Shader = spectrum;
-            //paint.Style = SKPaintStyle.Fill;
-            //paint.StrokeWidth = 1f;
-            //paint.IsAntialias = true;
+                        var normX = (x * cos - y * sin) / innerRadius;
+                        var normY = (x * sin + y * cos) / innerRadius;
+                        // Distance inside the nearest edge; the triangle's inradius is half its circumradius
+                        var edge = MathF.Min(0.5f - normY,
+                            MathF.Min(0.5f + (sqrt3 / 2) * normX + 0.5f * normY,
+                                0.5f - (sqrt3 / 2) * normX + 0.5f * normY));
+                        var triangleCoverage = float.Clamp(edge * innerRadius / pixelSize + 0.5f, 0, 1);
+                        if (triangleCoverage > 0)
+                        {
+                            var denom = sqrt3 * -normX - normY + 2;
+                            var val = float.Clamp(denom / 3, 0, 1);
+                            var sat = denom > 0.0001f ? float.Clamp((1 - 2 * normY) / denom, 0, 1) : 0;
+                            Color2.HSVToRGB(hue, sat, val, out r, out g, out b);
+                            r *= triangleCoverage;
+                            g *= triangleCoverage;
+                            b *= triangleCoverage;
+                            a = triangleCoverage;
+                        }
 
-            //skDC.DrawCircle(center, radius, paint);
+                        var ringCoverage = float.Clamp((outerRadius - dist) / pixelSize + 0.5f, 0, 1)
+                                           * float.Clamp((dist - innerRadius) / pixelSize + 0.5f, 0, 1);
+                        if (ringCoverage > 0)
+                        {
+                            Color2.HSVToRGB(AngleToHue(x, -y), 1, 1, out var ringR, out var ringG, out var ringB);
+                            r = ringR * ringCoverage + r * (1 - ringCoverage);
+                            g = ringG * ringCoverage + g * (1 - ringCoverage);
+                            b = ringB * ringCoverage + b * (1 - ringCoverage);
+                            a = ringCoverage + a * (1 - ringCoverage);
+                        }
 
-            //spectrum.Dispose();
-
-            //var grad = SKShader.CreateColor(SKColors.Black);
-            //paint.Shader = grad;
-            //paint.BlendMode = SKBlendMode.DstOut;
-
-            //skDC.DrawCircle(center, radius - wheelThicc, paint);
-
-            //grad.Dispose();
-
-            //// -- Now draw the Triangle
-            //paint.BlendMode = SKBlendMode.SrcOver; //Restore to default
-            //paint.Style = SKPaintStyle.StrokeAndFill;
-
-            //rect.Inflate(-wheelThicc + (float)WheelPadding / 2,
-            //    -wheelThicc + (float)WheelPadding / 2);
-
-            //radius -= wheelThicc;
-
-            //Color.GetHSVf(out float hue, out float s, out float v, out float _);
-            //var h = hue * MathF.PI / 180;
-            //float third = MathF.PI * (2f / 3f);
-            //var hx = rect.MidX + radius * MathF.Cos(h);
-            //var hy = rect.MidY - radius * MathF.Sin(h);
-
-            //var sx = rect.MidX + radius * MathF.Cos(h - third);
-            //var sy = rect.MidY - radius * MathF.Sin(h - third);
-
-            //var vx = rect.MidX + radius * MathF.Cos(h + third);
-            //var vy = rect.MidY - radius * MathF.Sin(h + third);
-
-            //SKPath path = new SKPath();
-            //path.MoveTo(hx, hy);
-            //path.LineTo(sx, sy);
-            //path.LineTo(vx, vy);
-            //path.Close();
-
-            ////Black Triangle
-            ////Transparent - Color(Hue)
-            ////Transparent to White (composited)
-
-            //var colShader = SKShader.CreateColor(SKColors.Black);
-            //var xMid = (sx + vx) / 2;
-            //var yMid = (sy + vy) / 2;
-            //var hShader = SKShader.CreateLinearGradient(new SKPoint(xMid, yMid), new SKPoint(hx, hy),
-            //    new SKColor[]
-            //    {
-            //        SKColor.FromHsv(hue,100,100,0),
-            //        SKColor.FromHsv(hue,100,100)
-            //    }, SKShaderTileMode.Clamp);
-
-
-            //xMid = (hx + sx) / 2;
-            //yMid = (hy + sy) / 2;
-            //var wShader = SKShader.CreateLinearGradient(new SKPoint(vx, vy), new SKPoint(xMid, yMid),
-            //    new SKColor[]
-            //    {
-            //        SKColors.White,
-            //        SKColor.Parse("#00FFFFFF")
-            //    }, SKShaderTileMode.Clamp);
-
-            //paint.Shader = colShader;
-            //paint.Style = SKPaintStyle.StrokeAndFill;
-
-            //skDC.DrawPath(path, paint);
-
-
-            //paint.Shader = hShader;
-            //skDC.DrawPath(path, paint);
-
-            //paint.Shader = wShader;
-            //paint.BlendMode = SKBlendMode.Plus;
-            //skDC.DrawPath(path, paint);
-
-            //wShader.Dispose();
-            //hShader.Dispose();
-            //colShader.Dispose();
-
-            //path.Dispose();
-
-            //paint.Dispose();
+                        row[j] = ToUInt(r, g, b, a);
+                    }
+                });
+            }
         }
+
+        _triangleBitmapHue = hue;
     }
+
+    private PixelSize GetTriangleBitmapSize()
+    {
+        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        return new PixelSize(Math.Max(1, (int)(_lastWheelRect.Width * scaling)),
+            Math.Max(1, (int)(_lastWheelRect.Height * scaling)));
+    }
+
+    private bool IsTriangleBitmapCurrent()
+        => _tempBitmap is WriteableBitmap bitmap
+           && bitmap.PixelSize == GetTriangleBitmapSize()
+           && _triangleBitmapHue == Color.Huef;
+
+    // Hue of the direction (x, y), with y pointing up and red along +x, in [0, 360)
+    private static float AngleToHue(float x, float y)
+    {
+        var hue = MathF.Atan2(y, x) * 180 / MathF.PI;
+        if (hue < 0)
+            hue += 360;
+        return hue >= 360 ? 0 : hue;
+    }
+
+    private static uint HSVToPremultipliedUInt(float hue, float sat, float val, float alpha)
+    {
+        Color2.HSVToRGB(hue, sat, val, out var r, out var g, out var b);
+        return ToUInt(r * alpha, g * alpha, b * alpha, alpha);
+    }
+
+    // Packs premultiplied channels in [0, 1] as a Bgra8888 pixel
+    private static uint ToUInt(float r, float g, float b, float a)
+        => (uint)(a * 255 + 0.5f) << 24 | (uint)(r * 255 + 0.5f) << 16 | (uint)(g * 255 + 0.5f) << 8 | (uint)(b * 255 + 0.5f);
 
     private void RenderSelectorRects(DrawingContext context, double width, double height)
     {
@@ -1024,7 +982,8 @@ public partial class ColorSpectrum : ColorPickerComponent
     private bool _shouldSelectorBeDark;
     private HitTestResult _lastHTR;
     private readonly int _defBitmapSize = 500;
-    private bool _triangleDirty;
+    private float _wheelBitmapValue;
+    private float _triangleBitmapHue;
 
     private Bitmap? _tempBitmap;
     private Rect _lastWheelRect;
