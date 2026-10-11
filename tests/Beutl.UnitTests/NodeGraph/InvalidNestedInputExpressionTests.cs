@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Linq;
-using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Editor;
@@ -11,6 +10,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
@@ -141,7 +141,7 @@ public class InvalidNestedInputExpressionTests
     }
 
     [Test]
-    public void APortExpressionSavesTheExpressionItReplaced()
+    public void AReloadedConnectionGivesTheSavedExpressionBack()
     {
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
@@ -149,12 +149,19 @@ public class InvalidNestedInputExpressionTests
         node.Object.Brush.CurrentValue = brush;
         graph.Nodes.Add(node);
         brush.Opacity.Expression = Expression.Create<float>("73");
-        graph.Connect(Find(node, brush.Opacity), Source(graph, 12f));
+        INestedInputPort port = Find(node, brush.Opacity);
+        graph.Connect(port, Source(graph, 12f));
 
-        JsonNode saved = Expression.ToNode(brush.Opacity.Expression!);
-        var restored = Expression.CreateFromNode<float>(saved) as NodePortExpression<float>;
+        var json = CoreSerializer.SerializeToJsonObject(graph);
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        Evaluate(restored);
+        var restoredPort = (INestedInputPort)restored.FindNodePort(port.Id)!;
+        var restoredOpacity = (IProperty<float>)restoredPort.Property!.GetEngineProperty()!;
+        Assert.That(restoredOpacity.GetValue(CompositionContext.Default), Is.EqualTo(12f), "the reloaded connection drives the property");
 
-        Assert.That(restored?.Replaced?.ExpressionString, Is.EqualTo("73"));
+        restored.Disconnect(restored.AllConnections.Single());
+
+        Assert.That(restoredOpacity.Expression?.ExpressionString, Is.EqualTo("73"));
     }
 
     private static INestedInputPort Find(GraphNode node, IProperty property)
