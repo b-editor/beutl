@@ -258,9 +258,6 @@
     <value>未找到终端模拟器。要完成更新，请在终端中运行以下命令：
 {0}</value>
   </data>
-  <data name="UpdateFolderAlreadyExists" xml:space="preserve">
-    <value>文件夹 {0} 已存在。请移动或重命名该文件夹，然后重试更新。</value>
-  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>无法开始导出，因为引用的源文件缺失：{0}（缺少 {1} 个）。</value>
   </data>
@@ -357,9 +354,6 @@
   </data>
   <data name="FailedToRestoreBackup" xml:space="preserve">
     <value>还原备份失败。</value>
-  </data>
-  <data name="FailedToDeleteBackup" xml:space="preserve">
-    <value>删除备份失败。</value>
   </data>
   <data name="ConfirmInstall" xml:space="preserve">
     <value>是否要安装？

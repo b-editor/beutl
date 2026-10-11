@@ -258,9 +258,6 @@
     <value>터미널 에뮬레이터를 찾을 수 없습니다. 업데이트를 완료하려면 터미널에서 다음 명령을 실행하세요.
 {0}</value>
   </data>
-  <data name="UpdateFolderAlreadyExists" xml:space="preserve">
-    <value>{0} 폴더가 이미 있습니다. 폴더를 옮기거나 이름을 바꾼 다음 업데이트를 다시 시도하세요.</value>
-  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>참조된 소스 파일이 없어 내보내기를 시작할 수 없습니다: {0}({1}개 누락).</value>
   </data>
@@ -357,9 +354,6 @@
   </data>
   <data name="FailedToRestoreBackup" xml:space="preserve">
     <value>백업을 복원하지 못했습니다.</value>
-  </data>
-  <data name="FailedToDeleteBackup" xml:space="preserve">
-    <value>백업을 삭제하지 못했습니다.</value>
   </data>
   <data name="ConfirmInstall" xml:space="preserve">
     <value>설치하시겠습니까?

@@ -258,9 +258,6 @@ You can keep editing when this finishes.</value>
     <value>No terminal emulator was found. To finish the update, run this command in a terminal:
 {0}</value>
   </data>
-  <data name="UpdateFolderAlreadyExists" xml:space="preserve">
-    <value>The folder {0} already exists. Move or rename it, then try the update again.</value>
-  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>Export cannot start because a referenced source file is missing: {0} ({1} missing).</value>
   </data>
@@ -357,9 +354,6 @@ Do you want to restart the application?</value>
   </data>
   <data name="FailedToRestoreBackup" xml:space="preserve">
     <value>Failed to restore backup.</value>
-  </data>
-  <data name="FailedToDeleteBackup" xml:space="preserve">
-    <value>Failed to delete backup.</value>
   </data>
   <data name="ConfirmInstall" xml:space="preserve">
     <value>Do you want to install?
