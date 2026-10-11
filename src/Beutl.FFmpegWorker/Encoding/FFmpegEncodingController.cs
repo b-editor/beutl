@@ -67,8 +67,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
 
+        // An output of another aspect ratio gets the whole frame with black bars rather than a stretched one.
+        (string scaleStr, string? padStr) = FrameFit.GetFilterArguments(
+            VideoSettings.SourceSize, VideoSettings.DestinationSize);
         var scaleFilter = new MediaFilter("scale");
-        var scaleStr = $"{VideoSettings.DestinationSize.Width}:{VideoSettings.DestinationSize.Height}";
         var scaleCtx = _filterGraph.AddFilter(scaleFilter, scaleStr);
 
         var formatFilter = new MediaFilter("format");
@@ -76,7 +78,17 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
 
         _bufferSrcCtx.LinkTo(0, scaleCtx);
-        scaleCtx.LinkTo(0, formatCtx);
+        if (padStr != null)
+        {
+            var padCtx = _filterGraph.AddFilter(new MediaFilter("pad"), padStr);
+            scaleCtx.LinkTo(0, padCtx);
+            padCtx.LinkTo(0, formatCtx);
+        }
+        else
+        {
+            scaleCtx.LinkTo(0, formatCtx);
+        }
+
         formatCtx.LinkTo(0, _bufferSinkCtx);
 
         _filterGraph.Initialize();
