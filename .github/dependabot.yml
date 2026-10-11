@@ -22,3 +22,10 @@ updates:
     target-branch: "main"
     schedule:
       interval: daily
+
+  # Follows the branch each submodule declares in .gitmodules (beutl for both forks).
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "daily"
