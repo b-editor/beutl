@@ -222,19 +222,21 @@ public partial class Scene
     {
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
+        var elementPaths = Children.Select(item => NormalizeElementPattern(
+            Path.GetRelativePath(dirPath, item.Uri!.LocalPath))).ToHashSet(StringComparer.Ordinal);
+
+        // Attached children must not retain exclusions left by an earlier removal.
+        _excludeElements.RemoveAll(elementPaths.Contains);
 
         var matcher = new Matcher();
         matcher.AddIncludePatterns(_includeElements);
         matcher.AddExcludePatterns(_excludeElements);
 
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (Element item in Children)
+        foreach (string rel in elementPaths)
         {
-            string rel = NormalizeElementPattern(
-                Path.GetRelativePath(dirPath, item.Uri!.LocalPath));
-
             // 含まれていない場合追加
-            if (!files.Contains(rel))
+            if (!files.Contains(rel) && !_includeElements.Contains(rel))
             {
                 _includeElements.Add(rel);
             }
