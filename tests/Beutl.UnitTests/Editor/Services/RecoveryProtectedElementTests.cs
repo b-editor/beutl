@@ -193,6 +193,33 @@ public class RecoveryProtectedElementTests
         });
     }
 
+    // A lock added to a protected clip would not be saved, since the retained file wins, and it would
+    // block the repair and the delete. Unlocking a clip that is already locked stays allowed.
+    [Test]
+    public void LockingAProtectedElement_IsRefused_ButUnlockingStaysAllowed()
+    {
+        (Uri sceneUri, _) = CreateSceneWithMissingType();
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element element = scene.Children.Single();
+        using var harness = new HistoryHarness(scene);
+        var attributes = new ElementAttributeService(harness.History);
+
+        attributes.SetLocked(element, true);
+        bool locked = element.IsLocked;
+        bool recorded = harness.History.CanUndo;
+        element.IsLocked = true;
+        harness.History.Commit("locked in the retained file");
+        attributes.SetLocked(element, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked, Is.False);
+            Assert.That(recorded, Is.False);
+            Assert.That(element.IsLocked, Is.False, "Unlocking makes the repair and the delete possible again.");
+            Assert.That(element.SuppressedStorageSource, Is.Not.Null);
+        });
+    }
+
     [Test]
     public void UserLock_StillStopsRemovingAProtectedElement()
     {

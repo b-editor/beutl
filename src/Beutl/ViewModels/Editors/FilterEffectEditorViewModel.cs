@@ -218,14 +218,13 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetTarget(FilterEffect? target)
     {
-        if (!CanReplace(Value.Value)) return;
-        if (Value.Value is IPresenter<FilterEffect> presenter)
-        {
-            PresenterEditorHelper.AssignTarget(presenter, target);
+        // Only the presenter's target is replaced, so check that rather than the whole value.
+        if (IsDisposed || Value.Value is not IPresenter<FilterEffect> presenter) return;
+        if (!CanReplace(presenter.Target.CurrentValue)) return;
+        PresenterEditorHelper.AssignTarget(presenter, target);
 
-            CompleteElementRepair();
-            Commit();
-        }
+        CompleteElementRepair();
+        Commit();
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()

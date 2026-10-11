@@ -129,7 +129,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public void SetValue(Pen? oldValue, Pen? newValue)
     {
-        if (!CanReplace(oldValue)) return;
+        if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<Pen>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
@@ -145,7 +145,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (!CanReplace(Value.Value)) return false;
-        if (template.CreateInstance() is not Pen instance) return false;
+        if (template.CreateInstance() is not Pen instance || !CanReplace(Value.Value, instance)) return false;
         IsExpanded.Value = true;
 
         PropertyAdapter.SetValue(instance);
@@ -157,7 +157,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override bool TryPasteJson(string json)
     {
         if (!CanReplace(Value.Value)) return false;
-        if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)
+            || !CanReplace(Value.Value, pasted)) return false;
 
         IsExpanded.Value = true;
 

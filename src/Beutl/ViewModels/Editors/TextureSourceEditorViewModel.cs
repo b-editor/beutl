@@ -80,7 +80,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
 
     public void SetValue(TextureSource? oldValue, TextureSource? newValue)
     {
-        if (!CanReplace(oldValue)) return;
+        if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<TextureSource?>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
@@ -109,29 +109,29 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         SetValue(oldValue, null);
     }
 
+    // These replace only the drawable, so they check it rather than the whole texture source: replacing
+    // it while the source's own animation holds an unreadable easing leaves the element protected, so
+    // that change would not be saved.
     public void SetDrawableType(Type type)
     {
-        if (!CanReplace(Value.Value)) return;
-        if (Value.Value is DrawableTextureSource drawableSource)
-        {
+        if (IsDisposed || Value.Value is not DrawableTextureSource drawableSource) return;
+        if (!CanReplace(drawableSource.Drawable.CurrentValue)) return;
 
-            var drawable = (Drawable?)Activator.CreateInstance(type);
-            drawableSource.Drawable.CurrentValue = drawable;
-            CompleteElementRepair();
-            Commit();
-        }
+        var drawable = (Drawable?)Activator.CreateInstance(type);
+        drawableSource.Drawable.CurrentValue = drawable;
+        CompleteElementRepair();
+        Commit();
     }
 
     public void SetDrawableTarget(Drawable target)
     {
-        if (!CanReplace(Value.Value)) return;
+        if (IsDisposed || Value.Value is not DrawableTextureSource drawableSource) return;
+        if (!CanReplace(drawableSource.Drawable.CurrentValue)) return;
         Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Drawable));
         if (presenterType != null
             && Activator.CreateInstance(presenterType) is Drawable presenterDrawable
-            && presenterDrawable is IPresenter<Drawable> presenterInterface
-            && Value.Value is DrawableTextureSource drawableSource)
+            && presenterDrawable is IPresenter<Drawable> presenterInterface)
         {
-
             var expression = Expression.CreateReference<Drawable>(target.Id);
             presenterInterface.Target.Expression = expression;
             drawableSource.Drawable.CurrentValue = presenterDrawable;

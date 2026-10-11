@@ -185,6 +185,13 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        // Locking a protected clip would not be saved and would block its repair (see
+        // ElementAttributeService.SetLocked); unlocking one stays possible.
+        CanToggleLock = IsLocked
+            .CombineLatest(IsRecoveryProtected, (locked, isProtected) => locked || !isProtected)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         RecoveryProtectionToolTip = IsRecoveryProtected
             .Select(isProtected => isProtected ? MessageStrings.RecoveryProtectedElementToolTip : null)
             .ToReadOnlyReactivePropertySlim()
@@ -282,6 +289,8 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     public ReadOnlyReactivePropertySlim<bool> IsEditable { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanToggleLock { get; }
 
     public ReadOnlyReactivePropertySlim<string?> RecoveryProtectionToolTip { get; }
 

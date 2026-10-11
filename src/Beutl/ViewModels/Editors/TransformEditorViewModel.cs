@@ -267,13 +267,12 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetTarget(Transform? target)
     {
-        if (!CanReplace(Value.Value)) return;
-        if (Value.Value is IPresenter<Transform> presenter)
-        {
-            PresenterEditorHelper.AssignTarget(presenter, target);
-            CompleteElementRepair();
-            Commit();
-        }
+        // Only the presenter's target is replaced, so check that rather than the whole value.
+        if (IsDisposed || Value.Value is not IPresenter<Transform> presenter) return;
+        if (!CanReplace(presenter.Target.CurrentValue)) return;
+        PresenterEditorHelper.AssignTarget(presenter, target);
+        CompleteElementRepair();
+        Commit();
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()

@@ -176,6 +176,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                && ElementEditability.CanRepair(_element, keyFrame, _scene);
     }
 
+    // CanReplace for an edit that writes replacement in place of content. On a recovery-protected
+    // element, a replacement that itself holds what could not be loaded never completes the repair,
+    // so the edit would be lost on save.
+    protected internal bool CanReplace(object? content, object? replacement)
+        => CanReplace(content)
+           && !(_element is { IsRecoveryProtected: true } && Scene.HoldsRecoveryBlocker(replacement));
+
     // CanReplace for everything the property holds: its value and its animation.
     protected internal bool CanReplaceContent
         => !IsDisposed && CanReplace(new object?[] { PropertyAdapter.GetValue(), GetAnimation() });
@@ -644,7 +651,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     internal void SetValue(T? oldValue, T? newValue, string? commandName)
     {
-        if (!CanReplace(oldValue)) return;
+        if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             WriteValue(newValue);
@@ -659,7 +666,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         // Like SetValue(oldValue, newValue): replacing the current value can repair the element, as when a
         // file-backed editor puts a valid file in place of a source that loading dropped.
         if (IsDisposed
-            || !CanReplace(EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue())) return;
+            || !CanReplace(EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue(), newValue)) return;
         WriteValue(newValue);
 
         CompleteElementRepair();

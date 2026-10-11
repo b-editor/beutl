@@ -484,6 +484,111 @@ public sealed class FallbackEditorPersistenceTests
         });
     }
 
+    // A texture source's drawable edits replace only its drawable. While the texture's own size animation
+    // holds an unreadable easing, such an edit would not complete the repair, so it is refused.
+    [AvaloniaTest]
+    public async Task TextureDrawableEdits_CheckTheDrawableTheyReplace()
+    {
+        await TestReset.ResetShellAsync();
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var holder = new EditorValueHolder();
+            var texture = new DrawableTextureSource();
+            texture.Drawable.CurrentValue = new RectShape();
+            var widthAnimation = new KeyFrameAnimation<int>();
+            widthAnimation.KeyFrames.Add(new KeyFrame<int> { KeyTime = TimeSpan.Zero, Value = 256 });
+            texture.TextureWidth.Animation = widthAnimation;
+            holder.TextureValue.CurrentValue = texture;
+            var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+            element.AddObject(holder);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            FindObjectWithProperty(elementJson, nameof(KeyFrame.Easing))![nameof(KeyFrame.Easing)]
+                = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+            Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+            var recoveredHolder = (EditorValueHolder)recovered.Objects.Single();
+            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
+            Drawable? drawableBefore = recoveredTexture.Drawable.CurrentValue;
+            Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+            using var context = new EditorTestContext(recovered);
+            using var viewModel = new TextureSourceEditorViewModel(new SimplePropertyAdapter<TextureSource?>(
+                (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue, recoveredHolder));
+            viewModel.Accept(new Visitor(recovered, context.History));
+
+            viewModel.SetDrawableType(typeof(EllipseShape));
+            viewModel.SetDrawableTarget(new EllipseShape());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(recoveredTexture.Drawable.CurrentValue, Is.SameAs(drawableBefore));
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(context.History.CanUndo, Is.False);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // A generic presenter editor that keeps the presenter replaces only its target. While the presenter's
+    // own transform could not be loaded, pointing it at another target would not complete the repair.
+    [AvaloniaTest]
+    public async Task PresenterTargetEdit_ChecksTheTargetItReplaces()
+    {
+        await TestReset.ResetShellAsync();
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var holder = new EditorValueHolder();
+            var texture = new DrawableTextureSource();
+            texture.Drawable.CurrentValue = new DrawablePresenter { Transform = { CurrentValue = new TranslateTransform() } };
+            holder.TextureValue.CurrentValue = texture;
+            var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+            element.AddObject(holder);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))![nameof(DrawableTextureSource.Drawable)]!
+                [nameof(Drawable.Transform)]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+            Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+            var recoveredHolder = (EditorValueHolder)recovered.Objects.Single();
+            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
+            var presenter = (DrawablePresenter)recoveredTexture.Drawable.CurrentValue!;
+            Assert.That(presenter.Transform.CurrentValue, Is.InstanceOf<IFallback>());
+            using var context = new EditorTestContext(recovered);
+            using var editor = new CoreObjectEditorViewModel<Drawable>(new SimplePropertyAdapter<Drawable>(
+                (SimpleProperty<Drawable>)recoveredTexture.Drawable, recoveredTexture));
+            editor.Accept(new Visitor(recovered, context.History));
+
+            editor.SetTarget(new EllipseShape());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(recoveredTexture.Drawable.CurrentValue, Is.SameAs(presenter));
+                Assert.That(presenter.Target.Expression, Is.Null);
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(context.History.CanUndo, Is.False);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     [AvaloniaTest]
     public async Task TextureDrawableTypeRepair_ResumesPersistenceInReplacementTransaction()
     {
@@ -866,6 +971,105 @@ public sealed class FallbackEditorPersistenceTests
                     Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
                     Assert.That(context.History.CanUndo, Is.False);
                 }
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // A replacement that itself holds what could not be loaded (a transform group with a child whose
+    // type is missing) never completes the repair, so it is refused instead of being lost on save.
+    [AvaloniaTest]
+    public async Task SetValue_RefusesAReplacementThatHoldsWhatCouldNotBeLoaded()
+    {
+        await TestReset.ResetShellAsync();
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var shape = new RectShape();
+            shape.Transform.CurrentValue = new TranslateTransform();
+            var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+            element.AddObject(shape);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+            JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            json["Objects"]![0]![nameof(RectShape.Transform)]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            File.WriteAllText(elementPath, json.ToJsonString());
+
+            Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+            var recoveredShape = (RectShape)recovered.Objects.Single();
+            Transform? unavailable = recoveredShape.Transform.CurrentValue;
+            Assert.That(unavailable, Is.InstanceOf<IFallback>());
+            using var context = new EditorTestContext(recovered);
+            using var editor = new CoreObjectEditorViewModel<Transform>(new SimplePropertyAdapter<Transform>(
+                (SimpleProperty<Transform>)recoveredShape.Transform, recoveredShape));
+            editor.Accept(new Visitor(recovered, context.History));
+            var replacement = new TransformGroup();
+            replacement.Children.Add(new FallbackTransform());
+
+            editor.SetValue(unavailable, replacement);
+            editor.SetValue(replacement);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(recoveredShape.Transform.CurrentValue, Is.SameAs(unavailable));
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(context.History.CanUndo, Is.False);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Pasting a brush over the unavailable one goes through the same replacement check: a pasted drawable
+    // brush whose transform cannot be loaded either would leave the element protected and be lost.
+    [AvaloniaTest]
+    public async Task BrushTryPasteJson_RefusesABrushThatCannotBeLoadedEither()
+    {
+        await TestReset.ResetShellAsync();
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+            element.AddObject(new RectShape { Fill = { CurrentValue = new SolidColorBrush(Colors.Red) } });
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            elementJson[nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!["$type"] = "[Beutl.Engine]Beutl.Media:DoesNotExist";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+
+            Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+            var recoveredShape = (RectShape)recovered.Objects.Single();
+            Brush? unavailable = recoveredShape.Fill.CurrentValue;
+            Assert.That(unavailable, Is.InstanceOf<IFallback>());
+            using var context = new EditorTestContext(recovered);
+            using var viewModel = new BrushEditorViewModel(new SimplePropertyAdapter<Brush?>(
+                (SimpleProperty<Brush?>)recoveredShape.Fill, recoveredShape));
+            viewModel.Accept(new Visitor(recovered, context.History));
+            JsonObject pastedJson = CoreSerializer.SerializeToJsonObject(new DrawableBrush
+            {
+                Drawable = { CurrentValue = new EllipseShape() },
+                Transform = { CurrentValue = new TranslateTransform() },
+            });
+            pastedJson[nameof(Brush.Transform)]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+
+            viewModel.TryPasteJson(pastedJson.ToJsonString());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(recoveredShape.Fill.CurrentValue, Is.SameAs(unavailable));
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(context.History.CanUndo, Is.False);
             });
         }
         finally

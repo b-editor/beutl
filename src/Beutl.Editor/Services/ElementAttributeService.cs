@@ -40,6 +40,9 @@ public sealed class ElementAttributeService : IElementAttributeService
     {
         ArgumentNullException.ThrowIfNull(element);
         if (element.IsLocked == isLocked) return;
+        // Locking a clip whose file recovery keeps would not be saved, and it would block repairing or
+        // deleting the clip until it is unlocked again. Unlocking one stays allowed.
+        if (isLocked && element.IsRecoveryProtected) return;
 
         element.IsLocked = isLocked;
         _historyManager.Commit(CommandNames.ChangeElementLocked);

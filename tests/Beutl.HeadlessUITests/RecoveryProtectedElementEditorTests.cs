@@ -101,6 +101,7 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(viewModel.IsEditable.Value, Is.False);
                 Assert.That(viewModel.IsLockedByUser.Value, Is.False);
                 Assert.That(viewModel.CanRemove.Value, Is.True);
+                Assert.That(viewModel.CanToggleLock.Value, Is.False, "A lock on this clip would not be saved.");
                 Assert.That(recoveryIcon.IsVisible, Is.True);
                 Assert.That(lockIcon.IsVisible, Is.False, "The clip is not locked by the user.");
                 Assert.That(ToolTip.GetTip(border), Is.EqualTo(MessageStrings.RecoveryProtectedElementToolTip));
@@ -111,6 +112,16 @@ public sealed class RecoveryProtectedElementEditorTests
 
             SaveFrame(window, "recovery-protected-clip-dark.png", ThemeVariant.Dark);
             SaveFrame(window, "recovery-protected-clip-light.png", ThemeVariant.Light);
+
+            var menu = (FAMenuFlyout)border.ContextFlyout!;
+            menu.ShowAt(border);
+            HeadlessTestHelpers.Render();
+            FAToggleMenuFlyoutItem lockItem = menu.Items.OfType<FAToggleMenuFlyoutItem>().Single(item => item.Name == "lockElement");
+            Assert.That(lockItem.IsEnabled, Is.False, "Locking this clip would not be saved.");
+            SaveFrame(window, "recovery-protected-clip-menu-dark.png", ThemeVariant.Dark);
+            SaveFrame(window, "recovery-protected-clip-menu-light.png", ThemeVariant.Light);
+            menu.Hide();
+            HeadlessTestHelpers.Settle();
 
             viewModel.Timeline.SelectElement(viewModel);
             viewModel.Delete.Execute();

@@ -73,6 +73,7 @@
                                            usage:UsageTracking.Feature="Timeline.LockElement"
                                            Click="LockElement_Click"
                                            IsChecked="{Binding IsLocked.Value}"
+                                           IsEnabled="{Binding CanToggleLock.Value}"
                                            Text="{x:Static lang:Strings.Lock}">
                     <ui:FAToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">

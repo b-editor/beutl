@@ -144,7 +144,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     private void SetValue(Brush? oldValue, Brush? newValue, string? commandName)
     {
-        if (!CanReplace(oldValue)) return;
+        if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame)
