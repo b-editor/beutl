@@ -36,6 +36,70 @@ public class SharedApiStateSubscriptionTests
         Assert.That(notifications, Is.EqualTo(workerCount * subscriptionsPerWorker + 1));
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task SharedState_ValueReadDoesNotWaitForSubscriber(bool initialReplay, bool boxed)
+    {
+        using var source = new ReactivePropertySlim<int>(1);
+        using var state = new SynchronizedReadOnlyReactiveProperty<int>(source);
+        using var readerHoldingGate = new ManualResetEventSlim();
+        using var callbackEntered = new ManualResetEventSlim();
+        var consumerGate = new object();
+        TimeSpan timeout = TimeSpan.FromSeconds(5);
+        int expectedValue = initialReplay ? 1 : 2;
+        IDisposable? subscription = initialReplay ? null : state.Subscribe(OnValue);
+
+        // Catalog publication and job updates read Value under their own lock,
+        // while the authentication callback needs that same lock.
+        Task<object?> reader = Task.Factory.StartNew(() =>
+        {
+            lock (consumerGate)
+            {
+                readerHoldingGate.Set();
+                if (!callbackEntered.Wait(timeout))
+                    throw new TimeoutException("The subscriber did not receive the current value.");
+
+                return boxed ? ((IReadOnlyReactiveProperty)state).Value : state.Value;
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        Task delivery = Task.Factory.StartNew(() =>
+        {
+            if (!readerHoldingGate.Wait(timeout))
+                throw new TimeoutException("The reader did not acquire the consumer lock.");
+
+            if (initialReplay)
+                subscription = state.Subscribe(OnValue);
+            else
+                source.Value = expectedValue;
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        try
+        {
+            await Task.WhenAll(reader, delivery).WaitAsync(timeout + timeout);
+            Assert.That(await reader, Is.EqualTo(expectedValue));
+        }
+        finally
+        {
+            subscription?.Dispose();
+        }
+
+        void OnValue(int value)
+        {
+            if (value != expectedValue)
+                return;
+
+            callbackEntered.Set();
+            // Bound the lock attempt so a regression releases the callback gate
+            // and fails without leaving either worker blocked.
+            if (!Monitor.TryEnter(consumerGate, timeout))
+                throw new TimeoutException("Value reading blocked the subscriber's consumer lock.");
+
+            Monitor.Exit(consumerGate);
+        }
+    }
+
     [Test]
     public void SharedState_PreservesSynchronousValueAndNotifications()
     {

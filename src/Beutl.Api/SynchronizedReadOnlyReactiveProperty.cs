@@ -18,13 +18,9 @@ internal sealed class SynchronizedReadOnlyReactiveProperty<T> : IReadOnlyReactiv
         _property.PropertyChanged += OnPropertyChanged;
     }
 
-    public T Value
-    {
-        get
-        {
-            lock (_gate) return _property.Value;
-        }
-    }
+    // Subscribers can need a lock already held by a Value reader. Reading the
+    // latest value must not wait for the gate held while notifying subscribers.
+    public T Value => _property.Value;
 
     object? IReadOnlyReactiveProperty.Value => Value;
 
