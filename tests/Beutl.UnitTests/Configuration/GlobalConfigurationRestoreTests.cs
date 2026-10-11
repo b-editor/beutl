@@ -138,6 +138,27 @@ public class GlobalConfigurationRestoreTests
     }
 
     [Test]
+    public void A_null_entry_in_the_editor_extensions_keeps_the_rest_of_the_section()
+    {
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["Extension"] = new JsonObject
+            {
+                ["EditorExtensions"] = new JsonObject { [".mp4"] = null, [".png"] = new JsonArray(null, "[Beutl.Engine]Beutl.Graphics.Bitmap") },
+                ["DecoderPriority"] = new JsonArray("[Beutl.Engine]Beutl.Graphics.Bitmap"),
+            },
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.ExtensionConfig.EditorExtensions[".mp4"], Is.Empty);
+            Assert.That(config.ExtensionConfig.EditorExtensions[".png"], Has.Count.EqualTo(1));
+            Assert.That(config.ExtensionConfig.DecoderPriority, Has.Count.EqualTo(1), "the value after the null entry is read");
+            Assert.That(config.RestoreFailures, Is.Empty);
+        });
+    }
+
+    [Test]
     public void A_bad_list_keeps_the_values_a_section_reads_after_it()
     {
         GlobalConfiguration config = Restore(new JsonObject

@@ -46,7 +46,9 @@ public sealed class ExtensionConfig : ConfigurationBase
             {
                 foreach (KeyValuePair<string, string[]> item in ee)
                 {
-                    EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(item.Value
+                    // A hand-edited entry can be null, or hold nulls; those list no types.
+                    EditorExtensions.Add(item.Key, new CoreList<TypeLazy>((item.Value ?? [])
+                        .OfType<string>()
                         .Select(str => new TypeLazy(str))
                         .Where(type => type.FormattedTypeName != null)));
                 }
