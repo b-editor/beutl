@@ -1,4 +1,7 @@
 ﻿using System.Reactive;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -61,14 +64,36 @@ public abstract class ConfigurationBase : CoreObject
             try
             {
                 Optional<object?> value = property.RouteDeserialize(context);
-                if (value.HasValue)
-                    SetValue(property, value.Value);
+                if (!value.HasValue)
+                    continue;
+
+                // A JSON null reads as default(T) without an error, which would leave, say, UICulture null.
+                if (IsJsonNull(context, property.Name) && !AcceptsNull(property))
+                    throw new JsonException($"{property.Name} cannot be null.");
+
+                SetValue(property, value.Value);
             }
             catch (Exception ex)
             {
                 RecordDeserializeFailure(property.Name, ex);
             }
         }
+    }
+
+    private static bool IsJsonNull(ICoreSerializationContext context, string name)
+        => context is IJsonSerializationContext json
+           && json.GetJsonObject().TryGetPropertyValue(name, out JsonNode? node)
+           && node is null;
+
+    private bool AcceptsNull(CoreProperty property)
+    {
+        if (property.PropertyType.IsValueType)
+            return Nullable.GetUnderlyingType(property.PropertyType) is not null;
+
+        // The property's own annotation; one without a CLR property, or without annotations, takes null.
+        PropertyInfo? clrProperty = GetType().GetProperty(property.Name);
+        return clrProperty is null
+               || new NullabilityInfoContext().Create(clrProperty).WriteState != NullabilityState.NotNull;
     }
 
     // Reads a value a section stores itself, with the same tolerance. False when it cannot be read,

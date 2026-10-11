@@ -97,6 +97,47 @@ public class GlobalConfigurationRestoreTests
     }
 
     [Test]
+    public void A_null_keeps_the_default_of_a_setting_that_cannot_be_null()
+    {
+        // A JSON null reads without an error, and a null UICulture fails startup when it is applied.
+        var defaults = new EditorConfig();
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["View"] = new JsonObject { ["UICulture"] = null },
+            ["Editor"] = new JsonObject
+            {
+                ["FrameCacheMaxSize"] = null,
+                ["LastMediaDirectory"] = null,
+            },
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.ViewConfig.UICulture, Is.EqualTo(new ViewConfig().UICulture));
+            Assert.That(config.EditorConfig.FrameCacheMaxSize, Is.EqualTo(defaults.FrameCacheMaxSize));
+            Assert.That(config.EditorConfig.LastMediaDirectory, Is.Null);
+            Assert.That(config.RestoreFailures.Select(f => f.Setting),
+                Is.EqualTo(new[] { "View.UICulture", "Editor.FrameCacheMaxSize" }),
+                "LastMediaDirectory is nullable, so null is its value, not a failure");
+        });
+    }
+
+    [Test]
+    public void A_section_that_is_not_an_object_is_reported_and_kept_as_a_backup()
+    {
+        var json = new JsonObject
+        {
+            ["Editor"] = "bad",
+            ["ProxyStore"] = new JsonObject { ["DefaultPreset"] = 3 },
+        };
+        GlobalConfiguration config = Restore(json);
+
+        Assert.That(config.ProxyStoreConfig.DefaultPreset, Is.EqualTo(3));
+        Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "Editor" }));
+        Assert.That(File.ReadAllText(SettingsPath + ".bak"), Is.EqualTo(json.ToJsonString()));
+    }
+
+    [Test]
     public void A_bad_list_keeps_the_values_a_section_reads_after_it()
     {
         GlobalConfiguration config = Restore(new JsonObject
@@ -156,6 +197,20 @@ public class GlobalConfigurationRestoreTests
 
         Assert.That(config.RestoreFailures, Is.Not.Empty);
         Assert.That(config.RestoreBackupPath, Is.Null);
+    }
+
+    [Test]
+    public void A_file_Beutl_saved_itself_restores_without_failures()
+    {
+        // Every setting at its default, nulls included, is a value the setting accepts.
+        var saved = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        saved.Save(SettingsPath);
+
+        var config = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
+        config.Restore(SettingsPath);
+
+        Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.Empty);
+        Assert.That(File.Exists(SettingsPath + ".bak"), Is.False);
     }
 
     [Test]

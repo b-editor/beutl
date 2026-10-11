@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Logging;
@@ -145,6 +146,8 @@ public sealed class GlobalConfiguration
                     JsonNode? node = legacyKey is null ? json[key] : json[legacyKey] ?? json[key];
                     if (node is JsonObject section)
                         RestoreSection(key, config, section, failures);
+                    else if (node is not null)
+                        failures.Add(new ConfigurationRestoreFailure(key, new JsonException($"{key} is not a JSON object.")));
                 }
 
                 if (json["Version"] is JsonValue version
