@@ -93,6 +93,22 @@ internal sealed class StorageWriteTransaction : IDisposable
         }
     }
 
+    /// <summary>
+    /// Deletes <paramref name="path"/>, journaling its bytes and permissions when a transaction is active, so a
+    /// rollback restores it as it restores a replaced file.
+    /// </summary>
+    internal static void Delete(string path)
+    {
+        if (s_current.Value is { } transaction)
+        {
+            transaction.DeleteCore(path);
+        }
+        else
+        {
+            File.Delete(path);
+        }
+    }
+
     internal static FileStream CreateTemporaryFile(string temporaryPath, string destinationPath, bool privateContents = false)
     {
         var options = new FileStreamOptions
@@ -330,6 +346,27 @@ internal sealed class StorageWriteTransaction : IDisposable
             var entry = new FileEntry(fullPath, previousBytes, previousMode) { IsCompatibilityGate = isCompatibilityGate };
             _files.Add(fullPath, entry);
             _journal.Add(entry);
+        }
+    }
+
+    private void DeleteCore(string path)
+    {
+        string fullPath = Path.GetFullPath(path);
+        lock (_sync)
+        {
+            ThrowIfCompleted();
+            // A file journaled already keeps the state it had before the transaction. As for a move, the entry
+            // is added after the delete, because a failed delete changes nothing.
+            bool journal = !_files.ContainsKey(fullPath) && File.Exists(fullPath);
+            byte[]? previousBytes = journal ? File.ReadAllBytes(fullPath) : null;
+            UnixFileMode? previousMode = journal && !OperatingSystem.IsWindows() ? File.GetUnixFileMode(fullPath) : null;
+            File.Delete(fullPath);
+            if (journal)
+            {
+                var entry = new FileEntry(fullPath, previousBytes, previousMode);
+                _files.Add(fullPath, entry);
+                _journal.Add(entry);
+            }
         }
     }
 

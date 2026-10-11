@@ -299,6 +299,34 @@ public class MediaFingerprintPersistenceTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public async Task AFingerprintWithANullDependency_IsSkippedOnLoading_AndTheNextSaveRewritesTheFile(bool inSceneFile)
+    {
+        (Scene scene, string media) = CreateSceneWithImage(_root);
+        await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
+        // Valid JSON, as a hand edit or a merge can leave it: null for a model's dependency, directly and one level down.
+        JsonObject fingerprints = ReadJson(path);
+        fingerprints["direct.gltf"] = JsonNode.Parse("""{"Length":1,"Sha256":"AA","Dependencies":{"direct.bin":null}}""");
+        fingerprints["nested.gltf"] = JsonNode.Parse(
+            """{"Length":2,"Sha256":"BB","Dependencies":{"nested.bin":{"Length":3,"Sha256":"CC","Dependencies":{"deeper.bin":null}}}}""");
+        if (inSceneFile) WriteDevelopmentBuildScene(scene.Uri, fingerprints);
+        else File.WriteAllText(path, fingerprints.ToJsonString());
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        string[] loaded = [.. restored.MediaFingerprints.Keys];
+        CoreSerializer.StoreToUri(restored, scene.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded, Is.EqualTo(new[] { new Uri(media).AbsoluteUri }));
+            Assert.That(ReadJson(path).Select(pair => pair.Key), Is.EqualTo(new[] { "image.png" }));
+            Assert.That(ReadJson(scene.Uri.LocalPath).ContainsKey("MediaFingerprints"), Is.False);
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task AFailedSave_PutsTheFingerprintFileBack(bool removeEveryFingerprint)
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);

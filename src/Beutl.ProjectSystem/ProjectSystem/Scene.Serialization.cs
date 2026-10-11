@@ -75,7 +75,7 @@ public partial class Scene : IStoredWithCompanionFiles
                 Uri uri;
                 try { uri = UriHelper.ResolvePersistedReference(pair.Key, context.BaseUri); }
                 catch (JsonException) { continue; }
-                if (uri.IsFile)
+                if (uri.IsFile && MediaFingerprintFile.IsComplete(pair.Value))
                     MediaFingerprints[uri.AbsoluteUri] = pair.Value;
             }
         }

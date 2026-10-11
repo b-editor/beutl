@@ -174,6 +174,39 @@ public class StorageWriteTransactionTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Rollback_RestoresADeletedFileLikeAReplacedOne(bool restoreFails)
+    {
+        string path = CreateFile("deleted.json", "before");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead;
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, mode);
+        using IDisposable faults = StorageWriteTransaction.InjectFaultsForTesting((step, file) =>
+        {
+            if (restoreFails && step == StorageWriteStep.Restore && file == path)
+                throw new IOException("The folder is locked.");
+        });
+        bool restored;
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        {
+            StorageWriteTransaction.Delete(path);
+            Assert.That(File.Exists(path), Is.False);
+            restored = transaction.Rollback();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.EqualTo(!restoreFails), "A failed restore is part of the rollback's result.");
+            Assert.That(File.Exists(path), Is.EqualTo(!restoreFails));
+            if (!restoreFails)
+            {
+                Assert.That(File.ReadAllText(path), Is.EqualTo("before"));
+                if (!OperatingSystem.IsWindows()) Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
+            }
+        });
+    }
+
     [Test]
     public void Rollback_RestoresTheOriginalBytesOfAFileJournaledThroughTwoSpellings()
     {

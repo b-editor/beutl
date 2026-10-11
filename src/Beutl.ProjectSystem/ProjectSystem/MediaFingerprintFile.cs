@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -61,7 +62,7 @@ internal static class MediaFingerprintFile
         var fileUri = new Uri(path);
         foreach ((string key, MediaFileFingerprint? fingerprint) in stored)
         {
-            if (fingerprint is null) continue;
+            if (!IsComplete(fingerprint)) continue;
             Uri uri;
             try { uri = UriHelper.ResolvePersistedReference(key, fileUri); }
             catch (JsonException) { continue; }
@@ -70,6 +71,13 @@ internal static class MediaFingerprintFile
 
         return result;
     }
+
+    // A hand edit or a merge can leave null where a fingerprint belongs, also among a model's dependencies at any
+    // depth. Loading skips such an entry like an unreadable file, so neither a save nor the repair tool meets a
+    // null; the next scan of the media hashes it again.
+    internal static bool IsComplete([NotNullWhen(true)] MediaFileFingerprint? fingerprint)
+        => fingerprint is not null
+           && (fingerprint.Dependencies is not { } dependencies || dependencies.Values.All(IsComplete));
 
     // A save of the scene to sceneUri, through StoreToUri, before it writes the scene file.
     internal static void Store(Uri sceneUri, IEnumerable<KeyValuePair<string, MediaFileFingerprint>> fingerprints)
@@ -147,7 +155,8 @@ internal static class MediaFingerprintFile
 
         if (json is null)
         {
-            Delete(path);
+            // Journaled like a replacement, so a failed save puts the file back.
+            StorageWriteTransaction.Delete(path);
         }
         else
         {
@@ -169,21 +178,6 @@ internal static class MediaFingerprintFile
         catch (JsonException)
         {
             return null;
-        }
-    }
-
-    private static void Delete(string path)
-    {
-        if (StorageWriteTransaction.Current is { } transaction)
-        {
-            // A failed save puts the file back along with the files it replaced.
-            byte[] previous = File.ReadAllBytes(path);
-            File.Delete(path);
-            transaction.OnRollback(() => File.WriteAllBytes(path, previous));
-        }
-        else
-        {
-            File.Delete(path);
         }
     }
 }
