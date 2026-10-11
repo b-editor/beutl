@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
@@ -21,6 +22,77 @@ public partial class JsonSerializationContext(
     private string? _requiredMinAppVersionAfterMigration;
     private bool _acceptsPersistedContentMigrationReports;
     private bool _afterDeserializedCompleted;
+    private Dictionary<string, CapturedValue>? _preservedValues;
+
+    internal sealed record CapturedValue(object? Value, CoreObject[] Objects);
+
+    internal Dictionary<string, CapturedValue>? CapturedValues { get; init; }
+
+    internal void CaptureValue(string name, object? value, SerializedObjectCapture? objects = null)
+    {
+        if (CapturedValues is not null)
+        {
+            CapturedValues[name] = new CapturedValue(value, objects?.Objects.ToArray() ?? []);
+        }
+    }
+
+    internal void PreserveUnchangedValues(JsonObject current, Dictionary<string, CapturedValue> values)
+    {
+        foreach ((string name, CapturedValue captured) in values)
+        {
+            if (captured.Value is not null
+                && _json.TryGetPropertyValue(name, out JsonNode? desired)
+                && desired is JsonObject or JsonArray
+                && current.TryGetPropertyValue(name, out JsonNode? existing)
+                && JsonNode.DeepEquals(existing, desired))
+            {
+                (_preservedValues ??= [])[name] = captured;
+            }
+        }
+    }
+
+    internal bool TryGetPreservedValue(string name, Type type, out object? value, bool allowCollections = false)
+    {
+        // Property readers can skip assigning an unchanged collection. Ordinary GetValue calls
+        // must not return it: custom readers may clear and refill their destination collection.
+        if (_preservedValues is not null && _preservedValues.TryGetValue(name, out CapturedValue? captured)
+            && (allowCollections || captured.Value is not IEnumerable))
+        {
+            value = captured.Value;
+            if (type.IsInstanceOfType(value))
+            {
+                RegisterPreservedObjects(captured);
+                return true;
+            }
+
+            // Some property readers write T but read Optional<T> to distinguish omission from null.
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>)
+                && type.GenericTypeArguments[0].IsInstanceOfType(value))
+            {
+                value = Activator.CreateInstance(type, [value]);
+                RegisterPreservedObjects(captured);
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
+
+    private void RegisterPreservedObjects(CapturedValue captured)
+    {
+        // Only register a member once its reader actually reuses it. Indexing the whole snapshot
+        // would let references resolve to objects that the desired document removes or replaces.
+        if (captured.Value is CoreObject coreObject)
+        {
+            SetObjectAndId(coreObject);
+        }
+
+        foreach (CoreObject obj in captured.Objects)
+        {
+            SetObjectAndId(obj);
+        }
+    }
 
     public ICoreSerializationContext? Parent { get; } = parent;
 
@@ -156,6 +228,7 @@ public partial class JsonSerializationContext(
 
     public void SetJsonObject(JsonObject obj)
     {
+        CapturedValues?.Clear();
         _json.Clear();
         JsonDeepClone.CopyTo(obj, _json);
     }
@@ -167,6 +240,7 @@ public partial class JsonSerializationContext(
 
     public void SetNode(string name, Type definedType, Type actualType, JsonNode? node)
     {
+        CapturedValues?.Remove(name);
         _json[name] = node;
         _knownTypes[name] = (definedType, actualType);
     }

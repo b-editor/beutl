@@ -213,14 +213,17 @@ public partial class JsonSerializationContext
         // nullの場合
         if (value == null)
         {
+            CaptureValue(name, value);
             _json[name] = null;
             _knownTypes.Remove(name);
             return;
         }
 
         Type actualType = value.GetType();
+        using var objects = CapturedValues is not null ? new SerializedObjectCapture() : null;
         _json[name] = SerializeValue(value, actualType, baseType);
         _knownTypes[name] = (baseType, actualType);
+        CaptureValue(name, value, objects);
     }
 
     private JsonNode? SerializeValue(object value, Type actualType, Type baseType)
@@ -240,6 +243,7 @@ public partial class JsonSerializationContext
 
     private void RemoveValue(string name)
     {
+        CapturedValues?.Remove(name);
         _json.Remove(name);
         _knownTypes.Remove(name);
     }

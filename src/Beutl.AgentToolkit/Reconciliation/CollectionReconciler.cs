@@ -35,7 +35,10 @@ public static class CollectionReconciler
         if (node is JsonObject obj)
         {
             bool isNewSubtree = false;
-            if (obj.ContainsKey("$type") && !obj.ContainsKey(nameof(CoreObject.Id)))
+            // Converter-backed values such as Easing carry a discriminator but have no identity.
+            // Minting an Id for them would make every unchanged containing object compare unequal.
+            if (obj.ContainsKey("$type") && !obj.ContainsKey(nameof(CoreObject.Id))
+                && (obj.GetDiscriminator() is not { } type || typeof(CoreObject).IsAssignableFrom(type)))
             {
                 Guid id = CreateDeterministicId(path, obj);
                 for (int salt = 2; reserved.Contains(id); salt++)

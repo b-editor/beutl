@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -14,6 +15,23 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
 public sealed class ReconcilerIdIntegrityTests
 {
+    [Test]
+    public void Mint_missing_ids_assigns_transition_identity_without_changing_its_easing()
+    {
+        JsonObject document = CoreSerializer.SerializeToJsonObject(new CrossDissolveTransition());
+        document.Remove(nameof(CoreObject.Id));
+        JsonNode easing = document[nameof(ClipTransition.Easing)]!.DeepClone();
+
+        HashSet<Guid> minted = CollectionReconciler.MintMissingIds(document);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(minted, Has.Count.EqualTo(1));
+            Assert.That(document[nameof(CoreObject.Id)]!.GetValue<string>(), Is.EqualTo(minted.Single().ToString()));
+            Assert.That(JsonNode.DeepEquals(document[nameof(ClipTransition.Easing)], easing), Is.True);
+        });
+    }
+
     [Test]
     public void Apply_repair_of_last_fallback_resumes_persistence_in_same_transaction()
     {

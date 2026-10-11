@@ -208,6 +208,8 @@ public partial class JsonSerializationContext
                 : null;
         }
 
-        return Deserialize(node, type, name, this);
+        return TryGetPreservedValue(name, type, out object? preserved)
+            ? preserved
+            : Deserialize(node, type, name, this);
     }
 }

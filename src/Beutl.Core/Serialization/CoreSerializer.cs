@@ -8,6 +8,15 @@ public record CoreSerializerOptions
     public Uri? BaseUri { get; init; }
 
     public CoreSerializationMode? Mode { get; init; }
+
+    /// <summary>
+    /// Reuses existing structured member values when populating an object with equal JSON.
+    /// Missing or changed members retain their normal deserialization behavior.
+    /// Built-in property readers skip assigning unchanged values, including collections.
+    /// Custom collection reads deserialize normally so readers can safely clear and refill their destination.
+    /// Preserved objects remain available for reference resolution.
+    /// </summary>
+    public bool PreserveUnchangedValues { get; init; }
 }
 
 public static partial class CoreSerializer
@@ -55,9 +64,18 @@ public static partial class CoreSerializer
 
     public static JsonObject SerializeToJsonObject(ICoreSerializable obj, CoreSerializerOptions? options = null)
     {
+        return SerializeToJsonObject(obj, options, capturedValues: null);
+    }
+
+    private static JsonObject SerializeToJsonObject(ICoreSerializable obj, CoreSerializerOptions? options,
+        Dictionary<string, JsonSerializationContext.CapturedValue>? capturedValues)
+    {
         SerializedObjectCapture.Record(obj);
         var type = obj.GetType();
-        var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, options: options);
+        var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, options: options)
+        {
+            CapturedValues = capturedValues
+        };
         context.BeginSerialization(obj);
         // Registered whether this is an embedded reference or the root of an embedding pass, so a back
         // edge to the root keeps its URI instead of embedding the root a second time.
@@ -224,6 +242,17 @@ public static partial class CoreSerializer
         ReflectUri(json, obj, parentContext, ref options);
 
         var context = new JsonSerializationContext(type, parentContext, json, options);
+        if (options?.PreserveUnchangedValues == true && obj is not IFallback
+            && json.Any(pair => pair.Value is JsonObject or JsonArray))
+        {
+            var capturedValues = new Dictionary<string, JsonSerializationContext.CapturedValue>();
+            JsonObject current = SerializeToJsonObject(obj, new CoreSerializerOptions
+            {
+                BaseUri = context.BaseUri,
+                Mode = context.Mode & ~CoreSerializationMode.SaveReferencedObjects
+            }, capturedValues);
+            context.PreserveUnchangedValues(current, capturedValues);
+        }
         context.EnablePersistedContentMigrationReporting();
         using (ThreadLocalSerializationContext.Enter(context))
         {

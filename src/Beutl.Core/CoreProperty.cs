@@ -270,8 +270,15 @@ public class CoreProperty<T>(
                 && value != null)
             {
                 JsonSerializerOptions options = metadata.GetSerializerOptions();
+                using var objects = context is JsonSerializationContext { CapturedValues: not null }
+                    ? new SerializedObjectCapture()
+                    : null;
                 JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
                 jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
+                if (context is JsonSerializationContext captureContext)
+                {
+                    captureContext.CaptureValue(Name, value, objects);
+                }
             }
             else
             {
@@ -285,6 +292,13 @@ public class CoreProperty<T>(
         CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
+            if (context is JsonSerializationContext jsonContext
+                && jsonContext.TryGetPreservedValue(Name, PropertyType, out _, allowCollections: true))
+            {
+                // Skip the setter as it may rebuild a collection rather than replace its reference.
+                return default;
+            }
+
             if (context is IJsonSerializationContext jsonCtxt
                 && metadata.JsonConverter is { })
             {
