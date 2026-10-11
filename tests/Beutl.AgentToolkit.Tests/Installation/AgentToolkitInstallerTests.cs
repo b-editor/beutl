@@ -509,7 +509,7 @@ public sealed class AgentToolkitInstallerTests
     }
 
     // The manifest records what an earlier install wrote, so an edit since then is recognized and
-    // copied aside before the bundled version replaces it; an untouched file is simply replaced.
+    // copied aside before a newer bundled version replaces it; an untouched file is simply replaced.
     [Test]
     public async Task InstallAsync_BacksUpAnEditedSkillBeforeReplacingIt()
     {
@@ -526,7 +526,10 @@ public sealed class AgentToolkitInstallerTests
 
         AgentToolkitInstallResult second = await AgentToolkitInstaller.InstallAsync(
             options with { PreviousFiles = first.AssetFileRecords },
-            assets);
+            [
+                new(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "updated skill"),
+                new(AgentToolkitAssetKind.Subagent, "demo.md", "updated agent"),
+            ]);
 
         Assert.That(second.BackedUpFiles, Has.Count.EqualTo(1));
         BackedUpFile backup = second.BackedUpFiles[0];
@@ -536,8 +539,8 @@ public sealed class AgentToolkitInstallerTests
             Assert.That(File.ReadAllText(backup.BackupPath), Is.EqualTo("my edits"));
             Assert.That(Path.GetDirectoryName(backup.BackupPath), Is.EqualTo(Path.GetDirectoryName(skillPath)));
             Assert.That(backup.BackupPath, Does.EndWith(".bak"));
-            Assert.That(File.ReadAllText(skillPath), Is.EqualTo("bundled skill"));
-            Assert.That(File.ReadAllText(agentPath), Is.EqualTo("bundled agent"));
+            Assert.That(File.ReadAllText(skillPath), Is.EqualTo("updated skill"));
+            Assert.That(File.ReadAllText(agentPath), Is.EqualTo("updated agent"));
             Assert.That(Directory.EnumerateFiles(Path.GetDirectoryName(agentPath)!, "*.bak"), Is.Empty);
         });
     }
