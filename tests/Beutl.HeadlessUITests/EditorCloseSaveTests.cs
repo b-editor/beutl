@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
@@ -14,6 +15,7 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Tools;
 using Moq;
 
 namespace Beutl.HeadlessUITests;
@@ -39,6 +41,9 @@ public class EditorCloseSaveTests
         {
             NotificationService.Handler = handler.Object;
             CultureInfo.CurrentUICulture = new CultureInfo(culture);
+            using var history = new HistoryViewModel(editor);
+            editor.Scene.Duration = TimeSpan.FromSeconds(10);
+            editor.HistoryManager.Commit("Earlier edit");
             editor.HistoryManager.Record(
                 () =>
                 {
@@ -53,11 +58,20 @@ public class EditorCloseSaveTests
             editor.HistoryManager.Commit("Failing operation");
             if (redo)
                 Assert.That(await editor.UndoAsync(), Is.True);
+            HistoryEntry[] entries = editor.HistoryManager.GetEntriesSnapshot();
+            int boundary = editor.HistoryManager.CurrentIndex;
 
             Assert.That(redo ? await editor.RedoAsync() : await editor.UndoAsync(), Is.False);
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.HistoryManager.Entries, Is.EqualTo(entries));
+            Assert.That(history.Entries, Is.EqualTo(entries));
+            Assert.That(history.CurrentIndex.Value, Is.EqualTo(boundary));
+            Assert.That(await editor.UndoAsync(), Is.False);
+            Assert.That(await editor.RedoAsync(), Is.False);
+            Assert.That(await editor.JumpToHistoryAsync(0), Is.False);
             Assert.That(notifications, Has.Count.EqualTo(1));
             Notification notification = notifications.Single();
-            Assert.That(notification.Message, Is.EqualTo(Strings.History_ResetAfterFailure));
+            Assert.That(notification.Message, Is.EqualTo(Strings.History_RestrictedAfterFailure));
             Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
 
             if (Environment.GetEnvironmentVariable("BEUTL_HISTORY_RECOVERY_CAPTURE") is { Length: > 0 } capture)
@@ -81,7 +95,7 @@ public class EditorCloseSaveTests
                     Directory.CreateDirectory(capture);
                     using var frame = new RenderTargetBitmap(new PixelSize(400, 260), new Vector(96, 96));
                     frame.Render(window);
-                    frame.Save(Path.Combine(capture, $"history-reset-{culture}-{redo}-{closeProject}.png"), PngBitmapEncoderOptions.Default);
+                    frame.Save(Path.Combine(capture, $"history-preserved-{culture}-{redo}-{closeProject}.png"), PngBitmapEncoderOptions.Default);
                 }
                 finally
                 {
@@ -91,9 +105,18 @@ public class EditorCloseSaveTests
 
             int stateChanges = 0;
             using var subscription = editor.HistoryManager.StateChanged.Subscribe(_ => stateChanges++);
+            TimeSpan survivingDuration = editor.Scene.Duration;
             editor.Scene.Duration = TimeSpan.FromSeconds(73);
             Assert.DoesNotThrow(() => editor.HistoryManager.Commit("Edit after failed replay"));
             Assert.That(stateChanges, Is.EqualTo(1));
+            Assert.That(history.Entries.Take(boundary + 1), Is.EqualTo(entries.Take(boundary + 1)));
+            Assert.That(await editor.JumpToHistoryAsync(0), Is.False);
+            Assert.That(editor.Scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+            Assert.That(await editor.UndoAsync(), Is.True);
+            Assert.That(editor.Scene.Duration, Is.EqualTo(survivingDuration));
+            Assert.That(await editor.UndoAsync(), Is.False);
+            Assert.That(await editor.RedoAsync(), Is.True);
+            Assert.That(editor.Scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
 
             // Check the actual auto-saved document before the close path can save it again.
             DateTime deadline = DateTime.UtcNow.AddSeconds(5);

@@ -27,6 +27,8 @@ public sealed partial class HistoryManager : IDisposable
     private readonly ReadOnlyObservableCollection<HistoryEntry> _readOnlyEntries;
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
+    private int _minimumReplayIndex;
+    private int _maximumReplayIndex = int.MaxValue;
     private int _entryPublicationDepth;
     private readonly AsyncLocal<BeforeMutationDispatch?> _beforeMutationDispatch = new();
     private bool _isolatedTransactionActive;
@@ -48,8 +50,8 @@ public sealed partial class HistoryManager : IDisposable
 
     public CoreObject Root { get; }
 
-    public bool CanUndo => _undoStack.Count > 0;
-    public bool CanRedo => _redoStack.Count > 0;
+    public bool CanUndo => _undoStack.Count > _minimumReplayIndex;
+    public bool CanRedo => _redoStack.Count > 0 && _undoStack.Count < _maximumReplayIndex;
 
     public int UndoCount => _undoStack.Count;
 
@@ -125,7 +127,7 @@ public sealed partial class HistoryManager : IDisposable
 
     /// <summary>
     /// Returns <see langword="true"/> if <see cref="JumpTo"/> with <paramref name="index"/>
-    /// would mutate state — the index is in range and either differs from
+    /// would mutate state — the index is reachable and either differs from
     /// <see cref="CurrentIndex"/> or a pending transaction would be rolled back.
     /// </summary>
     public bool WouldJumpToMove(int index)
@@ -133,7 +135,7 @@ public sealed partial class HistoryManager : IDisposable
         ThrowIfDisposed();
         lock (_lock)
         {
-            if (index < 0 || index >= _entries.Count)
+            if (!IsReplayIndexReachable_NoLock(index))
             {
                 return false;
             }
@@ -323,6 +325,9 @@ public sealed partial class HistoryManager : IDisposable
         int currentEntryIndex = _undoStack.Count;
         _undoStack.Push(transaction);
         _redoStack.Clear();
+        // A new branch can replay its own edits, but cannot undo past an
+        // earlier failure whose surviving model state is uncertain.
+        _maximumReplayIndex = int.MaxValue;
         _currentTransaction = CreateTransaction();
         TruncateEntriesAfter(currentEntryIndex);
         AddEntry(HistoryEntry.FromTransaction(transaction));
@@ -431,7 +436,7 @@ public sealed partial class HistoryManager : IDisposable
                 attemptedMutation = _currentTransaction.HasOperations;
                 RollbackCurrentTransaction_NoLock();
                 Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
-                if (source.Count == 0)
+                if (!(redo ? CanRedo : CanUndo))
                     return false;
 
                 HistoryTransaction transaction = source.Peek();
@@ -445,7 +450,7 @@ public sealed partial class HistoryManager : IDisposable
         finally
         {
             // A failing operation can already have changed the model. Publish the
-            // surviving state even when recovery had to reset the history.
+            // surviving state even when replay was stopped at a failure boundary.
             if (attemptedMutation)
                 NotifyStateChanged();
         }
@@ -470,6 +475,8 @@ public sealed partial class HistoryManager : IDisposable
         int redoCount = _redoStack.Count;
         _undoStack.Clear();
         _redoStack.Clear();
+        _minimumReplayIndex = 0;
+        _maximumReplayIndex = int.MaxValue;
 
         // Avoid Clear() + Add(): a VM mirror on a different thread would
         // queue both events; the Reset path would resync to the already
@@ -508,9 +515,9 @@ public sealed partial class HistoryManager : IDisposable
             lock (_lock)
             {
                 ThrowIfHistoryControlIsBlocked_NoLock();
-                if (index < 0 || index >= _entries.Count)
+                if (!IsReplayIndexReachable_NoLock(index))
                 {
-                    _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
+                    _logger.LogDebug("JumpTo requested with unreachable index: {Index} (Entries: {EntryCount})",
                         index, _entries.Count);
                     return false;
                 }
@@ -592,8 +599,12 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
-    // Retryable failures retain the transaction on its originating stack;
-    // uncertain failures reset history before propagating to the caller.
+    private bool IsReplayIndexReachable_NoLock(int index)
+        => index >= 0 && index < _entries.Count
+           && index >= _minimumReplayIndex && index <= _maximumReplayIndex;
+
+    // Both retryable and uncertain failures retain the transaction on its
+    // originating stack; only retryable failures may be replayed again.
     private void ReplayTopTransaction_NoLock(HistoryTransaction transaction, bool redo)
     {
         ReplayTransaction_NoLock(transaction, redo);
@@ -618,12 +629,15 @@ public sealed partial class HistoryManager : IDisposable
         }
         catch (Exception ex) when (transaction.HasUncertainFailure)
         {
-            // Older entries and redo entries assume a model state we can no longer
-            // establish. Keep the surviving model as the new baseline for future edits.
-            _logger.LogError(ex, "History replay partially failed; resetting history so editing and saving can continue.");
-            _currentTransaction = CreateTransaction();
-            ClearHistory_NoLock();
-            throw new HistoryResetException(ex);
+            // Preserve all committed history, but neither direction can safely
+            // replay from this uncertain model state. New edits start above this
+            // boundary and remain undoable without revisiting the failed operation.
+            _logger.LogError(ex, "History replay partially failed; preserving history and blocking replay across the failure boundary.");
+            _minimumReplayIndex = _undoStack.Count;
+            _maximumReplayIndex = _undoStack.Count;
+            if (ReferenceEquals(transaction, _currentTransaction))
+                _currentTransaction = CreateTransaction();
+            throw new HistoryReplayException(ex);
         }
     }
 

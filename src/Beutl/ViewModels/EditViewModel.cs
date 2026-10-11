@@ -498,7 +498,7 @@ public sealed partial class EditViewModel
         {
             _logger.LogError(ex, "{OperationName} failed.", operationName);
             NotificationService.ShowError(Strings.History,
-                ex is HistoryResetException ? Strings.History_ResetAfterFailure : Strings.History_OperationFailed);
+                ex is HistoryReplayException ? Strings.History_RestrictedAfterFailure : Strings.History_OperationFailed);
             return false;
         }
     }
