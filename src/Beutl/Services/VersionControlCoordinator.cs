@@ -62,6 +62,8 @@ internal sealed partial class VersionControlCoordinator :
     private string? _observedGitExecutablePath;
     private bool _observedUseLfsWhenAvailable;
     private bool _configurationActivationRunning;
+    // A save snapshot is waiting for the operation that held the gate when the project was saved.
+    private bool _saveSnapshotDeferred;
     private bool _repositoryHygieneConfigurationDirty;
     private bool _propertiesDisposed;
     private bool _disposed;
@@ -191,7 +193,21 @@ internal sealed partial class VersionControlCoordinator :
     {
         return RunOnUiThreadAsync(async () =>
         {
-            using OperationLease operation = await BeginOperationAsync(cancellationToken);
+            if (!_config.AutoCommitOnSave)
+            {
+                return;
+            }
+
+            // The caller still holds its project-file write, which auto-save, the next save, tab
+            // closes and imports wait for, so the snapshot must not wait here for an operation such
+            // as a push. It runs once that operation has finished instead.
+            using OperationLease? operation = TryBeginOperation(cancellationToken);
+            if (operation is null)
+            {
+                DeferSaveSnapshot();
+                return;
+            }
+
             await CommitSnapshotAsync(
                 _config.AutoCommitOnSave,
                 SaveSnapshotMessage,

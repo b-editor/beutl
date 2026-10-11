@@ -718,6 +718,193 @@ public class VersionControlRestoreTests
         }
     }
 
+    // A push holds the operation gate until it ends, which with Git LFS media can take minutes. A save
+    // made meanwhile must not keep the project files reserved that long, or auto-save, the next save,
+    // imports and file operations wait or are refused. Its snapshot runs after the push instead, and
+    // one snapshot covers every save made meanwhile.
+    [AvaloniaTest]
+    public async Task Save_during_a_push_frees_the_project_files_and_snapshots_after_the_push()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var pushStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePush = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-save-during-push");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            bool? committedOnUiThread = null;
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                PushStarted = pushStarted,
+                PushRelease = releasePush.Task,
+                CommitAllObserver = _ =>
+                    committedOnUiThread = Avalonia.Threading.Dispatcher.UIThread.CheckAccess(),
+            };
+            var commands = new PassiveSaveOperation();
+            var item = new EditorTabItem(new PassiveEditorContext(project, commands));
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(item);
+            editorService.SelectedTabItem.Value = item;
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig
+                {
+                    AutoCommitOnSave = true,
+                    AutoCommitOnClose = false,
+                },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+            var menu = new MenuBarViewModel(TestShell.Project, editorService, coordinator);
+
+            Task<RemoteOpResult> push = coordinator.PushAsync(progress: null);
+            await pushStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await menu.Save.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            await menu.Save.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+            using (IProjectFileWriteLease? fileOperation = editorService.TryBeginProjectFileWrite())
+            {
+                Assert.That(
+                    fileOperation,
+                    Is.Not.Null,
+                    "Imports, file operations, Cut and Paste must not be refused while the push runs.");
+            }
+
+            // Auto-save waits for the same reservation.
+            using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None)
+                       .AsTask()
+                       .WaitAsync(TimeSpan.FromSeconds(10)))
+            {
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(commands.SaveCalls, Is.EqualTo(2));
+                Assert.That(push.IsCompleted, Is.False);
+                Assert.That(backend.CommitAllCalls, Is.Zero);
+            });
+
+            // A save still writing when the push ends finishes before the snapshot reads the files.
+            IProjectFileWriteLease stillWriting = await editorService
+                .BeginProjectFileWriteAsync(CancellationToken.None)
+                .AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(10));
+            try
+            {
+                releasePush.TrySetResult();
+                Assert.That(
+                    await push.WaitAsync(TimeSpan.FromSeconds(10)),
+                    Is.TypeOf<RemoteOpResult.Success>());
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    HeadlessTestHelpers.Settle();
+                    await Task.Delay(20);
+                }
+
+                Assert.That(backend.CommitAllCalls, Is.Zero, "The snapshot must wait for the save still writing.");
+            }
+            finally
+            {
+                stillWriting.Dispose();
+            }
+
+            await WaitUntilAsync(() => backend.CommitAllCalls > 0);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.CommitKinds, Is.EqualTo(new[] { SnapshotKind.Save }));
+                Assert.That(committedOnUiThread, Is.True, "The deferred snapshot stays on the UI thread.");
+            });
+        }
+        finally
+        {
+            releasePush.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Save_with_automatic_snapshots_off_does_not_wait_for_a_push()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        IProjectFileWriteLease? write = null;
+        var pushStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePush = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-save-during-push-without-snapshots");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                PushStarted = pushStarted,
+                PushRelease = releasePush.Task,
+            };
+            var editorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig
+                {
+                    AutoCommitOnSave = false,
+                    AutoCommitOnClose = false,
+                },
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, backend)
+                && coordinator.IsTracked.Value);
+
+            Task<RemoteOpResult> push = coordinator.PushAsync(progress: null);
+            await pushStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            write = await editorService.BeginProjectFileWriteAsync(CancellationToken.None);
+            await coordinator.NotifySavedAsync(write).WaitAsync(TimeSpan.FromSeconds(10));
+
+            releasePush.TrySetResult();
+            await push.WaitAsync(TimeSpan.FromSeconds(10));
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(backend.CommitAllCalls, Is.Zero);
+        }
+        finally
+        {
+            releasePush.TrySetResult();
+            write?.Dispose();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Manual_commit_is_blocked_while_an_output_operation_is_active()
     {
@@ -10904,11 +11091,21 @@ public class VersionControlRestoreTests
             return Task.CompletedTask;
         }
 
-        public Task<RemoteOpResult> PushAsync(
+        public TaskCompletionSource? PushStarted { get; init; }
+
+        public Task? PushRelease { get; init; }
+
+        public async Task<RemoteOpResult> PushAsync(
             IProgress<string>? progress,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult<RemoteOpResult>(new RemoteOpResult.Success());
+            PushStarted?.TrySetResult();
+            if (PushRelease is not null)
+            {
+                await PushRelease.WaitAsync(cancellationToken);
+            }
+
+            return new RemoteOpResult.Success();
         }
 
         public Task SetLocalIdentityAsync(
