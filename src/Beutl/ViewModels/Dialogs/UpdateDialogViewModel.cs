@@ -159,7 +159,9 @@ public class UpdateDialogViewModel
             var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
 
-            var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
+            // Windows PowerShell, which the script is written for, wherever Windows is installed.
+            var psi = new ProcessStartInfo(
+                Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"))
             {
                 WorkingDirectory = BeutlEnvironment.GetHomeDirectoryPath(),
                 CreateNoWindow = !Preferences.Default.Get("Updater.ShowWindow", false),
@@ -182,6 +184,7 @@ public class UpdateDialogViewModel
 
     private async Task InstallOnLinux(AssetMetadataJson metadata)
     {
+        string command;
         if (metadata.Type == "debian")
         {
             if (_downloadFile == null)
@@ -190,17 +193,7 @@ public class UpdateDialogViewModel
                 return;
             }
 
-            var psi = new ProcessStartInfo("gnome-terminal")
-            {
-                ArgumentList =
-                {
-                    "--",
-                    "bash",
-                    "-c",
-                     $"sudo apt update && sudo apt install \"{_downloadFile}\""
-                }
-            };
-            await LaunchInstallerAsync(psi);
+            command = $"sudo apt update && sudo apt install \"{_downloadFile}\"";
         }
         else if (metadata.Type == "zip")
         {
@@ -213,19 +206,22 @@ public class UpdateDialogViewModel
             var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
 
-            var psi = new ProcessStartInfo("gnome-terminal")
-            {
-                ArgumentList =
-                {
-                    "--",
-                    "bash",
-                    "-c",
-                    $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\""
-                }
-            };
-
-            await LaunchInstallerAsync(psi);
+            command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"";
         }
+        else
+        {
+            return;
+        }
+
+        if (TerminalLauncher.CreateStartInfo(["bash", "-c", command]) is not { } psi)
+        {
+            // Beutl keeps running, and the user can finish the update by running the command themselves.
+            _logger.LogWarning("No terminal emulator was found for the update command: {Command}", command);
+            ProgressText.Value = string.Format(MessageStrings.TerminalNotFound, command);
+            return;
+        }
+
+        await LaunchInstallerAsync(psi);
     }
 
     private async Task InstallOnOSX(AssetMetadataJson metadata)
@@ -334,29 +330,87 @@ public class UpdateDialogViewModel
 
     // A zip update unpacks into a folder named like the one the application runs from.
     private static string ZipStagingDirectory
-        => Path.Combine(UpdateStagingRoot, new DirectoryInfo(AppContext.BaseDirectory).Name);
+        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows(), out _);
+
+    // On Windows the folder sits next to the application folder, on the same volume: win-update.ps1
+    // moves it into place, and Windows PowerShell cannot move a directory to another volume.
+    // The Linux and macOS scripts copy the update, so it stays in the home directory there.
+    internal static string GetZipStagingDirectory(
+        string appDirectory, string stagingRoot, bool isWindows, out bool besideApplication)
+    {
+        var app = new DirectoryInfo(appDirectory);
+        besideApplication = isWindows && app.Parent is not null;
+        if (besideApplication)
+        {
+            return Path.Combine(app.Parent!.FullName, app.Name + ".update");
+        }
+
+        return Path.Combine(stagingRoot, app.Name);
+    }
+
+    // Marks a staging folder that an update created next to the application.
+    internal const string StagingMarkerFileName = ".beutl-update-staging";
 
     // Unpacks a zip or app update into an empty staging folder and offers the restart.
     private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
     {
         var destination = UpdateStagingRoot;
+        bool besideApplication = false;
         if (metadata.Type == "zip")
         {
-            destination = ZipStagingDirectory;
+            destination = GetZipStagingDirectory(
+                AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows(), out besideApplication);
         }
 
-        if (Directory.Exists(destination))
+        try
         {
-            Directory.Delete(destination, true);
+            PrepareStagingDirectory(destination, besideApplication);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // For example, the folder next to the application is not writable.
+            _logger.LogError(ex, "Failed to prepare the update folder {Destination}", destination);
+            ProgressText.Value = ex.Message;
+            return false;
         }
 
-        Directory.CreateDirectory(destination);
         var result = await ExtractIfNeeded(metadata, file, destination);
         if (!result) return false;
 
         ProgressText.Value = MessageStrings.ApplicationRestartRequired;
         IsPrimaryButtonEnabled.Value = true;
         return true;
+    }
+
+    // Creates an empty staging folder. The home directory's tmp folder belongs to Beutl, but a folder next
+    // to the application is replaced only when an earlier update created it; anything else there is kept.
+    internal static void PrepareStagingDirectory(string destination, bool besideApplication)
+    {
+        if (Directory.Exists(destination))
+        {
+            if (besideApplication && !File.Exists(Path.Combine(destination, StagingMarkerFileName)))
+                throw new IOException(string.Format(MessageStrings.UpdateFolderAlreadyExists, destination));
+
+            Directory.Delete(destination, true);
+        }
+
+        Directory.CreateDirectory(destination);
+        if (besideApplication)
+        {
+            try
+            {
+                File.WriteAllText(Path.Combine(destination, StagingMarkerFileName),
+                    "Created by the Beutl updater. A folder with this file is replaced by the next update.");
+            }
+            catch
+            {
+                // This attempt created the folder. Without its marker, the next attempt would keep it as
+                // someone else's, so remove it.
+                try { Directory.Delete(destination, true); }
+                catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
+                throw;
+            }
+        }
     }
 
     // Writes the update script resource to the home directory's tmp folder. A script that

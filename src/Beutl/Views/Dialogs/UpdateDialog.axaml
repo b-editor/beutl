@@ -21,7 +21,8 @@
     </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="8">
-        <TextBlock Text="{Binding ProgressText.Value}" TextWrapping="Wrap" />
+        <!-- Selectable so the user can copy a command or an error message. -->
+        <SelectableTextBlock Text="{Binding ProgressText.Value}" TextWrapping="Wrap" />
         <ProgressBar IsIndeterminate="{Binding IsIndeterminate.Value}"
                      Maximum="{Binding ProgressMax.Value}"
                      Value="{Binding ProgressValue.Value}" />
