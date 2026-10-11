@@ -26,6 +26,12 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 {
+    /// <summary>
+    /// The key of a preset that sets the output frame size, the frame rate and the sample rate. Platform presets carry
+    /// it because their names promise those values; any other preset leaves them as they are.
+    /// </summary>
+    internal const string AppliesFrameSizeAndRatesKey = "AppliesFrameSizeAndRates";
+
     private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
@@ -71,7 +77,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 if (s == null) return null;
 
                 s.SourceSize = Model.FrameSize;
-                s.DestinationSize = Model.FrameSize;
+                // A new controller starts at the scene's size. Settings carried over because only the destination
+                // changed already have an output size, a custom one or a preset's, and keep it like everything else.
+                if (s.DestinationSize.Width <= 0 || s.DestinationSize.Height <= 0)
+                    s.DestinationSize = Model.FrameSize;
+
                 return new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider);
             })
             .DisposePreviousValue()
@@ -793,6 +803,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             SupersampleFactor.Value = ssFactor;
         }
 
+        // A platform preset is named after its frame size and rates, so it says that it applies them. Every other
+        // preset, including one saved from an output, leaves them to the scene and the project.
+        bool appliesFrameSizeAndRates = applyingPreset
+            && json.TryGetPropertyValueAsJsonValue(AppliesFrameSizeAndRatesKey, out bool applies)
+            && applies;
+
         // Selecting an encoder above also creates the current video/audio settings.
         if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
             && videoNode is JsonObject videoObj
@@ -800,7 +816,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             if (applyingPreset)
             {
-                TryPopulate(() => EncoderSettingsJson.PopulateVideoPreset(videoSettings, videoObj));
+                TryPopulate(() => EncoderSettingsJson.PopulateVideoPreset(
+                    videoSettings, videoObj, appliesFrameSizeAndRates));
             }
             else
             {
@@ -814,7 +831,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             if (applyingPreset)
             {
-                TryPopulate(() => EncoderSettingsJson.PopulateAudioPreset(audioSettings, audioObj));
+                TryPopulate(() => EncoderSettingsJson.PopulateAudioPreset(
+                    audioSettings, audioObj, appliesFrameSizeAndRates));
             }
             else
             {

@@ -26,7 +26,20 @@ public static class EncoderSettingsJson
         Populate(destination, CoreSerializer.SerializeToJsonObject(source));
     }
 
+    /// <summary>Applies a preset to <paramref name="settings"/>, keeping their source size, output size and frame rate.</summary>
     public static void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json)
+    {
+        PopulateVideoPreset(settings, json, appliesFrameSizeAndRate: false);
+    }
+
+    /// <summary>Applies a preset to <paramref name="settings"/>, keeping their source size.</summary>
+    /// <param name="settings">The settings to apply the preset to.</param>
+    /// <param name="json">The preset's video settings.</param>
+    /// <param name="appliesFrameSizeAndRate">
+    /// Whether the preset sets the output size and the frame rate, as a platform preset named after them does. When
+    /// it does not, both stay as they are. The source size always does, because it is the scene's frame size.
+    /// </param>
+    public static void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json, bool appliesFrameSizeAndRate)
     {
         PixelSize sourceSize = settings.SourceSize;
         PixelSize destinationSize = settings.DestinationSize;
@@ -39,12 +52,28 @@ public static class EncoderSettingsJson
         finally
         {
             settings.SourceSize = sourceSize;
-            settings.DestinationSize = destinationSize;
-            settings.FrameRate = frameRate;
+            if (!appliesFrameSizeAndRate)
+            {
+                settings.DestinationSize = destinationSize;
+                settings.FrameRate = frameRate;
+            }
         }
     }
 
+    /// <summary>Applies a preset to <paramref name="settings"/>, keeping their sample rate.</summary>
     public static void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json)
+    {
+        PopulateAudioPreset(settings, json, appliesSampleRate: false);
+    }
+
+    /// <summary>Applies a preset to <paramref name="settings"/>.</summary>
+    /// <param name="settings">The settings to apply the preset to.</param>
+    /// <param name="json">The preset's audio settings.</param>
+    /// <param name="appliesSampleRate">
+    /// Whether the preset sets the sample rate, as a platform preset does. When it does not, the sample rate stays as
+    /// it is.
+    /// </param>
+    public static void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json, bool appliesSampleRate)
     {
         int sampleRate = settings.SampleRate;
 
@@ -54,7 +83,8 @@ public static class EncoderSettingsJson
         }
         finally
         {
-            settings.SampleRate = sampleRate;
+            if (!appliesSampleRate)
+                settings.SampleRate = sampleRate;
         }
     }
 }
