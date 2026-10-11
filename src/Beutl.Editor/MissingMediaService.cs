@@ -438,14 +438,15 @@ public sealed class MissingMediaService
         // Edits can occur while hashing. Merge only references still in the live graph
         // and preserve newer entries, including fingerprints for offline sources.
         var current = GetFileUris(scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
-        foreach (string key in scene.MediaFingerprints.Keys.Where(key => !current.Contains(key)).ToArray())
-            scene.MediaFingerprints.Remove(key);
+        var fingerprints = scene.MediaFingerprints.Where(pair => current.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         foreach (var pair in updated)
         {
-            if (current.Contains(pair.Key) && (!scene.MediaFingerprints.TryGetValue(pair.Key, out var existing)
+            if (current.Contains(pair.Key) && (!fingerprints.TryGetValue(pair.Key, out var existing)
                 || previous.TryGetValue(pair.Key, out var old) && existing == old))
-                scene.MediaFingerprints[pair.Key] = pair.Value;
+                fingerprints[pair.Key] = pair.Value;
         }
+        scene.SetMediaFingerprints(fingerprints);
     }
 
     private static async Task<MediaFileFingerprint> CaptureFileFingerprintAsync(string path, MediaFileFingerprint? previous, CancellationToken token)

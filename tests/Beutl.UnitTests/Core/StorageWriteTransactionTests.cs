@@ -23,13 +23,13 @@ public class StorageWriteTransactionTests
     public void Updating_unchanged_media_fingerprints_does_not_rewrite_the_stored_files(bool hasFingerprints)
     {
         var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(PathOf("main.scene")) };
-        CoreSerializer.StoreToUri(scene, scene.Uri);
         var fingerprints = new Dictionary<string, Beutl.ProjectSystem.MediaFileFingerprint>();
         if (hasFingerprints)
         {
             fingerprints[new Uri(PathOf("media.png")).AbsoluteUri] = new Beutl.ProjectSystem.MediaFileFingerprint(1, 0, "abc");
-            Assert.That(Beutl.ProjectSystem.MediaFingerprintFile.Update(scene.Uri, scene.Id, fingerprints), Is.True);
+            scene.SetMediaFingerprints(fingerprints);
         }
+        CoreSerializer.StoreToUri(scene, scene.Uri);
         byte[] bytes = File.ReadAllBytes(scene.Uri.LocalPath);
         using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
         {

@@ -34,9 +34,10 @@ namespace Beutl.ProjectSystem;
 // a relinked model is the same asset, so the file belongs to the project like the scene file: it moves and
 // copies with the scene folder, and version control commits it. Keys are in ordinal order, and the file is
 // written only when its content changes, so neither the order of a scan nor a media file whose timestamp alone
-// changed rewrites it. A scene without fingerprints has no file, but its scene file still references one, so
-// the next load finds the file the editor's background update writes after a scan. A file with a later format
-// version is neither used nor rewritten nor deleted, so an older Beutl does not destroy what a newer one wrote.
+// changed rewrites it. A scene without fingerprints has no object of this type (Scene.MediaFingerprintFile), so
+// its scene file references no file and a save removes the one in its folder. A file with a later format version
+// is neither used nor rewritten nor deleted, so an older Beutl does not destroy what a newer one wrote: the scene
+// keeps an object for it that holds no fingerprints, and its scene file keeps the reference.
 internal sealed class MediaFingerprintFile : CoreObject
 {
     // In the scene file's folder. Renaming the file takes only this constant.
@@ -54,16 +55,23 @@ internal sealed class MediaFingerprintFile : CoreObject
 
     private static readonly ILogger s_logger = Log.CreateLogger<MediaFingerprintFile>();
 
-    // Keyed by absolute URI.
+    // The version of the file this object was read from, when a later version of Beutl wrote it.
+    private long? _laterVersion;
+
+    // Keyed by absolute URI. Always empty in an object read from a file with a later format version.
     public Dictionary<string, MediaFileFingerprint> Fingerprints { get; } = new(StringComparer.Ordinal);
+
+    internal bool IsFromLaterVersion => _laterVersion is not null;
 
     internal static string GetPath(string scenePath) => Path.Combine(Path.GetDirectoryName(scenePath) ?? string.Empty, FileName);
 
-    // The format version and the fingerprints, keyed relative to the file: Id and Name mean nothing here.
+    // The format version and the fingerprints, keyed relative to the file: Id and Name mean nothing here. An object
+    // from a later version's file is never saved, and an embedded copy of it keeps only that version.
     public override void Serialize(ICoreSerializationContext context)
     {
-        context.SetValue(VersionProperty, CurrentVersion);
-        context.SetValue(FingerprintsProperty, ToJson(Fingerprints, context.BaseUri));
+        context.SetValue(VersionProperty, _laterVersion ?? CurrentVersion);
+        if (_laterVersion is null)
+            context.SetValue(FingerprintsProperty, ToJson(Fingerprints, context.BaseUri));
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -74,12 +82,10 @@ internal sealed class MediaFingerprintFile : CoreObject
                         && value.TryGetValue(out long number)
             ? number
             : null;
+        _laterVersion = null;
         if (version > CurrentVersion)
         {
-            s_logger.LogWarning(
-                "The media fingerprints in {Uri} have format version {Version}, which this version of Beutl does not read; the scene opens without them, and the file is left as it is.",
-                context.BaseUri,
-                version);
+            _laterVersion = version;
         }
         else if (version != CurrentVersion
                  || context.GetValue<JsonNode>(FingerprintsProperty) is not JsonObject stored)
@@ -106,44 +112,59 @@ internal sealed class MediaFingerprintFile : CoreObject
         }
     }
 
-    // What a scene file holds under SceneProperty: a reference to the file or, in an embedded serialization of
-    // the scene, the fingerprints themselves. A missing file reads as no fingerprints, and so do an unreadable one
-    // and one with a later format version: they only help the repair tool, so the scene opens without them. The
-    // next save replaces an unreadable file.
-    internal void Load(JsonNode? stored, Uri? baseUri)
+    // Reads what a scene file holds under SceneProperty: a reference to the file or, in an embedded serialization
+    // of the scene, the fingerprints themselves. Null when there are none: a missing file reads as none, and so does
+    // an unreadable one, which only helps the repair tool, so the scene opens without it and the next save removes
+    // or replaces it. A file with a later format version reads as an object without fingerprints.
+    internal static MediaFingerprintFile? Load(JsonNode? stored, Uri? baseUri)
     {
-        Fingerprints.Clear();
         Uri? source = baseUri;
         try
         {
+            var file = new MediaFingerprintFile();
             if (stored is JsonObject embedded)
             {
-                CoreSerializer.PopulateFromJsonObject(this, embedded);
+                CoreSerializer.PopulateFromJsonObject(file, embedded);
             }
             else if (stored is JsonValue reference && reference.TryGetValue(out string? value))
             {
                 source = UriHelper.ResolvePersistedReference(value, baseUri);
-                if (source.IsFile && File.Exists(source.LocalPath))
-                    CoreSerializer.PopulateFromUri(this, source);
+                if (!source.IsFile || !File.Exists(source.LocalPath)) return null;
+                CoreSerializer.PopulateFromUri(file, source);
+                if (file.IsFromLaterVersion)
+                {
+                    s_logger.LogWarning(
+                        "The media fingerprints in {Uri} have format version {Version}, which this version of Beutl does not read; the scene opens without them, and the file is left as it is.",
+                        source,
+                        file._laterVersion);
+                }
             }
+            else
+            {
+                return null;
+            }
+
+            return file.Fingerprints.Count > 0 || file.IsFromLaterVersion ? file : null;
         }
         catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
         {
-            Fingerprints.Clear();
             s_logger.LogWarning(ex, "Could not read the media fingerprints from {Uri}; the scene opens without them.", source);
+            return null;
         }
     }
 
-    // Writes the fingerprints to Uri, or removes the file when there are none, unless the file already holds them
-    // or a later version of Beutl wrote it. Returns whether the file changed. A save of the scene calls it rather
-    // than letting the serializer store the file, which rewrites it every time.
-    internal bool Save()
+    // Writes the fingerprints to fileUri, or removes the file there when there are none, unless the file already
+    // holds them or a later version of Beutl wrote it. An object read from such a file writes nothing. Returns
+    // whether the file changed. A save of the scene calls it rather than letting the serializer store the file,
+    // which rewrites it every time.
+    internal bool Save(Uri fileUri)
     {
-        Uri uri = Uri ?? throw new InvalidOperationException("The media fingerprints have no file to be saved to.");
-        string path = uri.LocalPath;
+        if (IsFromLaterVersion) return false;
+        Uri = fileUri;
+        string path = fileUri.LocalPath;
         JsonObject? json = Fingerprints.Count == 0
             ? null
-            : CoreSerializer.SerializeToJsonObject(this, new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Write });
+            : CoreSerializer.SerializeToJsonObject(this, new CoreSerializerOptions { BaseUri = fileUri, Mode = CoreSerializationMode.Write });
         if (File.Exists(path))
         {
             using JsonDocument? current = TryParse(path);
@@ -165,7 +186,7 @@ internal sealed class MediaFingerprintFile : CoreObject
         }
         else
         {
-            CoreSerializer.StoreToUri(this, uri, CoreSerializationMode.Write);
+            CoreSerializer.StoreToUri(this, fileUri, CoreSerializationMode.Write);
         }
 
         return true;
@@ -173,27 +194,26 @@ internal sealed class MediaFingerprintFile : CoreObject
 
     // The editor's background update after a scan. It saves the fingerprints of the saved scene graph without
     // serializing the scene, whose unsaved edits it must not save, and returns whether the file changed, which
-    // is what asks version control for a snapshot.
+    // is what asks version control for a snapshot. It writes only for a scene file that references the file: one
+    // saved while the scene had no fingerprints references none, and the scene's next save writes both.
     internal static bool Update(Uri sceneUri, Guid sceneId, IEnumerable<KeyValuePair<string, MediaFileFingerprint>> fingerprints)
     {
         if (!sceneUri.IsFile || !File.Exists(sceneUri.LocalPath)) return false;
         JsonObject scene;
         using (FileStream stream = File.OpenRead(sceneUri.LocalPath))
             scene = JsonNode.Parse(stream) as JsonObject ?? throw new JsonException("The scene file is not a JSON object.");
-        // The file can hold another scene by now, for example after a checkout. A scene file an earlier version
-        // saved references no fingerprint file, so one written now would not be read; the next save adds the
-        // reference and writes the file.
+        // The file can hold another scene by now, for example after a checkout.
         if (!Guid.TryParse(scene[nameof(CoreObject.Id)]?.GetValue<string>(), out Guid id) || id != sceneId
             || scene[SceneProperty] is null)
             return false;
 
-        var file = new MediaFingerprintFile { Uri = new Uri(GetPath(sceneUri.LocalPath)) };
+        var file = new MediaFingerprintFile();
         foreach ((string key, MediaFileFingerprint fingerprint) in fingerprints)
         {
             file.Fingerprints.Add(key, fingerprint);
         }
 
-        return file.Save();
+        return file.Save(new Uri(GetPath(sceneUri.LocalPath)));
     }
 
     // A hand edit or a merge can leave null where a fingerprint belongs, or a fingerprint without a hash, also among
