@@ -1,6 +1,8 @@
 ﻿using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
 
 using Beutl.Api.Objects;
 using Beutl.Logging;
@@ -45,11 +47,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     internal Action? AfterSuccessfulInstallFallbackDisarmed { get; set; }
 
-    private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
+    private const string DefaultNuGetConfigContent = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
     <clear />
-    <add key=""Beutl Local Packages"" value=""{0}"" />
+    <add key=""Beutl Local Packages"" value=""packageSource"" />
     <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" protocolVersion=""3"" />
   </packageSources>
 </configuration>
@@ -93,27 +95,53 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     {
         if (File.Exists(configPath))
         {
-            using (StreamReader reader = File.OpenText(configPath))
+            try
             {
-                while (reader.ReadLine() is string line)
-                {
-                    if (line.Contains("<clear"))
-                    {
-                        return;
-                    }
-                }
+                // Let the XML reader honor the declared encoding, including files without a BOM.
+                XDocument document = XDocument.Load(configPath, LoadOptions.PreserveWhitespace);
+                // Keep existing configs intact, including their credentials, ACLs and ownership.
+                // Retain the legacy regeneration check after decoding the XML.
+                if (document.ToString(SaveOptions.DisableFormatting).Contains("<clear", StringComparison.Ordinal))
+                    return;
             }
-
-            File.Delete(configPath);
+            catch (XmlException) when (!File.ReadAllText(configPath).Contains("<clear", StringComparison.Ordinal))
+            {
+                // Older configs without <clear> were regenerated, even if they were incomplete.
+            }
         }
 
-        if (!File.Exists(configPath))
+        // Only defaults are written here. Replace the legacy config's directory entry so
+        // read-only files can be regenerated and shared symlink targets remain untouched.
+        string temporaryPath = configPath + $".{Guid.NewGuid():N}.tmp";
+        try
         {
-            using (StreamWriter writer = File.CreateText(configPath))
+            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+            if (!OperatingSystem.IsWindows())
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            using (var stream = new FileStream(temporaryPath, options))
             {
-                writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
+                stream.Write(Encoding.UTF8.GetBytes(DefaultNuGetConfigContent));
+                stream.Flush(flushToDisk: true);
             }
+            File.Move(temporaryPath, configPath, overwrite: true);
         }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
+    }
+
+    private SourceRepository GetRepositoryForCurrentHome(SourceRepository repository)
+    {
+        if (repository.PackageSource.Name != "Beutl Local Packages"
+            || repository.PackageSource.Source == Helper.LocalSourcePath)
+            return repository;
+
+        // Downloads always go to the current home. Override a stale configured path in memory
+        // so moving the home does not require rewriting the user's NuGet configuration.
+        PackageSource source = repository.PackageSource.Clone();
+        source.Source = Helper.LocalSourcePath;
+        return _sourceRepositoryProvider.CreateRepository(source);
     }
 
     private static void CreateLocalSourceDirectory()
@@ -405,7 +433,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
                 logger ??= new LoggerAdapter(_logger);
 
-                IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
+                SourceRepository[] repositories = _sourceRepositoryProvider.GetRepositories()
+                    .Select(GetRepositoryForCurrentHome).ToArray();
                 var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
                 await Helper.GetPackageDependencies(
                     package,
