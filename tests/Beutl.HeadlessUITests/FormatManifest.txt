@@ -1228,6 +1228,9 @@ Beutl.Utilities
 [Beutl.ProjectSystem]:Element
   unsealed
   keys: AccentColor, Id, IsEnabled, IsLocked, Length, Name, Objects, Start, ZIndex
+[Beutl.ProjectSystem]:MediaFingerprintFile
+  sealed
+  keys: Fingerprints, Version
 [Beutl.ProjectSystem]:PortalObject
   sealed
   keys: Animations, Clear, Count, Expressions, Id, IsEnabled, Name
