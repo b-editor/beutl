@@ -219,6 +219,22 @@ public class ElementStructureServiceTests
     }
 
     [Test]
+    public void Exclude_Undo_PutsTheElementBackOnItsLayer()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        _history.Commit("Setup");
+
+        _service.Exclude(_scene, [element]);
+        _history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(element));
+            Assert.That(element.ZIndex, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void Exclude_EmptyList_NoCommit()
     {
         int before = _history.UndoCount;

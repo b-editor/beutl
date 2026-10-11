@@ -172,15 +172,6 @@ public partial class Scene
         }
     }
 
-    private sealed class RemoveCommand(Scene scene, Element element)
-    {
-        public void Do()
-        {
-            scene.Children.Remove(element);
-            element.ZIndex = -1;
-        }
-    }
-
     private sealed class DeleteCommand
     {
         private readonly Scene _scene;
