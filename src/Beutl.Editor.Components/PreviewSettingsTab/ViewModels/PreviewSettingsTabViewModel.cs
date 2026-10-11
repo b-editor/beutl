@@ -28,7 +28,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
         IsRenderQualityAvailable = quality is not null;
         PreviewScale = quality?.PreviewScale;
         PreviewScaleOptions = quality?.PreviewScaleOptions;
-        // Disabled during playback to avoid mid-play renderer rebuilds.
+        // The render quality and the node cache are disabled during playback, which holds the render thread.
         IsPlaying = editorContext.GetService<IPreviewPlayer>()?.IsPlaying
                     ?? new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
 
