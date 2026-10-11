@@ -62,9 +62,6 @@ public sealed record AgentToolkitInstallOptions
 
     public IReadOnlyList<string> ObsoleteMcpServerNames { get; init; } = [LegacyLiveServerName];
 
-    // Written as BEUTL_WORKSPACE: the write boundary of headless project edits.
-    public string? WorkspaceRoot { get; init; }
-
     public string? McpCommand { get; init; }
 
     public IReadOnlyList<string> McpArguments { get; init; } = [];

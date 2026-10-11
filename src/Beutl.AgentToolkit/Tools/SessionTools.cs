@@ -62,22 +62,19 @@ public sealed record OperationStatusResponse(
 public sealed class SessionTools(
     IProjectSessionGateway projects,
     AgentSessionManager sessions,
-    IWorkspaceGuard workspace,
     DestructiveGuard destructiveGuard,
     RenderJobManager renderJobs) : ToolBase
 {
     [McpServerTool(Name = "open_project")]
-    [Description("Opens a Beutl .bep project from any readable local path and returns its scene IDs. Live MCP calls must still pass sceneId on each subsequent scene operation; stdio selects a file-backed session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
-    public ValueTask<ToolResult<OpenProjectResponse>> OpenProject(string path, CancellationToken cancellationToken = default)
+    [Description("Opens a Beutl .bep project from an absolute local path and returns its scene IDs. Live MCP calls must still pass sceneId on each subsequent scene operation; stdio selects a file-backed session. In the in-app host this opens the project in the Beutl editor (the editor holds a single open project; the session is LiveEditor and edits show live); in the stdio host it opens a file-backed session.")]
+    public ValueTask<ToolResult<OpenProjectResponse>> OpenProject(
+        [Description("Absolute path of the .bep project file.")]
+        string path,
+        CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
         {
-            // Resolve a relative path against the workspace root, matching create_project/save_project,
-            // so the same path is not reported missing just because the MCP process cwd differs from
-            // BEUTL_WORKSPACE. Absolute paths are honored as-is (open_project reads anywhere).
-            string fullPath = Path.IsPathRooted(path)
-                ? Path.GetFullPath(path)
-                : Path.GetFullPath(Path.Combine(workspace.Root, path));
+            string fullPath = ToolPaths.RequireAbsolute(path, nameof(path));
             ValidateProjectFileExtension(fullPath, nameof(path));
             if (!File.Exists(fullPath))
             {
@@ -199,9 +196,9 @@ public sealed class SessionTools(
         IReadOnlyList<RecoveryIncident> RecoveryIncidents);
 
     [McpServerTool(Name = "create_project")]
-    [Description("Creates and saves a new Beutl .bep project with one scene and returns its scene ID. Live MCP calls must still pass sceneId on each subsequent scene operation; stdio selects a file-backed session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages. The output path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Creates and saves a new Beutl .bep project with one scene and returns its scene ID. Live MCP calls must still pass sceneId on each subsequent scene operation; stdio selects a file-backed session. In the in-app host the project opens in the Beutl editor (single open project, LiveEditor session); in the stdio host it becomes a file-backed session. Paths without an extension are saved as .bep; .beutl is reserved for project packages.")]
     public ValueTask<ToolResult<CreateProjectResponse>> CreateProject(
-        [Description("Workspace-relative project file path; project files use path, while render/export outputs use outputPath/outputDirectory.")]
+        [Description("Absolute project file path; project files use path, while render/export outputs use outputPath/outputDirectory.")]
         string path,
         int width,
         int height,
@@ -213,7 +210,7 @@ public sealed class SessionTools(
         return ExecuteAsync(async () =>
         {
             ValidateProjectSettings(width, height, frameRate);
-            string writePath = NormalizeProjectPath(workspace, path, nameof(path));
+            string writePath = NormalizeProjectPath(path, nameof(path));
             destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
 
             ProjectSessionResult result = await projects.CreateProjectAsync(
@@ -263,9 +260,10 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "save_project")]
-    [Description("Saves the current file-backed .bep project. Call after each major successful apply_edit in file-backed sessions so partial progress is durable, and again after final revisions. Optional paths without an extension are saved as .bep; .beutl is reserved for project packages. Optional path is restricted to BEUTL_WORKSPACE.")]
+    [Description("Saves the current file-backed .bep project. Call after each major successful apply_edit in file-backed sessions so partial progress is durable, and again after final revisions. Optional paths without an extension are saved as .bep; .beutl is reserved for project packages.")]
     public ToolResult<SaveProjectResponse> SaveProject(
         string? session = null,
+        [Description("Optional absolute path to save the project to instead of its current file.")]
         string? path = null,
         bool confirmOverwrite = false)
     {
@@ -299,7 +297,7 @@ public sealed class SessionTools(
             bool savedAs = false;
             if (!string.IsNullOrWhiteSpace(path))
             {
-                string writePath = NormalizeProjectPath(workspace, path, nameof(path));
+                string writePath = NormalizeProjectPath(path, nameof(path));
                 string currentPath = fileSession.Project.Uri?.LocalPath ?? string.Empty;
                 if (!FilePathComparison.AreSameCanonicalPath(currentPath, writePath))
                 {
@@ -454,22 +452,22 @@ public sealed class SessionTools(
         }
     }
 
-    internal static string NormalizeProjectPath(IWorkspaceGuard workspace, string requestedPath, string target)
+    internal static string NormalizeProjectPath(string requestedPath, string target)
     {
-        string candidate = requestedPath;
-        string extension = Path.GetExtension(requestedPath);
+        string candidate = ToolPaths.RequireAbsolute(requestedPath, target);
+        string extension = Path.GetExtension(candidate);
         if (string.IsNullOrEmpty(extension))
         {
-            candidate = $"{requestedPath}.{EditorConstants.ProjectFileExtension}";
+            candidate = $"{candidate}.{EditorConstants.ProjectFileExtension}";
         }
         else
         {
             ValidateProjectFileExtension(candidate, target);
         }
 
-        // Resolve the final file (extension already appended) through the workspace guard so the
-        // path actually written — following any symlink — is the one boundary-checked.
-        string resolved = workspace.ResolveForWrite(candidate);
+        // Resolve the final file (extension already appended) so the extension is checked on the
+        // path actually written, after following any symlink.
+        string resolved = ToolPaths.ResolveForWrite(candidate, target);
         ValidateProjectFileExtension(resolved, target);
         return resolved;
     }

@@ -17,7 +17,6 @@ internal static class ToolErrorMapper
         return exception switch
         {
             ReconcileException ex => ex.Error,
-            WorkspaceBoundaryException ex => new ToolError(ex.Code, ex.Message, ex.ResolvedPath ?? ex.RequestedPath),
             DestructiveIntentException ex => new ToolError(
                 ex.Code,
                 ex.Message,

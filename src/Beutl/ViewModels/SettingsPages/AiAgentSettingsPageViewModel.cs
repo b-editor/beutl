@@ -40,8 +40,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         SelectedAgent = new ReactivePropertySlim<AgentChoiceItem>(initialAgent).DisposeWith(_disposables);
         SelectedScope = new ReactivePropertySlim<InstallScopeItem>(initialScope).DisposeWith(_disposables);
         ProjectRoot = new ReactivePropertySlim<string>(_config.ProjectRoot).DisposeWith(_disposables);
-        WorkspaceRoot = new ReactivePropertySlim<string>(
-            FirstNonEmpty(_config.WorkspaceRoot, GetDefaultWorkspaceRoot())).DisposeWith(_disposables);
         SkillsDirectory = new ReactivePropertySlim<string>(_config.SkillsDirectory).DisposeWith(_disposables);
         SubagentsDirectory = new ReactivePropertySlim<string>(_config.SubagentsDirectory).DisposeWith(_disposables);
         McpConfigFileName = new ReactivePropertySlim<string>(_config.McpConfigFileName).DisposeWith(_disposables);
@@ -93,8 +91,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<InstallScopeItem> SelectedScope { get; }
 
     public ReactivePropertySlim<string> ProjectRoot { get; }
-
-    public ReactivePropertySlim<string> WorkspaceRoot { get; }
 
     public ReactivePropertySlim<string> SkillsDirectory { get; }
 
@@ -233,23 +229,7 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             AgentToolkitInstallOptions.DefaultServerName,
             McpCommand.Value,
             ParseArguments(McpArguments.Value),
-            BuildCliEnvironment());
-
-    private Dictionary<string, string> BuildCliEnvironment()
-    {
-        var environment = new Dictionary<string, string>();
-        if (!string.IsNullOrWhiteSpace(WorkspaceRoot.Value))
-        {
-            environment["BEUTL_WORKSPACE"] = Path.GetFullPath(WorkspaceRoot.Value);
-        }
-
-        foreach (KeyValuePair<string, string> pair in McpServerEnvironment())
-        {
-            environment[pair.Key] = pair.Value;
-        }
-
-        return environment;
-    }
+            McpServerEnvironment());
 
     // The server discovers the editors of this profile through BEUTL_HOME and authenticates to
     // them itself, so the agent config never holds a process-specific URL or the bearer token.
@@ -268,7 +248,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         McpServersPropertyName.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         McpCommand.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         McpArguments.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
-        WorkspaceRoot.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
         InstallMcp.Skip(1).Subscribe(_ => RecomputeTargets()).DisposeWith(_disposables);
     }
 
@@ -317,7 +296,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         SelectedAgent.Skip(1).Subscribe(v => _config.AgentId = v.Id).DisposeWith(_disposables);
         SelectedScope.Skip(1).Subscribe(v => _config.InstallScope = v.Scope.ToString()).DisposeWith(_disposables);
         ProjectRoot.Skip(1).Subscribe(v => _config.ProjectRoot = v).DisposeWith(_disposables);
-        WorkspaceRoot.Skip(1).Subscribe(v => _config.WorkspaceRoot = v).DisposeWith(_disposables);
         SkillsDirectory.Skip(1).Subscribe(v => _config.SkillsDirectory = v).DisposeWith(_disposables);
         SubagentsDirectory.Skip(1).Subscribe(v => _config.SubagentsDirectory = v).DisposeWith(_disposables);
         McpConfigFileName.Skip(1).Subscribe(v => _config.McpConfigFileName = v).DisposeWith(_disposables);
@@ -410,7 +388,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             McpConfigFormat = targets.McpConfigFormat,
             McpServersPropertyName = targets.McpServersPropertyName,
             McpTypeValue = targets.McpTypeValue,
-            WorkspaceRoot = WorkspaceRoot.Value,
             McpCommand = McpCommand.Value,
             McpArguments = ParseArguments(McpArguments.Value),
             McpEnvironment = McpServerEnvironment(),
@@ -553,20 +530,6 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
         return text
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToArray();
-    }
-
-    private static string GetDefaultWorkspaceRoot()
-    {
-        string? environment = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE");
-        if (!string.IsNullOrWhiteSpace(environment))
-        {
-            return environment;
-        }
-
-        string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        return string.IsNullOrWhiteSpace(documents)
-            ? Directory.GetCurrentDirectory()
-            : documents;
     }
 
     public void Dispose()

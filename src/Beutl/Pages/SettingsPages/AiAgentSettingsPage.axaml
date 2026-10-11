@@ -73,15 +73,6 @@
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>
 
-                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_WorkspaceRoot_Description}" Header="{x:Static lang:SettingsStrings.AiAgents_WorkspaceRoot}">
-                            <ctrls:OptionsDisplayItem.ActionButton>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBox MinWidth="280" Text="{Binding WorkspaceRoot.Value}" />
-                                    <Button Click="BrowseWorkspaceRoot_Click" Content="..." />
-                                </StackPanel>
-                            </ctrls:OptionsDisplayItem.ActionButton>
-                        </ctrls:OptionsDisplayItem>
-
                         <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AiAgents_Destinations_Description}"
                                                   Expands="True"
                                                   Header="{x:Static lang:SettingsStrings.AiAgents_Destinations}">

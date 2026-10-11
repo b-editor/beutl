@@ -2,7 +2,7 @@
 
 public sealed record AgentHostInstanceInfo(
     string InstanceId, int ProcessId, string? ProjectName, string? ProjectPath,
-    string? SceneId, string? SceneName, string WorkspaceRoot);
+    string? SceneId, string? SceneName);
 
 // ConnectedInstanceId is the process that receives calls without an explicit instanceId: the host
 // itself on a direct connection. Through the installed server it is always null, because a call

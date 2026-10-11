@@ -529,14 +529,13 @@ public sealed class CodexMcpConfigWriterTests
     }
 
     [Test]
-    public async Task Fresh_install_escapes_arguments_and_adds_the_workspace()
+    public async Task Fresh_install_escapes_arguments_and_writes_the_environment()
     {
         string[] arguments = ["--path", "a path with spaces", "quoted \"text\"", @"C:\video\日本語", "line\nbreak"];
         await AgentToolkitInstaller.InstallAsync(Options with
         {
             McpCommand = @"C:\Program Files\Beutl\mcp.exe",
             McpArguments = arguments,
-            WorkspaceRoot = _root,
             McpEnvironment = new Dictionary<string, string> { ["EXTRA"] = "value", ["BEUTL_HOME"] = ProfileHome },
         }, []);
 
@@ -548,7 +547,7 @@ public sealed class CodexMcpConfigWriterTests
             Assert.That(servers.Keys, Is.EqualTo(new[] { "beutl-agent" }));
             Assert.That(server["command"], Is.EqualTo(@"C:\Program Files\Beutl\mcp.exe"));
             Assert.That((TomlArray)server["args"], Is.EqualTo(arguments));
-            Assert.That(((TomlTable)server["env"])["BEUTL_WORKSPACE"], Is.EqualTo(Path.GetFullPath(_root)));
+            Assert.That(((TomlTable)server["env"]).Keys, Is.EquivalentTo(new[] { "EXTRA", "BEUTL_HOME" }));
             Assert.That(((TomlTable)server["env"])["EXTRA"], Is.EqualTo("value"));
             Assert.That(Home(server), Is.EqualTo(ProfileHome));
         });

@@ -3,7 +3,6 @@ using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -20,14 +19,8 @@ public class EditorProjectSessionGatewayTests
         return location;
     }
 
-    private static EditorProjectSessionGateway CreateGateway(
-        string? workspaceRoot = null)
-    {
-        return new EditorProjectSessionGateway(
-            TestShell.Project,
-            TestShell.Editor,
-            new WorkspaceGuard(workspaceRoot ?? BeutlHomeIsolation.CurrentHome!));
-    }
+    private static EditorProjectSessionGateway CreateGateway()
+        => new(TestShell.Project, TestShell.Editor);
 
     private static async Task<ReconcileException?> ExpectRejectionAsync(Func<ValueTask<ProjectSessionResult>> action)
     {
@@ -127,7 +120,7 @@ public class EditorProjectSessionGatewayTests
             Assert.Ignore("Requires a case-sensitive filesystem.");
         ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
             second, 64, 64, 30, TimeSpan.FromSeconds(1), Name: "Second")));
-        EditorProjectSessionGateway gateway = CreateGateway(root);
+        EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
 
         ReconcileException? rejection = await ExpectRejectionAsync(() => gateway.OpenProjectAsync(second));
@@ -328,11 +321,9 @@ public class EditorProjectSessionGatewayTests
     }
 
     [AvaloniaTest]
-    public async Task AddScene_rejects_saving_a_project_opened_outside_the_workspace()
+    public async Task AddScene_saves_a_project_opened_from_any_folder()
     {
         await TestReset.ResetShellAsync();
-        // open_project reads anywhere, so the editor can hold a project outside the workspace; add_scene
-        // must not persist its sidecars there.
         string outsideDir = Path.Combine(Path.GetTempPath(), "beutl-outside-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outsideDir);
         try
@@ -345,24 +336,14 @@ public class EditorProjectSessionGatewayTests
             ProjectSessionResult opened = await gateway.OpenProjectAsync(outsideProject);
             HeadlessTestHelpers.Settle();
 
-            WorkspaceBoundaryException? rejection = null;
-            try
-            {
-                await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
-                    320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
-                Assert.Fail("Expected a workspace-boundary rejection.");
-            }
-            catch (WorkspaceBoundaryException ex)
-            {
-                rejection = ex;
-            }
+            ProjectSceneResult added = await gateway.AddSceneAsync(opened.Session, new SceneCreateOptions(
+                320, 180, TimeSpan.Zero, TimeSpan.FromSeconds(2), "second-scene"));
 
             Assert.Multiple(() =>
             {
-                Assert.That(rejection, Is.Not.Null);
-                // The boundary guard runs before the live project is mutated, so a rejected add_scene
-                // leaves no unsaved extra scene behind in the editor.
-                Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+                Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(2));
+                Assert.That(FilePathComparison.IsSameOrDescendant(outsideDir, added.Scene.Uri!.LocalPath), Is.True);
+                Assert.That(File.Exists(added.Scene.Uri.LocalPath), Is.True);
             });
         }
         finally

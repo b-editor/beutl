@@ -82,7 +82,7 @@ public sealed class SessionToolsTests
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
@@ -93,7 +93,6 @@ public sealed class SessionToolsTests
         var motionAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
         var renderTools = new RenderTools(
             manager,
-            new WorkspaceGuard(root),
             new DestructiveGuard(),
             stillRenderer,
             new StoryboardRenderer(),
@@ -165,7 +164,7 @@ public sealed class SessionToolsTests
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
 
@@ -238,7 +237,7 @@ public sealed class SessionToolsTests
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
 
@@ -308,7 +307,7 @@ public sealed class SessionToolsTests
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
@@ -318,7 +317,6 @@ public sealed class SessionToolsTests
         var motionAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
         var renderTools = new RenderTools(
             manager,
-            new WorkspaceGuard(root),
             new DestructiveGuard(),
             stillRenderer,
             new StoryboardRenderer(),
@@ -431,7 +429,7 @@ public sealed class SessionToolsTests
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
 
@@ -487,7 +485,7 @@ public sealed class SessionToolsTests
 
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
 
@@ -517,7 +515,7 @@ public sealed class SessionToolsTests
         RecoveredProjectFixture fixture = CreateProjectWithMalformedElement(root);
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
         var editTools = new EditTools(manager);
@@ -554,7 +552,7 @@ public sealed class SessionToolsTests
         byte[] healthyBytes = File.ReadAllBytes(fixture.HealthyPath);
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(fixture.ProjectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
         var editTools = new EditTools(manager);
@@ -592,11 +590,11 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
         var queryTools = new QueryTools(manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "motion.bep",
+            Path.Combine(root, "motion.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -627,10 +625,10 @@ public sealed class SessionToolsTests
         string path = Path.Combine(root, "exists.bep");
         File.WriteAllText(path, "{}");
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager());
 
         ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
-            "exists.bep",
+            Path.Combine(root, "exists.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -652,10 +650,10 @@ public sealed class SessionToolsTests
         string existingSidecar = Path.Combine(existingDir, "demo.scene");
         File.WriteAllText(existingSidecar, "existing scene sidecar");
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager());
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "demo.bep",
+            Path.Combine(root, "demo.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -678,10 +676,10 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "motion.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+            Path.Combine(root, "motion.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
         ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
@@ -702,17 +700,17 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> first = await sessionTools.CreateProject(
-            "first.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+            Path.Combine(root, "first.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
         Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
         FileEditingSession firstSession = source.CurrentFileSession!;
 
         // A directory occupying the target .bep path makes the initial save throw.
         Directory.CreateDirectory(Path.Combine(root, "broken.bep"));
         ToolResult<CreateProjectResponse> failed = await sessionTools.CreateProject(
-            "broken.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+            Path.Combine(root, "broken.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
 
         Assert.Multiple(() =>
         {
@@ -728,10 +726,10 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "orig.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+            Path.Combine(root, "orig.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
         FileEditingSession session = source.CurrentFileSession!;
@@ -743,7 +741,7 @@ public sealed class SessionToolsTests
         Directory.CreateDirectory(Path.Combine(root, "dest.bep"));
 
         ToolResult<SaveProjectResponse> failed = sessionTools.SaveProject(
-            created.Value!.Session, "dest.bep", confirmOverwrite: true);
+            created.Value!.Session, Path.Combine(root, "dest.bep"), confirmOverwrite: true);
 
         string[] restoredSceneUris = session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath).ToArray();
         Assert.Multiple(() =>
@@ -759,10 +757,10 @@ public sealed class SessionToolsTests
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager());
 
         ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
-            "motion.bep",
+            Path.Combine(root, "motion.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -782,10 +780,10 @@ public sealed class SessionToolsTests
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager());
 
         ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
-            "motion.bep",
+            Path.Combine(root, "motion.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -808,10 +806,10 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "motion.bep", width: 640, height: 360, frameRate: 30, duration: "00:00:04");
+            Path.Combine(root, "motion.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
         ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
@@ -832,16 +830,16 @@ public sealed class SessionToolsTests
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager());
 
         ToolResult<CreateProjectResponse> rejected = await sessionTools.CreateProject(
-            "wrong.beutl",
+            Path.Combine(root, "wrong.beutl"),
             width: 640,
             height: 360,
             frameRate: 30,
             duration: "00:00:04");
         ToolResult<CreateProjectResponse> normalized = await sessionTools.CreateProject(
-            "motion",
+            Path.Combine(root, "motion"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -863,15 +861,15 @@ public sealed class SessionToolsTests
     {
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager(), root);
+        SessionTools sessionTools = CreateSessionTools(source, new AgentSessionManager());
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "motion.bep",
+            Path.Combine(root, "motion.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
             duration: "00:00:04");
 
-        ToolResult<SaveProjectResponse> rejected = sessionTools.SaveProject(created.Value!.Session, "package.beutl");
+        ToolResult<SaveProjectResponse> rejected = sessionTools.SaveProject(created.Value!.Session, Path.Combine(root, "package.beutl"));
 
         Assert.Multiple(() =>
         {
@@ -887,9 +885,9 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         using var source = new FileSessionSource();
         var manager = new AgentSessionManager();
-        SessionTools sessionTools = CreateSessionTools(source, manager, root);
+        SessionTools sessionTools = CreateSessionTools(source, manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "sessionless-save.bep",
+            Path.Combine(root, "sessionless-save.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -910,12 +908,11 @@ public sealed class SessionToolsTests
     [Test]
     public void Save_project_reports_live_editor_sessions_as_not_required()
     {
-        string root = CreateWorkspace();
         using var liveSession = new AgentToolkitTestSession(new Scene(), EditingSessionSource.LiveEditor);
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(liveSession));
         using var fileSource = new FileSessionSource();
-        SessionTools sessionTools = CreateSessionTools(fileSource, manager, root);
+        SessionTools sessionTools = CreateSessionTools(fileSource, manager);
 
         ToolResult<SaveProjectResponse> saved = sessionTools.SaveProject(liveSession.SessionId);
         ToolResult<OperationStatusResponse> status = sessionTools.ReadOperationStatus();
@@ -937,16 +934,14 @@ public sealed class SessionToolsTests
     {
         string root = CreateWorkspace();
         var gateway = new DispatchingProjectGateway();
-        var workspace = new WorkspaceGuard(root);
         var sessionTools = new SessionTools(
             gateway,
             new AgentSessionManager(),
-            workspace,
             new DestructiveGuard(),
             new RenderJobManager());
 
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "live-summary.bep",
+            Path.Combine(root, "live-summary.bep"),
             width: 640,
             height: 360,
             frameRate: 30,
@@ -966,7 +961,7 @@ public sealed class SessionToolsTests
         string root = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var gateway = new FileProjectSessionGateway(source, manager, new WorkspaceGuard(root));
+        var gateway = new FileProjectSessionGateway(source, manager);
 
         FileEditingSession sessionB = source.CreateProject(new ProjectCreateOptions(
             Path.Combine(root, "b.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
@@ -993,13 +988,11 @@ public sealed class SessionToolsTests
             sessionB, new SceneCreateOptions(320, 240, TimeSpan.Zero, TimeSpan.FromSeconds(2), "stale")));
     }
 
-    private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager, string root)
+    private static SessionTools CreateSessionTools(FileSessionSource source, AgentSessionManager manager)
     {
-        var workspace = new WorkspaceGuard(root);
         return new SessionTools(
-            new FileProjectSessionGateway(source, manager, workspace),
+            new FileProjectSessionGateway(source, manager),
             manager,
-            workspace,
             new DestructiveGuard(),
             new RenderJobManager());
     }

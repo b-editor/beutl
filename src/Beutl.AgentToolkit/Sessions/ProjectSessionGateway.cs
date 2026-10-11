@@ -1,5 +1,4 @@
-﻿using Beutl.AgentToolkit.Workspace;
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Sessions;
 
@@ -25,15 +24,12 @@ public interface IProjectSessionGateway
 
 public sealed class FileProjectSessionGateway(
     FileSessionSource fileSessions,
-    AgentSessionManager sessions,
-    IWorkspaceGuard workspace) : IProjectSessionGateway
+    AgentSessionManager sessions) : IProjectSessionGateway
 {
     public ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
     {
-        // Opening a file-backed project makes it the active writable session, so confine it to the
-        // workspace here (ResolveForWrite follows symlinks, so a link out of the workspace is
-        // rejected rather than silently written to on the next save).
-        string resolved = workspace.ResolveForWrite(fullPath);
+        // The session saves back to this path, so bind it to the file a symlink names.
+        string resolved = FilePathComparison.ResolveCanonicalPath(fullPath);
         FileEditingSession session = fileSessions.OpenProject(resolved);
         sessions.UseSource(fileSessions);
         return ValueTask.FromResult(new ProjectSessionResult(session, session.Project));

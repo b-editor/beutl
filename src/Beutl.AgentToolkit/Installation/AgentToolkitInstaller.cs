@@ -120,11 +120,6 @@ public static class AgentToolkitInstaller
         server["args"] = args;
 
         var env = new JsonObject();
-        if (!string.IsNullOrWhiteSpace(options.WorkspaceRoot))
-        {
-            env["BEUTL_WORKSPACE"] = Path.GetFullPath(options.WorkspaceRoot);
-        }
-
         foreach (KeyValuePair<string, string> pair in options.McpEnvironment)
         {
             env[pair.Key] = pair.Value;

@@ -5,7 +5,6 @@ using System.Net.Sockets;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -467,61 +466,44 @@ public sealed class AgentHostAiToolsTests
     }
 
     [AvaloniaTest]
-    public async Task AnInputOutsideTheWorkspaceIsRefusedBeforeAnythingIsUploaded()
+    public async Task AnInputIsReadFromAnyAbsolutePathButARelativePathIsRefused()
     {
         await TestReset.ResetShellAsync();
-        Scene scene = await OpenSceneAsync("agent-ai-boundary");
+        await OpenSceneAsync("agent-ai-paths");
         string outside = Path.Combine(Path.GetTempPath(), "beutl-agent-ai-outside-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outside);
         try
         {
-            string secret = Path.Combine(outside, "secret.png");
+            string picture = Path.Combine(outside, "picture.png");
             using (var bitmap = new Bitmap(4, 4))
-                Assert.That(bitmap.Save(secret, EncodedImageFormat.Png), Is.True);
-            string? linked = null;
-            if (!OperatingSystem.IsWindows())
-            {
-                linked = Path.Combine(_directory, "linked.png");
-                File.CreateSymbolicLink(linked, secret);
-            }
-
-            // Results of earlier calls sit beside the scene, which here is outside the workspace.
-            string resultDirectory = AiResultImporter.GetResourceDirectory(scene);
-            Directory.CreateDirectory(resultDirectory);
-            string earlierResult = Path.Combine(resultDirectory, "earlier.png");
-            File.Copy(secret, earlierResult);
+                Assert.That(bitmap.Save(picture, EncodedImageFormat.Png), Is.True);
             WritePng("relative.png");
 
             var backend = new FakeBackend { Result = WritePng("result.png") };
             using var jobs = new AgentAiJobManager();
             var tools = CreateTools(TestShell.Editor, jobs, backend);
 
-            ToolResult<AgentAiJobSnapshot> edit = await tools.EditImage(secret, "upscale", waitSeconds: 0);
-            ToolResult<AgentAiJobSnapshot> reference = await tools.GenerateImage("a cat", referenceImagePaths: [secret], waitSeconds: 0);
-            ToolResult<AgentAiJobSnapshot> firstFrame = await tools.GenerateVideo("a cat", firstFramePath: secret, waitSeconds: 0);
-            ToolResult<AgentAiJobSnapshot> video = await tools.EditVideo(secret, "a cat", waitSeconds: 0);
-            ToolResult<AgentAiJobSnapshot> transcript = await tools.TranscribeAudio(secret, waitSeconds: 0);
-            ToolResult<AgentAiJobSnapshot> probe = await tools.EditImage(Path.Combine(outside, "missing.png"), "upscale", waitSeconds: 0);
-            ToolResult<AgentAiJobSnapshot>? link = linked is null ? null : await tools.EditImage(linked, "upscale", waitSeconds: 0);
+            // The editor's working directory is not one the agent chose, so nothing resolves a bare name.
+            ToolResult<AgentAiJobSnapshot> relative = await tools.EditImage("relative.png", "upscale", waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> transcript = await tools.TranscribeAudio("relative.png", waitSeconds: 0);
+            ToolResult<AgentAiJobSnapshot> missing = await tools.EditImage(Path.Combine(outside, "missing.png"), "upscale", waitSeconds: 0);
 
             Assert.Multiple(() =>
             {
-                foreach (ToolResult<AgentAiJobSnapshot> refused in new[] { edit, reference, firstFrame, video, transcript, probe })
-                    Assert.That(refused.Error?.Code, Is.EqualTo(ErrorCode.WorkspaceBoundary));
-                if (link is not null)
-                    Assert.That(link.Error?.Code, Is.EqualTo(ErrorCode.WorkspaceBoundary), "a link inside the workspace is followed");
+                Assert.That(relative.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+                Assert.That(relative.Error?.Target, Is.EqualTo("sourcePath"));
+                Assert.That(transcript.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+                Assert.That(missing.Error?.Code, Is.EqualTo(ErrorCode.MediaNotFound));
                 Assert.That(backend.Requests, Is.Empty);
                 Assert.That(backend.TranscribedPaths, Is.Empty);
             });
 
-            ToolResult<AgentAiJobSnapshot> chained = await tools.EditImage(earlierResult, "upscale", waitSeconds: 10);
-            ToolResult<AgentAiJobSnapshot> relative = await tools.EditImage("relative.png", "upscale", waitSeconds: 10);
+            ToolResult<AgentAiJobSnapshot> edited = await tools.EditImage(picture, "upscale", waitSeconds: 10);
 
             Assert.Multiple(() =>
             {
-                Assert.That(chained.IsSuccess, Is.True, chained.Error?.Message);
-                Assert.That(relative.IsSuccess, Is.True, relative.Error?.Message);
-                Assert.That(backend.Requests, Has.Count.EqualTo(2));
+                Assert.That(edited.IsSuccess, Is.True, edited.Error?.Message);
+                Assert.That(backend.Requests, Has.Count.EqualTo(1));
             });
         }
         finally
@@ -574,7 +556,7 @@ public sealed class AgentHostAiToolsTests
         new("square", "Square", IsDefault: true, IsAvailable: true, new GenerativeImageCapabilities(["1:1"], ["opaque"], SupportsSeed: false, MaxReferenceImages: 4));
 
     private AgentHostAiTools CreateTools(EditorService editor, AgentAiJobManager jobs, FakeBackend backend)
-        => new(editor, jobs, backend, new WorkspaceGuard(_directory));
+        => new(editor, jobs, backend);
 
     private string WritePng(string name)
     {

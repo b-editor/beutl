@@ -140,7 +140,7 @@ internal sealed partial class DeclarativeDocumentApplier
         JsonObject payload = (JsonObject)desired.DeepClone();
         payload.Remove(nameof(Element.Objects));
         // Storage URIs are toolkit-managed sidecar paths; never let a desired document redirect an
-        // existing element's .belm outside the workspace.
+        // existing element's .belm outside the project.
         payload.Remove("Uri");
         NormalizeRegisteredPropertyValues(element, payload);
         RemoveUnchangedStructuredValues(element, payload);

@@ -44,7 +44,6 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(
                 viewModel.ResolvedSkillsPath.Value,
                 Is.EqualTo(Path.Combine(home, ".claude", "skills")));
-            Assert.That(viewModel.WorkspaceRoot.Value, Is.Not.Empty);
             Assert.That(viewModel.McpCommand.Value, Is.Not.Empty);
             // One MCP server serves live and headless editing; it is on by default.
             Assert.That(viewModel.InstallMcp.Value, Is.True);
@@ -126,7 +125,6 @@ public sealed class AiAgentSettingsPageViewModelTests
                 AgentId = AiAgentSettingsPageViewModel.CustomAgentId,
                 InstallScope = scope.ToString(),
                 ProjectRoot = root,
-                WorkspaceRoot = root,
                 McpConfigFileName = "other-mcp.json",
                 McpServersPropertyName = "mcpServers",
                 InstallSkills = false,
@@ -372,7 +370,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 Assert.That(servers.Keys, Is.EqualTo(new[] { "beutl-agent" }));
                 Assert.That(server["command"], Is.EqualTo(viewModel.McpCommand.Value));
                 Assert.That(((TomlTable)server["env"])["BEUTL_HOME"], Is.EqualTo(BeutlEnvironment.GetHomeDirectoryPath()));
-                Assert.That(((TomlTable)server["env"])["BEUTL_WORKSPACE"], Is.EqualTo(Path.GetFullPath(viewModel.WorkspaceRoot.Value)));
+                Assert.That(((TomlTable)server["env"]).Keys, Is.EqualTo(new[] { "BEUTL_HOME" }));
                 Assert.That(server.ContainsKey("url"), Is.False);
                 Assert.That(toml, Does.Not.Contain("Bearer").And.Not.Contain("127.0.0.1"));
                 Assert.That(viewModel.InstalledFiles, Has.Count.EqualTo(1));
@@ -474,7 +472,6 @@ public sealed class AiAgentSettingsPageViewModelTests
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
-        viewModel.WorkspaceRoot.Value = root;
         viewModel.InstallMcp.Value = false;
 
         await viewModel.InstallAsync();
@@ -526,7 +523,6 @@ public sealed class AiAgentSettingsPageViewModelTests
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
-        viewModel.WorkspaceRoot.Value = root;
         viewModel.McpCommand.Value = "";
 
         // MCP is wanted but there is no launcher to write, so the agent config still has the old entries.
@@ -557,7 +553,6 @@ public sealed class AiAgentSettingsPageViewModelTests
             AgentId = "cline",
             InstallScope = nameof(AgentInstallScope.Project),
             ProjectRoot = root,
-            WorkspaceRoot = root,
             InstallSubagents = false,
         };
         using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
@@ -580,7 +575,6 @@ public sealed class AiAgentSettingsPageViewModelTests
             viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(
                 s => s.Scope == AgentInstallScope.Project);
             viewModel.ProjectRoot.Value = "/repo";
-            viewModel.WorkspaceRoot.Value = "/videos";
             viewModel.InstallMcp.Value = false;
             viewModel.McpConfigFileName.Value = "custom-mcp.json";
             viewModel.FollowLiveMcpEdits.Value = true;
@@ -591,7 +585,6 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(config.AgentId, Is.EqualTo("cursor"));
             Assert.That(config.InstallScope, Is.EqualTo(nameof(AgentInstallScope.Project)));
             Assert.That(config.ProjectRoot, Is.EqualTo("/repo"));
-            Assert.That(config.WorkspaceRoot, Is.EqualTo("/videos"));
             Assert.That(config.InstallMcp, Is.False);
             Assert.That(config.McpConfigFileName, Is.EqualTo("custom-mcp.json"));
             Assert.That(config.FollowLiveMcpEdits, Is.True);

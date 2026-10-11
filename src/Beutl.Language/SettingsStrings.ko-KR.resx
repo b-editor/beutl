@@ -434,14 +434,6 @@
     <value>설치 대상</value>
     <comment />
   </data>
-  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
-    <value>작업 영역 루트</value>
-    <comment />
-  </data>
-  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
-    <value>MCP 서버가 프로젝트를 만들고 편집할 수 있는 폴더</value>
-    <comment />
-  </data>
   <data name="AiAgents_Components" xml:space="preserve">
     <value>구성 요소</value>
     <comment />
@@ -512,10 +504,6 @@
   </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>설치된 파일</value>
-    <comment />
-  </data>
-  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
-    <value>작업 영역 루트 선택</value>
     <comment />
   </data>
   <data name="AiAgents_Agent" xml:space="preserve">

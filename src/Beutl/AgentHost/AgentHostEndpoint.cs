@@ -71,30 +71,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             tokenStoreDirectory ?? BeutlEnvironment.GetHomeDirectoryPath(), config.LiveMcpToken);
     }
 
-    // Prefer the workspace the user chose on the AI Agents settings page (read at start, so a
-    // restart picks up a change) over the shared host-computed default.
-    internal static string ResolveWorkspaceRoot(AiAgentConfig config)
-    {
-        ArgumentNullException.ThrowIfNull(config);
-
-        string configured = config.WorkspaceRoot;
-        if (!string.IsNullOrWhiteSpace(configured))
-        {
-            return configured;
-        }
-
-        string? env = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE");
-        if (!string.IsNullOrWhiteSpace(env))
-        {
-            return env;
-        }
-
-        string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        return string.IsNullOrWhiteSpace(documents)
-            ? Directory.GetCurrentDirectory()
-            : documents;
-    }
-
     internal AgentHostEndpoint(
         ProjectService projectService,
         EditorService editorService,
@@ -161,8 +137,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         ?? throw new InvalidOperationException("The live MCP credentials have not been initialized.");
 
     private AgentHostInstanceRouter CreateInstanceRouter(string token)
-        => new(_instanceRegistry, _projectService, _editorService, token,
-            () => ResolveWorkspaceRoot(_config), _instanceId);
+        => new(_instanceRegistry, _projectService, _editorService, token, _instanceId);
 
     /// <summary>
     /// The application's AI services for the AI tools. Set once the API clients exist; until then,
@@ -436,8 +411,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
 
-        string workspaceRoot = ResolveWorkspaceRoot(_config);
-
         builder.Services
             .AddSingleton(_projectService)
             .AddSingleton(_editorService)
@@ -447,7 +420,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<IProjectSessionGateway>(services => services.GetRequiredService<EditorProjectSessionGateway>())
             .AddSingleton<CompositionPlanStore>()
             .AddScoped<AgentSessionManager>()
-            .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()

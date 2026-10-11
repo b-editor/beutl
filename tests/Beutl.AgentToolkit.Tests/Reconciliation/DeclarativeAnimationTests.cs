@@ -384,11 +384,10 @@ public sealed class DeclarativeAnimationTests
         string workspace = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var workspaceGuard = new WorkspaceGuard(workspace);
-        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager, workspaceGuard), manager, workspaceGuard, new DestructiveGuard(), new RenderJobManager());
+        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
         var editTools = new EditTools(manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "local-keyframes.bep",
+            Path.Combine(workspace, "local-keyframes.bep"),
             width: 320,
             height: 180,
             frameRate: 30,
@@ -444,11 +443,10 @@ public sealed class DeclarativeAnimationTests
         string workspace = CreateWorkspace();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
-        var workspaceGuard = new WorkspaceGuard(workspace);
-        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager, workspaceGuard), manager, workspaceGuard, new DestructiveGuard(), new RenderJobManager());
+        var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
         var editTools = new EditTools(manager);
         ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
-            "nested-local-keyframes.bep",
+            Path.Combine(workspace, "nested-local-keyframes.bep"),
             width: 320,
             height: 180,
             frameRate: 30,

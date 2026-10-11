@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
@@ -103,10 +104,9 @@ public sealed class AuthorFromBriefTests
         string root = CreateWorkspace();
         string projectPath = Path.Combine(root, "exists.bep");
         File.WriteAllText(projectPath, "{}");
-        var workspace = new WorkspaceGuard(root);
         var destructiveGuard = new DestructiveGuard();
 
-        string resolved = workspace.ResolveForWrite(projectPath);
+        string resolved = ToolPaths.ResolveForWrite(projectPath, "path");
 
         Assert.Throws<DestructiveIntentException>(() => destructiveGuard.EnsureOverwriteAllowed(resolved, confirmed: false));
         Assert.DoesNotThrow(() => destructiveGuard.EnsureOverwriteAllowed(resolved, confirmed: true));

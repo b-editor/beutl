@@ -522,8 +522,6 @@ public sealed class AgentHostInstanceTests
 
         public static async Task<AgentServerHarness> StartAsync(string registryDirectory, TimeSpan? watchInterval = null)
         {
-            string workspace = Path.Combine(registryDirectory, "workspace");
-            Directory.CreateDirectory(workspace);
             var serverInput = new AnonymousPipeServerStream(PipeDirection.In);
             var serverOutput = new AnonymousPipeServerStream(PipeDirection.Out);
             var clientOutput = new AnonymousPipeClientStream(PipeDirection.Out, serverInput.ClientSafePipeHandle);
@@ -531,7 +529,7 @@ public sealed class AgentHostInstanceTests
 
             HostApplicationBuilder builder = Host.CreateApplicationBuilder();
             builder.Logging.ClearProviders();
-            builder.Services.AddAgentToolkitServer(workspace, registryDirectory);
+            builder.Services.AddAgentToolkitServer(registryDirectory);
             builder.Services.AddSingleton(new LiveMcpBroker(
                 new AgentHostInstanceRegistry(registryDirectory), () => AgentHostInstanceTestWorker.Token));
             builder.Services

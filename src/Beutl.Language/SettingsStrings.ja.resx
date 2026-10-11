@@ -430,14 +430,6 @@
     <value>インストール先</value>
     <comment/>
   </data>
-  <data name="AiAgents_WorkspaceRoot" xml:space="preserve">
-    <value>ワークスペースルート</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_WorkspaceRoot_Description" xml:space="preserve">
-    <value>MCP サーバーにプロジェクトの作成・編集を許可するフォルダー</value>
-    <comment/>
-  </data>
   <data name="AiAgents_Components" xml:space="preserve">
     <value>コンポーネント</value>
     <comment/>
@@ -516,10 +508,6 @@
   </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>インストールされたファイル</value>
-    <comment/>
-  </data>
-  <data name="AiAgents_SelectWorkspaceRoot" xml:space="preserve">
-    <value>ワークスペースルートを選択</value>
     <comment/>
   </data>
   <data name="AiAgents_Agent" xml:space="preserve">

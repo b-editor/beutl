@@ -25,13 +25,13 @@ public sealed partial class RenderTools
             string stillPath = Path.Combine(
                 normalizedDirectory,
                 $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
-            string resolvedPath = workspace.ResolveForWrite(stillPath);
+            string resolvedPath = ToolPaths.ResolveForWrite(stillPath, "outputDirectory");
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             plannedShots.Add((shot, resolvedPath));
         }
 
         string contactSheetPath = Path.Combine(normalizedDirectory, $"{safeBasename}-contact-sheet.png");
-        string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
+        string resolvedContactSheetPath = ToolPaths.ResolveForWrite(contactSheetPath, "outputDirectory");
         destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
         return new StoryboardRenderPlan(scene, renderScale, plannedShots, resolvedContactSheetPath, confirmOverwrite);
     }
@@ -477,13 +477,6 @@ public sealed partial class RenderTools
         int denominator)
     {
         return $"between:{leftName}~{rightName}@L{subdivisionLevel}:{numerator}/{denominator}";
-    }
-
-    private static string NormalizeStoryboardDirectory(string outputDirectory)
-    {
-        return string.IsNullOrWhiteSpace(outputDirectory)
-            ? "."
-            : outputDirectory;
     }
 
     private static string NormalizeStoryboardBasename(string basename)

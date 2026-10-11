@@ -104,10 +104,7 @@ public sealed class AgentHostEndpointTests
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var liveSessions = new LiveSessionSource();
             LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editor));
-            var gateway = new EditorProjectSessionGateway(
-                TestShell.Project,
-                TestShell.Editor,
-                new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
+            var gateway = new EditorProjectSessionGateway(TestShell.Project, TestShell.Editor);
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
 
             editor.IsEnabled.Value = false;
@@ -430,29 +427,6 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
-    public async Task Resolve_workspace_root_uses_settings_default_when_config_and_environment_are_empty()
-    {
-        await TestReset.ResetShellAsync();
-        string? previous = Environment.GetEnvironmentVariable("BEUTL_WORKSPACE");
-        try
-        {
-            Environment.SetEnvironmentVariable("BEUTL_WORKSPACE", null);
-            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            string expected = string.IsNullOrWhiteSpace(documents)
-                ? Directory.GetCurrentDirectory()
-                : documents;
-
-            string resolved = AgentHostEndpoint.ResolveWorkspaceRoot(new AiAgentConfig());
-
-            Assert.That(resolved, Is.EqualTo(expected));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("BEUTL_WORKSPACE", previous);
-        }
-    }
-
-    [AvaloniaTest]
     public async Task Endpoint_increments_port_when_preferred_port_is_in_use()
     {
         await TestReset.ResetShellAsync();
@@ -698,7 +672,10 @@ public sealed class AgentHostEndpointTests
 
             CallToolResult result = await client.CallToolAsync(
                 "analyze_audio_rhythm",
-                new Dictionary<string, object?> { ["path"] = "does-not-exist.wav" });
+                new Dictionary<string, object?>
+                {
+                    ["path"] = Path.Combine(Path.GetTempPath(), $"does-not-exist-{Guid.NewGuid():N}.wav")
+                });
 
             string text = string.Join(
                 "\n",
@@ -717,8 +694,7 @@ public sealed class AgentHostEndpointTests
         await TestReset.ResetShellAsync();
         var editorService = new EditorService(new ExtensionProvider());
         var projects = new ProjectService();
-        var gateway = new EditorProjectSessionGateway(projects, editorService,
-            new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
+        var gateway = new EditorProjectSessionGateway(projects, editorService);
         var tools = new AgentHostTools(projects, editorService, gateway);
 
         ToolResult<ListScenesResponse> result = tools.ListScenes();

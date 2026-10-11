@@ -91,12 +91,6 @@ internal static class CodexMcpConfigWriter
 
         var server = new TomlTable { ["command"] = options.McpCommand, ["args"] = arguments };
         TomlTable environment = ToTable(options.McpEnvironment);
-        if (!string.IsNullOrWhiteSpace(options.WorkspaceRoot)
-            && !environment.ContainsKey("BEUTL_WORKSPACE"))
-        {
-            environment["BEUTL_WORKSPACE"] = Path.GetFullPath(options.WorkspaceRoot);
-        }
-
         if (environment.Count > 0)
         {
             server["env"] = environment;

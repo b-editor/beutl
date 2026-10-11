@@ -381,11 +381,11 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
             timeSeconds: timeSeconds,
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "invalid-times",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -406,12 +406,12 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         var scene = new Scene(16, 9, "too-many-times") { Duration = TimeSpan.FromSeconds(60) };
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         double[] timeSeconds = Enumerable.Range(0, 49).Select(index => (double)index).ToArray();
         CallToolResult call = await tools.RenderStoryboard(
             timeSeconds: timeSeconds,
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "too-many-times",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -433,14 +433,14 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            [
+            shots: [
                 new StoryboardShotInput("opening", 0.5),
                 new StoryboardShotInput("detail", 1.5)
             ],
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "explicit",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -469,14 +469,14 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            [
+            shots: [
                 new StoryboardShotInput("left-focal", 0.5),
                 new StoryboardShotInput("right-focal", 1.5)
             ],
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "eye-trace-jump",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -501,14 +501,14 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: false);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            [
+            shots: [
                 new StoryboardShotInput("left-focal", 0.5),
                 new StoryboardShotInput("aligned-focal", 1.5)
             ],
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "eye-trace-aligned",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -527,11 +527,11 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            [new StoryboardShotInput("only-shot", 0.5)],
-            outputDirectory: "storyboards",
+            shots: [new StoryboardShotInput("only-shot", 0.5)],
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "eye-trace-single",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -549,14 +549,14 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            [
+            shots: [
                 new StoryboardShotInput("opening", 0.5),
                 new StoryboardShotInput("detail", 1.5)
             ],
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "subdivided",
             subdivisionLevel: 2,
             cancellationToken: CancellationToken.None);
@@ -595,14 +595,14 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         var scene = new Scene(16, 9, "too-many") { Duration = TimeSpan.FromSeconds(60) };
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         StoryboardShotInput[] shots = Enumerable.Range(0, 49)
             .Select(index => new StoryboardShotInput($"shot-{index}", index))
             .ToArray();
         CallToolResult call = await tools.RenderStoryboard(
-            shots,
-            outputDirectory: "storyboards",
+            shots: shots,
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "too-many",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -624,10 +624,10 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "auto",
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
@@ -652,13 +652,13 @@ public sealed class RenderToolsStoryboardTests
         Scene secondScene = CreateStaticStoryboardScene(workspace);
         using var firstSession = new AgentToolkitTestSession(firstScene);
         using var secondSession = new AgentToolkitTestSession(secondScene);
-        RenderTools firstTools = CreateTools(workspace, firstSession);
-        RenderTools secondTools = CreateTools(workspace, secondSession);
+        RenderTools firstTools = CreateTools(firstSession);
+        RenderTools secondTools = CreateTools(secondSession);
 
         ToolResult<RenderStoryboardResult> first = ReadToolResult<RenderStoryboardResult>(
-            await firstTools.RenderStoryboard(cancellationToken: CancellationToken.None));
+            await firstTools.RenderStoryboard(workspace, cancellationToken: CancellationToken.None));
         ToolResult<RenderStoryboardResult> second = ReadToolResult<RenderStoryboardResult>(
-            await secondTools.RenderStoryboard(cancellationToken: CancellationToken.None));
+            await secondTools.RenderStoryboard(workspace, cancellationToken: CancellationToken.None));
 
         string firstFile = Path.GetFileName(first.Value!.Result!.ContactSheetPath);
         string secondFile = Path.GetFileName(second.Value!.Result!.ContactSheetPath);
@@ -682,10 +682,10 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "bg",
             background: true,
             cancellationToken: CancellationToken.None);
@@ -713,15 +713,15 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            [
+            shots: [
                 new StoryboardShotInput("opening", 0.5),
                 new StoryboardShotInput("detail", 1.5),
                 new StoryboardShotInput("closing", 2.5)
             ],
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "with-image",
             returnImageContent: true,
             cancellationToken: CancellationToken.None);
@@ -750,10 +750,10 @@ public sealed class RenderToolsStoryboardTests
         };
         AddColorRectElement(scene, workspace, "large background", TimeSpan.Zero, TimeSpan.FromSeconds(1), 1600, 900, Colors.Red);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStill(
-            "large-still.png",
+            Path.Combine(workspace, "large-still.png"),
             returnImageContent: true,
             cancellationToken: CancellationToken.None);
         ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(call);
@@ -781,7 +781,7 @@ public sealed class RenderToolsStoryboardTests
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
         string existingOutput = Path.Combine(workspace, "oversized.png");
         File.WriteAllText(existingOutput, "overwrite guard prevents the pre-fix renderer from running");
 
@@ -805,7 +805,7 @@ public sealed class RenderToolsStoryboardTests
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
         string existingOutput = Path.Combine(workspace, "oversized.webm");
         File.WriteAllText(existingOutput, "encoder and overwrite guards prevent the pre-fix exporter from running");
 
@@ -853,7 +853,7 @@ public sealed class RenderToolsStoryboardTests
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
-        (RenderTools tools, AgentSessionManager manager) = CreateToolsWithManager(workspace, session);
+        (RenderTools tools, AgentSessionManager manager) = CreateToolsWithManager(session);
 
         ToolError? error;
         switch (toolName)
@@ -862,7 +862,7 @@ public sealed class RenderToolsStoryboardTests
                 error = ReadToolResult<RenderStoryboardResult>(
                     await tools.RenderStoryboard(
                         timeSeconds: [0],
-                        outputDirectory: "oversized-storyboard",
+                        outputDirectory: Path.Combine(workspace, "oversized-storyboard"),
                         renderScale: 9,
                         cancellationToken: CancellationToken.None)).Error;
                 break;
@@ -885,10 +885,10 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         CallToolResult call = await tools.RenderStoryboard(
-            outputDirectory: "storyboards",
+            outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "bg-with-image",
             background: true,
             returnImageContent: true,
@@ -909,17 +909,17 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new RejectingOutputOperationLeaseProvider();
-        RenderTools tools = CreateTools(workspace, session, outputOperations);
+        RenderTools tools = CreateTools(session, outputOperations);
 
         ToolResult<RenderStillResponse> still = ReadToolResult<RenderStillResponse>(
-            await tools.RenderStill("busy-still.png", cancellationToken: CancellationToken.None));
+            await tools.RenderStill(Path.Combine(workspace, "busy-still.png"), cancellationToken: CancellationToken.None));
         ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
             await tools.RenderStoryboard(
-                outputDirectory: "busy-storyboard",
+                outputDirectory: Path.Combine(workspace, "busy-storyboard"),
                 basename: "busy",
                 cancellationToken: CancellationToken.None));
         ToolResult<ExportVideoResult> export = await tools.ExportVideo(
-            "busy-export.unknown",
+            Path.Combine(workspace, "busy-export.unknown"),
             cancellationToken: CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -937,16 +937,16 @@ public sealed class RenderToolsStoryboardTests
     {
         string workspace = CreateWorkspace();
         var outputOperations = new RejectingOutputOperationLeaseProvider();
-        RenderTools tools = CreateTools(workspace, new AgentSessionManager(), outputOperations);
+        RenderTools tools = CreateTools(new AgentSessionManager(), outputOperations);
 
         ToolResult<RenderStillResponse> still = ReadToolResult<RenderStillResponse>(
-            await tools.RenderStill("busy-still.png", cancellationToken: CancellationToken.None));
+            await tools.RenderStill(Path.Combine(workspace, "busy-still.png"), cancellationToken: CancellationToken.None));
         ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
-            await tools.RenderStoryboard(background: true, cancellationToken: CancellationToken.None));
+            await tools.RenderStoryboard(workspace, background: true, cancellationToken: CancellationToken.None));
         ToolResult<FrameDifferenceResponse> motion = await tools.MeasureFrameDifferences(
             cancellationToken: CancellationToken.None);
         ToolResult<ExportVideoResult> export = await tools.ExportVideo(
-            "busy-export.unknown",
+            Path.Combine(workspace, "busy-export.unknown"),
             background: true,
             cancellationToken: CancellationToken.None);
 
@@ -970,14 +970,13 @@ public sealed class RenderToolsStoryboardTests
         var renderJobs = new RenderJobManager();
         renderJobs.Dispose();
         RenderTools tools = CreateTools(
-            workspace,
             session,
             outputOperations,
             renderJobs: renderJobs);
 
         ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(
             await tools.RenderStoryboard(
-                outputDirectory: "enqueue-failure",
+                outputDirectory: Path.Combine(workspace, "enqueue-failure"),
                 basename: "busy",
                 background: true,
                 cancellationToken: CancellationToken.None));
@@ -1010,7 +1009,6 @@ public sealed class RenderToolsStoryboardTests
         }, new CountingLease());
         await blockerStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         RenderTools tools = CreateTools(
-            workspace,
             session,
             outputOperations,
             renderJobs);
@@ -1019,7 +1017,7 @@ public sealed class RenderToolsStoryboardTests
         {
             ToolResult<RenderStoryboardResult> started = ReadToolResult<RenderStoryboardResult>(
                 await tools.RenderStoryboard(
-                    outputDirectory: "queued-storyboard",
+                    outputDirectory: Path.Combine(workspace, "queued-storyboard"),
                     basename: "queued",
                     background: true,
                     cancellationToken: CancellationToken.None));
@@ -1061,10 +1059,10 @@ public sealed class RenderToolsStoryboardTests
         using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new CompletionObservingOutputOperationLeaseProvider(
             () => File.Exists(expectedPath) && new FileInfo(expectedPath).Length > 0);
-        RenderTools tools = CreateTools(workspace, session, outputOperations);
+        RenderTools tools = CreateTools(session, outputOperations);
 
         ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(
-            await tools.RenderStill("leased-still.png", cancellationToken: CancellationToken.None));
+            await tools.RenderStill(expectedPath, cancellationToken: CancellationToken.None));
 
         Assert.Multiple(() =>
         {
@@ -1072,7 +1070,7 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(1));
             Assert.That(outputOperations.FileWasCompleteWhenReleased, Is.True);
             Assert.That(result.Value!.OutputPath, Is.EqualTo(expectedPath));
-            Assert.That(Directory.GetDirectories(workspace), Is.Empty, "A bare output filename must not create a hidden output directory.");
+            Assert.That(Directory.GetDirectories(workspace), Is.Empty, "Rendering a still must not create an output directory.");
         });
     }
 
@@ -1125,7 +1123,7 @@ public sealed class RenderToolsStoryboardTests
         };
         AddColorRectElement(scene, workspace, "bg", TimeSpan.Zero, TimeSpan.FromSeconds(2), 320, 180, Colors.Red);
         using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(workspace, session);
+        RenderTools tools = CreateTools(session);
 
         // Both times sit past the 2s duration, so each clamps to 2s and Distinct() collapses to one
         // sample — which must surface as a validation error, not an unmapped analyzer exception.
@@ -1142,24 +1140,58 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
-    private static RenderTools CreateTools(string workspace, AgentToolkitTestSession session)
-        => CreateToolsWithManager(workspace, session).Tools;
+    [Test]
+    public async Task Export_video_rejects_a_relative_path_before_the_encoder_preflight()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
+        RenderTools tools = CreateTools(session);
+
+        // .webm needs the FFmpeg worker, which a test host may lack; the path is still checked first.
+        ToolResult<ExportVideoResult> result = await tools.ExportVideo(
+            "movie.webm",
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("outputPath"));
+        });
+    }
+
+    [Test]
+    public async Task Audio_rhythm_analysis_rejects_a_relative_path()
+    {
+        RenderTools tools = CreateTools(new AgentSessionManager(), StandaloneOutputOperationLeaseProvider.Instance);
+
+        ToolResult<AnalyzeAudioRhythmResponse> result = await tools.AnalyzeAudioRhythm(
+            "beat.wav",
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Target, Is.EqualTo("path"));
+        });
+    }
+
+    private static RenderTools CreateTools(AgentToolkitTestSession session)
+        => CreateToolsWithManager(session).Tools;
 
     private static (RenderTools Tools, AgentSessionManager Manager) CreateToolsWithManager(
-        string workspace,
         AgentToolkitTestSession session)
     {
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         RenderTools tools = CreateTools(
-            workspace,
             manager,
             StandaloneOutputOperationLeaseProvider.Instance);
         return (tools, manager);
     }
 
     private static RenderTools CreateTools(
-        string workspace,
         AgentToolkitTestSession session,
         IOutputOperationLeaseProvider? outputOperations = null,
         RenderJobManager? renderJobs = null)
@@ -1167,11 +1199,10 @@ public sealed class RenderToolsStoryboardTests
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         outputOperations ??= StandaloneOutputOperationLeaseProvider.Instance;
-        return CreateTools(workspace, manager, outputOperations, renderJobs);
+        return CreateTools(manager, outputOperations, renderJobs);
     }
 
     private static RenderTools CreateTools(
-        string workspace,
         AgentSessionManager manager,
         IOutputOperationLeaseProvider outputOperations,
         RenderJobManager? renderJobs = null)
@@ -1180,7 +1211,6 @@ public sealed class RenderToolsStoryboardTests
         var motionVariationAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
         var tools = new RenderTools(
             manager,
-            new WorkspaceGuard(workspace),
             new DestructiveGuard(),
             stillRenderer,
             new StoryboardRenderer(),

@@ -21,11 +21,11 @@ public sealed class McpToolBindingTests
     public async Task Frame_measurement_returns_raw_data_for_a_static_empty_scene()
     {
         string workspace = CreateWorkspace();
-        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync();
         await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
         AssertMcpCallSucceeded(await client.CallToolAsync("create_project", new Dictionary<string, object?>
         {
-            ["path"] = "static.bep",
+            ["path"] = Path.Combine(workspace, "static.bep"),
             ["width"] = 32,
             ["height"] = 18,
             ["frameRate"] = 30,
@@ -64,14 +64,14 @@ public sealed class McpToolBindingTests
         }
 
         string workspace = CreateWorkspace();
-        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync();
         await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
 
         CallToolResult create = await client.CallToolAsync(
             "create_project",
             new Dictionary<string, object?>
             {
-                ["path"] = "export-probe.bep",
+                ["path"] = Path.Combine(workspace, "export-probe.bep"),
                 ["width"] = 320,
                 ["height"] = 180,
                 ["frameRate"] = 30,
@@ -85,7 +85,7 @@ public sealed class McpToolBindingTests
             {
                 // .webm is FFmpeg-only on every platform, so the absent-worker guard fires even where
                 // AVFoundation would otherwise handle .mp4/.mov without the worker.
-                ["outputPath"] = "out.webm"
+                ["outputPath"] = Path.Combine(workspace, "out.webm")
             });
 
         Assert.Multiple(() =>
@@ -98,8 +98,7 @@ public sealed class McpToolBindingTests
     [Test]
     public async Task Missing_required_tool_argument_returns_typed_validation_error_through_mcp()
     {
-        string workspace = CreateWorkspace();
-        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync();
         await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
 
         CallToolResult result = await client.CallToolAsync("render_still", new Dictionary<string, object?>());
@@ -114,8 +113,7 @@ public sealed class McpToolBindingTests
     [Test]
     public async Task Unknown_tool_argument_returns_typed_validation_error_with_accepted_parameters()
     {
-        string workspace = CreateWorkspace();
-        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync();
         await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
 
         CallToolResult result = await client.CallToolAsync(
@@ -142,14 +140,14 @@ public sealed class McpToolBindingTests
     public async Task Save_project_uses_current_session_when_session_is_omitted()
     {
         string workspace = CreateWorkspace();
-        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync(workspace);
+        await using InProcessMcpServer server = await InProcessMcpServer.StartAsync();
         await using McpClient client = await McpClient.CreateAsync(server.ClientTransport);
 
         CallToolResult create = await client.CallToolAsync(
             "create_project",
             new Dictionary<string, object?>
             {
-                ["path"] = "sessionless-save.bep",
+                ["path"] = Path.Combine(workspace, "sessionless-save.bep"),
                 ["width"] = 320,
                 ["height"] = 180,
                 ["frameRate"] = 30,
@@ -242,7 +240,7 @@ public sealed class McpToolBindingTests
 
         public StreamClientTransport ClientTransport { get; }
 
-        public static async Task<InProcessMcpServer> StartAsync(string workspace)
+        public static async Task<InProcessMcpServer> StartAsync()
         {
             var clientToServer = new Pipe();
             var serverToClient = new Pipe();
@@ -253,7 +251,6 @@ public sealed class McpToolBindingTests
 
             HostApplicationBuilder builder = Host.CreateApplicationBuilder();
             builder.Services
-                .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspace))
                 .AddSingleton<DestructiveGuard>()
                 .AddSingleton<StillRenderer>()
                 .AddSingleton<StoryboardRenderer>()
