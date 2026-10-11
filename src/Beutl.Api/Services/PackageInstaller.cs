@@ -1,12 +1,10 @@
 ﻿using System.Net.Http.Headers;
-using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
 using Beutl.Api.Objects;
-using Beutl.IO;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using NuGet.Configuration;
@@ -95,81 +93,37 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     private static void EnsureNuGetConfig(string configPath)
     {
-        XDocument? document = null;
         if (File.Exists(configPath))
         {
             try
             {
                 // Let the XML reader honor the declared encoding, including files without a BOM.
-                document = XDocument.Load(configPath, LoadOptions.PreserveWhitespace);
+                XDocument document = XDocument.Load(configPath, LoadOptions.PreserveWhitespace);
+                // Keep existing configs intact, including their credentials, ACLs and ownership.
+                // Retain the legacy regeneration check after decoding the XML.
+                if (document.ToString(SaveOptions.DisableFormatting).Contains("<clear", StringComparison.Ordinal))
+                    return;
             }
             catch (XmlException) when (!File.ReadAllText(configPath).Contains("<clear", StringComparison.Ordinal))
             {
                 // Older configs without <clear> were regenerated, even if they were incomplete.
             }
-
-            // Retain the legacy regeneration check after decoding the XML.
-            if (document?.ToString(SaveOptions.DisableFormatting).Contains("<clear", StringComparison.Ordinal) == true)
-            {
-                XElement? sources = document.Root?.Element("packageSources");
-                bool changed = false;
-                foreach (XElement source in sources?.Elements("add") ?? [])
-                {
-                    if ((string?)source.Attribute("key") == "Beutl Local Packages"
-                        && (string?)source.Attribute("value") != "packageSource")
-                    {
-                        // NuGet resolves relative sources against the config directory, so this
-                        // follows BEUTL_HOME even after the whole home directory is moved again.
-                        source.SetAttributeValue("value", "packageSource");
-                        changed = true;
-                    }
-                }
-
-                if (!changed)
-                    return;
-            }
-            else
-            {
-                document = null;
-            }
         }
 
-        document ??= XDocument.Parse(DefaultNuGetConfigContent);
-        // Stage beside the resolved target so replacing a linked config preserves the link.
-        using var output = new StagedOutputFile(configPath);
-        using (FileStream stream = CreateNuGetConfigTemporaryFile(output))
-        {
-            document.Save(stream, SaveOptions.DisableFormatting);
-            stream.Flush(flushToDisk: true);
-        }
-
-        if (OperatingSystem.IsWindows() && File.Exists(output.DestinationPath))
-        {
-            // ReplaceFile preserves the destination's DACL, including explicit access rules.
-            File.Replace(output.TemporaryPath, output.DestinationPath, destinationBackupFileName: null);
-        }
-        else
-        {
-            // StagedOutputFile restores existing Unix permissions before publication.
-            output.Commit(CancellationToken.None);
-        }
+        File.WriteAllText(configPath, DefaultNuGetConfigContent);
     }
 
-    private static FileStream CreateNuGetConfigTemporaryFile(StagedOutputFile output)
+    private SourceRepository GetRepositoryForCurrentHome(SourceRepository repository)
     {
-        if (OperatingSystem.IsWindows() && File.Exists(output.DestinationPath))
-        {
-            FileSecurity security = new FileInfo(output.DestinationPath).GetAccessControl(AccessControlSections.Access);
-            // Do not inherit broader access from the staging directory while writing credentials.
-            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: true);
-            return new FileInfo(output.TemporaryPath).Create(FileMode.CreateNew, FileSystemRights.Write,
-                FileShare.None, 4096, FileOptions.None, security);
-        }
+        if (repository.PackageSource.Name != "Beutl Local Packages"
+            || repository.PackageSource.Source == Helper.LocalSourcePath)
+            return repository;
 
-        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
-        if (!OperatingSystem.IsWindows())
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        return new FileStream(output.TemporaryPath, options);
+        // Downloads always go to the current home. Override a stale configured path in memory
+        // so moving the home does not require rewriting the user's NuGet configuration.
+        PackageSource source = repository.PackageSource.Clone();
+        source.Source = Helper.LocalSourcePath;
+        return _sourceRepositoryProvider.CreateRepository(source);
     }
 
     private static void CreateLocalSourceDirectory()
@@ -461,7 +415,8 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
                 logger ??= new LoggerAdapter(_logger);
 
-                IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
+                SourceRepository[] repositories = _sourceRepositoryProvider.GetRepositories()
+                    .Select(GetRepositoryForCurrentHome).ToArray();
                 var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
                 await Helper.GetPackageDependencies(
                     package,

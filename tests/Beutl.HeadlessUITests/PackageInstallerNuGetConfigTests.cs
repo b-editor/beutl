@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -7,6 +8,7 @@ using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 using NuGet.Configuration;
 using NuGet.Packaging.Core;
+using NuGet.Resolver;
 using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
@@ -14,9 +16,9 @@ namespace Beutl.HeadlessUITests;
 // Dependency resolution reads Beutl.dll's dependency context, so these tests need the app assembly.
 [TestFixture]
 [NonParallelizable]
-public sealed class PackageInstallerNuGetConfigTests
+public sealed partial class PackageInstallerNuGetConfigTests
 {
-    private const string ConfigToMigrate = """
+    private const string ConfigWithStaleSource = """
         <configuration>
           <packageSources>
             <clear />
@@ -88,6 +90,7 @@ public sealed class PackageInstallerNuGetConfigTests
                 new XElement("disabledPackageSources", new XElement("add", new XAttribute("key", "nuget.org"), new XAttribute("value", "true"))),
                 new XElement("config", new XElement("add", new XAttribute("key", "maxHttpRequestsPerSource"), new XAttribute("value", "8")))));
         document.Save(ConfigPath);
+        byte[] original = File.ReadAllBytes(ConfigPath);
         PackageIdentity identity = CreateLocalPackage();
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
@@ -95,15 +98,14 @@ public sealed class PackageInstallerNuGetConfigTests
 
         await installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance);
 
-        document.Root!.Element("packageSources")!.Elements("add").First().SetAttributeValue("value", "packageSource");
         string? installedPath = Helper.PackagePathResolver.GetInstalledPath(identity);
         Assert.Multiple(() =>
         {
             Assert.That(context.Phase, Is.EqualTo(PackageInstallPhase.ResolvedDependencies));
             Assert.That(installedPath, Is.Not.Null);
             Assert.That(XNode.DeepEquals(document, XDocument.Load(ConfigPath)), Is.True,
-                "Only the managed local source should change; custom feeds, disabled sources and comments must survive.");
-            Assert.That(Directory.GetDirectories(Helper.AppRoot, ".beutl-output-*"), Is.Empty);
+                "Custom feeds, disabled sources, settings and comments must survive.");
+            Assert.That(File.ReadAllBytes(ConfigPath), Is.EqualTo(original));
         });
         Assert.That(File.ReadAllText(Path.Combine(installedPath!, "content/payload.txt")), Is.EqualTo("local payload"));
     }
@@ -129,13 +131,13 @@ public sealed class PackageInstallerNuGetConfigTests
             Assert.That(localSource.Source, Is.EqualTo(Helper.LocalSourcePath),
                 "NuGet must resolve the relative source against nuget.config's directory, regardless of the working directory.");
             Assert.That(provider.LoadPackageSources().Select(source => source.Name), Is.EquivalentTo(new[] { "Beutl Local Packages", "nuget.org" }));
-            Assert.That(Directory.GetDirectories(Helper.AppRoot, ".beutl-output-*"), Is.Empty);
         });
     }
 
     [TestCase("Custom", "customSource")]
     [TestCase("Beutl Local Packages", "packageSource")]
-    public async Task ConfigNeedingNoMigration_IsNotRewritten(string name, string source)
+    [TestCase("Beutl Local Packages", "oldSource")]
+    public async Task ExistingConfig_IsNotRewritten(string name, string source)
     {
         new XElement("configuration", new XElement("packageSources", new XElement("clear"),
             new XElement("add", new XAttribute("key", name), new XAttribute("value", source))))
@@ -156,7 +158,7 @@ public sealed class PackageInstallerNuGetConfigTests
     [TestCase("iso-8859-1")]
     [TestCase("utf-16")]
     [TestCase("utf-16BE")]
-    public async Task Migration_HonorsTheDeclaredEncodingWithoutABom(string encodingName)
+    public async Task ExistingConfig_HonorsTheDeclaredEncodingWithoutABom(string encodingName)
     {
         string config = $$"""
             <?xml version="1.0" encoding="{{encodingName}}"?>
@@ -175,20 +177,21 @@ public sealed class PackageInstallerNuGetConfigTests
               </packageSourceCredentials>
             </configuration>
             """;
-        File.WriteAllBytes(ConfigPath, Encoding.GetEncoding(encodingName).GetBytes(config));
-        XDocument expected = XDocument.Parse(config, LoadOptions.PreserveWhitespace);
-        expected.Root!.Element("packageSources")!.Elements("add").First().SetAttributeValue("value", "packageSource");
+        byte[] original = Encoding.GetEncoding(encodingName).GetBytes(config);
+        File.WriteAllBytes(ConfigPath, original);
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
 
-        Assert.That(XNode.DeepEquals(XDocument.Load(ConfigPath, LoadOptions.PreserveWhitespace), expected), Is.True,
-            "Migration must preserve non-ASCII comments, paths and credentials using the XML declaration's encoding.");
+        await AssertLocalPackageResolves(installer);
+
+        Assert.That(File.ReadAllBytes(ConfigPath), Is.EqualTo(original),
+            "Non-ASCII comments, paths and credentials must survive with the original encoding.");
     }
 
     [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite)]
     [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead)]
     [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite)]
-    public async Task Migration_PreservesUnixPermissions(UnixFileMode mode)
+    public async Task ExistingConfig_PreservesUnixPermissions(UnixFileMode mode)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -196,17 +199,18 @@ public sealed class PackageInstallerNuGetConfigTests
             return;
         }
 
-        File.WriteAllText(ConfigPath, ConfigToMigrate);
+        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
         File.SetUnixFileMode(ConfigPath, mode);
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
 
+        await AssertLocalPackageResolves(installer);
+
         Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(mode));
-        AssertLocalSourceMigrated(ConfigPath);
     }
 
     [Test]
-    public async Task Migration_PreservesExplicitWindowsAccessRules()
+    public async Task ExistingConfig_PreservesExplicitWindowsAccessRules()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -214,7 +218,7 @@ public sealed class PackageInstallerNuGetConfigTests
             return;
         }
 
-        File.WriteAllText(ConfigPath, ConfigToMigrate);
+        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
         var security = new FileSecurity();
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
         using WindowsIdentity identity = WindowsIdentity.GetCurrent();
@@ -225,20 +229,21 @@ public sealed class PackageInstallerNuGetConfigTests
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
 
+        await AssertLocalPackageResolves(installer);
+
         Assert.That(configFile.GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorSddlForm(AccessControlSections.Access),
             Is.EqualTo(expected));
-        AssertLocalSourceMigrated(ConfigPath);
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Migration_UpdatesTheTargetAndPreservesTheSymbolicLink(bool relativeTarget)
+    public async Task ExistingConfig_PreservesTheSymbolicLinkAndTarget(bool relativeTarget)
     {
         string targetDirectory = Path.Combine(Helper.AppRoot, $"linked-config-{Guid.NewGuid():N}");
         Directory.CreateDirectory(targetDirectory);
         _createdDirectories.Add(targetDirectory);
         string targetPath = Path.Combine(targetDirectory, "shared.config");
-        File.WriteAllText(targetPath, ConfigToMigrate);
+        File.WriteAllText(targetPath, ConfigWithStaleSource);
         File.Delete(ConfigPath);
         _createdFiles.Add(ConfigPath);
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
@@ -254,19 +259,124 @@ public sealed class PackageInstallerNuGetConfigTests
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
 
+        await AssertLocalPackageResolves(installer);
+
         Assert.That(new FileInfo(ConfigPath).LinkTarget, Is.EqualTo(linkTarget));
-        AssertLocalSourceMigrated(targetPath);
-        var provider = new PackageSourceProvider(new Settings(Helper.AppRoot, "nuget.config"));
-        Assert.That(provider.LoadPackageSources().Single(source => source.Name == "Beutl Local Packages").Source,
-            Is.EqualTo(Helper.LocalSourcePath));
-        Assert.That(Directory.GetDirectories(targetDirectory, ".beutl-output-*"), Is.Empty);
+        Assert.That(File.ReadAllText(targetPath), Is.EqualTo(ConfigWithStaleSource));
     }
 
-    private static void AssertLocalSourceMigrated(string path)
+    [Test]
+    public async Task ExistingConfig_PreservesExtendedUnixAccessRules()
     {
-        Assert.That((string?)XDocument.Load(path).Root!.Element("packageSources")!.Elements("add")
-            .Single(source => (string?)source.Attribute("key") == "Beutl Local Packages").Attribute("value"), Is.EqualTo("packageSource"));
+        if (!OperatingSystem.IsLinux() || !NativeLibrary.TryLoad("libacl.so.1", out nint library))
+        {
+            Assert.Ignore("This regression requires Linux POSIX ACL support.");
+            return;
+        }
+        NativeLibrary.Free(library);
+
+        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
+        string originalAcl = ReadUnixAcl();
+        try
+        {
+            // The ACL mask makes the mode appear as 0640, but the owning group has no access.
+            // Replacing this with a plain mode-0640 file would broaden access to credentials.
+            SetUnixAcl("u::rw-,u:65534:r--,g::---,m::r--,o::---");
+            string expected = ReadUnixAcl();
+            using var client = new HttpClient();
+            await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+            await AssertLocalPackageResolves(installer);
+
+            Assert.That(ReadUnixAcl(), Is.EqualTo(expected));
+        }
+        finally
+        {
+            SetUnixAcl(originalAcl);
+        }
     }
+
+    [Test]
+    public async Task DisabledManagedSource_DoesNotResolveLocalPackages()
+    {
+        XDocument document = XDocument.Parse(ConfigWithStaleSource);
+        document.Root!.Add(new XElement("disabledPackageSources",
+            new XElement("add", new XAttribute("key", "Beutl Local Packages"), new XAttribute("value", "true"))));
+        document.Save(ConfigPath);
+        PackageIdentity identity = CreateLocalPackage();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        PackageInstallContext context = installer.PrepareForInstall(identity.Id, identity.Version.ToString());
+
+        Assert.ThrowsAsync<NuGetResolverInputException>(() => installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance));
+    }
+
+    private async Task AssertLocalPackageResolves(PackageInstaller installer)
+    {
+        PackageIdentity identity = CreateLocalPackage();
+        PackageInstallContext context = installer.PrepareForInstall(identity.Id, identity.Version.ToString());
+        await installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance);
+
+        Assert.That(context.Phase, Is.EqualTo(PackageInstallPhase.ResolvedDependencies));
+        string? installedPath = Helper.PackagePathResolver.GetInstalledPath(identity);
+        Assert.That(installedPath, Is.Not.Null);
+        Assert.That(File.ReadAllText(Path.Combine(installedPath!, "content/payload.txt")), Is.EqualTo("local payload"));
+    }
+
+    private static void SetUnixAcl(string text)
+    {
+        nint acl = AclFromText(text);
+        Assert.That(acl, Is.Not.EqualTo(nint.Zero));
+        try
+        {
+            Assert.That(AclSetFile(ConfigPath, 0x8000, acl), Is.Zero, $"acl_set_file failed: {Marshal.GetLastPInvokeError()}");
+        }
+        finally
+        {
+            AclFree(acl);
+        }
+    }
+
+    private static string ReadUnixAcl()
+    {
+        nint acl = AclGetFile(ConfigPath, 0x8000);
+        int error = Marshal.GetLastPInvokeError();
+        if (acl == nint.Zero && error == 95) // EOPNOTSUPP
+            Assert.Ignore("The test filesystem does not support POSIX ACLs.");
+        Assert.That(acl, Is.Not.EqualTo(nint.Zero), $"acl_get_file failed: {error}");
+        try
+        {
+            nint text = AclToText(acl, out _);
+            Assert.That(text, Is.Not.EqualTo(nint.Zero));
+            try
+            {
+                return Marshal.PtrToStringUTF8(text)!;
+            }
+            finally
+            {
+                AclFree(text);
+            }
+        }
+        finally
+        {
+            AclFree(acl);
+        }
+    }
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_from_text", StringMarshalling = StringMarshalling.Utf8)]
+    private static partial nint AclFromText(string text);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_set_file", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial int AclSetFile(string path, int type, nint acl);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_get_file", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial nint AclGetFile(string path, int type);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_to_text")]
+    private static partial nint AclToText(nint acl, out nint length);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_free")]
+    private static partial int AclFree(nint value);
 
     private PackageIdentity CreateLocalPackage()
     {
