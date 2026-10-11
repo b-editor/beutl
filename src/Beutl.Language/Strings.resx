@@ -119,6 +119,9 @@
   <data name="History_OperationFailed" xml:space="preserve">
     <value>History operation failed.</value>
   </data>
+  <data name="History_ResetAfterFailure" xml:space="preserve">
+    <value>The history operation failed. Undo and redo history was reset. Check the current edits before continuing. You can still edit and save.</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
   </data>

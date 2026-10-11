@@ -1,18 +1,126 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
+using Avalonia.Layout;
+using Avalonia.Media.Imaging;
 using Beutl.Configuration;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Moq;
 
 namespace Beutl.HeadlessUITests;
 
 public class EditorCloseSaveTests
 {
+    [AvaloniaTest]
+    [TestCase(false, false, "en")]
+    [TestCase(false, true, "ja")]
+    [TestCase(true, false, "ja")]
+    [TestCase(true, true, "en")]
+    public async Task Failed_history_replay_allows_new_edits_auto_save_and_close(bool redo, bool closeProject, string culture)
+    {
+        EditViewModel editor = await OpenEditorAsync();
+        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
+        Uri uri = editor.Scene.Uri!;
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        var notifications = new List<Notification>();
+        var handler = new Mock<INotificationServiceHandler>();
+        handler.Setup(x => x.Show(It.IsAny<Notification>())).Callback<Notification>(notifications.Add);
+        try
+        {
+            NotificationService.Handler = handler.Object;
+            CultureInfo.CurrentUICulture = new CultureInfo(culture);
+            editor.HistoryManager.Record(
+                () =>
+                {
+                    editor.Scene.Duration = TimeSpan.FromSeconds(13);
+                    if (redo) throw new IOException("Injected redo failure.");
+                },
+                () =>
+                {
+                    editor.Scene.Duration = TimeSpan.FromSeconds(12);
+                    if (!redo) throw new IOException("Injected undo failure.");
+                });
+            editor.HistoryManager.Commit("Failing operation");
+            if (redo)
+                Assert.That(await editor.UndoAsync(), Is.True);
+
+            Assert.That(redo ? await editor.RedoAsync() : await editor.UndoAsync(), Is.False);
+            Assert.That(notifications, Has.Count.EqualTo(1));
+            Notification notification = notifications.Single();
+            Assert.That(notification.Message, Is.EqualTo(Strings.History_ResetAfterFailure));
+            Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+
+            if (Environment.GetEnvironmentVariable("BEUTL_HISTORY_RECOVERY_CAPTURE") is { Length: > 0 } capture)
+            {
+                var window = new Window
+                {
+                    Width = 400,
+                    Height = 260,
+                    Content = new Border
+                    {
+                        Padding = new Thickness(20),
+                        VerticalAlignment = VerticalAlignment.Top,
+                        Child = new NotificationServiceHandler().BuildInfoBar(notification, new TaskCompletionSource(), () => { })
+                    }
+                };
+                try
+                {
+                    window.Show();
+                    HeadlessTestHelpers.Settle();
+                    window.UpdateLayout();
+                    Directory.CreateDirectory(capture);
+                    using var frame = new RenderTargetBitmap(new PixelSize(400, 260), new Vector(96, 96));
+                    frame.Render(window);
+                    frame.Save(Path.Combine(capture, $"history-reset-{culture}-{redo}-{closeProject}.png"), PngBitmapEncoderOptions.Default);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            }
+
+            int stateChanges = 0;
+            using var subscription = editor.HistoryManager.StateChanged.Subscribe(_ => stateChanges++);
+            editor.Scene.Duration = TimeSpan.FromSeconds(73);
+            Assert.DoesNotThrow(() => editor.HistoryManager.Commit("Edit after failed replay"));
+            Assert.That(stateChanges, Is.EqualTo(1));
+
+            // Check the actual auto-saved document before the close path can save it again.
+            DateTime deadline = DateTime.UtcNow.AddSeconds(5);
+            while (CoreSerializer.RestoreFromUri<Scene>(uri).Duration != editor.Scene.Duration
+                   && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(10);
+                HeadlessTestHelpers.Settle();
+            }
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(editor.Scene.Duration));
+
+            if (closeProject)
+                await TestShell.Project.CloseProjectAsync();
+            else
+                await TestShell.Editor.CloseTabItem(tab);
+
+            Assert.That(TestShell.Editor.TabItems, Does.Not.Contain(tab));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+            CultureInfo.CurrentUICulture = previousCulture;
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]

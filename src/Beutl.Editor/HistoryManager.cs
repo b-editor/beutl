@@ -199,10 +199,20 @@ public sealed partial class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
-        lock (_lock)
+        bool attemptedMutation = false;
+        try
         {
-            ThrowIfHistoryControlIsBlocked_NoLock();
-            RollbackCurrentTransaction_NoLock();
+            lock (_lock)
+            {
+                ThrowIfHistoryControlIsBlocked_NoLock();
+                attemptedMutation = _currentTransaction.HasOperations;
+                RollbackCurrentTransaction_NoLock();
+            }
+        }
+        finally
+        {
+            if (attemptedMutation)
+                NotifyStateChanged();
         }
     }
 
@@ -277,12 +287,8 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
-    private void ThrowIfHistoryControlIsBlocked_NoLock(bool allowUncertainFailure = false)
+    private void ThrowIfHistoryControlIsBlocked_NoLock()
     {
-        if (!allowUncertainFailure && HasUncertainFailure_NoLock())
-        {
-            throw new InvalidOperationException("History contains an operation with uncertain partial execution. Clear history or reopen the project before replaying it.");
-        }
         if (_isolatedTransactionActive)
         {
             throw new InvalidOperationException(
@@ -294,11 +300,6 @@ public sealed partial class HistoryManager : IDisposable
                 "History control cannot run while history entry changes are being published.");
         }
     }
-
-    private bool HasUncertainFailure_NoLock()
-        => _currentTransaction.HasUncertainFailure
-           || _undoStack.Any(transaction => transaction.HasUncertainFailure)
-           || _redoStack.Any(transaction => transaction.HasUncertainFailure);
 
     private HistoryTransaction CreateTransaction()
         => new(Interlocked.Increment(ref _transactionIdCounter));
@@ -350,10 +351,7 @@ public sealed partial class HistoryManager : IDisposable
                 "Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
                 _currentTransaction.Id,
                 _currentTransaction.OperationCount);
-            using (SuppressRecording())
-            {
-                _currentTransaction.Revert(_context);
-            }
+            ReplayTransaction_NoLock(_currentTransaction, redo: false);
         }
 
         _currentTransaction = CreateTransaction();
@@ -431,7 +429,7 @@ public sealed partial class HistoryManager : IDisposable
             {
                 ThrowIfHistoryControlIsBlocked_NoLock();
                 attemptedMutation = _currentTransaction.HasOperations;
-                Rollback();
+                RollbackCurrentTransaction_NoLock();
                 Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
                 if (source.Count == 0)
                     return false;
@@ -446,8 +444,8 @@ public sealed partial class HistoryManager : IDisposable
         }
         finally
         {
-            // A failing operation can already have changed the model. Keep its history
-            // entry and publish the surviving state, including on partial failure.
+            // A failing operation can already have changed the model. Publish the
+            // surviving state even when recovery had to reset the history.
             if (attemptedMutation)
                 NotifyStateChanged();
         }
@@ -459,37 +457,40 @@ public sealed partial class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            ThrowIfHistoryControlIsBlocked_NoLock(allowUncertainFailure: true);
-            if (_currentTransaction.HasUncertainFailure)
-                _currentTransaction = CreateTransaction();
-            int undoCount = _undoStack.Count;
-            int redoCount = _redoStack.Count;
-            _undoStack.Clear();
-            _redoStack.Clear();
-
-            // Avoid Clear() + Add(): a VM mirror on a different thread would
-            // queue both events; the Reset path would resync to the already
-            // re-added initial entry, and the queued Add would then duplicate
-            // it. Emitting Replace + RemoveAt lets each event apply
-            // independently without a Reset.
-            HistoryEntry newInitial = HistoryEntry.CreateInitial();
-            if (_entries.Count == 0)
-            {
-                AddEntry(newInitial);
-            }
-            else
-            {
-                ReplaceEntry(0, newInitial);
-                for (int i = _entries.Count - 1; i > 0; i--)
-                {
-                    RemoveEntryAt(i);
-                }
-            }
-
-            _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
+            ThrowIfHistoryControlIsBlocked_NoLock();
+            ClearHistory_NoLock();
         }
 
         NotifyStateChanged();
+    }
+
+    private void ClearHistory_NoLock()
+    {
+        int undoCount = _undoStack.Count;
+        int redoCount = _redoStack.Count;
+        _undoStack.Clear();
+        _redoStack.Clear();
+
+        // Avoid Clear() + Add(): a VM mirror on a different thread would
+        // queue both events; the Reset path would resync to the already
+        // re-added initial entry, and the queued Add would then duplicate
+        // it. Emitting Replace + RemoveAt lets each event apply
+        // independently without a Reset.
+        HistoryEntry newInitial = HistoryEntry.CreateInitial();
+        if (_entries.Count == 0)
+        {
+            AddEntry(newInitial);
+        }
+        else
+        {
+            ReplaceEntry(0, newInitial);
+            for (int i = _entries.Count - 1; i > 0; i--)
+            {
+                RemoveEntryAt(i);
+            }
+        }
+
+        _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
     }
 
     public bool JumpTo(int index)
@@ -528,23 +529,23 @@ public sealed partial class HistoryManager : IDisposable
                     {
                         HistoryTransaction transaction = _undoStack.Peek();
                         _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        stateMutated = true;
                         ReplayTopTransaction_NoLock(transaction, redo: false);
                         moved = true;
-                        stateMutated = true;
                     }
 
                     while (_undoStack.Count < index && _redoStack.Count > 0)
                     {
                         HistoryTransaction transaction = _redoStack.Peek();
                         _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        stateMutated = true;
                         ReplayTopTransaction_NoLock(transaction, redo: true);
                         moved = true;
-                        stateMutated = true;
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}; history is in a partial state",
+                    _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}",
                         _undoStack.Count, _redoStack.Count, index);
                     failure = ex;
                 }
@@ -583,10 +584,7 @@ public sealed partial class HistoryManager : IDisposable
     {
         try
         {
-            using (SuppressRecording())
-            {
-                _currentTransaction.Revert(_context);
-            }
+            ReplayTransaction_NoLock(_currentTransaction, redo: false);
         }
         finally
         {
@@ -594,23 +592,39 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
-    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
-    // the failing transaction stays on the originating stack so it
-    // is not lost from history altogether.
+    // Retryable failures retain the transaction on its originating stack;
+    // uncertain failures reset history before propagating to the caller.
     private void ReplayTopTransaction_NoLock(HistoryTransaction transaction, bool redo)
     {
-        using (SuppressRecording())
-        {
-            if (redo)
-                transaction.Apply(_context);
-            else
-                transaction.Revert(_context);
-        }
+        ReplayTransaction_NoLock(transaction, redo);
 
         Stack<HistoryTransaction> source = redo ? _redoStack : _undoStack;
         Stack<HistoryTransaction> destination = redo ? _undoStack : _redoStack;
         source.Pop();
         destination.Push(transaction);
+    }
+
+    private void ReplayTransaction_NoLock(HistoryTransaction transaction, bool redo)
+    {
+        try
+        {
+            using (SuppressRecording())
+            {
+                if (redo)
+                    transaction.Apply(_context);
+                else
+                    transaction.Revert(_context);
+            }
+        }
+        catch (Exception ex) when (transaction.HasUncertainFailure)
+        {
+            // Older entries and redo entries assume a model state we can no longer
+            // establish. Keep the surviving model as the new baseline for future edits.
+            _logger.LogError(ex, "History replay partially failed; resetting history so editing and saving can continue.");
+            _currentTransaction = CreateTransaction();
+            ClearHistory_NoLock();
+            throw new HistoryResetException(ex);
+        }
     }
 
     public IDisposable Subscribe(IOperationObserver observer)

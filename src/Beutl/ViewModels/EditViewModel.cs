@@ -497,7 +497,8 @@ public sealed partial class EditViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "{OperationName} failed.", operationName);
-            NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
+            NotificationService.ShowError(Strings.History,
+                ex is HistoryResetException ? Strings.History_ResetAfterFailure : Strings.History_OperationFailed);
             return false;
         }
     }

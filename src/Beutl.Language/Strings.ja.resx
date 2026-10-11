@@ -258,6 +258,9 @@
   <data name="History_OperationFailed" xml:space="preserve">
     <value>履歴操作に失敗しました。</value>
   </data>
+  <data name="History_ResetAfterFailure" xml:space="preserve">
+    <value>履歴操作に失敗したため、元に戻す・やり直しの履歴をリセットしました。現在の編集内容を確認してください。編集と保存は引き続き行えます。</value>
+  </data>
   <data name="Search" xml:space="preserve">
     <value>検索</value>
   </data>
