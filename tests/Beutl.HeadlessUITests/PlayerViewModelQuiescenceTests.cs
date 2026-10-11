@@ -490,7 +490,7 @@ public class PlayerViewModelQuiescenceTests
         EditViewModel editor = await OpenEditor();
         using var cts = new CancellationTokenSource();
         using var playing = new ReactivePropertySlim<bool>(true);
-        using var producer = new BufferedPlayer(editor, editor.Scene, playing, 30, cts.Token);
+        using var producer = new BufferedPlayer(editor, playing, 30, cts.Token);
         if (cancelToken)
             cts.Cancel();
         else

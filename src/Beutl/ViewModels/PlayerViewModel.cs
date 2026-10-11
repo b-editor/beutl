@@ -510,7 +510,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         Scene scene = null!;
         FrameCacheManager frameCacheManager = null!;
-        int rate = 0, sampleRate = 0, startFrame = 0, durationFrame = 0, endFrame = 0;
+        int rate = 0, sampleRate = 0;
+        PlaybackRange range = default;
         TimeSpan startTime = default;
         bool ready = false;
         // Startup can resume after a timeout or disposal. Capture editor state while the session
@@ -530,9 +531,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             sampleRate = EditViewModel.Composer.Value.SampleRate;
             rate = GetFrameRate();
             startTime = _editorClock.CurrentTime.Value;
-            startFrame = (int)startTime.ToFrameNumber(rate);
-            durationFrame = (int)Math.Ceiling(scene.Duration.ToFrameNumber(rate));
-            endFrame = (int)scene.Start.ToFrameNumber(rate) + durationFrame;
+            // Computed once for the producer and the ticker, rounded as the paused preview rounds the playhead.
+            range = PlaybackRange.From(startTime, scene.Start, scene.Duration, rate);
             scene.Edited -= OnSceneEdited;
             _currentFrameSubscription?.Dispose();
             _currentFrameSubscription = null;
@@ -542,7 +542,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
                 DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
             };
-            frameCacheManager.CurrentFrame = startFrame;
+            frameCacheManager.CurrentFrame = range.StartFrame;
             ready = true;
         }) || !ready)
         {
@@ -555,13 +555,13 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             BufferedPlayer playerImpl = null!;
             if (!_sessionGuard.TryApply(generation, () =>
-                    playerImpl = new BufferedPlayer(EditViewModel, scene, IsPlaying, rate, playbackToken)))
+                    playerImpl = new BufferedPlayer(EditViewModel, IsPlaying, rate, playbackToken)))
                 return false;
             using var playerLifetime = playerImpl;
-            if (!_sessionGuard.TryApply(generation, playerImpl.Start))
+            if (!_sessionGuard.TryApply(generation, () => playerImpl.Start(range)))
                 return false;
-            _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
-                _editViewModel.SceneId, rate, startFrame, durationFrame);
+            _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {StartFrame}, {EndFrame})",
+                _editViewModel.SceneId, rate, range.StartFrame, range.EndFrame);
 
             var clock = new AudioPlaybackClock();
             Task audioTask = PlayAudio(scene, clock, startTime, sampleRate, generation, playbackToken);
@@ -573,7 +573,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             await clock.StartedTask;
 
             ticker = new PlaybackTicker(
-                this, generation, playerImpl, clock, rate, tick, startFrame, endFrame, startTime, DateTime.UtcNow);
+                this, generation, playerImpl, clock, rate, tick, range.StartFrame, range.EndFrame, startTime,
+                DateTime.UtcNow);
 
             await using var timer = new Timer(ticker.OnTick, null, tick, tick);
 

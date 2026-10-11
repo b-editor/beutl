@@ -142,9 +142,9 @@ public class PreviewRenderErrorTests
             await AddFaultingDrawable(editor);
             using var isPlaying = new ReactivePropertySlim<bool>(true);
             using var player = new BufferedPlayer(
-                editor, editor.Scene, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
+                editor, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
 
-            player.Start();
+            player.Start(PlaybackRangeOf(editor));
             await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
 
             Assert.That(player.Failure, Is.Not.Null);
@@ -175,9 +175,9 @@ public class PreviewRenderErrorTests
         editor.FrameCacheManager.Value.Clear();
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(
-            editor, editor.Scene, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
+            editor, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
 
-        player.Start();
+        player.Start(PlaybackRangeOf(editor));
         await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
 
         Assert.That(player.Failure, Is.Not.Null);
@@ -195,12 +195,11 @@ public class PreviewRenderErrorTests
         playbackCts.Cancel();
         using var player = new BufferedPlayer(
             editor,
-            editor.Scene,
             isPlaying,
             editor.Player.GetFrameRate(),
             playbackCts.Token);
 
-        player.Start();
+        player.Start(PlaybackRangeOf(editor));
         await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
@@ -233,14 +232,13 @@ public class PreviewRenderErrorTests
         using var playbackCts = new CancellationTokenSource();
         using var player = new BufferedPlayer(
             editor,
-            editor.Scene,
             isPlaying,
             editor.Player.GetFrameRate(),
             playbackCts.Token);
 
         try
         {
-            player.Start();
+            player.Start(PlaybackRangeOf(editor));
             await drawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             playbackCts.Cancel();
@@ -277,14 +275,13 @@ public class PreviewRenderErrorTests
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(
             editor,
-            editor.Scene,
             isPlaying,
             editor.Player.GetFrameRate(),
             CancellationToken.None);
 
         try
         {
-            player.Start();
+            player.Start(PlaybackRangeOf(editor));
             await drawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             player.Dispose();
@@ -472,6 +469,14 @@ public class PreviewRenderErrorTests
             editor.Player.PreviewRenderError.Value,
             Is.EqualTo(Beutl.Language.MessageStrings.FrameDrawingException));
     }
+
+    // The range PlayerViewModel plays: from the playhead to the end of the scene.
+    private static PlaybackRange PlaybackRangeOf(EditViewModel editor)
+        => PlaybackRange.From(
+            editor.GetRequiredService<IEditorClock>().CurrentTime.Value,
+            editor.Scene.Start,
+            editor.Scene.Duration,
+            editor.Player.GetFrameRate());
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
