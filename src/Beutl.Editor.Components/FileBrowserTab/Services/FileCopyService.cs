@@ -4,8 +4,12 @@
 internal static class FileCopyService
 {
     // ソースディレクトリの内容を再帰的に宛先ディレクトリにコピーする。
-    // 既に存在するファイルはスキップされる。
-    public static void CopyDirectoryRecursive(string sourceDir, string destDir)
+    // 既に存在するファイルはスキップされる。キャンセルは次のファイルの前に反映される。
+    public static void CopyDirectoryRecursive(
+        string sourceDir,
+        string destDir,
+        Action<string, string> copyFile,
+        CancellationToken cancellationToken)
     {
         string fullSource = Path.GetFullPath(sourceDir) + Path.DirectorySeparatorChar;
         string fullDest = Path.GetFullPath(destDir) + Path.DirectorySeparatorChar;
@@ -19,17 +23,18 @@ internal static class FileCopyService
 
         foreach (string file in Directory.GetFiles(sourceDir))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string destFile = Path.Combine(destDir, Path.GetFileName(file));
             if (!File.Exists(destFile))
             {
-                File.Copy(file, destFile);
+                copyFile(file, destFile);
             }
         }
 
         foreach (string dir in Directory.GetDirectories(sourceDir))
         {
             string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
-            CopyDirectoryRecursive(dir, destSubDir);
+            CopyDirectoryRecursive(dir, destSubDir, copyFile, cancellationToken);
         }
     }
 }

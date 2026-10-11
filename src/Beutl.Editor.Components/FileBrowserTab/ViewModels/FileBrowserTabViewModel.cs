@@ -23,6 +23,8 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private string _rootPath = string.Empty;
     private readonly FavoritesManager _favoritesManager = new();
     private readonly MediaFileSearcher _mediaSearcher = new();
+    // Canceled when the tab closes, which stops a copy or move before its next entry.
+    private readonly CancellationTokenSource _transferCancellation = new();
     private string? _projectDirectory;
     private int _decoderRefreshQueued;
     private volatile bool _disposed;
@@ -439,6 +441,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     {
         if (_disposed) return;
         _disposed = true;
+        _transferCancellation.Cancel();
         CloseStorageBrowser();
         DecoderRegistry.DecodersChanged -= OnDecodersChanged;
         _mediaSearcher.Dispose();
