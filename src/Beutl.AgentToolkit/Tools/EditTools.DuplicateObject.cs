@@ -73,6 +73,13 @@ public sealed partial class EditTools
 
         (Guid sourceId, Guid? scopedElementId) = ParseDuplicateTarget(objectId, elementId);
         DuplicateObjectLocation location = FindObjectLocation(scene, sourceId, scopedElementId, objectId);
+        // This path mutates the scene directly instead of through the reconciler, so it checks the
+        // lock the reconciler's plan checks for every other edit.
+        if (scene.IsElementLocked(location.Element))
+        {
+            throw new ReconcileException(Reconciler.CreateLockedElementError(scene, location.Element, objectId));
+        }
+
         Drawable source = RequireWrappableDrawable(location, objectId);
 
         JsonObject sourceJson = FindObjectJsonInElements(session.Documents.Read(session.Root), objectId, elementId);
