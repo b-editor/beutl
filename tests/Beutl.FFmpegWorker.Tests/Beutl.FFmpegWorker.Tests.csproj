@@ -46,6 +46,15 @@
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
+  <!-- Decode encoded frames through both worker read paths for pixel round-trip tests. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
+  </ItemGroup>
+
   <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
