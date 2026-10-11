@@ -66,6 +66,12 @@ public sealed class GlobalConfiguration
     [AllowNull]
     public string LastStartedVersion { get; private set; } = BeutlApplication.Version;
 
+    /// <summary>
+    /// The settings the last <see cref="Restore"/> could not read, which kept their defaults. Restore runs
+    /// before logging is set up, so the caller reports them.
+    /// </summary>
+    public IReadOnlyList<ConfigurationRestoreFailure> RestoreFailures { get; private set; } = [];
+
     public void Save(string file)
     {
         try
@@ -99,23 +105,19 @@ public sealed class GlobalConfiguration
 
     public void Restore(string file)
     {
+        var failures = new List<ConfigurationRestoreFailure>();
         try
         {
             _filePath = file;
             RemoveHandlers();
             if (JsonHelper.JsonRestore(file) is JsonObject json)
             {
-                static void Deserialize(ICoreSerializable serializable, JsonObject obj)
-                {
-                    CoreSerializer.PopulateFromJsonObject(serializable, obj);
-                }
-
                 foreach ((string key, string? legacyKey, ConfigurationBase config) in _sections)
                 {
                     // A section that has a lower-case legacy key is read from that key when it is present.
                     JsonNode? node = legacyKey is null ? json[key] : json[legacyKey] ?? json[key];
                     if (node is JsonObject section)
-                        Deserialize(config, section);
+                        RestoreSection(key, config, section, failures);
                 }
 
                 if (json["Version"] is JsonValue version
@@ -123,11 +125,50 @@ public sealed class GlobalConfiguration
                 {
                     LastStartedVersion = versionString;
                 }
+
+                // The next save drops what could not be read, so the file is kept as it was.
+                if (failures.Count > 0)
+                    KeepBackup(file);
             }
         }
         finally
         {
+            RestoreFailures = failures;
             AddHandlers();
+        }
+    }
+
+    // A setting that cannot be read keeps its default, and the sections after it are still read.
+    private static void RestoreSection(
+        string key, ConfigurationBase config, JsonObject section, List<ConfigurationRestoreFailure> failures)
+    {
+        Exception? sectionFailure = null;
+        try
+        {
+            CoreSerializer.PopulateFromJsonObject(config, section);
+        }
+        catch (Exception ex)
+        {
+            // Thrown by a section's own reads, after its registered settings were read.
+            sectionFailure = ex;
+        }
+
+        foreach ((string property, Exception exception) in config.TakeDeserializeFailures())
+            failures.Add(new ConfigurationRestoreFailure($"{key}.{property}", exception));
+
+        if (sectionFailure is not null)
+            failures.Add(new ConfigurationRestoreFailure(key, sectionFailure));
+    }
+
+    private static void KeepBackup(string file)
+    {
+        try
+        {
+            File.Copy(file, file + ".bak", overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort: the settings that could be read are restored either way.
         }
     }
 

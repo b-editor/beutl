@@ -6,7 +6,9 @@ using Beutl.Controls.Styling;
 using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using ReactiveUI.Avalonia.Reactive;
 
 namespace Beutl;
@@ -48,6 +50,7 @@ internal static class Program
         CultureInfo.CurrentUICulture = view.UICulture;
 
         using IDisposable _ = Telemetry.GetDisposable();
+        LogRestoreFailures(config);
 
         // ProfileOptimizationを有効化
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
@@ -65,6 +68,22 @@ internal static class Program
 
         // 正常に終了した
         UnhandledExceptionHandler.Exit();
+    }
+
+    // Restore runs before logging is set up, so what it could not read is reported here.
+    private static void LogRestoreFailures(GlobalConfiguration config)
+    {
+        if (config.RestoreFailures.Count == 0)
+            return;
+
+        ILogger logger = Log.CreateLogger(typeof(Program));
+        foreach (ConfigurationRestoreFailure failure in config.RestoreFailures)
+        {
+            logger.LogWarning(
+                failure.Exception,
+                "Could not read {Setting} from settings.json, so it keeps its default. The file as read is kept as settings.json.bak.",
+                failure.Setting);
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp()
