@@ -56,7 +56,7 @@ jobs:
           --version ${{ needs.determine-version.outputs.nugetVer }}
 
     - name: Save
-      uses: actions/upload-artifact@v7.0.1
+      uses: actions/upload-artifact@v7.0.2
       with:
         name: beutl_${{ matrix.rid }}
         path: ./artifacts/

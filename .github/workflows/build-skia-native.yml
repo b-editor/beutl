@@ -68,7 +68,7 @@ jobs:
         run: python3 native/SkiaSharp/test_fontconfig.py --native-root native/SkiaSharp/artifacts -v
 
       - name: Upload native runtime
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: ${{ inputs.artifact-prefix }}-${{ matrix.rid }}
           path: native/SkiaSharp/artifacts/
