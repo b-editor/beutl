@@ -17,10 +17,10 @@ internal interface IProjectVersionControlSession
     /// The reservation the finished save held. Passing it lets the snapshot take over the
     /// workspace without ever leaving it unreserved, so the caller must have finished writing.
     /// The snapshot may decline it — it is skipped entirely when the repository is untracked or
-    /// automatic snapshots are off, and deferred while another operation runs — so the caller still
-    /// owns the reservation and must dispose it; disposing one that was taken over is a no-op.
-    /// Passing <see langword="null"/> makes the snapshot compete for the workspace and be skipped
-    /// when another operation holds it.
+    /// automatic snapshots are off, and deferred while another version-control operation runs — so
+    /// the caller still owns the reservation and must dispose it; disposing one that was taken over
+    /// is a no-op. Passing <see langword="null"/> makes the snapshot compete for the workspace and be
+    /// skipped when another workspace operation, such as a write, holds it.
     /// </param>
     Task NotifySavedAsync(
         IProjectFileWriteLease? completedWrite = null,

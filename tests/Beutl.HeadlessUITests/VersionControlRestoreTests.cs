@@ -741,10 +741,13 @@ public class VersionControlRestoreTests
             var tip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
+            bool? committedOnUiThread = null;
             var backend = new PullCycleTestBackend(repository, repository, tip)
             {
                 PushStarted = pushStarted,
                 PushRelease = releasePush.Task,
+                CommitAllObserver = _ =>
+                    committedOnUiThread = Avalonia.Threading.Dispatcher.UIThread.CheckAccess(),
             };
             var commands = new PassiveSaveOperation();
             var item = new EditorTabItem(new PassiveEditorContext(project, commands));
@@ -793,14 +796,38 @@ public class VersionControlRestoreTests
                 Assert.That(backend.CommitAllCalls, Is.Zero);
             });
 
-            releasePush.TrySetResult();
-            Assert.That(
-                await push.WaitAsync(TimeSpan.FromSeconds(10)),
-                Is.TypeOf<RemoteOpResult.Success>());
+            // A save still writing when the push ends finishes before the snapshot reads the files.
+            IProjectFileWriteLease stillWriting = await editorService
+                .BeginProjectFileWriteAsync(CancellationToken.None)
+                .AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(10));
+            try
+            {
+                releasePush.TrySetResult();
+                Assert.That(
+                    await push.WaitAsync(TimeSpan.FromSeconds(10)),
+                    Is.TypeOf<RemoteOpResult.Success>());
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    HeadlessTestHelpers.Settle();
+                    await Task.Delay(20);
+                }
+
+                Assert.That(backend.CommitAllCalls, Is.Zero, "The snapshot must wait for the save still writing.");
+            }
+            finally
+            {
+                stillWriting.Dispose();
+            }
+
             await WaitUntilAsync(() => backend.CommitAllCalls > 0);
             HeadlessTestHelpers.Settle();
 
-            Assert.That(backend.CommitKinds, Is.EqualTo(new[] { SnapshotKind.Save }));
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.CommitKinds, Is.EqualTo(new[] { SnapshotKind.Save }));
+                Assert.That(committedOnUiThread, Is.True, "The deferred snapshot stays on the UI thread.");
+            });
         }
         finally
         {
