@@ -30,7 +30,7 @@
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewProject}" />
                             <!--  ファイル  -->
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNew}"
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}"
                                             Gesture="{h:GetCommandGesture CreateNewFile,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewScene}" />

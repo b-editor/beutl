@@ -9,7 +9,6 @@ public partial class MenuBarViewModel
 
     public IEnumerable<PaletteMenuCommand> EnumeratePaletteCommands()
     {
-        yield return new("MenuBar.NewScene", Strings.CreateNewScene, NewScene);
         yield return new("MenuBar.ExportProject", Strings.ExportProject, ExportProject);
         yield return new("MenuBar.ImportProject", Strings.ImportProject, ImportProject);
         yield return new("MenuBar.DeleteLayer", Strings.Delete, DeleteLayer);
@@ -26,7 +25,7 @@ public partial class MenuBarViewModel
     public ICommand? FindContextCommand(string commandName) => commandName switch
     {
         "CreateNewProject" => CreateNewProject,
-        "CreateNewFile" => CreateNew,
+        "CreateNewFile" => NewScene,
         "OpenProject" => OpenProject,
         "OpenFile" => OpenFile,
         "Save" => Save,

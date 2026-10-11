@@ -84,9 +84,9 @@ public partial class EditorHostFallback : UserControl
             vm => vm.MenuBar.CreateNewProject.ExecuteAsync(null!));
     }
 
-    private void CreateNewScene_Click(object? sender, RoutedEventArgs e)
+    private async void CreateNewScene_Click(object? sender, RoutedEventArgs e)
     {
-        ExecuteMainViewModelCommand(vm => vm.MenuBar.CreateNew.Execute());
+        await ExecuteMainViewModelCommandAsync(vm => vm.MenuBar.NewScene.ExecuteAsync(null!));
     }
 
     private async void OpenProject_Click(object? sender, RoutedEventArgs e)
@@ -97,14 +97,6 @@ public partial class EditorHostFallback : UserControl
     private async void OpenFile_Click(object? sender, RoutedEventArgs e)
     {
         await ExecuteMainViewModelCommandAsync(vm => vm.MenuBar.OpenFile.ExecuteAsync(null!));
-    }
-
-    private void ExecuteMainViewModelCommand(Action<MainViewModel> action)
-    {
-        if (this.FindAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
-        {
-            action(viewModel);
-        }
     }
 
     private async Task ExecuteMainViewModelCommandAsync(Func<MainViewModel, Task> action)
