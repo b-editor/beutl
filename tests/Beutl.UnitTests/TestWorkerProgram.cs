@@ -11,6 +11,7 @@ internal static class TestWorkerProgram
     public const string FFmpegLifetimeWorkerArgument = "--ffmpeg-lifetime-worker";
     public const string SwiftShaderLifetimeWorkerArgument = "--swiftshader-lifetime-worker";
     public const string LiveMcpTokenWorkerArgument = "--live-mcp-token-worker";
+    public const string DefaultFontWorkerArgument = "--default-font-worker";
 
     private static async Task<int> Main(string[] args)
     {
@@ -18,6 +19,9 @@ internal static class TestWorkerProgram
         {
             switch (args)
             {
+                case [DefaultFontWorkerArgument, var familyFirst, var expectedFont, var calls] when OperatingSystem.IsLinux():
+                    Engine.Media.LinuxDefaultFontTests.RunWorker(bool.Parse(familyFirst), expectedFont, calls);
+                    break;
                 case [LiveMcpTokenWorkerArgument, var directory, var legacyToken, var readyPath, var resultPath]:
                     Configuration.LiveMcpTokenStoreTests.RunWorker(directory, legacyToken, readyPath, resultPath);
                     break;

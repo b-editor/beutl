@@ -1,11 +1,7 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics;
-using System.Text;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
-
-using SkiaSharp;
 
 namespace Beutl.Media;
 
@@ -13,7 +9,7 @@ namespace Beutl.Media;
 [TypeConverter(typeof(FontFamilyConverter))]
 public class FontFamily(string familyname) : IEquatable<FontFamily?>
 {
-    public static readonly FontFamily Default = new(GetDefaultFontFamily());
+    public static FontFamily Default => FontManager.Instance.DefaultTypeface.FontFamily;
 
     public string Name { get; } = familyname;
 
@@ -32,36 +28,6 @@ public class FontFamily(string familyname) : IEquatable<FontFamily?>
     public override int GetHashCode()
     {
         return HashCode.Combine(Name);
-    }
-
-    private static string GetDefaultFontFamily()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            var output = new StringBuilder();
-            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
-            {
-                RedirectStandardOutput = true
-            })!;
-            process.OutputDataReceived += (sender, e) =>
-            {
-                if (e.Data != null)
-                    output.Append(e.Data);
-            };
-            process.BeginOutputReadLine();
-            process.WaitForExit();
-
-            process.CancelOutputRead();
-
-            string file = output.ToString();
-            using SKTypeface? sktypeface = SKTypeface.FromFile(file);
-            if (sktypeface != null)
-            {
-                return sktypeface.FamilyName;
-            }
-        }
-
-        return SKTypeface.Default.FamilyName;
     }
 
     public static bool operator ==(FontFamily? left, FontFamily? right)
