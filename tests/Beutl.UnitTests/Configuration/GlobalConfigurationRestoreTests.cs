@@ -92,8 +92,45 @@ public class GlobalConfigurationRestoreTests
         {
             Assert.That(config.FontConfig.FontDirectories, Is.EqualTo(new FontConfig().FontDirectories));
             Assert.That(config.ViewConfig.UICulture, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
-            Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "Font" }));
+            Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "Font.FontDirectories" }));
         });
+    }
+
+    [Test]
+    public void A_bad_list_keeps_the_values_a_section_reads_after_it()
+    {
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["View"] = new JsonObject
+            {
+                ["RecentFiles"] = "abc",
+                ["RecentProjects"] = new JsonArray("/projects/a.bep"),
+                ["WindowPosition"] = new JsonObject { ["X"] = 10, ["Y"] = 20 },
+                ["WindowSize"] = new JsonObject { ["Width"] = 800, ["Height"] = 600 },
+            },
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.ViewConfig.RecentFiles, Is.Empty);
+            Assert.That(config.ViewConfig.RecentProjects, Is.EqualTo(new[] { "/projects/a.bep" }));
+            Assert.That(config.ViewConfig.WindowPosition, Is.EqualTo((10, 20)));
+            Assert.That(config.ViewConfig.WindowSize, Is.EqualTo((800, 600)));
+            Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "View.RecentFiles" }));
+        });
+    }
+
+    [Test]
+    public void A_bad_value_a_section_reads_in_its_own_shape_keeps_the_default()
+    {
+        // ViewConfig reads WindowPosition as an { X, Y } record itself.
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["View"] = new JsonObject { ["WindowPosition"] = "abc" },
+        });
+
+        Assert.That(config.ViewConfig.WindowPosition, Is.Null);
+        Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "View.WindowPosition" }));
     }
 
     [Test]
@@ -105,7 +142,20 @@ public class GlobalConfigurationRestoreTests
         config.GraphicsConfig.SelectedGpuName = "other";
         config.Save(SettingsPath);
 
+        Assert.That(config.RestoreBackupPath, Is.EqualTo(SettingsPath + ".bak"));
         Assert.That(File.ReadAllText(SettingsPath + ".bak"), Is.EqualTo(json.ToJsonString()));
+    }
+
+    [Test]
+    public void A_backup_that_cannot_be_written_is_not_reported_as_kept()
+    {
+        // A directory in the way makes the copy fail, as a full disk or a read-only folder would.
+        Directory.CreateDirectory(SettingsPath + ".bak");
+
+        GlobalConfiguration config = Restore(new JsonObject { ["Editor"] = new JsonObject { ["FrameCacheMaxSize"] = "abc" } });
+
+        Assert.That(config.RestoreFailures, Is.Not.Empty);
+        Assert.That(config.RestoreBackupPath, Is.Null);
     }
 
     [Test]
@@ -114,6 +164,7 @@ public class GlobalConfigurationRestoreTests
         GlobalConfiguration config = Restore(new JsonObject { ["Editor"] = new JsonObject { ["FrameCacheMaxSize"] = 512 } });
 
         Assert.That(config.RestoreFailures, Is.Empty);
+        Assert.That(config.RestoreBackupPath, Is.Null);
         Assert.That(File.Exists(SettingsPath + ".bak"), Is.False);
     }
 }

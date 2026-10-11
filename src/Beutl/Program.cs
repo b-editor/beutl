@@ -79,11 +79,13 @@ internal static class Program
         ILogger logger = Log.CreateLogger(typeof(Program));
         foreach (ConfigurationRestoreFailure failure in config.RestoreFailures)
         {
-            logger.LogWarning(
-                failure.Exception,
-                "Could not read {Setting} from settings.json, so it keeps its default. The file as read is kept as settings.json.bak.",
-                failure.Setting);
+            logger.LogWarning(failure.Exception, "Could not read {Setting} from settings.json, so it keeps its default.", failure.Setting);
         }
+
+        if (config.RestoreBackupPath is { } backup)
+            logger.LogWarning("settings.json as read is kept as {Backup}.", backup);
+        else
+            logger.LogWarning("Could not keep a copy of settings.json as read; the values it could not read are dropped at the next save.");
     }
 
     public static AppBuilder BuildAvaloniaApp()

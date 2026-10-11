@@ -72,6 +72,12 @@ public sealed class GlobalConfiguration
     /// </summary>
     public IReadOnlyList<ConfigurationRestoreFailure> RestoreFailures { get; private set; } = [];
 
+    /// <summary>
+    /// Where the last <see cref="Restore"/> kept the file as it read it, because the next save drops what
+    /// <see cref="RestoreFailures"/> lists. Null when nothing failed or the copy could not be written.
+    /// </summary>
+    public string? RestoreBackupPath { get; private set; }
+
     public void Save(string file)
     {
         try
@@ -106,6 +112,7 @@ public sealed class GlobalConfiguration
     public void Restore(string file)
     {
         var failures = new List<ConfigurationRestoreFailure>();
+        RestoreBackupPath = null;
         try
         {
             _filePath = file;
@@ -128,7 +135,7 @@ public sealed class GlobalConfiguration
 
                 // The next save drops what could not be read, so the file is kept as it was.
                 if (failures.Count > 0)
-                    KeepBackup(file);
+                    RestoreBackupPath = KeepBackup(file);
             }
         }
         finally
@@ -149,7 +156,7 @@ public sealed class GlobalConfiguration
         }
         catch (Exception ex)
         {
-            // Thrown by a section's own reads, after its registered settings were read.
+            // Not expected: a section reads its own values tolerantly too. Its settings read so far stay.
             sectionFailure = ex;
         }
 
@@ -160,15 +167,18 @@ public sealed class GlobalConfiguration
             failures.Add(new ConfigurationRestoreFailure(key, sectionFailure));
     }
 
-    private static void KeepBackup(string file)
+    private static string? KeepBackup(string file)
     {
+        string backup = file + ".bak";
         try
         {
-            File.Copy(file, file + ".bak", overwrite: true);
+            File.Copy(file, backup, overwrite: true);
+            return backup;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Best effort: the settings that could be read are restored either way.
+            // The settings that could be read are restored either way; the caller reports the missing copy.
+            return null;
         }
     }
 

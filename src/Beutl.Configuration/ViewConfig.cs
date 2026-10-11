@@ -188,29 +188,29 @@ public sealed class ViewConfig : ConfigurationBase
         // GetValue が null を返す。null! を素通りさせると _recentFiles.Replace(null) で
         // ArgumentNullException が起き、後続の Editor/Graphics/Tutorial 設定の
         // Deserialize もまとめて中断してしまう。null の場合は既存の空リストを保持する。
-        if (context.GetValue<CoreList<string>>(nameof(RecentFiles)) is { } recentFiles)
+        if (TryReadValue(context, nameof(RecentFiles), out CoreList<string>? recentFiles) && recentFiles is not null)
         {
             RecentFiles = recentFiles;
         }
 
-        if (context.GetValue<CoreList<string>>(nameof(RecentProjects)) is { } recentProjects)
+        if (TryReadValue(context, nameof(RecentProjects), out CoreList<string>? recentProjects) && recentProjects is not null)
         {
             RecentProjects = recentProjects;
         }
 
-        if (context.GetValue<CoreList<string>>(nameof(PinnedToolTabs)) is { } pinnedToolTabs)
+        if (TryReadValue(context, nameof(PinnedToolTabs), out CoreList<string>? pinnedToolTabs) && pinnedToolTabs is not null)
         {
             PinnedToolTabs = pinnedToolTabs;
         }
 
         WindowPosition = null;
-        if (context.GetValue<WindowPositionRecord?>(nameof(WindowPosition)) is { } pos)
+        if (TryReadValue(context, nameof(WindowPosition), out WindowPositionRecord? pos) && pos is not null)
         {
             WindowPosition = (pos.X, pos.Y);
         }
 
         WindowSize = null;
-        if (context.GetValue<WindowSizeRecord?>(nameof(WindowSize)) is { } size)
+        if (TryReadValue(context, nameof(WindowSize), out WindowSizeRecord? size) && size is not null)
         {
             WindowSize = (size.Width, size.Height);
         }

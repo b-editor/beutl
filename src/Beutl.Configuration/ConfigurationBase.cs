@@ -66,11 +66,33 @@ public abstract class ConfigurationBase : CoreObject
             }
             catch (Exception ex)
             {
-                (_deserializeFailures ??= []).Add((property.Name, ex));
-                // Settings read before logging is set up are reported through GlobalConfiguration.RestoreFailures.
-                Logger.LogWarning(ex, "Could not read {Setting} of {Section}, so it keeps its default.", property.Name, GetType().Name);
+                RecordDeserializeFailure(property.Name, ex);
             }
         }
+    }
+
+    // Reads a value a section stores itself, with the same tolerance. False when it cannot be read,
+    // which a section answers by keeping its default; a missing value reads as default(T) and true.
+    private protected bool TryReadValue<T>(ICoreSerializationContext context, string name, out T? value)
+    {
+        try
+        {
+            value = context.GetValue<T>(name);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            RecordDeserializeFailure(name, ex);
+            value = default;
+            return false;
+        }
+    }
+
+    private void RecordDeserializeFailure(string name, Exception exception)
+    {
+        (_deserializeFailures ??= []).Add((name, exception));
+        // Settings read before logging is set up are reported through GlobalConfiguration.RestoreFailures.
+        Logger.LogWarning(exception, "Could not read {Setting} of {Section}, so it keeps its default.", name, GetType().Name);
     }
 
     internal List<(string Property, Exception Exception)> TakeDeserializeFailures()
