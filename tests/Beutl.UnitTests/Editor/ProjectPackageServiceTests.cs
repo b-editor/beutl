@@ -1047,8 +1047,12 @@ public class ProjectPackageServiceTests
         await media.UpdateFingerprintsAsync(scene);
         string expectedHash = scene.MediaFingerprints[new Uri(original).AbsoluteUri].Sha256;
         CoreSerializer.StoreToUri(project, project.Uri!);
+        string fingerprintFile = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
+        byte[] originalFingerprints = File.ReadAllBytes(fingerprintFile);
         string package = Path.Combine(_exportDir, "fingerprints.zip");
         Assert.That((await ProjectPackageService.Current.ExportAsync(project, package)).Success, Is.True);
+        // The export saves its copy of the scene with the packaged media's fingerprints, into the copy's folder.
+        Assert.That(File.ReadAllBytes(fingerprintFile), Is.EqualTo(originalFingerprints));
         ZipFile.ExtractToDirectory(package, _importDir);
         var packaged = CoreSerializer.RestoreFromUri<Project>(new Uri(Path.Combine(_importDir, Path.GetFileName(project.Uri!.LocalPath))));
         Scene packagedScene = packaged.Items.OfType<Scene>().Single();

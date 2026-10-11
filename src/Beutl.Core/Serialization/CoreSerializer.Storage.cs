@@ -116,11 +116,6 @@ public static partial class CoreSerializer
                 coreObj.Uri = uri;
             }
 
-            if (obj is IStoredWithCompanionFiles companions)
-            {
-                companions.StoreCompanionFiles(uri);
-            }
-
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? DefaultStoreMode };
             WriteJsonAtomically(
                 uri.LocalPath,
@@ -234,7 +229,7 @@ public static partial class CoreSerializer
     // 中途半端な状態で残るのを防ぐ。
     // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
     // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
-    internal static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
+    private static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
     {
         string? directory = Path.GetDirectoryName(path);
         if (directory != null)

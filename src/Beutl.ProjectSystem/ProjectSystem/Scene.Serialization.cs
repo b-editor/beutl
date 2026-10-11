@@ -9,14 +9,24 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
-public partial class Scene : IStoredWithCompanionFiles
+public partial class Scene
 {
-    // Keyed by absolute URI. A save writes them to their own file in the scene's folder, not into the scene
-    // file (MediaFingerprintFile).
-    [NotAutoSerialized]
-    public Dictionary<string, MediaFileFingerprint> MediaFingerprints { get; } = new(StringComparer.Ordinal);
+    private readonly MediaFingerprintFile _mediaFingerprintFile = new();
 
-    void IStoredWithCompanionFiles.StoreCompanionFiles(Uri uri) => MediaFingerprintFile.Store(uri, MediaFingerprints);
+    // Keyed by absolute URI. They are stored in a file of their own in the scene's folder, which the scene file
+    // references (MediaFingerprintFile).
+    [NotAutoSerialized]
+    public Dictionary<string, MediaFileFingerprint> MediaFingerprints => _mediaFingerprintFile.Fingerprints;
+
+    // The file that holds MediaFingerprints, or null while the scene has no folder. Its Uri follows the scene's,
+    // so a scene that moves, for example into the copy a package export saves, takes its fingerprints along
+    // instead of writing them back to the folder it came from.
+    internal MediaFingerprintFile? GetMediaFingerprintFile()
+    {
+        if (Uri is not { IsFile: true } uri) return null;
+        _mediaFingerprintFile.Uri = new Uri(MediaFingerprintFile.GetPath(uri.LocalPath));
+        return _mediaFingerprintFile;
+    }
 
     public override void Serialize(ICoreSerializationContext context)
     {
@@ -53,6 +63,26 @@ public partial class Scene : IStoredWithCompanionFiles
 
             context.SetValue("Elements", elementsNode);
         }
+
+        // The scene file references the fingerprint file even while there are no fingerprints, so a load finds
+        // the file the editor's background update writes later.
+        if (GetMediaFingerprintFile() is { } fingerprints)
+        {
+            if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+            {
+                // Saved here, not by the serializer, which would rewrite the file on every save and replace one a
+                // later version of Beutl wrote.
+                fingerprints.Save();
+                context.SetValue(MediaFingerprintFile.SceneProperty,
+                    UriHelper.ToSerializedUri(fingerprints.Uri!, context.BaseUri).ToString());
+            }
+            else
+            {
+                // The serializer writes the reference, or the fingerprints themselves when it embeds referenced
+                // objects.
+                context.SetValue(MediaFingerprintFile.SceneProperty, fingerprints);
+            }
+        }
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -65,28 +95,8 @@ public partial class Scene : IStoredWithCompanionFiles
         }
 
         Recovery.ReadMetadata(context);
-        MediaFingerprints.Clear();
-        // Development builds since #2666 wrote the fingerprints into the scene file. The next save moves them
-        // to their own file, which wins for a media file that both name.
-        if (context.GetValue<Dictionary<string, MediaFileFingerprint>>(MediaFingerprintFile.LegacySceneProperty) is { } fingerprints)
-        {
-            foreach (var pair in fingerprints)
-            {
-                Uri uri;
-                try { uri = UriHelper.ResolvePersistedReference(pair.Key, context.BaseUri); }
-                catch (JsonException) { continue; }
-                if (uri.IsFile && MediaFingerprintFile.IsComplete(pair.Value))
-                    MediaFingerprints[uri.AbsoluteUri] = pair.Value;
-            }
-        }
-
-        if (Uri is { IsFile: true } sceneUri)
-        {
-            foreach ((string key, MediaFileFingerprint fingerprint) in MediaFingerprintFile.Read(sceneUri))
-            {
-                MediaFingerprints[key] = fingerprint;
-            }
-        }
+        // Read here rather than by the serializer, which would fail the whole scene on a missing or unreadable file.
+        _mediaFingerprintFile.Load(context.GetValue<JsonNode>(MediaFingerprintFile.SceneProperty), context.BaseUri);
 
         Markers.Clear();
         if (context.Contains(nameof(Markers))

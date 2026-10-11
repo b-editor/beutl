@@ -538,6 +538,9 @@ public sealed partial class EditViewModel
 
                 relocation.Apply();
                 Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+                // The scene is stored without SaveReferencedObjects, which would store the children
+                // again, so the fingerprint file it references is saved here too.
+                scene.GetMediaFingerprintFile()?.Save();
                 // The scene is the commit record for every child/resource URI. Persist it only
                 // after every referenced file is durable at its new location.
                 CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);

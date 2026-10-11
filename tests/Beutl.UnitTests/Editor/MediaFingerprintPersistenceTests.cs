@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -10,8 +9,8 @@ using Beutl.Serialization;
 namespace Beutl.UnitTests.Editor;
 
 // A scene's media fingerprints are shared between machines (Git, sync folders) in a file of their own in the
-// scene's folder. They must change only when a file's length or content changes, never because a file's
-// timestamp differs, and the .scene file holds none of them.
+// scene's folder, which the .scene file references. They must change only when a file's length or content
+// changes, never because a file's timestamp differs, and the .scene file holds none of them.
 [TestFixture]
 public class MediaFingerprintPersistenceTests
 {
@@ -93,13 +92,17 @@ public class MediaFingerprintPersistenceTests
         JsonObject fingerprints = file["Fingerprints"]!.AsObject();
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         MediaFileFingerprint model = restored.MediaFingerprints[MediaUri("model.gltf")];
+        JsonObject sceneFile = ReadJson(sceneUri.LocalPath);
 
         Assert.Multiple(() =>
         {
             Assert.That(path, Is.EqualTo(Path.Combine(_root, "media-fingerprints.json")));
-            Assert.That(ReadJson(sceneUri.LocalPath).ContainsKey("MediaFingerprints"), Is.False);
-            Assert.That(file.Select(pair => pair.Key), Is.EqualTo(new[] { "Version", "Fingerprints" }));
+            Assert.That(sceneFile.ContainsKey("MediaFingerprints"), Is.False);
+            Assert.That(sceneFile.Select(pair => pair.Key).TakeLast(2), Is.EqualTo(new[] { "MediaFingerprintFile", "$type" }));
+            Assert.That(sceneFile["MediaFingerprintFile"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"));
+            Assert.That(file.Select(pair => pair.Key), Is.EqualTo(new[] { "Version", "Fingerprints", "$type" }));
             Assert.That(file["Version"]!.GetValue<int>(), Is.EqualTo(1));
+            Assert.That(file["$type"]!.GetValue<string>(), Is.EqualTo("[Beutl.ProjectSystem]:MediaFingerprintFile"));
             Assert.That(fingerprints.Select(pair => pair.Key), Is.EqualTo(new[] { "B.png", "a.png", "b.png", "model.gltf" }));
             Assert.That(fingerprints["model.gltf"]!["Dependencies"]!.AsObject().Select(pair => pair.Key),
                 Is.EqualTo(new[] { "model.bin", "textures/z.png" }));
@@ -119,128 +122,69 @@ public class MediaFingerprintPersistenceTests
     {
         // An explicit save writes the scene before its media are hashed; the background update then writes the
         // fingerprints. The next explicit save must leave both files as they are.
-        (Scene scene, _) = CreateSceneWithImage(_root);
+        (Scene scene, string media) = CreateSceneWithImage(_root);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
         byte[] savedScene = File.ReadAllBytes(scene.Uri.LocalPath);
         bool existedBeforeHashing = File.Exists(path);
+        int loadedBeforeHashing = CoreSerializer.RestoreFromUri<Scene>(scene.Uri).MediaFingerprints.Count;
         await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true);
 
         bool updated = MediaFingerprintFile.Update(scene.Uri, scene.Id, scene.MediaFingerprints);
         byte[] afterUpdate = File.ReadAllBytes(path);
+        Scene reopened = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
         CoreSerializer.StoreToUri(scene, scene.Uri);
 
         Assert.Multiple(() =>
         {
             Assert.That(existedBeforeHashing, Is.False, "A scene without fingerprints has no file.");
+            Assert.That(ReadJson(scene.Uri.LocalPath)["MediaFingerprintFile"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"),
+                "The scene file references the file all the same, so the next load finds the one the update writes.");
+            Assert.That(loadedBeforeHashing, Is.Zero, "A missing file reads as no fingerprints.");
             Assert.That(updated, Is.True);
+            Assert.That(reopened.MediaFingerprints.Keys, Is.EqualTo(new[] { new Uri(media).AbsoluteUri }));
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(afterUpdate));
             Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(savedScene));
         });
     }
 
     [Test]
-    public void SceneWithTimestampsFromAnEarlierBuild_StillLoads()
+    public async Task FingerprintsADevelopmentBuildKeptInTheSceneFile_AreIgnored_AndTheNextSaveDropsThem()
     {
-        var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
-        var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
-        CoreSerializer.StoreToUri(scene, sceneUri);
-        JsonObject json = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
-        json[nameof(Scene.MediaFingerprints)] = new JsonObject
+        (Scene scene, string media) = CreateSceneWithImage(_root);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        // As development builds since #2666 wrote it, here with the time that #2963 stopped saving.
+        WriteDevelopmentBuildScene(scene.Uri!, new JsonObject
         {
-            ["media.png"] = new JsonObject
+            ["image.png"] = new JsonObject
             {
                 [nameof(MediaFileFingerprint.Length)] = 42,
                 ["LastWriteTimeUtcTicks"] = 638000000000000000,
                 [nameof(MediaFileFingerprint.Sha256)] = "ABCDEF",
             },
-        };
-        File.WriteAllText(sceneUri.LocalPath, json.ToJsonString());
-
-        Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        MediaFileFingerprint fingerprint = restored.MediaFingerprints[new Uri(Path.Combine(_root, "media.png")).AbsoluteUri];
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(fingerprint.Length, Is.EqualTo(42));
-            Assert.That(fingerprint.Sha256, Is.EqualTo("ABCDEF"));
-            Assert.That(fingerprint.LastWriteTimeUtcTicks, Is.Zero, "The saved time is not used, so it is not read either.");
-        });
-    }
-
-    [Test]
-    public void EarlierBuilds_ReadFingerprintsWithoutTimestamps()
-    {
-        // Builds before this change declare the time as a constructor parameter. With the options the
-        // serializer uses, a missing value reads as 0 instead of failing.
-        JsonNode saved = JsonSerializer.SerializeToNode(new MediaFileFingerprint(42, 123, "ABCDEF"))!;
-
-        EarlierMediaFileFingerprint? earlier = saved.Deserialize<EarlierMediaFileFingerprint>(JsonHelper.SerializerOptions);
-
-        Assert.That(earlier, Is.EqualTo(new EarlierMediaFileFingerprint(42, 0, "ABCDEF")));
-    }
-
-    [Test]
-    public async Task FingerprintsADevelopmentBuildKeptInTheScene_MoveToTheirOwnFileOnTheNextSave()
-    {
-        (Scene scene, string media) = CreateSceneWithImage(_root);
-        await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true);
-        MediaFileFingerprint hashed = scene.MediaFingerprints[new Uri(media).AbsoluteUri];
-        CoreSerializer.StoreToUri(scene, scene.Uri!);
-        WriteDevelopmentBuildScene(scene.Uri!, new JsonObject
-        {
-            ["image.png"] = new JsonObject { ["Length"] = hashed.Length, ["Sha256"] = hashed.Sha256 },
         });
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
-        byte[] legacyScene = File.ReadAllBytes(scene.Uri.LocalPath);
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-        // The editor's background update finds the same fingerprints once the scene is open.
+        int loaded = restored.MediaFingerprints.Count;
+        await new MissingMediaService().UpdateFingerprintsAsync(restored, force: true);
+        // The scene file references no fingerprint file yet, so the editor's background update writes none.
         bool updated = MediaFingerprintFile.Update(scene.Uri, restored.Id, restored.MediaFingerprints);
-        bool createdByUpdate = File.Exists(path);
-        byte[] sceneAfterUpdate = File.ReadAllBytes(scene.Uri.LocalPath);
+        bool writtenByUpdate = File.Exists(path);
         CoreSerializer.StoreToUri(restored, scene.Uri);
-        Scene reopened = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        JsonObject saved = ReadJson(scene.Uri.LocalPath);
 
         Assert.Multiple(() =>
         {
             Assert.That(restored.Children, Has.Count.EqualTo(1));
-            Assert.That(restored.MediaFingerprints[new Uri(media).AbsoluteUri], Is.EqualTo(hashed with { LastWriteTimeUtcTicks = 0 }));
-            Assert.That(updated, Is.False, "Opening the scene changes nothing; its next save moves the fingerprints.");
-            Assert.That(createdByUpdate, Is.False);
-            Assert.That(sceneAfterUpdate, Is.EqualTo(legacyScene));
-            Assert.That(ReadJson(scene.Uri.LocalPath).ContainsKey("MediaFingerprints"), Is.False);
-            Assert.That(ReadFingerprints(path)["image.png"]!["Sha256"]!.GetValue<string>(), Is.EqualTo(hashed.Sha256));
-            Assert.That(reopened.MediaFingerprints[new Uri(media).AbsoluteUri], Is.EqualTo(hashed with { LastWriteTimeUtcTicks = 0 }));
-        });
-    }
-
-    [Test]
-    public async Task ChangedFingerprintsOfADevelopmentBuildScene_GoToTheirOwnFile()
-    {
-        (Scene scene, string media) = CreateSceneWithImage(_root);
-        CoreSerializer.StoreToUri(scene, scene.Uri!);
-        WriteDevelopmentBuildScene(scene.Uri!, new JsonObject
-        {
-            ["image.png"] = new JsonObject { ["Length"] = 1, ["Sha256"] = "OUTDATED" },
-        });
-        byte[] legacyScene = File.ReadAllBytes(scene.Uri!.LocalPath);
-        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-        await new MissingMediaService().UpdateFingerprintsAsync(restored, force: true);
-        string hash = restored.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256;
-
-        bool updated = MediaFingerprintFile.Update(scene.Uri, restored.Id, restored.MediaFingerprints);
-        Scene reopened = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(hash, Is.Not.EqualTo("OUTDATED"));
-            Assert.That(updated, Is.True);
-            Assert.That(ReadFingerprints(MediaFingerprintFile.GetPath(scene.Uri.LocalPath))["image.png"]!["Sha256"]!.GetValue<string>(),
-                Is.EqualTo(hash));
-            Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(legacyScene), "Only a save of the scene rewrites the scene file.");
-            Assert.That(reopened.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256, Is.EqualTo(hash),
-                "The file wins over the outdated copy in the scene file.");
+            Assert.That(loaded, Is.Zero, "Nothing is migrated from the scene file.");
+            Assert.That(updated, Is.False);
+            Assert.That(writtenByUpdate, Is.False);
+            Assert.That(saved.ContainsKey("MediaFingerprints"), Is.False, "A save writes only the keys a scene knows.");
+            Assert.That(saved["MediaFingerprintFile"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"));
+            Assert.That(ReadFingerprints(path)["image.png"]!["Sha256"]!.GetValue<string>(),
+                Is.EqualTo(restored.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256),
+                "The next scan of the media hashes them again.");
         });
     }
 
@@ -343,13 +287,10 @@ public class MediaFingerprintPersistenceTests
         });
     }
 
-    [TestCase(false, "null dependency")]
-    [TestCase(true, "null dependency")]
-    [TestCase(false, "null hash")]
-    [TestCase(true, "null hash")]
-    [TestCase(false, "empty hash")]
-    [TestCase(true, "empty hash")]
-    public async Task AnIncompleteFingerprint_IsSkippedOnLoading_AndTheNextSaveRewritesTheFile(bool inSceneFile, string gap)
+    [TestCase("null dependency")]
+    [TestCase("null hash")]
+    [TestCase("empty hash")]
+    public async Task AnIncompleteFingerprint_IsSkippedOnLoading_AndTheNextSaveRewritesTheFile(string gap)
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
         await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true);
@@ -372,8 +313,7 @@ public class MediaFingerprintPersistenceTests
         var fingerprints = (JsonObject)ReadFingerprints(path).DeepClone();
         fingerprints["direct.gltf"] = JsonNode.Parse(direct);
         fingerprints["nested.gltf"] = JsonNode.Parse(nested);
-        if (inSceneFile) WriteDevelopmentBuildScene(scene.Uri, fingerprints);
-        else File.WriteAllText(path, new JsonObject { ["Version"] = 1, ["Fingerprints"] = fingerprints }.ToJsonString());
+        File.WriteAllText(path, new JsonObject { ["Version"] = 1, ["Fingerprints"] = fingerprints }.ToJsonString());
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
         string[] loaded = [.. restored.MediaFingerprints.Keys];
@@ -383,7 +323,6 @@ public class MediaFingerprintPersistenceTests
         {
             Assert.That(loaded, Is.EqualTo(new[] { new Uri(media).AbsoluteUri }));
             Assert.That(ReadFingerprints(path).Select(pair => pair.Key), Is.EqualTo(new[] { "image.png" }));
-            Assert.That(ReadJson(scene.Uri.LocalPath).ContainsKey("MediaFingerprints"), Is.False);
         });
     }
 
@@ -400,7 +339,14 @@ public class MediaFingerprintPersistenceTests
         if (removeEveryFingerprint) scene.MediaFingerprints.Clear();
         else scene.MediaFingerprints[key] = scene.MediaFingerprints[key] with { Sha256 = "CHANGED" };
 
-        // As EditViewModel.SaveAsync does it: one transaction, with the scene file written last.
+        // As EditViewModel.SaveAsync does it: one transaction, the fingerprint file before the scene file, which
+        // it stores without SaveReferencedObjects.
+        void SaveAsTheEditorDoes()
+        {
+            scene.GetMediaFingerprintFile()!.Save();
+            CoreSerializer.StoreToUri(scene, scene.Uri, CoreSerializationMode.Write);
+        }
+
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
         using (StorageWriteTransaction.InjectFaultsForTesting((step, file) =>
                {
@@ -408,12 +354,12 @@ public class MediaFingerprintPersistenceTests
                        throw new IOException("Injected scene write failure.");
                }))
         {
-            Assert.Throws<IOException>(() => CoreSerializer.StoreToUri(scene, scene.Uri, CoreSerializationMode.Write));
+            Assert.Throws<IOException>(SaveAsTheEditorDoes);
             transaction.Rollback();
         }
 
         byte[] afterFailure = File.ReadAllBytes(path);
-        CoreSerializer.StoreToUri(scene, scene.Uri, CoreSerializationMode.Write);
+        SaveAsTheEditorDoes();
 
         Assert.Multiple(() =>
         {
@@ -425,8 +371,36 @@ public class MediaFingerprintPersistenceTests
         });
     }
 
-    // The shape of MediaFileFingerprint in the 2.x builds that saved LastWriteTimeUtcTicks.
-    private sealed record EarlierMediaFileFingerprint(long Length, long LastWriteTimeUtcTicks, string Sha256);
+    [Test]
+    public void AnEmbeddedSceneCarriesItsFingerprints_AndWritesNoFile()
+    {
+        // As the agent toolkit's documents and snapshot clones serialize a scene and read it back.
+        var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
+        var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+        scene.MediaFingerprints[MediaUri("a.png")] = new MediaFileFingerprint(1, 111, "AA");
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
+        {
+            BaseUri = sceneUri,
+            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+        });
+        JsonObject embedded = json["MediaFingerprintFile"]!.AsObject();
+        json["Uri"] = sceneUri.ToString();
+        var clone = (Scene)CoreSerializer.DeserializeFromJsonObject(json, typeof(Scene), new CoreSerializerOptions
+        {
+            BaseUri = sceneUri,
+            Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects,
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(embedded["Uri"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"));
+            Assert.That(embedded["Fingerprints"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "a.png" }));
+            Assert.That(clone.MediaFingerprints.Keys, Is.EqualTo(new[] { MediaUri("a.png") }));
+            Assert.That(clone.MediaFingerprints[MediaUri("a.png")], Is.EqualTo(new MediaFileFingerprint(1, 0, "AA")));
+            Assert.That(Directory.GetFiles(_root), Is.Empty);
+        });
+    }
 
     private string MediaUri(string name) => new Uri(Path.Combine(_root, name)).AbsoluteUri;
 
@@ -439,6 +413,7 @@ public class MediaFingerprintPersistenceTests
     private static void WriteDevelopmentBuildScene(Uri sceneUri, JsonObject fingerprints)
     {
         JsonObject json = ReadJson(sceneUri.LocalPath);
+        json.Remove("MediaFingerprintFile");
         json["MediaFingerprints"] = fingerprints;
         File.WriteAllText(sceneUri.LocalPath, json.ToJsonString(JsonHelper.SerializerOptions));
         File.Delete(MediaFingerprintFile.GetPath(sceneUri.LocalPath));
