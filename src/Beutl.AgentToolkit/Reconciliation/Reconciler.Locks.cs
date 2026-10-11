@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
@@ -31,13 +32,85 @@ public sealed partial class Reconciler
             return;
         }
 
-        ToolError? error = FindChangedLockedElement(session, scene, sandbox, lockedElements, currentDocument)
+        ToolError? error = FindDuplicatedLockedElement(scene, sandbox, lockedElements)
+                           ?? FindChangedLockedElement(session, scene, sandbox, lockedElements, currentDocument)
+                           ?? FindRegroupedLockedElement(scene, sandbox, lockedElements)
                            ?? FindUnlockedLayer(sandbox, lockedLayers)
                            ?? FindElementPlacedOnLockedLayer(scene, sandbox);
         if (error is not null)
         {
             throw new ReconcileException(error);
         }
+    }
+
+    // A corrupted project can repeat an element Id, and the applier then edits whichever copy comes
+    // first, so a locked copy cannot be told apart from the others. Refuse until the project is repaired.
+    private static ToolError? FindDuplicatedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        if (lockedElements.Length == 0)
+        {
+            return null;
+        }
+
+        Dictionary<Guid, int> currentCounts = CountIds(scene.Children);
+        Dictionary<Guid, int> appliedCounts = CountIds(sandbox.Children);
+        foreach (Element locked in lockedElements)
+        {
+            if (currentCounts.GetValueOrDefault(locked.Id) > 1 || appliedCounts.GetValueOrDefault(locked.Id) > 1)
+            {
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(locked)} is locked and shares its Id with another element, so its lock cannot be checked.",
+                    ElementTarget(locked),
+                    "The project has duplicate element Ids that must be repaired before an agent can edit this scene, for example by removing one copy in the timeline.");
+            }
+        }
+
+        return null;
+    }
+
+    // As in the editor (ElementStructureService.Group and Ungroup), a locked element is never added to a
+    // group, taken out of one or moved to another. Its group may only lose other members, and it may be
+    // left alone only when the others were deleted, since deleting an element prunes its group.
+    private static ToolError? FindRegroupedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        if (lockedElements.Length == 0 || (scene.Groups.Count == 0 && sandbox.Groups.Count == 0))
+        {
+            return null;
+        }
+
+        HashSet<Guid> remaining = sandbox.Children.Select(element => element.Id).ToHashSet();
+        foreach (Element locked in lockedElements)
+        {
+            ImmutableHashSet<Guid>? before = scene.Groups.FirstOrDefault(group => group.Contains(locked.Id));
+            ImmutableHashSet<Guid>? after = sandbox.Groups.FirstOrDefault(group => group.Contains(locked.Id));
+            bool kept = before is null
+                ? after is null
+                : after is not null
+                    ? after.IsSubsetOf(before)
+                    : !before.Any(id => id != locked.Id && remaining.Contains(id));
+            if (!kept)
+            {
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(locked)} is locked, so an agent cannot add it to a group, take it out of its group or move it to another.",
+                    ElementTarget(locked),
+                    $"Keep the Groups entry that holds this element as it is; other members may leave it. Or ask the user to unlock the element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    private static Dictionary<Guid, int> CountIds(IEnumerable<Element> elements)
+    {
+        var counts = new Dictionary<Guid, int>();
+        foreach (Element element in elements)
+        {
+            counts[element.Id] = counts.GetValueOrDefault(element.Id) + 1;
+        }
+
+        return counts;
     }
 
     internal static ToolError CreateLockedElementError(Scene scene, Element element, string target)

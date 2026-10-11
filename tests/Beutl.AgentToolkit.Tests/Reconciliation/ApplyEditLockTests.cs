@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
@@ -508,6 +509,151 @@ public sealed class ApplyEditLockTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain($"({element.Id}) is locked"));
             Assert.That(rect.FilterEffect.CurrentValue, Is.InstanceOf<LumaColor>());
+        });
+    }
+
+    // As in the editor, a locked element keeps its group: it is not added to one, not taken out of
+    // one, and not left behind when a full document drops Groups.
+    [TestCase("add")]
+    [TestCase("remove")]
+    [TestCase("drop")]
+    public void Apply_edit_refuses_to_regroup_a_locked_element(string edit)
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.IsLocked = true;
+        Element first = AddElement(scene, "First", zIndex: 1);
+        Element second = AddElement(scene, "Second", zIndex: 2);
+        if (edit != "add")
+        {
+            scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id, second.Id));
+        }
+
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+
+        ToolResult<ApplyEditResponse> result;
+        if (edit == "drop")
+        {
+            JsonObject desired = session.Documents.Read(scene);
+            desired.Remove("Groups");
+            result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        }
+        else
+        {
+            string group = edit == "add" ? $"{locked.Id}:{first.Id}" : $"{first.Id}:{second.Id}";
+            result = tools.ApplyEdit(
+                patch: new JsonObject { ["Groups"] = new JsonArray(group) },
+                schemaVersion: SchemaVersion.Current);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked, so an agent cannot add it to a group"));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+        });
+    }
+
+    // Other members may leave a locked element's group, and deleting the last of them dissolves it,
+    // as in the editor.
+    [TestCase("leave")]
+    [TestCase("delete")]
+    public void Apply_edit_lets_other_members_leave_a_locked_elements_group(string edit)
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.IsLocked = true;
+        Element first = AddElement(scene, "First", zIndex: 1);
+        Element second = AddElement(scene, "Second", zIndex: 2);
+        scene.Groups.Add(edit == "leave"
+            ? ImmutableHashSet.Create(locked.Id, first.Id, second.Id)
+            : ImmutableHashSet.Create(locked.Id, first.Id));
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: edit == "leave"
+                ? new JsonObject { ["Groups"] = new JsonArray($"{locked.Id}:{second.Id}") }
+                : ElementPatch(first, new JsonObject { ["$delete"] = true }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            if (edit == "leave")
+            {
+                Assert.That(scene.Groups.Single(), Is.EquivalentTo(new[] { locked.Id, second.Id }));
+            }
+            else
+            {
+                Assert.That(scene.Groups, Is.Empty);
+                Assert.That(scene.Children, Does.Not.Contain(first));
+            }
+        });
+    }
+
+    // A corrupted project can repeat an element Id, and the applier edits whichever copy comes first.
+    // This edit renames the locked second copy and locks the first one so that the copies look alike.
+    [Test]
+    public void Apply_edit_refuses_edits_while_a_locked_element_shares_its_id()
+    {
+        Scene scene = CreateScene();
+        Element first = AddElement(scene, "A", zIndex: 0);
+        Element locked = AddElement(scene, "B", zIndex: 1);
+        locked.Id = first.Id;
+        locked.IsLocked = true;
+        AddElement(scene, "Y", zIndex: 2);
+        AddElement(scene, "Z", zIndex: 3);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonArray elements = desired["Elements"]!.AsArray();
+        JsonObject original = elements[0]!.DeepClone().AsObject();
+        JsonObject renamed = original.DeepClone().AsObject();
+        renamed[nameof(CoreObject.Name)] = "C";
+        original[nameof(Element.IsLocked)] = true;
+        JsonObject lockedCopy = elements[1]!.DeepClone().AsObject();
+        lockedCopy[nameof(CoreObject.Name)] = "E";
+        // The first two entries with the Id edit the first copy; once it has moved behind the locked
+        // copy, the last entry edits the locked one.
+        desired["Elements"] = new JsonArray(renamed, elements[2]!.DeepClone(), original, lockedCopy);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain("shares its Id with another element"));
+            Assert.That(result.Error.Hint, Does.Contain("duplicate element Ids"));
+            Assert.That(locked.Name, Is.EqualTo("B"));
+            Assert.That(scene.Children, Has.Count.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_refuses_a_second_element_with_the_id_of_a_locked_element()
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+        JsonObject desired = session.Documents.Read(scene);
+        JsonObject copy = desired["Elements"]![0]!.DeepClone().AsObject();
+        copy[nameof(CoreObject.Name)] = "Copy";
+        copy[nameof(Element.ZIndex)] = 1;
+        desired["Elements"]!.AsArray().Add(copy);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
         });
     }
 
