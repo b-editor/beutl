@@ -121,6 +121,43 @@ public class SceneTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SceneReload_PreservesRestoredChildWithDifferentPathCasing(bool replace)
+    {
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+            Assert.Ignore("Case-insensitive element paths are supported on Windows and macOS.");
+
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "child.belm")) };
+        scene.Children.Add(element);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        scene.Children.Remove(element);
+        File.Delete(element.Uri.LocalPath);
+        element.Uri = new Uri(Path.Combine(_tempDirectory, "elements", "CHILD.belm"));
+        if (replace)
+        {
+            scene.Children.Add(new Element());
+            scene.Children[0] = element;
+        }
+        else
+        {
+            scene.Children.Add(element);
+        }
+
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
+            Assert.That(patterns["Exclude"], Is.Null);
+        });
+    }
+
     [Test]
     public void Element_patterns_normalize_legacy_backslashes_when_stored()
     {

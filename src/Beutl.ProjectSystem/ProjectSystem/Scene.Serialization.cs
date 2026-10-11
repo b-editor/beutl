@@ -223,7 +223,7 @@ public partial class Scene
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
         var elementPaths = Children.Select(item => NormalizeElementPattern(
-            Path.GetRelativePath(dirPath, item.Uri!.LocalPath))).ToHashSet(StringComparer.Ordinal);
+            Path.GetRelativePath(dirPath, item.Uri!.LocalPath))).ToHashSet(s_elementPathComparer);
 
         // Attached children must not retain exclusions left by an earlier removal.
         _excludeElements.RemoveAll(elementPaths.Contains);
