@@ -669,6 +669,34 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // A corrupted project can repeat a layer Id; then the copy that stays vouches for the locked copy a
+    // full document removes.
+    [Test]
+    public void Apply_edit_refuses_edits_while_a_locked_layer_shares_its_id()
+    {
+        Scene scene = CreateScene();
+        AddElement(scene, "Title", zIndex: 0);
+        var kept = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
+        var removed = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true, Name = "Copy" };
+        removed.Id = kept.Id;
+        scene.Layers.Add(kept);
+        scene.Layers.Add(removed);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        JsonObject desired = session.Documents.Read(scene);
+        desired["Layers"]!.AsArray().RemoveAt(1);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain("shares its Id with another layer"));
+            Assert.That(result.Error.Hint, Does.Contain("duplicate layer Ids"));
+            Assert.That(scene.Layers, Has.Count.EqualTo(2));
+        });
+    }
+
     [Test]
     public void Apply_edit_refuses_a_second_element_with_the_id_of_a_locked_element()
     {

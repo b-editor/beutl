@@ -35,7 +35,7 @@ public sealed partial class Reconciler
         ToolError? error = FindDuplicatedLockedElement(scene, sandbox, lockedElements)
                            ?? FindChangedLockedElement(session, scene, sandbox, lockedElements, currentDocument)
                            ?? FindRegroupedLockedElement(scene, sandbox, lockedElements)
-                           ?? FindUnlockedLayer(sandbox, lockedLayers)
+                           ?? FindUnlockedLayer(scene, sandbox, lockedLayers)
                            ?? FindElementPlacedOnLockedLayer(scene, sandbox);
         if (error is not null)
         {
@@ -186,10 +186,22 @@ public sealed partial class Reconciler
 
     // A locked layer keeps its row and its lock. Its Name, Color and mute and solo flags stay editable,
     // as in the timeline.
-    private static ToolError? FindUnlockedLayer(Scene sandbox, TimelineLayer[] lockedLayers)
+    private static ToolError? FindUnlockedLayer(Scene scene, Scene sandbox, TimelineLayer[] lockedLayers)
     {
         foreach (TimelineLayer locked in lockedLayers)
         {
+            // As with duplicate element Ids, only a corrupted project repeats a layer Id, and then one copy
+            // could vouch for another that the edit removed. Refuse until the project is repaired.
+            if (scene.Layers.Count(layer => layer.Id == locked.Id) > 1
+                || sandbox.Layers.Count(layer => layer.Id == locked.Id) > 1)
+            {
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Layer {locked.ZIndex} is locked and shares its Id with another layer, so its lock cannot be checked.",
+                    $"$/Layers[Id={locked.Id}]",
+                    "The project has duplicate layer Ids that must be repaired before an agent can edit this scene.");
+            }
+
             if (!sandbox.Layers.Any(layer => layer.Id == locked.Id && layer.IsLocked && layer.ZIndex == locked.ZIndex))
             {
                 return new ToolError(
