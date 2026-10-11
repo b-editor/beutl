@@ -1,9 +1,12 @@
 ﻿using System.Net.Http.Headers;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml;
 using System.Xml.Linq;
 
 using Beutl.Api.Objects;
+using Beutl.IO;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using NuGet.Configuration;
@@ -95,11 +98,19 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         XDocument? document = null;
         if (File.Exists(configPath))
         {
-            string content = File.ReadAllText(configPath);
-            // Older configs without <clear> were regenerated, even if they were incomplete.
-            if (content.Contains("<clear", StringComparison.Ordinal))
+            try
             {
-                document = XDocument.Parse(content, LoadOptions.PreserveWhitespace);
+                // Let the XML reader honor the declared encoding, including files without a BOM.
+                document = XDocument.Load(configPath, LoadOptions.PreserveWhitespace);
+            }
+            catch (XmlException) when (!File.ReadAllText(configPath).Contains("<clear", StringComparison.Ordinal))
+            {
+                // Older configs without <clear> were regenerated, even if they were incomplete.
+            }
+
+            // Retain the legacy regeneration check after decoding the XML.
+            if (document?.ToString(SaveOptions.DisableFormatting).Contains("<clear", StringComparison.Ordinal) == true)
+            {
                 XElement? sources = document.Root?.Element("packageSources");
                 bool changed = false;
                 foreach (XElement source in sources?.Elements("add") ?? [])
@@ -117,23 +128,48 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 if (!changed)
                     return;
             }
+            else
+            {
+                document = null;
+            }
         }
 
         document ??= XDocument.Parse(DefaultNuGetConfigContent);
-        string temporaryPath = configPath + $".{Guid.NewGuid():N}.tmp";
-        try
+        // Stage beside the resolved target so replacing a linked config preserves the link.
+        using var output = new StagedOutputFile(configPath);
+        using (FileStream stream = CreateNuGetConfigTemporaryFile(output))
         {
-            using (FileStream stream = new(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                document.Save(stream, SaveOptions.DisableFormatting);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporaryPath, configPath, overwrite: true);
+            document.Save(stream, SaveOptions.DisableFormatting);
+            stream.Flush(flushToDisk: true);
         }
-        finally
+
+        if (OperatingSystem.IsWindows() && File.Exists(output.DestinationPath))
         {
-            File.Delete(temporaryPath);
+            // ReplaceFile preserves the destination's DACL, including explicit access rules.
+            File.Replace(output.TemporaryPath, output.DestinationPath, destinationBackupFileName: null);
         }
+        else
+        {
+            // StagedOutputFile restores existing Unix permissions before publication.
+            output.Commit(CancellationToken.None);
+        }
+    }
+
+    private static FileStream CreateNuGetConfigTemporaryFile(StagedOutputFile output)
+    {
+        if (OperatingSystem.IsWindows() && File.Exists(output.DestinationPath))
+        {
+            FileSecurity security = new FileInfo(output.DestinationPath).GetAccessControl(AccessControlSections.Access);
+            // Do not inherit broader access from the staging directory while writing credentials.
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: true);
+            return new FileInfo(output.TemporaryPath).Create(FileMode.CreateNew, FileSystemRights.Write,
+                FileShare.None, 4096, FileOptions.None, security);
+        }
+
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        return new FileStream(output.TemporaryPath, options);
     }
 
     private static void CreateLocalSourceDirectory()
