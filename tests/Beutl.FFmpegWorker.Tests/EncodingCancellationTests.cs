@@ -215,6 +215,61 @@ public class EncodingCancellationTests
         }
     }
 
+    // The audio format editor switches to Auto when the codec lacks the current format. The default
+    // encoders for .wav (pcm_s16le) and .webm (libopus) lack fltp, so both are exported with Auto.
+    [TestCase("auto.wav")]
+    [TestCase("auto.webm")]
+    public async Task Encode_WithTheAutoAudioFormat_WritesTheAudio(string fileName)
+    {
+        if (!s_ffmpegAvailable.Value)
+            Assert.Ignore("FFmpeg native libraries are not available.");
+
+        string outputPath = Path.Combine(_workDir, fileName);
+        OutputFormat outFormat = OutputFormat.GuessFormat(null, outputPath, null);
+        if (MediaCodec.FindEncoder(outFormat.AudioCodec) == null
+            || (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE && MediaCodec.FindEncoder(outFormat.VideoCodec) == null))
+        {
+            Assert.Ignore($"This FFmpeg build has no default encoders for {Path.GetExtension(fileName)}.");
+        }
+
+        // libopus takes 48 kHz but not 44.1 kHz
+        const int sampleRate = 48000;
+        const int sampleCount = 4800;
+        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
+        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
+        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate = new Rational(30, 1);
+        controller.AudioSettings.SampleRate = sampleRate;
+        controller.AudioSettings.Channels = 2;
+        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        // libvpx-vp9 cannot parse the default H.264 option profile=high (#2898)
+        controller.VideoSettings.Options.Remove(controller.VideoSettings.Options.Single(o => o.Name == "profile"));
+        using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
+        using var samples = new SineSampleProvider(sampleCount, sampleRate);
+
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using MediaDemuxer demuxer = MediaDemuxer.Open(outputPath);
+        MediaStream audio = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO);
+        // Encoders pad the last frame, and PCM is written in 10,000-sample frames
+        Assert.That(CountDecodedSamples(demuxer, audio), Is.GreaterThanOrEqualTo(sampleCount * 9 / 10));
+    }
+
+    private static long CountDecodedSamples(MediaDemuxer demuxer, MediaStream stream)
+    {
+        long count = 0;
+        using MediaDecoder decoder = MediaDecoder.CreateDecoder(stream.CodecparRef);
+        using var frame = new MediaFrame();
+        foreach (MediaPacket packet in demuxer.ReadPackets())
+        {
+            if (packet.StreamIndex == stream.Index)
+                count += decoder.DecodePacket(packet, frame).Sum(f => (long)f.NbSamples);
+        }
+
+        // A null packet drains the frames the decoder still holds.
+        return count + decoder.DecodePacket(null, frame).Sum(f => (long)f.NbSamples);
+    }
+
     // Decodes the audio stream and returns the RMS level of each channel, keyed by speaker position.
     private static unsafe Dictionary<AVChannel, double> MeasureChannelLevels(MediaDemuxer demuxer, MediaStream stream)
     {
