@@ -150,11 +150,38 @@ public sealed class VideoSource : MediaSource
                     return;
                 }
 
-                ProxyResolution = _counter.Value.ProxyResolution;
+                var reader = _counter.Value;
+                // Audio-only containers can open successfully without exposing VideoInfo. Reject
+                // both new and shared readers before reading metadata or publishing a new counter.
+                if (!reader.HasVideo)
+                {
+                    SetOffline(videoSource, context, proxyResolverVersion);
+                    return;
+                }
 
-                Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
-                FrameRate = _counter.Value.VideoInfo.FrameRate;
-                FrameSize = _counter.Value.VideoInfo.FrameSize;
+                ProxyResolution = reader.ProxyResolution;
+
+                // DisableResourceShare 時、またはプロキシ優先だがプロキシ解決に至らなかった場合は
+                // WeakReference を書き換えない。他 Renderer（プレビュー側）の共有カウンタを
+                // エンコード専用／原本フォールバックのカウンタで汚染してしまうため。
+                if (shared is null && !context.DisableResourceShare
+                    && (!context.PreferProxy || ProxyResolution != null))
+                {
+                    // Record the version/preset/ref this shared reader was opened with, before
+                    // publishing it, so a later fresh Resource can validate reuse against it. The
+                    // version is written LAST as the single "all valid" signal: the reuse guard
+                    // reads version first, so a reader observing the fresh version is then
+                    // guaranteed to also see the matching preset AND the new ref. Writing the ref
+                    // after the version would let a reuser pass the version/preset guard yet still
+                    // read the previous preset's ref and decode from the wrong-density proxy.
+                    Volatile.Write(ref videoSource._sharedReaderProxyPreset, (int)context.PreferredProxyPreset);
+                    Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
+                    Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
+                }
+
+                Duration = TimeSpan.FromSeconds(reader.VideoInfo.Duration.ToDouble());
+                FrameRate = reader.VideoInfo.FrameRate;
+                FrameSize = reader.VideoInfo.FrameSize;
                 LogicalFrameSize = ProxyResolution?.OriginalLogicalFrameSize ?? FrameSize;
                 RecordLoadedState(videoSource, context, proxyResolverVersion);
 
@@ -244,37 +271,26 @@ public sealed class VideoSource : MediaSource
                 };
                 var reader = MediaReader.Open(videoSource.Uri.LocalPath, options);
                 _counter = new Counter<MediaReader>(reader, null);
-                // DisableResourceShare 時、またはプロキシ優先だがプロキシ解決に至らなかった場合は
-                // WeakReference を書き換えない。他 Renderer（プレビュー側）の共有カウンタを
-                // エンコード専用／原本フォールバックのカウンタで汚染してしまうため。
-                if (!context.DisableResourceShare
-                    && (!context.PreferProxy || reader.ProxyResolution != null))
-                {
-                    // Record the version/preset/ref this shared reader was opened with, before
-                    // publishing it, so a later fresh Resource can validate reuse against it. The
-                    // version is written LAST as the single "all valid" signal: the reuse guard
-                    // reads version first, so a reader observing the fresh version is then
-                    // guaranteed to also see the matching preset AND the new ref. Writing the ref
-                    // after the version would let a reuser pass the version/preset guard yet still
-                    // read the previous preset's ref and decode from the wrong-density proxy.
-                    Volatile.Write(ref videoSource._sharedReaderProxyPreset, (int)context.PreferredProxyPreset);
-                    Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
-                    Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);
-                }
             }
             catch
             {
-                _counter = null;
-                _offlineBitmap = Ref<Bitmap>.Create(OfflineMediaPlaceholder.CreateBitmap());
-                FrameSize = LogicalFrameSize = OfflineMediaPlaceholder.Size;
-                Duration = TimeSpan.Zero;
-                FrameRate = new Rational(30, 1);
-                Version++;
-                RecordLoadedState(videoSource, context, proxyResolverVersion);
+                SetOffline(videoSource, context, proxyResolverVersion);
                 return false;
             }
 
             return true;
+        }
+
+        private void SetOffline(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
+        {
+            _counter?.Release();
+            _counter = null;
+            _offlineBitmap = Ref<Bitmap>.Create(OfflineMediaPlaceholder.CreateBitmap());
+            FrameSize = LogicalFrameSize = OfflineMediaPlaceholder.Size;
+            Duration = TimeSpan.Zero;
+            FrameRate = new Rational(30, 1);
+            Version++;
+            RecordLoadedState(videoSource, context, proxyResolverVersion);
         }
 
         private void RecordLoadedState(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
