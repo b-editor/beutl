@@ -131,62 +131,102 @@ public class LinuxDefaultFontTests
         try
         {
             var elapsed = Stopwatch.StartNew();
-            SKTypeface face = DefaultFontResolver.Resolve(executable, timeoutMilliseconds: 500);
+            // Allow the command the same startup budget as a real font query on a busy runner.
+            SKTypeface face = DefaultFontResolver.Resolve(executable);
+            (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
+            Assert.That(identity, Is.Not.Null,
+                "The sleeper must record its PID and start time before its termination can be verified.");
 
             Assert.Multiple(() =>
             {
                 Assert.That(face, Is.SameAs(SKTypeface.Default));
                 Assert.That(elapsed.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
-                Assert.That(SpinWait.SpinUntil(() => !IsRecordedProcessRunning(identityFile), 1000), Is.True,
+                Assert.That(SpinWait.SpinUntil(() => !IsRecordedProcessRunning(identity!.Value), 1000), Is.True,
                     "The original sleep process must stop even if its parent has already exited.");
             });
         }
         finally
         {
             // A failing regression check must not leave the sleeper running.
-            if (File.Exists(identityFile) && IsRecordedProcessRunning(identityFile))
+            if (ReadRecordedProcessIdentity(identityFile) is { } identity && IsRecordedProcessRunning(identity))
             {
-                int pid = int.Parse(File.ReadAllText(identityFile).Split(' ')[0]);
-                using var process = Process.GetProcessById(pid);
+                using var process = Process.GetProcessById(identity.Pid);
                 process.Kill(entireProcessTree: true);
             }
         }
     }
 
     [Test]
-    public void MissingProcessIdentity_IsNotRunning()
+    public void MissingProcessIdentity_CannotVerifyTermination()
     {
-        Assert.That(IsRecordedProcessRunning(Path.Combine(_directory, "missing-process")), Is.False);
+        Assert.That(ReadRecordedProcessIdentity(Path.Combine(_directory, "missing-process")), Is.Null);
     }
 
     [TestCase(false)]
     [TestCase(true)]
-    public void IncompleteProcessIdentity_IsNotRunning(bool partial)
+    public void IncompleteProcessIdentity_CannotVerifyTermination(bool partial)
     {
         string identityFile = Path.Combine(_directory, "incomplete-process");
         File.WriteAllText(identityFile, partial ? $"{Environment.ProcessId} (sh) R" : "");
-        Assert.That(IsRecordedProcessRunning(identityFile), Is.False);
+        Assert.That(ReadRecordedProcessIdentity(identityFile), Is.Null);
     }
 
-    private static bool IsRecordedProcessRunning(string identityFile)
+    [Test]
+    public void CompleteProcessIdentity_DetectsTheRunningProcess()
     {
-        string[] before;
-        string current;
+        string identityFile = Path.Combine(_directory, "running-process");
+        File.WriteAllText(identityFile, File.ReadAllText($"/proc/{Environment.ProcessId}/stat"));
+        (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
+        Assert.That(identity, Is.Not.Null);
+        Assert.That(IsRecordedProcessRunning(identity!.Value), Is.True);
+    }
+
+    [Test]
+    public void CompleteProcessIdentity_WithMissingProcEntry_VerifiesTermination()
+    {
+        string identityFile = Path.Combine(_directory, "stopped-process");
+        string current = File.ReadAllText($"/proc/{Environment.ProcessId}/stat");
+        // Linux's maximum PID is much smaller than int.MaxValue, so this /proc entry cannot exist.
+        File.WriteAllText(identityFile, int.MaxValue + current[current.IndexOf(' ')..]);
+        (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
+        Assert.That(identity, Is.Not.Null);
+        Assert.That(IsRecordedProcessRunning(identity!.Value), Is.False);
+    }
+
+    private static (int Pid, ulong StartTime)? ReadRecordedProcessIdentity(string identityFile)
+    {
         try
         {
             string recorded = File.ReadAllText(identityFile);
             int start = recorded.LastIndexOf(')') + 2;
             if (start < 2 || start >= recorded.Length)
-                return false;
+                return null;
 
-            before = recorded[start..].Split(' ');
-            if (before.Length <= 19)
-                return false;
+            string[] fields = recorded[start..].Split(' ');
+            if (fields.Length <= 19 || !ulong.TryParse(fields[19], out ulong startTime)
+                || !int.TryParse(recorded.Split(' ')[0], out int pid) || pid <= 0)
+                return null;
 
-            string pid = recorded.Split(' ')[0];
-            current = File.ReadAllText($"/proc/{pid}/stat");
+            return (pid, startTime);
         }
         catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsRecordedProcessRunning((int Pid, ulong StartTime) identity)
+    {
+        string current;
+        try
+        {
+            current = File.ReadAllText($"/proc/{identity.Pid}/stat");
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (DirectoryNotFoundException)
         {
             return false;
         }
@@ -197,7 +237,8 @@ public class LinuxDefaultFontTests
             return false;
 
         string[] after = current[currentStart..].Split(' ');
-        return after.Length > 19 && before[19] == after[19] && after[0] != "Z";
+        return after.Length > 19 && ulong.TryParse(after[19], out ulong startTime)
+            && identity.StartTime == startTime && after[0] != "Z";
     }
 
     private async Task RunWorkerAsync(bool familyFirst, string expected)
