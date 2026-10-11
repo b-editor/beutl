@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl;
 
 namespace Beutl.Configuration;
@@ -69,6 +70,15 @@ public sealed class ProxyStoreConfig : ConfigurationBase
         // NaN is not orderable, so Math.Clamp would return it unchanged; +/-Infinity saturate.
         double safeGiB = double.IsNaN(gib) ? DefaultTotalBytes / bytesPerGiB : Math.Clamp(gib, minGiB, maxGiB);
         return (long)Math.Round(safeGiB * bytesPerGiB);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is not (nameof(Id) or nameof(Name)))
+        {
+            OnChanged();
+        }
     }
 
     private static string NormalizeStoreRootPath(string? value)

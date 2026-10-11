@@ -1,4 +1,6 @@
-﻿namespace Beutl.Configuration;
+﻿using System.ComponentModel;
+
+namespace Beutl.Configuration;
 
 public sealed class GraphicsConfig : ConfigurationBase
 {
@@ -19,5 +21,15 @@ public sealed class GraphicsConfig : ConfigurationBase
     {
         get => GetValue(SelectedGpuNameProperty);
         set => SetValue(SelectedGpuNameProperty, value);
+    }
+
+    // Read once at startup, so a change has to reach settings.json before Beutl next starts.
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is not (nameof(Id) or nameof(Name)))
+        {
+            OnChanged();
+        }
     }
 }
