@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml.Linq;
 
 using Beutl.Api.Objects;
 using Beutl.Logging;
@@ -45,11 +46,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     internal Action? AfterSuccessfulInstallFallbackDisarmed { get; set; }
 
-    private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
+    private const string DefaultNuGetConfigContent = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
     <clear />
-    <add key=""Beutl Local Packages"" value=""{0}"" />
+    <add key=""Beutl Local Packages"" value=""packageSource"" />
     <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" protocolVersion=""3"" />
   </packageSources>
 </configuration>
@@ -91,28 +92,47 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
     private static void EnsureNuGetConfig(string configPath)
     {
+        XDocument? document = null;
         if (File.Exists(configPath))
         {
-            using (StreamReader reader = File.OpenText(configPath))
+            string content = File.ReadAllText(configPath);
+            // Older configs without <clear> were regenerated, even if they were incomplete.
+            if (content.Contains("<clear", StringComparison.Ordinal))
             {
-                while (reader.ReadLine() is string line)
+                document = XDocument.Parse(content, LoadOptions.PreserveWhitespace);
+                XElement? sources = document.Root?.Element("packageSources");
+                bool changed = false;
+                foreach (XElement source in sources?.Elements("add") ?? [])
                 {
-                    if (line.Contains("<clear"))
+                    if ((string?)source.Attribute("key") == "Beutl Local Packages"
+                        && (string?)source.Attribute("value") != "packageSource")
                     {
-                        return;
+                        // NuGet resolves relative sources against the config directory, so this
+                        // follows BEUTL_HOME even after the whole home directory is moved again.
+                        source.SetAttributeValue("value", "packageSource");
+                        changed = true;
                     }
                 }
-            }
 
-            File.Delete(configPath);
+                if (!changed)
+                    return;
+            }
         }
 
-        if (!File.Exists(configPath))
+        document ??= XDocument.Parse(DefaultNuGetConfigContent);
+        string temporaryPath = configPath + $".{Guid.NewGuid():N}.tmp";
+        try
         {
-            using (StreamWriter writer = File.CreateText(configPath))
+            using (FileStream stream = new(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
+                document.Save(stream, SaveOptions.DisableFormatting);
+                stream.Flush(flushToDisk: true);
             }
+            File.Move(temporaryPath, configPath, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
         }
     }
 
