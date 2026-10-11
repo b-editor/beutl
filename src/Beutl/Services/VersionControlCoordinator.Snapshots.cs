@@ -132,6 +132,73 @@ internal partial class VersionControlCoordinator
         }
     }
 
+    // Saves made while another operation holds the gate share one snapshot, which runs once that
+    // operation has finished and records the project files as they are by then. A project close or
+    // the disposal drops it; the close records its own snapshot.
+    private void DeferSaveSnapshot()
+    {
+        if (_saveSnapshotDeferred)
+        {
+            return;
+        }
+
+        _saveSnapshotDeferred = true;
+        _ = RunDeferredSaveSnapshotAsync(_projectService.CurrentProject.Value);
+    }
+
+    private async Task RunDeferredSaveSnapshotAsync(Project? savedProject)
+    {
+        using RunningWork work = BeginWork();
+        OperationLease operation;
+        try
+        {
+            operation = await BeginOperationAsync(CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
+        {
+            // A close canceled the wait or had begun, or the coordinator was disposed.
+            _saveSnapshotDeferred = false;
+            _logger.LogInformation(
+                "Dropped the deferred {SnapshotKind} project snapshot because the project is closing.",
+                SnapshotKind.Save);
+            return;
+        }
+
+        using (operation)
+        {
+            // A save from here on defers a snapshot of its own, which runs after this one.
+            _saveSnapshotDeferred = false;
+            if (!_config.AutoCommitOnSave
+                || !ReferenceEquals(_projectService.CurrentProject.Value, savedProject))
+            {
+                return;
+            }
+
+            try
+            {
+                // A save still writing finishes first, and none can start until the snapshot ends.
+                using IProjectFileWriteLease write =
+                    await _editorService.BeginProjectFileWriteAsync(operation.CancellationToken);
+                await CommitSnapshotAsync(
+                    enabled: true,
+                    SaveSnapshotMessage,
+                    SnapshotKind.Save,
+                    write,
+                    operation.CancellationToken);
+            }
+            catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to create the deferred {SnapshotKind} project snapshot.",
+                    SnapshotKind.Save);
+            }
+        }
+    }
+
     // Names what stopped the snapshot, such as the output of a pre-commit hook that rejected it, so
     // the user knows what to fix before saving again.
     private static string FormatSnapshotFailure(Exception exception)

@@ -76,6 +76,25 @@ internal partial class VersionControlCoordinator
         }
     }
 
+    // Takes the operation gate only if it is free, and returns null when another operation holds it.
+    // The lease's token ends as BeginOperationAsync's does for an operation that is not a lifecycle one.
+    private OperationLease? TryBeginOperation(CancellationToken cancellationToken)
+    {
+        ThrowIfOperationUnavailable(lifecycle: false);
+        cancellationToken.ThrowIfCancellationRequested();
+        CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _lifetimeCancellation.Token,
+            _operationEpochCancellation.Token);
+        if (!_operationGate.Wait(0))
+        {
+            cancellation.Dispose();
+            return null;
+        }
+
+        return new OperationLease(this, cancellation);
+    }
+
     // A lifecycle operation reports a close in progress as the project changing under it.
     private void ThrowIfOperationUnavailable(bool lifecycle)
     {
