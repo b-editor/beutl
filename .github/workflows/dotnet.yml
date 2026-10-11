@@ -65,6 +65,11 @@ jobs:
       - name: Verify test sharding
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
 
+      # A pin outside the branch .gitmodules declares stays fetchable only while another branch holds
+      # it, and `git submodule update --remote` or Dependabot would replace it with that branch's head.
+      - name: Verify submodule pins are on their declared branches
+        run: python3 .github/scripts/check_submodules.py
+
       - name: Restore NuGet cache
         id: nuget-cache
         uses: actions/cache/restore@v6.1.0
