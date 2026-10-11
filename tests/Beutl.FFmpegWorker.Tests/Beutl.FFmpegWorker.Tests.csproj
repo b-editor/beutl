@@ -56,6 +56,15 @@
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
   </ItemGroup>
 
+  <!-- The worker's decoding message handler, driven in-process to order a read against a parallel close. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\DecodingHandler.cs" Link="Linked\DecodingHandler.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\DecodingHandler.ReaderState.cs" Link="Linked\DecodingHandler.ReaderState.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\VideoRingBuffer.cs" Link="Linked\VideoRingBuffer.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\ColorSpaceIpcHelper.cs" Link="Linked\ColorSpaceIpcHelper.cs" />
+    <None Include="..\Beutl.FFmpegIpc.Tests\Fixtures\mf-unsupported.flv" Link="Fixtures\mf-unsupported.flv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
