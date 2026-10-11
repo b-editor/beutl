@@ -251,6 +251,41 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(node.ActiveGeneration, Is.SameAs(latest));
     }
 
+    // The runner renews the key seed in the same step that adds the result. The server answers a key it has already
+    // seen with the earlier job, so undoing the step must not put back the seed its request was sent with.
+    [Test]
+    public async Task UndoingAGenerationDoesNotBringBackTheKeyItsRequestUsed()
+    {
+        var model = new GraphModel();
+        var node = new AiImageGenerationNode();
+        node.Prompt.Property!.SetValue("a cat");
+        model.Nodes.Add(node);
+        var sequence = new OperationSequenceGenerator();
+        using var history = new HistoryManager(model, sequence);
+        using var observer = new CoreObjectOperationObserver(null, model, sequence);
+        history.Subscribe(observer);
+        var executor = new FakeExecutor(_directory);
+
+        await new GenerativeGraphRunner(executor, new InlineHost { History = history })
+            .RunAsync(model, null, force: false, CancellationToken.None);
+        string sent = executor.Requests.Single().RequestKeySeed;
+        Assert.That(history.UndoCount, Is.EqualTo(1));
+
+        history.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.ActiveGeneration, Is.Null, "undo takes the generation back");
+            Assert.That(node.RequestKeySeed, Is.Not.EqualTo(sent));
+        });
+
+        history.Redo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.ActiveGeneration, Is.Not.Null, "redo brings the generation back");
+            Assert.That(node.RequestKeySeed, Is.Not.EqualTo(sent));
+        });
+    }
+
     [Test]
     public async Task PreviewMonitorShowsTheActiveGeneration()
     {
@@ -811,6 +846,8 @@ public sealed class GenerativeGraphRunnerTests
     {
         public int Commits { get; private set; }
 
+        public HistoryManager? History { get; init; }
+
         public TimeSpan CurrentTime { get; set; } = TimeSpan.Zero;
 
         public Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func) => Task.FromResult(func());
@@ -821,6 +858,10 @@ public sealed class GenerativeGraphRunnerTests
             return Task.CompletedTask;
         }
 
-        public void CommitHistory(string name) => Commits++;
+        public void CommitHistory(string name)
+        {
+            Commits++;
+            History?.Commit(name);
+        }
     }
 }

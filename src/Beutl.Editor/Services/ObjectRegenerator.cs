@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
+using Beutl.NodeGraph.Generative;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -63,6 +64,14 @@ public static class ObjectRegenerator
         }
     }
 
+    // The server answers an idempotency key it has already seen with the earlier job, so an AI node in a copy must
+    // not send its first request under the original's key. The key's seed is not an Id, so it is renewed here.
+    internal static void RenewRequestKeys(object copy)
+    {
+        foreach (object node in new ObjectSearcher(copy, static v => v is GenerativeNode).SearchAll())
+            ((GenerativeNode)node).RenewRequestKey();
+    }
+
     private static Span<byte> GetWrittenSpan(PooledArrayBufferWriter<byte> output)
         => PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
 
@@ -85,10 +94,12 @@ public static class ObjectRegenerator
         var instance = new T();
 
         CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
+        RenewRequestKeys(instance);
 
         newInstance = instance;
     }
 
+    // The JSON keeps the request keys of AI nodes; only the overloads that build objects renew them.
     public static void Regenerate(ICoreSerializable obj, out string json)
     {
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
@@ -108,6 +119,7 @@ public static class ObjectRegenerator
 
         var instance = (ICoreSerializable)Activator.CreateInstance(actualType)!;
         CoreSerializer.PopulateFromJsonObject(instance, actualType, jsonObj);
+        RenewRequestKeys(instance);
         newInstance = instance;
     }
 
@@ -125,6 +137,7 @@ public static class ObjectRegenerator
         var instance = new ListWrapper<T>();
 
         CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
+        RenewRequestKeys(instance);
 
         newInstance = instance.Items.ToArray();
     }

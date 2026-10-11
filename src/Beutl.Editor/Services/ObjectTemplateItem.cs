@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using System.Text.Json.Nodes;
+using Beutl.NodeGraph.Generative;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -60,8 +61,16 @@ public sealed class ObjectTemplateItem(
                 ? new CoreSerializerOptions { BaseUri = ToFileUri(FilePath) }
                 : null;
 
-            return CoreSerializer.DeserializeFromJsonObject(
-                (JsonObject)Json.DeepClone(), BaseType, options) as ICoreSerializable;
+            if (CoreSerializer.DeserializeFromJsonObject((JsonObject)Json.DeepClone(), BaseType, options)
+                is not ICoreSerializable instance)
+            {
+                return null;
+            }
+
+            // A template saved before AI results were left out still holds the request key of the node it was
+            // saved from, and the property editors apply instances as they are, so each one gets a key of its own.
+            ObjectRegenerator.RenewRequestKeys(instance);
+            return instance;
         }
         catch
         {
@@ -84,6 +93,9 @@ public sealed class ObjectTemplateItem(
         Type actual = obj.GetType();
         (Type baseType, string format) = ObjectTemplateCategoryResolver.Resolve(actual);
         JsonObject json = CoreSerializer.SerializeToJsonObject(obj);
+        // A template is the workflow, as a group node template is: the AI results of the project it came from
+        // and the request key they were bought with stay behind.
+        GenerativeNode.StripResults(json);
 
         return new ObjectTemplateItem(Guid.NewGuid(), baseType, actual, json, name, format, null);
     }
