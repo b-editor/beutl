@@ -144,7 +144,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     private void SetValue(Brush? oldValue, Brush? newValue, string? commandName)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame)
@@ -175,7 +175,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (!IsElementEditable) return false;
+        // SetValue checks the value it replaces.
+        if (!CanReplaceContent) return false;
         if (template.CreateInstance() is not Brush instance) return false;
         IsExpanded.Value = true;
         SetValue(GetEditingValue(), instance, CommandNames.ApplyTemplate);
@@ -184,7 +185,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public override bool TryPasteJson(string json)
     {
-        if (!IsElementEditable) return false;
+        // SetValue checks the value it replaces.
+        if (!CanReplaceContent) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
@@ -236,36 +238,40 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         }
     }
 
+    // These check the part they replace, not the whole brush: replacing the drawable while the brush's
+    // transform could not be loaded leaves the element protected, so that change would not be saved.
     public void ChangeDrawableType(Type type)
     {
-        if (!IsElementEditable) return;
-        if (Value.Value is Media.DrawableBrush drawable)
+        if (IsDisposed || Value.Value is not Media.DrawableBrush drawable) return;
+        if (!CanReplace(drawable.Drawable.CurrentValue)) return;
+        if (Activator.CreateInstance(type) is Drawable instance)
         {
-            if (Activator.CreateInstance(type) is Drawable instance)
-            {
-
-                drawable.Drawable.CurrentValue = instance;
-                CompleteElementRepair();
-                Commit();
-            }
-        }
-    }
-
-    public void SetTarget(Brush? target)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is IPresenter<Brush> presenter)
-        {
-            PresenterEditorHelper.AssignTarget(presenter, target);
+            drawable.Drawable.CurrentValue = instance;
             CompleteElementRepair();
             Commit();
         }
     }
 
+    public void SetTarget(Brush? target)
+    {
+        if (IsDisposed || Value.Value is not IPresenter<Brush> presenter) return;
+        if (!CanReplace(presenter.Target.CurrentValue)) return;
+        PresenterEditorHelper.AssignTarget(presenter, target);
+        CompleteElementRepair();
+        Commit();
+    }
+
     public void SetDrawableTarget(Drawable? target)
     {
-        if (!IsElementEditable) return;
-
+        if (IsDisposed) return;
+        // A kept brush has only its drawable, or the target of its drawable presenter, replaced.
+        object? replaced = Value.Value switch
+        {
+            DrawableBrush { Drawable.CurrentValue: DrawablePresenter current } => current.Target.CurrentValue,
+            DrawableBrush kept => kept.Drawable.CurrentValue,
+            var brush => brush,
+        };
+        if (!CanReplace(replaced)) return;
 
         if (Value.Value is not DrawableBrush drawableBrush)
         {

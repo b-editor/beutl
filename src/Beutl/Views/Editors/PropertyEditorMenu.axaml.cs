@@ -114,7 +114,8 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
+        // Also a repair on a recovery-protected element, so it follows CanRemoveAnimation.
+        if (DataContext is BaseEditorViewModel { IsDisposed: false, CanRemoveAnimation.Value: true } viewModel)
         {
             viewModel.RemoveAnimation();
         }

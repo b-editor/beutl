@@ -155,13 +155,45 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
             })
             .AddTo(_disposables);
 
-        // Editable unless the element or its TimelineLayer is locked.
-        IsEditable = IsLocked
+        // The user's locks: the element's own or its TimelineLayer's.
+        IsLockedByUser = IsLocked
             .CombineLatest(
                 LayerHeader.Select(h => h is null
                     ? Observable.Return(false)
                     : h.IsLocked).Switch(),
-                (el, layer) => !el && !layer)
+                (el, layer) => el || layer)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        IsRecoveryProtected = Observable.FromEventPattern(
+                handler => element.RecoveryProtectionChanged += handler,
+                handler => element.RecoveryProtectionChanged -= handler)
+            .Select(_ => element.IsRecoveryProtected)
+            .ToReadOnlyReactivePropertySlim(element.IsRecoveryProtected)
+            .AddTo(_disposables);
+
+        // Editable unless it is locked, or recovery keeps its file because part of it could not be
+        // loaded (saving would not write the edits).
+        IsEditable = IsLockedByUser
+            .CombineLatest(IsRecoveryProtected, (locked, isProtected) => !locked && !isProtected)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        // Only the user's locks stop a delete or an exclude: removing a protected element leaves its
+        // retained file alone.
+        CanRemove = IsLockedByUser.Select(locked => !locked)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        // Locking a protected clip would not be saved and would block its repair (see
+        // ElementAttributeService.SetLocked); unlocking one stays possible.
+        CanToggleLock = IsLocked
+            .CombineLatest(IsRecoveryProtected, (locked, isProtected) => locked || !isProtected)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        RecoveryProtectionToolTip = IsRecoveryProtected
+            .Select(isProtected => isProtected ? MessageStrings.RecoveryProtectedElementToolTip : null)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -249,7 +281,18 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
     public ReadOnlyReactivePropertySlim<bool> IsLocked { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsLockedByUser { get; }
+
+    // True while recovery keeps the element's original file (Element.IsRecoveryProtected).
+    public ReadOnlyReactivePropertySlim<bool> IsRecoveryProtected { get; }
+
     public ReadOnlyReactivePropertySlim<bool> IsEditable { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanToggleLock { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> RecoveryProtectionToolTip { get; }
 
     public ReactiveProperty<string> Name { get; }
 
@@ -493,7 +536,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
     private void OnExclude()
     {
-        Element[] targets = EditableTargets();
+        Element[] targets = RemovableTargets();
         if (targets.Length == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>()
             .Exclude(Scene, targets, Timeline.IsRippleEnabled.Value);
@@ -501,7 +544,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
     private void OnDelete()
     {
-        Element[] targets = EditableTargets();
+        Element[] targets = RemovableTargets();
         if (targets.Length == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>()
             .Delete(Scene, targets, Timeline.IsRippleEnabled.Value);
@@ -509,6 +552,9 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
     private Element[] EditableTargets()
         => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
+
+    private Element[] RemovableTargets()
+        => GetGroupOrSelectedElements().Where(e => e.CanRemove.Value).Select(e => e.Model).ToArray();
 
     private void OnBringAnimationToTop()
     {

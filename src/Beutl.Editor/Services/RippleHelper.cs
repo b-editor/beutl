@@ -22,7 +22,7 @@ internal static class RippleHelper
         Element[] lockedOnLayer = LockedOnLayer(scene, zIndex);
 
         Element[] candidates = scene.Children
-            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && !e.IsLocked && e.Start >= anchorEnd)
+            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && !scene.IsElementLocked(e) && e.Start >= anchorEnd)
             .OrderBy(e => e.Start)
             .ToArray();
 
@@ -43,7 +43,7 @@ internal static class RippleHelper
 
         IEnumerable<Element> toShift = scene.Children
             .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
-                        && !e.IsLocked);
+                        && !scene.IsElementLocked(e));
 
         Element[] lockedOnLayer = LockedOnLayer(scene, zIndex);
 
@@ -58,9 +58,10 @@ internal static class RippleHelper
         ShiftUntilBlocked(toShift, delta, lockedOnLayer);
     }
 
+    // Includes elements whose file recovery keeps: shifting one would not be saved.
     private static Element[] LockedOnLayer(Scene scene, int zIndex)
         => scene.Children
-            .Where(e => e.ZIndex == zIndex && e.IsLocked)
+            .Where(e => e.ZIndex == zIndex && scene.IsElementLocked(e))
             .ToArray();
 
     private static void ShiftUntilBlocked(IEnumerable<Element> candidates, TimeSpan delta, Element[] lockedOnLayer)

@@ -78,7 +78,24 @@ public abstract class CoreObject : ICoreObject
 
     // Non-null while this object stands in for a file the serializer must not regenerate:
     // StoreToUri skips the source location and copies the raw text verbatim to any new one.
-    internal SuppressedStorageSource? SuppressedStorageSource { get; set; }
+    internal SuppressedStorageSource? SuppressedStorageSource
+    {
+        get;
+        set
+        {
+            bool wasSuppressed = field is not null;
+            field = value;
+            if (wasSuppressed != value is not null)
+            {
+                OnStorageSuppressionChanged();
+            }
+        }
+    }
+
+    // Called after SuppressedStorageSource changes between null and non-null.
+    internal virtual void OnStorageSuppressionChanged()
+    {
+    }
 
     internal string? RequiredMinAppVersionAfterMigration
         => Volatile.Read(ref _requiredMinAppVersionAfterMigration);

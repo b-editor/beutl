@@ -282,7 +282,8 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Initialize()
     {
-        if (!IsElementEditable) return;
+        // Clearing the list can discard items that could not be loaded, which repairs the element.
+        if (!CanReplace(List.Value)) return;
 
         if (List.Value == null)
         {
@@ -310,7 +311,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Delete()
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(List.Value)) return;
         if (List.Value != null)
         {
             if (PropertyAdapter.IsReadOnly)
@@ -350,7 +351,12 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void RemoveItem(int index)
     {
-        if (!IsElementEditable) return;
+        // Removing an item that could not be loaded repairs the element; removing another one is an ordinary edit.
+        if (!IsElementEditable
+            && !CanReplace(List.Value is { } list && index >= 0 && index < list.Count ? list[index] : null))
+        {
+            return;
+        }
 
         List.Value!.RemoveAt(index);
         CompleteElementRepair();

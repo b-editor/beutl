@@ -219,6 +219,12 @@ public partial class Scene
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
         => SceneRecovery.TryResumeElementPersistence(element);
 
+    internal static bool HasUnresolvedRecoveryBlocker(Element element)
+        => SceneRecovery.HasUnresolvedRecoveryBlocker(element);
+
+    internal static bool HoldsRecoveryBlocker(object? content)
+        => SceneRecovery.HoldsRecoveryBlocker(content);
+
     // The saved form of MediaFingerprints, keyed by serialized URI in ordinal order so the text does not
     // depend on the order the files were scanned in. The editor's background metadata patch writes the
     // same form, so a scan that finds nothing new leaves the .scene unchanged.

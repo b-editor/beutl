@@ -44,7 +44,8 @@ public sealed class ElementObjectService : IElementObjectService
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(obj);
-        if (!ElementEditability.IsEditable(element)) return false;
+        // Removing what could not be loaded repairs a recovery-protected element, so it stays allowed.
+        if (!ElementEditability.CanRepair(element, obj)) return false;
         if (!element.Objects.Contains(obj)) return false;
 
         element.RemoveObject(obj);
@@ -71,8 +72,11 @@ public sealed class ElementObjectService : IElementObjectService
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(json);
-        if (!ElementEditability.IsEditable(element)) return ObjectPasteOutcome.NotEditable;
-        if (index < 0 || index >= element.Objects.Count) return ObjectPasteOutcome.InvalidJson;
+        bool inRange = index >= 0 && index < element.Objects.Count;
+        // Replacing what could not be loaded repairs a recovery-protected element, so it stays allowed.
+        if (!ElementEditability.CanRepair(element, inRange ? element.Objects[index] : null))
+            return ObjectPasteOutcome.NotEditable;
+        if (!inRange) return ObjectPasteOutcome.InvalidJson;
 
         if (ClipboardJson.TryParse(json) is not JsonObject newJson)
         {
@@ -91,6 +95,11 @@ public sealed class ElementObjectService : IElementObjectService
             if (obj is null) return ObjectPasteOutcome.MissingType;
 
             CoreSerializer.PopulateFromJsonObject(obj, type, newJson);
+            // A replacement that still holds what could not be loaded never completes the repair, so
+            // the element would keep its original file and the paste would be lost on save.
+            if (element.IsRecoveryProtected && Scene.HoldsRecoveryBlocker(obj))
+                return ObjectPasteOutcome.NotEditable;
+
             element.Objects[index] = obj;
             ElementRecoveryService.TryCompleteRepair(element, _historyManager);
 
