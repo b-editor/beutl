@@ -150,9 +150,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             ? 10000
             : encoder.FrameSize;
 
+        // dst: the encoder's format, which resolves Auto (AV_SAMPLE_FMT_NONE) to one the codec supports
         swr = new SampleConverter();
-        swr.SetOpts(encoder.ChLayout, encoder.SampleRate,
-            (AVSampleFormat)AudioSettings.Format, nbsamples);
+        swr.SetOpts(encoder.ChLayout, encoder.SampleRate, encoder.SampleFmt, nbsamples);
 
         // src: the sample provider always delivers interleaved stereo, which swr remixes into the encoder's layout
         audioFrame.ChLayout = DefaultChannelLayout(2);
