@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Beutl.Logging;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Configuration;
 
@@ -68,7 +70,7 @@ public sealed class GlobalConfiguration
 
     /// <summary>
     /// The settings the last <see cref="Restore"/> could not read, which kept their defaults. Restore runs
-    /// before logging is set up, so the caller reports them.
+    /// before logging is set up, so each host reports them through <see cref="LogRestoreFailures"/>.
     /// </summary>
     public IReadOnlyList<ConfigurationRestoreFailure> RestoreFailures { get; private set; } = [];
 
@@ -107,6 +109,24 @@ public sealed class GlobalConfiguration
         {
             AddHandlers();
         }
+    }
+
+    /// <summary>Logs what the last <see cref="Restore"/> could not read; call it once logging is set up.</summary>
+    public void LogRestoreFailures()
+    {
+        if (RestoreFailures.Count == 0)
+            return;
+
+        ILogger logger = Log.CreateLogger<GlobalConfiguration>();
+        foreach (ConfigurationRestoreFailure failure in RestoreFailures)
+        {
+            logger.LogWarning(failure.Exception, "Could not read {Setting} from settings.json, so it keeps its default.", failure.Setting);
+        }
+
+        if (RestoreBackupPath is { } backup)
+            logger.LogWarning("settings.json as read is kept as {Backup}.", backup);
+        else
+            logger.LogWarning("Could not keep a copy of settings.json as read; the values it could not read are dropped at the next save.");
     }
 
     public void Restore(string file)
