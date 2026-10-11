@@ -1125,6 +1125,101 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
+    // A kill leaves .git/index.lock behind, and every later command that writes the index then fails.
+    // A canceled git add is sent SIGTERM instead, on which Git stops its filter and removes the lock.
+    // The filter process that never answers stands in for a large file passing through Git LFS.
+    [Test]
+    public async Task Canceled_git_add_leaves_no_index_lock_behind()
+    {
+        RequireUnixShell();
+
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "filter.pid");
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), "media.bin filter=stall\n");
+        await File.WriteAllBytesAsync(Path.Combine(Root, "media.bin"), [0, 1, 2, 3]);
+        using var cancellation = new CancellationTokenSource();
+        Task<GitCommandResult> add = CreateRunner().RunAsync(
+            Repository,
+            [
+                "-c",
+                "filter.stall.process=printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; exec sleep 30",
+                "add",
+                "--",
+                "media.bin",
+            ],
+            WithRecordedProcessPath(pidPath) with { ExecutionKind = GitCommandExecutionKind.LocalWithLfs },
+            cancellation.Token);
+        RecordedProcess? filter = null;
+
+        try
+        {
+            filter = await WaitForRecordedProcessAsync(pidPath, attempts: 3000);
+            Assert.That(filter, Is.Not.Null);
+            Assert.That(File.Exists(lockPath), Is.True, "Git holds the index lock while the filter runs.");
+
+            cancellation.Cancel();
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                async () => await add.WaitAsync(TimeSpan.FromSeconds(30)));
+
+            Assert.That(File.Exists(lockPath), Is.False);
+            await RunGitAsync("add", "--", "media.bin");
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(filter);
+            await ObserveAsync(add);
+        }
+    }
+
+    // The request to stop is bounded: a command that ignores SIGTERM, such as a hook that traps it,
+    // is killed with its whole process tree once the grace period ends.
+    [Test]
+    public async Task Canceled_command_that_ignores_SIGTERM_is_killed_after_the_grace_period()
+    {
+        RequireUnixShell();
+
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "descendant.pid");
+        var runner = new GitCliRunner(
+            "/bin/sh",
+            TimeSpan.FromSeconds(10),
+            IsolatedGitEnvironment,
+            stopGracePeriod: TimeSpan.FromSeconds(1));
+        using var cancellation = new CancellationTokenSource();
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", "trap '' TERM; " + RecordAndSleepWithoutPipes + " & wait"],
+            WithRecordedProcessPath(pidPath) with { ExecutionKind = GitCommandExecutionKind.LocalUnbounded },
+            cancellation.Token);
+        RecordedProcess? descendant = null;
+
+        try
+        {
+            descendant = await WaitForRecordedProcessAsync(pidPath);
+            Assert.That(descendant, Is.Not.Null);
+            var stopwatch = Stopwatch.StartNew();
+            cancellation.Cancel();
+
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                async () => await runTask.WaitAsync(TimeSpan.FromSeconds(30)));
+            stopwatch.Stop();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(stopwatch.Elapsed, Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(1)));
+                Assert.That(runner.HasActiveProcess, Is.False);
+            });
+            Assert.That(
+                await descendant!.WaitForEndAsync(TimeSpan.FromSeconds(10)),
+                Is.True,
+                "The runner must kill the process tree of a command that did not stop.");
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(descendant);
+            await ObserveAsync(runTask);
+        }
+    }
+
     // A command that finishes on its own is not killed. Background work that closed the command's
     // pipes, such as a hook starting a detached job, is neither waited for nor killed.
     [Test]
@@ -2197,9 +2292,9 @@ public class GitCliRunnerTests : RealGitTestRepository
         return true;
     }
 
-    private static async Task<int?> WaitForRecordedProcessIdAsync(string pidPath)
+    private static async Task<int?> WaitForRecordedProcessIdAsync(string pidPath, int attempts = 100)
     {
-        for (int attempt = 0; attempt < 100; attempt++)
+        for (int attempt = 0; attempt < attempts; attempt++)
         {
             if (File.Exists(pidPath)
                 && int.TryParse(await File.ReadAllTextAsync(pidPath), out int processId))
@@ -2223,9 +2318,11 @@ public class GitCliRunnerTests : RealGitTestRepository
 
     // Records the process's start time, so a later check cannot mistake a process that reused the
     // id for the recorded one.
-    private static async Task<RecordedProcess?> WaitForRecordedProcessAsync(string pidPath)
+    private static async Task<RecordedProcess?> WaitForRecordedProcessAsync(
+        string pidPath,
+        int attempts = 100)
     {
-        int? processId = await WaitForRecordedProcessIdAsync(pidPath);
+        int? processId = await WaitForRecordedProcessIdAsync(pidPath, attempts);
         if (processId is null)
         {
             return null;

@@ -11,6 +11,10 @@ internal sealed record GitCommandResult(
     bool StdoutTruncated = false,
     byte[]? StdoutBytes = null);
 
+// LocalUnbounded and LocalWithLfs commands hold the index lock while filters or hooks run: add,
+// commit, restore, switch, merge and stash. On Unix a canceled one is first sent SIGTERM, on which Git
+// removes its lock files, and is killed only if it is still running after a grace period. Local
+// commands are short and Network ones hold no lock while they transfer, so both are killed at once.
 internal enum GitCommandExecutionKind
 {
     Local,
@@ -108,6 +112,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         "GIT_COMMON_DIR",
     ];
     private static readonly TimeSpan s_defaultLocalTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_defaultStopGracePeriod = TimeSpan.FromSeconds(5);
     internal const int IncompleteStdoutExitCode = -1;
     private static readonly Encoding s_utf8WithoutPreamble = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private const string IncompleteStdoutDiagnostic =
@@ -115,6 +120,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     internal static readonly TimeSpan StaleLockAge = TimeSpan.FromMinutes(10);
     private readonly string _gitPath;
     private readonly TimeSpan _localTimeout;
+    private readonly TimeSpan _stopGracePeriod;
     private readonly IReadOnlyDictionary<string, string?>? _environmentOverrides;
     private readonly TimeProvider _timeProvider;
     private readonly Func<string, string> _readAllText;
@@ -144,7 +150,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         bool? supportsConditionalLockDeletion = null,
         Func<string, RepositoryLockFileSnapshot?>? readLockFileSnapshot = null,
         Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null,
-        Func<string, IEnumerable<string>>? enumerateFileSystemEntries = null)
+        Func<string, IEnumerable<string>>? enumerateFileSystemEntries = null,
+        TimeSpan? stopGracePeriod = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitPath);
         if (localTimeout <= TimeSpan.Zero)
@@ -152,8 +159,14 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             throw new ArgumentOutOfRangeException(nameof(localTimeout));
         }
 
+        if (stopGracePeriod <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stopGracePeriod));
+        }
+
         _gitPath = gitPath;
         _localTimeout = localTimeout;
+        _stopGracePeriod = stopGracePeriod ?? s_defaultStopGracePeriod;
         _environmentOverrides = environmentOverrides;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _readAllText = readAllText ?? File.ReadAllText;
@@ -207,7 +220,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             options.StandardInputBytes
             ?? (options.StandardInput is null ? null : s_utf8WithoutPreamble.GetBytes(options.StandardInput)),
             options.CaptureStdoutBytes,
-            throwOnFailure: true).ConfigureAwait(false);
+            throwOnFailure: true,
+            stopGracefully: options.ExecutionKind is GitCommandExecutionKind.LocalUnbounded
+                or GitCommandExecutionKind.LocalWithLfs).ConfigureAwait(false);
     }
 
     internal async Task<ProcessStartInfo> CreateStartInfoAsync(
@@ -268,7 +283,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         int? maxStdoutBytes,
         byte[]? standardInput,
         bool captureStdoutBytes,
-        bool throwOnFailure)
+        bool throwOnFailure,
+        bool stopGracefully = false)
     {
         int exitCode;
         (string Output, byte[]? OutputBytes, bool Truncated) stdout;
@@ -286,7 +302,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                     token),
                 (reader, token) => ReadStandardErrorAsync(reader, stderrProgress, token),
                 executionPolicy.HasFlag(GitExecutionPolicy.LocalTimeout) ? _localTimeout : null,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                stopGracefully ? _stopGracePeriod : null).ConfigureAwait(false);
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
