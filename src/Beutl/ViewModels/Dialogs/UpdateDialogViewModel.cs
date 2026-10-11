@@ -346,6 +346,9 @@ public class UpdateDialogViewModel
         return Path.Combine(stagingRoot, app.Name);
     }
 
+    // Marks a staging folder that an update created next to the application.
+    internal const string StagingMarkerFileName = ".beutl-update-staging";
+
     // Unpacks a zip or app update into an empty staging folder and offers the restart.
     private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
     {
@@ -357,12 +360,8 @@ public class UpdateDialogViewModel
 
         try
         {
-            if (Directory.Exists(destination))
-            {
-                Directory.Delete(destination, true);
-            }
-
-            Directory.CreateDirectory(destination);
+            PrepareStagingDirectory(destination,
+                besideApplication: !destination.StartsWith(UpdateStagingRoot, StringComparison.Ordinal));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -378,6 +377,26 @@ public class UpdateDialogViewModel
         ProgressText.Value = MessageStrings.ApplicationRestartRequired;
         IsPrimaryButtonEnabled.Value = true;
         return true;
+    }
+
+    // Creates an empty staging folder. The home directory's tmp folder belongs to Beutl, but a folder next
+    // to the application is replaced only when an earlier update created it; anything else there is kept.
+    internal static void PrepareStagingDirectory(string destination, bool besideApplication)
+    {
+        if (Directory.Exists(destination))
+        {
+            if (besideApplication && !File.Exists(Path.Combine(destination, StagingMarkerFileName)))
+                throw new IOException(string.Format(MessageStrings.UpdateFolderAlreadyExists, destination));
+
+            Directory.Delete(destination, true);
+        }
+
+        Directory.CreateDirectory(destination);
+        if (besideApplication)
+        {
+            File.WriteAllText(Path.Combine(destination, StagingMarkerFileName),
+                "Created by the Beutl updater. A folder with this file is replaced by the next update.");
+        }
     }
 
     // Writes the update script resource to the home directory's tmp folder. A script that

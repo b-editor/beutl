@@ -253,6 +253,9 @@
     <value>ターミナルエミュレーターが見つかりませんでした。アップデートを完了するには、ターミナルで次のコマンドを実行してください。
 {0}</value>
   </data>
+  <data name="UpdateFolderAlreadyExists" xml:space="preserve">
+    <value>フォルダー {0} がすでに存在します。移動するか名前を変更してから、もう一度アップデートしてください。</value>
+  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>参照元ファイルが見つからないためエクスポートを開始できません: {0}（欠落 {1} 件）</value>
   </data>

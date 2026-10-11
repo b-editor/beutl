@@ -38,6 +38,66 @@ public sealed class UpdateHandoffTests
     }
 
     [Test]
+    public void StagingBesideTheApplication_KeepsAFolderTheUpdaterDidNotCreate()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staging-").FullName;
+        try
+        {
+            // For example, another portable copy that happens to have the staging folder's name.
+            string staging = Directory.CreateDirectory(Path.Combine(root, "Beutl.update")).FullName;
+            string userFile = Path.Combine(staging, "project.bep");
+            File.WriteAllText(userFile, "user data");
+
+            Assert.Throws<IOException>(() => UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: true));
+            Assert.That(File.ReadAllText(userFile), Is.EqualTo("user data"));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void StagingBesideTheApplication_ReplacesAFolderAnEarlierUpdateCreated()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staging-").FullName;
+        try
+        {
+            string staging = Path.Combine(root, "Beutl.update");
+            UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: true);
+            File.WriteAllText(Path.Combine(staging, "Beutl.dll"), "an update that was not installed");
+
+            UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: true);
+
+            Assert.That(Directory.GetFileSystemEntries(staging).Select(Path.GetFileName),
+                Is.EqualTo(new[] { UpdateDialogViewModel.StagingMarkerFileName }));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
+    public void StagingInTheHomeDirectory_ReplacesAnExistingFolder()
+    {
+        string root = Directory.CreateTempSubdirectory("beutl-staging-").FullName;
+        try
+        {
+            string staging = Directory.CreateDirectory(Path.Combine(root, "Beutl")).FullName;
+            File.WriteAllText(Path.Combine(staging, "Beutl.dll"), "an update that was not installed");
+
+            UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: false);
+
+            Assert.That(Directory.GetFileSystemEntries(staging), Is.Empty);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Test]
     public void Terminal_IsFoundWithoutGnomeTerminal()
     {
         ProcessStartInfo? start = TerminalLauncher.CreateStartInfo(s_command, Installed("konsole", "xterm"), null);
