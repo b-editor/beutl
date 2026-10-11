@@ -154,6 +154,18 @@
                     </NativeMenuItem>
                 </NativeMenu>
             </NativeMenuItem>
+            <!--  AI  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.Ai}">
+                <NativeMenu>
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.ShowAiJobs}" Header="{x:Static lang:Strings.AiJobCenter}" />
+                    <NativeMenuItemSeparator />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.GenerateImage}" Header="{x:Static lang:Strings.AiGenerateImage}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.GenerateSubtitles}" Header="{x:Static lang:Strings.AiGenerateSubtitles}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.EditImage}" Header="{x:Static lang:Strings.AiEditImage}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.GenerateVideo}" Header="{x:Static lang:Strings.AiGenerateVideo}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.EditVideo}" Header="{x:Static lang:Strings.AiVideoEditing}" />
+                </NativeMenu>
+            </NativeMenuItem>
             <!--  ヘルプ  -->
             <NativeMenuItem Header="{x:Static lang:Strings.Help}">
                 <NativeMenu>
