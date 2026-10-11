@@ -1,10 +1,8 @@
 ﻿using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text;
 using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Logging;
@@ -101,51 +99,11 @@ public sealed class FontManager
 
     private Typeface ResolveDefaultTypeface()
     {
-        if (OperatingSystem.IsLinux())
-        {
-            var output = new StringBuilder();
-            string applicationPath = "/usr/bin/fc-match";
-            var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
-            foreach (var path in paths)
-            {
-                var fullPath = Path.Combine(path, "fc-match");
-                if (File.Exists(fullPath))
-                {
-                    applicationPath = fullPath;
-                    break;
-                }
-            }
-            using Process process = Process.Start(new ProcessStartInfo(applicationPath, "--format %{file}")
-            {
-                RedirectStandardOutput = true
-            })!;
-            process.OutputDataReceived += (sender, e) =>
-            {
-                if (e.Data != null)
-                    output.Append(e.Data);
-            };
-            process.BeginOutputReadLine();
-            process.WaitForExit();
-
-            process.CancelOutputRead();
-
-            string file = output.ToString();
-            SKTypeface? sktypeface = SKTypeface.FromFile(file);
-            if (sktypeface != null)
-            {
-                Typeface typeface = Typeface.FromSKTypeface(sktypeface);
-                bool isAdded = AddFont(sktypeface);
-                if (!isAdded)
-                {
-                    sktypeface.Dispose();
-                }
-                return typeface;
-            }
-        }
-
-        SKTypeface sk = SKTypeface.Default;
-        AddFont(sk);
-        return Typeface.FromSKTypeface(sk);
+        SKTypeface sk = OperatingSystem.IsLinux() ? DefaultFontResolver.Resolve() : SKTypeface.Default;
+        Typeface typeface = Typeface.FromSKTypeface(sk);
+        if (!AddFont(sk) && !ReferenceEquals(sk, SKTypeface.Default))
+            sk.Dispose();
+        return typeface;
     }
 
     public IEnumerable<FontFamily> FontFamilies
