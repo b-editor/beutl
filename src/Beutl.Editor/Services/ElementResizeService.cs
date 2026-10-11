@@ -259,7 +259,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         var lockedEnds = new List<TimeSpan>();
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex && e.IsLocked) lockedEnds.Add(e.Range.End);
+            if (e.ZIndex == req.Element.ZIndex && scene.IsElementLocked(e)) lockedEnds.Add(e.Range.End);
         }
 
         lockedEnds.Sort();
@@ -271,7 +271,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         TimeSpan maxGrow = req.Element.Start - NearestLockedEndAtOrBefore(lockedEnds, req.Element.Start);
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex != req.Element.ZIndex || resized.Contains(e) || e.IsLocked
+            if (e.ZIndex != req.Element.ZIndex || resized.Contains(e) || scene.IsElementLocked(e)
                 || e.Range.End > req.Element.Start)
             {
                 continue;
@@ -332,7 +332,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         TimeSpan? nearestLockedStart = null;
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex && e.IsLocked && e.Start >= oldEnd)
+            if (e.ZIndex == req.Element.ZIndex && scene.IsElementLocked(e) && e.Start >= oldEnd)
             {
                 if (nearestLockedStart is not { } cur || e.Start < cur) nearestLockedStart = e.Start;
             }
@@ -343,7 +343,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         TimeSpan blockingEnd = oldEnd;
         foreach (Element e in scene.Children)
         {
-            if (e.ZIndex == req.Element.ZIndex && !e.IsLocked && !resized.Contains(e)
+            if (e.ZIndex == req.Element.ZIndex && !scene.IsElementLocked(e) && !resized.Contains(e)
                 && e.Start >= oldEnd && e.Start < lockStart && e.Range.End > blockingEnd)
             {
                 blockingEnd = e.Range.End;

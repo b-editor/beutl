@@ -25,7 +25,7 @@
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="ElementProperty.Remove"
                                              Click="Remove_Click"
                                              Text="{x:Static lang:Strings.Remove}"
-                                             IsEnabled="{Binding CanEdit.Value}">
+                                             IsEnabled="{Binding CanReplace.Value}">
                             <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:FluentIconSource Icon="Delete" />
                             </ui:FAMenuFlyoutItem.IconSource>

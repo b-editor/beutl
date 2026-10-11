@@ -495,6 +495,15 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
     <value>Los tiempos de los fotogramas clave se solaparían, o la selección contiene una interpolación que no se puede invertir.</value>
   </data>
+  <data name="RecoveryProtectedElementsTitle" xml:space="preserve">
+    <value>Algunos elementos no se pudieron cargar por completo</value>
+  </data>
+  <data name="RecoveryProtectedElementsMessage" xml:space="preserve">
+    <value>Estos elementos de {0} no se pudieron cargar por completo, normalmente porque falta una extensión: {1}. Sus cambios no se guardan hasta que el tipo que falta esté disponible o se quite el objeto no disponible, por lo que son de solo lectura hasta entonces.</value>
+  </data>
+  <data name="RecoveryProtectedElementToolTip" xml:space="preserve">
+    <value>Una parte de este elemento no se pudo cargar, por lo que es de solo lectura. Sus cambios no se guardan hasta que el tipo que falta esté disponible o se quite el objeto no disponible.</value>
+  </data>
   <data name="UnmigratedNodeTreeTitle" xml:space="preserve">
     <value>Los árboles de nodos de Beutl 1.x no se migraron</value>
   </data>

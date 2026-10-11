@@ -36,6 +36,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private Scene? _scene;
     private IDisposable? _elementEditabilitySubscription;
     private readonly ReactivePropertySlim<bool> _isElementEditable = new(true);
+    private IDisposable? _animationRepairSubscription;
+    private readonly ReactivePropertySlim<bool> _canReplaceAnimation = new(true);
     private EditViewModel? _editViewModel;
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
@@ -90,6 +92,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
         HasAnimation = hasAnimation
             .ToReadOnlyReactiveProperty()
+            .AddTo(Disposables);
+
+        CanRemoveAnimation = _canReplaceAnimation
+            .CombineLatest(hasAnimation, (canReplace, has) => canReplace && has && !property.IsReadOnly)
+            .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
         HasExpression = hasExpression
@@ -156,9 +163,37 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected internal bool IsElementEditable => !IsDisposed && ElementEditability.IsEditable(_element, _scene);
 
+    // Replacing or removing content is how the user repairs a recovery-protected element, so those
+    // edits check this instead of IsElementEditable: they stay allowed there while the content holds
+    // what could not be loaded (see ElementEditability.CanRepair).
+    protected internal bool CanReplace(object? content)
+    {
+        if (IsDisposed) return false;
+        if (ElementEditability.CanRepair(_element, content, _scene)) return true;
+
+        // An easing is a value, not an object of its own: the keyframe holds an easing that could not be read.
+        return PropertyAdapter is CorePropertyAdapter<Easing> { Object: KeyFrame keyFrame }
+               && ElementEditability.CanRepair(_element, keyFrame, _scene);
+    }
+
+    // CanReplace for an edit that writes replacement in place of content. On a recovery-protected
+    // element, a replacement that itself holds what could not be loaded never completes the repair,
+    // so the edit would be lost on save.
+    protected internal bool CanReplace(object? content, object? replacement)
+        => CanReplace(content)
+           && !(_element is { IsRecoveryProtected: true } && Scene.HoldsRecoveryBlocker(replacement));
+
+    // CanReplace for everything the property holds: its value and its animation.
+    protected internal bool CanReplaceContent
+        => !IsDisposed && CanReplace(new object?[] { PropertyAdapter.GetValue(), GetAnimation() });
+
     public ReadOnlyReactivePropertySlim<bool> IsReadOnly { get; }
 
     public ReadOnlyReactiveProperty<bool> HasAnimation { get; }
+
+    // Like CanEditProperty for "Remove animation", but also true on a recovery-protected element while
+    // the animation holds an easing that could not be read, because removing it repairs the element.
+    public ReadOnlyReactivePropertySlim<bool> CanRemoveAnimation { get; }
 
     public ReadOnlyReactiveProperty<bool> HasExpression { get; }
 
@@ -287,6 +322,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             _elementEditabilitySubscription?.Dispose();
             _elementEditabilitySubscription = ElementEditability.Observe(_element, _scene)
                 .Subscribe(editable => _isElementEditable.Value = editable);
+            _animationRepairSubscription?.Dispose();
+            _animationRepairSubscription = PropertyAdapter is IAnimatablePropertyAdapter animatable
+                ? animatable.ObserveAnimation
+                    .Select(animation => ElementEditability.ObserveRepair(_element, animation, _scene))
+                    .Switch()
+                    .Subscribe(canReplace => _canReplaceAnimation.Value = canReplace)
+                : null;
             _clock = serviceProvider.GetService<IEditorClock>();
             _extensionProvider.Value = serviceProvider.GetService<Beutl.Api.Services.ExtensionProvider>()
                 ?? _editViewModel?.ExtensionProvider;
@@ -348,12 +390,15 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         _currentFrameRevoker = null;
         _elementEditabilitySubscription?.Dispose();
         _elementEditabilitySubscription = null;
+        _animationRepairSubscription?.Dispose();
+        _animationRepairSubscription = null;
         _currentTime.OnCompleted();
 
         Disposables.Dispose();
         _canPaste.Dispose();
         _extensionProvider.Dispose();
         _isElementEditable.Dispose();
+        _canReplaceAnimation.Dispose();
         _editViewModel = null!;
         _parentServices = null;
         _propertyEditorControlHost = null;
@@ -418,7 +463,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual async ValueTask<bool> PasteAsync()
     {
-        if (!IsElementEditable) return false;
+        // TryPasteJson checks the edit it makes; a paste over content that could not be loaded repairs it.
+        if (!CanReplaceContent) return false;
         if (PasteFormat is not { } format) return false;
         var clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return false;
@@ -605,7 +651,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     internal void SetValue(T? oldValue, T? newValue, string? commandName)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             WriteValue(newValue);
@@ -617,7 +663,10 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void SetValue(T? newValue)
     {
-        if (!IsElementEditable) return;
+        // Like SetValue(oldValue, newValue): replacing the current value can repair the element, as when a
+        // file-backed editor puts a valid file in place of a source that loading dropped.
+        if (IsDisposed
+            || !CanReplace(EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue(), newValue)) return;
         WriteValue(newValue);
 
         CompleteElementRepair();
@@ -680,12 +729,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveKeyFrame(TimeSpan keyTime)
     {
-        if (!IsElementEditable) return;
-        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
+        if (IsDisposed || GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
+        // Check the keyframe itself: removing another one while it holds an easing that could not be
+        // read leaves the element protected, so that removal would not be saved.
+        if (AnimationOperations.FindKeyFrame(kfAnimation, keyTime, Logger) is not { } keyframe
+            || !CanReplace(keyframe)) return;
 
         AnimationOperations.RemoveKeyFrame(
             animation: kfAnimation,
-            keyTime: keyTime,
+            keyframe: keyframe,
             logger: Logger);
         CompleteElementRepair();
         Commit();
@@ -718,7 +770,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveAnimation()
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(GetAnimation())) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
             animatableProperty.Animation = null;
@@ -729,7 +781,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
-        if (!IsElementEditable)
+        // Setting an expression drops the animation, so it can discard an easing that could not be read.
+        if (!CanReplace(GetAnimation()))
         {
             error = MessageStrings.OperationFailed;
             return false;
@@ -745,9 +798,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
             {
                 ap.Animation = null;
-                CompleteElementRepair();
             }
 
+            // Also after a non-animatable property: when loading dropped what could not be read,
+            // any replacement repairs the element.
+            CompleteElementRepair();
             Commit();
         }
 

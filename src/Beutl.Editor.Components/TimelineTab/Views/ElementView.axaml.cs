@@ -93,15 +93,18 @@ public sealed partial class ElementView : UserControl
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
         split.IsEnabled = editable;
         cut.IsEnabled = editable;
-        delete.IsEnabled = editable;
-        exclude.IsEnabled = editable;
+        // Recovery protection makes a clip read-only but still lets it be removed.
+        delete.IsEnabled = viewModel.CanRemove.Value;
+        exclude.IsEnabled = viewModel.CanRemove.Value;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
         enableElement.IsEnabled = editable;
         changeColor.IsEnabled = editable;
         // With the layer locked, clearing the element flag has no visible effect
-        // (IsEditable stays false), so the toggle would read as broken.
-        lockElement.IsEnabled = viewModel.LayerHeader.Value?.IsLocked.Value != true;
+        // (IsEditable stays false), so the toggle would read as broken. A clip that recovery
+        // protects cannot be locked either (ElementAttributeService.SetLocked refuses it).
+        lockElement.IsEnabled = viewModel.CanToggleLock.Value
+                                && viewModel.LayerHeader.Value?.IsLocked.Value != true;
         PopulateTransitionMenu(viewModel, editable);
     }
 

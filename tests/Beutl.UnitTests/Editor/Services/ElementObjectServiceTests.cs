@@ -182,10 +182,13 @@ public class ElementObjectServiceTests
         var suppression = new SuppressedStorageSource([], _element.Uri!);
         _element.SuppressedStorageSource = suppression;
 
+        // The protected element is read-only: removing an object that holds nothing unavailable is
+        // refused instead of being accepted and then dropped by the save.
         bool removedOther = _service.Remove(_element, other);
         Assert.Multiple(() =>
         {
-            Assert.That(removedOther, Is.True);
+            Assert.That(removedOther, Is.False);
+            Assert.That(_element.Objects, Is.EqualTo(new EngineObject[] { container, other }));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
 
@@ -406,16 +409,20 @@ public class ElementObjectServiceTests
         {
             Child = { CurrentValue = new FallbackEngineObject() },
         };
+        var other = new TestEngineObject();
         _service.Add(_element, container);
-        _service.Add(_element, new TestEngineObject());
+        _service.Add(_element, other);
         var suppression = new SuppressedStorageSource([], _element.Uri!);
         _element.SuppressedStorageSource = suppression;
         string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
 
+        // Replacing an object that holds nothing unavailable is an ordinary edit, which the
+        // protected element refuses.
         ObjectPasteOutcome intermediate = _service.PasteOver(_element, 1, json);
         Assert.Multiple(() =>
         {
-            Assert.That(intermediate, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(intermediate, Is.EqualTo(ObjectPasteOutcome.NotEditable));
+            Assert.That(_element.Objects[1], Is.SameAs(other));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
 

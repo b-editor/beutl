@@ -12,8 +12,12 @@ public sealed partial class Reconciler
     private const string LockHint = "Agents can lock elements and layers but cannot unlock them.";
 
     // The timeline and property editors refuse to change an element that is locked or sits on a locked
-    // layer (Scene.IsElementLocked), and to place an element on a locked layer. Agent edits follow the
-    // same rule. Locking is allowed; unlocking stays a user action.
+    // layer (Scene.IsElementLockedByUser), and to place an element on a locked layer. Agent edits follow
+    // the same rule. Locking is allowed; unlocking stays a user action.
+    //
+    // An element that could not be fully loaded (Scene.IsElementLocked is also true for it) is left out
+    // here: an agent edit may repair it, which ApplyCore completes with ElementRecoveryService, and
+    // deleting it stays allowed, as in the editor.
     //
     // The decision compares the current scene with the applied sandbox, matching elements and layers by
     // their Ids. It never reads change paths: the diff names them after the desired document's own keys,
@@ -25,7 +29,7 @@ public sealed partial class Reconciler
             return;
         }
 
-        Element[] lockedElements = scene.Children.Where(scene.IsElementLocked).ToArray();
+        Element[] lockedElements = scene.Children.Where(scene.IsElementLockedByUser).ToArray();
         TimelineLayer[] lockedLayers = scene.Layers.Where(layer => layer.IsLocked).ToArray();
         if (lockedElements.Length == 0 && lockedLayers.Length == 0)
         {
@@ -149,7 +153,7 @@ public sealed partial class Reconciler
 
         return new ToolError(
             ErrorCode.ValidationRejected,
-            $"Element {identity} is read-only in the editor, so an agent cannot change or delete it.",
+            $"Element {identity} could not be fully loaded, so it is read-only in the editor until it is repaired.",
             target,
             "Leave this element out of the edit.");
     }

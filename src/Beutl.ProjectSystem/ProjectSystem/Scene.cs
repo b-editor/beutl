@@ -178,8 +178,18 @@ public partial class Scene : ProjectItem, INotifyEdited
         return false;
     }
 
-    // Editor-only lock: an element cannot be edited when it or its layer is locked.
+    // Editor-only lock: an element cannot be edited when it or its layer is locked, or while
+    // recovery keeps its original file because part of it could not be loaded. Saving would not
+    // write such edits.
     public bool IsElementLocked(Element element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return IsElementLockedByUser(element) || element.IsRecoveryProtected;
+    }
+
+    // The clip's own lock or its layer's, without recovery protection. Removing an element checks
+    // only these, so an element whose file recovery keeps can still be deleted.
+    internal bool IsElementLockedByUser(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
         return element.IsLocked || IsLayerLocked(element.ZIndex);

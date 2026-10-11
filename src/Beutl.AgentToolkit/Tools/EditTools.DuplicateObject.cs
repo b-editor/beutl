@@ -74,7 +74,8 @@ public sealed partial class EditTools
         (Guid sourceId, Guid? scopedElementId) = ParseDuplicateTarget(objectId, elementId);
         DuplicateObjectLocation location = FindObjectLocation(scene, sourceId, scopedElementId, objectId);
         // This path mutates the scene directly instead of through the reconciler, so it checks the
-        // lock the reconciler's plan checks for every other edit.
+        // lock the reconciler's plan checks for every other edit. It also refuses an element that could
+        // not be fully loaded: wrapping is never a repair, so the change would not be saved.
         if (scene.IsElementLocked(location.Element))
         {
             throw new ReconcileException(Reconciler.CreateLockedElementError(scene, location.Element, objectId));

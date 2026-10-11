@@ -14,7 +14,11 @@ internal static class GroupedEditorHelper
         IList<TItem>? groupChildren)
         where TItem : class, ICoreObject
     {
-        if (!vm.IsElementEditable) return false;
+        // Adding to a group or inserting into a list is an ordinary edit. Replacing the value is how
+        // content that could not be loaded is repaired, so SetValue checks the value it replaces.
+        bool inserts = groupChildren != null
+                       || (vm.EditingKeyFrame.Value is null && vm.PropertyAdapter is ListItemAccessorImpl<TItem>);
+        if (!(inserts ? vm.IsElementEditable : vm.CanReplaceContent)) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<TItem>(json, out var pasted)) return false;
 
         isExpanded.Value = true;
@@ -50,7 +54,8 @@ internal static class GroupedEditorHelper
         Action<TItem> changeItem)
         where TItem : class
     {
-        if (!vm.IsElementEditable) return false;
+        // A group adds the template, an ordinary edit; otherwise changeItem replaces the value.
+        if (!(isGroup ? vm.IsElementEditable : vm.CanReplaceContent)) return false;
         if (template.CreateInstance() is not TItem instance) return false;
         isExpanded.Value = true;
         if (isGroup)

@@ -195,8 +195,19 @@ public sealed partial class EditViewModel
         CaptureSavedMediaUris();
         ScheduleMediaFingerprints();
         NotifyMissingMedia();
+        NotifyRecoveryProtectedElements();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
+    }
+
+    // Elements whose file recovery keeps are read-only. Say which ones, once, when the scene opens;
+    // the notice stays until it is closed or this editor closes.
+    private void NotifyRecoveryProtectedElements()
+    {
+        if (Beutl.Editor.Services.RecoveryProtectionNotice.Create(Scene, _autoSaveCancellation.Token) is { } notice)
+        {
+            NotificationService.Show(notice);
+        }
     }
 
     private static IObservable<long> CreateFrameCacheMaxSize()

@@ -72,13 +72,19 @@ public static class AnimationOperations
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, TimeSpan keyTime, ILogger logger)
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyTime);
-        keyTime = ConvertKeyTime(animation, keyTime, logger);
-        IKeyFrame? keyframe = animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
+        IKeyFrame? keyframe = FindKeyFrame(animation, keyTime, logger);
         if (keyframe == null) return;
 
         var index = animation.KeyFrames.IndexOf(keyframe);
 
         SplineEasingHelper.Remove(animation, index);
+    }
+
+    // The keyframe that RemoveKeyFrame(animation, keyTime, logger) removes, or null when there is none.
+    internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, TimeSpan keyTime, ILogger logger)
+    {
+        keyTime = ConvertKeyTime(animation, keyTime, logger);
+        return animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
     }
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)
