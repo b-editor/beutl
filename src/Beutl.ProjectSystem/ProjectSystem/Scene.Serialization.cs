@@ -247,12 +247,14 @@ public partial class Scene
         foreach (string pattern in excludes)
         {
             if (pattern.Contains('*') || pattern.EndsWith('/')
-                || Directory.Exists(Path.Combine(directoryName, pattern)))
+                || Path.GetFileName(pattern) is "" or "." or "..")
             {
                 matcher.AddExclude(pattern);
             }
             else
             {
+                // A literal can also name a directory, using the matcher's case and path rules.
+                matcher.AddExclude(pattern + "/");
                 literalExclusions.Add(pattern);
             }
         }

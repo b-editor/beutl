@@ -190,6 +190,9 @@ public class SceneTests
     [TestCase("elements/*.belm")]
     [TestCase("elements/")]
     [TestCase("elements")]
+    [TestCase("/elements")]
+    [TestCase("ELEMENTS")]
+    [TestCase("/ELEMENTS")]
     [TestCase("./elements/excluded.belm")]
     [TestCase("/elements/excluded.belm")]
     public void SceneReload_PreservesExclusionPatterns(string pattern)
