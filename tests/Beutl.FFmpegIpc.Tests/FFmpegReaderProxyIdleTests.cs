@@ -558,23 +558,20 @@ public class FFmpegReaderProxyIdleTests
     {
         using var restartedWorker = new FakeWorker(firstReaderId: 9);
         OpenFileResponse response = _worker.OpenVideo();
+        // Well under the 10 seconds the fake holds a read, and long enough for the retry on a slow CI runner.
         using var reader = new FFmpegReaderProxy(
             _worker.Connection, response.ReaderId, response,
             () => (restartedWorker.Connection, restartedWorker.OpenVideo()), _tracker)
         {
-            RequestTimeout = TimeSpan.FromMilliseconds(200),
+            RequestTimeout = TimeSpan.FromSeconds(3),
         };
         int stuckId = reader.ReaderId;
 
         _worker.ReleaseReads.Reset();
         try
         {
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            Assert.Multiple(() =>
-            {
-                Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
-                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
-            });
+            // Without the time limit the read waits for the stuck worker, which answers with reader 1's frame.
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
         }
         finally
         {
@@ -644,13 +641,56 @@ public class FFmpegReaderProxyIdleTests
         });
     }
 
+    // A close waits at most RequestTimeout, but it must still reach a worker that stopped reading its pipe for longer
+    // than that, as when queued requests fill the pipe; a dropped close would leave the reader's decoder in the worker
+    // until it exits.
+    [Test]
+    public void Close_ReachesTheWorker_AfterWaitingToBeWrittenPastTheTimeLimit()
+    {
+        using FFmpegReaderProxy blocker = CreateVideoProxy();
+        OpenFileResponse response = _worker.OpenVideo();
+        var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response)
+        {
+            RequestTimeout = TimeSpan.FromMilliseconds(200),
+        };
+
+        _worker.ReleaseReads.Reset();
+        Task<byte>? read = null;
+        Task? largeWrite = null;
+        try
+        {
+            // While the fake holds this read, it neither answers nor reads its pipe.
+            read = Task.Run(() => ReadFirstByte(blocker, 0));
+            Assert.That(_worker.ReadVideoReceived.Wait(TimeSpan.FromSeconds(60)), Is.True);
+
+            // Larger than any pipe buffer, so this write holds the connection's write lock until the fake reads again,
+            // and the close queues behind it for well over its time limit.
+            largeWrite = _worker.Connection.SendAsync(IpcMessage.Create(
+                _worker.Connection.NextId(), MessageType.QueryCodecs,
+                new OpenFileRequest { FilePath = new string('x', 16 << 20) })).AsTask();
+            reader.Dispose();
+            Thread.Sleep(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            _worker.ReleaseReads.Set();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(read!.Wait(TimeSpan.FromSeconds(60)), Is.True);
+            Assert.That(largeWrite!.Wait(TimeSpan.FromSeconds(60)), Is.True);
+        });
+        _worker.WaitForClose(response.ReaderId);
+    }
+
     // Reopening a reader opens it on the worker as well, so an open must not wait for good either. A reader the
     // worker opens after the time limit is closed instead of staying in the worker.
     [Test]
     public void DecoderInfo_Open_GivesUpOnAWorkerThatDoesNotAnswer_AndClosesTheLateReader()
     {
         var decoderInfo = new FFmpegDecoderInfo(
-            new FFmpegDecodingSettings(), () => _worker.Connection, _tracker, TimeSpan.FromMilliseconds(200));
+            new FFmpegDecodingSettings(), () => _worker.Connection, _tracker, TimeSpan.FromSeconds(3));
         _worker.ReleaseOpens.Reset();
         try
         {

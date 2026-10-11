@@ -49,20 +49,34 @@ internal static class FFmpegWorkerRequests
         }
     }
 
-    // The returned task never faults; the worker answers only after disposing the reader.
+    // The returned task never faults; it completes when the worker answers, which it does only after disposing the
+    // reader, or at the time limit. Like Send, the limit bounds only the wait: a close still queued behind a write to
+    // a worker that stopped reading its pipe is delivered once it reads again, or its decoder would stay there.
     public static Task CloseReader(IpcConnection connection, int readerId, TimeSpan timeout)
     {
         // fire-and-forget: UIスレッドからの呼び出しでデッドロックしないよう
         // 同期ブロックを避けて非同期で送信
         return Task.Run(async () =>
         {
-            using var timeoutSource = new CancellationTokenSource(timeout);
+            Task<IpcMessage>? request = null;
             try
             {
-                await connection.SendAndReceiveAsync(
-                    IpcMessage.Create(connection.NextId(), MessageType.CloseReader,
-                        new CloseReaderRequest { ReaderId = readerId }),
-                    timeoutSource.Token);
+                request = connection.SendAndReceiveAsync(
+                        IpcMessage.Create(connection.NextId(), MessageType.CloseReader,
+                            new CloseReaderRequest { ReaderId = readerId }))
+                    .AsTask();
+                await request.WaitAsync(timeout);
+            }
+            catch (TimeoutException) when (request is not null)
+            {
+                s_logger.LogWarning(
+                    "The FFmpeg worker has not closed reader {ReaderId} within {Seconds} seconds; the close stays queued",
+                    readerId, timeout.TotalSeconds);
+                _ = request.ContinueWith(
+                    t => s_logger.LogWarning(t.Exception, "Failed to close FFmpeg reader {ReaderId} on worker", readerId),
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted,
+                    TaskScheduler.Default);
             }
             catch (Exception ex)
             {
