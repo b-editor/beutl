@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia.Threading;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Api.Services;
 using Beutl.Graphics;
@@ -47,14 +48,16 @@ public sealed record ListAiModelsResponse(string Operation, IReadOnlyList<AiMode
 
 /// <summary>
 /// AI generation for agents, in the in-app host only: it runs on the signed-in account and the
-/// same executor as the AI nodes, and saves results next to the open scene. Generations are paid;
-/// each call is one request. Input files are named by absolute path and uploaded to the service.
+/// same executor as the AI nodes, and saves results next to the scene the call names by sceneId,
+/// or the selected tab's scene without one. Generations are paid; each call is one request. Input
+/// files are named by absolute path and uploaded to the service.
 /// </summary>
 [McpServerToolType]
 internal sealed class AgentHostAiTools(
     EditorService editorService,
     AgentAiJobManager jobs,
-    IAgentAiBackend backend) : ToolBase
+    IAgentAiBackend backend,
+    AgentSessionManager sessions) : ToolBase
 {
     private const int MaxWaitSeconds = 110;
 
@@ -92,7 +95,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "generate_image")]
-    [Description("Generates a picture from a prompt with the signed-in account's AI credits and saves it as a PNG next to the open scene. Returns the file path when done; place it with apply_edit. Paid per call.")]
+    [Description("Generates a picture from a prompt with the signed-in account's AI credits and saves it as a PNG next to the scene sceneId names (the selected tab's scene when sceneId is omitted). Returns the file path when done; place it with apply_edit. Paid per call.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> GenerateImage(
         [Description("What to draw.")]
         string prompt,
@@ -149,7 +152,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "edit_image")]
-    [Description("Edits a picture with AI and saves the result as a PNG next to the open scene: remove_background, upscale, restyle (prompt required), remove_object (prompt names what to remove) or outpaint (prompt describes the extension). Paid per call.")]
+    [Description("Edits a picture with AI and saves the result as a PNG next to the scene sceneId names (the selected tab's scene when sceneId is omitted): remove_background, upscale, restyle (prompt required), remove_object (prompt names what to remove) or outpaint (prompt describes the extension). Paid per call.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> EditImage(
         [Description("Absolute path of the picture to edit.")]
         string sourcePath,
@@ -207,7 +210,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "generate_video")]
-    [Description("Generates a video clip from a prompt, optionally starting on and ending at given pictures, and saves it next to the open scene. Takes minutes: returns a running job unless it finishes within waitSeconds. Paid per call; longer and higher-resolution clips cost more.")]
+    [Description("Generates a video clip from a prompt, optionally starting on and ending at given pictures, and saves it next to the scene sceneId names (the selected tab's scene when sceneId is omitted). Takes minutes: returns a running job unless it finishes within waitSeconds. Paid per call; longer and higher-resolution clips cost more.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> GenerateVideo(
         [Description("What happens in the clip.")]
         string prompt,
@@ -282,7 +285,7 @@ internal sealed class AgentHostAiTools(
     }
 
     [McpServerTool(Name = "edit_video")]
-    [Description("Remakes a clip from a prompt (mode edit) or continues it (mode extend), and saves the result next to the open scene. An extension comes back as the whole clip with the new part added at the end. Accepts mp4 or webm up to 32 MB. Takes minutes; paid per call.")]
+    [Description("Remakes a clip from a prompt (mode edit) or continues it (mode extend), and saves the result next to the scene sceneId names (the selected tab's scene when sceneId is omitted). An extension comes back as the whole clip with the new part added at the end. Accepts mp4 or webm up to 32 MB. Takes minutes; paid per call.")]
     public ValueTask<ToolResult<AgentAiJobSnapshot>> EditVideo(
         [Description("Absolute path of the clip to edit or extend.")]
         string sourcePath,
@@ -454,7 +457,7 @@ internal sealed class AgentHostAiTools(
                     result.IsVideo ? "video" : "image",
                     result.ModelId,
                     result.Seed);
-            });
+            }, scene.Id);
             return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
         });
     }
@@ -600,15 +603,20 @@ internal sealed class AgentHostAiTools(
         => Dispatcher.UIThread.InvokeAsync(
             () => (editorService.SelectedTabItem.Value?.Context.Value as EditViewModel)?.Scene).GetTask();
 
-    // Results are kept with the scene, so they are saved and moved with the project.
+    // Results are kept with the scene, so they are saved and moved with the project. A sceneId names
+    // the scene as on the scene tools: the scene router resolves it for this request. Only a call
+    // without one falls back to the selected tab.
     private async Task<Scene> RequireSceneAsync()
     {
+        if (sessions.CurrentSession is { } session && session.ReadOnSession(() => session.Root) is Scene target)
+            return target;
+
         Scene? scene = await FindSceneAsync().ConfigureAwait(false);
         return scene ?? throw new ReconcileException(new ToolError(
             ErrorCode.NoActiveEditorSession,
-            "AI results are saved next to the open scene, and no scene is open in the editor.",
+            "AI results are saved next to a scene. No sceneId was given, and no scene is open in the editor.",
             null,
-            "Open or create a project in the Beutl editor (or call create_project/open_project), then call the tool again."));
+            "Pass sceneId from list_scenes, or open or create a project in the Beutl editor (or call create_project/open_project), then call the tool again."));
     }
 
     // The catalog fills image capabilities for every model, video ones included, so only the
