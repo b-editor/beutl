@@ -1,21 +1,29 @@
 ﻿using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using Reactive.Bindings;
 
 namespace Beutl.Api;
 
 // Shared API state is observed on the UI thread and unsubscribed during background teardown.
-// ReactivePropertySlim's observer list needs the same gate for notifications, subscribe and dispose.
+// Keep one forwarding subscriber on the slim property. ReplaySubject manages user
+// subscriptions and drains callbacks outside its registration lock.
 internal sealed class SynchronizedReadOnlyReactiveProperty<T> : IReadOnlyReactiveProperty<T>
 {
     private readonly object _gate = new();
     private readonly ReadOnlyReactivePropertySlim<T> _property;
+    private readonly ReplaySubject<T> _notifications = new(1);
+    private readonly IDisposable _forwardSubscription;
 
     public SynchronizedReadOnlyReactiveProperty(IObservable<T> source)
     {
-        _property = source.Synchronize(_gate).ToReadOnlyReactivePropertySlim();
-        _property.PropertyChanged += OnPropertyChanged;
+        lock (_gate)
+        {
+            _property = new ReadOnlyReactivePropertySlim<T>(source.Synchronize(_gate));
+            _forwardSubscription = _property.Subscribe(_notifications);
+            _property.PropertyChanged += OnPropertyChanged;
+        }
     }
 
     // Subscribers can need a lock already held by a Value reader. Reading the
@@ -28,14 +36,13 @@ internal sealed class SynchronizedReadOnlyReactiveProperty<T> : IReadOnlyReactiv
 
     public IDisposable Subscribe(IObserver<T> observer)
     {
-        lock (_gate)
+        if (_property.IsDisposed)
         {
-            IDisposable subscription = _property.Subscribe(observer);
-            return Disposable.Create(() =>
-            {
-                lock (_gate) subscription.Dispose();
-            });
+            observer.OnCompleted();
+            return Disposable.Empty;
         }
+
+        return _notifications.Subscribe(observer);
     }
 
     public void Dispose()
@@ -44,6 +51,9 @@ internal sealed class SynchronizedReadOnlyReactiveProperty<T> : IReadOnlyReactiv
         {
             _property.PropertyChanged -= OnPropertyChanged;
             _property.Dispose();
+            _forwardSubscription.Dispose();
+            // Completion releases live observers. Keep the replay cache available
+            // for a subscription that raced with disposal, like the retained Value.
             PropertyChanged = null;
         }
     }

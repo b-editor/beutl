@@ -1,5 +1,8 @@
 ﻿using System.Reactive.Linq;
+using System.Reflection;
 using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Reactive.Bindings;
@@ -100,6 +103,92 @@ public class SharedApiStateSubscriptionTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task SharedState_EntitlementCallbackCanChangeAuthenticationSubscriptions(bool dispose)
+    {
+        using var http = new HttpClient();
+        await using var application = new BeutlApiApplication(http, new ExtensionProvider());
+        var profile = new Profile(new ProfileResponse
+        {
+            Id = "test-user",
+            Name = "test",
+            DisplayName = "Test User",
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        }, application);
+        var owner = new AuthenticatedUser(profile, new AuthResponse
+        {
+            Token = "token",
+            RefreshToken = "refresh-token",
+            Expiration = DateTime.UtcNow.AddHours(1),
+        }, application, DateTime.UtcNow);
+        FieldInfo authentication = typeof(BeutlApiApplication).GetField(
+            "_authenticatedUser", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ((ReactivePropertySlim<AuthenticatedUser?>)authentication.GetValue(application)!).Value = owner;
+
+        using var entitlementCallbackEntered = new ManualResetEventSlim();
+        using var authenticationCallbackEntered = new ManualResetEventSlim();
+        using var subscriptionChanged = new ManualResetEventSlim();
+        TimeSpan timeout = TimeSpan.FromSeconds(5);
+        using IDisposable authenticationCallback = application.AuthenticatedUser.Subscribe(user =>
+        {
+            if (user is not null)
+                return;
+
+            authenticationCallbackEntered.Set();
+            // Bound the overlap so the old locking fails without leaving a deadlock.
+            if (!subscriptionChanged.Wait(timeout))
+                throw new TimeoutException("The entitlement callback could not change authentication subscriptions.");
+        });
+        using var store = new AiEntitlementStore(application);
+        using IDisposable existingSubscription = application.AuthenticatedUser.Subscribe(_ => { });
+        var snapshots = new List<AiEntitlements?>();
+        using IDisposable entitlementSubscription = store.Entitlements.Subscribe(snapshot =>
+        {
+            snapshots.Add(snapshot);
+            if (snapshot is null)
+                return;
+
+            entitlementCallbackEntered.Set();
+            if (!authenticationCallbackEntered.Wait(timeout))
+                throw new TimeoutException("The authentication notification did not start.");
+
+            if (dispose)
+                existingSubscription.Dispose();
+            else
+            {
+                using IDisposable nextSubscription = application.AuthenticatedUser.Subscribe(user =>
+                    Assert.That(user, Is.Null));
+            }
+            subscriptionChanged.Set();
+        });
+        var entitlement = new AiEntitlements("pro", "active", null, null, false, true,
+            new AiBalance(new AiMonthlyUsage(0, 100, false), 1, false), new AiOperationAvailability([]));
+        long request = store.BeginSnapshotRequest();
+        Task publication = Task.Factory.StartNew(
+            () => store.ApplyEntitlements(entitlement, owner, request),
+            CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        Task signOut = Task.Factory.StartNew(() =>
+        {
+            if (!entitlementCallbackEntered.Wait(timeout))
+                throw new TimeoutException("The entitlement notification did not start.");
+
+            application.SignOut(deleteFile: false);
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        await Task.WhenAll(publication, signOut).WaitAsync(timeout + timeout);
+        // An old account's delayed response must not restore the cleared snapshot.
+        store.ApplyEntitlements(entitlement, owner, request);
+        Assert.Multiple(() =>
+        {
+            Assert.That(application.AuthenticatedUser.Value, Is.Null);
+            Assert.That(store.Entitlements.Value, Is.Null);
+            Assert.That(snapshots, Is.EqualTo(new AiEntitlements?[] { null, entitlement, null }));
+        });
+    }
+
     [Test]
     public void SharedState_PreservesSynchronousValueAndNotifications()
     {
@@ -142,6 +231,28 @@ public class SharedApiStateSubscriptionTests
             Assert.That(source.Value, Is.EqualTo(2));
             Assert.That(values, Is.EqualTo(new[] { 1 }));
             Assert.That(completed, Is.EqualTo(1));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SharedState_SubscriptionAfterCompletionDoesNotReplay(bool sourceCompletes)
+    {
+        using var source = new ReactivePropertySlim<int>(1);
+        using var state = new SynchronizedReadOnlyReactiveProperty<int>(source);
+        if (sourceCompletes)
+            source.Dispose();
+        else
+            state.Dispose();
+
+        var values = new List<int>();
+        int completed = 0;
+        using IDisposable subscription = state.Subscribe(values.Add, () => completed++);
+        Assert.Multiple(() =>
+        {
+            Assert.That(values, Is.Empty);
+            Assert.That(completed, Is.EqualTo(1));
+            Assert.That(state.Value, Is.EqualTo(1));
         });
     }
 }

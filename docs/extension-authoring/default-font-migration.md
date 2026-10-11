@@ -14,5 +14,6 @@ an error, returns an unusable font, or exceeds the three-second query timeout,
 the manager uses Skia's default typeface. The query runs in its own process group,
 so timeout cleanup also stops children that keep its output pipes open after the
 parent exits. Font paths preserve leading and trailing spaces; only trailing
-newline characters are removed. Failed queries include the exit code and up to
-512 characters of stderr in a debug log.
+newline characters are removed. Queries that complete with a non-zero exit code
+or an unusable font include the exit code and up to 512 characters of stderr in a
+debug log. Launch failures and timeouts are logged as warnings with the exception.

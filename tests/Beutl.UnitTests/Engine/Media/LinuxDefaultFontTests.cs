@@ -153,13 +153,37 @@ public class LinuxDefaultFontTests
         }
     }
 
+    [Test]
+    public void MissingProcessIdentity_IsNotRunning()
+    {
+        Assert.That(IsRecordedProcessRunning(Path.Combine(_directory, "missing-process")), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void IncompleteProcessIdentity_IsNotRunning(bool partial)
+    {
+        string identityFile = Path.Combine(_directory, "incomplete-process");
+        File.WriteAllText(identityFile, partial ? $"{Environment.ProcessId} (sh) R" : "");
+        Assert.That(IsRecordedProcessRunning(identityFile), Is.False);
+    }
+
     private static bool IsRecordedProcessRunning(string identityFile)
     {
-        string recorded = File.ReadAllText(identityFile);
-        string pid = recorded.Split(' ')[0];
+        string[] before;
         string current;
         try
         {
+            string recorded = File.ReadAllText(identityFile);
+            int start = recorded.LastIndexOf(')') + 2;
+            if (start < 2 || start >= recorded.Length)
+                return false;
+
+            before = recorded[start..].Split(' ');
+            if (before.Length <= 19)
+                return false;
+
+            string pid = recorded.Split(' ')[0];
             current = File.ReadAllText($"/proc/{pid}/stat");
         }
         catch (IOException)
@@ -168,9 +192,12 @@ public class LinuxDefaultFontTests
         }
 
         // Compare start time as well as PID; an exited PID may already have been reused.
-        string[] before = recorded[(recorded.LastIndexOf(')') + 2)..].Split(' ');
-        string[] after = current[(current.LastIndexOf(')') + 2)..].Split(' ');
-        return before[19] == after[19] && after[0] != "Z";
+        int currentStart = current.LastIndexOf(')') + 2;
+        if (currentStart < 2 || currentStart >= current.Length)
+            return false;
+
+        string[] after = current[currentStart..].Split(' ');
+        return after.Length > 19 && before[19] == after[19] && after[0] != "Z";
     }
 
     private async Task RunWorkerAsync(bool familyFirst, string expected)
