@@ -1,0 +1,13 @@
+{
+  "Id": "38e80127-6e85-4d99-b62b-f0e46d944405",
+  "Name": "",
+  "appVersion": "1.1.0",
+  "minAppVersion": "1.0.0-preview.9",
+  "items": [
+    "V1Project/V1Project.scene"
+  ],
+  "variables": {
+    "framerate": "30",
+    "samplerate": "44100"
+  }
+}

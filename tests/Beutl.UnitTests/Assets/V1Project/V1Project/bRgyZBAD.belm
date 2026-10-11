@@ -1,0 +1,144 @@
+{
+  "Start": "00:00:00",
+  "Length": "00:00:05",
+  "ZIndex": 2,
+  "AccentColor": "#ffb08be1",
+  "IsEnabled": true,
+  "UseNode": false,
+  "Id": "0fda2afb-8b32-454d-9fed-175d3797b6ae",
+  "Name": "Rectangle",
+  "Operation": {
+    "Id": "8cc9fad2-8a81-453f-a22d-bd8a4777ba1f",
+    "Name": "",
+    "Children": [
+      {
+        "Value": {
+          "Width": 400,
+          "Height": 120,
+          "Stretch": 0,
+          "Pen": {
+            "Brush": {
+              "Color": "Black",
+              "Opacity": 100,
+              "Transform": null,
+              "TransformOrigin": "0%, 0%",
+              "Id": "024c5828-4deb-470a-a6f1-68c95ad4bd0c",
+              "Name": "",
+              "Animations": {},
+              "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+            },
+            "DashArray": null,
+            "DashOffset": 0,
+            "Thickness": 8,
+            "MiterLimit": 10,
+            "StrokeCap": 0,
+            "StrokeJoin": 0,
+            "StrokeAlignment": 2,
+            "Id": "96168a2e-2130-47e0-9f0e-2e7b0474fdc0",
+            "Name": "",
+            "Animations": {},
+            "$type": "[Beutl.Engine]Beutl.Media:Pen"
+          },
+          "CreatedGeometry": null,
+          "Transform": {
+            "IsEnabled": true,
+            "Id": "ad9a3215-c3b8-48d5-9148-527f9180ce00",
+            "Name": "",
+            "Animations": {},
+            "Children": [
+              {
+                "X": -200,
+                "Y": 100,
+                "IsEnabled": true,
+                "Id": "0e8c15bc-6043-4e0e-ac5a-afabe7a4e64f",
+                "Name": "",
+                "Animations": {
+                  "X": {
+                    "UseGlobalClock": false,
+                    "Id": "418a81a6-a63f-4f7c-921f-ddbe0583b816",
+                    "Name": "",
+                    "Property": {
+                      "Name": "X",
+                      "Owner": "[Beutl.Engine]Beutl.Graphics.Transformation:TranslateTransform"
+                    },
+                    "KeyFrames": [
+                      {
+                        "Value": -200,
+                        "KeyTime": "00:00:00",
+                        "Id": "bd712135-2bbe-4618-afb7-97715b098c90",
+                        "Name": "",
+                        "Easing": {
+                          "X1": 0,
+                          "Y1": 0,
+                          "X2": 1,
+                          "Y2": 1
+                        },
+                        "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+                      },
+                      {
+                        "Value": 200,
+                        "KeyTime": "00:00:03",
+                        "Id": "0ab0a599-421d-4685-808f-cef8c15eea4c",
+                        "Name": "",
+                        "Easing": "[Beutl.Engine]Beutl.Animation.Easings:QuadraticEaseOut",
+                        "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+                      }
+                    ],
+                    "$type": "[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Single>"
+                  }
+                },
+                "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TranslateTransform"
+              }
+            ],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+          },
+          "FilterEffect": {
+            "IsEnabled": true,
+            "Id": "48f40d4d-21d1-45e5-8095-3835c74b64f4",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+          },
+          "AlignmentX": 1,
+          "AlignmentY": 1,
+          "TransformOrigin": "50%, 50%",
+          "Fill": {
+            "Color": "White",
+            "Opacity": 100,
+            "Transform": null,
+            "TransformOrigin": "0%, 0%",
+            "Id": "97631381-cc07-46a6-8b87-986e047f3feb",
+            "Name": "",
+            "Animations": {},
+            "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+          },
+          "OpacityMask": null,
+          "BlendMode": 3,
+          "Opacity": 100,
+          "IsVisible": true,
+          "ZIndex": 0,
+          "TimeRange": {
+            "Start": "00:00:00",
+            "Duration": "00:00:00",
+            "End": "00:00:00",
+            "IsEmpty": false
+          },
+          "Id": "b67b62d1-6682-4a94-86bc-c6dc40ca6a7e",
+          "Name": "",
+          "Animations": {}
+        },
+        "IsEnabled": true,
+        "Id": "79ab776b-92c9-4b0b-9098-10a32671aa63",
+        "Name": "",
+        "$type": "[Beutl.Operators].Source:RectOperator"
+      }
+    ]
+  },
+  "NodeTree": {
+    "Id": "fde2d300-9163-4403-ab2f-c64c14bd4cf7",
+    "Name": "",
+    "Nodes": [],
+    "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel"
+  }
+}

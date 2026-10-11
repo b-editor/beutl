@@ -1,0 +1,125 @@
+{
+  "Start": "00:00:00",
+  "Length": "00:00:05",
+  "ZIndex": 1,
+  "AccentColor": "#ff82e2a8",
+  "IsEnabled": true,
+  "UseNode": false,
+  "Id": "f0e403aa-30fe-4c18-8cef-46fa05c19dfc",
+  "Name": "Ellipse",
+  "Operation": {
+    "Id": "cedf4516-37f7-4186-8588-4224ca9c19e4",
+    "Name": "",
+    "Children": [
+      {
+        "Value": {
+          "Width": 300,
+          "Height": 200,
+          "Stretch": 0,
+          "Pen": null,
+          "CreatedGeometry": null,
+          "Transform": {
+            "IsEnabled": true,
+            "Id": "b368905d-8ab4-4f48-8991-63f0d4f88e48",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup"
+          },
+          "FilterEffect": {
+            "IsEnabled": true,
+            "Id": "1bcd1573-78d3-4b0f-a7e2-d20e0eb51a04",
+            "Name": "",
+            "Animations": {},
+            "Children": [],
+            "$type": "[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup"
+          },
+          "AlignmentX": 1,
+          "AlignmentY": 1,
+          "TransformOrigin": "50%, 50%",
+          "Fill": {
+            "Color": "#ffff4081",
+            "Opacity": 100,
+            "Transform": null,
+            "TransformOrigin": "0%, 0%",
+            "Id": "1af4318c-57f8-4f7c-b6b3-13e990a83b0c",
+            "Name": "",
+            "Animations": {},
+            "$type": "[Beutl.Engine]Beutl.Media:SolidColorBrush"
+          },
+          "OpacityMask": null,
+          "BlendMode": 3,
+          "Opacity": 100,
+          "IsVisible": true,
+          "ZIndex": 0,
+          "TimeRange": {
+            "Start": "00:00:00",
+            "Duration": "00:00:00",
+            "End": "00:00:00",
+            "IsEmpty": false
+          },
+          "Id": "3c7294e3-99df-4ff2-bc48-a8130d40e2c0",
+          "Name": "",
+          "Animations": {
+            "Width": {
+              "UseGlobalClock": false,
+              "Id": "21c94a1e-26c9-4eed-9aa9-720d5dca2764",
+              "Name": "",
+              "Property": {
+                "Name": "Width",
+                "Owner": "[Beutl.Engine]Beutl.Graphics.Shapes:Shape"
+              },
+              "KeyFrames": [
+                {
+                  "Value": 300,
+                  "KeyTime": "00:00:00",
+                  "Id": "1f394a52-49ca-4a37-a9d9-640072ef37a1",
+                  "Name": "",
+                  "Easing": {
+                    "X1": 0,
+                    "Y1": 0,
+                    "X2": 1,
+                    "Y2": 1
+                  },
+                  "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+                },
+                {
+                  "Value": 600,
+                  "KeyTime": "00:00:02",
+                  "Id": "5e70e48e-eace-4f49-9b7d-4cdf6b228aec",
+                  "Name": "",
+                  "Easing": "[Beutl.Engine]Beutl.Animation.Easings:SineEaseInOut",
+                  "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+                },
+                {
+                  "Value": 450,
+                  "KeyTime": "00:00:04",
+                  "Id": "dd119657-df07-4b58-be02-8580b909a78d",
+                  "Name": "",
+                  "Easing": {
+                    "X1": 0.25,
+                    "Y1": 0.1,
+                    "X2": 0.25,
+                    "Y2": 1
+                  },
+                  "$type": "[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>"
+                }
+              ],
+              "$type": "[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Single>"
+            }
+          }
+        },
+        "IsEnabled": true,
+        "Id": "780cc584-0185-40f7-890e-bf79d4279ade",
+        "Name": "",
+        "$type": "[Beutl.Operators].Source:EllipseOperator"
+      }
+    ]
+  },
+  "NodeTree": {
+    "Id": "97480832-60e8-4ed0-8fe6-1fd4ff0e5027",
+    "Name": "",
+    "Nodes": [],
+    "$type": "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel"
+  }
+}
