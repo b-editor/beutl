@@ -902,6 +902,91 @@ public class HistoryManagerTests
         Assert.That(manager.UndoCount, Is.EqualTo(1));
     }
 
+    [TestCase(ChangeOperationFailureState.Unknown)]
+    [TestCase(ChangeOperationFailureState.Unchanged)]
+    [TestCase(ChangeOperationFailureState.Completed)]
+    public void ExecuteInTransaction_FailedRollbackRestrictsReplayUnlessCompleted(ChangeOperationFailureState failureState)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 1, 0, "Undo entry");
+        manager.Commit("Undo entry");
+        CreateValueOperation(manager, 2, 1, "Redo entry");
+        manager.Commit("Redo entry");
+        manager.Undo();
+        HistoryEntry[] entries = manager.GetEntriesSnapshot();
+        HistoryTransaction undo = manager.PeekUndo()!;
+        HistoryTransaction redo = manager.PeekRedo()!;
+        var states = new List<HistoryState>();
+        using var subscription = manager.StateChanged.Subscribe(states.Add);
+        var actionFailure = new IOException("action failed");
+        var rollbackFailure = new IOException("rollback failed");
+        int otherValue = 0;
+
+        var exception = Assert.Throws<AggregateException>(() => manager.ExecuteInTransaction(() =>
+        {
+            otherValue = 1;
+            manager.Record(() => otherValue = 1, () => otherValue = 0);
+            _root.Value = 5;
+            manager.Record(new FailingRollbackOperation(() =>
+            {
+                if (failureState == ChangeOperationFailureState.Unknown)
+                    _root.Value = 4;
+                else if (failureState == ChangeOperationFailureState.Completed)
+                    _root.Value = 1;
+                throw rollbackFailure;
+            }, failureState)
+            { SequenceNumber = _sequenceGenerator.GetNext() });
+            throw actionFailure;
+        }));
+
+        bool completed = failureState == ChangeOperationFailureState.Completed;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exception!.InnerExceptions, Is.EqualTo(new[] { actionFailure, rollbackFailure }));
+            Assert.That(otherValue, Is.Zero, "Best-effort rollback must continue after a failed operation.");
+            Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(manager.Entries, Is.EqualTo(entries));
+            Assert.That(manager.PeekUndo(), Is.SameAs(undo));
+            Assert.That(manager.PeekRedo(), Is.SameAs(redo));
+            Assert.That(manager.CanUndo, Is.EqualTo(completed));
+            Assert.That(manager.CanRedo, Is.EqualTo(completed));
+        }
+
+        if (completed)
+        {
+            Assert.That(_root.Value, Is.EqualTo(1));
+            Assert.That(manager.Undo(), Is.True);
+            Assert.That(_root.Value, Is.Zero);
+            Assert.That(manager.Redo(), Is.True);
+            Assert.That(_root.Value, Is.EqualTo(1));
+            return;
+        }
+
+        Assert.That(states, Is.EqualTo(new[] { new HistoryState(false, false, 1, 1) }));
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.False);
+        Assert.That(manager.JumpTo(0), Is.False);
+        Assert.That(manager.JumpTo(2), Is.False);
+        int survivingValue = failureState == ChangeOperationFailureState.Unknown ? 4 : 5;
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        CreateValueOperation(manager, 10, survivingValue, "New edit");
+        manager.Commit("New edit");
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(10));
+    }
+
+    private sealed class FailingRollbackOperation(Action revert, ChangeOperationFailureState failureState) : ChangeOperation
+    {
+        public override ChangeOperationFailureState FailureState => failureState;
+
+        public override void Apply(OperationExecutionContext context) => throw new NotSupportedException();
+
+        public override void Revert(OperationExecutionContext context) => revert();
+    }
+
     [Test]
     public void ExecuteInTransaction_ContainsHistoryEntryObserverFailure()
     {

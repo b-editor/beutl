@@ -23,10 +23,68 @@ namespace Beutl.HeadlessUITests;
 public class EditorCloseSaveTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Blocked_history_jump_pauses_before_flushing_pending_nudge(bool useEntry)
+    {
+        EditViewModel editor = await OpenEditorAsync();
+        try
+        {
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            await adder.AddAsync([new ElementDescription(
+                Start: TimeSpan.FromSeconds(1), Length: TimeSpan.FromSeconds(3), Layer: 0,
+                Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
+            HeadlessTestHelpers.Settle();
+            Element element = editor.Scene.Children.Single();
+            TimeSpan originalStart = element.Start;
+            editor.HistoryManager.Record(() => { }, () => throw new IOException("Injected undo failure."));
+            editor.HistoryManager.Commit("Failing operation");
+            Assert.Throws<HistoryReplayException>(() => editor.HistoryManager.Undo());
+            HistoryEntry blockedEntry = editor.HistoryManager.Entries[0];
+            int boundary = editor.HistoryManager.CurrentIndex;
+            var nudge = (IElementNudgeService)editor.GetService(typeof(IElementNudgeService))!;
+            var playbackDuringFlush = new List<bool>();
+            using var subscription = editor.HistoryManager.StateChanged.Subscribe(_ =>
+                playbackDuringFlush.Add(editor.Player.IsPlaying.Value));
+
+            nudge.Nudge(editor.Scene, [element], 1);
+            TimeSpan nudgedStart = element.Start;
+            Assert.That(editor.HistoryManager.HasPendingOperations, Is.True);
+            editor.Player.IsPlaying.Value = true;
+
+            bool moved = useEntry
+                ? await editor.JumpToHistoryAsync(blockedEntry, CancellationToken.None)
+                : await editor.JumpToHistoryAsync(0);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(moved, Is.False);
+                Assert.That(playbackDuringFlush, Is.EqualTo(new[] { false }), "Pending work must commit only after playback pauses.");
+                Assert.That(editor.Player.IsPlaying.Value, Is.False);
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(boundary + 1));
+                Assert.That(element.Start, Is.EqualTo(nudgedStart));
+            }
+
+            Assert.That(await editor.UndoAsync(), Is.True);
+            Assert.That(element.Start, Is.EqualTo(originalStart));
+            Assert.That(await editor.UndoAsync(), Is.False);
+        }
+        finally
+        {
+            await editor.Player.Pause();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(false, false, "en")]
     [TestCase(false, true, "ja")]
     [TestCase(true, false, "ja")]
     [TestCase(true, true, "en")]
+    [TestCase(false, false, "zh-CN")]
+    [TestCase(false, false, "ko-KR")]
+    [TestCase(false, false, "es")]
     public async Task Failed_history_replay_allows_new_edits_auto_save_and_close(bool redo, bool closeProject, string culture)
     {
         EditViewModel editor = await OpenEditorAsync();

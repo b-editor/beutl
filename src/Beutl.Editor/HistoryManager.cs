@@ -265,7 +265,7 @@ public sealed partial class HistoryManager : IDisposable
                     {
                         try
                         {
-                            RollbackIsolatedTransaction_NoLock();
+                            RollbackIsolatedTransaction_NoLock(ref stateChanged);
                         }
                         catch (Exception rollbackFailure)
                         {
@@ -362,7 +362,7 @@ public sealed partial class HistoryManager : IDisposable
         _currentTransaction = CreateTransaction();
     }
 
-    private void RollbackIsolatedTransaction_NoLock()
+    private void RollbackIsolatedTransaction_NoLock(ref bool stateChanged)
     {
         HistoryTransaction transaction = _currentTransaction;
         _currentTransaction = CreateTransaction();
@@ -373,6 +373,7 @@ public sealed partial class HistoryManager : IDisposable
                 transaction.Id,
                 transaction.OperationCount);
             List<Exception>? failures = null;
+            bool incompleteRollback = false;
             using (SuppressRecording())
             {
                 for (int i = transaction.Operations.Count - 1; i >= 0; i--)
@@ -383,9 +384,20 @@ public sealed partial class HistoryManager : IDisposable
                     }
                     catch (Exception ex)
                     {
+                        // Even an unchanged Revert leaves its original edit applied.
+                        // This detached transaction cannot be retried, so only a
+                        // completed Revert preserves the previous replay baseline.
+                        incompleteRollback |= transaction.Operations[i].FailureState != ChangeOperationFailureState.Completed;
                         (failures ??= []).Add(ex);
                     }
                 }
+            }
+
+            if (incompleteRollback)
+            {
+                RestrictReplayToCurrentIndex_NoLock();
+                stateChanged = true;
+                _logger.LogError("Isolated history rollback did not complete; preserving history and blocking replay across the failure boundary.");
             }
 
             if (failures is [var failure])
@@ -633,12 +645,17 @@ public sealed partial class HistoryManager : IDisposable
             // replay from this uncertain model state. New edits start above this
             // boundary and remain undoable without revisiting the failed operation.
             _logger.LogError(ex, "History replay partially failed; preserving history and blocking replay across the failure boundary.");
-            _minimumReplayIndex = _undoStack.Count;
-            _maximumReplayIndex = _undoStack.Count;
+            RestrictReplayToCurrentIndex_NoLock();
             if (ReferenceEquals(transaction, _currentTransaction))
                 _currentTransaction = CreateTransaction();
             throw new HistoryReplayException(ex);
         }
+    }
+
+    private void RestrictReplayToCurrentIndex_NoLock()
+    {
+        _minimumReplayIndex = _undoStack.Count;
+        _maximumReplayIndex = _undoStack.Count;
     }
 
     public IDisposable Subscribe(IOperationObserver observer)
